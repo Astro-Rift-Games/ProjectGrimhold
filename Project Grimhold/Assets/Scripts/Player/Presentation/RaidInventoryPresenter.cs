@@ -43,6 +43,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private int _lastObservedInteractionSequence;
     private int _observedPlayerLootSequence;
     private int _observedContainerLootSequence;
+    private bool _playerValueRefreshPending;
+    private bool _playerValueFailureReported;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -100,6 +102,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _containerPanelPresenter.Clear();
         _view?.ClearContent();
         _observedPlayerLootSequence = 0;
+        _playerValueRefreshPending = false;
+        _playerValueFailureReported = false;
         _lastObservedInteractionSequence = 0;
         _isBound = false;
         ClearBindingReferences();
@@ -147,6 +151,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_lootReceiver.LootChangeSequence != _observedPlayerLootSequence)
         {
             RefreshPlayerPanel();
+        }
+        else if (_playerValueRefreshPending)
+        {
+            RetryPlayerValue();
         }
 
         if (_mode != ScreenMode.ContainerLoot)
@@ -358,8 +366,25 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
-        _observedPlayerLootSequence = _lootReceiver.LootChangeSequence;
-        long? totalValue = _lootReceiver.TryCalculateTotalValue(out long value) ? value : null;
+        int currentSequence = _lootReceiver.LootChangeSequence;
+        if (currentSequence != _observedPlayerLootSequence)
+        {
+            _playerValueFailureReported = false;
+        }
+
+        _observedPlayerLootSequence = currentSequence;
+        bool hasTotalValue = _lootReceiver.TryCalculateTotalValue(out long value);
+        long? totalValue = hasTotalValue ? value : null;
+        _playerValueRefreshPending = !hasTotalValue;
+        if (hasTotalValue)
+        {
+            _playerValueFailureReported = false;
+        }
+        else
+        {
+            ReportPlayerValueFailureOnce();
+        }
+
         _playerPanelPresenter.Refresh(
             _lootReceiver,
             _lootReceiver,
@@ -370,6 +395,37 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             false,
             default,
             this);
+    }
+
+    private void RetryPlayerValue()
+    {
+        if (_lootReceiver == null || _view == null || _view.PlayerPanel == null)
+        {
+            return;
+        }
+
+        if (!_lootReceiver.TryCalculateTotalValue(out long value))
+        {
+            ReportPlayerValueFailureOnce();
+            return;
+        }
+
+        _view.PlayerPanel.PresentTotalValue(value);
+        _playerValueRefreshPending = false;
+        _playerValueFailureReported = false;
+    }
+
+    private void ReportPlayerValueFailureOnce()
+    {
+        if (_playerValueFailureReported)
+        {
+            return;
+        }
+
+        Debug.LogError(
+            $"{nameof(RaidInventoryPresenter)} could not read a complete loot value. The inventory will retry without showing a subtotal.",
+            this);
+        _playerValueFailureReported = true;
     }
 
     private void RefreshContainerPanel()

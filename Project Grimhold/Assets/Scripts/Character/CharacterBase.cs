@@ -24,6 +24,12 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
     public float Health { get; private set; }
 
     /// <summary>
+    /// Gets the configured maximum health for this character.
+    /// This is immutable local prefab configuration, not duplicated network state.
+    /// </summary>
+    public float MaxHealth => _maxHealth;
+
+    /// <summary>
     /// Stable entity identifier in the gameplay core.
     /// Mapped from the network identifier assigned by Photon Fusion.
     /// </summary>

@@ -37,6 +37,9 @@ public sealed class RaidLootPanelView : MonoBehaviour
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
 
+    /// <summary>Gets the panel-local total value label for presentation verification.</summary>
+    public TMP_Text TotalValueText => _totalValueText;
+
     public void SetVisible(bool visible)
     {
         if (_panelRoot != null && _panelRoot.activeSelf != visible)
@@ -93,10 +96,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
                 data.IsOccupied && data.LootId == selectedLootId);
         }
 
-        if (_totalValueText != null)
-        {
-            _totalValueText.text = totalValue.HasValue ? $"Valor: {totalValue.Value}" : "Valor: —";
-        }
+        PresentTotalValue(totalValue);
 
         SetState(_unavailableRoot, false);
         SetState(_emptyRoot, showEmpty);
@@ -114,6 +114,21 @@ public sealed class RaidLootPanelView : MonoBehaviour
         }
     }
 
+    /// <summary>Presents the complete total value or an unavailable placeholder.</summary>
+    public void PresentTotalValue(long? totalValue)
+    {
+        if (_totalValueText == null)
+        {
+            return;
+        }
+
+        string text = totalValue.HasValue ? $"Valor: {totalValue.Value}" : "Valor: —";
+        if (_totalValueText.text != text)
+        {
+            _totalValueText.text = text;
+        }
+    }
+
     public void ShowUnavailable()
     {
         ClearContent();
@@ -127,10 +142,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
             _slots[i].Clear();
         }
 
-        if (_totalValueText != null)
-        {
-            _totalValueText.text = "Valor: —";
-        }
+        PresentTotalValue(null);
 
         SetState(_unavailableRoot, false);
         SetState(_emptyRoot, false);

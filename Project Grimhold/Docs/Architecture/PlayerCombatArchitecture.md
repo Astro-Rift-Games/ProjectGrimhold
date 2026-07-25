@@ -89,7 +89,7 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 * **Continuous collision detection**: Casts the projectile's collider across the requested tick displacement so targets cannot be skipped between ticks.
 * **Physical initialization**: Aligns the Rigidbody2D, Transform, and networked spawn position before the first authoritative simulation step.
 * **Physics synchronization**: When required by manually updated transforms, synchronizes the Unity 2D physics state before performing the collider cast.
-* **Owner filtering**: Resolves hit colliders through `EntityRegistry` and ignores every collider associated with the projectile owner while continuing to evaluate subsequent hits.
+* **Impact selection and owner filtering**: Chooses the nearest cast hit. Registered owner colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry.
 * **Single-impact guarantee**: Consumes an accepted impact before applying damage or requesting despawn, preventing duplicated damage across subsequent ticks or multiple overlapping cast results.
 * **Range and lifetime**: Tracks the exact traveled distance and a network `TickTimer`. The final movement step is clamped so the projectile never exceeds its configured maximum range.
 * **Obstacle behavior**: A collider without a registered damageable entity still blocks and despawns the projectile but does not produce a damage request. A wall blocks/despawns the projectile without damage.

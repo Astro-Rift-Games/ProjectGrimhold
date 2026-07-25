@@ -125,5 +125,16 @@ namespace Tests.EditMode.Combat
             bool result = _config.TryValidate(out string error);
             Assert.IsTrue(result, _config.name + " " + error);
         }
+
+        [Test]
+        public void RealConfigAsset_IncludesWorldCollisionLayer()
+        {
+            RangedAttackConfig source = AssetDatabase.LoadAssetAtPath<RangedAttackConfig>(RealConfigPath);
+            Assert.That(source, Is.Not.Null, "Ranged attack config asset was not found at the expected project path.");
+            int worldCollisionLayer = LayerMask.NameToLayer("WorldCollision");
+            Assert.That(worldCollisionLayer, Is.Not.EqualTo(-1), "WorldCollision layer must exist in TagManager.");
+            int expectedBit = 1 << worldCollisionLayer;
+            Assert.That((source.ImpactLayerMask.value & expectedBit) != 0, Is.True, "RangedAttackConfig ImpactLayerMask must include WorldCollision layer.");
+        }
     }
 }

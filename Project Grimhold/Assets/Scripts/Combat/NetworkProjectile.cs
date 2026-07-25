@@ -104,18 +104,19 @@ public sealed class NetworkProjectile : NetworkBehaviour
         _contactFilter.SetLayerMask(new LayerMask { value = ImpactLayerMaskValue });
     }
 
-    private bool TryGetValidTarget(Collider2D collider, out EntityId targetId)
+    private bool TryGetImpact(Collider2D collider, out EntityId targetId)
     {
         targetId = default;
 
-        if (collider == null || collider == _projectileCollider || _registry == null)
+        if (collider == null || collider == _projectileCollider)
         {
             return false;
         }
 
-        if (!_registry.TryGetEntityId(collider, out targetId))
+        // Static world geometry has no entity id but still consumes the projectile.
+        if (_registry == null || !_registry.TryGetEntityId(collider, out targetId))
         {
-            return false;
+            return true;
         }
 
         return targetId.Value != OwnerEntityIdValue;
@@ -193,25 +194,24 @@ public sealed class NetworkProjectile : NetworkBehaviour
             travelDistance
         );
 
-        RaycastHit2D selectHit = default;
+        RaycastHit2D selectedHit = default;
         EntityId selectedTargetId = default;
-        bool foundValidHit = false;
+        bool foundImpact = false;
 
-        // 5. Filter for the first valid target impact
+        // 5. Select the nearest non-owner impact, including static world geometry.
         for (int i = 0; i < hitCount; i++)
         {
             RaycastHit2D hit = _hitBuffer[i];
-            if (hit.collider == null)
+            if (!TryGetImpact(hit.collider, out EntityId targetId))
             {
                 continue;
             }
 
-            if (TryGetValidTarget(hit.collider, out EntityId targetId))
+            if (!foundImpact || hit.distance < selectedHit.distance)
             {
-                selectHit = hit;
+                selectedHit = hit;
                 selectedTargetId = targetId;
-                foundValidHit = true;
-                break;
+                foundImpact = true;
             }
         }
 
@@ -219,21 +219,21 @@ public sealed class NetworkProjectile : NetworkBehaviour
         System.Array.Clear(_hitBuffer, 0, hitCount);
 
         // 6. Process impact or move the projectile forward
-        if (foundValidHit)
+        if (foundImpact)
         {
             if (!ImpactConsumed)
             {
                 ImpactConsumed = true;
 
                 // Move projectile to exact collision point, respecting its volume
-                Vector2 impactPosition = currentPosition + Direction * selectHit.distance;
+                Vector2 impactPosition = currentPosition + Direction * selectedHit.distance;
                 _rigidbody.position = impactPosition;
                 transform.position = impactPosition;
 
-                Debug.Log($"[CombatTrace] Projectile despawned: Impact resolved on collider {selectHit.collider.name}. Distance: {selectHit.distance}, HitPoint: {selectHit.point}", this);
+                Debug.Log($"[CombatTrace] Projectile despawned: Impact resolved on collider {selectedHit.collider.name}. Distance: {selectedHit.distance}, HitPoint: {selectedHit.point}", this);
 
                 // Attempt to apply damage if target is a damageable entity
-                if (_damageResolver != null)
+                if (_damageResolver != null && selectedTargetId.Value != 0)
                 {
                     DamageRequest damageRequest = new DamageRequest(
                         new EntityId(OwnerEntityIdValue),
@@ -241,7 +241,7 @@ public sealed class NetworkProjectile : NetworkBehaviour
                         Damage,
                         DamageType,
                         Direction,
-                        selectHit.point,
+                        selectedHit.point,
                         Runner.Tick
                     );
 

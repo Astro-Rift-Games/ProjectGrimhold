@@ -120,7 +120,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
             return;
         }
 
-        if (attackPressed && IsAttackEnabled && _character.IsAlive)
+        if (attackPressed && ArePrimaryAttackPrerequisitesMet())
         {
             TryExecuteAttack();
         }
@@ -150,15 +150,33 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
     }
 
     /// <summary>
-    /// Attempts to execute the active attack, validating cooldown, direction, and strategy.
+    /// Reads the current primary-attack availability and cooldown for presentation.
+    /// This query has no simulation side effects and is valid on replicated proxies.
+    /// </summary>
+    public bool TryGetPrimaryAttackStatus(out PrimaryAttackStatus status)
+    {
+        status = default;
+        if (Runner == null || !Runner.IsRunning || !_dependenciesValid ||
+            _character == null || _activeAttack == null)
+        {
+            return false;
+        }
+
+        float durationSeconds = _activeAttack.CooldownSeconds;
+        float remainingSeconds = AttackCooldown.RemainingTime(Runner) ?? 0f;
+        status = new PrimaryAttackStatus(
+            ArePrimaryAttackPrerequisitesMet(),
+            durationSeconds,
+            remainingSeconds);
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to execute the active attack after shared readiness prerequisites
+    /// have been evaluated by the authoritative simulation flow.
     /// </summary>
     private void TryExecuteAttack()
     {
-        if (!AttackCooldown.ExpiredOrNotRunning(Runner))
-        {
-            return;
-        }
-
         if (_movementController == null)
         {
             return;
@@ -204,6 +222,18 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
             // Increment sequence last to ensure correct replication of all related fields
             AttackSequence++;
         }
+    }
+
+    private bool ArePrimaryAttackPrerequisitesMet()
+    {
+        return Runner != null &&
+            Runner.IsRunning &&
+            _dependenciesValid &&
+            _character != null &&
+            _activeAttack != null &&
+            IsAttackEnabled &&
+            _character.IsAlive &&
+            AttackCooldown.ExpiredOrNotRunning(Runner);
     }
 
     /// <summary>

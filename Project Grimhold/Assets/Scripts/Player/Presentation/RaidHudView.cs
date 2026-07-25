@@ -1,0 +1,222 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// Renders the local raid HUD using values supplied by its presenter.
+/// It owns only uGUI/TMP presentation and never reads or modifies gameplay state.
+/// </summary>
+[DisallowMultipleComponent]
+public sealed class RaidHudView : MonoBehaviour
+{
+    private const string UnavailableValue = "—";
+
+    [SerializeField]
+    private GameObject _mainHudRoot;
+
+    [SerializeField]
+    private TMP_Text _healthText;
+
+    [SerializeField]
+    private Image _healthFill;
+
+    [SerializeField]
+    private TMP_Text _classText;
+
+    [SerializeField]
+    private TMP_Text _attackText;
+
+    [SerializeField]
+    private RectTransform _cooldownRoot;
+
+    [SerializeField]
+    private Image _cooldownFill;
+
+    [SerializeField]
+    private TMP_Text _inventoryText;
+
+    [SerializeField]
+    private TMP_Text _extractionText;
+
+    [SerializeField]
+    private GameObject _defeatedRoot;
+
+    /// <summary>Gets the visual root controlled by this view.</summary>
+    public GameObject MainHudRoot => _mainHudRoot;
+
+    /// <summary>Gets the health label for presentation verification.</summary>
+    public TMP_Text HealthText => _healthText;
+
+    /// <summary>Gets the health fill for presentation verification.</summary>
+    public Image HealthFill => _healthFill;
+
+    /// <summary>Gets the selected-class label for presentation verification.</summary>
+    public TMP_Text ClassText => _classText;
+
+    /// <summary>Gets the primary-attack label for presentation verification.</summary>
+    public TMP_Text AttackText => _attackText;
+
+    /// <summary>Gets the screen-space root positioned above the local player.</summary>
+    public RectTransform CooldownRoot => _cooldownRoot;
+
+    /// <summary>Gets the cooldown fill for presentation verification.</summary>
+    public Image CooldownFill => _cooldownFill;
+
+    /// <summary>Gets the inventory-capacity label for presentation verification.</summary>
+    public TMP_Text InventoryText => _inventoryText;
+
+    /// <summary>Gets the extraction label for presentation verification.</summary>
+    public TMP_Text ExtractionText => _extractionText;
+
+    /// <summary>Gets the defeated-state visual root.</summary>
+    public GameObject DefeatedRoot => _defeatedRoot;
+
+    /// <summary>Presents current and configured maximum health.</summary>
+    public void PresentHealth(float currentHealth, float maximumHealth)
+    {
+        float safeCurrent = IsFinite(currentHealth) ? Mathf.Max(0f, currentHealth) : 0f;
+        float safeMaximum = IsFinite(maximumHealth) ? Mathf.Max(0f, maximumHealth) : 0f;
+        SetText(_healthText, $"Salud: {safeCurrent:0.#} / {safeMaximum:0.#}");
+        SetFill(_healthFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+    }
+
+    /// <summary>Restores the unavailable health placeholder and empty fill.</summary>
+    public void ClearHealth()
+    {
+        SetText(_healthText, $"Salud: {UnavailableValue} / {UnavailableValue}");
+        SetFill(_healthFill, 0f);
+    }
+
+    /// <summary>Presents a display-ready selected class name.</summary>
+    public void PresentClass(string displayName)
+    {
+        string safeName = string.IsNullOrWhiteSpace(displayName) ? UnavailableValue : displayName;
+        SetText(_classText, $"Clase: {safeName}");
+    }
+
+    /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
+    public void PresentAttack(bool isAvailable, float remainingSeconds, float normalizedRemaining)
+    {
+        string label;
+        if (isAvailable)
+        {
+            label = "Ataque: disponible";
+        }
+        else if (IsFinite(remainingSeconds) && remainingSeconds > 0f)
+        {
+            label = $"Ataque: {remainingSeconds:0.0}s";
+        }
+        else
+        {
+            label = "Ataque: no disponible";
+        }
+
+        SetText(_attackText, label);
+        SetFill(_cooldownFill, normalizedRemaining);
+    }
+
+    /// <summary>Restores the unavailable attack placeholder and empty fill.</summary>
+    public void ClearAttack()
+    {
+        SetText(_attackText, $"Ataque: {UnavailableValue}");
+        SetFill(_cooldownFill, 0f);
+    }
+
+    /// <summary>Presents occupied and available inventory slots.</summary>
+    public void PresentInventory(int occupiedSlots, int slotCapacity)
+    {
+        SetText(
+            _inventoryText,
+            $"Inventario: {Mathf.Max(0, occupiedSlots)} / {Mathf.Max(0, slotCapacity)}");
+    }
+
+    /// <summary>Restores the unavailable inventory placeholder.</summary>
+    public void ClearInventory()
+    {
+        SetText(_inventoryText, $"Inventario: {UnavailableValue} / {UnavailableValue}");
+    }
+
+    /// <summary>Presents the provisional extraction placeholder for TASK-39.</summary>
+    public void PresentExtractionUnavailable()
+    {
+        SetText(_extractionText, "Extracción: no disponible");
+    }
+
+    /// <summary>Shows or hides the local defeated indicator without hiding the HUD.</summary>
+    public void PresentDefeated(bool isDefeated)
+    {
+        if (_defeatedRoot != null && _defeatedRoot.activeSelf != isDefeated)
+        {
+            _defeatedRoot.SetActive(isDefeated);
+        }
+    }
+
+    /// <summary>Restores all TASK-39 placeholders, fills, and local indicators.</summary>
+    public void Clear()
+    {
+        if (_mainHudRoot != null && !_mainHudRoot.activeSelf)
+        {
+            _mainHudRoot.SetActive(true);
+        }
+
+        ClearHealth();
+        PresentClass(UnavailableValue);
+        ClearAttack();
+        ClearInventory();
+        PresentExtractionUnavailable();
+        PresentDefeated(false);
+    }
+
+    /// <summary>Positions the cooldown root at a point in overlay-canvas screen space.</summary>
+    public void SetCooldownScreenPosition(Vector2 screenPosition)
+    {
+        if (_cooldownRoot == null || transform is not RectTransform canvasRect ||
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect,
+                screenPosition,
+                null,
+                out Vector2 localPoint))
+        {
+            return;
+        }
+
+        if (_cooldownRoot.anchoredPosition != localPoint)
+        {
+            _cooldownRoot.anchoredPosition = localPoint;
+        }
+    }
+
+    private static void SetText(TMP_Text target, string value)
+    {
+        if (target != null && target.text != value)
+        {
+            target.text = value;
+        }
+    }
+
+    private static void SetFill(Image target, float value)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        float safeValue = IsFinite(value) ? Mathf.Clamp01(value) : 0f;
+        if (!Mathf.Approximately(target.fillAmount, safeValue))
+        {
+            target.fillAmount = safeValue;
+        }
+
+        Vector3 scale = target.rectTransform.localScale;
+        if (!Mathf.Approximately(scale.x, safeValue))
+        {
+            scale.x = safeValue;
+            target.rectTransform.localScale = scale;
+        }
+    }
+
+    private static bool IsFinite(float value)
+    {
+        return !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+}
