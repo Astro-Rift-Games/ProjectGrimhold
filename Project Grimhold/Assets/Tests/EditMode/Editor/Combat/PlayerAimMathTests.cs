@@ -3,82 +3,122 @@ using UnityEngine;
 
 namespace Tests.EditMode.Combat
 {
-    public class PlayerAimMathTests
+    public sealed class PlayerAimMathTests
     {
-        private Vector2 CalculateRangedAttackDirection(Vector2 origin, Vector2 aimPosition, Vector2 facingDirection)
+        [TestCase(4f, 0f, 1f, 0f)]
+        [TestCase(0f, 4f, 0f, 1f)]
+        public void TryResolveDirection_ValidAxisDirection_ReturnsNormalizedDirection(
+            float aimX,
+            float aimY,
+            float expectedX,
+            float expectedY)
         {
-            Vector2 direction = aimPosition - origin;
-            if (direction.sqrMagnitude < 0.0001f)
-            {
-                direction = facingDirection;
-            }
-            return direction.normalized;
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                Vector2.zero,
+                new Vector2(aimX, aimY),
+                out Vector2 direction);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(direction, Is.EqualTo(new Vector2(expectedX, expectedY)));
         }
 
         [Test]
-        public void CalculateDirection_TowardsAimPoint()
+        public void TryResolveDirection_DiagonalFromDifferentOrigin_ReturnsNormalizedDirection()
         {
-            Vector2 origin = new Vector2(1f, 1f);
-            Vector2 aim = new Vector2(4f, 5f);
-            Vector2 facing = Vector2.right;
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                new Vector2(2f, -3f),
+                new Vector2(5f, 1f),
+                out Vector2 direction);
 
-            Vector2 direction = CalculateRangedAttackDirection(origin, aim, facing);
-
-            Vector2 expected = (new Vector2(4f, 5f) - new Vector2(1f, 1f)).normalized;
-            Assert.AreEqual(expected.x, direction.x, 0.0001f);
-            Assert.AreEqual(expected.y, direction.y, 0.0001f);
+            Assert.That(resolved, Is.True);
+            Assert.That(direction, Is.EqualTo(new Vector2(3f, 4f).normalized));
+            Assert.That(direction.magnitude, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
-        public void CalculateDirection_IsNormalized()
+        public void TryResolveDirection_DeltaBelowThreshold_ReturnsFalseAndZero()
         {
-            Vector2 origin = new Vector2(0f, 0f);
-            Vector2 aim = new Vector2(100f, 200f);
-            Vector2 facing = Vector2.up;
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                Vector2.zero,
+                new Vector2(0.009f, 0f),
+                out Vector2 direction);
 
-            Vector2 direction = CalculateRangedAttackDirection(origin, aim, facing);
-
-            Assert.AreEqual(1f, direction.magnitude, 0.0001f);
+            Assert.That(resolved, Is.False);
+            Assert.That(direction, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
-        public void CalculateDirection_PlayerStill_CanShootTowardsCursor()
+        public void TryResolveDirection_DeltaAboveThreshold_ReturnsNormalizedDirection()
         {
-            Vector2 origin = new Vector2(0f, 0f);
-            Vector2 aim = new Vector2(-5f, 2f);
-            Vector2 facing = Vector2.right; // Facing right but aiming top-left
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                Vector2.zero,
+                new Vector2(0.01001f, 0f),
+                out Vector2 direction);
 
-            Vector2 direction = CalculateRangedAttackDirection(origin, aim, facing);
+            Assert.That(resolved, Is.True);
+            Assert.That(direction, Is.EqualTo(Vector2.right));
+        }
 
-            Vector2 expected = new Vector2(-5f, 2f).normalized;
-            Assert.AreEqual(expected.x, direction.x, 0.0001f);
-            Assert.AreEqual(expected.y, direction.y, 0.0001f);
+        [TestCase(float.NaN, 0f, 1f, 0f)]
+        [TestCase(float.PositiveInfinity, 0f, 1f, 0f)]
+        [TestCase(0f, float.NaN, 1f, 0f)]
+        [TestCase(0f, float.PositiveInfinity, 1f, 0f)]
+        [TestCase(1f, 0f, float.NaN, 0f)]
+        [TestCase(1f, 0f, float.PositiveInfinity, 0f)]
+        [TestCase(1f, 0f, 0f, float.NaN)]
+        [TestCase(1f, 0f, 0f, float.PositiveInfinity)]
+        public void TryResolveDirection_NonFiniteInput_ReturnsFalseAndZero(
+            float originX,
+            float originY,
+            float aimX,
+            float aimY)
+        {
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                new Vector2(originX, originY),
+                new Vector2(aimX, aimY),
+                out Vector2 direction);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(direction, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
-        public void CalculateDirection_MovementDirectionDoesNotReplaceAim()
+        public void TryResolveDirection_OverflowingDelta_ReturnsFalseAndZero()
         {
-            Vector2 origin = new Vector2(0f, 0f);
-            Vector2 aim = new Vector2(1f, 0f); // Aiming right
-            Vector2 facing = Vector2.left; // Moving/Facing left
+            bool resolved = PlayerAimMath.TryResolveDirection(
+                new Vector2(float.MaxValue, 0f),
+                new Vector2(-float.MaxValue, 0f),
+                out Vector2 direction);
 
-            Vector2 direction = CalculateRangedAttackDirection(origin, aim, facing);
-
-            Assert.AreEqual(Vector2.right.x, direction.x, 0.0001f);
-            Assert.AreEqual(Vector2.right.y, direction.y, 0.0001f);
+            Assert.That(resolved, Is.False);
+            Assert.That(direction, Is.EqualTo(Vector2.zero));
         }
 
-        [Test]
-        public void CalculateDirection_FallbackToFacingDirection_WhenAimIsInvalid()
+        [TestCase(4f, 0f, 1f, 0f)]
+        [TestCase(3f, 4f, 0.6f, 0.8f)]
+        public void NormalizeInitialFacing_ValidDirection_ReturnsNormalizedDirection(
+            float facingX,
+            float facingY,
+            float expectedX,
+            float expectedY)
         {
-            Vector2 origin = new Vector2(3f, 3f);
-            Vector2 aim = new Vector2(3f, 3.00001f); // Extremely close to player position (almost zero direction)
-            Vector2 facing = Vector2.down; // Fallback direction
+            Vector2 facing = PlayerAimMath.NormalizeInitialFacing(
+                new Vector2(facingX, facingY));
 
-            Vector2 direction = CalculateRangedAttackDirection(origin, aim, facing);
+            Assert.That(facing.x, Is.EqualTo(expectedX).Within(0.0001f));
+            Assert.That(facing.y, Is.EqualTo(expectedY).Within(0.0001f));
+        }
 
-            Assert.AreEqual(Vector2.down.x, direction.x, 0.0001f);
-            Assert.AreEqual(Vector2.down.y, direction.y, 0.0001f);
+        [TestCase(0f, 0f)]
+        [TestCase(0.009f, 0f)]
+        [TestCase(float.NaN, 0f)]
+        [TestCase(float.PositiveInfinity, 0f)]
+        public void NormalizeInitialFacing_InvalidDirection_ReturnsDown(float facingX, float facingY)
+        {
+            Vector2 facing = PlayerAimMath.NormalizeInitialFacing(
+                new Vector2(facingX, facingY));
+
+            Assert.That(facing, Is.EqualTo(Vector2.down));
         }
     }
 }

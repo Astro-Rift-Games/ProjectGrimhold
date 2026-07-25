@@ -1,5 +1,17 @@
 # Player Combat Architecture
 
+## TASK-38 shared aim direction
+
+`PlayerMovementNetworkController` resolves `AimWorldPosition` after the player's
+kinematic displacement and writes the synchronized `FacingDirection`. It runs before
+`PlayerCombatNetworkController` in every Fusion simulation tick. Melee and ranged both
+validate and consume that same finite, normalized facing; combat does not recompute aim
+from cursor input or `_attackOrigin`.
+
+`_attackOrigin` remains the physical `AttackRequest.Origin`. `LastAttackDirection` is
+not continuous aim state: it is replicated only after a strategy successfully executes,
+together with the attack origin, type, tick and sequence for presentation.
+
 This document describes the design, components, network authority, data contracts, and simulation mechanics of the Player Combat System in Project Grimhold.
 
 ## Architectural Overview
@@ -143,7 +155,7 @@ Inherits from `AttackConfig`. Validated fields:
 2. **Transport**: `PlayerNetworkInput` transports buttons to `FixedUpdateNetwork` via Fusion.
 3. **Trigger**: `PlayerCombatNetworkController` processes input. On press/hold, it validates `AttackCooldown` (TickTimer) and character alive state.
 4. **Execution**: If authorized and ready, calls `MeleeAttack.Execute(in AttackRequest)`.
-5. **Direction**: The attack direction is determined by `PlayerMovementNetworkController.FacingDirection`.
+5. **Direction**: Movement resolves the finite, normalized `PlayerMovementNetworkController.FacingDirection` from the final simulated player position before combat runs in the same tick.
 6. **Query Targets**: `MeleeAttack` delegates queries to `Physics2DAttackTargetQuery.FindTargets()`.
    * Center is computed as: `Origin + FacingDirection * Range`.
    * Targets are queried within `Radius` using `Physics2D.OverlapCircle` with a non-allocating buffer.
@@ -158,9 +170,8 @@ Inherits from `AttackConfig`. Validated fields:
 ## Ranged Attack Flow
 
 1. **Input Collection**: `PlayerInputReader` reads primary attack button and mouse world position `AimWorldPosition`.
-2. **Trigger**: `PlayerCombatNetworkController` evaluates the input.
-   * If aiming too close to the origin, it defaults the shoot direction to `FacingDirection`.
-3. **Execution**: If ready, calls `RangedAttack.Execute(in AttackRequest)`.
+2. **Facing**: `PlayerMovementNetworkController` has already resolved `FacingDirection` from the final simulated player position. Invalid or suppressed aim preserves the last valid facing.
+3. **Execution**: If ready, calls `RangedAttack.Execute(in AttackRequest)` with the same facing used by melee.
 4. **Build Request**: `RangedAttack` calculates origin using `SpawnOffset` along the normalized direction and builds `ProjectileSpawnRequest`.
 5. **Spawn**: `RangedAttack` calls `IProjectileSpawner.Spawn()`.
 6. **Spawner Validation**: `FusionProjectileSpawner` runs only under State Authority. It validates its configs and executes `Runner.TrySpawn()`.

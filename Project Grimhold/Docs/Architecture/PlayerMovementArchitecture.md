@@ -1,5 +1,28 @@
 # Player Movement Architecture
 
+## TASK-38 facing update
+
+`PlayerNetworkInput.AimWorldPosition` is resolved in `FixedUpdateNetwork` only after
+`Kinematic2DMovementMotor` has applied the current tick displacement. The final player
+transform is the canonical aim origin. `PlayerAimMath` rejects non-finite vectors and
+directions whose squared magnitude is below `0.0001f`; an invalid, absent, or default
+payload preserves the prior `FacingDirection`.
+
+`FacingDirection` is the sole continuous `[Networked]` orientation state. It is not
+derived from `MoveDirection`, and locomotion restrictions do not suppress valid aim.
+The configured initial facing is normalized with `Vector2.down` as the final fallback.
+
+`PlayerMovementNetworkController` uses `DefaultExecutionOrder(-10)` and
+`PlayerCombatNetworkController` uses `DefaultExecutionOrder(-9)`, so Fusion simulates
+movement, final position and facing before combat reads it in the same tick. Input
+Authority predicts this calculation; State Authority supplies the final replicated
+state observed by proxies.
+
+A payload is treated as default/suppressed only when move and aim positions are zero
+and `Buttons.Bits` is zero. Consequently an idle player without buttons cannot
+distinguish suppression from aiming at global `(0, 0)`; TASK-38 intentionally preserves
+facing in that ambiguous case without adding another input field.
+
 ## 1. Propósito
 
 Este documento define la arquitectura v1 del movimiento sincronizado de jugadores para Project Grimhold.
@@ -93,7 +116,7 @@ El asset `PlayerInputActions.inputactions` define actualmente:
 `PlayerNetworkInput` contiene actualmente:
 
 - `MoveDirection`.
-- `LookRotation`.
+- `AimWorldPosition`.
 - `Buttons`.
 
 `PlayerInputReader` actualiza `MoveDirection`. No se confirmó todavía una lectura efectiva de look, fire o interact desde el asset de Input System actual.
@@ -1416,7 +1439,7 @@ Antes o durante la implementación se debe definir:
 - Máximo de iteraciones.
 - Si v1 necesita una máscara de bloqueos o una política mínima compatible.
 - Qué datos públicos requiere el presenter.
-- Si `LookRotation` y `Buttons` deben permanecer en `PlayerNetworkInput` antes de tener acciones activas.
+- Si `AimWorldPosition` y `Buttons` deben permanecer en `PlayerNetworkInput` antes de tener acciones activas.
 
 Estas decisiones no cambian los límites principales entre input, simulación, motor y presentación.
 

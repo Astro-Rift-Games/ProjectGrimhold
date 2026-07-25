@@ -10,6 +10,8 @@ using UnityEngine;
 /// <see cref="IAttack"/> contract, isolating gameplay simulation from visual presentation.
 /// </summary>
 [DisallowMultipleComponent]
+// Movement writes the final-tick FacingDirection before combat consumes it.
+[DefaultExecutionOrder(-9)]
 public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatController
 {
     [Header("Dependencies")]
@@ -120,7 +122,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
 
         if (attackPressed && IsAttackEnabled && _character.IsAlive)
         {
-            TryExecuteAttack(input);
+            TryExecuteAttack();
         }
     }
 
@@ -150,7 +152,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
     /// <summary>
     /// Attempts to execute the active attack, validating cooldown, direction, and strategy.
     /// </summary>
-    private void TryExecuteAttack(in PlayerNetworkInput input)
+    private void TryExecuteAttack()
     {
         if (!AttackCooldown.ExpiredOrNotRunning(Runner))
         {
@@ -162,34 +164,21 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
             return;
         }
 
-        Vector2 originPos = _attackOrigin != null ? (Vector2)_attackOrigin.position : (Vector2)transform.position;
-        Vector2 direction;
+        Vector2 originPos = _attackOrigin != null
+            ? (Vector2)_attackOrigin.position
+            : (Vector2)transform.position;
 
-        if (_activeAttack != null && _activeAttack.Type == AttackType.Ranged)
-        {
-            direction = input.AimWorldPosition - originPos;
-            if (direction.sqrMagnitude < 0.0001f)
-            {
-                direction = _movementController.FacingDirection;
-            }
-        }
-        else
-        {
-            direction = _movementController.FacingDirection;
-        }
-
-        // Reject invalid directions with virtually zero magnitude
-        if (direction.sqrMagnitude < 0.0001f)
+        if (!PlayerAimMath.TryNormalizeDirection(
+                _movementController.FacingDirection,
+                out Vector2 direction))
         {
             return;
         }
 
-        Vector2 normalizedDirection = direction.normalized;
-
         AttackRequest request = new AttackRequest(
             _character.Id,
             originPos,
-            normalizedDirection,
+            direction,
             (int)Runner.Tick
         );
 
