@@ -40,6 +40,7 @@ The coordinator `NetworkMatchController` is spawned by the Host from a registere
 - **Single Callback Registration**: Fusion automatically registers the spawn manager component as a callback listener of the runner GameObject, avoiding duplicate manual registrations.
 - **Explicit Binding**: Once the coordinator is spawned on the Host, the launcher binds it to the spawn manager using `BindMatchController`. Clients bind the replicated coordinator in its `Spawned()` method.
 - **Shutdown Cleanup**: When `OnShutdown` triggers, the manager clears all registries, unbinds the coordinator, and sets `_runner = null` to prevent reuse of dead runner instances.
+- **Defeated Players**: A defeated player is still its original runner-owned `NetworkObject`; no persistent corpse object survives independently. Despawn removes the co-located receiver, loot-source, collider and interactable registrations. Runner shutdown destroys that object and its local HUD binding, while `LocalInputContext` clears its reader so a later runner cannot inherit UI targets, suppression tokens, requests, listeners, registry entries, or replicated loot collections from the previous session.
 
 ---
 

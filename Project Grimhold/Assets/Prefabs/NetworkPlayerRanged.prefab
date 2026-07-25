@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 13
+      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[5]'
@@ -94,6 +94,14 @@ PrefabInstance:
       objectReference: {fileID: 7908985958866487499}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[12]'
+      value:
+      objectReference: {fileID: 3403487621947590829}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[13]'
+      value:
+      objectReference: {fileID: 3403487621947590830}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[15]'
       value:
       objectReference: {fileID: 4419447253773158415}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -183,6 +191,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
   _config: {fileID: 11400000, guid: 72c2830a8240480099febce01129a88f, type: 2}
   _damageResolverSource: {fileID: 1281523189680295321}
+--- !u!114 &3403487621947590829 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4100000000000000101, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e8d9c0b1a2f4d5e8c9b0a1d2e3f4a5b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCorpseGenerationController
+--- !u!114 &3403487621947590830 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4100000000000000102, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
 --- !u!114 &4103056846079488576 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3399445609163750024, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

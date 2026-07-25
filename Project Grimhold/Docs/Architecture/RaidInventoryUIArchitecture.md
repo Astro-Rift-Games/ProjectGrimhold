@@ -46,7 +46,7 @@ Opening the screen acquires a small owner-specific suppression token. While any 
 
 When `RaidInventoryPresenter` is in container looting mode (`ScreenMode.ContainerLoot`), a new local interaction press (`InteractPressedLocally`) immediately calls `Close()`. `PlayerInputReader` evaluates `wasSuppressed` before publishing `InteractPressedLocally`, preventing the closing press from being added to pending network input even if suppression is released synchronously inside the callback.
 
-On final suppression release (transition from 1 to 0 active tokens), movement and aim are read directly from current continuous controls. Any discrete action (attack or interaction) held at the moment of release sets a rearm requirement (`_interactRequiresRelease`). Physical release of the key clears the requirement regardless of suppression state, and only a subsequent physical press edge can be transported to Fusion. The same press that closes the container cannot reopen or execute a new interaction. Chests and defeated persistent enemies share this exact local presentation logic through their common `NetworkLootContainer` and `NetworkLootContainerInteractable` composition.
+On final suppression release (transition from 1 to 0 active tokens), movement and aim are read directly from current continuous controls. Any discrete action (attack or interaction) held at the moment of release sets a rearm requirement (`_interactRequiresRelease`). Physical release of the key clears the requirement regardless of suppression state, and only a subsequent physical press edge can be transported to Fusion. The same press that closes the container cannot reopen or execute a new interaction. Chests and defeated persistent players and enemies share this exact local presentation logic through their common `NetworkLootContainer` and `NetworkLootContainerInteractable` composition.
 
 ## Runner-scoped binding and lifecycle
 
@@ -65,3 +65,15 @@ Player despawn, runner shutdown, scene unload, or reader replacement therefore c
 ## Validation strategy
 
 Pure tests cover projection order/capacity, slot fallback data, selection reconciliation and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both panels, stable slot reuse, clearing and empty capacity. Exact Host/Client interaction confirmation, replication races, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
+
+The defeated-player integration reuses these contracts without adding a new
+screen mode or target type. Focused Single Runner tests use the co-located
+`NetworkLootContainer` and `NetworkLootContainerInteractable` from the real
+player prefab to cover confirmed `ContainerLoot` opening, full-stack transfer,
+both change-sequence refreshes, the existing empty-container presentation,
+distance close, despawn cleanup and shutdown suppression release.
+
+Single Runner coverage does not prove that two peers observed the same
+replicated snapshot. Host/Client checks remain manual for real client
+interaction, remote refresh, competing clients, disconnect cleanup, session
+restart and the defeated body's final visual transition.

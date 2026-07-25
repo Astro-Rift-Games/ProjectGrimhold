@@ -224,18 +224,20 @@ When a character takes damage (authoritatively confirmed by `Health` changes on 
 * **Scale Pulse**: Briefly scales the character's transform down/up to provide physical impact feedback.
 * These reactions run completely client-side in the presentation loop (`Render` or via network property changed callbacks).
 
-### 2. Player Defeat and Visual Hiding
+### 2. Player Defeat and Persistent Body
 When player health drops to or below zero, a strict death/defeat pipeline is executed:
 * **Gameplay Simulation Disabling**: 
   * The character's alive status (`IsAlive = false`) immediately disables movement input and combat actions in `FixedUpdateNetwork`.
   * Ongoing attack timers and active projectile spawns are halted.
+  * The shared authoritative damage path calls `PlayerCharacter.HandleDeath`, which delegates co-located corpse-loot conversion to `PlayerCorpseGenerationController`. This is not driven by presenters, Animator events, polling, or `Update`. The controller's networked terminal state prevents duplicate conversion during repeated calls or resimulation.
+  * The defeated player retains its own `NetworkObject`. Its initially unavailable `NetworkLootContainer` receives and verifies the exact temporary-inventory snapshot before that inventory is cleared, then becomes available. A load or clear failure leaves the container empty and unavailable while preserving the inventory; no replacement corpse is spawned.
 * **Presentation Transition**:
-  * Visual presentation components (`PlayerDefeatPresenter`, `PlayerAnimatorView`) detect the transition to the dead state.
+  * Visual presentation components (`PlayerDefeatPresenter`, `PlayerAnimatorView`) detect the transition to the dead state and retain the player's own final defeat pose.
   * **Immediate Action Hiding**: Combat visual effects, attack animations, and movement indicators are stopped immediately (visual priority: Defeat > Damage Feedback > Attack > Locomotion).
-  * **Procedural Hiding Delay**: The player's physical representation (sprite renderers, shadows, visual parts) remains visible in a defeated pose for a configurable delay. After the delay, the visuals are faded out or hidden completely.
+  * **Persistent Body**: The shared transition rotates the visual and moves its sprite alpha toward the configured defeated value. `PlayerDefeatPresenter` overrides `HideBodyVisualAfterTransition` to `false`, so the body root and its renderers remain enabled after the transition. The delayed cleanup hides only combat-specific presentation such as the weapon or combat visual root.
   * Gameplay components (such as `NetworkObject`, health variables, colliders, and network controllers) remain active to support the multiplayer session lifecycle.
 * **Remote Proxy Synchronization**:
-  * Proxies track health transitions and reproduce the defeat pose and fadeout sequence procedurally, guaranteeing visual consistency across all peers.
+  * Proxies observe replicated health and reproduce the same local defeat transition without creating or replacing a network entity. Exact Host/Client pose and visual consistency remain manual validation.
 
 ---
 
@@ -246,10 +248,12 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
   * **`PlayerCombatNetworkController`**:
     * `_characterSource` -> Reference to `PlayerCharacter` or character component.
     * `_attackOrigin` -> Transform indicating weapon output position.
-    * `_activeAttackSource` -> Reference to active strategy component (`MeleeAttack` or `RangedAttack`).
+    * `_activeAttackSource` -> Assigned by each playable variant to its active strategy component.
     * `_movementController` -> Reference to `PlayerMovementNetworkController`.
-  * **`MeleeAttack`** & **`RangedAttack`** strategies.
-  * **`Physics2DAttackTargetQuery`** & **`FusionProjectileSpawner`** dependencies.
+  * **Shared defeat and loot composition**: `PlayerCharacter`, `PlayerLootReceiver`, `PlayerCorpseGenerationController`, `NetworkLootContainer`, `NetworkLootContainerInteractable`, `InteractionPromptMetadata`, and the dedicated interaction trigger share the root `NetworkObject`.
+  * The base `NetworkPlayer.prefab` contains shared dependencies but intentionally has no active `IAttack` strategy.
+  * `NetworkPlayerMelee.prefab` adds `MeleeAttack` and assigns it as the active attack source.
+  * `NetworkPlayerRanged.prefab` adds `RangedAttack`, assigns it as the active attack source, and composes its projectile-spawning dependencies.
 
 ### 2. Projectile Prefab (e.g. `Arrow.prefab`)
 * Must contain:
@@ -288,6 +292,8 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 | **Enemy melee damage integration** | Implemented | Evaluates `IDamageable` registered from `CharacterBase`. | Yes (verify enemy health reduction) |
 | **Independence from animation playback** | Implemented | Simulation executes entirely in `FixedUpdateNetwork` tick loops. | Yes (test with empty animation parameters) |
 | **No player/enemy-specific logic in core** | Implemented | Systems interact strictly via interface models. | Yes |
+| **Defeated player keeps network identity** | Implemented | `PlayerCharacter.HandleDeath` delegates to the co-located `PlayerCorpseGenerationController`; no replacement object is spawned. | Yes (Host/Client identity observation) |
+| **Persistent inspectable player body** | Implemented | `PlayerDefeatPresenter.HideBodyVisualAfterTransition` is `false`; the co-located generic loot endpoint becomes available only after authoritative conversion. | Yes (final pose and interaction on both peers) |
 
 ---
 
@@ -326,3 +332,9 @@ For thorough multi-peer validation, configure two instances (Host and Client) an
 * **Setup**: Launch Client instance.
 * **Action**: Force Client to trigger `IProjectileSpawner.Spawn` directly.
 * **Expected Result**: Spawner rejects command immediately due to missing `HasStateAuthority` validation check.
+
+### 6. Player Defeat, Persistent Body and Loot Handoff
+* **Setup**: Launch Host and Client, give one player temporary inventory, and defeat that player.
+* **Action**: Observe the defeated entity from both peers and inspect it from the surviving player.
+* **Expected Result**: The original `NetworkPlayer` remains spawned and visible in its final pose with the same network identity. Its generic container becomes interactable only after the authoritative inventory handoff, opens `ScreenMode.ContainerLoot`, remains available when emptied, and disappears only when that original player object is despawned or the session ends.
+* **Boundary**: The loot transaction, UI, registry and lifecycle details are defined in `LootInteractionArchitecture.md`, `PlayerInteractionArchitecture.md`, and `RaidInventoryUIArchitecture.md`; combat presentation does not own those states.

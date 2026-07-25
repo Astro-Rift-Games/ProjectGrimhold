@@ -49,6 +49,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public int LootChangeSequence { get; private set; }
 
     private Collider2D[] _cachedColliders;
+
+    [SerializeField]
+    private Collider2D[] _interactionColliders;
+
     private LootEntry[] _initialContentOverride;
     private InitialContentOverrideState _initialContentOverrideState;
     private bool _spawnedStarted;
@@ -69,7 +73,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     private void Awake()
     {
-        _cachedColliders = GetComponentsInChildren<Collider2D>(true);
+        _cachedColliders = _interactionColliders != null && _interactionColliders.Length > 0
+            ? _interactionColliders
+            : GetComponentsInChildren<Collider2D>(true);
     }
 
     public override void Spawned()
@@ -352,6 +358,110 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         content = entries.AsReadOnly();
+        return true;
+    }
+
+    /// <summary>
+    /// Loads one complete validated snapshot into an initialized, unavailable and empty
+    /// container. This is an internal lifecycle operation, not a loot-transfer route.
+    /// </summary>
+    internal bool TryLoadExactContent(IReadOnlyList<LootEntry> entries, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating)
+        {
+            error = "State Authority simulation is required.";
+            return false;
+        }
+
+        if (!IsInitialized || IsAvailable || !_isRegistered || LootInventory.Count != 0)
+        {
+            error = "Container must be initialized, registered, unavailable, and empty.";
+            return false;
+        }
+
+        if (!LootContainerInitializationRules.TryBuild(
+                entries,
+                _lootCatalog,
+                _slotCapacity,
+                MaxLootTypes,
+                out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
+                out error))
+        {
+            return false;
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        for (int index = 0; index < resolvedEntries.Count; index++)
+        {
+            KeyValuePair<int, int> entry = resolvedEntries[index];
+            inventory.Set(entry.Key, entry.Value);
+        }
+
+        if (resolvedEntries.Count > 0)
+        {
+            LootChangeSequence++;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a previously loaded snapshot before the container becomes available.
+    /// The method refuses to clear a different or partially changed inventory.
+    /// </summary>
+    internal bool TryClearExactContent(IReadOnlyList<LootEntry> expected, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating || IsAvailable)
+        {
+            error = "An unavailable State Authority container is required.";
+            return false;
+        }
+
+        if (!HasExactContent(expected))
+        {
+            error = "Container content differs from the expected snapshot.";
+            return false;
+        }
+
+        if (LootInventory.Count == 0)
+        {
+            return true;
+        }
+
+        LootInventory.Clear();
+        LootChangeSequence++;
+        return true;
+    }
+
+    internal bool HasExactContent(IReadOnlyList<LootEntry> expected)
+    {
+        if (expected == null || !TryGetLootContent(out IReadOnlyList<LootEntry> actual) ||
+            actual.Count != expected.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < expected.Count; index++)
+        {
+            LootEntry entry = expected[index];
+            bool found = false;
+            for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
+            {
+                if (actual[actualIndex].Equals(entry))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

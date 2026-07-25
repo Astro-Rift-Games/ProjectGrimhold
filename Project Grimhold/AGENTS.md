@@ -26,6 +26,8 @@ Do not introduce a new pattern, abstraction, package or framework without a conc
 
 Do not create Git worktrees unless explicitly requested.
 
+Sub-agents may only be created when explicitly requested by the user. Do not infer permission to create them from task complexity, urgency or opportunities for parallel work.
+
 ## Architecture principles
 
 * Prefer composition over inheritance.
@@ -330,6 +332,8 @@ unless explicitly requested and justified by the task.
 ## Change policy
 
 Keep commits and diffs focused.
+
+Write commit subjects and descriptions in English.
 
 Do not:
 

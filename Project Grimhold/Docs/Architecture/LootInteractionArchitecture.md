@@ -88,10 +88,33 @@ Gameplay's authoritative `NetworkSpawnManager` consumes only the `SpawnGroupType
 
 Defeated enemies remain the same network entity instead of spawning a replacement corpse. `NetworkEnemy.prefab` composes the shared `NetworkLootContainer` and `NetworkLootContainerInteractable` on its root `NetworkObject`, with an Interactable-layer trigger used only for loot queries. The container initializes with the enemy but starts unavailable. When authoritative damage reaches zero, `EnemyCharacter` disables movement and combat and enables that existing container during simulation. The enemy therefore preserves its `NetworkId`, position, colliders and replicated contents across the alive-to-defeated transition. Its defeat presentation keeps the body visible and may later settle into a death-animation pose; presentation state never owns or changes loot. No separate corpse prefab, automatic replacement spawn or dead-entity inventory copy exists.
 
+Players keep the same `NetworkPlayer` identity after defeat. The prefab composes `NetworkLootContainer`, `NetworkLootContainerInteractable`, prompt metadata and a dedicated layer-8 trigger alongside `PlayerLootReceiver`; the container begins empty and unavailable and never implements receiver capabilities. `CharacterBase.ApplyDamage` reaches `PlayerCharacter.HandleDeath`, which invokes `PlayerCorpseGenerationController` in the same authoritative simulation flow. Its networked one-shot state (`Waiting`, `Processing`, `Completed`, `Failed`) captures the receiver snapshot, validates and loads the co-located unavailable container, verifies exact content, clears the player inventory exactly once, and only then enables the container. A load or clear failure keeps the container unavailable, rolls it back to empty when necessary, preserves the player inventory, enters `Failed`, and never retries. No player-corpse prefab, secondary `NetworkObject`, generated Fusion prefab registration, appearance copy, or alternate transfer route exists. `PlayerDefeatPresenter` retains the defeated player's own final pose independently of this gameplay transition; presentation has no authority over content, availability, or interaction.
+
+The defeated player then uses the same interaction and transfer route as every
+other container. There is no corpse-specific RPC, transaction, controller,
+registry capability, or presentation mode. Removing the last stack increments
+the existing change sequence but does not make the container unavailable or
+despawn the player.
+
 `Assets/Prefabs/Debug/LootContainerTransferDebugHarness.prefab` can be placed manually in a graybox. In Editor or Development Build it resolves the local player through `TryGetPlayerObject`, detects nearby containers directly from colliders, reads their snapshot and invokes the public or raw debug transport methods. F8 sends the public full-stack request; F9 repeats its exact envelope; F10 reuses its sequence with a conflicting catalog index; F11 sends a different sequence while the legitimate request is in flight; and F12 queues an availability toggle that only succeeds on the peer holding State Authority and is applied by the container in `FixedUpdateNetwork`. Press F8 together with F9, F10 or F11 to guarantee both envelopes arrive before the next simulation tick. In a non-development release the class remains loadable but disables itself and performs no input or searches.
 
 ## Risks and validation
 
 Catalogs must be identical across peers because transport indices are catalog-local. Invalid success envelopes are rejected at the transport boundary. Missing/disabled random configuration, invalid tables, weight overflow and impossible capacities skip only the Loot group. A callback or initialization failure triggers authoritative compensating despawn. Registry conflicts leave containers unavailable and therefore invalidate the production spawn instead of leaving an orphan.
+
+Edit Mode prefab tests cover the shared root, single `NetworkObject`,
+initially unavailable empty container, dedicated interaction trigger and
+baked network behaviours for the base, melee and ranged player prefabs. Shared
+runtime `EntityId` is verified only in Play Mode. Single Runner Play Mode tests
+cover the alive-to-defeated availability transition,
+generic interaction resolution, local confirmed opening, full-stack transfer,
+change-sequence refresh, persistent empty state, distance close, despawn
+unregistration and shutdown cleanup. These tests do not establish multi-peer
+replication or visual correctness.
+
+Host/Client validation remains required for replicated contents and
+availability, real client interaction, two clients competing for one stack,
+out-of-range rejection across peers, disconnect cleanup, a second session in
+the same process, and the final visual transition and pose.
 
 Automated coverage targets initialization rules, registry atomicity, transaction order, queue/idempotency semantics and prefab composition. Host/Client placement, range, capacity, competition, availability, feedback and session cleanup still require the manual development harness flow.

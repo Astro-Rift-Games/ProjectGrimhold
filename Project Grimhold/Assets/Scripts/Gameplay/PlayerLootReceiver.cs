@@ -420,6 +420,52 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     }
 
     /// <summary>
+    /// Checks whether the replicated inventory still exactly matches a previously
+    /// captured snapshot without mutating any loot state.
+    /// </summary>
+    internal bool TryMatchesExactContent(IReadOnlyList<LootEntry> expected, out string error)
+    {
+        error = null;
+        if (!TryGetLootContent(out IReadOnlyList<LootEntry> current))
+        {
+            error = "Current inventory cannot be resolved completely.";
+            return false;
+        }
+
+        return TryCompareExactContent(expected, current, out error);
+    }
+
+    /// <summary>
+    /// Clears the complete inventory only when it still exactly matches a snapshot
+    /// captured earlier in the same authoritative transaction.
+    /// </summary>
+    internal bool TryClearExactContent(IReadOnlyList<LootEntry> expected, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority)
+        {
+            error = "State Authority is required.";
+            return false;
+        }
+
+        if (!TryGetLootContent(out IReadOnlyList<LootEntry> current) ||
+            !TryCompareExactContent(expected, current, out error))
+        {
+            error ??= "Current inventory cannot be resolved completely.";
+            return false;
+        }
+
+        if (current.Count == 0)
+        {
+            return true;
+        }
+
+        LootInventory.Clear();
+        LootChangeSequence++;
+        return true;
+    }
+
+    /// <summary>
     /// Calculates the current extraction value from replicated quantities and local definitions.
     /// The total is derived and is never stored as separate mutable network state.
     /// </summary>
@@ -474,6 +520,48 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         definition = null;
         return _lootCatalog != null && _lootCatalog.TryGet(lootId.Value, out definition);
+    }
+
+    private static bool TryCompareExactContent(
+        IReadOnlyList<LootEntry> expected,
+        IReadOnlyList<LootEntry> current,
+        out string error)
+    {
+        error = null;
+        if (expected == null || current == null || expected.Count != current.Count)
+        {
+            error = "Snapshot count differs from the current inventory.";
+            return false;
+        }
+
+        var expectedIds = new HashSet<LootId>();
+        for (int index = 0; index < expected.Count; index++)
+        {
+            LootEntry entry = expected[index];
+            if (!entry.IsValid || !expectedIds.Add(entry.LootId))
+            {
+                error = "Snapshot contains an invalid or duplicate stack.";
+                return false;
+            }
+
+            bool found = false;
+            for (int currentIndex = 0; currentIndex < current.Count; currentIndex++)
+            {
+                if (current[currentIndex].Equals(entry))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                error = "Snapshot content differs from the current inventory.";
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool ValidateDependencies()

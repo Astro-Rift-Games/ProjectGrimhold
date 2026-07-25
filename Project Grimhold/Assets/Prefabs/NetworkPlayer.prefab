@@ -361,6 +361,10 @@ GameObject:
   - component: {fileID: 8800000000000000001}
   - component: {fileID: 8800000000000000002}
   - component: {fileID: 8800000000000000003}
+  - component: {fileID: 4100000000000000101}
+  - component: {fileID: 4100000000000000102}
+  - component: {fileID: 4100000000000000103}
+  - component: {fileID: 4100000000000000104}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -385,6 +389,7 @@ Transform:
   - {fileID: 5496709202239764530}
   - {fileID: 3964075307184218784}
   - {fileID: 8800000000000000101}
+  - {fileID: 4100000000000000105}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &729366679366126330
@@ -695,6 +700,147 @@ MonoBehaviour:
   _characterSource: {fileID: 729366679366126330}
   _querySource: {fileID: 3133108637029622038}
   _interactionOrigin: {fileID: 2520259848855165086}
+--- !u!114 &4100000000000000101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e8d9c0b1a2f4d5e8c9b0a1d2e3f4a5b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCorpseGenerationController
+  _lootReceiver: {fileID: 3651456422916611865}
+  _lootContainer: {fileID: 4100000000000000102}
+  _State: 0
+--- !u!114 &4100000000000000102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+  _slotCapacity: 16
+  _startsAvailable: 0
+  _initialContent: []
+  _interactionColliders:
+  - {fileID: 4100000000000000106}
+  _IsInitialized:
+    RawValue: 0
+  _IsAvailable:
+    RawValue: 0
+  _LootChangeSequence: 0
+--- !u!114 &4100000000000000103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
+--- !u!114 &4100000000000000104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21db0beaf3cc4a7b86d572c82d706f81, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
+  _promptText: "Saquear cad\xE1ver"
+--- !u!1 &4100000000000000105
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4100000000000000107}
+  - component: {fileID: 4100000000000000106}
+  m_Layer: 8
+  m_Name: CorpseLootInteraction
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4100000000000000107
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4100000000000000105}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2520259848855165086}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!61 &4100000000000000106
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4100000000000000105}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: -0.4}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1.1, y: 0.8}
+  m_EdgeRadius: 0
 --- !u!61 &4462333045026223586
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -798,6 +944,9 @@ MonoBehaviour:
   - {fileID: 8800000000000000001}
   - {fileID: 8800000000000000002}
   - {fileID: 8800000000000000003}
+  - {fileID: 4100000000000000101}
+  - {fileID: 4100000000000000102}
+  - {fileID: 4100000000000000103}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:

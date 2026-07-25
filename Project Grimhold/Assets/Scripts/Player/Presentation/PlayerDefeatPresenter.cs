@@ -7,4 +7,5 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerDefeatPresenter : DefeatPresenterBase
 {
+    protected override bool HideBodyVisualAfterTransition => false;
 }

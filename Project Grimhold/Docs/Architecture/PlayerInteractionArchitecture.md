@@ -88,6 +88,8 @@ State Authority sends each result through a reliable RPC directed to Input Autho
 
 The adapter accepts initialized and available containers even when empty. `Interact` runs only under State Authority, returns a successful non-consumed result, and never changes contents, availability, `LootChangeSequence` or object lifecycle. Invalid prefab composition is diagnosed once and disabled.
 
+The defeated `NetworkPlayer` is one composition of this generic endpoint, not a separate interaction type. While the player is alive its co-located container is initialized but unavailable, so the adapter rejects it. After `PlayerCorpseGenerationController` completes the authoritative inventory handoff, the same adapter and `EntityId` become eligible. Emptying the container does not disable interaction, close presentation, or despawn the player.
+
 The confirmed event is only an opening signal. `RaidInventoryPresenter` requires the exact adapter/container composition and registry mapping before entering loot mode; merely finding a container on another successful interactable is insufficient. It deduplicates sequences per bound player object and advances its baseline even for failures, while a failed result leaves the current mode unchanged.
 
 When in loot mode, a subsequent press of the interaction input raises `PlayerInputReader.InteractPressedLocally`. `RaidInventoryPresenter` catches this local event to close the UI immediately without executing gameplay, sending RPCs, calling `Interact()`, or modifying container state. The closing press is consumed locally and suppressed from network transport.

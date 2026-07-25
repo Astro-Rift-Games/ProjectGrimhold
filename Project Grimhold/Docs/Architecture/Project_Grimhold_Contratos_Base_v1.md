@@ -270,9 +270,11 @@ The `NetworkDictionary` capacity of 64 used by `PlayerLootReceiver` and `Network
 
 State Authority is the only writer. Reception stacks an existing ID regardless of occupied-slot count and rejects a new ID with `InventoryFull` only when the configured gameplay capacity is full. Extraction requires the complete requested quantity, removes an entry when its remainder reaches zero, and never stores zero or negative quantities. Both successful commits increment `LootChangeSequence`, allowing Input Authority presentation to refresh from the replicated read-only snapshot.
 
-The temporary inventory has the same lifecycle as the player's `NetworkObject`. Player despawn or runner shutdown destroys its replicated contents, local presentation queues are cleared during despawn, and a player spawned in a later session starts from an empty network collection. No loot state is persisted in static fields, services, or `ScriptableObject` assets.
+The temporary inventory has the same lifecycle as the player's `NetworkObject`. On authoritative defeat, `PlayerCorpseGenerationController` copies and verifies its snapshot in the unavailable `NetworkLootContainer` co-located on that same object, clears the receiver exactly once, and only then makes the source available. Player despawn or runner shutdown destroys both replicated collections with that object, local presentation queues are cleared during despawn, and a player spawned in a later session starts from empty network collections. No loot state is persisted in static fields, services, or `ScriptableObject` assets.
 
 `NetworkLootContainer` is a reusable source implementing extraction, quantity, content and slot-capacity reads. It is not a receiver or interactable. State Authority owns its replicated catalog-index quantities, initialization, availability and change sequence. Availability is independent of emptiness and changing it does not mutate content or the sequence.
+
+`NetworkLootContainerInteractable` is the same-root interaction adapter and registers only the `IInteractable` capability. A defeated player, defeated enemy, or chest enters the same interaction and transfer contracts through composition; none receives a specialized corpse identity, RPC, transaction, controller, registry route, or screen mode. An available empty container remains available and its owning object is not despawned by the loot contract.
 
 ## 10. Loot prevalidation and commit protocol
 

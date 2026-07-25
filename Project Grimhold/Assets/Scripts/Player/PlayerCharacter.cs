@@ -7,4 +7,49 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerCharacter : CharacterBase
 {
+    [SerializeField]
+    private PlayerCorpseGenerationController _corpseGenerationController;
+
+    protected override void Awake()
+    {
+        base.Awake();
+        CacheDependencies();
+    }
+
+    /// <summary>
+    /// Starts the authoritative player-corpse transaction after this character's
+    /// health has transitioned to zero through the shared damage pipeline.
+    /// </summary>
+    protected override void HandleDeath()
+    {
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        if (_corpseGenerationController == null)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerCharacter)} requires {nameof(PlayerCorpseGenerationController)} on the player object.",
+                this);
+            return;
+        }
+
+        _corpseGenerationController.TryConvertInventoryToCorpseLoot(Runner.Tick);
+    }
+
+    private void CacheDependencies()
+    {
+        if (_corpseGenerationController == null)
+        {
+            _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();
+        }
+    }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        CacheDependencies();
+    }
+#endif
 }
