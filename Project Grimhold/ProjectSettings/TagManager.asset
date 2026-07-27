@@ -42,7 +42,10 @@ TagManager:
     uniqueID: 0
     locked: 0
   - name: Characters
-    uniqueID: -605295079
+    uniqueID: 3689672217
+    locked: 0
+  - name: Traps
+    uniqueID: 3743230825
     locked: 0
   m_RenderingLayers:
   - Default
