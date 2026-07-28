@@ -266,8 +266,8 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9d910ae83df23f349b9de4ed7bf65246, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CombatPresenter
-  _combatControllerSource: {fileID: 7201000000000000004}
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyCombatPresenter
+  _combatControllerSource: {fileID: 3988879926097982634}
   _animatorViewSource: {fileID: 4438265232833103325}
   _weaponPivot: {fileID: 6727737383359403759}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}

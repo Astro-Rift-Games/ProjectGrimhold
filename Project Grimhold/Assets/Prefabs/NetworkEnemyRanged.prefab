@@ -79,14 +79,14 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[6]'
       value: 
-      objectReference: {fileID: 8200000000000000001}
+      objectReference: {fileID: 7068343866482993938}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[7]'
-      value:
-      objectReference: {fileID: 8200000000000000002}
+      value: 
+      objectReference: {fileID: 7068343866482993939}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[8]'
-      value:
+      value: 
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3988879926097982634, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _activeAttackSource
@@ -99,6 +99,22 @@ PrefabInstance:
     - target: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Name
       value: NetworkEnemyRanged
+      objectReference: {fileID: 0}
+    - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -6559632274070172584, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
+    - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9200230494000326815, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _animatorViewSource
@@ -203,28 +219,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
   _config: {fileID: 11400000, guid: 72c2830a8240480099febce01129a88f, type: 2}
   _damageResolverSource: {fileID: 474837780548594562}
---- !u!114 &8200000000000000001 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7201000000000000010, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
-  m_PrefabInstance: {fileID: 142103171782748952}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4421098701350888620}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
---- !u!114 &8200000000000000002 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7201000000000000011, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
-  m_PrefabInstance: {fileID: 142103171782748952}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4421098701350888620}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
 --- !u!114 &4965198276244417589 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4980760815071069997, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -236,3 +230,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88b501246baa3da4ba0021fa26573d65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyCharacter
+--- !u!114 &7068343866482993938 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7201000000000000010, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
+--- !u!114 &7068343866482993939 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7201000000000000011, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
