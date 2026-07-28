@@ -143,14 +143,6 @@ BlendTree:
     m_DirectBlendParameter: MoveX
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: 076c3e4728162f046ac7a4545a515bf7, type: 2}
-    m_Threshold: 0.2857143
-    m_Position: {x: 1, y: 0}
-    m_TimeScale: 1
-    m_CycleOffset: 0
-    m_DirectBlendParameter: MoveX
-    m_Mirror: 0
-  - serializedVersion: 2
     m_Motion: {fileID: 7400000, guid: 75173b4601f939243b9611d5e1d35cb6, type: 2}
     m_Threshold: 0.42857143
     m_Position: {x: 0.707, y: -0.707}
@@ -170,14 +162,6 @@ BlendTree:
     m_Motion: {fileID: 7400000, guid: a200a8661bc524848be2b328839cdf41, type: 2}
     m_Threshold: 0.71428573
     m_Position: {x: -0.707, y: -0.707}
-    m_TimeScale: 1
-    m_CycleOffset: 0
-    m_DirectBlendParameter: MoveX
-    m_Mirror: 0
-  - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: 33c0660ecec918c439a409548b121177, type: 2}
-    m_Threshold: 0.85714287
-    m_Position: {x: -1, y: 0}
     m_TimeScale: 1
     m_CycleOffset: 0
     m_DirectBlendParameter: MoveX
@@ -249,14 +233,6 @@ BlendTree:
     m_DirectBlendParameter: MoveX
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: 485a86766063ffb49979c9a30450bef2, type: 2}
-    m_Threshold: 0.2857143
-    m_Position: {x: 1, y: 0}
-    m_TimeScale: 1
-    m_CycleOffset: 0
-    m_DirectBlendParameter: MoveX
-    m_Mirror: 0
-  - serializedVersion: 2
     m_Motion: {fileID: 7400000, guid: b332d40d9a0c8984e9c0978ab1ac0963, type: 2}
     m_Threshold: 0.42857143
     m_Position: {x: 0.707, y: -0.707}
@@ -276,14 +252,6 @@ BlendTree:
     m_Motion: {fileID: 7400000, guid: ad5d6ee456427204e9d7fa28b87787cf, type: 2}
     m_Threshold: 0.71428573
     m_Position: {x: -0.707, y: -0.707}
-    m_TimeScale: 1
-    m_CycleOffset: 0
-    m_DirectBlendParameter: MoveX
-    m_Mirror: 0
-  - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: 8ad2f26ffa2914f439f75f6de9b3f413, type: 2}
-    m_Threshold: 0.85714287
-    m_Position: {x: -1, y: 0}
     m_TimeScale: 1
     m_CycleOffset: 0
     m_DirectBlendParameter: MoveX
