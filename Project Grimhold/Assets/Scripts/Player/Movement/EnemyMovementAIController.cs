@@ -130,9 +130,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         _moveSpeed = IsOnPursuit ? PursuitSpeed : _patrolSpeed;
 
-        return Vector2.ClampMagnitude(
-            decision,
-            1f) * _moveSpeed;
+        return decision.normalized;
     }
 
     private bool DecideDirection(out Vector2 decision)
