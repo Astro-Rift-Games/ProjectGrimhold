@@ -1,78 +1,105 @@
 using Fusion;
-using System.Collections;
 using UnityEngine;
 
-public class BaseTrap : MonoBehaviour
+/// <summary>
+/// Componente de red base para trampas de escenario.
+/// Administra la máquina de estados de la trampa en FixedUpdateNetwork impulsada por State Authority.
+/// </summary>
+public class BaseTrap : NetworkBehaviour
 {
     [SerializeField] protected TrapInfo trapInfo;
-    [SerializeField] SpriteRenderer spriteRenderer;
+    [SerializeField] protected SpriteRenderer spriteRenderer;
 
-    [Networked]
-    private float _lastActivation { get; set; }
+    [Networked] public TrapState State { get; private set; }
+    [Networked] private TickTimer PhaseTimer { get; set; }
 
-    protected virtual void Awake()
+    private bool _triggerEntered;
+
+    public override void Spawned()
     {
-        trapInfo.SetState(TrapState.Ready);
-        _lastActivation = Time.time;
+        if (trapInfo == null)
+        {
+            Debug.LogError($"{nameof(BaseTrap)}: Falta la configuración TrapInfo en {gameObject.name}.", this);
+            return;
+        }
+
+        if (HasStateAuthority)
+        {
+            State = TrapState.Ready;
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (trapInfo == null) return;
-        if (!trapInfo.IsReady) return;
-
-        StartCoroutine(ActionTrap());
+        // Únicamente la autoridad de estado (Host) procesa la activación del trigger
+        if (!HasStateAuthority || State != TrapState.Ready) return;
+        _triggerEntered = true;
     }
 
-    protected virtual IEnumerator ActionTrap()
+    public override void FixedUpdateNetwork()
     {
-        Prepare();
-        yield return new WaitForSeconds(trapInfo.activationTime);
-        Activate();
-        yield return new WaitForSeconds(trapInfo.resetTime);
-        Deactivate();
-        yield return new WaitForSeconds(trapInfo.cooldown);
-        ResetTrap();
+        if (!HasStateAuthority || trapInfo == null) return;
+
+        switch (State)
+        {
+            case TrapState.Ready:
+                if (_triggerEntered)
+                {
+                    _triggerEntered = false;
+                    EnterPhase(TrapState.Telegraphing, trapInfo.activationTime);
+                    OnEnterTelegraphing();
+                }
+                break;
+
+            case TrapState.Telegraphing:
+                if (PhaseTimer.ExpiredOrNotRunning(Runner))
+                {
+                    EnterPhase(TrapState.Active, trapInfo.resetTime);
+                    OnEnterActive();
+                }
+                break;
+
+            case TrapState.Active:
+                UpdateActive();
+                if (PhaseTimer.ExpiredOrNotRunning(Runner))
+                {
+                    EnterPhase(TrapState.InCooldown, trapInfo.cooldown);
+                    OnEnterCooldown();
+                }
+                break;
+
+            case TrapState.InCooldown:
+                if (PhaseTimer.ExpiredOrNotRunning(Runner))
+                {
+                    State = TrapState.Ready;
+                    OnEnterReady();
+                }
+                break;
+        }
     }
 
-    protected virtual void Prepare()
+    private void EnterPhase(TrapState newState, float duration)
     {
-        if (trapInfo == null) return;
-        trapInfo.SetState(TrapState.Telegraphing);
-
-        //TO-DO: Add animation
-        //TO-DO: Add SFX
-        spriteRenderer.color = Color.yellow;
+        State = newState;
+        PhaseTimer = TickTimer.CreateFromSeconds(Runner, duration);
     }
 
-    protected virtual void Activate()
+    protected virtual void OnEnterTelegraphing() { }
+    protected virtual void OnEnterActive() { }
+    protected virtual void UpdateActive() { }
+    protected virtual void OnEnterCooldown() { }
+    protected virtual void OnEnterReady() { }
+
+    public override void Render()
     {
-        if (trapInfo == null) return;
-        trapInfo.SetState(TrapState.Active);
+        if (spriteRenderer == null) return;
 
-        //TO-DO: Add animation
-        //TO-DO: Add SFX
-        spriteRenderer.color = Color.red;
-    }
-
-    protected virtual void Deactivate()
-    {
-        if (trapInfo == null) return;
-        _lastActivation = Time.time;
-        trapInfo.SetState(TrapState.InCooldown);
-
-        //TO-DO: Add animation
-        //TO-DO: Add SFX
-        spriteRenderer.color = Color.gray3;
-    }
-
-    protected virtual void ResetTrap()
-    {
-        if (trapInfo == null) return;
-        trapInfo.SetState(TrapState.Ready);
-
-        //TO-DO: Add animation
-        //TO-DO: Add SFX
-        spriteRenderer.color = Color.green;
+        spriteRenderer.color = State switch
+        {
+            TrapState.Telegraphing => Color.yellow,
+            TrapState.Active       => Color.red,
+            TrapState.InCooldown   => Color.gray,
+            _                      => Color.green
+        };
     }
 }

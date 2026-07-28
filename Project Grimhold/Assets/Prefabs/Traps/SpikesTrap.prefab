@@ -141,6 +141,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 7796858658091999353}
+  - {fileID: -8360644786557947493}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &-8360644786557947493
 MonoBehaviour:
@@ -156,6 +157,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpikesTrap
   trapInfo: {fileID: 11400000, guid: d526f68a7a654b348b8ba8d11fe72dde, type: 2}
   spriteRenderer: {fileID: 2444855316735573926}
+  _State: 0
 --- !u!1 &8219318027016013665
 GameObject:
   m_ObjectHideFlags: 0

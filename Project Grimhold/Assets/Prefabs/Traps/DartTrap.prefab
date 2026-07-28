@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 9074066012376460917}
   - component: {fileID: 2245022245777828097}
   - component: {fileID: 4222689577850092183}
+  - component: {fileID: 4357536583330511076}
+  - component: {fileID: 637749287531242511}
   m_Layer: 0
   m_Name: DartTrap
   m_TagString: Untagged
@@ -96,6 +98,9 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 4434253699454741021}
+  - {fileID: 2245022245777828097}
+  - {fileID: 4357536583330511076}
+  - {fileID: 637749287531242511}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &2245022245777828097
 MonoBehaviour:
@@ -109,13 +114,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c88f312ed8ccf454cbf19af622533d48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DartTrap
-  trapInfo: {fileID: 0}
-  spriteRenderer: {fileID: 0}
-  _direction: {x: 0, y: 0}
-  _dartPrefab: {fileID: 0}
-  _dartsAmount: 0
-  _cooldown: 0
-  _refPoint: {fileID: 0}
+  trapInfo: {fileID: 11400000, guid: 6d8932f95ca979c4db9be8e1d28ded3e, type: 2}
+  spriteRenderer: {fileID: 2611892531448910942}
+  _State: 0
+  _direction: {x: 0, y: -1}
+  _dartsAmount: 3
+  _dartInterval: 0.125
+  _refPoint: {fileID: 989575695702234616}
+  _attackConfig: {fileID: 11400000, guid: 88b60be19822e0544b2f90caa14d7af2, type: 2}
+  _projectileSpawner: {fileID: 4357536583330511076}
 --- !u!61 &4222689577850092183
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -162,6 +169,32 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &4357536583330511076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 821147236289366688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94978841ce6b54e4d993548e1fcdb9cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
+  _config: {fileID: 11400000, guid: 88b60be19822e0544b2f90caa14d7af2, type: 2}
+  _damageResolverSource: {fileID: 637749287531242511}
+--- !u!114 &637749287531242511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 821147236289366688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba6e9ecc0c8b7a941af085f53dd307e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DamageResolver
 --- !u!1 &2995710529447935909
 GameObject:
   m_ObjectHideFlags: 0
