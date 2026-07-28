@@ -37,6 +37,19 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
         {
             _damageResolver = _damageResolverSource as IDamageResolver;
         }
+
+        if (_damageResolver == null)
+        {
+            _damageResolver = GetComponent<IDamageResolver>() ?? GetComponentInChildren<IDamageResolver>() ?? GetComponentInParent<IDamageResolver>();
+            if (_damageResolver == null)
+            {
+                _damageResolver = FindAnyObjectByType<DamageResolver>(FindObjectsInactive.Exclude);
+            }
+            if (_damageResolver is MonoBehaviour spawnerMb)
+            {
+                _damageResolverSource = spawnerMb;
+            }
+        }
     }
 
     /// <summary>
