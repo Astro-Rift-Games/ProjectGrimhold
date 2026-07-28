@@ -52,6 +52,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private NetworkLootContainerInteractable _containerInteractable;
     private Collider2D[] _containerColliders = Array.Empty<Collider2D>();
 
+    public bool IsOpen => _mode != ScreenMode.Closed;
+
     public void Bind(
         PlayerLootReceiver lootReceiver,
         PlayerInputReader inputReader,
@@ -236,14 +238,15 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         OpenPersonalInventory();
     }
 
-    private void OnInventoryCloseRequested()
+    private bool OnInventoryCloseRequested()
     {
         if (_mode == ScreenMode.Closed)
         {
-            return;
+            return false;
         }
 
         Close();
+        return true;
     }
 
     private void OnInteractPressedLocally()

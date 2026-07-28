@@ -133,7 +133,7 @@ namespace Assets.Tests.PlayMode.Player
         public void InventoryClose_RemainsAvailableDuringSuppression()
         {
             int closeCount = 0;
-            _reader.InventoryCloseRequested += () => closeCount++;
+            _reader.InventoryCloseRequested += () => { closeCount++; return true; };
             using IDisposable suppression = _reader.AcquireGameplayInputSuppression();
 
             SetKey(Key.Escape, true);

@@ -129,7 +129,7 @@ namespace Tests.PlayMode.Presentation
             IDisposable suppression = _inputReader.AcquireGameplayInputSuppression();
             SetPresenterField(_presenter, "_inputSuppression", suppression);
 
-            Action closeHandler = () => InvokeMethod(_presenter, "OnInventoryCloseRequested");
+            Func<bool> closeHandler = () => (bool)InvokeMethod(_presenter, "OnInventoryCloseRequested");
             _inputReader.InventoryCloseRequested += closeHandler;
             try
             {
@@ -151,7 +151,7 @@ namespace Tests.PlayMode.Presentation
             SetPresenterMode(_presenter, 0);
             SetViewScreenVisible(_view, false);
 
-            Action closeHandler = () => InvokeMethod(_presenter, "OnInventoryCloseRequested");
+            Func<bool> closeHandler = () => (bool)InvokeMethod(_presenter, "OnInventoryCloseRequested");
             _inputReader.InventoryCloseRequested += closeHandler;
             try
             {
@@ -341,11 +341,11 @@ namespace Tests.PlayMode.Presentation
             view.SetContainerPanelVisible(visible);
         }
 
-        private static void InvokeMethod(object target, string methodName)
+        private static object InvokeMethod(object target, string methodName)
         {
             MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             Assert.That(method, Is.Not.Null);
-            method.Invoke(target, null);
+            return method.Invoke(target, null);
         }
 
         private static int ReadSuppressionCount(PlayerInputReader reader)

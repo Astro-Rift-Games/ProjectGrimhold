@@ -40,9 +40,15 @@ public sealed class PlayerInputReader : MonoBehaviour
 
     /// <summary>
     /// Raised for the local-only action that requests closing the raid inventory.
+    /// Returns true if an open inventory screen consumed the close request.
     /// It never opens a closed inventory and is not included in network input.
     /// </summary>
-    public event Action InventoryCloseRequested;
+    public event Func<bool> InventoryCloseRequested;
+
+    /// <summary>
+    /// Raised for the local-only action that requests toggling the local menu.
+    /// </summary>
+    public event Action MenuToggleRequested;
 
     /// <summary>
     /// Raised for the local-only interaction press edge.
@@ -120,7 +126,22 @@ public sealed class PlayerInputReader : MonoBehaviour
 
     private void OnCloseInventoryPerformed(InputAction.CallbackContext context)
     {
-        InventoryCloseRequested?.Invoke();
+        bool consumedByInventory = false;
+        if (InventoryCloseRequested != null)
+        {
+            foreach (Func<bool> handler in InventoryCloseRequested.GetInvocationList())
+            {
+                if (handler.Invoke())
+                {
+                    consumedByInventory = true;
+                }
+            }
+        }
+
+        if (!consumedByInventory)
+        {
+            MenuToggleRequested?.Invoke();
+        }
     }
 
     private void OnInteractCanceled(InputAction.CallbackContext context)

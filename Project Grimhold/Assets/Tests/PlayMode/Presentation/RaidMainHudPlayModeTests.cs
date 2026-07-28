@@ -82,8 +82,19 @@ namespace Tests.PlayMode.Presentation
             Assert.That(binder, Is.Not.Null);
             var serializedBinder = new SerializedObject(binder);
             AssertObjectReference(serializedBinder, "_raidHudPresenter");
+            AssertObjectReference(serializedBinder, "_menuPresenter");
             AssertObjectReference(serializedBinder, "_playerCharacter");
             AssertObjectReference(serializedBinder, "_combatController");
+
+            Assert.That(prefab.GetComponentsInChildren<RaidMenuPresenter>(true), Has.Length.EqualTo(1));
+            RaidMenuView menuView = prefab.GetComponentInChildren<RaidMenuView>(true);
+            Assert.That(menuView, Is.Not.Null);
+            Assert.That(menuView.MenuRoot, Is.Not.Null);
+            Assert.That(menuView.TitleText, Is.Not.Null);
+            Assert.That(menuView.StatusText, Is.Not.Null);
+            Assert.That(menuView.ControlsText, Is.Not.Null);
+            Assert.That(menuView.ResumeButton, Is.Not.Null);
+            Assert.That(menuView.AbandonButton, Is.Not.Null);
 
             MonoBehaviour[] behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(true);
             for (int index = 0; index < behaviours.Length; index++)

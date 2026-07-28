@@ -24,6 +24,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidHudPresenter _raidHudPresenter;
 
     [SerializeField]
+    private RaidMenuPresenter _menuPresenter;
+
+    [SerializeField]
     private LocalInteractionCandidateSource _candidateSource;
 
     [SerializeField]
@@ -165,6 +168,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _inventoryPresenter.Unbind();
         }
 
+        if (_menuPresenter != null)
+        {
+            _menuPresenter.Unbind();
+        }
+
         _isBound = false;
         _isPlayerClassResolved = false;
         _missingJoinContextReported = false;
@@ -186,6 +194,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         }
 
         _inventoryPresenter.Unbind();
+        if (_menuPresenter != null)
+        {
+            _menuPresenter.Unbind();
+        }
+
         if (inputReader != null)
         {
             _inventoryPresenter.Bind(
@@ -195,6 +208,15 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _lootTransferController,
                 Runner,
                 transform);
+
+            if (_menuPresenter != null)
+            {
+                _menuPresenter.Bind(
+                    _playerCharacter,
+                    inputReader,
+                    _inventoryPresenter,
+                    Runner);
+            }
         }
     }
 
