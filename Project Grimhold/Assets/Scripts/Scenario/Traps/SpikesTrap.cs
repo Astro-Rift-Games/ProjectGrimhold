@@ -82,6 +82,7 @@ public sealed class SpikesTrap : BaseTrap
     /// </summary>
     protected override void OnEnterActive()
     {
+        base.OnEnterActive();
         ApplySpikeDamage();
     }
 

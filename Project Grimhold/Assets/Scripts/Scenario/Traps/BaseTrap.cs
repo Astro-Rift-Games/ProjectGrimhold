@@ -9,6 +9,7 @@ public class BaseTrap : NetworkBehaviour
 {
     [SerializeField] protected TrapInfo trapInfo;
     [SerializeField] protected SpriteRenderer spriteRenderer;
+    [SerializeField] protected Collider2D _detectionCol;
 
     [Networked] public TrapState State { get; private set; }
     [Networked] private TickTimer PhaseTimer { get; set; }
@@ -85,10 +86,16 @@ public class BaseTrap : NetworkBehaviour
     }
 
     protected virtual void OnEnterTelegraphing() { }
-    protected virtual void OnEnterActive() { }
+    protected virtual void OnEnterActive() 
+    {
+        _detectionCol.enabled = false;
+    }
     protected virtual void UpdateActive() { }
     protected virtual void OnEnterCooldown() { }
-    protected virtual void OnEnterReady() { }
+    protected virtual void OnEnterReady() 
+    {
+        _detectionCol.enabled = true;
+    }
 
     public override void Render()
     {

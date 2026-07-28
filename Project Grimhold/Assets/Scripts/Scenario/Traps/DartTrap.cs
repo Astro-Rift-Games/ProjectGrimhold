@@ -38,6 +38,7 @@ public sealed class DartTrap : BaseTrap
 
     protected override void OnEnterActive()
     {
+        base.OnEnterActive();
         DartsShot = 0;
         DartIntervalTimer = default;
     }
