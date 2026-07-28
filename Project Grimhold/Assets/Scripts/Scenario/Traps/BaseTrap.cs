@@ -4,8 +4,9 @@ using UnityEngine;
 
 public class BaseTrap : MonoBehaviour
 {
-    [SerializeField] TrapInfo trapInfo;
+    [SerializeField] protected TrapInfo trapInfo;
     [SerializeField] SpriteRenderer spriteRenderer;
+
     [Networked]
     private float _lastActivation { get; set; }
 
@@ -15,7 +16,7 @@ public class BaseTrap : MonoBehaviour
         _lastActivation = Time.time;
     }
 
-    protected virtual void OnTriggerEnter2D(Collider2D collision)
+    private void OnTriggerEnter2D(Collider2D collision)
     {
         if (trapInfo == null) return;
         if (!trapInfo.IsReady) return;
