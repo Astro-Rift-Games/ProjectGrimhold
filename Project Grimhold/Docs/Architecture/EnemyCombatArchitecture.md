@@ -75,3 +75,13 @@ To eliminate code duplication between Player and Enemy entities, presentation an
 4. **`CharacterAnimatorView`**: Shared base animator view for players and enemies.
 5. **`CombatPresenterBase`**: Shared base presenter for procedural attack animations (swings, arcs, weapon pivots).
 6. **`DefeatPresenterBase`**: Shared base presenter for procedural death transitions (rotation, alpha fadeout).
+
+---
+
+## Defeated Enemy Loot Persistence (`EnemyCharacter`)
+
+When an enemy is defeated (authoritative health reaches 0), `EnemyCharacter.HandleDeath()` handles the transition:
+* **No Secondary Corpse Prefab**: The defeated enemy remains the exact same network entity (`NetworkObject`), preserving its `NetworkId`, position, colliders, and initial pre-rolled loot dictionary.
+* **Simulation Termination**: State Authority disables movement (`_movementController.TrySetControlEnabled(false)`) and combat (`_combatController.TrySetAttackEnabled(false)`).
+* **Container Exposure**: Enables the co-located `NetworkLootContainer` availability (`_lootContainer.SetAvailability(true)`) during simulation, allowing nearby players to interact with and extract loot through the standard `LootInteractionArchitecture.md` flow.
+

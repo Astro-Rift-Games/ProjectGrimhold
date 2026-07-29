@@ -121,10 +121,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 6639360117638325445, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
     - target: {fileID: 4522316450052852347, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4522316450052852347, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
       objectReference: {fileID: 0}
@@ -135,6 +131,10 @@ PrefabInstance:
     - target: {fileID: 6727737383359403759, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7400000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: _weaponAngleCorrection
+      value: -135
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

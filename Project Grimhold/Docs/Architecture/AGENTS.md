@@ -52,6 +52,13 @@ Important documents to locate and read when relevant:
 
 - `PlayerMovementArchitecture.md`
 - `PlayerCombatArchitecture.md`
+- `EnemyCombatArchitecture.md`
+- `LootInteractionArchitecture.md`
+- `BreakableLootArchitecture.md`
+- `EnvironmentalHazardsArchitecture.md`
+- `RaidMainHudArchitecture.md`
+- `RaidInventoryUIArchitecture.md`
+- `SessionLifecycleAndSpawning.md`
 - `Project_Grimhold_Contratos_Base_v1.md`
 - Other files under `Docs/Architecture`
 - Task-specific walkthroughs or implementation plans committed to the repository

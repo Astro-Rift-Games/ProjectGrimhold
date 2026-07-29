@@ -82,6 +82,16 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 There is no raid-extraction gameplay dependency in TASK-39. The view always displays `Extracción: no disponible`; the presenter does not poll, simulate, or define an extraction contract. Connecting a future extraction system is a separate task and does not keep TASK-39 open.
 
+## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
+
+`RaidMenuPresenter` and `RaidMenuView` manage the local pause and defeat UI overlay on `LocalGameplayHud`:
+
+- **Input Suppression**: Opening the menu acquires a local gameplay input suppression token (`PlayerInputReader.AcquireGameplayInputSuppression`), preventing player movement and attack actions while navigating the menu overlay.
+- **Pause State (Living Player)**: Activated by pressing `Escape` / `Cancel` action (`MenuToggleRequested`). Displays basic control bindings and allows resuming gameplay or abandoning the raid.
+- **Defeat State (Defeated Player)**: Automatically observed when `!CharacterBase.IsAlive`. Displays defeat text, hides the Resume button, and retains input suppression so the local player cannot issue gameplay movement or combat commands.
+- **Session Abandonment**: Clicking "Abandon" invokes `AbandonRaidAsync()`, which calls `NetworkRunner.Shutdown()` asynchronously to clean up the Fusion session before loading `MainMenu`.
+
+
 ## Alternatives not selected
 
 - A loot-value calculator or projection object would duplicate existing public behavior and add no variation point.

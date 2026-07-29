@@ -228,6 +228,71 @@ destruction. See `Docs/Architecture/BreakableLootArchitecture.md`.
 
 The combat system coordinates gameplay state with the visual presentation layer through decoupled events and synchronized networked variables. This ensures visual changes have zero impact on the simulation's determinism.
 
+### Shared Player Hand and Weapon Composition
+
+`NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and the shared visual
+hierarchy `Body/HandOrbitAnchor` plus
+`CombatVisuals/HandPivot/{HandVisual, WeaponSprite}`. Both
+`NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` inherit that same
+component and hierarchy. Variants may override only weapon-specific presentation
+data, such as the weapon sprite, stance offset, grip point, angular correction,
+and necessary weapon visual adjustments. They do not duplicate the presenter or
+the hand composition.
+
+The inherited attack-driven `PlayerCombatPresenter` is disabled on the base
+composition, so neither weapon variant runs an attack swing or alters the body
+Animator. Hand and weapon visuals remain enabled continuously during idle,
+movement, and ordinary combat presentation rather than appearing only when an
+attack is executed.
+
+The presenter reads the existing finite, normalized
+`PlayerMovementNetworkController.FacingDirection` through `IMovementState`. It
+does not capture input, add networked state, or write back to movement or combat.
+Every peer, including proxies, derives the same local presentation pose from the
+replicated facing. Invalid or zero presentation samples retain the presenter's
+last safe direction, with `Vector2.down` as its initial fallback. Unity may enable
+the visual hierarchy while Fusion is still instantiating the prefab; during that
+pre-spawn window the presenter applies the fallback pose and does not read the
+networked property until its source `NetworkBehaviour.Object` is valid.
+
+`HandOrbitAnchor` is presentation-only and is positioned manually over the
+torso. Because `Body` and `CombatVisuals` are separate branches, the presenter
+converts the anchor world position into the local space of `HandPivot.parent`.
+It then composes the pose in this order:
+
+```text
+base HandOrbitAnchor
+-> conversion to HandPivot parent space
+-> shared elliptical hand orbit
+-> variant weapon stance offset
+-> continuous facing rotation and shared reflection
+-> weapon grip aligned to the hand pivot
+```
+
+The body origin and sprite bounds are not presentation centers. Moving the
+anchor moves the complete orbit without introducing a second center. `HandVisual`
+and `WeaponSprite` remain children of `HandPivot`, so a left-hemisphere reflection
+applies to both as one composition. The weapon local position is derived from its
+configured grip point after weapon scale and angular correction, keeping that
+grip at the pivot through rotation and reflection.
+
+Visual authoring keeps those responsibilities explicit. The hand sprite is
+imported with its pivot at the visual center, so the shared prefab normally uses
+a zero hand visual offset; `_handVisualOffset` remains an optional relative art
+correction rather than another orbit center. `_weaponGripPoint` is serialized in
+the weapon sprite's local units and is overridden on the player variant when its
+weapon art changes. It identifies the point inside the visible handle that must
+coincide with `HandPivot`, so grip tuning remains prefab configuration instead of
+a code constant. Weapon stance offsets move the complete hand-and-weapon pose and
+must not be used to compensate for an incorrect internal grip.
+
+The continuous weapon pose does not depend on adding East or West body clips;
+the existing N, NE, SE, S, SW, and NW Animator directions remain unchanged. Both
+renderers stay on the existing `Characters` Sorting Layer and use the established
+front/back relative orders. The hand renderer is always one relative order above
+the weapon renderer so the fingers cover the handle at their overlap. The body
+Animator remains the sole owner of body locomotion presentation.
+
 ### 1. Damage Feedback Visuals
 When a character takes damage (authoritatively confirmed by `Health` changes on State Authority):
 * Presentation components (`PlayerDamagePresenter`) trigger procedural feedback.
