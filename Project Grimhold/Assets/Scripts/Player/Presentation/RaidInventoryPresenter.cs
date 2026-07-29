@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
@@ -30,11 +31,15 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly RaidLootSelectionState _playerSelection = new();
     private readonly RaidLootSelectionState _containerSelection = new();
     private readonly RaidLootTakeAllState _takeAllState = new();
+    private readonly LootDropContextActionProvider _dropActionProvider = new();
+    private readonly List<ILootContextActionProvider> _contextActionProviders = new();
+    private readonly List<LootContextActionDescriptor> _contextActions = new();
 
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
     private PlayerInteractionNetworkController _interactionController;
     private PlayerLootTransferNetworkController _transferController;
+    private PlayerLootDropNetworkController _dropController;
     private NetworkRunner _runner;
     private Transform _localPlayerTransform;
     private EntityRegistry _registry;
@@ -49,6 +54,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private bool _playerValueFailureReported;
     private bool _takeAllHadFailure;
     private string _takeAllLastFailureMessage;
+    private LootContextActionContext _contextActionContext;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -63,15 +69,17 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PlayerInputReader inputReader,
         PlayerInteractionNetworkController interactionController,
         PlayerLootTransferNetworkController transferController,
+        PlayerLootDropNetworkController dropController,
         NetworkRunner runner,
         Transform localPlayerTransform)
     {
         Unbind();
 
         if (lootReceiver == null || inputReader == null || interactionController == null ||
-            transferController == null || runner == null || localPlayerTransform == null ||
+            transferController == null || dropController == null || runner == null ||
+            localPlayerTransform == null ||
             _view == null || _view.PlayerPanel == null || _view.ContainerPanel == null ||
-            _lootCatalog == null || _interactionConfig == null)
+            _view.ContextMenu == null || _lootCatalog == null || _interactionConfig == null)
         {
             Debug.LogError($"{nameof(RaidInventoryPresenter)} has missing binding or serialized dependencies.", this);
             return;
@@ -81,6 +89,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _inputReader = inputReader;
         _interactionController = interactionController;
         _transferController = transferController;
+        _dropController = dropController;
+        _dropActionProvider.Bind(dropController);
+        _contextActionProviders.Clear();
+        _contextActionProviders.Add(_dropActionProvider);
         _runner = runner;
         _localPlayerTransform = localPlayerTransform;
         _registry = runner.GetComponent<EntityRegistry>();
@@ -118,6 +130,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     public void Close()
     {
         _mode = ScreenMode.Closed;
+        HideContextMenu();
         ClearContainerBinding();
         _view?.HideTransferFeedback();
         _view?.SetContainerPanelVisible(false);
@@ -196,9 +209,15 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _transferController.RequestInFlightChanged += OnRequestInFlightChanged;
         _transferController.TransportRejected += OnTransportRejected;
         _transferController.TransferConfirmed += OnTransferConfirmed;
+        _dropController.RequestInFlightChanged += OnDropRequestInFlightChanged;
+        _dropController.TransportRejected += OnDropTransportRejected;
+        _dropController.DropConfirmed += OnDropConfirmed;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
+        _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
         _view.TakeAllRequested += OnTakeAllRequested;
+        _view.ContextMenu.ActionRequested += OnContextActionRequested;
+        _view.ContextMenu.DismissRequested += OnContextMenuDismissRequested;
         _isSubscribed = true;
     }
 
@@ -228,9 +247,17 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _transferController.TransferConfirmed -= OnTransferConfirmed;
         }
 
+        if (_dropController != null)
+        {
+            _dropController.RequestInFlightChanged -= OnDropRequestInFlightChanged;
+            _dropController.TransportRejected -= OnDropTransportRejected;
+            _dropController.DropConfirmed -= OnDropConfirmed;
+        }
+
         if (_view != null && _view.PlayerPanel != null)
         {
             _view.PlayerPanel.SelectionRequested -= OnPlayerSlotSelected;
+            _view.PlayerPanel.ContextRequested -= OnPlayerSlotContextRequested;
         }
 
         if (_view != null && _view.ContainerPanel != null)
@@ -241,6 +268,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view != null)
         {
             _view.TakeAllRequested -= OnTakeAllRequested;
+            if (_view.ContextMenu != null)
+            {
+                _view.ContextMenu.ActionRequested -= OnContextActionRequested;
+                _view.ContextMenu.DismissRequested -= OnContextMenuDismissRequested;
+            }
         }
 
         _isSubscribed = false;
@@ -285,6 +317,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        HideContextMenu();
         ClearContainerBinding();
         _mode = ScreenMode.Personal;
         RefreshPlayerPanel();
@@ -312,6 +345,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void TryOpenConfirmedContainer(EntityId targetId)
     {
+        HideContextMenu();
         var networkId = new NetworkId { Raw = unchecked((uint)targetId.Value) };
         if (!_runner.TryFindObject(networkId, out NetworkObject networkObject) || networkObject == null ||
             networkObject.Id.Raw != networkId.Raw)
@@ -397,6 +431,115 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
             _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnPlayerSlotContextRequested(LootId lootId, Vector2 screenPosition)
+    {
+        if (_mode != ScreenMode.Personal || _dropController == null ||
+            _dropController.HasRequestInFlight ||
+            !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
+            !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
+            _lootCatalog == null || !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition))
+        {
+            HideContextMenu();
+            RefreshTransferInteraction();
+            return;
+        }
+
+        _contextActionContext = new LootContextActionContext(entry, definition);
+        _contextActions.Clear();
+        for (int i = 0; i < _contextActionProviders.Count; i++)
+        {
+            _contextActionProviders[i].CollectActions(_contextActionContext, _contextActions);
+        }
+
+        _view.HideTransferFeedback();
+        if (!_view.ContextMenu.Show(_contextActions, screenPosition))
+        {
+            HideContextMenu();
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnContextActionRequested(LootContextActionId actionId)
+    {
+        if (_mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
+            !TryGetEntry(
+                _playerPanelPresenter.OccupiedEntries,
+                _contextActionContext.Entry.LootId,
+                out LootEntry currentEntry))
+        {
+            HideContextMenu();
+            RefreshTransferInteraction();
+            return;
+        }
+
+        var currentContext = new LootContextActionContext(
+            currentEntry,
+            _contextActionContext.Definition);
+        bool executed = false;
+        for (int i = 0; i < _contextActions.Count; i++)
+        {
+            LootContextActionDescriptor descriptor = _contextActions[i];
+            if (descriptor.Id == actionId && descriptor.IsEnabled && descriptor.Provider != null)
+            {
+                executed = descriptor.Provider.TryExecute(actionId, currentContext);
+                break;
+            }
+        }
+
+        HideContextMenu();
+        if (!executed)
+        {
+            _view.ShowTransferFeedback("No se pudo solicitar el drop");
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnContextMenuDismissRequested()
+    {
+        HideContextMenu();
+        RefreshTransferInteraction();
+    }
+
+    private void OnDropRequestInFlightChanged(bool hasRequestInFlight)
+    {
+        if (hasRequestInFlight)
+        {
+            HideContextMenu();
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnDropTransportRejected(LootTransferTransportRejectionReason reason)
+    {
+        if (_mode == ScreenMode.Personal)
+        {
+            _view.ShowTransferFeedback(GetDropTransportRejectionMessage(reason));
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnDropConfirmed(LootDropConfirmation confirmation)
+    {
+        RefreshPlayerPanel();
+        if (_mode == ScreenMode.Personal)
+        {
+            if (confirmation.Result.Success)
+            {
+                _view.HideTransferFeedback();
+            }
+            else
+            {
+                _view.ShowTransferFeedback(GetDropFailureMessage(confirmation.Result.FailureReason));
+            }
         }
 
         RefreshTransferInteraction();
@@ -591,6 +734,36 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         };
     }
 
+    private static string GetDropFailureMessage(LootDropFailureReason reason)
+    {
+        return reason switch
+        {
+            LootDropFailureReason.PlayerUnavailable => "Jugador no disponible",
+            LootDropFailureReason.InvalidLoot => "Loot no válido",
+            LootDropFailureReason.InvalidAmount => "Cantidad no válida",
+            LootDropFailureReason.InsufficientAmount => "El stack ya no está disponible",
+            LootDropFailureReason.NoValidPosition => "No hay espacio para soltar el objeto",
+            LootDropFailureReason.SpawnFailed => "No se pudo crear el pickup",
+            LootDropFailureReason.MissingAuthority => "Drop sin autoridad",
+            _ => "No se pudo soltar el loot"
+        };
+    }
+
+    private static string GetDropTransportRejectionMessage(
+        LootTransferTransportRejectionReason reason)
+    {
+        return reason switch
+        {
+            LootTransferTransportRejectionReason.BusyWithDifferentSequence =>
+                "Hay otra solicitud de drop en curso",
+            LootTransferTransportRejectionReason.StaleSequence =>
+                "La solicitud de drop venció",
+            LootTransferTransportRejectionReason.DependenciesUnavailable =>
+                "El drop no está disponible",
+            _ => "No se pudo solicitar el drop"
+        };
+    }
+
     private void RefreshPlayerPanel()
     {
         if (!_isBound || _lootReceiver == null || _view == null || _view.PlayerPanel == null)
@@ -617,10 +790,16 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ReportPlayerValueFailureOnce();
         }
 
-        bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
+        bool transferInteractive = _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
+        RaidLootSlotInteractionMode interactionMode = _mode == ScreenMode.Personal &&
+            _dropController != null && !_dropController.HasRequestInFlight
+                ? RaidLootSlotInteractionMode.ContextMenu
+                : transferInteractive
+                    ? RaidLootSlotInteractionMode.Transfer
+                    : RaidLootSlotInteractionMode.ReadOnly;
         bool refreshed = _playerPanelPresenter.Refresh(
             _lootReceiver,
             _lootReceiver,
@@ -628,7 +807,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _view.PlayerPanel,
             totalValue,
             false,
-            interactive,
+            interactionMode,
             _playerSelection.SelectedLootId,
             this);
 
@@ -639,6 +818,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
+        if (_view.ContextMenu != null && _view.ContextMenu.IsOpen && !_playerSelection.HasSelection)
+        {
+            HideContextMenu();
+        }
     }
 
     private void RetryPlayerValue()
@@ -713,8 +896,18 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
-        _view.PlayerPanel.RefreshInteraction(interactive, _playerSelection.SelectedLootId);
-        _view.ContainerPanel.RefreshInteraction(interactive, _containerSelection.SelectedLootId);
+        RaidLootSlotInteractionMode playerMode = _mode == ScreenMode.Personal &&
+            _dropController != null && !_dropController.HasRequestInFlight
+                ? RaidLootSlotInteractionMode.ContextMenu
+                : interactive
+                    ? RaidLootSlotInteractionMode.Transfer
+                    : RaidLootSlotInteractionMode.ReadOnly;
+        _view.PlayerPanel.RefreshInteraction(playerMode, _playerSelection.SelectedLootId);
+        _view.ContainerPanel.RefreshInteraction(
+            interactive
+                ? RaidLootSlotInteractionMode.Transfer
+                : RaidLootSlotInteractionMode.ReadOnly,
+            _containerSelection.SelectedLootId);
         _view.SetTakeAllInteractable(
             interactive && HasTransferableEntries(_containerPanelPresenter.OccupiedEntries));
     }
@@ -798,6 +991,35 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _observedContainerLootSequence = 0;
     }
 
+    private void HideContextMenu()
+    {
+        _view?.ContextMenu?.Hide();
+        _contextActions.Clear();
+        _contextActionContext = default;
+        _playerSelection.Clear();
+    }
+
+    private static bool TryGetEntry(
+        IReadOnlyList<LootEntry> entries,
+        LootId lootId,
+        out LootEntry entry)
+    {
+        if (entries != null)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].IsValid && entries[i].LootId == lootId)
+                {
+                    entry = entries[i];
+                    return true;
+                }
+            }
+        }
+
+        entry = default;
+        return false;
+    }
+
     private void CancelTakeAll()
     {
         _takeAllState.Cancel();
@@ -812,6 +1034,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _inputReader = null;
         _interactionController = null;
         _transferController = null;
+        _dropController = null;
+        _dropActionProvider.Bind(null);
+        _contextActionProviders.Clear();
         _runner = null;
         _localPlayerTransform = null;
         _registry = null;

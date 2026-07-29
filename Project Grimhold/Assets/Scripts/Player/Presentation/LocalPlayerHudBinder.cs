@@ -44,6 +44,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     [SerializeField]
     private PlayerLootTransferNetworkController _lootTransferController;
 
+    [SerializeField]
+    private PlayerLootDropNetworkController _lootDropController;
+
     private bool _isBound;
     private bool _isPlayerClassResolved;
     private bool _missingJoinContextReported;
@@ -103,7 +106,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_hudRoot == null || _interactionPresenter == null || _lootPresenter == null ||
             _inventoryPresenter == null || _raidHudPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
-            _lootTransferController == null || _playerCharacter == null || _combatController == null)
+            _lootTransferController == null || _lootDropController == null ||
+            _playerCharacter == null || _combatController == null)
         {
             Debug.LogError($"{nameof(LocalPlayerHudBinder)} has missing HUD dependencies.", this);
             SetHudActive(false);
@@ -206,6 +210,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 inputReader,
                 _interactionController,
                 _lootTransferController,
+                _lootDropController,
                 Runner,
                 transform);
 

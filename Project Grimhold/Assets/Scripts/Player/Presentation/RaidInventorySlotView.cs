@@ -33,8 +33,10 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     private LootId _lootId;
     private bool _isOccupied;
+    private RaidLootSlotInteractionMode _interactionMode;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
+    public event Action<LootId, Vector2> ContextRequested;
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
 
@@ -106,9 +108,19 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     public void SetInteraction(bool interactable, bool selected)
     {
+        SetInteraction(
+            interactable
+                ? RaidLootSlotInteractionMode.Transfer
+                : RaidLootSlotInteractionMode.ReadOnly,
+            selected);
+    }
+
+    public void SetInteraction(RaidLootSlotInteractionMode mode, bool selected)
+    {
+        _interactionMode = _isOccupied ? mode : RaidLootSlotInteractionMode.ReadOnly;
         if (_button != null)
         {
-            _button.interactable = interactable && _isOccupied;
+            _button.interactable = _interactionMode != RaidLootSlotInteractionMode.ReadOnly;
         }
 
         if (_background != null)
@@ -119,7 +131,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     private void OnClicked()
     {
-        if (_isOccupied && _button != null && _button.interactable && _lootId.IsValid)
+        if (_interactionMode == RaidLootSlotInteractionMode.Transfer && _isOccupied &&
+            _button != null && _button.interactable && _lootId.IsValid)
         {
             SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.SingleUnit);
         }
@@ -137,6 +150,15 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
             return;
         }
 
-        SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
+        if (_interactionMode == RaidLootSlotInteractionMode.ContextMenu)
+        {
+            ContextRequested?.Invoke(_lootId, eventData.position);
+            return;
+        }
+
+        if (_interactionMode == RaidLootSlotInteractionMode.Transfer)
+        {
+            SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
+        }
     }
 }

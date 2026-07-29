@@ -2,7 +2,7 @@
 
 ## Context and decision
 
-TASK-32 replaces the provisional textual loot summary with a local uGUI slot screen. TASK-34 composes the player inventory and an inspected `NetworkLootContainer` in the same local screen. TASK-50 adds symmetric single-unit and full-stack mouse intentions in both transfer directions. TASK-51 adds a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
+TASK-32 replaces the provisional textual loot summary with a local uGUI slot screen. TASK-34 composes the player inventory and an inspected `NetworkLootContainer` in the same local screen. TASK-50 adds symmetric single-unit and full-stack mouse intentions in both transfer directions. TASK-51 adds a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. TASK-52 adds a provider-driven contextual menu to the personal inventory and an authoritative world-drop transaction, documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
 The local presentation flow is:
 
@@ -16,7 +16,7 @@ PlayerLootReceiver
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. A real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
+The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
 ## Slot projection and metadata
 

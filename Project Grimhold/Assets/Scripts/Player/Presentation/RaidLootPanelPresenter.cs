@@ -24,6 +24,31 @@ public sealed class RaidLootPanelPresenter
         LootId selectedLootId,
         Object logContext)
     {
+        return Refresh(
+            contentReader,
+            capacityReader,
+            catalog,
+            view,
+            totalValue,
+            showEmptyState,
+            interactive
+                ? RaidLootSlotInteractionMode.Transfer
+                : RaidLootSlotInteractionMode.ReadOnly,
+            selectedLootId,
+            logContext);
+    }
+
+    public bool Refresh(
+        ILootContentReader contentReader,
+        ILootSlotCapacityReader capacityReader,
+        LootDefinitionCatalog catalog,
+        RaidLootPanelView view,
+        long? totalValue,
+        bool showEmptyState,
+        RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId,
+        Object logContext)
+    {
         if (contentReader == null || capacityReader == null || catalog == null || view == null ||
             !view.EnsureSlotCount(capacityReader.SlotCapacity) ||
             !contentReader.TryGetLootContent(out IReadOnlyList<LootEntry> content) ||
@@ -55,7 +80,7 @@ public sealed class RaidLootPanelPresenter
         }
 
         bool showEmpty = showEmptyState && content.Count == 0;
-        if (!view.Present(_slotData, totalValue, showEmpty, interactive, selectedLootId))
+        if (!view.Present(_slotData, totalValue, showEmpty, interactionMode, selectedLootId))
         {
             view.ShowUnavailable();
             return false;

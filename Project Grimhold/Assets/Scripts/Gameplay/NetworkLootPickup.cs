@@ -32,6 +32,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     private NetworkBool IsConsumed { get; set; }
 
+    [Networked]
+    private NetworkBool IsPublished { get; set; }
+
     /// <summary>Whether replicated loot identity and quantity are ready for interaction.</summary>
     [Networked]
     public NetworkBool IsInitialized { get; private set; }
@@ -43,7 +46,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     private int SynchronizedAmount { get; set; }
 
-    public bool IsAvailable => !IsConsumed;
+    public bool IsAvailable => IsInitialized && IsPublished && !IsConsumed;
 
     public new EntityId Id => new EntityId(unchecked((int)Object.Id.Raw));
 
@@ -90,16 +93,21 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         RefreshResolvedLoot();
         _registry = Runner.GetComponent<EntityRegistry>();
-        if (_registry != null)
-        {
-            _registeredId = Id;
-            _isRegistered = _registry.TryRegisterEntity(_registeredId, this, _cachedColliders);
-        }
+        ApplyPublicationState();
+        RefreshRegistration();
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        ApplyPublicationState();
+        RefreshRegistration();
     }
 
     public override void Render()
     {
         RefreshResolvedLoot();
+        ApplyPublicationState();
+        RefreshRegistration();
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -113,6 +121,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _resolvedLootDefinition = null;
         _spawnContentOverride = default;
         _hasSpawnContentOverride = false;
+        _spawnStartsPublished = true;
     }
 
     /// <summary>
@@ -125,6 +134,19 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         NetworkObject expectedObject,
         in LootEntry entry)
     {
+        return TrySetSpawnContentOverride(runner, expectedObject, entry, true);
+    }
+
+    /// <summary>
+    /// Supplies spawn content and whether the pickup can immediately enter the world.
+    /// Inventory drops start unpublished until their source extraction commits.
+    /// </summary>
+    internal bool TrySetSpawnContentOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        in LootEntry entry,
+        bool initiallyPublished)
+    {
         if (_hasSpawnContentOverride || runner == null || !runner.IsServer ||
             expectedObject == null || expectedObject.gameObject != gameObject ||
             expectedObject.GetComponent<NetworkLootPickup>() != this ||
@@ -136,7 +158,33 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         _spawnContentOverride = entry;
         _hasSpawnContentOverride = true;
+        _spawnStartsPublished = initiallyPublished;
         return true;
+    }
+
+    /// <summary>
+    /// Prevalidates publication of a provisional inventory drop without mutating state.
+    /// </summary>
+    internal bool ValidateDropPublication(NetworkRunner runner, NetworkObject expectedObject)
+    {
+        return HasStateAuthority && runner == Runner && expectedObject == Object &&
+            IsInitialized && !IsPublished && !IsConsumed && _resolvedLootDefinition != null;
+    }
+
+    /// <summary>
+    /// Publishes a prevalidated provisional drop immediately after source extraction commits.
+    /// </summary>
+    internal void CommitDropPublication(NetworkRunner runner, NetworkObject expectedObject)
+    {
+        if (!ValidateDropPublication(runner, expectedObject))
+        {
+            throw new System.InvalidOperationException(
+                $"{nameof(NetworkLootPickup)} publication contract was violated.");
+        }
+
+        IsPublished = true;
+        ApplyPublicationState();
+        RefreshRegistration();
     }
 
     public bool CanInteract(in InteractionRequest request)
@@ -224,6 +272,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         LootCatalogIndex = catalogIndex;
         SynchronizedAmount = entry.Amount;
         IsConsumed = false;
+        IsPublished = _hasSpawnContentOverride ? _spawnStartsPublished : true;
         IsInitialized = true;
     }
 
@@ -262,6 +311,52 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         }
 
         _worldRenderer.sortingOrder = _sortingOrder;
+    }
+
+    private bool _spawnStartsPublished = true;
+
+    private void ApplyPublicationState()
+    {
+        bool published = IsPublished;
+        if (_worldRenderer != null)
+        {
+            _worldRenderer.enabled = published;
+        }
+
+        if (_cachedColliders == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _cachedColliders.Length; i++)
+        {
+            if (_cachedColliders[i] != null)
+            {
+                _cachedColliders[i].enabled = published;
+            }
+        }
+    }
+
+    private void RefreshRegistration()
+    {
+        if (!IsPublished)
+        {
+            if (_isRegistered && _registry != null)
+            {
+                _registry.TryUnregisterEntity(_registeredId, this);
+                _isRegistered = false;
+            }
+
+            return;
+        }
+
+        if (_isRegistered || _registry == null)
+        {
+            return;
+        }
+
+        _registeredId = Id;
+        _isRegistered = _registry.TryRegisterEntity(_registeredId, this, _cachedColliders);
     }
 
 #if UNITY_EDITOR

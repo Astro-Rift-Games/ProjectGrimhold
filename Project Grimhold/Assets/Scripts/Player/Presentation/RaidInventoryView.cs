@@ -27,6 +27,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private Button _takeAllButton;
 
+    [SerializeField]
+    private RaidLootContextMenuView _contextMenu;
+
     [SerializeField, Min(0f)]
     private float _transferFeedbackDuration = 1.5f;
 
@@ -44,6 +47,7 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     /// <summary>Gets the container take-all control for presentation verification.</summary>
     public Button TakeAllButton => _takeAllButton;
+    public RaidLootContextMenuView ContextMenu => _contextMenu;
 
     private void Awake()
     {
@@ -110,6 +114,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     {
         _playerPanel?.ClearContent();
         _containerPanel?.ClearContent();
+        _contextMenu?.Hide();
         HideTransferFeedback();
     }
 

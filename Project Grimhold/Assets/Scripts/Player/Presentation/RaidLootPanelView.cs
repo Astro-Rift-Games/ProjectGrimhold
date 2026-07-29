@@ -33,6 +33,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
     private readonly List<RaidInventorySlotView> _slots = new();
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
+    public event Action<LootId, Vector2> ContextRequested;
 
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
@@ -59,6 +60,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
         {
             RaidInventorySlotView slot = Instantiate(_slotPrefab, _slotContainer);
             slot.SelectionRequested += OnSlotSelectionRequested;
+            slot.ContextRequested += OnSlotContextRequested;
             slot.Clear();
             _slots.Add(slot);
         }
@@ -68,6 +70,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
             int last = _slots.Count - 1;
             RaidInventorySlotView slot = _slots[last];
             slot.SelectionRequested -= OnSlotSelectionRequested;
+            slot.ContextRequested -= OnSlotContextRequested;
             _slots.RemoveAt(last);
             Destroy(slot.gameObject);
         }
@@ -82,6 +85,23 @@ public sealed class RaidLootPanelView : MonoBehaviour
         bool interactive,
         LootId selectedLootId)
     {
+        return Present(
+            slots,
+            totalValue,
+            showEmpty,
+            interactive
+                ? RaidLootSlotInteractionMode.Transfer
+                : RaidLootSlotInteractionMode.ReadOnly,
+            selectedLootId);
+    }
+
+    public bool Present(
+        IReadOnlyList<RaidInventorySlotData> slots,
+        long? totalValue,
+        bool showEmpty,
+        RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId)
+    {
         if (slots == null || slots.Count != _slots.Count)
         {
             return false;
@@ -92,7 +112,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
             RaidInventorySlotData data = slots[i];
             _slots[i].Present(in data);
             _slots[i].SetInteraction(
-                interactive && data.IsOccupied,
+                data.IsOccupied ? interactionMode : RaidLootSlotInteractionMode.ReadOnly,
                 data.IsOccupied && data.LootId == selectedLootId);
         }
 
@@ -105,11 +125,22 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     public void RefreshInteraction(bool interactive, LootId selectedLootId)
     {
+        RefreshInteraction(
+            interactive
+                ? RaidLootSlotInteractionMode.Transfer
+                : RaidLootSlotInteractionMode.ReadOnly,
+            selectedLootId);
+    }
+
+    public void RefreshInteraction(
+        RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId)
+    {
         for (int i = 0; i < _slots.Count; i++)
         {
             RaidInventorySlotView slot = _slots[i];
             slot.SetInteraction(
-                interactive && slot.IsOccupied,
+                slot.IsOccupied ? interactionMode : RaidLootSlotInteractionMode.ReadOnly,
                 slot.IsOccupied && slot.LootId == selectedLootId);
         }
     }
@@ -155,6 +186,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
             if (_slots[i] != null)
             {
                 _slots[i].SelectionRequested -= OnSlotSelectionRequested;
+                _slots[i].ContextRequested -= OnSlotContextRequested;
             }
         }
     }
@@ -162,6 +194,11 @@ public sealed class RaidLootPanelView : MonoBehaviour
     private void OnSlotSelectionRequested(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         SelectionRequested?.Invoke(lootId, quantityMode);
+    }
+
+    private void OnSlotContextRequested(LootId lootId, Vector2 screenPosition)
+    {
+        ContextRequested?.Invoke(lootId, screenPosition);
     }
 
     private static void SetState(GameObject root, bool active)
