@@ -5,5 +5,6 @@ public enum LootTransferTransportRejectionReason
 {
     Uninitialized = 0,
     BusyWithDifferentSequence = 1,
-    StaleSequence = 2
+    StaleSequence = 2,
+    DependenciesUnavailable = 3
 }

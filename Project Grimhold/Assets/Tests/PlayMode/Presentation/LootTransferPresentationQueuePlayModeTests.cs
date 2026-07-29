@@ -1,9 +1,12 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
+using Fusion;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Assert = NUnit.Framework.Assert;
 
 namespace Tests.PlayMode.Presentation
 {
@@ -86,6 +89,72 @@ namespace Tests.PlayMode.Presentation
             _controller.Render();
             Assert.That(notifications, Is.Empty);
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator TransportRejection_ReleasesRequestBeforePublishingFeedback()
+        {
+            var notifications = new List<string>();
+            _controller.RequestInFlightChanged += value => notifications.Add($"pending:{value}");
+            _controller.TransportRejected += reason => notifications.Add($"rejection:{reason}");
+
+            Assert.That(_controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), 2, out uint sequence), Is.True);
+            _controller.Render();
+            notifications.Clear();
+
+            Assert.That(
+                _controller.DebugStageTransportRejectionForPresentation(
+                    sequence,
+                    LootTransferTransportRejectionReason.DependenciesUnavailable),
+                Is.True);
+            Assert.That(_controller.HasRequestInFlight, Is.False);
+            Assert.That(notifications, Is.Empty);
+
+            _controller.Render();
+            Assert.That(
+                notifications,
+                Is.EqualTo(new[] { "pending:False", "rejection:DependenciesUnavailable" }));
+            yield return null;
+        }
+
+        [Test]
+        public void RpcAcceptance_InputOnlyPeerRequiresRemoteSend()
+        {
+            var localOnly = new RpcInvokeInfo
+            {
+                LocalInvokeResult = RpcLocalInvokeResult.Invoked
+            };
+            var remoteSent = new RpcInvokeInfo
+            {
+                SendMessageResult = RpcSendMessageResult.Sent
+            };
+
+            Assert.That(InvokeWasAccepted(localOnly, false), Is.False);
+            Assert.That(InvokeWasAccepted(localOnly, true), Is.True);
+            Assert.That(InvokeWasAccepted(remoteSent, false), Is.True);
+        }
+
+        [Test]
+        public void FullStackRpc_IdentifiesLocalHostAsInputAuthorityPlayer()
+        {
+            MethodInfo method = typeof(PlayerLootTransferNetworkController).GetMethod(
+                "RPC_RequestFullStack",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            RpcAttribute attribute = method.GetCustomAttribute<RpcAttribute>();
+
+            Assert.That(attribute, Is.Not.Null);
+            Assert.That(attribute.HostMode, Is.EqualTo(RpcHostMode.SourceIsHostPlayer));
+        }
+
+        private static bool InvokeWasAccepted(in RpcInvokeInfo invokeInfo, bool hasStateAuthority)
+        {
+            MethodInfo method = typeof(PlayerLootTransferNetworkController).GetMethod(
+                "WasAccepted",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (bool)method.Invoke(null, new object[] { invokeInfo, hasStateAuthority });
         }
     }
 }

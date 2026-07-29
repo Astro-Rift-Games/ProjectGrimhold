@@ -46,6 +46,11 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     /// </summary>
     public event Action<bool> RequestInFlightChanged;
 
+    /// <summary>
+    /// Local presentation notification emitted when transport finalizes a request without a domain confirmation.
+    /// </summary>
+    public event Action<LootTransferTransportRejectionReason> TransportRejected;
+
     public bool HasRequestInFlight => _clientRequest.HasInFlight;
 
     private void Awake()
@@ -63,7 +68,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || !_dependenciesValid || !_authoritativeRequests.TryConsume(out LootTransferRequestIdentity identity))
+        if (!HasStateAuthority || !_dependenciesValid ||
+            !_authoritativeRequests.TryConsume(out LootTransferRequestIdentity identity))
         {
             return;
         }
@@ -80,6 +86,12 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             if (notification.Kind == PresentationNotificationKind.RequestInFlightChanged)
             {
                 RequestInFlightChanged?.Invoke(notification.HasRequestInFlight);
+                continue;
+            }
+
+            if (notification.Kind == PresentationNotificationKind.TransportRejected)
+            {
+                TransportRejected?.Invoke(notification.TransportRejectionReason);
                 continue;
             }
 
@@ -111,7 +123,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         }
 
         RpcInvokeInfo invokeInfo = RPC_RequestFullStack(sourceId.Value, catalogIndex, identity.RequestSequence);
-        if (!WasAccepted(invokeInfo))
+        if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
         }
@@ -132,7 +144,9 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return false;
         }
 
-        return WasAccepted(RPC_RequestFullStack(sourceId.Value, catalogIndex, requestSequence));
+        return WasAccepted(
+            RPC_RequestFullStack(sourceId.Value, catalogIndex, requestSequence),
+            HasStateAuthority);
     }
 
     public bool DebugTryGetInFlightIdentity(out LootTransferRequestIdentity identity)
@@ -183,6 +197,23 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     }
 
     /// <summary>
+    /// Stages a transport rejection so tests can verify that it finalizes the local request.
+    /// </summary>
+    public bool DebugStageTransportRejectionForPresentation(
+        uint requestSequence,
+        LootTransferTransportRejectionReason reason)
+    {
+        if (!_clientRequest.TryRelease(requestSequence, out _))
+        {
+            return false;
+        }
+
+        EnqueueRequestStateChanged(false);
+        EnqueueTransportRejection(reason);
+        return true;
+    }
+
+    /// <summary>
     /// Clears request and deferred presentation state without invoking subscribers.
     /// </summary>
     public void DebugResetLocalPresentationState()
@@ -191,15 +222,27 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     }
 #endif
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, InvokeLocal = true)]
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority,
+        InvokeLocal = true,
+        HostMode = RpcHostMode.SourceIsHostPlayer)]
     private RpcInvokeInfo RPC_RequestFullStack(
         int sourceIdValue,
         int catalogIndex,
         uint requestSequence,
         RpcInfo info = default)
     {
-        if (!HasStateAuthority || !_dependenciesValid || info.Source != Object.InputAuthority)
+        if (!HasStateAuthority || info.Source != Object.InputAuthority)
         {
+            return default;
+        }
+
+        if (!_dependenciesValid)
+        {
+            RPC_ReceiveTransportRejection(
+                requestSequence,
+                (int)LootTransferTransportRejectionReason.DependenciesUnavailable);
             return default;
         }
 
@@ -305,8 +348,11 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return;
         }
 
+        var rejectionReason = (LootTransferTransportRejectionReason)rejectionReasonValue;
+        EnqueueTransportRejection(rejectionReason);
+
         Debug.LogWarning(
-            $"{nameof(PlayerLootTransferNetworkController)}: Request {requestSequence} was rejected by transport: {(LootTransferTransportRejectionReason)rejectionReasonValue}.",
+            $"{nameof(PlayerLootTransferNetworkController)}: Request {requestSequence} was rejected by transport: {rejectionReason}.",
             this);
     }
 
@@ -462,9 +508,18 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         }
     }
 
+    private void EnqueueTransportRejection(LootTransferTransportRejectionReason reason)
+    {
+        if (!_presentationNotifications.TryEnqueue(PresentationNotification.TransportRejection(reason)))
+        {
+            Debug.LogError($"{nameof(PlayerLootTransferNetworkController)}: Presentation notification queue capacity was exceeded.", this);
+        }
+    }
+
     private enum PresentationNotificationKind
     {
         RequestInFlightChanged,
+        TransportRejected,
         TransferConfirmed
     }
 
@@ -472,15 +527,18 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     {
         public PresentationNotificationKind Kind { get; }
         public bool HasRequestInFlight { get; }
+        public LootTransferTransportRejectionReason TransportRejectionReason { get; }
         public LootTransferConfirmation Confirmation { get; }
 
         private PresentationNotification(
             PresentationNotificationKind kind,
             bool hasRequestInFlight,
+            LootTransferTransportRejectionReason transportRejectionReason,
             in LootTransferConfirmation confirmation)
         {
             Kind = kind;
             HasRequestInFlight = hasRequestInFlight;
+            TransportRejectionReason = transportRejectionReason;
             Confirmation = confirmation;
         }
 
@@ -489,6 +547,17 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return new PresentationNotification(
                 PresentationNotificationKind.RequestInFlightChanged,
                 hasRequestInFlight,
+                LootTransferTransportRejectionReason.Uninitialized,
+                default);
+        }
+
+        public static PresentationNotification TransportRejection(
+            LootTransferTransportRejectionReason reason)
+        {
+            return new PresentationNotification(
+                PresentationNotificationKind.TransportRejected,
+                false,
+                reason,
                 default);
         }
 
@@ -497,6 +566,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return new PresentationNotification(
                 PresentationNotificationKind.TransferConfirmed,
                 false,
+                LootTransferTransportRejectionReason.Uninitialized,
                 confirmation);
         }
     }
@@ -545,10 +615,10 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         }
     }
 
-    private static bool WasAccepted(in RpcInvokeInfo invokeInfo)
+    private static bool WasAccepted(in RpcInvokeInfo invokeInfo, bool hasStateAuthority)
     {
-        return invokeInfo.LocalInvokeResult == RpcLocalInvokeResult.Invoked ||
-            invokeInfo.SendMessageResult == RpcSendMessageResult.Sent;
+        return invokeInfo.SendMessageResult == RpcSendMessageResult.Sent ||
+            hasStateAuthority && invokeInfo.LocalInvokeResult == RpcLocalInvokeResult.Invoked;
     }
 
 #if UNITY_EDITOR

@@ -268,6 +268,50 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_inputReader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.True);
         }
 
+        [TestCase(LootTransferFailureReason.Uninitialized, "No se pudo retirar el loot")]
+        [TestCase(LootTransferFailureReason.None, "No se pudo retirar el loot")]
+        [TestCase(LootTransferFailureReason.InvalidLoot, "Loot no válido")]
+        [TestCase(LootTransferFailureReason.InvalidAmount, "Cantidad no válida")]
+        [TestCase(LootTransferFailureReason.SourceNotFound, "Contenedor no encontrado")]
+        [TestCase(LootTransferFailureReason.DestinationNotFound, "Inventario no disponible")]
+        [TestCase(LootTransferFailureReason.InsufficientAmount, "El stack ya no está disponible")]
+        [TestCase(LootTransferFailureReason.InventoryFull, "Inventario lleno")]
+        [TestCase(LootTransferFailureReason.OutOfRange, "Fuera de alcance")]
+        [TestCase(LootTransferFailureReason.MissingAuthority, "Transferencia sin autoridad")]
+        [TestCase(LootTransferFailureReason.ContainerUnavailable, "Contenedor no disponible")]
+        [TestCase(LootTransferFailureReason.Overflow, "La cantidad excede el límite")]
+        public void TransferFailureReason_MapsToContextualFeedback(
+            LootTransferFailureReason reason,
+            string expectedMessage)
+        {
+            MethodInfo method = typeof(RaidInventoryPresenter).GetMethod(
+                "GetTransferFailureMessage",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            string message = method.Invoke(null, new object[] { reason }) as string;
+
+            Assert.That(message, Is.EqualTo(expectedMessage));
+        }
+
+        [TestCase(LootTransferTransportRejectionReason.BusyWithDifferentSequence, "Hay otra transferencia en curso")]
+        [TestCase(LootTransferTransportRejectionReason.StaleSequence, "La solicitud de transferencia venció")]
+        [TestCase(LootTransferTransportRejectionReason.DependenciesUnavailable, "Transferencia no disponible")]
+        [TestCase(LootTransferTransportRejectionReason.Uninitialized, "No se pudo completar la transferencia")]
+        public void TransportRejectionReason_MapsToContextualFeedback(
+            LootTransferTransportRejectionReason reason,
+            string expectedMessage)
+        {
+            MethodInfo method = typeof(RaidInventoryPresenter).GetMethod(
+                "GetTransportRejectionMessage",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            string message = method.Invoke(null, new object[] { reason }) as string;
+
+            Assert.That(message, Is.EqualTo(expectedMessage));
+        }
+
         private static void SetKey(Keyboard keyboard, Key key, bool pressed)
         {
             using (DeltaStateEvent.From(keyboard[key], out InputEventPtr eventPtr))

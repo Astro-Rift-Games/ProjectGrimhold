@@ -73,6 +73,8 @@ namespace Tests.PlayMode.Presentation
 
             RaidInventoryView inventoryView = prefab.GetComponentInChildren<RaidInventoryView>(true);
             Assert.That(inventoryView.PlayerPanel.TotalValueText, Is.Not.Null);
+            Assert.That(inventoryView.TransferFeedbackText, Is.Not.Null);
+            Assert.That(inventoryView.TransferFeedbackText.name, Is.EqualTo("TransferFeedback"));
             Assert.That(
                 inventoryView.PlayerPanel.TotalValueText.transform.IsChildOf(
                     inventoryView.PlayerPanel.transform),

@@ -16,7 +16,7 @@ PlayerLootReceiver
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. A slot emits only its occupied `LootId`; the orchestrator requests a complete stack through `PlayerLootTransferNetworkController`.
+The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. A real uGUI button click makes the slot emit only its occupied `LootId`; the orchestrator requests a complete stack through `PlayerLootTransferNetworkController`.
 
 ## Slot projection and metadata
 
@@ -35,6 +35,8 @@ The view creates a stable slot pool when binding or capacity changes. Normal con
 Opening reconstructs the target `NetworkId`, resolves the exact instance through the bound runner, requires a same-root `NetworkLootContainer` and registered `NetworkLootContainerInteractable` sharing that `NetworkObject`, and requires initialized/available state. The presenter then caches object, components and colliders. The watchdog only rechecks that instance, state and distance through cached colliders; it performs no component or global searches per frame.
 
 Player and container `LootChangeSequence` values are the definitive refresh signals, including remote transfers. `RequestInFlightChanged` only recalculates interactivity. `TransferConfirmed` always refreshes the player; it reconciles the current container and selection only when `SourceId` matches the open container. Therefore a late confirmation from A cannot alter B.
+
+Transfer feedback is local presentation state inside the inventory screen. An Input Authority peer considers a request in flight only when Fusion reports that the RPC was sent to State Authority; local invocation alone is sufficient only on the State Authority peer. The request RPC uses `RpcHostMode.SourceIsHostPlayer`, so a local Host invocation reports the Host player as `RpcInfo.Source` and passes the same Input Authority validation as a remote Client. A failed local send shows a generic request message, while an authoritative confirmation maps its typed `LootTransferFailureReason` to a player-facing reason. Authority-side transport rejections also finalize the matching request before publishing their local feedback, so an unavailable dependency or rejected envelope cannot leave slots permanently blocked. Success, a new request, close, disable and unbind clear that message. Feedback never predicts or mutates content; replicated endpoint snapshots and their `LootChangeSequence` values remain the only sources of truth.
 
 Close is idempotent, releases one suppression token, clears mode, target, colliders and selection, and never cancels gameplay. Distance, target replacement/despawn, unavailable/uninitialized state, local close (via local Tab toggle, Escape, or a new local interaction press edge `InteractPressedLocally`), session end, player despawn and HUD disable all close the screen. Closing and reopening while a request remains in flight observes the controller directly and keeps slots blocked.
 
@@ -64,7 +66,7 @@ Player despawn, runner shutdown, scene unload, or reader replacement therefore c
 
 ## Validation strategy
 
-Pure tests cover projection order/capacity, slot fallback data, selection reconciliation and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both panels, stable slot reuse, clearing and empty capacity. Exact Host/Client interaction confirmation, replication races, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
+Pure tests cover projection order/capacity, slot fallback data, selection reconciliation and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both panels, stable slot reuse, clearing, empty capacity and transfer feedback. Focused Single Runner tests activate the occupied slot's real `Button` for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking and authoritative inventory-full feedback. Exact Host/Client interaction confirmation, replication races, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
 
 The defeated-player integration reuses these contracts without adding a new
 screen mode or target type. Focused Single Runner tests use the co-located

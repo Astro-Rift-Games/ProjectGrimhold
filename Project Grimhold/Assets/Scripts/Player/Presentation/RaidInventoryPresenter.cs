@@ -115,6 +115,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         _mode = ScreenMode.Closed;
         ClearContainerBinding();
+        _view?.HideTransferFeedback();
         _view?.SetContainerPanelVisible(false);
         _view?.SetScreenVisible(false);
         ReleaseInputSuppression();
@@ -189,6 +190,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _inputReader.InteractPressedLocally += OnInteractPressedLocally;
         _interactionController.InteractionResolved += OnInteractionResolved;
         _transferController.RequestInFlightChanged += OnRequestInFlightChanged;
+        _transferController.TransportRejected += OnTransportRejected;
         _transferController.TransferConfirmed += OnTransferConfirmed;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
         _isSubscribed = true;
@@ -216,6 +218,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_transferController != null)
         {
             _transferController.RequestInFlightChanged -= OnRequestInFlightChanged;
+            _transferController.TransportRejected -= OnTransportRejected;
             _transferController.TransferConfirmed -= OnTransferConfirmed;
         }
 
@@ -344,7 +347,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
-        _transferController.TryRequestFullStack(_container.Id, lootId);
+        _view.HideTransferFeedback();
+        if (!_transferController.TryRequestFullStack(_container.Id, lootId))
+        {
+            _selection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+            _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
+        }
+
         RefreshContainerInteraction();
     }
 
@@ -353,13 +362,62 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshContainerInteraction();
     }
 
+    private void OnTransportRejected(LootTransferTransportRejectionReason reason)
+    {
+        if (_mode != ScreenMode.ContainerLoot)
+        {
+            return;
+        }
+
+        _view.ShowTransferFeedback(GetTransportRejectionMessage(reason));
+        RefreshContainerInteraction();
+    }
+
     private void OnTransferConfirmed(LootTransferConfirmation confirmation)
     {
         RefreshPlayerPanel();
         if (_mode == ScreenMode.ContainerLoot && _container != null && confirmation.SourceId == _container.Id)
         {
+            if (confirmation.Result.Success)
+            {
+                _view.HideTransferFeedback();
+            }
+            else
+            {
+                _view.ShowTransferFeedback(GetTransferFailureMessage(confirmation.Result.FailureReason));
+            }
+
             RefreshContainerPanel();
         }
+    }
+
+    private static string GetTransferFailureMessage(LootTransferFailureReason reason)
+    {
+        return reason switch
+        {
+            LootTransferFailureReason.InvalidLoot => "Loot no válido",
+            LootTransferFailureReason.InvalidAmount => "Cantidad no válida",
+            LootTransferFailureReason.SourceNotFound => "Contenedor no encontrado",
+            LootTransferFailureReason.DestinationNotFound => "Inventario no disponible",
+            LootTransferFailureReason.InsufficientAmount => "El stack ya no está disponible",
+            LootTransferFailureReason.InventoryFull => "Inventario lleno",
+            LootTransferFailureReason.OutOfRange => "Fuera de alcance",
+            LootTransferFailureReason.MissingAuthority => "Transferencia sin autoridad",
+            LootTransferFailureReason.ContainerUnavailable => "Contenedor no disponible",
+            LootTransferFailureReason.Overflow => "La cantidad excede el límite",
+            _ => "No se pudo retirar el loot"
+        };
+    }
+
+    private static string GetTransportRejectionMessage(LootTransferTransportRejectionReason reason)
+    {
+        return reason switch
+        {
+            LootTransferTransportRejectionReason.BusyWithDifferentSequence => "Hay otra transferencia en curso",
+            LootTransferTransportRejectionReason.StaleSequence => "La solicitud de transferencia venció",
+            LootTransferTransportRejectionReason.DependenciesUnavailable => "Transferencia no disponible",
+            _ => "No se pudo completar la transferencia"
+        };
     }
 
     private void RefreshPlayerPanel()

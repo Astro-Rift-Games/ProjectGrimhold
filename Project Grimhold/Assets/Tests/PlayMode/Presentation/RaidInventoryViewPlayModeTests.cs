@@ -83,6 +83,24 @@ namespace Tests.PlayMode.Presentation
             Assert.That(panel.SlotCount, Is.EqualTo(3));
             Assert.That(panel.gameObject.activeSelf, Is.True);
         }
+
+        [Test]
+        public void TransferFeedback_ShowsClearsAndUsesPrefabReferences()
+        {
+            Assert.That(_view.TransferFeedbackText, Is.Not.Null);
+            Assert.That(
+                _view.TransferFeedbackText.transform.IsChildOf(_view.transform),
+                Is.True);
+
+            _view.ShowTransferFeedback("Inventario lleno");
+
+            Assert.That(_view.TransferFeedbackText.text, Is.EqualTo("Inventario lleno"));
+            Assert.That(_view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+
+            _view.HideTransferFeedback();
+
+            Assert.That(_view.TransferFeedbackText.gameObject.activeSelf, Is.False);
+        }
     }
 }
 #endif
