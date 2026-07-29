@@ -29,6 +29,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_view, Is.Not.Null);
             Assert.That(_view.PlayerPanel, Is.Not.Null);
             Assert.That(_view.ContainerPanel, Is.Not.Null);
+            Assert.That(_view.TakeAllButton, Is.Not.Null);
         }
 
         [TearDown]
@@ -156,6 +157,24 @@ namespace Tests.PlayMode.Presentation
             _view.HideTransferFeedback();
 
             Assert.That(_view.TransferFeedbackText.gameObject.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void TakeAllButton_EmitsOnlyWhileInteractable()
+        {
+            int requestCount = 0;
+            _view.TakeAllRequested += () => requestCount++;
+
+            _view.SetTakeAllInteractable(false);
+            _view.TakeAllButton.onClick.Invoke();
+            Assert.That(requestCount, Is.Zero);
+
+            _view.SetTakeAllInteractable(true);
+            _view.TakeAllButton.onClick.Invoke();
+            Assert.That(requestCount, Is.EqualTo(1));
+
+            _view.SetContainerPanelVisible(false);
+            Assert.That(_view.TakeAllButton.interactable, Is.False);
         }
     }
 }

@@ -264,6 +264,142 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator TakeAll_TransfersVisibleStacksInOrderThroughIndependentRequests()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            NetworkObject chest = SpawnLootSource(
+                ChestPrefabGuid,
+                new[]
+                {
+                    new LootEntry(BoneLootId, 2),
+                    new LootEntry(CoinsLootId, 3)
+                });
+            yield return null;
+
+            NetworkLootContainer container = chest.GetComponent<NetworkLootContainer>();
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            PlayerLootTransferNetworkController transferController =
+                _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter =
+                _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            var confirmedOrder = new List<LootId>();
+            transferController.TransferConfirmed += confirmation =>
+            {
+                if (confirmation.SourceId == container.Id && confirmation.ResolvedLootId.HasValue)
+                {
+                    confirmedOrder.Add(confirmation.ResolvedLootId.Value);
+                }
+            };
+
+            OpenFromConfirmedInteraction(presenter, container.Id);
+            Assert.That(view.TakeAllButton.interactable, Is.True);
+
+            int sourceSequence = container.LootChangeSequence;
+            int destinationSequence = receiver.LootChangeSequence;
+            view.TakeAllButton.onClick.Invoke();
+
+            Assert.That(view.TakeAllButton.interactable, Is.False);
+            yield return WaitUntil(
+                () => !transferController.HasRequestInFlight &&
+                    receiver.GetLootAmount(BoneLootId) == 2 &&
+                    receiver.GetLootAmount(CoinsLootId) == 3,
+                "Take all did not complete both independent full-stack requests.");
+            yield return null;
+
+            Assert.That(confirmedOrder, Is.EqualTo(new[] { BoneLootId, CoinsLootId }));
+            Assert.That(container.GetLootAmount(BoneLootId), Is.Zero);
+            Assert.That(container.GetLootAmount(CoinsLootId), Is.Zero);
+            Assert.That(container.LootChangeSequence, Is.EqualTo(sourceSequence + 2));
+            Assert.That(receiver.LootChangeSequence, Is.EqualTo(destinationSequence + 2));
+            Assert.That(view.TakeAllButton.interactable, Is.False);
+            AssertContainerEmptyState(view.ContainerPanel);
+        }
+
+        [UnityTest]
+        public IEnumerator TakeAll_InventoryFullRejectionContinuesWithCompatibleStack()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            FieldInfo capacityField = typeof(PlayerLootReceiver).GetField(
+                "_slotCapacity",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(capacityField, Is.Not.Null);
+            capacityField.SetValue(receiver, 1);
+            yield return GrantLooterLoot(new LootEntry(CoinsLootId, 1));
+
+            NetworkObject chest = SpawnLootSource(
+                ChestPrefabGuid,
+                new[]
+                {
+                    new LootEntry(BoneLootId, 2),
+                    new LootEntry(CoinsLootId, 3)
+                });
+            yield return null;
+
+            NetworkLootContainer container = chest.GetComponent<NetworkLootContainer>();
+            PlayerLootTransferNetworkController transferController =
+                _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter =
+                _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            OpenFromConfirmedInteraction(presenter, container.Id);
+
+            view.TakeAllButton.onClick.Invoke();
+            yield return WaitUntil(
+                () => !transferController.HasRequestInFlight &&
+                    receiver.GetLootAmount(CoinsLootId) == 4,
+                "Take all stopped after the inventory-full rejection.");
+            yield return null;
+
+            Assert.That(container.GetLootAmount(BoneLootId), Is.EqualTo(2));
+            Assert.That(container.GetLootAmount(CoinsLootId), Is.Zero);
+            Assert.That(receiver.GetLootAmount(BoneLootId), Is.Zero);
+            Assert.That(view.TransferFeedbackText.text, Is.EqualTo("Inventario lleno"));
+            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+            Assert.That(view.TakeAllButton.interactable, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator TakeAll_CloseCancelsOnlyRequestsNotYetSent()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            NetworkObject chest = SpawnLootSource(
+                ChestPrefabGuid,
+                new[]
+                {
+                    new LootEntry(BoneLootId, 2),
+                    new LootEntry(CoinsLootId, 3)
+                });
+            yield return null;
+
+            NetworkLootContainer container = chest.GetComponent<NetworkLootContainer>();
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            PlayerLootTransferNetworkController transferController =
+                _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter =
+                _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            OpenFromConfirmedInteraction(presenter, container.Id);
+
+            view.TakeAllButton.onClick.Invoke();
+            Assert.That(transferController.HasRequestInFlight, Is.True);
+            presenter.Close();
+
+            yield return WaitUntil(
+                () => !transferController.HasRequestInFlight &&
+                    receiver.GetLootAmount(BoneLootId) == 2,
+                "The accepted take-all request did not complete after closing the UI.");
+            yield return null;
+            yield return null;
+
+            Assert.That(view.IsOpen, Is.False);
+            Assert.That(container.GetLootAmount(BoneLootId), Is.Zero);
+            Assert.That(container.GetLootAmount(CoinsLootId), Is.EqualTo(3));
+            Assert.That(receiver.GetLootAmount(CoinsLootId), Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator DefeatedPlayer_MovingOutOfRangeClosesExistingScreen()
         {
             yield return StartRunnerAndSpawnPlayers();
@@ -433,6 +569,13 @@ namespace Tests.PlayMode.Loot
 
         private NetworkObject SpawnLootSource(string prefabGuidValue, LootEntry entry)
         {
+            return SpawnLootSource(prefabGuidValue, new[] { entry });
+        }
+
+        private NetworkObject SpawnLootSource(
+            string prefabGuidValue,
+            IReadOnlyList<LootEntry> entries)
+        {
             NetworkObject prefab = LoadPrefab(prefabGuidValue);
             bool callbackApplied = false;
             NetworkObject spawned = _runner.Spawn(
@@ -446,7 +589,7 @@ namespace Tests.PlayMode.Loot
                     callbackApplied = container != null && container.TrySetInitialContentOverride(
                         callbackRunner,
                         instance,
-                        new[] { entry });
+                        entries);
                 });
 
             Assert.That(callbackApplied, Is.True);

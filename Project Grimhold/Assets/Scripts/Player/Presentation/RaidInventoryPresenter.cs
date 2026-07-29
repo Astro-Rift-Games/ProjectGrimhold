@@ -29,6 +29,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly RaidLootPanelPresenter _containerPanelPresenter = new();
     private readonly RaidLootSelectionState _playerSelection = new();
     private readonly RaidLootSelectionState _containerSelection = new();
+    private readonly RaidLootTakeAllState _takeAllState = new();
 
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
@@ -46,6 +47,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private int _observedContainerLootSequence;
     private bool _playerValueRefreshPending;
     private bool _playerValueFailureReported;
+    private bool _takeAllHadFailure;
+    private string _takeAllLastFailureMessage;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -195,6 +198,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _transferController.TransferConfirmed += OnTransferConfirmed;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
+        _view.TakeAllRequested += OnTakeAllRequested;
         _isSubscribed = true;
     }
 
@@ -232,6 +236,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view != null && _view.ContainerPanel != null)
         {
             _view.ContainerPanel.SelectionRequested -= OnContainerSlotSelected;
+        }
+
+        if (_view != null)
+        {
+            _view.TakeAllRequested -= OnTakeAllRequested;
         }
 
         _isSubscribed = false;
@@ -348,7 +357,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (_mode != ScreenMode.ContainerLoot || _container == null ||
-            _transferController.HasRequestInFlight ||
+            _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_containerSelection.TrySelect(lootId, _containerPanelPresenter.OccupiedEntries))
         {
             return;
@@ -372,7 +381,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void OnPlayerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (_mode != ScreenMode.ContainerLoot || _container == null ||
-            _transferController.HasRequestInFlight ||
+            _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries))
         {
             return;
@@ -405,7 +414,20 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
-        _view.ShowTransferFeedback(GetTransportRejectionMessage(reason));
+        if (_takeAllState.IsAwaitingCompletion)
+        {
+            LootId completedLootId = _takeAllState.CurrentLootId;
+            RecordTakeAllFailure(GetTransportRejectionMessage(reason));
+            RefreshPlayerPanel();
+            RefreshContainerPanel();
+            AdvanceTakeAll(completedLootId);
+            TryStartNextTakeAllTransfer();
+        }
+        else
+        {
+            _view.ShowTransferFeedback(GetTransportRejectionMessage(reason));
+        }
+
         RefreshTransferInteraction();
     }
 
@@ -415,19 +437,117 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_mode == ScreenMode.ContainerLoot && _container != null &&
             (confirmation.SourceId == _container.Id || confirmation.DestinationId == _container.Id))
         {
+            bool completesTakeAll = IsCurrentTakeAllConfirmation(confirmation);
             if (confirmation.Result.Success)
             {
-                _view.HideTransferFeedback();
+                if (!completesTakeAll || !_takeAllHadFailure)
+                {
+                    _view.HideTransferFeedback();
+                }
             }
             else
             {
                 bool isDeposit = confirmation.DestinationId == _container.Id;
-                _view.ShowTransferFeedback(GetDirectionalTransferFailureMessage(
+                string failureMessage = GetDirectionalTransferFailureMessage(
                     confirmation.Result.FailureReason,
-                    isDeposit));
+                    isDeposit);
+                if (completesTakeAll)
+                {
+                    RecordTakeAllFailure(failureMessage);
+                }
+                else
+                {
+                    _view.ShowTransferFeedback(failureMessage);
+                }
             }
 
             RefreshContainerPanel();
+            if (completesTakeAll)
+            {
+                LootId completedLootId = _takeAllState.CurrentLootId;
+                AdvanceTakeAll(completedLootId);
+                TryStartNextTakeAllTransfer();
+            }
+        }
+    }
+
+    private void OnTakeAllRequested()
+    {
+        if (_mode != ScreenMode.ContainerLoot || _container == null ||
+            _transferController == null || _transferController.HasRequestInFlight ||
+            _takeAllState.IsActive ||
+            !_takeAllState.TryBegin(_containerPanelPresenter.OccupiedEntries))
+        {
+            RefreshTransferInteraction();
+            return;
+        }
+
+        _playerSelection.Clear();
+        _containerSelection.Clear();
+        _takeAllHadFailure = false;
+        _takeAllLastFailureMessage = null;
+        _view.HideTransferFeedback();
+        RefreshTransferInteraction();
+        TryStartNextTakeAllTransfer();
+    }
+
+    private void TryStartNextTakeAllTransfer()
+    {
+        while (_takeAllState.IsActive && !_takeAllState.IsAwaitingCompletion)
+        {
+            if (_mode != ScreenMode.ContainerLoot || _container == null ||
+                _lootReceiver == null || _transferController == null)
+            {
+                CancelTakeAll();
+                break;
+            }
+
+            LootId lootId = _takeAllState.CurrentLootId;
+            if (_transferController.TryRequestTransfer(
+                    _container.Id,
+                    _lootReceiver.Id,
+                    lootId,
+                    LootTransferQuantityMode.FullStack))
+            {
+                if (!_takeAllState.TryMarkRequestSent(lootId))
+                {
+                    Debug.LogError(
+                        $"{nameof(RaidInventoryPresenter)} could not track an accepted take-all request.",
+                        this);
+                    CancelTakeAll();
+                }
+
+                break;
+            }
+
+            RecordTakeAllFailure("No se pudo solicitar la transferencia");
+            AdvanceTakeAll(lootId);
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private bool IsCurrentTakeAllConfirmation(in LootTransferConfirmation confirmation)
+    {
+        return _takeAllState.IsAwaitingCompletion && _container != null && _lootReceiver != null &&
+            confirmation.SourceId == _container.Id && confirmation.DestinationId == _lootReceiver.Id &&
+            confirmation.ResolvedLootId.HasValue &&
+            confirmation.ResolvedLootId.Value == _takeAllState.CurrentLootId;
+    }
+
+    private void RecordTakeAllFailure(string message)
+    {
+        _takeAllHadFailure = true;
+        _takeAllLastFailureMessage = message;
+        _view.ShowPersistentTransferFeedback(message);
+    }
+
+    private void AdvanceTakeAll(LootId completedLootId)
+    {
+        _takeAllState.TryAdvance(completedLootId);
+        if (!_takeAllState.IsActive && _takeAllHadFailure)
+        {
+            _view.ShowTransferFeedback(_takeAllLastFailureMessage);
         }
     }
 
@@ -499,7 +619,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
-            _transferController != null && !_transferController.HasRequestInFlight;
+            _transferController != null && !_transferController.HasRequestInFlight &&
+            !_takeAllState.IsActive;
         bool refreshed = _playerPanelPresenter.Refresh(
             _lootReceiver,
             _lootReceiver,
@@ -559,7 +680,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _observedContainerLootSequence = _container.LootChangeSequence;
-        bool interactive = !_transferController.HasRequestInFlight;
+        bool interactive = !_transferController.HasRequestInFlight && !_takeAllState.IsActive;
         bool refreshed = _containerPanelPresenter.Refresh(
             _container,
             _container,
@@ -590,9 +711,30 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
-            _transferController != null && !_transferController.HasRequestInFlight;
+            _transferController != null && !_transferController.HasRequestInFlight &&
+            !_takeAllState.IsActive;
         _view.PlayerPanel.RefreshInteraction(interactive, _playerSelection.SelectedLootId);
         _view.ContainerPanel.RefreshInteraction(interactive, _containerSelection.SelectedLootId);
+        _view.SetTakeAllInteractable(
+            interactive && HasTransferableEntries(_containerPanelPresenter.OccupiedEntries));
+    }
+
+    private static bool HasTransferableEntries(System.Collections.Generic.IReadOnlyList<LootEntry> entries)
+    {
+        if (entries == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (entries[i].IsValid)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsContainerBindingValidAndInRange()
@@ -643,6 +785,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void ClearContainerBinding()
     {
+        CancelTakeAll();
         _playerSelection.Clear();
         _containerSelection.Clear();
         _containerPanelPresenter.Clear();
@@ -653,6 +796,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _containerInteractable = null;
         _containerColliders = Array.Empty<Collider2D>();
         _observedContainerLootSequence = 0;
+    }
+
+    private void CancelTakeAll()
+    {
+        _takeAllState.Cancel();
+        _takeAllHadFailure = false;
+        _takeAllLastFailureMessage = null;
+        _view?.SetTakeAllInteractable(false);
     }
 
     private void ClearBindingReferences()

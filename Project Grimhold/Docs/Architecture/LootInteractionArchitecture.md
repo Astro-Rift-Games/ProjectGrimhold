@@ -4,7 +4,7 @@
 
 Loot movement uses `LootEntry` as its only runtime stack and `LootId` as its domain identity. `LootDefinitionCatalog` assigns deterministic indices by ordinal ID order. Fusion transports and replicates catalog indices and quantities; every peer resolves static names, icons, rarity and value locally.
 
-TASK-33 adds a reusable synchronized source and an authoritative transfer adapter. TASK-34 composes that source with a separate `IInteractable` adapter and local presentation for selective looting. TASK-50 adds single-unit and full-stack intentions in both directions without a global coordinator, static service, networked inspection session, networked mailbox or networked request cache.
+TASK-33 adds a reusable synchronized source and an authoritative transfer adapter. TASK-34 composes that source with a separate `IInteractable` adapter and local presentation for selective looting. TASK-50 adds single-unit and full-stack intentions in both directions. TASK-51 composes ordered full-stack withdrawals locally without adding a bulk RPC, transaction or networked batch state.
 
 ## Components and responsibilities
 
@@ -52,6 +52,8 @@ request sequence
 ```
 
 Input Authority permits one legitimate request in flight. `HasRequestInFlight` is the only local pending source of truth. A locally rejected second request neither sends an RPC nor advances sequence. Matching confirmation or transport rejection releases it immediately; despawn/session restart clears it.
+
+“Take all” snapshots only the valid `LootId` values visible in the container panel, preserving presentation order and never copying client quantities. `RaidInventoryPresenter` submits one existing `FullStack` intention, waits for its confirmation or transport rejection, refreshes both endpoint projections and then advances. A rejection does not undo earlier commits or stop later identities. Newly appearing stacks are outside the snapshot; removed or changed stacks are revalidated normally by State Authority. Closing or losing the container cancels only future local intentions, while an already accepted request completes through the normal lifecycle.
 
 State Authority stores one local, non-networked pending identity and never overwrites it. It distinguishes an exact pending duplicate, conflicting payload with the same sequence, a different sequence while busy, an exact duplicate of the last processed request, and stale input. Pending is consumed only by `FixedUpdateNetwork`. Only the last processed identity and confirmation are cached; an exact processed duplicate resends that confirmation without executing gameplay.
 
