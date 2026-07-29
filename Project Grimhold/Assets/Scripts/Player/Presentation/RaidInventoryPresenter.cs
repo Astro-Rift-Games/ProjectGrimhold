@@ -27,7 +27,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private readonly RaidLootPanelPresenter _playerPanelPresenter = new();
     private readonly RaidLootPanelPresenter _containerPanelPresenter = new();
-    private readonly RaidLootSelectionState _selection = new();
+    private readonly RaidLootSelectionState _playerSelection = new();
+    private readonly RaidLootSelectionState _containerSelection = new();
 
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
@@ -192,6 +193,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _transferController.RequestInFlightChanged += OnRequestInFlightChanged;
         _transferController.TransportRejected += OnTransportRejected;
         _transferController.TransferConfirmed += OnTransferConfirmed;
+        _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
         _isSubscribed = true;
     }
@@ -220,6 +222,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _transferController.RequestInFlightChanged -= OnRequestInFlightChanged;
             _transferController.TransportRejected -= OnTransportRejected;
             _transferController.TransferConfirmed -= OnTransferConfirmed;
+        }
+
+        if (_view != null && _view.PlayerPanel != null)
+        {
+            _view.PlayerPanel.SelectionRequested -= OnPlayerSlotSelected;
         }
 
         if (_view != null && _view.ContainerPanel != null)
@@ -342,24 +349,45 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         if (_mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController.HasRequestInFlight ||
-            !_selection.TrySelect(lootId, _containerPanelPresenter.OccupiedEntries))
+            !_containerSelection.TrySelect(lootId, _containerPanelPresenter.OccupiedEntries))
         {
             return;
         }
 
+        _playerSelection.Clear();
         _view.HideTransferFeedback();
-        if (!_transferController.TryRequestFullStack(_container.Id, lootId))
+        if (!_transferController.TryRequestFullStack(_container.Id, _lootReceiver.Id, lootId))
         {
-            _selection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+            _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
             _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
         }
 
-        RefreshContainerInteraction();
+        RefreshTransferInteraction();
+    }
+
+    private void OnPlayerSlotSelected(LootId lootId)
+    {
+        if (_mode != ScreenMode.ContainerLoot || _container == null ||
+            _transferController.HasRequestInFlight ||
+            !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries))
+        {
+            return;
+        }
+
+        _containerSelection.Clear();
+        _view.HideTransferFeedback();
+        if (!_transferController.TryRequestFullStack(_lootReceiver.Id, _container.Id, lootId))
+        {
+            _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
+            _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
+        }
+
+        RefreshTransferInteraction();
     }
 
     private void OnRequestInFlightChanged(bool _)
     {
-        RefreshContainerInteraction();
+        RefreshTransferInteraction();
     }
 
     private void OnTransportRejected(LootTransferTransportRejectionReason reason)
@@ -370,13 +398,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _view.ShowTransferFeedback(GetTransportRejectionMessage(reason));
-        RefreshContainerInteraction();
+        RefreshTransferInteraction();
     }
 
     private void OnTransferConfirmed(LootTransferConfirmation confirmation)
     {
         RefreshPlayerPanel();
-        if (_mode == ScreenMode.ContainerLoot && _container != null && confirmation.SourceId == _container.Id)
+        if (_mode == ScreenMode.ContainerLoot && _container != null &&
+            (confirmation.SourceId == _container.Id || confirmation.DestinationId == _container.Id))
         {
             if (confirmation.Result.Success)
             {
@@ -384,7 +413,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             }
             else
             {
-                _view.ShowTransferFeedback(GetTransferFailureMessage(confirmation.Result.FailureReason));
+                bool isDeposit = confirmation.DestinationId == _container.Id;
+                _view.ShowTransferFeedback(GetDirectionalTransferFailureMessage(
+                    confirmation.Result.FailureReason,
+                    isDeposit));
             }
 
             RefreshContainerPanel();
@@ -393,19 +425,30 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private static string GetTransferFailureMessage(LootTransferFailureReason reason)
     {
+        return GetDirectionalTransferFailureMessage(reason, false);
+    }
+
+    private static string GetDirectionalTransferFailureMessage(
+        LootTransferFailureReason reason,
+        bool isDeposit)
+    {
         return reason switch
         {
             LootTransferFailureReason.InvalidLoot => "Loot no válido",
             LootTransferFailureReason.InvalidAmount => "Cantidad no válida",
-            LootTransferFailureReason.SourceNotFound => "Contenedor no encontrado",
-            LootTransferFailureReason.DestinationNotFound => "Inventario no disponible",
+            LootTransferFailureReason.SourceNotFound => isDeposit
+                ? "Inventario no disponible"
+                : "Contenedor no encontrado",
+            LootTransferFailureReason.DestinationNotFound => isDeposit
+                ? "Contenedor no encontrado"
+                : "Inventario no disponible",
             LootTransferFailureReason.InsufficientAmount => "El stack ya no está disponible",
-            LootTransferFailureReason.InventoryFull => "Inventario lleno",
+            LootTransferFailureReason.InventoryFull => isDeposit ? "Contenedor lleno" : "Inventario lleno",
             LootTransferFailureReason.OutOfRange => "Fuera de alcance",
             LootTransferFailureReason.MissingAuthority => "Transferencia sin autoridad",
             LootTransferFailureReason.ContainerUnavailable => "Contenedor no disponible",
             LootTransferFailureReason.Overflow => "La cantidad excede el límite",
-            _ => "No se pudo retirar el loot"
+            _ => isDeposit ? "No se pudo depositar el loot" : "No se pudo retirar el loot"
         };
     }
 
@@ -446,16 +489,27 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ReportPlayerValueFailureOnce();
         }
 
-        _playerPanelPresenter.Refresh(
+        bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
+            _container.IsInitialized && _container.IsAvailable &&
+            _transferController != null && !_transferController.HasRequestInFlight;
+        bool refreshed = _playerPanelPresenter.Refresh(
             _lootReceiver,
             _lootReceiver,
             _lootCatalog,
             _view.PlayerPanel,
             totalValue,
             false,
-            false,
-            default,
+            interactive,
+            _playerSelection.SelectedLootId,
             this);
+
+        if (!refreshed)
+        {
+            _playerSelection.Clear();
+            return;
+        }
+
+        _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
     }
 
     private void RetryPlayerValue()
@@ -506,22 +560,22 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             null,
             true,
             interactive,
-            _selection.SelectedLootId,
+            _containerSelection.SelectedLootId,
             this);
 
         if (!refreshed)
         {
-            _selection.Clear();
+            _containerSelection.Clear();
             return;
         }
 
-        _selection.Reconcile(_containerPanelPresenter.OccupiedEntries);
-        RefreshContainerInteraction();
+        _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+        RefreshTransferInteraction();
     }
 
-    private void RefreshContainerInteraction()
+    private void RefreshTransferInteraction()
     {
-        if (_view == null || _view.ContainerPanel == null)
+        if (_view == null || _view.PlayerPanel == null || _view.ContainerPanel == null)
         {
             return;
         }
@@ -529,7 +583,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight;
-        _view.ContainerPanel.RefreshInteraction(interactive, _selection.SelectedLootId);
+        _view.PlayerPanel.RefreshInteraction(interactive, _playerSelection.SelectedLootId);
+        _view.ContainerPanel.RefreshInteraction(interactive, _containerSelection.SelectedLootId);
     }
 
     private bool IsContainerBindingValidAndInRange()
@@ -580,7 +635,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void ClearContainerBinding()
     {
-        _selection.Clear();
+        _playerSelection.Clear();
+        _containerSelection.Clear();
         _containerPanelPresenter.Clear();
         _view?.ContainerPanel?.ClearContent();
         _containerNetworkId = default;

@@ -35,7 +35,7 @@ namespace Tests.PlayMode.Presentation
             _controller.RequestInFlightChanged += value => notifications.Add($"pending:{value}");
             _controller.TransferConfirmed += _ => notifications.Add("confirmation");
 
-            Assert.That(_controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), 2, out uint sequence), Is.True);
+            Assert.That(_controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), new EntityId(60), 2, out uint sequence), Is.True);
             Assert.That(_controller.HasRequestInFlight, Is.True);
             Assert.That(notifications, Is.Empty);
 
@@ -75,7 +75,7 @@ namespace Tests.PlayMode.Presentation
             _controller.RequestInFlightChanged += value => notifications.Add($"pending:{value}");
             _controller.TransferConfirmed += _ => notifications.Add("confirmation");
 
-            _controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), 2, out uint sequence);
+            _controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), new EntityId(60), 2, out uint sequence);
             _controller.Render();
             notifications.Clear();
             Assert.That(_controller.DebugStageRequestCompletionForPresentation(sequence, false, default), Is.True);
@@ -83,7 +83,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(notifications, Is.EqualTo(new[] { "pending:False" }));
 
             notifications.Clear();
-            _controller.DebugStageAcceptedRequestForPresentation(new EntityId(51), 3, out _);
+            _controller.DebugStageAcceptedRequestForPresentation(new EntityId(51), new EntityId(60), 3, out _);
             _controller.DebugResetLocalPresentationState();
             Assert.That(_controller.HasRequestInFlight, Is.False);
             _controller.Render();
@@ -98,7 +98,7 @@ namespace Tests.PlayMode.Presentation
             _controller.RequestInFlightChanged += value => notifications.Add($"pending:{value}");
             _controller.TransportRejected += reason => notifications.Add($"rejection:{reason}");
 
-            Assert.That(_controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), 2, out uint sequence), Is.True);
+            Assert.That(_controller.DebugStageAcceptedRequestForPresentation(new EntityId(50), new EntityId(60), 2, out uint sequence), Is.True);
             _controller.Render();
             notifications.Clear();
 

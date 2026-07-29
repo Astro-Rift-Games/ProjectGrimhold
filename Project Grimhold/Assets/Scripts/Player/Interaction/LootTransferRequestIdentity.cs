@@ -7,18 +7,25 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
 {
     public uint RequestSequence { get; }
     public EntityId SourceId { get; }
+    public EntityId DestinationId { get; }
     public int CatalogIndex { get; }
 
-    public LootTransferRequestIdentity(uint requestSequence, EntityId sourceId, int catalogIndex)
+    public LootTransferRequestIdentity(
+        uint requestSequence,
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex)
     {
         RequestSequence = requestSequence;
         SourceId = sourceId;
+        DestinationId = destinationId;
         CatalogIndex = catalogIndex;
     }
 
     public bool Equals(LootTransferRequestIdentity other) =>
         RequestSequence == other.RequestSequence &&
         SourceId == other.SourceId &&
+        DestinationId == other.DestinationId &&
         CatalogIndex == other.CatalogIndex;
 
     public override bool Equals(object obj) => obj is LootTransferRequestIdentity other && Equals(other);
@@ -29,6 +36,7 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
         {
             int hashCode = (int)RequestSequence;
             hashCode = (hashCode * 397) ^ SourceId.GetHashCode();
+            hashCode = (hashCode * 397) ^ DestinationId.GetHashCode();
             return (hashCode * 397) ^ CatalogIndex;
         }
     }

@@ -9,10 +9,15 @@ public sealed class LootTransferClientRequestState
 
     public bool HasInFlight => _hasInFlight;
 
-    public bool TryCreateCandidate(EntityId sourceId, int catalogIndex, out LootTransferRequestIdentity identity)
+    public bool TryCreateCandidate(
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        out LootTransferRequestIdentity identity)
     {
         identity = default;
-        if (_hasInFlight || sourceId.Value == 0 || catalogIndex < 0)
+        if (_hasInFlight || sourceId.Value == 0 || destinationId.Value == 0 ||
+            sourceId == destinationId || catalogIndex < 0)
         {
             return false;
         }
@@ -23,7 +28,7 @@ public sealed class LootTransferClientRequestState
             sequence = 1;
         }
 
-        identity = new LootTransferRequestIdentity(sequence, sourceId, catalogIndex);
+        identity = new LootTransferRequestIdentity(sequence, sourceId, destinationId, catalogIndex);
         return true;
     }
 

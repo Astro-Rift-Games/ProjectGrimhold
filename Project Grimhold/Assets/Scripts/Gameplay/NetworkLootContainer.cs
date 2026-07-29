@@ -4,12 +4,13 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Authoritative reusable loot source whose stack contents and availability are replicated by Fusion.
-/// It exposes extraction and read capabilities without knowing players, interaction UI or receiver types.
+/// Authoritative reusable loot endpoint whose stack contents and availability are replicated by Fusion.
+/// It exposes reception, extraction and read capabilities without knowing players or interaction UI.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
 public sealed class NetworkLootContainer : NetworkBehaviour,
+    ILootReceiver,
     ILootExtractor,
     ILootQuantityReader,
     ILootContentReader,
@@ -302,6 +303,95 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         return LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
     }
 
+    /// <summary>
+    /// Validates a complete reception into this available container without mutating replicated state.
+    /// State Authority must commit immediately after a successful validation.
+    /// </summary>
+    public LootTransferFailureReason ValidateReceive(in LootTransferRequest request)
+    {
+        if (!HasStateAuthority)
+        {
+            return LootTransferFailureReason.MissingAuthority;
+        }
+
+        if (!IsInitialized || !IsAvailable || !_isRegistered)
+        {
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        if (request.SourceId.Value == 0)
+        {
+            return LootTransferFailureReason.SourceNotFound;
+        }
+
+        if (request.DestinationId.Value == 0 || request.DestinationId != Id)
+        {
+            return LootTransferFailureReason.DestinationNotFound;
+        }
+
+        if (!request.LootId.IsValid)
+        {
+            return LootTransferFailureReason.InvalidLoot;
+        }
+
+        if (_lootCatalog == null)
+        {
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        if (!_lootCatalog.TryGetIndex(request.LootId, out int index))
+        {
+            return LootTransferFailureReason.InvalidLoot;
+        }
+
+        if (request.RequestedAmount <= 0)
+        {
+            return LootTransferFailureReason.InvalidAmount;
+        }
+
+        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxLootTypes) ||
+            index < 0 || index >= MaxLootTypes)
+        {
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        bool alreadyHeld = inventory.TryGet(index, out int currentAmount);
+        LootTransferFailureReason failure = LootInventoryRules.ValidateReceive(
+            alreadyHeld,
+            currentAmount,
+            inventory.Count,
+            _slotCapacity,
+            request.RequestedAmount);
+
+        if (failure != LootTransferFailureReason.None)
+        {
+            return failure;
+        }
+
+        if (!alreadyHeld && inventory.Count >= inventory.Capacity)
+        {
+            Debug.LogError(
+                $"{nameof(NetworkLootContainer)}: Network inventory capacity was exhausted despite validated catalog configuration.",
+                this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        return LootTransferFailureReason.None;
+    }
+
+    /// <summary>
+    /// Commits a previously validated complete reception and advances the replicated change sequence.
+    /// </summary>
+    public void CommitReceive(in LootTransferRequest request)
+    {
+        EnsureReceiveCommitContract(request, out int index, out int currentAmount);
+        LootInventory.Set(
+            index,
+            LootInventoryRules.CalculateReceivedAmount(currentAmount, request.RequestedAmount));
+        LootChangeSequence++;
+    }
+
     public void CommitExtraction(in LootTransferRequest request)
     {
         EnsureCommitContract(request, out int index, out int currentAmount);
@@ -479,6 +569,39 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             Debug.LogError($"{nameof(NetworkLootContainer)}: {nameof(CommitExtraction)} contract was violated for '{name}'.", this);
             throw new InvalidOperationException("Loot extraction commit preconditions changed after successful validation.");
         }
+    }
+
+    private void EnsureReceiveCommitContract(
+        in LootTransferRequest request,
+        out int index,
+        out int currentAmount)
+    {
+        index = default;
+        currentAmount = default;
+        if (!HasStateAuthority || !IsInitialized || !IsAvailable || !_isRegistered ||
+            request.SourceId.Value == 0 || request.DestinationId != Id ||
+            request.RequestedAmount <= 0 || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out index) ||
+            index < 0 || index >= MaxLootTypes)
+        {
+            FailReceiveCommitContract();
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        bool alreadyHeld = inventory.TryGet(index, out currentAmount);
+        if ((!alreadyHeld && (inventory.Count >= _slotCapacity || inventory.Count >= inventory.Capacity)) ||
+            (alreadyHeld && currentAmount <= 0) || currentAmount > int.MaxValue - request.RequestedAmount)
+        {
+            FailReceiveCommitContract();
+        }
+    }
+
+    private void FailReceiveCommitContract()
+    {
+        Debug.LogError(
+            $"{nameof(NetworkLootContainer)}: {nameof(CommitReceive)} contract was violated for '{name}'.",
+            this);
+        throw new InvalidOperationException("Loot reception commit preconditions changed after successful validation.");
     }
 
 #if UNITY_EDITOR

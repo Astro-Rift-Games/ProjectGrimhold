@@ -44,7 +44,7 @@ public readonly struct LootTransferConfirmation
         int failureReasonValue,
         int simulationTick,
         in LootTransferRequestIdentity expected,
-        EntityId localDestinationId,
+        EntityId localPlayerId,
         LootDefinitionCatalog catalog,
         out LootTransferConfirmation confirmation,
         out string error)
@@ -54,8 +54,10 @@ public readonly struct LootTransferConfirmation
         EntityId sourceId = new EntityId(sourceIdValue);
         EntityId destinationId = new EntityId(destinationIdValue);
 
-        if (sourceId.Value == 0 || destinationId.Value == 0 || sourceId != expected.SourceId ||
-            destinationId != localDestinationId || catalogIndex != expected.CatalogIndex)
+        if (sourceId.Value == 0 || destinationId.Value == 0 || sourceId == destinationId ||
+            sourceId != expected.SourceId || destinationId != expected.DestinationId ||
+            catalogIndex != expected.CatalogIndex ||
+            (sourceId != localPlayerId && destinationId != localPlayerId))
         {
             error = "Envelope identity does not match the local request.";
             return false;

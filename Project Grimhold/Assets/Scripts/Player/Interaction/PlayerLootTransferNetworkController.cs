@@ -9,6 +9,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
+[RequireComponent(typeof(PlayerLootReceiver))]
 public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
 {
     [Header("Dependencies")]
@@ -28,6 +29,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     private Transform _interactionOrigin;
 
     private ICharacter _character;
+    private PlayerLootReceiver _lootReceiver;
     private IInteractionTargetQuery _query;
     private EntityRegistry _registry;
     private bool _dependenciesValid;
@@ -106,23 +108,40 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     }
 
     /// <summary>
-    /// Sends one full-stack transfer intention from Input Authority.
+    /// Sends one full-stack transfer intention between the owning player and one container.
     /// A second legitimate request is rejected locally until the matching sequence is confirmed.
     /// </summary>
-    public bool TryRequestFullStack(EntityId sourceId, LootId lootId)
+    /// <param name="sourceId">The authoritative endpoint whose complete current stack is requested.</param>
+    /// <param name="destinationId">The endpoint that must receive the complete stack.</param>
+    /// <param name="lootId">The loot identity whose complete source quantity will be resolved on State Authority.</param>
+    /// <returns><see langword="true"/> when Fusion accepted the request for transport; otherwise, <see langword="false"/>.</returns>
+    public bool TryRequestFullStack(EntityId sourceId, EntityId destinationId, LootId lootId)
     {
+        EntityId playerId = _character?.Id ?? default;
+        bool playerIsSource = sourceId == playerId;
+        bool playerIsDestination = destinationId == playerId;
         if (!HasInputAuthority || !_dependenciesValid || sourceId.Value == 0 ||
+            destinationId.Value == 0 || sourceId == destinationId ||
+            playerIsSource == playerIsDestination ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
         {
             return false;
         }
 
-        if (!_clientRequest.TryCreateCandidate(sourceId, catalogIndex, out LootTransferRequestIdentity identity))
+        if (!_clientRequest.TryCreateCandidate(
+                sourceId,
+                destinationId,
+                catalogIndex,
+                out LootTransferRequestIdentity identity))
         {
             return false;
         }
 
-        RpcInvokeInfo invokeInfo = RPC_RequestFullStack(sourceId.Value, catalogIndex, identity.RequestSequence);
+        RpcInvokeInfo invokeInfo = RPC_RequestFullStack(
+            sourceId.Value,
+            destinationId.Value,
+            catalogIndex,
+            identity.RequestSequence);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -137,15 +156,19 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     /// <summary>
     /// Sends a primitive request for development transport tests without changing legitimate in-flight state.
     /// </summary>
-    public bool DebugSendRawRequest(EntityId sourceId, int catalogIndex, uint requestSequence)
+    public bool DebugSendRawRequest(
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        uint requestSequence)
     {
-        if (!HasInputAuthority || sourceId.Value == 0)
+        if (!HasInputAuthority || sourceId.Value == 0 || destinationId.Value == 0)
         {
             return false;
         }
 
         return WasAccepted(
-            RPC_RequestFullStack(sourceId.Value, catalogIndex, requestSequence),
+            RPC_RequestFullStack(sourceId.Value, destinationId.Value, catalogIndex, requestSequence),
             HasStateAuthority);
     }
 
@@ -159,11 +182,16 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     /// </summary>
     public bool DebugStageAcceptedRequestForPresentation(
         EntityId sourceId,
+        EntityId destinationId,
         int catalogIndex,
         out uint requestSequence)
     {
         requestSequence = 0;
-        if (!_clientRequest.TryCreateCandidate(sourceId, catalogIndex, out LootTransferRequestIdentity identity))
+        if (!_clientRequest.TryCreateCandidate(
+                sourceId,
+                destinationId,
+                catalogIndex,
+                out LootTransferRequestIdentity identity))
         {
             return false;
         }
@@ -229,6 +257,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         HostMode = RpcHostMode.SourceIsHostPlayer)]
     private RpcInvokeInfo RPC_RequestFullStack(
         int sourceIdValue,
+        int destinationIdValue,
         int catalogIndex,
         uint requestSequence,
         RpcInfo info = default)
@@ -255,6 +284,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         var identity = new LootTransferRequestIdentity(
             requestSequence,
             new EntityId(sourceIdValue),
+            new EntityId(destinationIdValue),
             catalogIndex);
 
         LootTransferRequestState.Disposition disposition =
@@ -358,39 +388,77 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
 
     private LootTransferConfirmation ProcessAuthoritativeRequest(in LootTransferRequestIdentity identity)
     {
-        EntityId destinationId = _character?.Id ?? default;
+        EntityId playerId = _character?.Id ?? default;
         int tick = Runner.Tick;
 
-        if (identity.SourceId.Value == 0 || _registry == null ||
-            !_registry.TryGetLootSource(identity.SourceId, out ILootExtractor extractor, out ILootQuantityReader quantityReader))
+        if (identity.SourceId.Value == 0)
         {
-            return RejectedConfirmation(identity, destinationId, tick, LootTransferFailureReason.SourceNotFound);
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.SourceNotFound);
         }
 
-        if (destinationId.Value == 0 || !_registry.TryGetLootReceiver(destinationId, out ILootReceiver receiver))
+        if (identity.DestinationId.Value == 0)
         {
-            return RejectedConfirmation(identity, destinationId, tick, LootTransferFailureReason.DestinationNotFound);
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.DestinationNotFound);
+        }
+
+        bool isDeposit = identity.SourceId == playerId && identity.DestinationId != playerId;
+        bool isWithdrawal = identity.DestinationId == playerId && identity.SourceId != playerId;
+        if (playerId.Value == 0 || isDeposit == isWithdrawal)
+        {
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.MissingAuthority);
+        }
+
+        EntityId containerId = isDeposit ? identity.DestinationId : identity.SourceId;
+        if (!TryResolveContainer(containerId, out NetworkLootContainer container))
+        {
+            return RejectedConfirmation(
+                identity,
+                tick,
+                isDeposit
+                    ? LootTransferFailureReason.DestinationNotFound
+                    : LootTransferFailureReason.SourceNotFound);
+        }
+
+        ILootExtractor extractor;
+        ILootQuantityReader quantityReader;
+        ILootReceiver receiver;
+        if (isDeposit)
+        {
+            extractor = _lootReceiver;
+            quantityReader = _lootReceiver;
+            receiver = container;
+        }
+        else
+        {
+            if (_registry == null ||
+                !_registry.TryGetLootSource(identity.SourceId, out extractor, out quantityReader) ||
+                !ReferenceEquals(extractor, container) || !ReferenceEquals(quantityReader, container) ||
+                !_registry.TryGetLootReceiver(playerId, out receiver) ||
+                !ReferenceEquals(receiver, _lootReceiver))
+            {
+                return RejectedConfirmation(identity, tick, LootTransferFailureReason.ContainerUnavailable);
+            }
         }
 
         if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(identity.CatalogIndex, out LootDefinition definition))
         {
-            return RejectedConfirmation(identity, destinationId, tick, LootTransferFailureReason.InvalidLoot);
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.InvalidLoot);
         }
 
         int fullAmount = quantityReader.GetLootAmount(definition.LootId);
         if (fullAmount <= 0)
         {
-            return RejectedConfirmation(identity, destinationId, tick, LootTransferFailureReason.InsufficientAmount);
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.InsufficientAmount);
         }
 
-        if (!IsSourceInRange(identity.SourceId, destinationId))
+        if (!IsContainerInRange(containerId, playerId))
         {
-            return RejectedConfirmation(identity, destinationId, tick, LootTransferFailureReason.OutOfRange);
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.OutOfRange);
         }
 
         var request = new LootTransferRequest(
             identity.SourceId,
-            destinationId,
+            identity.DestinationId,
             definition.LootId,
             fullAmount,
             tick);
@@ -399,18 +467,18 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         return new LootTransferConfirmation(
             identity.RequestSequence,
             identity.SourceId,
-            destinationId,
+            identity.DestinationId,
             identity.CatalogIndex,
             tick,
             result,
             definition.LootId);
     }
 
-    private bool IsSourceInRange(EntityId sourceId, EntityId destinationId)
+    private bool IsContainerInRange(EntityId containerId, EntityId playerId)
     {
         Vector2 origin = _interactionOrigin != null ? (Vector2)_interactionOrigin.position : (Vector2)transform.position;
         var query = new InteractionTargetQuery(
-            destinationId,
+            playerId,
             origin,
             _interactionConfig.MaximumDistance,
             _interactionConfig.TargetLayerMask);
@@ -418,7 +486,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         IReadOnlyList<InteractionTarget> targets = _query.FindTargets(query);
         for (int i = 0; i < targets.Count; i++)
         {
-            if (targets[i].TargetId == sourceId && targets[i].Distance <= _interactionConfig.MaximumDistance)
+            if (targets[i].TargetId == containerId && targets[i].Distance <= _interactionConfig.MaximumDistance)
             {
                 return true;
             }
@@ -429,7 +497,6 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
 
     private static LootTransferConfirmation RejectedConfirmation(
         in LootTransferRequestIdentity identity,
-        EntityId destinationId,
         int tick,
         LootTransferFailureReason reason)
     {
@@ -437,7 +504,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         return new LootTransferConfirmation(
             identity.RequestSequence,
             identity.SourceId,
-            destinationId,
+            identity.DestinationId,
             identity.CatalogIndex,
             tick,
             result,
@@ -460,6 +527,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     private void CacheDependencies()
     {
         _character = _characterSource != null ? _characterSource as ICharacter : GetComponent<ICharacter>();
+        _lootReceiver = GetComponent<PlayerLootReceiver>();
         _query = _querySource != null ? _querySource as IInteractionTargetQuery : GetComponent<IInteractionTargetQuery>();
         if (_interactionOrigin == null)
         {
@@ -476,13 +544,33 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return false;
         }
 
-        if (_interactionConfig == null || _character == null || _query == null || _registry == null)
+        if (_interactionConfig == null || _character == null || _lootReceiver == null ||
+            _query == null || _registry == null)
         {
             Debug.LogError($"{nameof(PlayerLootTransferNetworkController)}: Required interaction, character, query or registry dependency is missing.", this);
             return false;
         }
 
         return true;
+    }
+
+    private bool TryResolveContainer(EntityId containerId, out NetworkLootContainer container)
+    {
+        container = null;
+        if (Runner == null || containerId.Value == 0)
+        {
+            return false;
+        }
+
+        var networkId = new NetworkId { Raw = unchecked((uint)containerId.Value) };
+        if (!Runner.TryFindObject(networkId, out NetworkObject networkObject) || networkObject == null ||
+            networkObject.Id.Raw != networkId.Raw)
+        {
+            return false;
+        }
+
+        container = networkObject.GetComponent<NetworkLootContainer>();
+        return container != null && ReferenceEquals(container.Object, networkObject) && container.Id == containerId;
     }
 
     private void ResetLocalState()

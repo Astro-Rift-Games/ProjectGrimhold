@@ -140,6 +140,82 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator GeneratedChest_AcceptsFullStackFromOccupiedPlayerSlot()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            yield return GrantLooterLoot(new LootEntry(BoneLootId, 2));
+            NetworkObject chest = SpawnLootSource(ChestPrefabGuid, new LootEntry(BoneLootId, 3));
+            yield return null;
+
+            yield return LootDestinationThroughOccupiedPlayerSlot(chest, 5);
+        }
+
+        [UnityTest]
+        public IEnumerator DefeatedEnemy_AcceptsFullStackFromOccupiedPlayerSlot()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            yield return GrantLooterLoot(new LootEntry(BoneLootId, 2));
+            NetworkObject enemyObject = SpawnLootSource(
+                EnemyMeleePrefabGuid,
+                new LootEntry(BoneLootId, 3));
+            EnemyCharacter enemy = enemyObject.GetComponent<EnemyCharacter>();
+            NetworkLootContainer container = enemyObject.GetComponent<NetworkLootContainer>();
+
+            _enemyDamageDriver.Target = enemy;
+            _enemyDamageDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => !enemy.IsAlive && container.IsAvailable,
+                "The enemy did not expose its existing loot container after fatal damage.");
+
+            yield return LootDestinationThroughOccupiedPlayerSlot(enemyObject, 5);
+        }
+
+        [UnityTest]
+        public IEnumerator DefeatedPlayer_DepositTargetsContainerInsteadOfColocatedInventory()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            yield return GrantLooterLoot(new LootEntry(BoneLootId, 2));
+            yield return DefeatSource(new[] { new LootEntry(BoneLootId, 3) });
+
+            PlayerLootReceiver defeatedReceiver = _defeatedPlayerObject.GetComponent<PlayerLootReceiver>();
+            yield return LootDestinationThroughOccupiedPlayerSlot(_defeatedPlayerObject, 5);
+
+            Assert.That(defeatedReceiver.GetLootAmount(BoneLootId), Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator ContainerFull_DepositPreservesBothEndpointsAndShowsTypedFeedback()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            yield return GrantLooterLoot(new LootEntry(BoneLootId, 2));
+            NetworkObject chest = SpawnLootSource(ChestPrefabGuid, new LootEntry(CoinsLootId, 1));
+            NetworkLootContainer container = chest.GetComponent<NetworkLootContainer>();
+            FieldInfo capacityField = typeof(NetworkLootContainer).GetField(
+                "_slotCapacity",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(capacityField, Is.Not.Null);
+            capacityField.SetValue(container, 1);
+
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            PlayerLootTransferNetworkController transferController =
+                _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter =
+                _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            OpenFromConfirmedInteraction(presenter, container.Id);
+
+            ClickOccupiedSlot(view.PlayerPanel, BoneLootId);
+            yield return WaitUntil(
+                () => !transferController.HasRequestInFlight &&
+                    view.TransferFeedbackText.text == "Contenedor lleno",
+                "The authoritative container-full rejection was not presented.");
+
+            Assert.That(receiver.GetLootAmount(BoneLootId), Is.EqualTo(2));
+            Assert.That(container.GetLootAmount(BoneLootId), Is.Zero);
+            Assert.That(container.GetLootAmount(CoinsLootId), Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator InventoryFull_ClickPreservesSourceAndShowsTypedFeedback()
         {
             yield return StartRunnerAndSpawnPlayers();
@@ -336,6 +412,25 @@ namespace Tests.PlayMode.Loot
             Physics2D.SyncTransforms();
         }
 
+        private IEnumerator GrantLooterLoot(LootEntry entry)
+        {
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            ExpectBasePrefabCombatValidationError();
+            NetworkObject grantDriverTarget = _runner.Spawn(
+                _playerPrefab,
+                new Vector3(10f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null);
+            _defeatDriver.Target = grantDriverTarget.GetComponent<PlayerCharacter>();
+            _defeatDriver.Receiver = receiver;
+            _defeatDriver.SetEntries(new[] { entry });
+            _defeatDriver.IsRequested = true;
+
+            yield return WaitUntil(
+                () => receiver.GetLootAmount(entry.LootId) == entry.Amount,
+                "The looter inventory could not be prepared for the deposit test.");
+        }
+
         private NetworkObject SpawnLootSource(string prefabGuidValue, LootEntry entry)
         {
             NetworkObject prefab = LoadPrefab(prefabGuidValue);
@@ -390,6 +485,43 @@ namespace Tests.PlayMode.Loot
             Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.Zero);
             Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.EqualTo(1));
             AssertContainerEmptyState(view.ContainerPanel);
+        }
+
+        private IEnumerator LootDestinationThroughOccupiedPlayerSlot(
+            NetworkObject destinationObject,
+            int expectedContainerAmount)
+        {
+            NetworkLootContainer container = destinationObject.GetComponent<NetworkLootContainer>();
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            PlayerLootTransferNetworkController transferController =
+                _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter =
+                _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+
+            Assert.That(container, Is.Not.Null);
+            Assert.That((bool)container.IsAvailable, Is.True);
+            OpenFromConfirmedInteraction(presenter, container.Id);
+            Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.EqualTo(1));
+
+            int containerSequence = container.LootChangeSequence;
+            int playerSequence = receiver.LootChangeSequence;
+            ClickOccupiedSlot(view.PlayerPanel, BoneLootId);
+            Assert.That(transferController.HasRequestInFlight, Is.True);
+            ClickOccupiedSlot(view.ContainerPanel, BoneLootId, expectInteractable: false);
+
+            yield return WaitUntil(
+                () => !transferController.HasRequestInFlight &&
+                    receiver.GetLootAmount(BoneLootId) == 0 &&
+                    container.GetLootAmount(BoneLootId) == expectedContainerAmount,
+                "The player-to-container full-stack request did not complete.");
+            yield return null;
+
+            Assert.That(container.LootChangeSequence, Is.GreaterThan(containerSequence));
+            Assert.That(receiver.LootChangeSequence, Is.GreaterThan(playerSequence));
+            Assert.That(view.IsOpen, Is.True);
+            Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.Zero);
+            Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.EqualTo(1));
         }
 
         private NetworkObject LoadPrefab(string prefabGuidValue)

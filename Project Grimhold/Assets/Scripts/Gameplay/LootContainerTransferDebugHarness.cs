@@ -24,6 +24,7 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
 
     private readonly Collider2D[] _colliderBuffer = new Collider2D[32];
     private PlayerLootTransferNetworkController _controller;
+    private PlayerLootReceiver _receiver;
 
     private void Update()
     {
@@ -76,12 +77,13 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
         }
 
         _controller = playerObject.GetComponent<PlayerLootTransferNetworkController>();
-        if (_controller != null)
+        _receiver = playerObject.GetComponent<PlayerLootReceiver>();
+        if (_controller != null && _receiver != null)
         {
             _controller.TransferConfirmed += LogConfirmation;
         }
 
-        return _controller != null;
+        return _controller != null && _receiver != null;
     }
 
     private void OnDestroy()
@@ -101,7 +103,7 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
             return;
         }
 
-        bool sent = _controller.TryRequestFullStack(container.Id, content[0].LootId);
+        bool sent = _controller.TryRequestFullStack(container.Id, _receiver.Id, content[0].LootId);
         Debug.Log($"{nameof(LootContainerTransferDebugHarness)}: Public request sent={sent}, source={container.Id}, loot={content[0].LootId}.", this);
     }
 
@@ -109,7 +111,11 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
     {
         if (_controller.DebugTryGetInFlightIdentity(out LootTransferRequestIdentity identity))
         {
-            _controller.DebugSendRawRequest(identity.SourceId, identity.CatalogIndex, identity.RequestSequence);
+            _controller.DebugSendRawRequest(
+                identity.SourceId,
+                identity.DestinationId,
+                identity.CatalogIndex,
+                identity.RequestSequence);
         }
     }
 
@@ -117,7 +123,11 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
     {
         if (_controller.DebugTryGetInFlightIdentity(out LootTransferRequestIdentity identity))
         {
-            _controller.DebugSendRawRequest(identity.SourceId, identity.CatalogIndex + 1, identity.RequestSequence);
+            _controller.DebugSendRawRequest(
+                identity.SourceId,
+                identity.DestinationId,
+                identity.CatalogIndex + 1,
+                identity.RequestSequence);
         }
     }
 
@@ -125,7 +135,11 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
     {
         if (_controller.DebugTryGetInFlightIdentity(out LootTransferRequestIdentity identity))
         {
-            _controller.DebugSendRawRequest(identity.SourceId, identity.CatalogIndex, unchecked(identity.RequestSequence + 1));
+            _controller.DebugSendRawRequest(
+                identity.SourceId,
+                identity.DestinationId,
+                identity.CatalogIndex,
+                unchecked(identity.RequestSequence + 1));
         }
     }
 

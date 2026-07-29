@@ -157,6 +157,18 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void NetworkLootContainer_ImplementsBidirectionalEndpointCapabilities()
+        {
+            Type containerType = typeof(NetworkLootContainer);
+
+            Assert.That(typeof(ILootReceiver).IsAssignableFrom(containerType), Is.True);
+            Assert.That(typeof(ILootExtractor).IsAssignableFrom(containerType), Is.True);
+            Assert.That(typeof(ILootContentReader).IsAssignableFrom(containerType), Is.True);
+            Assert.That(typeof(ILootQuantityReader).IsAssignableFrom(containerType), Is.True);
+            Assert.That(typeof(ILootSlotCapacityReader).IsAssignableFrom(containerType), Is.True);
+        }
+
+        [Test]
         public void LootContentReader_ReturnsReadOnlySnapshot()
         {
             var reader = new StubContentReader();

@@ -70,7 +70,7 @@ namespace Tests.EditMode.Loot
             Assert.That(metadata, Is.Not.Null);
             Assert.That(string.IsNullOrWhiteSpace(metadata.PromptText), Is.False);
             Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>(), Is.Null);
-            Assert.That(typeof(ILootReceiver).IsAssignableFrom(typeof(NetworkLootContainer)), Is.False);
+            Assert.That(typeof(ILootReceiver).IsAssignableFrom(typeof(NetworkLootContainer)), Is.True);
 
             SerializedProperty interactionColliders = serializedContainer.FindProperty("_interactionColliders");
             Assert.That(interactionColliders.arraySize, Is.GreaterThan(0));

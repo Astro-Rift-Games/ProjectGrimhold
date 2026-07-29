@@ -294,6 +294,24 @@ namespace Tests.PlayMode.Presentation
             Assert.That(message, Is.EqualTo(expectedMessage));
         }
 
+        [TestCase(LootTransferFailureReason.SourceNotFound, "Inventario no disponible")]
+        [TestCase(LootTransferFailureReason.DestinationNotFound, "Contenedor no encontrado")]
+        [TestCase(LootTransferFailureReason.InventoryFull, "Contenedor lleno")]
+        [TestCase(LootTransferFailureReason.Uninitialized, "No se pudo depositar el loot")]
+        public void DepositFailureReason_MapsToDestinationContext(
+            LootTransferFailureReason reason,
+            string expectedMessage)
+        {
+            MethodInfo method = typeof(RaidInventoryPresenter).GetMethod(
+                "GetDirectionalTransferFailureMessage",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            string message = method.Invoke(null, new object[] { reason, true }) as string;
+
+            Assert.That(message, Is.EqualTo(expectedMessage));
+        }
+
         [TestCase(LootTransferTransportRejectionReason.BusyWithDifferentSequence, "Hay otra transferencia en curso")]
         [TestCase(LootTransferTransportRejectionReason.StaleSequence, "La solicitud de transferencia venció")]
         [TestCase(LootTransferTransportRejectionReason.DependenciesUnavailable, "Transferencia no disponible")]
