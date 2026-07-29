@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Orchestrates the local personal-inventory and confirmed container-looting screen.
-/// It observes replicated snapshots and sends full-stack intentions without mutating gameplay state.
+/// It observes replicated snapshots and sends single-unit or full-stack intentions without mutating gameplay state.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RaidInventoryPresenter : MonoBehaviour
@@ -345,7 +345,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view.SetScreenVisible(true);
     }
 
-    private void OnContainerSlotSelected(LootId lootId)
+    private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (_mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController.HasRequestInFlight ||
@@ -356,7 +356,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _playerSelection.Clear();
         _view.HideTransferFeedback();
-        if (!_transferController.TryRequestFullStack(_container.Id, _lootReceiver.Id, lootId))
+        if (!_transferController.TryRequestTransfer(
+                _container.Id,
+                _lootReceiver.Id,
+                lootId,
+                quantityMode))
         {
             _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
             _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
@@ -365,7 +369,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshTransferInteraction();
     }
 
-    private void OnPlayerSlotSelected(LootId lootId)
+    private void OnPlayerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (_mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController.HasRequestInFlight ||
@@ -376,7 +380,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _containerSelection.Clear();
         _view.HideTransferFeedback();
-        if (!_transferController.TryRequestFullStack(_lootReceiver.Id, _container.Id, lootId))
+        if (!_transferController.TryRequestTransfer(
+                _lootReceiver.Id,
+                _container.Id,
+                lootId,
+                quantityMode))
         {
             _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
             _view.ShowTransferFeedback("No se pudo solicitar la transferencia");

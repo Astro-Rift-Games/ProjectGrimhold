@@ -103,7 +103,11 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
             return;
         }
 
-        bool sent = _controller.TryRequestFullStack(container.Id, _receiver.Id, content[0].LootId);
+        bool sent = _controller.TryRequestTransfer(
+            container.Id,
+            _receiver.Id,
+            content[0].LootId,
+            LootTransferQuantityMode.FullStack);
         Debug.Log($"{nameof(LootContainerTransferDebugHarness)}: Public request sent={sent}, source={container.Id}, loot={content[0].LootId}.", this);
     }
 
@@ -115,6 +119,7 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
                 identity.SourceId,
                 identity.DestinationId,
                 identity.CatalogIndex,
+                identity.QuantityMode,
                 identity.RequestSequence);
         }
     }
@@ -127,6 +132,7 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
                 identity.SourceId,
                 identity.DestinationId,
                 identity.CatalogIndex + 1,
+                identity.QuantityMode,
                 identity.RequestSequence);
         }
     }
@@ -139,6 +145,7 @@ public sealed class LootContainerTransferDebugHarness : MonoBehaviour
                 identity.SourceId,
                 identity.DestinationId,
                 identity.CatalogIndex,
+                identity.QuantityMode,
                 unchecked(identity.RequestSequence + 1));
         }
     }

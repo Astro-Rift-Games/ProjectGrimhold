@@ -78,6 +78,19 @@ public readonly struct LootTransferConfirmation
                 return false;
             }
 
+            if (expected.QuantityMode == LootTransferQuantityMode.SingleUnit && transferredAmount != 1)
+            {
+                error = "A single-unit confirmation must transfer exactly one unit.";
+                return false;
+            }
+
+            if (expected.QuantityMode != LootTransferQuantityMode.SingleUnit &&
+                expected.QuantityMode != LootTransferQuantityMode.FullStack)
+            {
+                error = "The local request contains an unsupported quantity mode.";
+                return false;
+            }
+
             var request = new LootTransferRequest(
                 sourceId,
                 destinationId,

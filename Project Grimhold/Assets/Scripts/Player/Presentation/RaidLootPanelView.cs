@@ -32,7 +32,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     private readonly List<RaidInventorySlotView> _slots = new();
 
-    public event Action<LootId> SelectionRequested;
+    public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
 
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
@@ -159,9 +159,9 @@ public sealed class RaidLootPanelView : MonoBehaviour
         }
     }
 
-    private void OnSlotSelectionRequested(LootId lootId)
+    private void OnSlotSelectionRequested(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        SelectionRequested?.Invoke(lootId);
+        SelectionRequested?.Invoke(lootId, quantityMode);
     }
 
     private static void SetState(GameObject root, bool active)

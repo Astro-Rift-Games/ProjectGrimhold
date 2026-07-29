@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Tests.PlayMode.Presentation
 {
@@ -82,6 +84,60 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_view.IsOpen, Is.True);
             Assert.That(panel.SlotCount, Is.EqualTo(3));
             Assert.That(panel.gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator OccupiedSlot_MapsLeftToSingleUnitAndRightToFullStack()
+        {
+            _instance.SetActive(true);
+            RaidLootPanelView panel = _view.ContainerPanel;
+            Assert.That(panel.EnsureSlotCount(1), Is.True);
+            var data = new List<RaidInventorySlotData>
+            {
+                RaidInventorySlotData.Create(new LootEntry(new LootId("coin"), 4), null, null)
+            };
+            Assert.That(panel.Present(data, null, false, true, default), Is.True);
+            yield return null;
+
+            Transform slots = panel.transform.Find("SlotsGrid");
+            Assert.That(slots, Is.Not.Null);
+            RaidInventorySlotView slot = slots.GetChild(slots.childCount - 1)
+                .GetComponent<RaidInventorySlotView>();
+            Assert.That(slot, Is.Not.Null);
+            Button button = slot.GetComponent<Button>();
+            Assert.That(button, Is.Not.Null);
+
+            var receivedModes = new List<LootTransferQuantityMode>();
+            panel.SelectionRequested += (_, mode) => receivedModes.Add(mode);
+
+            button.onClick.Invoke();
+            slot.OnPointerClick(new PointerEventData(null)
+            {
+                button = PointerEventData.InputButton.Right
+            });
+
+            Assert.That(
+                receivedModes,
+                Is.EqualTo(new[]
+                {
+                    LootTransferQuantityMode.SingleUnit,
+                    LootTransferQuantityMode.FullStack
+                }));
+
+            panel.RefreshInteraction(false, default);
+            button.onClick.Invoke();
+            slot.OnPointerClick(new PointerEventData(null)
+            {
+                button = PointerEventData.InputButton.Right
+            });
+            Assert.That(receivedModes, Has.Count.EqualTo(2));
+
+            slot.Clear();
+            slot.OnPointerClick(new PointerEventData(null)
+            {
+                button = PointerEventData.InputButton.Right
+            });
+            Assert.That(receivedModes, Has.Count.EqualTo(2));
         }
 
         [Test]

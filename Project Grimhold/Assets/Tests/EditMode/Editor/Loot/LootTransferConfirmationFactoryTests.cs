@@ -7,7 +7,12 @@ namespace Tests.EditMode.Loot
         [Test]
         public void InvalidLootRejection_DoesNotRequireResolvableDefinition()
         {
-            var expected = new LootTransferRequestIdentity(3, new EntityId(10), new EntityId(20), 99);
+            var expected = new LootTransferRequestIdentity(
+                3,
+                new EntityId(10),
+                new EntityId(20),
+                99,
+                LootTransferQuantityMode.FullStack);
 
             bool valid = LootTransferConfirmation.TryReconstruct(
                 3,
@@ -32,7 +37,12 @@ namespace Tests.EditMode.Loot
         [Test]
         public void UnresolvableSuccess_IsMalformed()
         {
-            var expected = new LootTransferRequestIdentity(3, new EntityId(10), new EntityId(20), 99);
+            var expected = new LootTransferRequestIdentity(
+                3,
+                new EntityId(10),
+                new EntityId(20),
+                99,
+                LootTransferQuantityMode.FullStack);
 
             bool valid = LootTransferConfirmation.TryReconstruct(
                 3,
@@ -57,7 +67,7 @@ namespace Tests.EditMode.Loot
         public void MalformedMatchingConfirmation_CanBeReleasedBeforeReconstruction()
         {
             var client = new LootTransferClientRequestState();
-            client.TryCreateCandidate(new EntityId(10), new EntityId(20), 4, out LootTransferRequestIdentity expected);
+            client.TryCreateCandidate(new EntityId(10), new EntityId(20), 4, LootTransferQuantityMode.SingleUnit, out LootTransferRequestIdentity expected);
             client.MarkSent(expected);
 
             Assert.That(client.TryRelease(expected.RequestSequence, out LootTransferRequestIdentity released), Is.True);
@@ -84,7 +94,7 @@ namespace Tests.EditMode.Loot
         public void UnknownSequence_DoesNotReleaseExpectedRequest()
         {
             var client = new LootTransferClientRequestState();
-            client.TryCreateCandidate(new EntityId(10), new EntityId(20), 4, out LootTransferRequestIdentity expected);
+            client.TryCreateCandidate(new EntityId(10), new EntityId(20), 4, LootTransferQuantityMode.FullStack, out LootTransferRequestIdentity expected);
             client.MarkSent(expected);
 
             Assert.That(client.TryRelease(expected.RequestSequence + 1, out _), Is.False);

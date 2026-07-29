@@ -329,7 +329,7 @@ This ordering prevents duplicate reward delivery while preserving the pickup's e
 
 ## 12. Runtime container transfer integration
 
-`PlayerLootTransferNetworkController` accepts one legitimate Input Authority request at a time. Its Fusion RPC transports only source integer ID, catalog index and sequence. State Authority derives the player destination, complete current stack quantity, loot identity, distance and simulation tick before invoking `LootTransferTransaction`.
+`PlayerLootTransferNetworkController` accepts one legitimate Input Authority request at a time. Its Fusion RPC transports source and destination integer IDs, catalog index, quantity mode and sequence. State Authority validates the direction, resolves `SingleUnit` to one or `FullStack` to the complete current authoritative amount, derives loot identity, distance and simulation tick, and then invokes `LootTransferTransaction`.
 
 The authoritative adapter owns one local non-networked pending request and one last-processed cache. Pending cannot be overwritten. Exact pending duplicates are ignored, conflicting payloads do not affect gameplay, busy/stale sequences receive an internal transport rejection where required, and an exact processed duplicate replays only the cached primitive confirmation.
 

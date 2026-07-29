@@ -13,11 +13,14 @@ public sealed class LootTransferClientRequestState
         EntityId sourceId,
         EntityId destinationId,
         int catalogIndex,
+        LootTransferQuantityMode quantityMode,
         out LootTransferRequestIdentity identity)
     {
         identity = default;
         if (_hasInFlight || sourceId.Value == 0 || destinationId.Value == 0 ||
-            sourceId == destinationId || catalogIndex < 0)
+            sourceId == destinationId || catalogIndex < 0 ||
+            (quantityMode != LootTransferQuantityMode.SingleUnit &&
+             quantityMode != LootTransferQuantityMode.FullStack))
         {
             return false;
         }
@@ -28,7 +31,12 @@ public sealed class LootTransferClientRequestState
             sequence = 1;
         }
 
-        identity = new LootTransferRequestIdentity(sequence, sourceId, destinationId, catalogIndex);
+        identity = new LootTransferRequestIdentity(
+            sequence,
+            sourceId,
+            destinationId,
+            catalogIndex,
+            quantityMode);
         return true;
     }
 

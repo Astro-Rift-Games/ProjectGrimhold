@@ -1,13 +1,14 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
 /// Renders one reusable occupied or empty raid-inventory slot.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class RaidInventorySlotView : MonoBehaviour
+public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField]
     private Image _icon;
@@ -33,7 +34,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour
     private LootId _lootId;
     private bool _isOccupied;
 
-    public event Action<LootId> SelectionRequested;
+    public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
 
@@ -120,7 +121,22 @@ public sealed class RaidInventorySlotView : MonoBehaviour
     {
         if (_isOccupied && _button != null && _button.interactable && _lootId.IsValid)
         {
-            SelectionRequested?.Invoke(_lootId);
+            SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.SingleUnit);
         }
+    }
+
+    /// <summary>
+    /// Converts a right click on an interactive occupied slot into a full-stack intention.
+    /// Left clicks continue through <see cref="Button.onClick"/> so keyboard submit behavior is preserved.
+    /// </summary>
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData == null || eventData.button != PointerEventData.InputButton.Right ||
+            !_isOccupied || _button == null || !_button.interactable || !_lootId.IsValid)
+        {
+            return;
+        }
+
+        SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
     }
 }

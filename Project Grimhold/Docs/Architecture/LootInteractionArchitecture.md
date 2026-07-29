@@ -4,7 +4,7 @@
 
 Loot movement uses `LootEntry` as its only runtime stack and `LootId` as its domain identity. `LootDefinitionCatalog` assigns deterministic indices by ordinal ID order. Fusion transports and replicates catalog indices and quantities; every peer resolves static names, icons, rarity and value locally.
 
-TASK-33 adds a reusable synchronized source and an authoritative full-stack transfer adapter. TASK-34 composes that source with a separate `IInteractable` adapter and local presentation for selective full-stack looting. It adds no partial transfer, global coordinator, static service, networked inspection session, networked mailbox or networked request cache.
+TASK-33 adds a reusable synchronized source and an authoritative transfer adapter. TASK-34 composes that source with a separate `IInteractable` adapter and local presentation for selective looting. TASK-50 adds single-unit and full-stack intentions in both directions without a global coordinator, static service, networked inspection session, networked mailbox or networked request cache.
 
 ## Components and responsibilities
 
@@ -12,7 +12,7 @@ TASK-33 adds a reusable synchronized source and an authoritative full-stack tran
 - `NetworkLootContainerInteractable` shares the container root and `NetworkObject`, derives the same `EntityId`, and owns only its independently registered `IInteractable` capability. It never registers colliders or changes loot state.
 - `PlayerLootReceiver` remains the only temporary player inventory. Its validators own expected gameplay rejection; its commits apply a previously validated request.
 - `LootTransferTransaction` performs `ValidateExtraction -> ValidateReceive -> CommitExtraction -> CommitReceive` synchronously. It performs no entity resolution, catalog lookup, range calculation or presentation.
-- `PlayerLootTransferNetworkController` is the Fusion integration boundary on the player object. Input Authority sends an intention; State Authority derives requester, destination, full quantity, range and tick, then executes the transaction.
+- `PlayerLootTransferNetworkController` is the Fusion integration boundary on the player object. Input Authority sends an intention containing a quantity mode; State Authority derives requester, destination, exact quantity, range and tick, then executes the transaction.
 - `EntityRegistry` remains runner-scoped. A grouped loot-source registration atomically publishes extractor, quantity reader and associated colliders. Independent interactable registration composes with that source in either lifecycle order and removes only the expected owner.
 - `LootContainerTransferDebugHarness` is separate development tooling. It is not attached to production player prefabs or scenes.
 
@@ -45,7 +45,9 @@ Domain structs are never sent as RPC parameters. The request RPC contains only:
 
 ```text
 source EntityId value
+destination EntityId value
 catalog index
+quantity mode
 request sequence
 ```
 
@@ -63,7 +65,7 @@ Presentation notification is deferred through one bounded local queue. RPC and s
 
 For every consumed pending request, State Authority reruns `Physics2DInteractionTargetQuery` against registry colliders using the player's authoritative origin and interaction configuration. It never trusts client position, amount, destination or an earlier target selection.
 
-Fusion simulation processes authoritative requests serially. The first complete transfer removes the source stack before a later competing player validates, so the later request observes insufficient quantity rather than duplicating loot.
+Fusion simulation processes authoritative requests serially. A single-unit intention resolves to one, while a full-stack intention resolves from the current authoritative source amount. Each exact resolved request commits atomically before a later competing player validates, so the later request observes the remaining amount or an insufficient source rather than duplicating loot.
 
 ## Pickup presentation boundary
 
@@ -96,7 +98,7 @@ registry capability, or presentation mode. Removing the last stack increments
 the existing change sequence but does not make the container unavailable or
 despawn the player.
 
-`Assets/Prefabs/Debug/LootContainerTransferDebugHarness.prefab` can be placed manually in a graybox. In Editor or Development Build it resolves the local player through `TryGetPlayerObject`, detects nearby containers directly from colliders, reads their snapshot and invokes the public or raw debug transport methods. F8 sends the public full-stack request; F9 repeats its exact envelope; F10 reuses its sequence with a conflicting catalog index; F11 sends a different sequence while the legitimate request is in flight; and F12 queues an availability toggle that only succeeds on the peer holding State Authority and is applied by the container in `FixedUpdateNetwork`. Press F8 together with F9, F10 or F11 to guarantee both envelopes arrive before the next simulation tick. In a non-development release the class remains loadable but disables itself and performs no input or searches.
+`Assets/Prefabs/Debug/LootContainerTransferDebugHarness.prefab` can be placed manually in a graybox. In Editor or Development Build it resolves the local player through `TryGetPlayerObject`, detects nearby containers directly from colliders, reads their snapshot and invokes the public or raw debug transport methods. F8 sends a public full-stack request; F9 repeats its exact envelope; F10 reuses its sequence with a conflicting catalog index; F11 sends a different sequence while the legitimate request is in flight; and F12 queues an availability toggle that only succeeds on the peer holding State Authority and is applied by the container in `FixedUpdateNetwork`. Press F8 together with F9, F10 or F11 to guarantee both envelopes arrive before the next simulation tick. In a non-development release the class remains loadable but disables itself and performs no input or searches.
 
 ## Risks and validation
 
@@ -107,7 +109,7 @@ initially unavailable empty container, dedicated interaction trigger and
 baked network behaviours for the base, melee and ranged player prefabs. Shared
 runtime `EntityId` is verified only in Play Mode. Single Runner Play Mode tests
 cover the alive-to-defeated availability transition,
-generic interaction resolution, local confirmed opening, full-stack transfer,
+generic interaction resolution, local confirmed opening, single-unit and full-stack transfer,
 change-sequence refresh, persistent empty state, distance close, despawn
 unregistration and shutdown cleanup. These tests do not establish multi-peer
 replication or visual correctness.

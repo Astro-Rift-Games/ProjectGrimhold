@@ -30,7 +30,22 @@ namespace Tests.EditMode.Loot
                 Is.EqualTo(LootTransferRequestState.Disposition.PendingPayloadConflict));
             Assert.That(
                 state.TryEnqueue(
-                    new LootTransferRequestIdentity(4, new EntityId(10), new EntityId(21), 2),
+                    new LootTransferRequestIdentity(
+                        4,
+                        new EntityId(10),
+                        new EntityId(21),
+                        2,
+                        LootTransferQuantityMode.FullStack),
+                    out _),
+                Is.EqualTo(LootTransferRequestState.Disposition.PendingPayloadConflict));
+            Assert.That(
+                state.TryEnqueue(
+                    new LootTransferRequestIdentity(
+                        4,
+                        new EntityId(10),
+                        new EntityId(20),
+                        2,
+                        LootTransferQuantityMode.SingleUnit),
                     out _),
                 Is.EqualTo(LootTransferRequestState.Disposition.PendingPayloadConflict));
             Assert.That(state.TryConsume(out LootTransferRequestIdentity consumed), Is.True);
@@ -102,7 +117,12 @@ namespace Tests.EditMode.Loot
         }
 
         private static LootTransferRequestIdentity Identity(uint sequence, int sourceId, int catalogIndex) =>
-            new(sequence, new EntityId(sourceId), new EntityId(20), catalogIndex);
+            new(
+                sequence,
+                new EntityId(sourceId),
+                new EntityId(20),
+                catalogIndex,
+                LootTransferQuantityMode.FullStack);
 
         private static LootTransferConfirmation Rejected(
             in LootTransferRequestIdentity identity,

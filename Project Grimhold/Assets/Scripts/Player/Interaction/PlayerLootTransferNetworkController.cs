@@ -4,7 +4,7 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Adapts local full-stack loot intentions to primitive Fusion RPCs and executes them on State Authority.
+/// Adapts local single-unit or full-stack loot intentions to primitive Fusion RPCs and executes them on State Authority.
 /// Request queueing and idempotency are bounded local adapter state; gameplay mutation remains tick-driven.
 /// </summary>
 [DisallowMultipleComponent]
@@ -108,14 +108,19 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     }
 
     /// <summary>
-    /// Sends one full-stack transfer intention between the owning player and one container.
+    /// Sends one quantity-mode transfer intention between the owning player and one container.
     /// A second legitimate request is rejected locally until the matching sequence is confirmed.
     /// </summary>
-    /// <param name="sourceId">The authoritative endpoint whose complete current stack is requested.</param>
-    /// <param name="destinationId">The endpoint that must receive the complete stack.</param>
-    /// <param name="lootId">The loot identity whose complete source quantity will be resolved on State Authority.</param>
+    /// <param name="sourceId">The authoritative endpoint from which loot is requested.</param>
+    /// <param name="destinationId">The endpoint that must receive the resolved quantity.</param>
+    /// <param name="lootId">The loot identity requested from the source.</param>
+    /// <param name="quantityMode">Whether State Authority resolves one unit or the complete current stack.</param>
     /// <returns><see langword="true"/> when Fusion accepted the request for transport; otherwise, <see langword="false"/>.</returns>
-    public bool TryRequestFullStack(EntityId sourceId, EntityId destinationId, LootId lootId)
+    public bool TryRequestTransfer(
+        EntityId sourceId,
+        EntityId destinationId,
+        LootId lootId,
+        LootTransferQuantityMode quantityMode)
     {
         EntityId playerId = _character?.Id ?? default;
         bool playerIsSource = sourceId == playerId;
@@ -123,6 +128,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         if (!HasInputAuthority || !_dependenciesValid || sourceId.Value == 0 ||
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
+            !IsSupportedQuantityMode(quantityMode) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
         {
             return false;
@@ -132,15 +138,17 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
                 sourceId,
                 destinationId,
                 catalogIndex,
+                quantityMode,
                 out LootTransferRequestIdentity identity))
         {
             return false;
         }
 
-        RpcInvokeInfo invokeInfo = RPC_RequestFullStack(
+        RpcInvokeInfo invokeInfo = RPC_RequestTransfer(
             sourceId.Value,
             destinationId.Value,
             catalogIndex,
+            (int)quantityMode,
             identity.RequestSequence);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
@@ -160,6 +168,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId sourceId,
         EntityId destinationId,
         int catalogIndex,
+        LootTransferQuantityMode quantityMode,
         uint requestSequence)
     {
         if (!HasInputAuthority || sourceId.Value == 0 || destinationId.Value == 0)
@@ -168,7 +177,12 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         }
 
         return WasAccepted(
-            RPC_RequestFullStack(sourceId.Value, destinationId.Value, catalogIndex, requestSequence),
+            RPC_RequestTransfer(
+                sourceId.Value,
+                destinationId.Value,
+                catalogIndex,
+                (int)quantityMode,
+                requestSequence),
             HasStateAuthority);
     }
 
@@ -184,6 +198,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId sourceId,
         EntityId destinationId,
         int catalogIndex,
+        LootTransferQuantityMode quantityMode,
         out uint requestSequence)
     {
         requestSequence = 0;
@@ -191,6 +206,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
                 sourceId,
                 destinationId,
                 catalogIndex,
+                quantityMode,
                 out LootTransferRequestIdentity identity))
         {
             return false;
@@ -255,10 +271,11 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         RpcTargets.StateAuthority,
         InvokeLocal = true,
         HostMode = RpcHostMode.SourceIsHostPlayer)]
-    private RpcInvokeInfo RPC_RequestFullStack(
+    private RpcInvokeInfo RPC_RequestTransfer(
         int sourceIdValue,
         int destinationIdValue,
         int catalogIndex,
+        int quantityModeValue,
         uint requestSequence,
         RpcInfo info = default)
     {
@@ -285,7 +302,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             requestSequence,
             new EntityId(sourceIdValue),
             new EntityId(destinationIdValue),
-            catalogIndex);
+            catalogIndex,
+            (LootTransferQuantityMode)quantityModeValue);
 
         LootTransferRequestState.Disposition disposition =
             _authoritativeRequests.TryEnqueue(identity, out LootTransferConfirmation cached);
@@ -445,10 +463,14 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.InvalidLoot);
         }
 
-        int fullAmount = quantityReader.GetLootAmount(definition.LootId);
-        if (fullAmount <= 0)
+        int availableAmount = quantityReader.GetLootAmount(definition.LootId);
+        LootTransferFailureReason quantityFailure = LootTransferQuantityResolver.Resolve(
+            identity.QuantityMode,
+            availableAmount,
+            out int requestedAmount);
+        if (quantityFailure != LootTransferFailureReason.None)
         {
-            return RejectedConfirmation(identity, tick, LootTransferFailureReason.InsufficientAmount);
+            return RejectedConfirmation(identity, tick, quantityFailure);
         }
 
         if (!IsContainerInRange(containerId, playerId))
@@ -460,7 +482,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             identity.SourceId,
             identity.DestinationId,
             definition.LootId,
-            fullAmount,
+            requestedAmount,
             tick);
 
         LootTransferResult result = LootTransferTransaction.Execute(extractor, receiver, request);
@@ -553,6 +575,10 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
 
         return true;
     }
+
+    private static bool IsSupportedQuantityMode(LootTransferQuantityMode quantityMode) =>
+        quantityMode == LootTransferQuantityMode.SingleUnit ||
+        quantityMode == LootTransferQuantityMode.FullStack;
 
     private bool TryResolveContainer(EntityId containerId, out NetworkLootContainer container)
     {

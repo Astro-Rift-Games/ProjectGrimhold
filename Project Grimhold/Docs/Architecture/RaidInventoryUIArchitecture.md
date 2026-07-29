@@ -2,7 +2,7 @@
 
 ## Context and decision
 
-TASK-32 replaces the provisional textual loot summary with a local uGUI slot screen. TASK-34 composes the player inventory and an inspected `NetworkLootContainer` in the same local screen. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
+TASK-32 replaces the provisional textual loot summary with a local uGUI slot screen. TASK-34 composes the player inventory and an inspected `NetworkLootContainer` in the same local screen. TASK-50 adds symmetric single-unit and full-stack mouse intentions in both transfer directions. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
 The local presentation flow is:
 
@@ -16,7 +16,7 @@ PlayerLootReceiver
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. A real uGUI button click makes the slot emit only its occupied `LootId`; the orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`, which requests the source's complete authoritative stack.
+The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. A real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
 ## Slot projection and metadata
 
@@ -24,7 +24,7 @@ The presentation layer calls only snapshot readers, capacities, change sequences
 
 The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
 
-`PanelsRow` contains reusable sibling panels. Personal mode shows only the read-only player panel. Loot mode makes occupied slots in both the player and container panels selectable at full capacity, including empty slots and `Contenedor vacío`; empty content does not close the screen. A container-slot click withdraws to the player, while a player-slot click deposits into the open container. There is no drag and drop, editable amount, multiple selection or loot-all.
+`PanelsRow` contains reusable sibling panels. Personal mode shows only the read-only player panel. Loot mode makes occupied slots in both the player and container panels selectable at full capacity, including empty slots and `Contenedor vacío`; empty content does not close the screen. A container-slot click withdraws to the player, while a player-slot click deposits into the open container. In either panel, left click requests exactly one unit and right click requests the complete authoritative stack. There is no drag and drop, editable amount, multiple selection or loot-all.
 
 Each panel owns a `RaidLootSelectionState` containing only its selected `LootId`. Selecting one panel clears the other panel's selection. Both clear on close or target change, preserve a selection while that stack remains in the corresponding snapshot, and remove it when the stack disappears. Selection state intentionally has no pending flag or controller reference. Slot interactivity is derived each time from loot mode, a valid current container, an occupied slot, and `!PlayerLootTransferNetworkController.HasRequestInFlight`.
 
@@ -38,7 +38,7 @@ Player and container `LootChangeSequence` values are the definitive refresh sign
 
 Transfer feedback is local presentation state inside the inventory screen. An Input Authority peer considers a request in flight only when Fusion reports that the RPC was sent to State Authority; local invocation alone is sufficient only on the State Authority peer. The request RPC uses `RpcHostMode.SourceIsHostPlayer`, so a local Host invocation reports the Host player as `RpcInfo.Source` and passes the same Input Authority validation as a remote Client. A failed local send shows a generic request message, while an authoritative confirmation maps its typed `LootTransferFailureReason` to a player-facing reason. Authority-side transport rejections also finalize the matching request before publishing their local feedback, so an unavailable dependency or rejected envelope cannot leave slots permanently blocked. Success, a new request, close, disable and unbind clear that message. Feedback never predicts or mutates content; replicated endpoint snapshots and their `LootChangeSequence` values remain the only sources of truth.
 
-The request identity contains source, destination, catalog index and sequence. State Authority accepts only open-container-to-owning-player withdrawals or owning-player-to-exact-open-container deposits. It resolves the exact `NetworkLootContainer` from the supplied `NetworkId`, verifies that the other endpoint is the controller's co-located `PlayerLootReceiver`, rechecks range and reads the complete source amount during the simulation tick. Containers are not registered as generic receivers because defeated players colocate their inventory and container under one `NetworkId`; direct component resolution prevents a deposit from targeting the defeated player's inventory.
+The request identity contains source, destination, catalog index, quantity mode and sequence. State Authority accepts only open-container-to-owning-player withdrawals or owning-player-to-exact-open-container deposits. It resolves the exact `NetworkLootContainer` from the supplied `NetworkId`, verifies that the other endpoint is the controller's co-located `PlayerLootReceiver`, rechecks range and reads the source amount during the simulation tick. `SingleUnit` resolves to one when the source still contains loot; `FullStack` resolves to the complete amount observed in that tick. Containers are not registered as generic receivers because defeated players colocate their inventory and container under one `NetworkId`; direct component resolution prevents a deposit from targeting the defeated player's inventory.
 
 Close is idempotent, releases one suppression token, clears mode, target, colliders and selection, and never cancels gameplay. Distance, target replacement/despawn, unavailable/uninitialized state, local close (via local Tab toggle, Escape, or a new local interaction press edge `InteractPressedLocally`), session end, player despawn and HUD disable all close the screen. Closing and reopening while a request remains in flight observes the controller directly and keeps slots blocked.
 
@@ -68,12 +68,12 @@ Player despawn, runner shutdown, scene unload, or reader replacement therefore c
 
 ## Validation strategy
 
-Pure tests cover projection order/capacity, slot fallback data, selection reconciliation, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both panels, stable slot reuse, clearing, empty capacity and direction-aware transfer feedback. Focused Single Runner tests activate the occupied slot's real `Button` in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
+Pure tests cover projection order/capacity, slot fallback data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
 
 The defeated-player integration reuses these contracts without adding a new
 screen mode or target type. Focused Single Runner tests use the co-located
 `NetworkLootContainer` and `NetworkLootContainerInteractable` from the real
-player prefab to cover confirmed `ContainerLoot` opening, full-stack transfer,
+player prefab to cover confirmed `ContainerLoot` opening, single-unit and full-stack transfer,
 both change-sequence refreshes, the existing empty-container presentation,
 distance close, despawn cleanup and shutdown suppression release.
 
