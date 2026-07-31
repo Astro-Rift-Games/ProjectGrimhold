@@ -10,6 +10,7 @@ public readonly struct InteractionPresentationEvent
     public bool Success { get; }
     public bool IsConsumed { get; }
     public InteractionFailureReason FailureReason { get; }
+    public LootTransferFailureReason LootFailureReason { get; }
 
     public InteractionPresentationEvent(
         int sequence,
@@ -18,7 +19,8 @@ public readonly struct InteractionPresentationEvent
         int simulationTick,
         bool success,
         bool isConsumed,
-        InteractionFailureReason failureReason)
+        InteractionFailureReason failureReason,
+        LootTransferFailureReason lootFailureReason = LootTransferFailureReason.None)
     {
         Sequence = sequence;
         InteractorId = interactorId;
@@ -27,5 +29,6 @@ public readonly struct InteractionPresentationEvent
         Success = success;
         IsConsumed = isConsumed;
         FailureReason = failureReason;
+        LootFailureReason = lootFailureReason;
     }
 }

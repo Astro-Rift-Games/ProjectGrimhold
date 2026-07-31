@@ -254,13 +254,16 @@ namespace Tests.PlayMode.Loot
             ClickOccupiedSlot(view.ContainerPanel, BoneLootId);
             yield return WaitUntil(
                 () => !transferController.HasRequestInFlight &&
-                    view.TransferFeedbackText.text == "Inventario lleno",
+                    view.PlayerPanel.CapacityFeedbackText != null &&
+                    view.PlayerPanel.CapacityFeedbackText.text == "Lleno" &&
+                    view.PlayerPanel.CapacityFeedbackText.gameObject.activeSelf,
                 "The authoritative inventory-full rejection was not presented.");
 
             Assert.That(container.GetLootAmount(BoneLootId), Is.EqualTo(2));
             Assert.That(receiver.GetLootAmount(BoneLootId), Is.Zero);
             Assert.That(receiver.GetLootAmount(CoinsLootId), Is.EqualTo(1));
-            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.False);
+            Assert.That(view.PlayerPanel.CapacityFeedbackText.text, Is.EqualTo("Lleno"));
         }
 
         [UnityTest]
@@ -355,8 +358,8 @@ namespace Tests.PlayMode.Loot
             Assert.That(container.GetLootAmount(BoneLootId), Is.EqualTo(2));
             Assert.That(container.GetLootAmount(CoinsLootId), Is.Zero);
             Assert.That(receiver.GetLootAmount(BoneLootId), Is.Zero);
-            Assert.That(view.TransferFeedbackText.text, Is.EqualTo("Inventario lleno"));
-            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.False);
+            Assert.That(view.PlayerPanel.CapacityFeedbackText.text, Is.EqualTo("Lleno"));
             Assert.That(view.TakeAllButton.interactable, Is.True);
         }
 

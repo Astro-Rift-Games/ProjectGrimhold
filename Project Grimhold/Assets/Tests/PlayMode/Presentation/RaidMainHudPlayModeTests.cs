@@ -15,6 +15,8 @@ namespace Tests.PlayMode.Presentation
     public sealed class RaidMainHudPlayModeTests
     {
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
+        private const string MeleePrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
+        private const string RangedPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string MeleePrefabGuid = "982f360e5acbdd344a8a75bbc0af94ec";
 
         private NetworkRunner _runner;
@@ -87,6 +89,8 @@ namespace Tests.PlayMode.Presentation
             AssertObjectReference(serializedBinder, "_menuPresenter");
             AssertObjectReference(serializedBinder, "_playerCharacter");
             AssertObjectReference(serializedBinder, "_combatController");
+            AssertObjectReference(serializedBinder, "_combatFeedbackPresenter");
+            Assert.That(prefab.GetComponentsInChildren<CombatFeedbackPresenter>(true), Has.Length.EqualTo(1));
 
             Assert.That(prefab.GetComponentsInChildren<RaidMenuPresenter>(true), Has.Length.EqualTo(1));
             RaidMenuView menuView = prefab.GetComponentInChildren<RaidMenuView>(true);
@@ -105,6 +109,32 @@ namespace Tests.PlayMode.Presentation
             }
         }
 
+        [TestCase(MeleePrefabPath)]
+        [TestCase(RangedPrefabPath)]
+        public void PlayerVariantCooldownUsesAnExistingWeaponSprite(string prefabPath)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            RaidHudView view = prefab.GetComponentInChildren<RaidHudView>(true);
+            Assert.That(view, Is.Not.Null);
+            Assert.That(view.CooldownIcon, Is.Not.Null);
+            Assert.That(view.CooldownIcon.sprite, Is.Not.Null);
+
+            SpriteRenderer[] renderers = prefab.GetComponentsInChildren<SpriteRenderer>(true);
+            bool reusesConfiguredSprite = false;
+            for (int index = 0; index < renderers.Length; index++)
+            {
+                if (renderers[index].sprite == view.CooldownIcon.sprite)
+                {
+                    reusesConfiguredSprite = true;
+                    break;
+                }
+            }
+
+            Assert.That(reusesConfiguredSprite, Is.True);
+            Assert.That(view.CooldownFill.sprite, Is.SameAs(view.CooldownIcon.sprite));
+        }
+
         [Test]
         public void ClearAndPresentationOperationsKeepSafeValuesAndDefeatVisible()
         {
@@ -116,13 +146,14 @@ namespace Tests.PlayMode.Presentation
                 view.Clear();
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: — / —"));
                 Assert.That(view.ClassText.text, Is.EqualTo("Clase: —"));
-                Assert.That(view.AttackText.text, Is.EqualTo("Ataque: —"));
+                Assert.That(view.AttackText.text, Is.Empty);
+                Assert.That(view.CooldownSecondsText.text, Is.Empty);
                 Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
                 Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
                 Assert.That(view.HealthFill.fillAmount, Is.Zero);
                 Assert.That(view.CooldownFill.fillAmount, Is.Zero);
                 Assert.That(view.HealthFill.rectTransform.localScale.x, Is.Zero);
-                Assert.That(view.CooldownFill.rectTransform.localScale.x, Is.Zero);
+                Assert.That(view.CooldownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(view.DefeatedRoot.activeSelf, Is.False);
 
                 view.PresentHealth(25f, 100f);
@@ -135,9 +166,11 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.HealthFill.fillAmount, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(view.HealthFill.rectTransform.localScale.x, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(view.ClassText.text, Is.EqualTo("Clase: Caballero"));
-                Assert.That(view.AttackText.text, Is.EqualTo($"Ataque: {1.2f:0.0}s"));
+                Assert.That(view.AttackText.text, Is.Empty);
+                Assert.That(view.CooldownSecondsText.text, Is.EqualTo("1.2"));
                 Assert.That(view.CooldownFill.fillAmount, Is.EqualTo(0.6f).Within(0.0001f));
-                Assert.That(view.CooldownFill.rectTransform.localScale.x, Is.EqualTo(0.6f).Within(0.0001f));
+                Assert.That(view.CooldownFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(view.CooldownRoot.gameObject.activeSelf, Is.True);
                 Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: 3 / 16"));
                 Assert.That(view.DefeatedRoot.activeSelf, Is.True);
                 Assert.That(view.MainHudRoot.activeSelf, Is.True);
@@ -356,7 +389,9 @@ namespace Tests.PlayMode.Presentation
             Assert.That(view.ClassText, Is.Not.Null);
             Assert.That(view.AttackText, Is.Not.Null);
             Assert.That(view.CooldownRoot, Is.Not.Null);
+            Assert.That(view.CooldownIcon, Is.Not.Null);
             Assert.That(view.CooldownFill, Is.Not.Null);
+            Assert.That(view.CooldownSecondsText, Is.Not.Null);
             Assert.That(view.InventoryText, Is.Not.Null);
             Assert.That(view.ExtractionText, Is.Not.Null);
             Assert.That(view.DefeatedRoot, Is.Not.Null);

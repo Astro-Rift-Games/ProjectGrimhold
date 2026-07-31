@@ -90,22 +90,21 @@ namespace Tests.EditMode.Presentation
 
             Assert.That(_view.CooldownFill.fillAmount, Is.EqualTo(expected).Within(0.0001f));
             Assert.That(_view.CooldownFill.fillAmount, Is.InRange(0f, 1f));
-            Assert.That(
-                _view.CooldownFill.rectTransform.localScale.x,
-                Is.EqualTo(expected).Within(0.0001f));
+            Assert.That(_view.CooldownFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]
         public void MissingDependenciesKeepEveryGameplaySectionUnavailable()
         {
             Assert.That(_view.HealthText.text, Is.EqualTo("Salud: — / —"));
-            Assert.That(_view.AttackText.text, Is.EqualTo("Ataque: —"));
+            Assert.That(_view.AttackText.text, Is.Empty);
+            Assert.That(_view.CooldownSecondsText.text, Is.Empty);
             Assert.That(_view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
             Assert.That(_view.HealthFill.fillAmount, Is.Zero);
             Assert.That(_view.CooldownFill.fillAmount, Is.Zero);
             Assert.That(_view.HealthFill.rectTransform.localScale.x, Is.Zero);
-            Assert.That(_view.CooldownFill.rectTransform.localScale.x, Is.Zero);
+            Assert.That(_view.CooldownRoot.gameObject.activeSelf, Is.False);
             Assert.That(_view.DefeatedRoot.activeSelf, Is.False);
         }
 

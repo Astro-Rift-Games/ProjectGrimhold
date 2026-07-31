@@ -66,11 +66,34 @@ namespace Tests.EditMode.Loot
                 121,
                 false,
                 false,
-                InteractionFailureReason.InteractionDisabled);
+                InteractionFailureReason.LootRejected,
+                LootTransferFailureReason.InventoryFull);
 
             Assert.That(presentationEvent.Sequence, Is.EqualTo(7));
             Assert.That(presentationEvent.Success, Is.False);
-            Assert.That(presentationEvent.FailureReason, Is.EqualTo(InteractionFailureReason.InteractionDisabled));
+            Assert.That(presentationEvent.FailureReason, Is.EqualTo(InteractionFailureReason.LootRejected));
+            Assert.That(
+                presentationEvent.LootFailureReason,
+                Is.EqualTo(LootTransferFailureReason.InventoryFull));
+        }
+
+        [Test]
+        public void CombatPresentationEvent_ConservesConfirmedAppliedDamageAndOrdering()
+        {
+            var presentationEvent = new CombatPresentationEvent(
+                9,
+                CombatFeedbackKind.ConfirmedImpact,
+                new EntityId(14),
+                new UnityEngine.Vector2(2f, 3f),
+                7.5f,
+                122,
+                AttackFailureReason.None);
+
+            Assert.That(presentationEvent.Sequence, Is.EqualTo(9));
+            Assert.That(presentationEvent.Kind, Is.EqualTo(CombatFeedbackKind.ConfirmedImpact));
+            Assert.That(presentationEvent.AppliedDamage, Is.EqualTo(7.5f));
+            Assert.That(presentationEvent.SimulationTick, Is.EqualTo(122));
+            Assert.That(presentationEvent.AttackFailureReason, Is.EqualTo(AttackFailureReason.None));
         }
     }
 }

@@ -185,7 +185,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             simulationTick,
             result.Success,
             result.IsConsumed,
-            (int)result.FailureReason);
+            (int)result.FailureReason,
+            (int)result.LootFailureReason);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
@@ -195,7 +196,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         int simulationTick,
         bool succeeded,
         bool consumed,
-        int failureReasonValue)
+        int failureReasonValue,
+        int lootFailureReasonValue)
     {
         _pendingPresentationEvents.Enqueue(new InteractionPresentationEvent(
             sequence,
@@ -204,7 +206,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             simulationTick,
             succeeded,
             consumed,
-            (InteractionFailureReason)failureReasonValue));
+            (InteractionFailureReason)failureReasonValue,
+            (LootTransferFailureReason)lootFailureReasonValue));
     }
 
     private void CacheDependencies()

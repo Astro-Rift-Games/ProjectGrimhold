@@ -24,6 +24,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidHudPresenter _raidHudPresenter;
 
     [SerializeField]
+    private CombatFeedbackPresenter _combatFeedbackPresenter;
+
+    [SerializeField]
     private RaidMenuPresenter _menuPresenter;
 
     [SerializeField]
@@ -104,7 +107,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         }
 
         if (_hudRoot == null || _interactionPresenter == null || _lootPresenter == null ||
-            _inventoryPresenter == null || _raidHudPresenter == null ||
+            _inventoryPresenter == null || _raidHudPresenter == null || _combatFeedbackPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null ||
             _playerCharacter == null || _combatController == null)
@@ -134,9 +137,10 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
         TryCacheJoinContext();
         SetHudActive(true);
-        _interactionPresenter.Bind(_candidateSource, _interactionController);
+        _interactionPresenter.Bind(_candidateSource, _interactionController, Runner);
         _lootPresenter.Bind(_lootReceiver);
         _raidHudPresenter.Bind(_playerCharacter, _combatController, _lootReceiver);
+        _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
 
@@ -159,6 +163,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidHudPresenter != null)
         {
             _raidHudPresenter.Unbind();
+        }
+
+        if (_combatFeedbackPresenter != null)
+        {
+            _combatFeedbackPresenter.Unbind();
         }
 
         if (_inputContext != null)

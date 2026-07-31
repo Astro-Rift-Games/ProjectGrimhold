@@ -15,10 +15,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private PlayerCharacter _character;
     private PlayerCombatNetworkController _combatController;
     private PlayerLootReceiver _lootReceiver;
-    private Camera _presentationCamera;
-
-    [SerializeField]
-    private Vector3 _cooldownWorldOffset = new(0f, 1.25f, 0f);
 
     private bool _isBound;
     private bool _classResolved;
@@ -50,7 +46,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _character = character;
         _combatController = combatController;
         _lootReceiver = lootReceiver;
-        _presentationCamera = Camera.main;
         _isBound = true;
         ResetObservedState();
         _view?.Clear();
@@ -81,7 +76,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _character = null;
         _combatController = null;
         _lootReceiver = null;
-        _presentationCamera = null;
         _isBound = false;
         _classResolved = false;
         ResetObservedState();
@@ -119,21 +113,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         RefreshHealth();
         RefreshCombat();
         RefreshInventoryIfNeeded();
-    }
-
-    private void LateUpdate()
-    {
-        if (!_isBound || _presentationCamera == null || !IsSpawned(_character))
-        {
-            return;
-        }
-
-        Vector3 screenPosition = _presentationCamera.WorldToScreenPoint(
-            _character.transform.position + _cooldownWorldOffset);
-        if (screenPosition.z >= 0f)
-        {
-            _view?.SetCooldownScreenPosition(screenPosition);
-        }
     }
 
     private void RefreshAll()

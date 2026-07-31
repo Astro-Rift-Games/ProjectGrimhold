@@ -19,9 +19,9 @@ Input Authority NetworkPlayer
 - `RaidHudPresenter` is a local `MonoBehaviour`. It caches gameplay references, reads them without side effects, performs section-level dirty checking, and owns no clock.
 - `RaidHudView` contains only uGUI/TMP references and explicit presentation or clearing operations.
 - `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. The presenter and view remain on `LocalGameplayHud`, outside the visual root they control.
-- `RaidCooldownHud` is a second visual root on the same Canvas. The presenter projects the cached player position through the camera captured at bind and positions this root above the character without scene searches or a local cooldown clock.
+- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. Each player variant supplies its existing weapon sprite as icon; a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
 
-No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used. The presentation camera is resolved once with `Camera.main` during bind and then cached.
+No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
 ## Sources of truth
 
@@ -46,7 +46,7 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 
 The State Authority check remains in the execution flow. It is deliberately absent from the read query so the Input Authority player can inspect replicated state. The query neither executes an attack nor changes `TickTimer`, and no new `[Networked]` state exists for the HUD.
 
-The presenter obtains normalized cooldown fill from the reported duration and remaining time. Duration at or below zero, negative inputs, `NaN`, and infinity produce zero; otherwise the ratio is clamped to `[0, 1]`. The presenter never advances a local cooldown clock. Both HUD bars synchronize their normalized value to horizontal visual scale because their sprite-less uGUI images do not support a visible `Filled` rendering path.
+The presenter obtains normalized cooldown fill from the reported duration and remaining time. Duration at or below zero, negative inputs, `NaN`, and infinity produce zero; otherwise the ratio is clamped to `[0, 1]`. The presenter never advances a local cooldown clock. The cooldown image uses uGUI radial fill and remains at its authored scale. An authoritative cooldown rejection pulses the local icon once; it does not modify the timer or show global text.
 
 ## Class resolution
 
@@ -76,7 +76,7 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 `OnEnable` before binding is valid and has no effect. Bind starts from an idempotent unbind, clears placeholders, caches the current sources, and requests initial reads.
 
-`Unbind`, disable, Fusion despawn, destroy, and session replacement all remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat does not unbind or hide the HUD while the player's `NetworkObject` remains spawned.
+`Unbind`, disable, Fusion despawn, destroy, and session replacement all remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies, impact numbers, pulses and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat keeps the persistent HUD visible but immediately clears transient combat feedback.
 
 ## Extraction boundary
 
@@ -109,5 +109,5 @@ Manual validation remains necessary for:
 
 - real Host/Client isolation and observed replication of health and cooldown;
 - complete session restart;
-- layout, anchors, contrast, target resolutions, and coexistence with inventory, interaction prompt, and loot toast;
+- layout, anchors, contrast, radial fill, target resolutions, and coexistence with inventory and the interaction prompt;
 - defeat, loot collection/transfer, visible class labels, and the extraction placeholder in the actual game flow.

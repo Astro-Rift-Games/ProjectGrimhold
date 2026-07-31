@@ -238,9 +238,12 @@ namespace Tests.EditMode.Loot
         [Test]
         public void InteractionResult_RejectedContainsTypedFailureReason()
         {
-            var res = InteractionResult.Rejected(InteractionFailureReason.ReceiverNotFound);
+            var res = InteractionResult.Rejected(
+                InteractionFailureReason.LootRejected,
+                LootTransferFailureReason.InventoryFull);
             Assert.IsFalse(res.Success);
-            Assert.AreEqual(InteractionFailureReason.ReceiverNotFound, res.FailureReason);
+            Assert.AreEqual(InteractionFailureReason.LootRejected, res.FailureReason);
+            Assert.AreEqual(LootTransferFailureReason.InventoryFull, res.LootFailureReason);
         }
 
         [Test]
@@ -259,6 +262,14 @@ namespace Tests.EditMode.Loot
             Assert.That(pickup.SortingOrder, Is.EqualTo(2));
             Assert.That(renderer.sortingLayerName, Is.EqualTo(pickup.SortingLayerName));
             Assert.That(renderer.sortingOrder, Is.EqualTo(pickup.SortingOrder));
+
+            LootPickupRejectionPresenter rejectionPresenter =
+                prefab.GetComponent<LootPickupRejectionPresenter>();
+            Assert.That(rejectionPresenter, Is.Not.Null);
+            Assert.That(renderer.transform.parent, Is.EqualTo(prefab.transform));
+            Assert.That(renderer.gameObject.name, Is.EqualTo("WorldVisual"));
+            Assert.That(prefab.GetComponent<Collider2D>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<Fusion.NetworkObject>(), Is.Not.Null);
         }
 
     }

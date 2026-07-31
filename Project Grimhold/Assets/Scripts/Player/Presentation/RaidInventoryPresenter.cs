@@ -591,14 +591,27 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             else
             {
                 bool isDeposit = confirmation.DestinationId == _container.Id;
+                bool isCapacityRejection =
+                    confirmation.Result.FailureReason == LootTransferFailureReason.InventoryFull;
                 string failureMessage = GetDirectionalTransferFailureMessage(
                     confirmation.Result.FailureReason,
                     isDeposit);
+                if (isCapacityRejection)
+                {
+                    RaidLootPanelView destinationPanel = isDeposit
+                        ? _view.ContainerPanel
+                        : _view.PlayerPanel;
+                    destinationPanel?.ShowCapacityRejection();
+                    _view.HideTransferFeedback();
+                }
+
                 if (completesTakeAll)
                 {
-                    RecordTakeAllFailure(failureMessage);
+                    RecordTakeAllFailure(
+                        isCapacityRejection ? null : failureMessage,
+                        !isCapacityRejection);
                 }
-                else
+                else if (!isCapacityRejection)
                 {
                     _view.ShowTransferFeedback(failureMessage);
                 }
@@ -678,11 +691,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             confirmation.ResolvedLootId.Value == _takeAllState.CurrentLootId;
     }
 
-    private void RecordTakeAllFailure(string message)
+    private void RecordTakeAllFailure(string message, bool showText = true)
     {
         _takeAllHadFailure = true;
         _takeAllLastFailureMessage = message;
-        _view.ShowPersistentTransferFeedback(message);
+        if (showText)
+        {
+            _view.ShowPersistentTransferFeedback(message);
+        }
     }
 
     private void AdvanceTakeAll(LootId completedLootId)
@@ -690,7 +706,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _takeAllState.TryAdvance(completedLootId);
         if (!_takeAllState.IsActive && _takeAllHadFailure)
         {
-            _view.ShowTransferFeedback(_takeAllLastFailureMessage);
+            if (string.IsNullOrWhiteSpace(_takeAllLastFailureMessage))
+            {
+                _view.HideTransferFeedback();
+            }
+            else
+            {
+                _view.ShowTransferFeedback(_takeAllLastFailureMessage);
+            }
         }
     }
 

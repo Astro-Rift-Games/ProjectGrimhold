@@ -388,7 +388,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
                 InteractionResult.Rejected(InteractionFailureReason.ReceiverNotFound),
             LootTransferFailureReason.OutOfRange =>
                 InteractionResult.Rejected(InteractionFailureReason.OutOfRange),
-            _ => InteractionResult.Rejected(InteractionFailureReason.LootRejected)
+            _ => InteractionResult.Rejected(
+                InteractionFailureReason.LootRejected,
+                transferResult.FailureReason)
         };
     }
 }

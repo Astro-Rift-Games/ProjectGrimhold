@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
@@ -12,7 +13,9 @@ using UnityEngine;
 [DisallowMultipleComponent]
 // Movement writes the final-tick FacingDirection before combat consumes it.
 [DefaultExecutionOrder(-9)]
-public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatController
+public sealed class PlayerCombatNetworkController : NetworkBehaviour,
+    ICombatController,
+    IResolvedDamageFeedbackSink
 {
     [Header("Dependencies")]
     [SerializeField]
@@ -31,6 +34,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
     private IAttack _activeAttack;
     private bool _dependenciesValid;
     private int _lastObservedSequence;
+    private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
     [Networked]
     private NetworkButtons PreviousButtons { get; set; }
@@ -57,10 +61,24 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
     [Networked]
     private int LastAttackTick { get; set; }
 
+    [Networked]
+    private int CombatFeedbackSequence { get; set; }
+
     /// <summary>
     /// Local event raised during Render when a successful attack execution is detected in the simulation.
     /// </summary>
     public event Action<AttackPerformedEvent> AttackPerformed;
+
+    /// <summary>
+    /// Local event raised during Render for authoritative combat feedback addressed
+    /// to this object's Input Authority.
+    /// </summary>
+    public event Action<CombatPresentationEvent> CombatFeedbackResolved;
+
+    /// <summary>
+    /// Gets the latest authoritative feedback sequence for non-replaying presenter binding.
+    /// </summary>
+    public int CurrentCombatFeedbackSequence => CombatFeedbackSequence;
 
     private void Awake()
     {
@@ -75,6 +93,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
         // Initialize the local observed sequence with the current network sequence
         // to prevent triggering events from attacks performed before this proxy spawned.
         _lastObservedSequence = AttackSequence;
+        _pendingFeedbackEvents.Clear();
 
         if (HasStateAuthority)
         {
@@ -96,13 +115,16 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
         }
 
         NetworkButtons currentButtons = input.Buttons;
+        bool attackPressedThisTick = currentButtons.WasPressed(
+            PreviousButtons,
+            PlayerInputButton.PrimaryAttack);
         bool attackPressed = false;
 
         if (_activeAttack != null)
         {
             if (_activeAttack.InputMode == AttackInputMode.Press)
             {
-                attackPressed = currentButtons.WasPressed(PreviousButtons, PlayerInputButton.PrimaryAttack);
+                attackPressed = attackPressedThisTick;
             }
             else
             {
@@ -120,10 +142,28 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
             return;
         }
 
-        if (attackPressed && ArePrimaryAttackPrerequisitesMet())
+        if (!attackPressed)
         {
-            TryExecuteAttack();
+            return;
         }
+
+        AttackFailureReason prerequisiteFailure = GetPrimaryAttackFailureReason();
+        if (prerequisiteFailure != AttackFailureReason.None)
+        {
+            if (attackPressedThisTick && prerequisiteFailure == AttackFailureReason.CooldownActive)
+            {
+                RecordCombatFeedback(
+                    CombatFeedbackKind.AttackRejected,
+                    default,
+                    default,
+                    0f,
+                    Runner.Tick,
+                    prerequisiteFailure);
+            }
+            return;
+        }
+
+        TryExecuteAttack();
     }
 
     public override void Render()
@@ -147,6 +187,22 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
             AttackPerformed?.Invoke(performedEvent);
             _lastObservedSequence = AttackSequence;
         }
+
+        if (_character != null && !_character.IsAlive)
+        {
+            _pendingFeedbackEvents.Clear();
+            return;
+        }
+
+        while (_pendingFeedbackEvents.Count > 0)
+        {
+            CombatFeedbackResolved?.Invoke(_pendingFeedbackEvents.Dequeue());
+        }
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        _pendingFeedbackEvents.Clear();
     }
 
     /// <summary>
@@ -165,10 +221,33 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
         float durationSeconds = _activeAttack.CooldownSeconds;
         float remainingSeconds = AttackCooldown.RemainingTime(Runner) ?? 0f;
         status = new PrimaryAttackStatus(
-            ArePrimaryAttackPrerequisitesMet(),
+            GetPrimaryAttackFailureReason() == AttackFailureReason.None,
             durationSeconds,
             remainingSeconds);
         return true;
+    }
+
+    /// <summary>
+    /// Records an exact resolved damage result for local attacker feedback.
+    /// Rejected or zero-damage results never become confirmed impacts.
+    /// </summary>
+    public void RecordResolvedDamage(in DamageResolvedEvent resolvedDamage)
+    {
+        if (!HasStateAuthority || _character == null ||
+            resolvedDamage.Request.AttackerId != _character.Id ||
+            !resolvedDamage.Result.IsApplied ||
+            resolvedDamage.Result.AppliedDamage <= 0f)
+        {
+            return;
+        }
+
+        RecordCombatFeedback(
+            CombatFeedbackKind.ConfirmedImpact,
+            resolvedDamage.Result.TargetId,
+            resolvedDamage.Request.HitPoint,
+            resolvedDamage.Result.AppliedDamage,
+            resolvedDamage.Request.SimulationTick,
+            AttackFailureReason.None);
     }
 
     /// <summary>
@@ -224,16 +303,61 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour, ICombatCon
         }
     }
 
-    private bool ArePrimaryAttackPrerequisitesMet()
+    private AttackFailureReason GetPrimaryAttackFailureReason()
     {
-        return Runner != null &&
-            Runner.IsRunning &&
-            _dependenciesValid &&
-            _character != null &&
-            _activeAttack != null &&
-            IsAttackEnabled &&
-            _character.IsAlive &&
-            AttackCooldown.ExpiredOrNotRunning(Runner);
+        if (Runner == null || !Runner.IsRunning || !_dependenciesValid ||
+            _character == null || _activeAttack == null)
+        {
+            return AttackFailureReason.MissingConfiguration;
+        }
+
+        if (!IsAttackEnabled || !_character.IsAlive)
+        {
+            return AttackFailureReason.ControlDisabled;
+        }
+
+        return AttackCooldown.ExpiredOrNotRunning(Runner)
+            ? AttackFailureReason.None
+            : AttackFailureReason.CooldownActive;
+    }
+
+    private void RecordCombatFeedback(
+        CombatFeedbackKind kind,
+        EntityId targetId,
+        Vector2 hitPoint,
+        float appliedDamage,
+        int simulationTick,
+        AttackFailureReason failureReason)
+    {
+        CombatFeedbackSequence++;
+        RPC_ReceiveCombatFeedback(
+            CombatFeedbackSequence,
+            (int)kind,
+            targetId.Value,
+            hitPoint,
+            appliedDamage,
+            simulationTick,
+            (int)failureReason);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_ReceiveCombatFeedback(
+        int sequence,
+        int kindValue,
+        int targetIdValue,
+        Vector2 hitPoint,
+        float appliedDamage,
+        int simulationTick,
+        int failureReasonValue)
+    {
+        _pendingFeedbackEvents.Enqueue(new CombatPresentationEvent(
+            sequence,
+            (CombatFeedbackKind)kindValue,
+            new EntityId(targetIdValue),
+            hitPoint,
+            appliedDamage,
+            simulationTick,
+            (AttackFailureReason)failureReasonValue));
     }
 
     /// <summary>

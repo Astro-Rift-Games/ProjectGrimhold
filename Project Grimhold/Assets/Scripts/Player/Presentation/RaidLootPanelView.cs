@@ -30,13 +30,58 @@ public sealed class RaidLootPanelView : MonoBehaviour
     [SerializeField]
     private Sprite _placeholderIcon;
 
+    [SerializeField]
+    private GameObject _capacityFeedbackRoot;
+
+    [SerializeField]
+    private TMP_Text _capacityFeedbackText;
+
+    [SerializeField, Min(0.01f)]
+    private float _capacityPulseDuration = 0.35f;
+
+    [SerializeField, Min(1f)]
+    private float _capacityPulseScale = 1.03f;
+
     private readonly List<RaidInventorySlotView> _slots = new();
+    private float _capacityPulseRemaining;
+    private Vector3 _basePanelScale = Vector3.one;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, Vector2> ContextRequested;
 
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
+
+    /// <summary>Gets the panel-local capacity feedback label.</summary>
+    public TMP_Text CapacityFeedbackText => _capacityFeedbackText;
+
+    private void Awake()
+    {
+        if (_panelRoot != null)
+        {
+            _basePanelScale = _panelRoot.transform.localScale;
+        }
+        HideCapacityRejection();
+    }
+
+    private void Update()
+    {
+        if (_capacityPulseRemaining <= 0f || _panelRoot == null)
+        {
+            return;
+        }
+
+        _capacityPulseRemaining = Mathf.Max(0f, _capacityPulseRemaining - Time.deltaTime);
+        float progress = 1f - _capacityPulseRemaining / _capacityPulseDuration;
+        float pulse = Mathf.Sin(progress * Mathf.PI);
+        _panelRoot.transform.localScale = _basePanelScale *
+            Mathf.Lerp(1f, _capacityPulseScale, pulse);
+
+        if (_capacityPulseRemaining <= 0f)
+        {
+            HideCapacityRejection();
+        }
+    }
 
     /// <summary>Gets the panel-local total value label for presentation verification.</summary>
     public TMP_Text TotalValueText => _totalValueText;
@@ -177,10 +222,35 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
         SetState(_unavailableRoot, false);
         SetState(_emptyRoot, false);
+        HideCapacityRejection();
+    }
+
+    /// <summary>Shows a compact local-only capacity rejection on this destination panel.</summary>
+    public void ShowCapacityRejection()
+    {
+        if (_capacityFeedbackText != null)
+        {
+            _capacityFeedbackText.text = "Lleno";
+        }
+
+        SetState(_capacityFeedbackRoot, true);
+        _capacityPulseRemaining = _capacityPulseDuration;
+    }
+
+    /// <summary>Clears the contextual capacity feedback and restores the panel pose.</summary>
+    public void HideCapacityRejection()
+    {
+        _capacityPulseRemaining = 0f;
+        if (_panelRoot != null)
+        {
+            _panelRoot.transform.localScale = _basePanelScale;
+        }
+        SetState(_capacityFeedbackRoot, false);
     }
 
     private void OnDestroy()
     {
+        HideCapacityRejection();
         for (int i = 0; i < _slots.Count; i++)
         {
             if (_slots[i] != null)

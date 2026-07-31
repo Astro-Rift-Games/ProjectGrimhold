@@ -109,6 +109,6 @@ When in loot mode, a subsequent press of the interaction input raises `PlayerInp
 
 The pickup is a consumable source with its own reservation. It does not implement extraction and does not coordinate transfers between two storage endpoints.
 
-`LootTransferResult` preserves precise loot semantics, while `InteractionResult` reports the general interaction outcome. Missing authority, destination, and range map directly to interaction reasons; other loot failures map to `LootRejected` instead of expanding `InteractionFailureReason` with every transfer-specific case.
+`LootTransferResult` preserves precise loot semantics. `InteractionResult` and `InteractionPresentationEvent` retain the nested `LootTransferFailureReason` when the general result is `LootRejected`, without expanding `InteractionFailureReason` with every transfer-specific case. This lets Input Authority distinguish `InventoryFull` from technical failures after authoritative confirmation.
 
-This integration does not modify the directed RPC, presentation sequences, HUD, or `Render` publication flow.
+For a full pickup, local presentation animates only the pickup's `WorldVisual` child through a short jump and complete rotation, then restores its exact local pose. The root `NetworkObject`, collider, identity and inventory remain untouched. The interaction sequence deduplicates the signal across proxies and resimulation. Contextual invalid/out-of-range rejections pulse the existing prompt; technical failures retain their diagnostic text.

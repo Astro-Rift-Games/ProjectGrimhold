@@ -11,9 +11,16 @@ using UnityEngine;
 public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 {
     private EntityRegistry _registry;
+    private IResolvedDamageFeedbackSink _feedbackSink;
+
+    private void Awake()
+    {
+        CacheFeedbackSink();
+    }
 
     public override void Spawned()
     {
+        CacheFeedbackSink();
         _registry = Runner.GetComponent<EntityRegistry>();
         if (_registry == null)
         {
@@ -31,55 +38,67 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         // 1. Validate self-damage
         if (request.AttackerId == request.TargetId)
         {
-            return new DamageResult(
+            return CompleteResolution(request, new DamageResult(
                 request.TargetId,
                 false,
                 0f,
                 0f,
                 false,
                 DamageFailureReason.SelfDamageRejected
-            );
+            ));
         }
 
         if (_registry == null)
         {
-            return new DamageResult(
+            return CompleteResolution(request, new DamageResult(
                 request.TargetId,
                 false,
                 0f,
                 0f,
                 false,
                 DamageFailureReason.TargetUnavailable
-            );
+            ));
         }
 
         // 2. Locate target entity (works for any IDamageable: Player, Enemy, etc.)
         if (!_registry.TryGetDamageable(request.TargetId, out IDamageable target))
         {
-            return new DamageResult(
+            return CompleteResolution(request, new DamageResult(
                 request.TargetId,
                 false,
                 0f,
                 0f,
                 false,
                 DamageFailureReason.InvalidTarget
-            );
+            ));
         }
 
         // 3. Verify target can receive damage
         if (!target.CanReceiveDamage)
         {
-            return new DamageResult(
+            return CompleteResolution(request, new DamageResult(
                 request.TargetId,
                 false,
                 0f,
                 0f,
                 false,
                 DamageFailureReason.TargetUnavailable
-            );
+            ));
         }
 
         // 4. Delegate damage application and handle authority validation within IDamageable
-        return target.ApplyDamage(request);
+        DamageResult result = target.ApplyDamage(request);
+        return CompleteResolution(request, result);
+    }
+
+    private DamageResult CompleteResolution(in DamageRequest request, in DamageResult result)
+    {
+        _feedbackSink?.RecordResolvedDamage(new DamageResolvedEvent(request, result));
+        return result;
+    }
+
+    private void CacheFeedbackSink()
+    {
+        _feedbackSink = GetComponent<IResolvedDamageFeedbackSink>();
     }
 }

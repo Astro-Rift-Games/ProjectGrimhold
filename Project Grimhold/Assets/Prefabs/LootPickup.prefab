@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 1490065571948069625}
   - component: {fileID: 3134618034655897849}
   - component: {fileID: 7214395350286976585}
+  - component: {fileID: 9100000000000000402}
   m_Layer: 8
   m_Name: LootPickup
   m_TagString: Untagged
@@ -32,8 +33,41 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 9100000000000000401}
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &9100000000000000400
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9100000000000000401}
+  - component: {fileID: 3134618034655897849}
+  m_Layer: 8
+  m_Name: WorldVisual
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9100000000000000401
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000400}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 520719758994245238}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &647995032513395088
 MonoBehaviour:
@@ -73,6 +107,22 @@ MonoBehaviour:
   _worldRenderer: {fileID: 3134618034655897849}
   _sortingLayerName: Default
   _sortingOrder: 2
+--- !u!114 &9100000000000000402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9071512846565298490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5c2c74e2bf35da0e985672148fc1505, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LootPickupRejectionPresenter
+  _visualTransform: {fileID: 9100000000000000401}
+  _duration: 0.45
+  _jumpHeight: 0.35
+  _rotationDegrees: 360
 --- !u!212 &3134618034655897849
 SpriteRenderer:
   serializedVersion: 3
@@ -80,7 +130,7 @@ SpriteRenderer:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9071512846565298490}
+  m_GameObject: {fileID: 9100000000000000400}
   m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0

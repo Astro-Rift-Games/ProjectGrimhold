@@ -74,10 +74,11 @@ namespace Tests.PlayMode.Presentation
                 false,
                 InteractionFailureReason.InvalidTarget));
 
-            Assert.That(_feedbackRoot.activeSelf, Is.True);
+            Assert.That(_feedbackRoot.activeSelf, Is.False);
+            Assert.That(ReadFloat("_attemptPulseRemaining"), Is.GreaterThan(0f));
             yield return null;
 
-            _feedbackRoot.SetActive(false);
+            SetField("_attemptPulseRemaining", 0f);
             InvokeResult(new InteractionPresentationEvent(
                 6,
                 new EntityId(1),
@@ -88,6 +89,7 @@ namespace Tests.PlayMode.Presentation
                 InteractionFailureReason.InvalidTarget));
 
             Assert.That(_feedbackRoot.activeSelf, Is.False);
+            Assert.That(ReadFloat("_attemptPulseRemaining"), Is.Zero);
         }
 
         [Test]
@@ -118,6 +120,15 @@ namespace Tests.PlayMode.Presentation
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             field.SetValue(_presenter, value);
+        }
+
+        private float ReadFloat(string fieldName)
+        {
+            FieldInfo field = typeof(InteractionHudPresenter).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (float)field.GetValue(_presenter);
         }
     }
 }

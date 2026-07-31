@@ -30,7 +30,13 @@ public sealed class RaidHudView : MonoBehaviour
     private RectTransform _cooldownRoot;
 
     [SerializeField]
+    private Image _cooldownIcon;
+
+    [SerializeField]
     private Image _cooldownFill;
+
+    [SerializeField]
+    private TMP_Text _cooldownSecondsText;
 
     [SerializeField]
     private TMP_Text _inventoryText;
@@ -56,11 +62,17 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Gets the primary-attack label for presentation verification.</summary>
     public TMP_Text AttackText => _attackText;
 
-    /// <summary>Gets the screen-space root positioned above the local player.</summary>
+    /// <summary>Gets the bottom-centered cooldown widget root.</summary>
     public RectTransform CooldownRoot => _cooldownRoot;
+
+    /// <summary>Gets the class-specific primary-attack icon.</summary>
+    public Image CooldownIcon => _cooldownIcon;
 
     /// <summary>Gets the cooldown fill for presentation verification.</summary>
     public Image CooldownFill => _cooldownFill;
+
+    /// <summary>Gets the compact remaining-seconds label.</summary>
+    public TMP_Text CooldownSecondsText => _cooldownSecondsText;
 
     /// <summary>Gets the inventory-capacity label for presentation verification.</summary>
     public TMP_Text InventoryText => _inventoryText;
@@ -97,29 +109,36 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
     public void PresentAttack(bool isAvailable, float remainingSeconds, float normalizedRemaining)
     {
-        string label;
-        if (isAvailable)
+        SetText(_attackText, string.Empty);
+        if (_cooldownRoot != null && !_cooldownRoot.gameObject.activeSelf)
         {
-            label = "Ataque: disponible";
-        }
-        else if (IsFinite(remainingSeconds) && remainingSeconds > 0f)
-        {
-            label = $"Ataque: {remainingSeconds:0.0}s";
-        }
-        else
-        {
-            label = "Ataque: no disponible";
+            _cooldownRoot.gameObject.SetActive(true);
         }
 
-        SetText(_attackText, label);
-        SetFill(_cooldownFill, normalizedRemaining);
+        bool showCooldown = !isAvailable && IsFinite(remainingSeconds) && remainingSeconds > 0f;
+        SetText(_cooldownSecondsText, showCooldown ? remainingSeconds.ToString("0.0") : string.Empty);
+        SetRadialFill(_cooldownFill, showCooldown ? normalizedRemaining : 0f);
+        if (_cooldownFill != null && _cooldownFill.enabled != showCooldown)
+        {
+            _cooldownFill.enabled = showCooldown;
+        }
     }
 
     /// <summary>Restores the unavailable attack placeholder and empty fill.</summary>
     public void ClearAttack()
     {
-        SetText(_attackText, $"Ataque: {UnavailableValue}");
-        SetFill(_cooldownFill, 0f);
+        SetText(_attackText, string.Empty);
+        SetText(_cooldownSecondsText, string.Empty);
+        SetRadialFill(_cooldownFill, 0f);
+        if (_cooldownFill != null)
+        {
+            _cooldownFill.enabled = false;
+        }
+
+        if (_cooldownRoot != null)
+        {
+            _cooldownRoot.gameObject.SetActive(false);
+        }
     }
 
     /// <summary>Presents occupied and available inventory slots.</summary>
@@ -167,25 +186,6 @@ public sealed class RaidHudView : MonoBehaviour
         PresentDefeated(false);
     }
 
-    /// <summary>Positions the cooldown root at a point in overlay-canvas screen space.</summary>
-    public void SetCooldownScreenPosition(Vector2 screenPosition)
-    {
-        if (_cooldownRoot == null || transform is not RectTransform canvasRect ||
-            !RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                canvasRect,
-                screenPosition,
-                null,
-                out Vector2 localPoint))
-        {
-            return;
-        }
-
-        if (_cooldownRoot.anchoredPosition != localPoint)
-        {
-            _cooldownRoot.anchoredPosition = localPoint;
-        }
-    }
-
     private static void SetText(TMP_Text target, string value)
     {
         if (target != null && target.text != value)
@@ -212,6 +212,20 @@ public sealed class RaidHudView : MonoBehaviour
         {
             scale.x = safeValue;
             target.rectTransform.localScale = scale;
+        }
+    }
+
+    private static void SetRadialFill(Image target, float value)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        float safeValue = IsFinite(value) ? Mathf.Clamp01(value) : 0f;
+        if (!Mathf.Approximately(target.fillAmount, safeValue))
+        {
+            target.fillAmount = safeValue;
         }
     }
 
