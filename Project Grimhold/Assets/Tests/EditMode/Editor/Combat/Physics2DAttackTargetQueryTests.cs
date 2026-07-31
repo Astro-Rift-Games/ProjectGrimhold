@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Tests.EditMode.Combat
@@ -231,6 +232,97 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void FindTargets_AttackOverlapsOnlyBodyHitbox_ReturnsTarget()
+        {
+            int layer = LayerMask.NameToLayer("Default");
+            EntityId targetId = new EntityId(2);
+            CreateBodyHitboxTarget(targetId, layer);
+
+            var request = new AttackTargetQuery(
+                new EntityId(1),
+                Vector2.zero,
+                Vector2.up,
+                1.5f,
+                0.2f,
+                1,
+                1 << layer
+            );
+
+            IReadOnlyList<AttackTarget> targets = _query.FindTargets(request);
+
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(targets[0].TargetId, Is.EqualTo(targetId));
+        }
+
+        [Test]
+        public void FindTargets_AttackOverlapsFootAndBodyHitboxes_ReturnsSingleTarget()
+        {
+            int layer = LayerMask.NameToLayer("Default");
+            EntityId targetId = new EntityId(2);
+            CreateBodyHitboxTarget(targetId, layer);
+
+            var request = new AttackTargetQuery(
+                new EntityId(1),
+                new Vector2(0f, 0.25f),
+                Vector2.zero,
+                0f,
+                0.3f,
+                5,
+                1 << layer
+            );
+
+            IReadOnlyList<AttackTarget> targets = _query.FindTargets(request);
+
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(targets[0].TargetId, Is.EqualTo(targetId));
+        }
+
+        [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
+        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
+        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
+        [TestCase("Assets/Prefabs/NetworkEnemy.prefab")]
+        [TestCase("Assets/Prefabs/NetworkEnemyMelee.prefab")]
+        [TestCase("Assets/Prefabs/NetworkEnemyRanged.prefab")]
+        public void CharacterPrefab_SeparatesMovementColliderFromBodyDamageHitbox(string prefabPath)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.That(prefab, Is.Not.Null, $"Missing character prefab at {prefabPath}.");
+
+            Transform body = prefab.transform.Find("Body");
+            Transform damageHitboxTransform = prefab.transform.Find("DamageHitbox");
+            BoxCollider2D movementCollider = prefab.GetComponent<BoxCollider2D>();
+            Kinematic2DMovementMotor movementMotor = prefab.GetComponent<Kinematic2DMovementMotor>();
+
+            Assert.That(body, Is.Not.Null);
+            Assert.That(damageHitboxTransform, Is.Not.Null);
+            Assert.That(damageHitboxTransform.parent, Is.SameAs(prefab.transform));
+            Assert.That(damageHitboxTransform.IsChildOf(body), Is.False);
+            Assert.That(damageHitboxTransform.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(damageHitboxTransform.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(damageHitboxTransform.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(damageHitboxTransform.gameObject.layer, Is.EqualTo(LayerMask.NameToLayer("Character")));
+
+            BoxCollider2D damageHitbox = damageHitboxTransform.GetComponent<BoxCollider2D>();
+            Assert.That(damageHitbox, Is.Not.Null);
+            Assert.That(damageHitbox.isTrigger, Is.True);
+            Assert.That(damageHitbox.size, Is.EqualTo(new Vector2(1.25f, 2.25f)));
+            Assert.That(damageHitbox.offset, Is.EqualTo(new Vector2(0f, 1.125f)));
+
+            Assert.That(movementCollider, Is.Not.Null);
+            Assert.That(movementCollider.isTrigger, Is.False);
+            Assert.That(movementCollider.size, Is.EqualTo(new Vector2(0.75f, 0.5f)));
+            Assert.That(movementCollider.offset, Is.EqualTo(new Vector2(0f, 0.25f)));
+            Assert.That(movementMotor, Is.Not.Null);
+
+            var colliderField = typeof(Kinematic2DMovementMotor).GetField(
+                "_collider",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(colliderField, Is.Not.Null);
+            Assert.That(colliderField.GetValue(movementMotor), Is.SameAs(movementCollider));
+        }
+
+        [Test]
         public void FindTargets_OrdersByDistanceToOrigin()
         {
             int layer = LayerMask.NameToLayer("Default");
@@ -322,6 +414,36 @@ namespace Tests.EditMode.Combat
             Assert.AreEqual(2, targets.Count);
             Assert.AreEqual(new EntityId(2), targets[0].TargetId);
             Assert.AreEqual(new EntityId(3), targets[1].TargetId);
+        }
+
+        private (GameObject go, DummyCharacter target) CreateBodyHitboxTarget(EntityId id, int layer)
+        {
+            var go = new GameObject($"BodyHitboxTarget_{id.Value}");
+            go.layer = layer;
+
+            var movementCollider = go.AddComponent<BoxCollider2D>();
+            movementCollider.size = new Vector2(0.75f, 0.5f);
+            movementCollider.offset = new Vector2(0f, 0.25f);
+
+            var damageHitboxObject = new GameObject("DamageHitbox");
+            damageHitboxObject.layer = layer;
+            damageHitboxObject.transform.SetParent(go.transform, false);
+
+            var damageHitbox = damageHitboxObject.AddComponent<BoxCollider2D>();
+            damageHitbox.isTrigger = true;
+            damageHitbox.size = new Vector2(1.25f, 2.25f);
+            damageHitbox.offset = new Vector2(0f, 1.125f);
+
+            var character = go.AddComponent<DummyCharacter>();
+            character.Id = id;
+            character.IsAlive = true;
+            character.CanReceiveDamage = true;
+
+            _registry.TryRegister(id, character, new Collider2D[] { movementCollider, damageHitbox });
+            _spawnedObjects.Add(go);
+            Physics2D.SyncTransforms();
+
+            return (go, character);
         }
 
         private sealed class DummyCharacter : MonoBehaviour, IDamageable, ICharacter

@@ -18,6 +18,12 @@ namespace Tests.EditMode.Combat
                 EntityRegistry registry = registryHolder.AddComponent<EntityRegistry>();
                 var sink = resolverHolder.AddComponent<ResolvedDamageSink>();
                 DamageResolver resolver = resolverHolder.AddComponent<DamageResolver>();
+                MethodInfo cacheFeedbackSinkMethod = typeof(DamageResolver).GetMethod(
+                    "CacheFeedbackSink",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(cacheFeedbackSinkMethod, Is.Not.Null);
+                cacheFeedbackSinkMethod.Invoke(resolver, null);
+
                 FieldInfo registryField = typeof(DamageResolver).GetField(
                     "_registry",
                     BindingFlags.Instance | BindingFlags.NonPublic);
