@@ -88,6 +88,11 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
                 continue;
             }
 
+            if (!_registry.IsDamageCollider(targetId, col))
+            {
+                continue;
+            }
+
             // Exclude the attacker
             if (targetId == query.AttackerId)
             {

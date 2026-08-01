@@ -587,6 +587,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCharacter
   _maxHealth: 100
+  _damageHitboxes:
+  - {fileID: 9000000000000000003}
   _Health: 0
   _corpseGenerationController: {fileID: 4100000000000000101}
 --- !u!114 &7201000000000000004

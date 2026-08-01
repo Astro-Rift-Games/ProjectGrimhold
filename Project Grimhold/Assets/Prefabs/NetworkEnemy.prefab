@@ -399,6 +399,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyCharacter
   _maxHealth: 100
+  _damageHitboxes:
+  - {fileID: 9000000000000000003}
   _Health: 0
   _movementController: {fileID: 4047341824300862929}
   _combatController: {fileID: 3988879926097982634}
