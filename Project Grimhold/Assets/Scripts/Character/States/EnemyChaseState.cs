@@ -37,7 +37,7 @@ public sealed class EnemyChaseState : IEnemyState
 
         if (!fsm.MovementController.IsOnPursuit)
         {
-            fsm.TransitionTo(EnemyStateType.Patrol);
+            fsm.TransitionTo(EnemyStateType.Idle);
             return;
         }
     }

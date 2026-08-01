@@ -1,12 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// Enemy state active during standard patrol locomotion.
+/// Enemy state active when the entity is idle/patrolling.
 /// Enables movement AI and monitors target acquisition.
 /// </summary>
-public sealed class EnemyPatrolState : IEnemyState
+public sealed class EnemyIdleState : IEnemyState
 {
-    public EnemyStateType Type => EnemyStateType.Patrol;
+    public EnemyStateType Type => EnemyStateType.Idle;
 
     public void Enter(EnemyFSM fsm)
     {

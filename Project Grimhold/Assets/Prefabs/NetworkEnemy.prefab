@@ -358,6 +358,7 @@ GameObject:
   - component: {fileID: 7201000000000000010}
   - component: {fileID: 7201000000000000011}
   - component: {fileID: 7201000000000000012}
+  - component: {fileID: -3796636682103364817}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -402,6 +403,7 @@ MonoBehaviour:
   _movementController: {fileID: 4047341824300862929}
   _combatController: {fileID: 3988879926097982634}
   _lootContainer: {fileID: 7201000000000000010}
+  _fsm: {fileID: -3796636682103364817}
 --- !u!114 &7201000000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -745,6 +747,7 @@ MonoBehaviour:
   - {fileID: 3133108637029622038}
   - {fileID: 7201000000000000010}
   - {fileID: 7201000000000000011}
+  - {fileID: -3796636682103364817}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -833,6 +836,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
   _promptText: Saquear cadaver
+--- !u!114 &-3796636682103364817
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b24a4c14265807488be5847555a1e8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyFSM
+  _character: {fileID: 4980760815071069997}
+  _movementController: {fileID: 4047341824300862929}
+  _combatController: {fileID: 3988879926097982634}
+  _CurrentStateType: 0
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

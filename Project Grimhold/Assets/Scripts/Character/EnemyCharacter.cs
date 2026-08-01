@@ -18,6 +18,9 @@ public sealed class EnemyCharacter : CharacterBase
     [SerializeField]
     private NetworkLootContainer _lootContainer;
 
+    [SerializeField]
+    private EnemyFSM _fsm;
+
     private bool _deathDependenciesValid;
 
     protected override void Awake()
@@ -44,8 +47,10 @@ public sealed class EnemyCharacter : CharacterBase
             return;
         }
 
-        _movementController.TrySetControlEnabled(false);
-        _combatController.TrySetAttackEnabled(false);
+        // Authoritatively transition the FSM to Dead.
+        // The FSM states (specifically EnemyDeadState) will manage disabling
+        // movement and combat control authoritatively.
+        _fsm.TransitionTo(EnemyStateType.Dead);
 
         if (!_lootContainer.IsInitialized)
         {
@@ -76,17 +81,22 @@ public sealed class EnemyCharacter : CharacterBase
         {
             _lootContainer = GetComponent<NetworkLootContainer>();
         }
+
+        if (_fsm == null)
+        {
+            _fsm = GetComponent<EnemyFSM>();
+        }
     }
 
     private bool ValidateDeathDependencies()
     {
-        if (_movementController != null && _combatController != null && _lootContainer != null)
+        if (_movementController != null && _combatController != null && _lootContainer != null && _fsm != null)
         {
             return true;
         }
 
         Debug.LogError(
-            $"{nameof(EnemyCharacter)} requires movement, combat and loot-container dependencies on the same enemy.",
+            $"{nameof(EnemyCharacter)} requires movement, combat, FSM and loot-container dependencies on the same enemy.",
             this);
         return false;
     }

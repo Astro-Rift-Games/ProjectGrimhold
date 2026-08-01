@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 9
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -86,6 +86,10 @@ PrefabInstance:
       objectReference: {fileID: 7068343866482993939}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[8]'
+      value: 
+      objectReference: {fileID: 5383905029530044471}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[9]'
       value: 
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3988879926097982634, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -230,6 +234,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88b501246baa3da4ba0021fa26573d65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyCharacter
+--- !u!114 &5383905029530044471 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: -3796636682103364817, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b24a4c14265807488be5847555a1e8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyFSM
 --- !u!114 &7068343866482993938 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7201000000000000010, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

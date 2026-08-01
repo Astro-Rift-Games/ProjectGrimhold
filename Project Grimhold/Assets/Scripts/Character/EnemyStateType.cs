@@ -3,7 +3,7 @@
 /// </summary>
 public enum EnemyStateType
 {
-    Patrol = 0,
+    Idle = 0,
     Chase = 1,
     Attack = 2,
     Dead = 3

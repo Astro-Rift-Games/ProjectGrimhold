@@ -71,7 +71,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         if (HasStateAuthority)
         {
-            IsAttackEnabled = true;
+            IsAttackEnabled = false;
         }
     }
 

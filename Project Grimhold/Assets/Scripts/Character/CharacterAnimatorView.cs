@@ -20,6 +20,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private int _moveXHash;
     private int _moveYHash;
     private int _isMovingHash;
+    private int _onDefeatedHash;
 
     private bool _hashesInitialized;
     private Vector2? _temporalFacingDirection;
@@ -87,6 +88,10 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         if (defeated)
         {
             _temporalFacingDirection = null;
+            if (_animator != null)
+            {
+                _animator.SetTrigger(_onDefeatedHash);
+            }
         }
     }
 
@@ -119,6 +124,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         _moveXHash = Animator.StringToHash("MoveX");
         _moveYHash = Animator.StringToHash("MoveY");
         _isMovingHash = Animator.StringToHash("IsMoving");
+        _onDefeatedHash = Animator.StringToHash("OnDefeated");
         _hashesInitialized = true;
     }
 

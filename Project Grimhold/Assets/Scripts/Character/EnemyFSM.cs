@@ -43,9 +43,25 @@ public sealed class EnemyFSM : NetworkBehaviour
 
         if (HasStateAuthority)
         {
-            TransitionTo(EnemyStateType.Patrol);
+            TransitionTo(EnemyStateType.Idle);
         }
         else
+        {
+            SyncProxyCurrentState();
+        }
+    }
+
+    public override void Render()
+    {
+        if (!HasStateAuthority)
+        {
+            SyncProxyCurrentState();
+        }
+    }
+
+    private void SyncProxyCurrentState()
+    {
+        if (_currentState == null || _currentState.Type != CurrentStateType)
         {
             if (_states.TryGetValue(CurrentStateType, out IEnemyState state))
             {
@@ -115,7 +131,7 @@ public sealed class EnemyFSM : NetworkBehaviour
 
     private void RegisterDefaultStates()
     {
-        RegisterState(new EnemyPatrolState());
+        RegisterState(new EnemyIdleState());
         RegisterState(new EnemyChaseState());
         RegisterState(new EnemyAttackState());
         RegisterState(new EnemyDeadState());

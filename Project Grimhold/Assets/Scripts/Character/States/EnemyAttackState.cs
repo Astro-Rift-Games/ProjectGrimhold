@@ -37,7 +37,7 @@ public sealed class EnemyAttackState : IEnemyState
             }
             else
             {
-                fsm.TransitionTo(EnemyStateType.Patrol);
+                fsm.TransitionTo(EnemyStateType.Idle);
             }
             return;
         }
