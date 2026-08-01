@@ -8,6 +8,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -911902360849970759, guid: 20a8d82283fdf8d43979ae9a8cc85b24, type: 3}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.b
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2520259848855165086, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -100,6 +116,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: NetworkEnemyMelee
       objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 1.0054445
+      objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 0.99313927
+      objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: 0.0034303665
+      objectReference: {fileID: 0}
     - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x
       value: 0.5
@@ -116,6 +144,26 @@ PrefabInstance:
       propertyPath: m_WasSpriteAssigned
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5232659655046367733, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: febb6626266da3e48a75971642ea8058, type: 2}
+    - target: {fileID: 7397229956843810021, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 1.1078742
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 1.0391634
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: 0.013802648
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -126,6 +174,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 142597065861624644}
+    - targetCorrespondingSourceObject: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3623087706174243918}
+    - targetCorrespondingSourceObject: {fileID: 1221760144332657486, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8975162442718285891}
   m_SourcePrefab: {fileID: 100100000, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
 --- !u!114 &2153137676886042312 stripped
 MonoBehaviour:
@@ -149,6 +203,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
+--- !u!4 &3622679648598810352 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5496709202239764530, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &3837576069328209389 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: -3796636682103364817, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -204,6 +263,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DAttackTargetQuery
   _colliderBufferSize: 64
+--- !u!114 &3623087706174243918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c8c6d99b204c70409a702b3c4a8a24a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeAttackGizmoDrawer
+  _attackOrigin: {fileID: 3622679648598810352}
+  _config: {fileID: 11400000, guid: 9e9a3c2ba91ae4c4695953134d59af28, type: 2}
+  _movementControllerSource: {fileID: 5054560393642584851}
 --- !u!114 &5054560393642584851 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -237,6 +311,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d6d4f5f32f6b849b26f9e9f50ec82c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
+--- !u!1 &7996981676774684044 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1221760144332657486, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8975162442718285891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7996981676774684044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8f1e4730a9cff046854c12646aa4b7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAttackAnimationListener
+  _combatController: {fileID: 5284188284536902248}
 --- !u!114 &8746061331448358488 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 535414226061721754, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

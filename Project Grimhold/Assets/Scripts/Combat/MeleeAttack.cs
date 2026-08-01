@@ -224,5 +224,11 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
     {
         CacheDependencies();
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawSphere(GetComponentInParent<MeleeAttackGizmoDrawer>().AttackOrigin.position, _config.Radius);
+    }
 #endif
 }

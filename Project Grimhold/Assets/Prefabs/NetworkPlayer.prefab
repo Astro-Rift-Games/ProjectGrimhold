@@ -587,6 +587,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCharacter
   _maxHealth: 100
+  _damageHitboxes:
+  - {fileID: 9000000000000000003}
   _Health: 0
   _corpseGenerationController: {fileID: 4100000000000000101}
 --- !u!114 &7201000000000000004
@@ -757,63 +759,9 @@ MonoBehaviour:
   _combatPresenter: {fileID: 2199920047182287500}
   _damageFeedbackPresenter: {fileID: 7490000000000000001}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}
-  _visualTransform: {fileID: 7397229956843810021}
-  _spriteRenderers:
-  - {fileID: 1066720069559603162}
-  _bodyVisualRoot: {fileID: 1221760144332657486}
-  _combatVisualRoot: {fileID: 2408805181285633772}
-  _transitionDuration: 0.5
-  _hideDelayAfterTransition: 1.5
-  _targetRotationAngle: 90
-  _rotationCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  _targetAlpha: 0.6
-  _alphaCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
+  _colliders:
+  - {fileID: 4462333045026223586}
+  - {fileID: 9000000000000000003}
 --- !u!114 &438361259854513489
 MonoBehaviour:
   m_ObjectHideFlags: 0
