@@ -10,6 +10,7 @@ public sealed class MeleeAttackGizmoDrawer : MonoBehaviour
 {
     [SerializeField]
     private Transform _attackOrigin;
+    public Transform AttackOrigin => _attackOrigin;
 
     [SerializeField]
     private MeleeAttackConfig _config;

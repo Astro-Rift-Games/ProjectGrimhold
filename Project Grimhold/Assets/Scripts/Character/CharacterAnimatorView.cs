@@ -12,6 +12,8 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     [SerializeField]
     private Animator _animator;
 
+    protected Animator AnimatorInstance => _animator;
+
     [SerializeField]
     private MonoBehaviour _movementControllerSource;
 
@@ -21,6 +23,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private int _moveYHash;
     private int _isMovingHash;
     private int _onDefeatedHash;
+    private int _onAttackHash;
 
     private bool _hashesInitialized;
     private Vector2? _temporalFacingDirection;
@@ -119,12 +122,24 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         _temporalFacingDirection = null;
     }
 
+    /// <summary>
+    /// Fires the OnAttack trigger on the Animator to start a controller-driven attack animation.
+    /// </summary>
+    public void TriggerAttack()
+    {
+        if (_animator != null)
+        {
+            _animator.SetTrigger(_onAttackHash);
+        }
+    }
+
     private void InitializeHashes()
     {
         _moveXHash = Animator.StringToHash("MoveX");
         _moveYHash = Animator.StringToHash("MoveY");
         _isMovingHash = Animator.StringToHash("IsMoving");
         _onDefeatedHash = Animator.StringToHash("OnDefeated");
+        _onAttackHash = Animator.StringToHash("OnAttack");
         _hashesInitialized = true;
     }
 
