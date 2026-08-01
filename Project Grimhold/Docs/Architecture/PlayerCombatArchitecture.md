@@ -89,7 +89,7 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 * **Continuous collision detection**: Casts the projectile's collider across the requested tick displacement so targets cannot be skipped between ticks.
 * **Physical initialization**: Aligns the Rigidbody2D, Transform, and networked spawn position before the first authoritative simulation step.
 * **Physics synchronization**: When required by manually updated transforms, synchronizes the Unity 2D physics state before performing the collider cast.
-* **Impact selection and owner filtering**: Chooses the nearest cast hit. Registered owner colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry.
+* **Impact selection and owner filtering**: Chooses the nearest cast hit. Registered owner colliders and registered non-damage colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry.
 * **Single-impact guarantee**: Consumes an accepted impact before applying damage or requesting despawn, preventing duplicated damage across subsequent ticks or multiple overlapping cast results.
 * **Range and lifetime**: Tracks the exact traveled distance and a network `TickTimer`. The final movement step is clamped so the projectile never exceeds its configured maximum range.
 * **Obstacle behavior**: A collider without a registered damageable entity still blocks and despawns the projectile but does not produce a damage request. A wall blocks/despawns the projectile without damage.
@@ -99,6 +99,7 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 A fast-lookup database mapping physical colliders (`Collider2D`) to gameplay entity identities (`EntityId`) and damageable contracts (`IDamageable`):
 * Allows the projectile simulation to instantly identify targets without expensive `GetComponent` searches.
 * Enables precise owner filtering by checking `BelongsToOwner(Collider2D)`, ensuring a projectile never collides with its shooter or any of its child-objects, while allowing impacts against other players/enemies.
+* Keeps explicit damage-collider registration separate from general collider identity. Damage queries use the explicit set when present and retain all-collider fallback behavior for legacy or non-character damageables.
 
 ---
 
@@ -162,7 +163,8 @@ Inherits from `AttackConfig`. Validated fields:
 7. **Deduplication and Exclusion**:
    * Attacker's own `EntityId` is excluded.
    * Targets not registered in the `EntityRegistry`, dead, or invulnerable are ignored.
-   * Overlapping colliders belonging to the same entity are deduplicated (preserving only the closest hit point).
+   * A character collider is eligible only when it belongs to that character's explicit damage-hitbox set; movement and interaction colliders remain identity mappings but cannot produce damage candidates.
+   * Multiple eligible damage hitboxes belonging to the same entity are deduplicated (preserving only the closest hit point).
 8. **Damage Request**: For each candidate target up to `MaximumTargets` (sorted by distance), a `DamageRequest` is built and passed to `IDamageResolver.Resolve()`.
 
 ## Confirmed local combat feedback
@@ -220,12 +222,12 @@ A network component that validates damage rules:
 
 ### 3. Entity Registration (`EntityRegistry` & `CharacterBase`)
 * Any damageable character must inherit from `CharacterBase` (which implements `IDamageable` and `ICharacter`).
-* On `Spawned()`, characters retrieve the runner's `EntityRegistry` and invoke `TryRegister()`, mapping their unique `EntityId` to the `IDamageable` instance and mapping all child `Collider2D` components to the `EntityId`.
+* On `Spawned()`, characters retrieve the runner's `EntityRegistry` and invoke `TryRegisterDamageable()`, mapping their unique `EntityId` to the `IDamageable` instance, mapping all child `Collider2D` components to the `EntityId`, and registering the serialized `_damageHitboxes` subset for damage detection.
 * On `Despawned()`, they call `Unregister()` to remove these references.
-* This ensures that multiple colliders representing a single character map to the exact same `EntityId`, preventing duplicate target selection or double-damage evaluations in a single query.
+* This ensures that multiple colliders representing a single character map to the exact same `EntityId`, while only semantically configured body hitboxes can be selected by melee attacks, projectiles, or area hazards.
 * Player and enemy prefabs keep a solid root collider dedicated to foot-level movement and world collision. `Kinematic2DMovementMotor` references only this collider.
-* Each character also owns a root-level `DamageHitbox` child on the `Character` physics layer. Its trigger collider shape and dimensions are configured on the prefab according to character art and gameplay requirements, covering the body without participating in solid movement collision.
-* `DamageHitbox` is independent from the visual `Body` hierarchy so presentation scaling, animation and defeat rotation cannot alter authoritative target detection. Both colliders resolve to the same entity registration and are deduplicated before damage.
+* Each character also owns a root-level `DamageHitbox` child on the `Character` physics layer. Its prefab-configured trigger collider covers the animated body without participating in movement collision.
+* `DamageHitbox` is independent from the visual `Body` hierarchy so presentation scaling, animation and defeat rotation cannot alter authoritative target detection. It is explicitly referenced by `CharacterBase`; the foot collider remains registered for identity but is excluded from damage detection.
 
 Non-character world targets may register the same contracts without inheriting
 `CharacterBase`. `BreakableObject` registers its Character-layer damage hitbox

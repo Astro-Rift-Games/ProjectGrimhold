@@ -14,6 +14,20 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, ILootReceiver> _lootReceivers = new();
     private readonly Dictionary<EntityId, LootSourceRegistration> _lootSources = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
+    private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
+    private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
+
+    private readonly struct DamageColliderRegistration
+    {
+        public IDamageable Damageable { get; }
+        public Collider2D[] Colliders { get; }
+
+        public DamageColliderRegistration(IDamageable damageable, Collider2D[] colliders)
+        {
+            Damageable = damageable;
+            Colliders = colliders;
+        }
+    }
 
     private readonly struct LootSourceRegistration
     {
@@ -39,6 +53,72 @@ public sealed class EntityRegistry : MonoBehaviour
     public bool TryRegister(EntityId id, IDamageable damageable, IReadOnlyList<Collider2D> colliders)
     {
         return TryRegisterEntity(id, damageable, colliders);
+    }
+
+    /// <summary>
+    /// Registers a damageable entity while explicitly identifying which of its colliders
+    /// participate in damage detection. Other colliders remain mapped to the same entity
+    /// for movement, interaction, and identity resolution.
+    /// </summary>
+    public bool TryRegisterDamageable(
+        EntityId id,
+        IDamageable damageable,
+        IReadOnlyList<Collider2D> colliders,
+        IReadOnlyList<Collider2D> damageColliders)
+    {
+        if (damageable == null || damageColliders == null || damageColliders.Count == 0)
+        {
+            return false;
+        }
+
+        if (_damageColliderRegistrations.TryGetValue(id, out DamageColliderRegistration existing))
+        {
+            if (!ReferenceEquals(existing.Damageable, damageable) ||
+                !ContainsSameColliders(existing.Colliders, damageColliders))
+            {
+                return false;
+            }
+
+            return TryRegisterEntity(id, damageable, colliders);
+        }
+
+        var copiedDamageColliders = new Collider2D[damageColliders.Count];
+        for (int i = 0; i < damageColliders.Count; i++)
+        {
+            Collider2D damageCollider = damageColliders[i];
+            if (damageCollider == null ||
+                !ContainsCollider(colliders, damageCollider) ||
+                _damageColliders.ContainsKey(damageCollider))
+            {
+                return false;
+            }
+
+            for (int existingIndex = 0; existingIndex < i; existingIndex++)
+            {
+                if (copiedDamageColliders[existingIndex] == damageCollider)
+                {
+                    return false;
+                }
+            }
+
+            copiedDamageColliders[i] = damageCollider;
+        }
+
+        if (!TryRegisterEntity(id, damageable, colliders))
+        {
+            return false;
+        }
+
+        _damageColliderRegistrations.Add(
+            id,
+            new DamageColliderRegistration(damageable, copiedDamageColliders));
+
+        for (int i = 0; i < copiedDamageColliders.Length; i++)
+        {
+            _damageColliders.Add(copiedDamageColliders[i], id);
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -154,6 +234,7 @@ public sealed class EntityRegistry : MonoBehaviour
         if (_entities.TryGetValue(id, out IDamageable damageable) && ReferenceEquals(damageable, expectedEntity))
         {
             _entities.Remove(id);
+            RemoveDamageColliderRegistration(id, damageable);
             removedCapability = true;
         }
 
@@ -189,6 +270,26 @@ public sealed class EntityRegistry : MonoBehaviour
     public bool TryGetDamageable(EntityId id, out IDamageable damageable)
     {
         return _entities.TryGetValue(id, out damageable);
+    }
+
+    /// <summary>
+    /// Returns whether a collider is eligible for damage detection for its entity.
+    /// Entities without an explicit damage-collider registration retain legacy behavior
+    /// in which every registered collider is eligible.
+    /// </summary>
+    public bool IsDamageCollider(EntityId id, Collider2D collider)
+    {
+        if (collider == null)
+        {
+            return false;
+        }
+
+        if (!_damageColliderRegistrations.ContainsKey(id))
+        {
+            return true;
+        }
+
+        return _damageColliders.TryGetValue(collider, out EntityId registeredId) && registeredId == id;
     }
 
     /// <summary>
@@ -392,6 +493,65 @@ public sealed class EntityRegistry : MonoBehaviour
         {
             _colliders.Remove(keysToRemove[i]);
         }
+    }
+
+    private void RemoveDamageColliderRegistration(EntityId id, IDamageable expectedDamageable)
+    {
+        if (!_damageColliderRegistrations.TryGetValue(id, out DamageColliderRegistration registration) ||
+            !ReferenceEquals(registration.Damageable, expectedDamageable))
+        {
+            return;
+        }
+
+        _damageColliderRegistrations.Remove(id);
+        for (int i = 0; i < registration.Colliders.Length; i++)
+        {
+            Collider2D collider = registration.Colliders[i];
+            if (collider != null &&
+                _damageColliders.TryGetValue(collider, out EntityId registeredId) &&
+                registeredId == id)
+            {
+                _damageColliders.Remove(collider);
+            }
+        }
+    }
+
+    private static bool ContainsCollider(IReadOnlyList<Collider2D> colliders, Collider2D expected)
+    {
+        if (colliders == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < colliders.Count; i++)
+        {
+            if (colliders[i] == expected)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsSameColliders(
+        IReadOnlyList<Collider2D> existing,
+        IReadOnlyList<Collider2D> requested)
+    {
+        if (existing == null || requested == null || existing.Count != requested.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < existing.Count; i++)
+        {
+            if (!ContainsCollider(requested, existing[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

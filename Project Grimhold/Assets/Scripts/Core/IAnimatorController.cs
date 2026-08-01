@@ -21,4 +21,9 @@ public interface IAnimatorController
     /// Clears any temporal facing direction, returning to normal locomotion state.
     /// </summary>
     void ClearTemporalFacingDirection();
+
+    /// <summary>
+    /// Fires the OnAttack trigger on the Animator to start a controller-driven attack animation.
+    /// </summary>
+    void TriggerAttack();
 }

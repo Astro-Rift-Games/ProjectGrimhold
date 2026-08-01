@@ -177,7 +177,11 @@ public abstract class CombatPresenterBase : MonoBehaviour
         return new Vector2(Mathf.Cos(snappedAngleRad), Mathf.Sin(snappedAngleRad));
     }
 
-    private void OnAttackPerformed(AttackPerformedEvent attackEvent)
+    /// <summary>
+    /// Called when the combat controller raises an attack event during Render.
+    /// Override in subclasses to replace the default procedural weapon animation.
+    /// </summary>
+    protected virtual void OnAttackPerformed(AttackPerformedEvent attackEvent)
     {
         if (_combatController != null)
         {

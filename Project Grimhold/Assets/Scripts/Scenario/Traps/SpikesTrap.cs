@@ -114,6 +114,7 @@ public sealed class SpikesTrap : BaseTrap
             // Obtener el EntityId registrado para evitar búsquedas de componentes lentas en runtime
             if (!_registry.TryGetEntityId(col, out EntityId targetId)) continue;
             if (targetId.Value == 0) continue;
+            if (!_registry.IsDamageCollider(targetId, col)) continue;
 
             // Evitar procesar múltiples colliders de una misma entidad en el mismo pulso
             if (_processedTargets.Contains(targetId)) continue;

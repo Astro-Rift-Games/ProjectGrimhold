@@ -30,6 +30,11 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     private bool _dependenciesValid;
     private int _lastObservedSequence;
 
+    // Pending damage is set during FixedUpdateNetwork when an attack is committed.
+    // It is consumed by ExecutePendingDamage, called from the Animation Event on the hit frame.
+    private AttackRequest _pendingDamageRequest;
+    private bool _hasPendingDamage;
+
     [Networked]
     private TickTimer AttackCooldown { get; set; }
 
@@ -91,7 +96,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         if (attackRequested && IsAttackEnabled && _character.IsAlive)
         {
-            TryExecuteAttack(_movementController.FacingDirection);
+            TryCommitAttack(_movementController.FacingDirection);
         }
     }
 
@@ -118,10 +123,11 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     }
 
     /// <summary>
-    /// Attempts to execute the active attack, validating cooldown and strategy.
+    /// Validates cooldown, commits the attack (cooldown, sequence, replicated direction)
+    /// and stores a pending damage request to be resolved on the animation hit frame.
     /// </summary>
     /// <param name="aimDirection">The direction to execute the attack towards.</param>
-    private void TryExecuteAttack(Vector2 aimDirection)
+    private void TryCommitAttack(Vector2 aimDirection)
     {
         if (!AttackCooldown.ExpiredOrNotRunning(Runner))
         {
@@ -136,34 +142,55 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         Vector2 normalizedDirection = aimDirection.normalized;
         Vector2 originPos = _attackOrigin != null ? (Vector2)_attackOrigin.position : (Vector2)transform.position;
 
-        AttackRequest request = new AttackRequest(
+        float cooldownSeconds = _activeAttack.CooldownSeconds;
+        if (cooldownSeconds > 0f)
+        {
+            AttackCooldown = TickTimer.CreateFromSeconds(Runner, cooldownSeconds);
+        }
+        else
+        {
+            AttackCooldown = TickTimer.None;
+        }
+
+        LastAttackOrigin = originPos;
+        LastAttackDirection = normalizedDirection;
+        LastAttackTypeValue = (int)_activeAttack.Type;
+        LastAttackTick = (int)Runner.Tick;
+
+        AttackSequence++;
+
+        // Store the request so ExecutePendingDamage can resolve it on the animation hit frame.
+        _pendingDamageRequest = new AttackRequest(
             _character.Id,
             originPos,
             normalizedDirection,
             (int)Runner.Tick
         );
+        _hasPendingDamage = true;
+    }
 
-        AttackResult result = _activeAttack.Execute(in request);
-
-        if (result.WasExecuted)
+    /// <summary>
+    /// Applies the stored pending damage request.
+    /// Must be called from a trusted source (Animation Event via EnemyAttackAnimationListener)
+    /// only on the State Authority peer.
+    ///
+    /// Safe to call multiple times per attack window: the pending flag is cleared on first execution.
+    /// </summary>
+    public void ExecutePendingDamage()
+    {
+        if (!HasStateAuthority || !_hasPendingDamage)
         {
-            float cooldownSeconds = _activeAttack.CooldownSeconds;
-            if (cooldownSeconds > 0f)
-            {
-                AttackCooldown = TickTimer.CreateFromSeconds(Runner, cooldownSeconds);
-            }
-            else
-            {
-                AttackCooldown = TickTimer.None;
-            }
-
-            LastAttackOrigin = request.Origin;
-            LastAttackDirection = request.Direction;
-            LastAttackTypeValue = (int)_activeAttack.Type;
-            LastAttackTick = request.SimulationTick;
-
-            AttackSequence++;
+            return;
         }
+
+        if (!_character.IsAlive)
+        {
+            _hasPendingDamage = false;
+            return;
+        }
+
+        _hasPendingDamage = false;
+        _activeAttack.Execute(in _pendingDamageRequest);
     }
 
     /// <summary>

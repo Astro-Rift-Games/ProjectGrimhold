@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Tests.EditMode.Combat
@@ -218,6 +219,35 @@ namespace Tests.EditMode.Combat
 
             Assert.AreEqual(1, _fakeResolver.ResolvedRequests.Count);
             Assert.AreEqual(targetA, _fakeResolver.ResolvedRequests[0].TargetId);
+        }
+
+        [Test]
+        public void SlimeAttackClips_InvokePendingDamageAtHitFrame()
+        {
+            string[] clipPaths =
+            {
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-Down.anim",
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-DownLeft.anim",
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-DownRight.anim",
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-Up.anim",
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-UpLeft.anim",
+                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-UpRight.anim"
+            };
+
+            for (int clipIndex = 0; clipIndex < clipPaths.Length; clipIndex++)
+            {
+                string clipPath = clipPaths[clipIndex];
+                AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+
+                Assert.That(clip, Is.Not.Null, $"Missing slime attack clip at {clipPath}.");
+
+                AnimationEvent[] events = AnimationUtility.GetAnimationEvents(clip);
+                Assert.That(events, Has.Length.EqualTo(1), $"Unexpected event count in {clipPath}.");
+                Assert.That(
+                    events[0].functionName,
+                    Is.EqualTo(nameof(EnemyAttackAnimationListener.OnAttackHit)),
+                    $"Wrong hit-frame event in {clipPath}.");
+            }
         }
 
         private sealed class FakeTargetQuery : IAttackTargetQuery

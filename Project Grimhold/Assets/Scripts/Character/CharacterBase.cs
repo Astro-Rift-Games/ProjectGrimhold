@@ -15,6 +15,10 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
     [SerializeField, Min(0.1f)]
     private float _maxHealth = 100f;
 
+    [Header("Damage Collision")]
+    [SerializeField]
+    private Collider2D[] _damageHitboxes;
+
     private Collider2D[] _cachedColliders;
     private EntityRegistry _registry;
     private EntityId _registeredId;
@@ -61,12 +65,24 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
             Health = _maxHealth;
         }
 
-        // Register entity and its associated colliders for simulation
+        // Keep identity mapped through every collider, but expose only the configured
+        // body hitboxes to damage queries so movement collision cannot receive hits.
         _registry = Runner.GetComponent<EntityRegistry>();
         if (_registry != null)
         {
             _registeredId = Id;
-            _isRegistered = _registry.TryRegister(_registeredId, this, _cachedColliders);
+            _isRegistered = _registry.TryRegisterDamageable(
+                _registeredId,
+                this,
+                _cachedColliders,
+                _damageHitboxes);
+
+            if (!_isRegistered)
+            {
+                Debug.LogError(
+                    $"{GetType().Name} could not register its damage hitboxes for entity '{_registeredId}'.",
+                    this);
+            }
         }
     }
 

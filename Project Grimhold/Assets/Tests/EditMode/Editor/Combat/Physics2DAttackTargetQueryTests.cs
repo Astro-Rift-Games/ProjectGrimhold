@@ -259,7 +259,13 @@ namespace Tests.EditMode.Combat
         {
             int layer = LayerMask.NameToLayer("Default");
             EntityId targetId = new EntityId(2);
-            CreateBodyHitboxTarget(targetId, layer);
+            var (targetObject, _) = CreateBodyHitboxTarget(targetId, layer);
+
+            Collider2D movementCollider = targetObject.GetComponent<BoxCollider2D>();
+            Collider2D damageHitbox = targetObject.transform.Find("DamageHitbox").GetComponent<Collider2D>();
+
+            Assert.That(_registry.IsDamageCollider(targetId, movementCollider), Is.False);
+            Assert.That(_registry.IsDamageCollider(targetId, damageHitbox), Is.True);
 
             var request = new AttackTargetQuery(
                 new EntityId(1),
@@ -275,6 +281,32 @@ namespace Tests.EditMode.Combat
 
             Assert.That(targets, Has.Count.EqualTo(1));
             Assert.That(targets[0].TargetId, Is.EqualTo(targetId));
+        }
+
+        [Test]
+        public void FindTargets_AttackOverlapsOnlyMovementCollider_DoesNotReturnTarget()
+        {
+            int layer = LayerMask.NameToLayer("Default");
+            EntityId targetId = new EntityId(2);
+            var (targetObject, _) = CreateBodyHitboxTarget(targetId, layer);
+
+            BoxCollider2D movementCollider = targetObject.GetComponent<BoxCollider2D>();
+            movementCollider.size = new Vector2(2f, 0.5f);
+            Physics2D.SyncTransforms();
+
+            var request = new AttackTargetQuery(
+                new EntityId(1),
+                new Vector2(0.85f, 0.25f),
+                Vector2.zero,
+                0f,
+                0.05f,
+                1,
+                1 << layer
+            );
+
+            IReadOnlyList<AttackTarget> targets = _query.FindTargets(request);
+
+            Assert.That(targets, Is.Empty);
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
@@ -317,6 +349,17 @@ namespace Tests.EditMode.Combat
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That(colliderField, Is.Not.Null);
             Assert.That(colliderField.GetValue(movementMotor), Is.SameAs(movementCollider));
+
+            CharacterBase character = prefab.GetComponent<CharacterBase>();
+            Assert.That(character, Is.Not.Null);
+
+            var serializedCharacter = new SerializedObject(character);
+            SerializedProperty damageHitboxes = serializedCharacter.FindProperty("_damageHitboxes");
+            Assert.That(damageHitboxes, Is.Not.Null);
+            Assert.That(damageHitboxes.arraySize, Is.EqualTo(1));
+            Assert.That(
+                damageHitboxes.GetArrayElementAtIndex(0).objectReferenceValue,
+                Is.SameAs(damageHitbox));
         }
 
         [Test]
@@ -436,7 +479,11 @@ namespace Tests.EditMode.Combat
             character.IsAlive = true;
             character.CanReceiveDamage = true;
 
-            _registry.TryRegister(id, character, new Collider2D[] { movementCollider, damageHitbox });
+            _registry.TryRegisterDamageable(
+                id,
+                character,
+                new Collider2D[] { movementCollider, damageHitbox },
+                new Collider2D[] { damageHitbox });
             _spawnedObjects.Add(go);
             Physics2D.SyncTransforms();
 

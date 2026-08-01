@@ -119,7 +119,8 @@ public sealed class NetworkProjectile : NetworkBehaviour
             return true;
         }
 
-        return targetId.Value != OwnerEntityIdValue;
+        return targetId.Value != OwnerEntityIdValue &&
+            _registry.IsDamageCollider(targetId, collider);
     }
 
     /// <summary>
