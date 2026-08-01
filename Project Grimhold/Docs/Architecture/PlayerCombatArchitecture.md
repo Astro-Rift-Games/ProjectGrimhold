@@ -224,7 +224,7 @@ A network component that validates damage rules:
 * On `Despawned()`, they call `Unregister()` to remove these references.
 * This ensures that multiple colliders representing a single character map to the exact same `EntityId`, preventing duplicate target selection or double-damage evaluations in a single query.
 * Player and enemy prefabs keep a solid root collider dedicated to foot-level movement and world collision. `Kinematic2DMovementMotor` references only this collider.
-* Each character also owns a root-level `DamageHitbox` child on the `Character` physics layer. Its trigger collider covers the animated body (`1.25 x 2.25` units with offset `(0, 1.125)`) without participating in movement collision.
+* Each character also owns a root-level `DamageHitbox` child on the `Character` physics layer. Its trigger collider shape and dimensions are configured on the prefab according to character art and gameplay requirements, covering the body without participating in solid movement collision.
 * `DamageHitbox` is independent from the visual `Body` hierarchy so presentation scaling, animation and defeat rotation cannot alter authoritative target detection. Both colliders resolve to the same entity registration and are deduplicated before damage.
 
 Non-character world targets may register the same contracts without inheriting

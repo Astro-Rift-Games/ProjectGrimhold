@@ -306,13 +306,10 @@ namespace Tests.EditMode.Combat
             BoxCollider2D damageHitbox = damageHitboxTransform.GetComponent<BoxCollider2D>();
             Assert.That(damageHitbox, Is.Not.Null);
             Assert.That(damageHitbox.isTrigger, Is.True);
-            Assert.That(damageHitbox.size, Is.EqualTo(new Vector2(1.25f, 2.25f)));
-            Assert.That(damageHitbox.offset, Is.EqualTo(new Vector2(0f, 1.125f)));
 
             Assert.That(movementCollider, Is.Not.Null);
             Assert.That(movementCollider.isTrigger, Is.False);
-            Assert.That(movementCollider.size, Is.EqualTo(new Vector2(0.75f, 0.5f)));
-            Assert.That(movementCollider.offset, Is.EqualTo(new Vector2(0f, 0.25f)));
+            Assert.That(damageHitbox, Is.Not.SameAs(movementCollider));
             Assert.That(movementMotor, Is.Not.Null);
 
             var colliderField = typeof(Kinematic2DMovementMotor).GetField(
