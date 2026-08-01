@@ -116,6 +116,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: NetworkEnemyMelee
       objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 1.0054445
+      objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 0.99313927
+      objectReference: {fileID: 0}
+    - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: 0.0034303665
+      objectReference: {fileID: 0}
     - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x
       value: 0.5
@@ -136,6 +148,22 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: febb6626266da3e48a75971642ea8058, type: 2}
+    - target: {fileID: 7397229956843810021, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 1.1078742
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 1.0391634
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: 0.013802648
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -1,9 +1,16 @@
 using UnityEngine;
 
 /// <summary>
-/// Presenter component responsible for procedural character defeat animation and visual pose.
+/// Presenter component responsible for coordinating enemy defeat presentation.
 /// Operates on the presentation layer, observing the networked health state of a CharacterBase.
-/// When the character dies, handles the defeat transition and coordinates with other presenters.
+///
+/// On death, this component:
+/// - Notifies the animator view to trigger the defeat animation.
+/// - Cancels any active combat or damage feedback presentation.
+/// - Hides the weapon sprite.
+/// - Disables colliders so the corpse no longer participates in hit detection.
+///
+/// Visual defeat animation is handled entirely by the Animator Controller.
 /// </summary>
 [DisallowMultipleComponent]
 public abstract class DefeatPresenterBase : MonoBehaviour
@@ -25,64 +32,17 @@ public abstract class DefeatPresenterBase : MonoBehaviour
     private SpriteRenderer _weaponSpriteRenderer;
 
     [SerializeField]
-    private Transform _visualTransform;
-
-    [SerializeField]
-    private SpriteRenderer[] _spriteRenderers;
-
-    [SerializeField]
-    private GameObject _bodyVisualRoot;
-
-    [SerializeField]
-    private GameObject _combatVisualRoot;
-
-    [Header("Defeat Visuals")]
-    [SerializeField, Min(0.001f)]
-    private float _transitionDuration = 0.5f;
-
-    [SerializeField, Min(0f)]
-    private float _hideDelayAfterTransition = 1.5f;
-
-    [SerializeField]
-    private float _targetRotationAngle = 90f;
-
-    [SerializeField]
-    private AnimationCurve _rotationCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-
-    [SerializeField, Range(0f, 1f)]
-    private float _targetAlpha = 0.6f;
-
-    [SerializeField]
-    private AnimationCurve _alphaCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    private Collider2D[] _colliders;
 
     private IAnimatorController _animatorView;
 
     // Runtime state
     private bool _isDefeated;
-    private float _elapsedTime;
-    private bool _transitionActive;
-    private float _timeSinceTransitionCompleted;
-    private bool _visualsHidden;
-
-    // Cached base states
-    private Quaternion _baseLocalRotation;
-    private float[] _originalAlphas;
-    private Color[] _originalColors;
-    private bool _baseBodyVisualActive;
-    private bool _baseCombatVisualActive;
-    private bool _hasCapturedBaseState;
     private bool _isInitialized;
-
-    /// <summary>
-    /// Controls whether the body presentation disappears after the defeat transition.
-    /// Persistent corpses override this while retaining the shared combat-visual cleanup.
-    /// </summary>
-    protected virtual bool HideBodyVisualAfterTransition => true;
 
     protected virtual void OnEnable()
     {
         CacheDependencies();
-        CaptureBaseState();
         InitializeDeathTracking();
     }
 
@@ -104,35 +64,18 @@ public abstract class DefeatPresenterBase : MonoBehaviour
             if (_characterBase.Object != null && _characterBase.Object.IsValid)
             {
                 _isInitialized = true;
-                CaptureBaseState();
 
                 if (!_characterBase.IsAlive)
                 {
-                    TriggerDefeat(true);
+                    TriggerDefeat();
                 }
             }
             return;
         }
 
-        bool currentlyAlive = _characterBase.IsAlive;
-
-        if (!currentlyAlive && !_isDefeated)
+        if (!_characterBase.IsAlive && !_isDefeated)
         {
-            TriggerDefeat(false);
-        }
-
-        if (_transitionActive)
-        {
-            UpdateTransition();
-        }
-
-        if (_isDefeated && !_transitionActive && !_visualsHidden)
-        {
-            _timeSinceTransitionCompleted += Time.deltaTime;
-            if (_timeSinceTransitionCompleted >= _hideDelayAfterTransition)
-            {
-                HideVisuals();
-            }
+            TriggerDefeat();
         }
     }
 
@@ -162,45 +105,11 @@ public abstract class DefeatPresenterBase : MonoBehaviour
         {
             _damageFeedbackPresenter = GetComponentInChildren<DamageFeedbackPresenter>();
         }
-    }
 
-    private void CaptureBaseState()
-    {
-        if (_hasCapturedBaseState)
+        if (_colliders == null || _colliders.Length == 0)
         {
-            return;
+            _colliders = GetComponentsInParent<Collider2D>();
         }
-
-        if (_visualTransform != null)
-        {
-            _baseLocalRotation = _visualTransform.localRotation;
-        }
-
-        if (_bodyVisualRoot != null)
-        {
-            _baseBodyVisualActive = _bodyVisualRoot.activeSelf;
-        }
-
-        if (_combatVisualRoot != null)
-        {
-            _baseCombatVisualActive = _combatVisualRoot.activeSelf;
-        }
-
-        if (_spriteRenderers != null && _spriteRenderers.Length > 0)
-        {
-            _originalColors = new Color[_spriteRenderers.Length];
-            _originalAlphas = new float[_spriteRenderers.Length];
-            for (int i = 0; i < _spriteRenderers.Length; i++)
-            {
-                if (_spriteRenderers[i] != null)
-                {
-                    _originalColors[i] = _spriteRenderers[i].color;
-                    _originalAlphas[i] = _spriteRenderers[i].color.a;
-                }
-            }
-        }
-
-        _hasCapturedBaseState = true;
     }
 
     private void InitializeDeathTracking()
@@ -210,7 +119,7 @@ public abstract class DefeatPresenterBase : MonoBehaviour
             _isInitialized = true;
             if (!_characterBase.IsAlive)
             {
-                TriggerDefeat(true);
+                TriggerDefeat();
             }
         }
         else
@@ -219,28 +128,9 @@ public abstract class DefeatPresenterBase : MonoBehaviour
         }
     }
 
-    private void HideVisuals()
-    {
-        if (_visualsHidden)
-        {
-            return;
-        }
-        _visualsHidden = true;
-        if (HideBodyVisualAfterTransition && _bodyVisualRoot != null)
-        {
-            _bodyVisualRoot.SetActive(false);
-        }
-        if (_combatVisualRoot != null)
-        {
-            _combatVisualRoot.SetActive(false);
-        }
-    }
-
-    private void TriggerDefeat(bool instant)
+    private void TriggerDefeat()
     {
         _isDefeated = true;
-        _timeSinceTransitionCompleted = 0f;
-        _visualsHidden = false;
 
         if (_combatPresenter != null)
         {
@@ -262,108 +152,36 @@ public abstract class DefeatPresenterBase : MonoBehaviour
             _animatorView.SetDefeated(true);
         }
 
-        if (instant)
-        {
-            _transitionActive = false;
-            _elapsedTime = _transitionDuration;
-            ApplyDefeatState(1f);
-            HideVisuals();
-        }
-        else
-        {
-            _transitionActive = true;
-            _elapsedTime = 0f;
-            ApplyDefeatState(0f);
-        }
-    }
-
-    private void UpdateTransition()
-    {
-        _elapsedTime += Time.deltaTime;
-        float progress = Mathf.Clamp01(_elapsedTime / _transitionDuration);
-
-        ApplyDefeatState(progress);
-
-        if (_elapsedTime >= _transitionDuration)
-        {
-            _transitionActive = false;
-        }
-    }
-
-    private void ApplyDefeatState(float progress)
-    {
-        if (!_hasCapturedBaseState)
-        {
-            return;
-        }
-
-        float rotT = _rotationCurve != null ? _rotationCurve.Evaluate(progress) : progress;
-        float currentAngle = Mathf.Lerp(0f, _targetRotationAngle, rotT);
-
-        if (_visualTransform != null)
-        {
-            _visualTransform.localRotation = _baseLocalRotation * Quaternion.Euler(0f, 0f, currentAngle);
-        }
-
-        float alphaT = _alphaCurve != null ? _alphaCurve.Evaluate(progress) : progress;
-        if (_spriteRenderers != null && _originalColors != null)
-        {
-            for (int i = 0; i < _spriteRenderers.Length; i++)
-            {
-                if (_spriteRenderers[i] != null && i < _originalColors.Length)
-                {
-                    Color col = _originalColors[i];
-                    float targetA = _originalAlphas[i] * _targetAlpha;
-                    col.a = Mathf.Lerp(_originalAlphas[i], targetA, alphaT);
-                    _spriteRenderers[i].color = col;
-                }
-            }
-        }
+        SetCollidersEnabled(false);
     }
 
     /// <summary>
-    /// Cancels defeat presentation and restores base rotation, colors, and animation states.
+    /// Cancels defeat presentation and restores animation and collider states.
     /// </summary>
     public void CancelAndRestore()
     {
         _isDefeated = false;
-        _transitionActive = false;
-        _elapsedTime = 0f;
-        _timeSinceTransitionCompleted = 0f;
-        _visualsHidden = false;
 
         if (_animatorView != null)
         {
             _animatorView.SetDefeated(false);
         }
 
-        if (!_hasCapturedBaseState)
+        SetCollidersEnabled(true);
+    }
+
+    private void SetCollidersEnabled(bool enabled)
+    {
+        if (_colliders == null)
         {
             return;
         }
 
-        if (_bodyVisualRoot != null)
+        for (int i = 0; i < _colliders.Length; i++)
         {
-            _bodyVisualRoot.SetActive(_baseBodyVisualActive);
-        }
-        if (_combatVisualRoot != null)
-        {
-            _combatVisualRoot.SetActive(_baseCombatVisualActive);
-        }
-
-        if (_visualTransform != null)
-        {
-            _visualTransform.localRotation = _baseLocalRotation;
-        }
-
-        if (_spriteRenderers != null && _originalColors != null)
-        {
-            for (int i = 0; i < _spriteRenderers.Length; i++)
+            if (_colliders[i] != null)
             {
-                if (_spriteRenderers[i] != null && i < _originalColors.Length)
-                {
-                    _spriteRenderers[i].color = _originalColors[i];
-                }
+                _colliders[i].enabled = enabled;
             }
         }
     }
