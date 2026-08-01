@@ -8,6 +8,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -911902360849970759, guid: 20a8d82283fdf8d43979ae9a8cc85b24, type: 3}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.b
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2520259848855165086, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -116,6 +132,10 @@ PrefabInstance:
       propertyPath: m_WasSpriteAssigned
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5232659655046367733, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: febb6626266da3e48a75971642ea8058, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
