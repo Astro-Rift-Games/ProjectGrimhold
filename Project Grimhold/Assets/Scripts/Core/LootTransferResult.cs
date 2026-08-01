@@ -67,6 +67,7 @@ public readonly struct LootTransferResult
             case LootTransferFailureReason.MissingAuthority:
             case LootTransferFailureReason.ContainerUnavailable:
             case LootTransferFailureReason.Overflow:
+            case LootTransferFailureReason.PlayerUnavailable:
                 return true;
             default:
                 return false;

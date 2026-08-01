@@ -10,6 +10,45 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField]
     private PlayerCorpseGenerationController _corpseGenerationController;
 
+    [SerializeField]
+    private PlayerExtractionController _extractionController;
+    private bool _reportedMissingExtractionController;
+
+    /// <summary>
+    /// Indicates whether the player character can receive damage.
+    /// Returns false if the player is alive and in Extracted process state.
+    /// </summary>
+    public override bool CanReceiveDamage
+    {
+        get
+        {
+            if (Object == null || !Object.IsValid)
+            {
+                return base.CanReceiveDamage;
+            }
+
+            if (_extractionController == null)
+            {
+                if (!_reportedMissingExtractionController)
+                {
+                    Debug.LogWarning(
+                        $"{nameof(PlayerCharacter)}: {nameof(PlayerExtractionController)} composition missing on object {name}.",
+                        this);
+                    _reportedMissingExtractionController = true;
+                }
+
+                return base.CanReceiveDamage;
+            }
+
+            if (_extractionController.State == ExtractionState.Extracted)
+            {
+                return false;
+            }
+
+            return base.CanReceiveDamage;
+        }
+    }
+
     protected override void Awake()
     {
         base.Awake();
@@ -43,6 +82,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_corpseGenerationController == null)
         {
             _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();
+        }
+
+        if (_extractionController == null)
+        {
+            _extractionController = GetComponent<PlayerExtractionController>();
         }
     }
 

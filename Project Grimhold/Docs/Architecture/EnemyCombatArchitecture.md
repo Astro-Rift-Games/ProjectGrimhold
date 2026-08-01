@@ -1,6 +1,6 @@
 # Enemy Combat & AI Architecture
 
-This document describes the architecture, components, state machine (FSM), network authority model, and presentation layers for the Enemy system in Project Grimhold.
+This document describes the architecture, components, state machine (FSM), network authority model, target reference model, and presentation layers for the Enemy system in Project Grimhold.
 
 ## Architectural Overview
 
@@ -33,26 +33,50 @@ The enemy state machine coordinates high-level behaviors authoritatively via `En
 
 | State | Responsibility | Control Enabled | Combat Enabled |
 | :--- | :--- | :--- | :--- |
-| **`Patrol`** | Standard locomotion / wandering. | `true` | `false` |
+| **`Idle`** | Standard locomotion / wandering. | `true` | `false` |
 | **`Chase`** | Pursuit of acquired target (`PlayerCharacter`). | `true` | `false` |
 | **`Attack`** | Stationary combat execution when target is in range. | `false` | `true` |
 | **`Dead`** | Terminal state triggered upon character death. | `false` | `false` |
 
-### Extensibility
+---
 
-`EnemyFSM` supports registering custom states implementing `IEnemyState`:
+## Canonical Target Representation & Invalidation (`EnemyTargetReference`)
 
-```csharp
-public interface IEnemyState
-{
-    EnemyStateType Type { get; }
-    void Enter(EnemyFSM fsm);
-    void FixedUpdateNetwork(EnemyFSM fsm);
-    void Exit(EnemyFSM fsm);
-}
-```
+To prevent target desynchronization and handle destroyed entity references safely:
 
-New states (e.g. `StunnedState`, `FleeState`) can be added by implementing `IEnemyState` and calling `fsm.RegisterState(new CustomState())`.
+1. **Atomic Representation**:
+   `EnemyMovementAIController` encapsulates target identity inside an immutable `EnemyTargetReference` struct:
+   ```csharp
+   private readonly struct EnemyTargetReference
+   {
+       public EntityId Id { get; }
+       public Transform Transform { get; }
+   }
+   ```
+   - `Id` and `Transform` are assigned and cleared together by replacing the structure with `default`.
+   - `Id.Value != 0` determines whether a stored target identity exists.
+   - A non-zero `Id` with a destroyed (`null`) `Transform` represents a structurally invalid target pending invalidation.
+
+2. **Target Query & Conditional Invalidation**:
+   - `TryGetCurrentTarget(out EntityId targetId, out Transform targetTransform)`:
+     - Returns snapshot of stored target without clearing internal state.
+     - Returns `true` only when `targetId.Value != 0` AND `targetTransform != null`.
+   - `TryInvalidateCurrentTarget(EntityId expectedTargetId)`:
+     - Requires `expectedTargetId.Value != 0`.
+     - Compares strictly against currently stored `_currentTarget.Id`.
+     - If matched, clears target reference, pursuit, and attack flags together.
+     - Protects newly acquired targets against late invalidations from previous targets.
+
+3. **Authoritative Combat Target Revalidation (`EnemyCombatAIController`)**:
+   During `FixedUpdateNetwork`:
+   - Calls `TryGetCurrentTarget`.
+   - If returned `false` with a valid `EntityId`: requests invalidation calling `TryInvalidateCurrentTarget(targetId)`.
+   - If returned `true`: resolves target capabilities (`IDamageable` and `ICharacter`) via runner-scoped `EntityRegistry`.
+   - If `EntityRegistry` resolution fails or target is not alive (`!ICharacter.IsAlive`) or cannot receive damage (`!IDamageable.CanReceiveDamage`), requests invalidation for `targetId`.
+   - Only when target resolution and eligibility checks pass does it execute `IAttack`.
+   - On any rejection: skips strategy execution, cooldown startup, and sequence increments, allowing FSM to observe clean flags and transition safely.
+
+The attack hit-frame boundary stores the target `EntityId` accepted with the pending request. Immediately before strategy execution it requires that identity to remain the current target and resolves `ICharacter` and `IDamageable` again from the runner registry. Failure clears the pending hit and invalidates only the matching target; it never executes damage against a stale cached `Transform`. The AI depends only on shared capabilities and contains no reference to extraction state or controllers.
 
 ---
 
@@ -84,4 +108,3 @@ When an enemy is defeated (authoritative health reaches 0), `EnemyCharacter.Hand
 * **No Secondary Corpse Prefab**: The defeated enemy remains the exact same network entity (`NetworkObject`), preserving its `NetworkId`, position, colliders, and initial pre-rolled loot dictionary.
 * **Simulation Termination**: State Authority disables movement (`_movementController.TrySetControlEnabled(false)`) and combat (`_combatController.TrySetAttackEnabled(false)`).
 * **Container Exposure**: Enables the co-located `NetworkLootContainer` availability (`_lootContainer.SetAvailability(true)`) during simulation, allowing nearby players to interact with and extract loot through the standard `LootInteractionArchitecture.md` flow.
-

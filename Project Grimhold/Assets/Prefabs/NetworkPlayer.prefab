@@ -546,6 +546,7 @@ GameObject:
   - component: {fileID: 4100000000000000102}
   - component: {fileID: 4100000000000000103}
   - component: {fileID: 4100000000000000104}
+  - component: {fileID: 8121909954639136856}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -591,6 +592,7 @@ MonoBehaviour:
   - {fileID: 9000000000000000003}
   _Health: 0
   _corpseGenerationController: {fileID: 4100000000000000101}
+  _extractionController: {fileID: 8121909954639136856}
 --- !u!114 &7201000000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -921,6 +923,7 @@ MonoBehaviour:
   - {fileID: 4100000000000000101}
   - {fileID: 4100000000000000102}
   - {fileID: 4100000000000000103}
+  - {fileID: 8121909954639136856}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -1106,6 +1109,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
   _promptText: "Saquear cad\xE1ver"
+--- !u!114 &8121909954639136856
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82741e6b4eeeb754bb702791011fdcc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionController
+  _config: {fileID: 11400000, guid: 8f4d2742272b465690541c37b55a3120, type: 2}
+  _movementController: {fileID: 7201000000000000005}
+  _combatController: {fileID: 2769229401594790361}
+  _characterSource: {fileID: 729366679366126330}
+  _State: 0
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

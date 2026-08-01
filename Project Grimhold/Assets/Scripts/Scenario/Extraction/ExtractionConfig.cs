@@ -12,7 +12,8 @@ using UnityEngine;
 /// to the tick-driven simulation in TASK-28.
 ///
 /// Spatial rule:
-/// Zone components in TASK-27 use their own <c>Collider2D</c> trigger geometry combined with <see cref="BoundaryTolerance"/>.
+/// Zone components own concrete <c>Collider2D</c> geometry. The participant controller applies
+/// <see cref="BoundaryTolerance"/> only while revalidating an active process.
 /// </summary>
 /// <remarks>
 /// See <c>Docs/Architecture/ExtractionArchitecture.md</c> for details regarding sources of truth,
@@ -49,7 +50,7 @@ public sealed class ExtractionConfig : ScriptableObject
     public bool CancelWhenLeavingArea => _cancelWhenLeavingArea;
 
     /// <summary>
-    /// Non-negative tolerance applied outward from the zone Collider2D bounds for position checking.
+    /// Non-negative tolerance applied outward from the concrete zone collider during continuation checks.
     /// Must be finite and greater than or equal to zero.
     /// </summary>
     public float BoundaryTolerance => _boundaryTolerance;

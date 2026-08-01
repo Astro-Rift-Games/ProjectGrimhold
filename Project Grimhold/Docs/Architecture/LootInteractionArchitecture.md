@@ -35,7 +35,7 @@ Generated chests use `LootContainerContentTable` as stable configuration. `Netwo
 
 ## Prevalidation and commit invariant
 
-Expected failures, including missing authority, invalid loot or amount, insufficient quantity, capacity, overflow and unavailable containers, are returned by endpoint validators. After both validators return `None`, the two commits must apply the exact request.
+Expected failures, including missing authority, invalid loot or amount, insufficient quantity, capacity, overflow, unavailable containers, and extracted players (`PlayerUnavailable`), are returned by endpoint validators. After both validators return `None`, the two commits must apply the exact request.
 
 Commits do not return rejections and do not silently skip mutation. Defensive structural checks diagnose an impossible integration state with a contextual error and exception. Because each commit verifies its structural contract before changing its own collection and the transaction runs synchronously without yielding or callbacks, a violated contract stops execution instead of allowing the destination commit to continue after an omitted extraction.
 
@@ -52,6 +52,8 @@ request sequence
 ```
 
 Input Authority permits one legitimate request in flight. `HasRequestInFlight` is the only local pending source of truth. A locally rejected second request neither sends an RPC nor advances sequence. Matching confirmation or transport rejection releases it immediately; despawn/session restart clears it.
+
+State Authority revalidates player availability when it consumes the pending request. An extracted player produces `LootTransferFailureReason.PlayerUnavailable` through the ordinary confirmation path; it never exits silently. The matching confirmation releases pending and `HasRequestInFlight`. A Take All sequence then continues or finishes according to its existing per-request rejection policy.
 
 “Take all” snapshots only the valid `LootId` values visible in the container panel, preserving presentation order and never copying client quantities. `RaidInventoryPresenter` submits one existing `FullStack` intention, waits for its confirmation or transport rejection, refreshes both endpoint projections and then advances. A rejection does not undo earlier commits or stop later identities. Newly appearing stacks are outside the snapshot; removed or changed stacks are revalidated normally by State Authority. Closing or losing the container cancels only future local intentions, while an already accepted request completes through the normal lifecycle.
 

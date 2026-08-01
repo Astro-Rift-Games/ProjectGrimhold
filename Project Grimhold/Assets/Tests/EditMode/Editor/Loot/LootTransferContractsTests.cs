@@ -118,6 +118,7 @@ namespace Tests.EditMode.Loot
         [TestCase(LootTransferFailureReason.MissingAuthority)]
         [TestCase(LootTransferFailureReason.ContainerUnavailable)]
         [TestCase(LootTransferFailureReason.Overflow)]
+        [TestCase(LootTransferFailureReason.PlayerUnavailable)]
         public void LootTransferResult_RepresentsEveryRejection(LootTransferFailureReason reason)
         {
             LootTransferResult result = LootTransferResult.Rejected(reason);

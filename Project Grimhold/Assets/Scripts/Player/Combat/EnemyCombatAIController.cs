@@ -27,12 +27,14 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
     private ICharacter _character;
     private IAttack _activeAttack;
+    private EntityRegistry _entityRegistry;
     private bool _dependenciesValid;
     private int _lastObservedSequence;
 
-    // Pending damage is set during FixedUpdateNetwork when an attack is committed.
-    // It is consumed by ExecutePendingDamage, called from the Animation Event on the hit frame.
+    // The request is queued during FixedUpdateNetwork and committed only after
+    // ExecutePendingDamage revalidates the target on the animation hit frame.
     private AttackRequest _pendingDamageRequest;
+    private EntityId _pendingTargetId;
     private bool _hasPendingDamage;
 
     [Networked]
@@ -70,6 +72,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     public override void Spawned()
     {
         CacheDependencies();
+        _entityRegistry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         _dependenciesValid = ValidateDependencies();
 
         _lastObservedSequence = AttackSequence;
@@ -94,10 +97,35 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         bool attackRequested = _movementController.IsAttacking;
 
-        if (attackRequested && IsAttackEnabled && _character.IsAlive)
+        if (!attackRequested || !IsAttackEnabled || !_character.IsAlive)
         {
-            TryCommitAttack(_movementController.FacingDirection);
+            ClearPendingDamage();
+            return;
         }
+
+        bool hasTarget = _movementController.TryGetCurrentTarget(out EntityId targetId, out _);
+
+        if (!hasTarget && targetId.Value != 0)
+        {
+            _movementController.TryInvalidateCurrentTarget(targetId);
+            ClearPendingDamage();
+            return;
+        }
+
+        if (!hasTarget)
+        {
+            ClearPendingDamage();
+            return;
+        }
+
+        if (!TryResolveEligibleTarget(targetId))
+        {
+            _movementController.TryInvalidateCurrentTarget(targetId);
+            ClearPendingDamage();
+            return;
+        }
+
+        TryCommitAttack(_movementController.FacingDirection, targetId);
     }
 
     public override void Render()
@@ -123,13 +151,13 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     }
 
     /// <summary>
-    /// Validates cooldown, commits the attack (cooldown, sequence, replicated direction)
-    /// and stores a pending damage request to be resolved on the animation hit frame.
+    /// Validates cooldown and stores a pending request for the animation hit frame.
+    /// Cooldown and replicated execution state are committed only after final target validation.
     /// </summary>
     /// <param name="aimDirection">The direction to execute the attack towards.</param>
-    private void TryCommitAttack(Vector2 aimDirection)
+    private void TryCommitAttack(Vector2 aimDirection, EntityId targetId)
     {
-        if (!AttackCooldown.ExpiredOrNotRunning(Runner))
+        if (_hasPendingDamage || !AttackCooldown.ExpiredOrNotRunning(Runner))
         {
             return;
         }
@@ -142,23 +170,6 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         Vector2 normalizedDirection = aimDirection.normalized;
         Vector2 originPos = _attackOrigin != null ? (Vector2)_attackOrigin.position : (Vector2)transform.position;
 
-        float cooldownSeconds = _activeAttack.CooldownSeconds;
-        if (cooldownSeconds > 0f)
-        {
-            AttackCooldown = TickTimer.CreateFromSeconds(Runner, cooldownSeconds);
-        }
-        else
-        {
-            AttackCooldown = TickTimer.None;
-        }
-
-        LastAttackOrigin = originPos;
-        LastAttackDirection = normalizedDirection;
-        LastAttackTypeValue = (int)_activeAttack.Type;
-        LastAttackTick = (int)Runner.Tick;
-
-        AttackSequence++;
-
         // Store the request so ExecutePendingDamage can resolve it on the animation hit frame.
         _pendingDamageRequest = new AttackRequest(
             _character.Id,
@@ -166,6 +177,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             normalizedDirection,
             (int)Runner.Tick
         );
+        _pendingTargetId = targetId;
         _hasPendingDamage = true;
     }
 
@@ -185,12 +197,42 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         if (!_character.IsAlive)
         {
-            _hasPendingDamage = false;
+            ClearPendingDamage();
             return;
         }
 
-        _hasPendingDamage = false;
-        _activeAttack.Execute(in _pendingDamageRequest);
+        EntityId currentTargetId = default;
+        bool hasCurrentTarget = _movementController != null &&
+            _movementController.TryGetCurrentTarget(out currentTargetId, out _);
+
+        if (!hasCurrentTarget)
+        {
+            if (currentTargetId.Value != 0)
+            {
+                _movementController.TryInvalidateCurrentTarget(currentTargetId);
+            }
+
+            ClearPendingDamage();
+            return;
+        }
+
+        if (currentTargetId != _pendingTargetId)
+        {
+            ClearPendingDamage();
+            return;
+        }
+
+        if (!TryResolveEligibleTarget(_pendingTargetId))
+        {
+            _movementController.TryInvalidateCurrentTarget(_pendingTargetId);
+            ClearPendingDamage();
+            return;
+        }
+
+        AttackRequest request = _pendingDamageRequest;
+        ClearPendingDamage();
+        CommitAttack(in request);
+        _activeAttack.Execute(in request);
     }
 
     /// <summary>
@@ -297,7 +339,45 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             return false;
         }
 
+        if (_entityRegistry == null)
+        {
+            Debug.LogError($"{nameof(EnemyCombatAIController)} requires a runner-scoped {nameof(EntityRegistry)}.", this);
+            return false;
+        }
+
         return true;
+    }
+
+    private bool TryResolveEligibleTarget(EntityId targetId)
+    {
+        return targetId.Value != 0 &&
+            _entityRegistry != null &&
+            _entityRegistry.TryGetCharacter(targetId, out ICharacter character) &&
+            character != null &&
+            character.IsAlive &&
+            _entityRegistry.TryGetDamageable(targetId, out IDamageable damageable) &&
+            damageable != null &&
+            damageable.CanReceiveDamage;
+    }
+
+    private void ClearPendingDamage()
+    {
+        _hasPendingDamage = false;
+        _pendingTargetId = default;
+    }
+
+    private void CommitAttack(in AttackRequest request)
+    {
+        float cooldownSeconds = _activeAttack.CooldownSeconds;
+        AttackCooldown = cooldownSeconds > 0f
+            ? TickTimer.CreateFromSeconds(Runner, cooldownSeconds)
+            : TickTimer.None;
+
+        LastAttackOrigin = request.Origin;
+        LastAttackDirection = request.Direction;
+        LastAttackTypeValue = (int)_activeAttack.Type;
+        LastAttackTick = request.SimulationTick;
+        AttackSequence++;
     }
 
 #if UNITY_EDITOR

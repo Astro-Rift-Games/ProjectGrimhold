@@ -46,6 +46,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     private ICharacter _character;
     private IMovementState _movementState;
     private PlayerLootReceiver _lootReceiver;
+    private PlayerExtractionController _extractionController;
     private bool _dependenciesValid;
 
     public event Action<LootDropConfirmation> DropConfirmed;
@@ -111,6 +112,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (!HasInputAuthority || !_dependenciesValid ||
+            (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex) ||
             !_clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out LootDropRequestIdentity identity))
         {
@@ -265,7 +267,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         }
 
         if (_character == null || !_character.IsAlive || _lootReceiver == null ||
-            _lootReceiver.Id.Value == 0)
+            _lootReceiver.Id.Value == 0 ||
+            (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
             return Rejected(identity, tick, LootDropFailureReason.PlayerUnavailable);
         }
@@ -443,6 +446,10 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         if (_dropOrigin == null)
         {
             _dropOrigin = transform;
+        }
+        if (_extractionController == null)
+        {
+            _extractionController = GetComponent<PlayerExtractionController>();
         }
     }
 

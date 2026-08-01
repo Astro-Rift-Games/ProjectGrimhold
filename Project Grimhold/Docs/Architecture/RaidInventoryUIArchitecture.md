@@ -32,6 +32,8 @@ Each panel owns a `RaidLootSelectionState` containing only its selected `LootId`
 
 ## Confirmed opening, refresh and close
 
+`LootTransferFailureReason.PlayerUnavailable` maps to the visible `Jugador no disponible` feedback and follows the same authoritative confirmation and pending-release path as every other transfer rejection.
+
 `RaidInventoryPresenter` remains the sole owner of mode, target, subscriptions, transfer intent, watchdog and the input-suppression token. It opens loot mode only for a strictly new successful `InteractionPresentationEvent` belonging to the bound Input Authority player. The sequence baseline is captured before subscription and replaced on enable or player-object rebind, so replicated initial state and an old session cannot reopen the UI.
 
 Opening reconstructs the target `NetworkId`, resolves the exact instance through the bound runner, requires a same-root `NetworkLootContainer` and registered `NetworkLootContainerInteractable` sharing that `NetworkObject`, and requires initialized/available state. The presenter then caches object, components and colliders. The watchdog only rechecks that instance, state and distance through cached colliders; it performs no component or global searches per frame.

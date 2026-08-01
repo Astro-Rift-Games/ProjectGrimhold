@@ -53,7 +53,7 @@ All entity capabilities derive from `IEntity` when their operation is associated
 
 ### Entity resolution
 
-`EntityRegistry` is runner-scoped infrastructure that maps an `EntityId` to the capabilities registered for that entity. It prevents combat, interaction, and loot code from depending on concrete prefab classes.
+`EntityRegistry` is runner-scoped infrastructure that maps an `EntityId` to the independently registered character, damage, interaction, loot and extraction capabilities for that entity. It prevents gameplay code from depending on concrete prefab classes. Capability conflicts are rejected, and expected-instance unregistration cannot remove a replacement or an unrelated co-located capability.
 
 Registration does not grant network authority. The authoritative caller must still validate State Authority before changing gameplay state.
 
@@ -245,6 +245,7 @@ The stable domain reasons are:
 | `MissingAuthority` | The operation is not running under the required State Authority. |
 | `ContainerUnavailable` | A resolved endpoint cannot currently participate in the operation. |
 | `Overflow` | Applying the complete quantity would exceed the supported integer range. |
+| `PlayerUnavailable` | The player endpoint is unavailable or in Extracted process state. |
 
 Catalog index failures and Fusion representation details are not public failure reasons. Integrations diagnose them locally and translate them to an appropriate stable reason, such as `InvalidLoot` or `ContainerUnavailable`.
 

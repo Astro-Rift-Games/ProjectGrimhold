@@ -76,7 +76,9 @@ This contract defines how candidates are found in the 2D world. `Physics2DIntera
 
 For a changed candidate, the source resolves the exact runner-local `NetworkObject` and reads optional `InteractionPromptMetadata` once. The cached local text remains until the target or resolved instance changes; missing metadata falls back to `Interactuar`. Candidate loss, disable, despawn or a runner/session change clears the cache. Metadata never enters `EntityRegistry`, gameplay contracts or network state.
 
-Every interaction press processed by State Authority increments `InteractionSequence`, including disabled control, unavailable interactor, and missing-target failures. The result retains target, tick, success, consumption, and its typed failure reason.
+Every interaction press processed by State Authority increments `InteractionSequence`, including disabled control, unavailable interactor (dead or `Extracted`), and missing-target failures. The result retains target, tick, success, consumption, and its typed failure reason.
+
+An intent consumed after the player is already `Extracted` follows this same confirmed path with `InteractorUnavailable`: it records the authoritative tick, advances exactly one sequence, sends the directed result to Input Authority and publishes it during `Render`. It does not run the target query, selection policy or `IInteractable.Interact`.
 
 State Authority sends each result through a reliable RPC directed to Input Authority. The RPC handler only queues the payload; `PlayerInteractionNetworkController.Render` publishes `InteractionResolved`. The presenter deduplicates by sequence, ignores initial replicated state, and resets when bound to a player object from a new session.
 

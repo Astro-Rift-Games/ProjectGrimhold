@@ -29,6 +29,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private ICharacter _character;
     private IInteractionTargetQuery _query;
     private EntityRegistry _registry;
+    private PlayerExtractionController _extractionController;
     private bool _dependenciesValid;
     private readonly Queue<InteractionPresentationEvent> _pendingPresentationEvents = new();
 
@@ -110,15 +111,15 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             return;
         }
 
-        if (_movementController == null || !_movementController.IsControlEnabled)
+        if (_character == null || !_character.IsAlive || (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
-            RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractionDisabled));
+            RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable));
             return;
         }
 
-        if (_character == null || !_character.IsAlive)
+        if (_movementController == null || !_movementController.IsControlEnabled)
         {
-            RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable));
+            RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractionDisabled));
             return;
         }
 
@@ -238,6 +239,11 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         if (_interactionOrigin == null)
         {
             _interactionOrigin = transform;
+        }
+
+        if (_extractionController == null)
+        {
+            _extractionController = GetComponent<PlayerExtractionController>();
         }
     }
 

@@ -32,6 +32,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     private PlayerLootReceiver _lootReceiver;
     private IInteractionTargetQuery _query;
     private EntityRegistry _registry;
+    private PlayerExtractionController _extractionController;
     private bool _dependenciesValid;
 
     private readonly LootTransferClientRequestState _clientRequest = new();
@@ -129,6 +130,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
             !IsSupportedQuantityMode(quantityMode) ||
+            (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
         {
             return false;
@@ -409,6 +411,11 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId playerId = _character?.Id ?? default;
         int tick = Runner.Tick;
 
+        if (_extractionController != null && _extractionController.State == ExtractionState.Extracted)
+        {
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.PlayerUnavailable);
+        }
+
         if (identity.SourceId.Value == 0)
         {
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.SourceNotFound);
@@ -554,6 +561,10 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         if (_interactionOrigin == null)
         {
             _interactionOrigin = transform;
+        }
+        if (_extractionController == null)
+        {
+            _extractionController = GetComponent<PlayerExtractionController>();
         }
     }
 

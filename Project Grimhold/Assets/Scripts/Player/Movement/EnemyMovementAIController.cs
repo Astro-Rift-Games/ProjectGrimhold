@@ -1,5 +1,4 @@
 using Fusion;
-using Unity.VisualScripting;
 using UnityEngine;
 
 /// <summary>
@@ -18,7 +17,20 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     private Vector2 _moveDirection;
     [SerializeField] private float _decisionInterval = 1f; // Time interval between decisions in seconds
 
-    private Transform[] _targets;
+    private readonly struct EnemyTargetReference
+    {
+        public EntityId Id { get; }
+        public Transform Transform { get; }
+
+        public EnemyTargetReference(EntityId id, Transform transform)
+        {
+            Id = id;
+            Transform = transform;
+        }
+    }
+
+    private EnemyTargetReference _currentTarget;
+    private PlayerCharacter[] _targetCandidates;
     [SerializeField] private float _LOSDistance = 6f;
     [SerializeField] private float _attackRange = 1.5f;
     [SerializeField] private LayerMask _obstacleLayer;
@@ -53,6 +65,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     private TickTimer DecisionTimer { get; set; }
 
     private CharacterBase _characterBase;
+    private EntityRegistry _entityRegistry;
 
     private void Awake()
     {
@@ -62,6 +75,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     public override void Spawned()
     {
         CacheDependencies();
+        _entityRegistry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         _dependenciesValid = ValidateDependencies();
 
         if (HasStateAuthority)
@@ -79,10 +93,9 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         }
     }
 
-
     public override void FixedUpdateNetwork()
     {
-        if (!_dependenciesValid)
+        if (!_dependenciesValid || !HasStateAuthority)
         {
             return;
         }
@@ -119,6 +132,68 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         IsControlEnabled = enabled;
         return true;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the current canonical target identity and transform reference.
+    /// Copies stored snapshot without mutating internal state.
+    /// </summary>
+    /// <param name="targetId">Outputs the stored target EntityId.</param>
+    /// <param name="targetTransform">Outputs the cached Transform reference (may be null if destroyed).</param>
+    /// <returns><see langword="true"/> if stored target ID is non-zero and Transform is not null; otherwise, <see langword="false"/>.</returns>
+    public bool TryGetCurrentTarget(out EntityId targetId, out Transform targetTransform)
+    {
+        targetId = _currentTarget.Id;
+        targetTransform = _currentTarget.Transform == null ? null : _currentTarget.Transform;
+
+        return targetId.Value != 0 && targetTransform != null;
+    }
+
+    /// <summary>
+    /// Attempts to invalidate the current target if the expected target ID matches the currently stored target ID.
+    /// </summary>
+    /// <param name="expectedTargetId">The entity ID expected to be invalidated.</param>
+    /// <returns><see langword="true"/> if the stored target matched and was invalidated; otherwise, <see langword="false"/>.</returns>
+    public bool TryInvalidateCurrentTarget(EntityId expectedTargetId)
+    {
+        if (Object != null && Object.IsValid && !HasStateAuthority)
+        {
+            return false;
+        }
+
+        if (expectedTargetId.Value == 0)
+        {
+            return false;
+        }
+
+        if (_currentTarget.Id != expectedTargetId)
+        {
+            return false;
+        }
+
+        _currentTarget = default;
+        if (Object != null && Object.IsValid)
+        {
+            IsOnPursuit = false;
+            IsAttacking = false;
+        }
+        return true;
+    }
+
+    private void SetCurrentTarget(EntityId id, Transform targetTransform)
+    {
+        if (id.Value == 0 || targetTransform == null)
+        {
+            _currentTarget = default;
+            if (Object != null && Object.IsValid)
+            {
+                IsOnPursuit = false;
+                IsAttacking = false;
+            }
+            return;
+        }
+
+        _currentTarget = new EnemyTargetReference(id, targetTransform);
     }
 
     private Vector2 ReadMoveDirection()
@@ -182,29 +257,19 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     private void CheckPotentialTargets()
     {
-        PlayerCharacter[] playerCharacters = FindObjectsByType<PlayerCharacter>(FindObjectsInactive.Exclude);
-        if (playerCharacters == null || playerCharacters.Length == 0)
-        {
-            return;
-        }
-
-        _targets = new Transform[playerCharacters.Length];
-        for (int i = 0; i < playerCharacters.Length; i++)
-        {
-            _targets[i] = playerCharacters[i].transform;
-        }
+        _targetCandidates = FindObjectsByType<PlayerCharacter>(FindObjectsInactive.Exclude);
     }
 
     private bool ValidateDependencies()
     {
-        if (_movementMotor != null)
+        if (_movementMotor != null && _entityRegistry != null)
         {
             return true;
         }
 
         Debug.LogError(
             $"{nameof(EnemyMovementAIController)} requires " +
-            $"{nameof(Kinematic2DMovementMotor)}.",
+            $"{nameof(Kinematic2DMovementMotor)} and a runner-scoped {nameof(EntityRegistry)}.",
             this);
 
         return false;
@@ -214,25 +279,73 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     {
         target = null;
         disToTarget = float.MaxValue;
-        if (_targets == null || _targets.Length == 0)
+        PlayerCharacter selectedCharacter = null;
+
+        if (_targetCandidates == null || _targetCandidates.Length == 0)
         {
-            IsOnPursuit = false;
-            return false;
+            CheckPotentialTargets();
         }
-        else
+
+        if (_targetCandidates != null && _targetCandidates.Length > 0)
         {
-            foreach (var t in _targets)
+            foreach (PlayerCharacter pc in _targetCandidates)
             {
-                if (t == null) continue;
-                float distance = Vector2.Distance(transform.position, t.position);
+                if (pc == null || !TryResolveEligibleTarget(pc.Id))
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(transform.position, pc.transform.position);
                 if (distance < disToTarget)
                 {
                     disToTarget = distance;
-                    target = t;
+                    target = pc.transform;
+                    selectedCharacter = pc;
                 }
             }
         }
+
+        if (selectedCharacter != null)
+        {
+            SetCurrentTarget(selectedCharacter.Id, selectedCharacter.transform);
+        }
+        else if (TryGetCurrentTarget(out EntityId currentTargetId, out Transform currentTargetTransform))
+        {
+            if (!TryResolveEligibleTarget(currentTargetId))
+            {
+                TryInvalidateCurrentTarget(currentTargetId);
+                return false;
+            }
+
+            target = currentTargetTransform;
+            disToTarget = Vector2.Distance(transform.position, target.position);
+        }
+        else
+        {
+            if (currentTargetId.Value != 0)
+            {
+                TryInvalidateCurrentTarget(currentTargetId);
+            }
+            else
+            {
+                IsOnPursuit = false;
+                IsAttacking = false;
+            }
+        }
+
         return target != null;
+    }
+
+    private bool TryResolveEligibleTarget(EntityId targetId)
+    {
+        return targetId.Value != 0 &&
+            _entityRegistry != null &&
+            _entityRegistry.TryGetCharacter(targetId, out ICharacter character) &&
+            character != null &&
+            character.IsAlive &&
+            _entityRegistry.TryGetDamageable(targetId, out IDamageable damageable) &&
+            damageable != null &&
+            damageable.CanReceiveDamage;
     }
 
     private bool HasLOS(Transform target, float disToTarget)

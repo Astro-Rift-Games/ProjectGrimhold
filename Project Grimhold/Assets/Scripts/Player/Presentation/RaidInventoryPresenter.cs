@@ -741,6 +741,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             LootTransferFailureReason.OutOfRange => "Fuera de alcance",
             LootTransferFailureReason.MissingAuthority => "Transferencia sin autoridad",
             LootTransferFailureReason.ContainerUnavailable => "Contenedor no disponible",
+            LootTransferFailureReason.PlayerUnavailable => "Jugador no disponible",
             LootTransferFailureReason.Overflow => "La cantidad excede el límite",
             _ => isDeposit ? "No se pudo depositar el loot" : "No se pudo retirar el loot"
         };

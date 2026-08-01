@@ -42,7 +42,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
     /// <summary>
     /// Indicates whether the character is currently alive.
     /// </summary>
-    public bool IsAlive => Health > 0f;
+    public bool IsAlive => Object != null && Object.IsValid ? Health > 0f : true;
 
     /// <summary>
     /// Indicates whether the character can receive damage at this moment.

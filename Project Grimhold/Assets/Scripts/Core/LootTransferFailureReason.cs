@@ -14,5 +14,6 @@ public enum LootTransferFailureReason
     OutOfRange,
     MissingAuthority,
     ContainerUnavailable,
-    Overflow
+    Overflow,
+    PlayerUnavailable
 }

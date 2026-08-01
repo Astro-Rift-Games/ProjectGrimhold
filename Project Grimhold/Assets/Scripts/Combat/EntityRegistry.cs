@@ -3,16 +3,19 @@ using UnityEngine;
 
 /// <summary>
 /// Associative entity registry for a NetworkRunner.
-/// Maps efficiently from EntityId to IDamageable, IInteractable, and from Collider2D to EntityId
+/// Maps efficiently from EntityId to gameplay capabilities, and from Collider2D to EntityId
 /// without incurring GetComponent calls in simulation loops.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class EntityRegistry : MonoBehaviour
 {
     private readonly Dictionary<EntityId, IDamageable> _entities = new();
+    private readonly Dictionary<EntityId, ICharacter> _characters = new();
     private readonly Dictionary<EntityId, IInteractable> _interactables = new();
     private readonly Dictionary<EntityId, ILootReceiver> _lootReceivers = new();
     private readonly Dictionary<EntityId, LootSourceRegistration> _lootSources = new();
+    private readonly Dictionary<EntityId, IExtractionZone> _extractionZones = new();
+    private readonly Dictionary<EntityId, IExtractionParticipant> _extractionParticipants = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
@@ -167,6 +170,13 @@ public sealed class EntityRegistry : MonoBehaviour
             return false;
         }
 
+        if (entity is ICharacter characterCandidate &&
+            _characters.TryGetValue(id, out ICharacter existingCharacter) &&
+            !ReferenceEquals(existingCharacter, characterCandidate))
+        {
+            return false;
+        }
+
         if (entity is ILootReceiver receiverCandidate &&
             _lootReceivers.TryGetValue(id, out ILootReceiver existingReceiver) &&
             !ReferenceEquals(existingReceiver, receiverCandidate))
@@ -196,6 +206,11 @@ public sealed class EntityRegistry : MonoBehaviour
         if (entity is IInteractable interactable)
         {
             _interactables[id] = interactable;
+        }
+
+        if (entity is ICharacter character)
+        {
+            _characters[id] = character;
         }
 
         if (entity is ILootReceiver lootReceiver)
@@ -244,6 +259,12 @@ public sealed class EntityRegistry : MonoBehaviour
             removedCapability = true;
         }
 
+        if (_characters.TryGetValue(id, out ICharacter character) && ReferenceEquals(character, expectedEntity))
+        {
+            _characters.Remove(id);
+            removedCapability = true;
+        }
+
         if (_lootReceivers.TryGetValue(id, out ILootReceiver lootReceiver) && ReferenceEquals(lootReceiver, expectedEntity))
         {
             _lootReceivers.Remove(id);
@@ -270,6 +291,62 @@ public sealed class EntityRegistry : MonoBehaviour
     public bool TryGetDamageable(EntityId id, out IDamageable damageable)
     {
         return _entities.TryGetValue(id, out damageable);
+    }
+
+    /// <summary>
+    /// Attempts to retrieve a character capability by its canonical entity identity.
+    /// </summary>
+    public bool TryGetCharacter(EntityId id, out ICharacter character)
+    {
+        return _characters.TryGetValue(id, out character);
+    }
+
+    /// <summary>
+    /// Registers an extraction zone without changing collider or unrelated capability mappings.
+    /// </summary>
+    public bool TryRegisterExtractionZone(EntityId id, IExtractionZone zone)
+    {
+        return TryRegisterIndependentCapability(id, zone, _extractionZones);
+    }
+
+    /// <summary>
+    /// Removes an extraction zone only when the expected instance still owns the registration.
+    /// </summary>
+    public bool TryUnregisterExtractionZone(EntityId id, IExtractionZone expectedZone)
+    {
+        return TryUnregisterIndependentCapability(id, expectedZone, _extractionZones);
+    }
+
+    /// <summary>
+    /// Attempts to resolve an extraction zone by its canonical identity.
+    /// </summary>
+    public bool TryGetExtractionZone(EntityId id, out IExtractionZone zone)
+    {
+        return _extractionZones.TryGetValue(id, out zone);
+    }
+
+    /// <summary>
+    /// Registers an extraction participant without changing collider or unrelated capability mappings.
+    /// </summary>
+    public bool TryRegisterExtractionParticipant(EntityId id, IExtractionParticipant participant)
+    {
+        return TryRegisterIndependentCapability(id, participant, _extractionParticipants);
+    }
+
+    /// <summary>
+    /// Removes an extraction participant only when the expected instance still owns the registration.
+    /// </summary>
+    public bool TryUnregisterExtractionParticipant(EntityId id, IExtractionParticipant expectedParticipant)
+    {
+        return TryUnregisterIndependentCapability(id, expectedParticipant, _extractionParticipants);
+    }
+
+    /// <summary>
+    /// Attempts to resolve an extraction participant by its canonical identity.
+    /// </summary>
+    public bool TryGetExtractionParticipant(EntityId id, out IExtractionParticipant participant)
+    {
+        return _extractionParticipants.TryGetValue(id, out participant);
     }
 
     /// <summary>
@@ -473,9 +550,54 @@ public sealed class EntityRegistry : MonoBehaviour
     private bool HasRegisteredCapability(EntityId id)
     {
         return _entities.ContainsKey(id) ||
+            _characters.ContainsKey(id) ||
             _interactables.ContainsKey(id) ||
             _lootReceivers.ContainsKey(id) ||
-            _lootSources.ContainsKey(id);
+            _lootSources.ContainsKey(id) ||
+            _extractionZones.ContainsKey(id) ||
+            _extractionParticipants.ContainsKey(id);
+    }
+
+    private static bool TryRegisterIndependentCapability<TCapability>(
+        EntityId id,
+        TCapability capability,
+        Dictionary<EntityId, TCapability> registrations)
+        where TCapability : class, IEntity
+    {
+        if (capability == null || id.Value == 0 || capability.Id != id)
+        {
+            return false;
+        }
+
+        if (registrations.TryGetValue(id, out TCapability existing))
+        {
+            return ReferenceEquals(existing, capability);
+        }
+
+        registrations.Add(id, capability);
+        return true;
+    }
+
+    private bool TryUnregisterIndependentCapability<TCapability>(
+        EntityId id,
+        TCapability expectedCapability,
+        Dictionary<EntityId, TCapability> registrations)
+        where TCapability : class, IEntity
+    {
+        if (expectedCapability == null || id.Value == 0 ||
+            !registrations.TryGetValue(id, out TCapability existing) ||
+            !ReferenceEquals(existing, expectedCapability))
+        {
+            return false;
+        }
+
+        registrations.Remove(id);
+        if (!HasRegisteredCapability(id))
+        {
+            RemoveColliderMappings(id);
+        }
+
+        return true;
     }
 
     private void RemoveColliderMappings(EntityId id)

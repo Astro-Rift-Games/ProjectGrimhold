@@ -1,77 +1,86 @@
-# Extraction Subsystem Architecture
+# Extraction Architecture
 
-## Overview
+## Context and status
 
-The Extraction Subsystem governs player extraction from raids in Project Grimhold. It will combine data-driven parameters, physical spatial zone detection, networked tick-driven simulation, and visual/auditory presentation.
+TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-29 remains future presentation scope. The core does not despawn the player, create rewards, persist loot, close the session, or depend on UI, animation, audio or VFX.
 
-This document outlines the sources of truth, network authority model, state management, and separation of concerns across tasks **TASK-26** (Implemented) through **TASK-27**, **TASK-28**, and **TASK-29** (Planned Future Scope).
+## Sources of truth
 
----
+| Concern | Owner | Representation |
+| --- | --- | --- |
+| Stable balance | `ExtractionConfig` | Immutable `ScriptableObject` values |
+| Zone identity | `ExtractionZone` | `EntityId` derived from its `NetworkObject` |
+| Zone geometry | `ExtractionZone` | Serialized same-root `Collider2D` |
+| Zone availability | `ExtractionZone` | Private `[Networked] NetworkBool`, exposed as `bool` |
+| Player process | `PlayerExtractionController` | `[Networked] ExtractionState` |
+| Active zone | `PlayerExtractionController` | Networked primitive exposed as `EntityId` |
+| Countdown | `PlayerExtractionController` | `[Networked] TickTimer` |
+| Death | `ICharacter` | `IsAlive`; extraction never changes it |
 
-## Subsystem Implementation Status & Sources of Truth
+`EntityRegistry` is runner-scoped and stores zone and participant capabilities independently from character, damage, interaction, collider and loot capabilities. Every peer registers its local instances. Registration grants discovery only; it never grants authority to mutate gameplay. Conflicts are rejected and unregistration removes only the expected instance.
 
-| Concern | Layer / Component | Source of Truth | Task & Status |
-| :--- | :--- | :--- | :--- |
-| **Shared Parameters** | Data-driven ScriptableObject | `ExtractionConfig` asset | **TASK-26** `[Implemented]` |
-| **Zone Physical Geometry** | Scene / Prefab Physics | Serialized `Collider2D` + `BoundaryTolerance` | **TASK-27** `[Planned / Future Scope]` |
-| **Process State & Timers** | Fusion Network Simulation | State Authority (`FixedUpdateNetwork`) | **TASK-28** `[Planned / Future Scope]` |
-| **Presentation & UI** | Client Presentation | Event-driven UI / Presenter components | **TASK-29** `[Planned / Future Scope]` |
+## Responsibilities and flow
 
----
+`ExtractionZone` owns identity, exact geometry, candidate detection and availability. It does not read `ExtractionConfig`, own a timer, write player state, block controls, change inventory, cancel or complete a process, or despawn a player.
 
-## Architectural Boundaries & Task Responsibilities
+`PlayerExtractionController` owns the individual state machine, active zone, timer, cancellation and completion consequences. Its `ValidationPoint` is the authoritative point used by both zone entry and continuation checks.
 
-### TASK-26 — Core Extraction Configuration `[Implemented]`
-- **Responsibility**: Defines shared, immutable data configuration parameters for extraction routines.
-- **Key Types**: `ExtractionConfig` (`ScriptableObject`).
-- **Configured Parameters**:
-  - `CountdownDurationSeconds`: Duration in seconds required to complete extraction.
-  - `CancelWhenLeavingArea`: Automatically cancels progress if player leaves zone bounds.
-  - `BoundaryTolerance`: Non-negative floating-point buffer added to `Collider2D` boundary checks.
-  - `RequireAliveToStart`: Requires player to be alive (`ICharacter.IsAlive`) to initiate extraction.
-  - `CancelWhenNotAlive`: Automatically cancels extraction if player ceases to be alive (`!ICharacter.IsAlive`).
-- **Boundaries & Constraints**:
-  - Does NOT inherit from `NetworkBehaviour`.
-  - Contains NO `[Networked]` properties, Fusion dependencies, or mutable runtime state.
-  - Contains NO references to zone prefabs, scene colliders, or player instances.
-  - Does NOT execute timers, network ticks, or state transitions.
-  - **Time Conversion Delegation**: `ExtractionConfig` stores duration strictly as seconds. Conversion into Fusion simulation time or `TickTimer` is explicitly delegated to **TASK-28**.
+```text
+authoritative movement, damage, interaction, loot, projectiles and AI
+    -> ExtractionZone (execution order 100)
+    -> PlayerExtractionController (execution order 110)
+```
 
-### TASK-27 — Zone Detection & Geometry `[Planned / Future Scope]`
-- **Responsibility**: Manages physical trigger volumes for extraction locations.
-- **Boundaries & Constraints**:
-  - Physical `Collider2D` components attached to zone prefabs/instances define spatial boundaries.
-  - Evaluates spatial inclusion by combining collider geometry with `ExtractionConfig.BoundaryTolerance`.
-  - Zone colliders contain spatial configuration only; they do not own process timers or player extraction state.
+Enemy AI keeps its existing execution orders. Movement and all ordinary gameplay for the tick therefore finish before extraction reads the final authoritative position and state. A zone may request a start before the participant controller runs in the same tick. The controller evaluates zone existence, availability, vitality and geometry before timer expiry, so leaving or dying on the terminal tick cancels when configured.
 
-### TASK-28 — Network Simulation & State Authority `[Planned / Future Scope]`
-- **Responsibility**: Executes authoritative extraction state machine during network simulation ticks.
-- **Boundaries & Constraints**:
-  - Runs inside `FixedUpdateNetwork` on a `NetworkBehaviour` owned by **State Authority** (Host).
-  - State Authority is the sole authority confirming extraction start, cancellation, and completion.
-  - Converts `ExtractionConfig.CountdownDurationSeconds` into a network-synchronized `TickTimer` using `NetworkRunner`.
-  - Re-uses the existing `ICharacter.IsAlive` contract for vitality checks without introducing a parallel vitality state enum.
-  - Authoritative process state (e.g., `None`, `Extracting`, `Extracted`) is tracked via `[Networked]` properties.
-  - **Extraction Start**: Requires `RequireAliveToStart` check (`ICharacter.IsAlive == true`) and process state == `None`.
-  - **Re-extraction Prevention**: `Extracted` is a terminal process state managed by State Authority. Once in `Extracted` state, restarting extraction is permanently prevented.
-  - **Cancellation Rules**: Cancels countdown if player leaves physical zone bounds (when `CancelWhenLeavingArea` is `true`) or if vitality drops (`CancelWhenNotAlive` is `true` and `!ICharacter.IsAlive`).
+An operation legitimately processed while the player was still `InProgress` is not rolled back if extraction completes later in that tick. Once `State` is written as `Extracted`, later operations cannot mutate gameplay; from the next tick all owner validations observe the terminal state or the disabled control APIs.
 
-### TASK-29 — Presentation & Visual Representation `[Planned / Future Scope]`
-- **Responsibility**: Displays extraction progress UI, HUD notifications, audio cues, and visual disappearance.
-- **Boundaries & Constraints**:
-  - Presentation components observe `[Networked]` simulation state changes.
-  - Presentation effects (such as progress bars or player entity hide/disappearance delays) are strictly managed within presentation classes.
-  - No presentation delays or UI logic exist inside `ExtractionConfig` or simulation code.
+## Geometry and occupancy
 
----
+Entry always uses `ContainsExact(ValidationPoint)`. Continuation uses `ContainsWithTolerance(ValidationPoint, BoundaryTolerance)` only when `CancelWhenLeavingArea` is enabled. Geometry rejects non-finite points, invalid tolerances, and disabled or incorrectly composed colliders. Exact containment uses the concrete collider and tolerant continuation uses `ClosestPoint`.
 
-## Validation Strategy
+The zone runs one reusable non-alloc broadphase buffer filtered to the `Character` layer, resolves collider identities through `EntityRegistry`, deduplicates by `EntityId`, and performs a narrowphase check against each participant's validation point. The local occupant set is auxiliary: it deduplicates candidates and identifies possible exact-volume exits, but it is not authoritative process state.
 
-1. **Static Data Validation (TASK-26)**:
-   - `ExtractionConfig.TryValidate(out string error)` ensures finite countdown duration (`CountdownDurationSeconds > 0`) and non-negative finite boundary buffer (`BoundaryTolerance >= 0`).
-2. **EditMode Unit Tests (TASK-26)**:
-   - Verify immutable property accessors (no public setters).
-   - Test boundary validation failure cases (zero, negative, NaN, or infinite parameters).
-   - Confirm valid configuration loading and property preservation.
-3. **Simulation & Integration Validation (Future Scope - TASK-27/28/29)**:
-   - Validate State Authority transitions, zone spatial queries, and presentation reactions when those tasks are implemented.
+On a complete scan the zone may request start for every exactly present participant. `TryBeginExtraction` is idempotent through the participant state check. An exact-volume exit only calls `NotifyExtractionZoneExit`; the participant resolves the active zone again and applies the same tolerant continuation policy used by its tick revalidation.
+
+If the broadphase fills its buffer, the scan is incomplete: it creates no starts, infers no exits and does not replace the confirmed occupant set. One diagnostic is emitted per saturation episode. The participant controller still resolves and revalidates its active zone directly every tick, so saturation cannot preserve an invalid process.
+
+An unavailable zone requests no starts and does not modify participants. Active participants observe unavailability through their own tick revalidation and cancel. Re-enabling permits starts on the next complete scan.
+
+## Player process
+
+Start requires State Authority, complete prefab composition, a valid configuration, a valid participant identity and registration, `State == None`, a registered available zone, exact containment, and `IsAlive` when `RequireAliveToStart` is enabled. A second or overlapping zone cannot replace an active process.
+
+While `InProgress`, evaluation order is:
+
+1. Resolve the active zone.
+2. Validate availability.
+3. Validate `ICharacter.IsAlive` when `CancelWhenNotAlive` is enabled.
+4. Validate tolerant continuation when `CancelWhenLeavingArea` is enabled.
+5. Evaluate timer expiration.
+
+Cancellation writes `None`, invalidates `ActiveZoneId` and clears the timer. An exit notification from a non-active zone is ignored. Disabling leaving cancellation also makes exact-volume exit notifications harmless, while zone loss and unavailability remain tick-authoritative cancellation causes.
+
+Completion writes `Extracted` first, preserves the completing zone identity, clears the timer and applies movement and attack restrictions through `TrySetControlEnabled(false)` and `TrySetAttackEnabled(false)`. These calls are reapplied idempotently while terminal. Player movement and combat retain only their existing enabled, vitality, cooldown and input rules; they do not depend on extraction types.
+
+`TryGetProgress(out ExtractionProgressSnapshot)` is side-effect free:
+
+- `None`: valid, zero time and zero progress.
+- `InProgress`: valid only when runner, configuration, running timer and remaining time are available; no value is invented otherwise.
+- `Extracted`: valid, zero remaining time, progress one, and the completing zone identity preserved.
+
+Duration, remaining time and percentage are derived and are not networked. TASK-29 must consume this query and must not run a parallel local clock.
+
+## Terminal gameplay restrictions
+
+`Extracted` is terminal and does not mean dead. `PlayerCharacter.CanReceiveDamage` returns false while extracted, while `ICharacter.IsAlive`, health and inventory remain unchanged.
+
+Interaction, loot transfer and world drop revalidate extraction inside their authoritative owner protocols. Interaction records `InteractorUnavailable`, advances `InteractionSequence`, sends the normal directed confirmation and publishes it during `Render` without querying or invoking an interactable. Transfer and drop return their `PlayerUnavailable` reasons through normal confirmations so pending state and `HasRequestInFlight` are released; Take All follows its existing success/rejection continuation policy.
+
+Enemy AI has no extraction dependency. `EnemyMovementAIController` owns one atomic target reference whose canonical identity is `EntityId` and whose `Transform` is only a cache. Acquisition and maintenance resolve `ICharacter` and `IDamageable` for that identity and require `IsAlive && CanReceiveDamage`. Invalidating an expected identity clears identity, transform, pursuit and attack flags together, allowing the existing FSM to leave `Chase` or `Attack`. `EnemyCombatAIController` repeats the same registry-backed validation before committing an attack and immediately before executing pending damage. Existing projectiles continue simulation, but impact resolution rejects an unavailable damage target.
+
+## Lifecycle and validation
+
+Zones clear overlap buffers' logical sets, occupant state and saturation diagnostics during despawn and destroy. Participants and zones unregister only their expected capabilities. Destroying the runner destroys its registry, preventing state from leaking into a later session.
+
+Automated coverage should include configuration and geometry boundaries, progress semantics, registry composition/conflicts, atomic enemy target invalidation, owner-protocol rejection, exact entry versus tolerant continuation, saturation behavior, authority, terminality and lifecycle. Fusion availability, timing, overlapping zones, independent players, despawn and clean-session behavior require runner tests plus the documented Host/Client manual checklist when no automated multi-runner harness proves them.
