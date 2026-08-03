@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Fusion;
 using NUnit.Framework;
 using UnityEditor;
@@ -24,6 +25,13 @@ namespace Tests.PlayMode.Extraction
         private NetworkRunner _runner;
         private ExtractionProgressSimulationDriver _driver;
         private bool _previousIgnoreFailingMessages;
+        private readonly List<ExtractionConfig> _ritualTestConfigs = new();
+
+        private static readonly FieldInfo SanctuaryConfigField =
+            typeof(ExtractionSanctuary).GetField("_config", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static readonly FieldInfo RitualDurationField =
+            typeof(ExtractionConfig).GetField("_ritualDurationSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -75,6 +83,13 @@ namespace Tests.PlayMode.Extraction
             {
                 UnityEngine.Object.DestroyImmediate(_runner.gameObject);
             }
+
+            for (int i = 0; i < _ritualTestConfigs.Count; i++)
+            {
+                UnityEngine.Object.DestroyImmediate(_ritualTestConfigs[i]);
+            }
+
+            _ritualTestConfigs.Clear();
         }
 
         [UnityTest]
@@ -372,6 +387,162 @@ namespace Tests.PlayMode.Extraction
             Assert.That(progress.CurrentProgress, Is.EqualTo(20));
         }
 
+        [UnityTest]
+        public IEnumerator Ritual_OwnerIsPredictiveCandidateAndCompletionPermanentlyEnablesOwnZone()
+        {
+            NetworkObject sanctuaryObject = SpawnRitualSanctuary(Vector3.zero, 0.05f);
+            NetworkObject ownerObject = Spawn(PlayerGuid, Vector3.zero);
+            NetworkObject rivalObject = Spawn(PlayerGuid, Vector3.right);
+            ExtractionSanctuary sanctuary = sanctuaryObject.GetComponent<ExtractionSanctuary>();
+            ExtractionZone zone = sanctuaryObject.GetComponent<ExtractionZone>();
+            PlayerExtractionProgressController ownerProgress =
+                ownerObject.GetComponent<PlayerExtractionProgressController>();
+            PlayerExtractionController ownerExtraction =
+                ownerObject.GetComponent<PlayerExtractionController>();
+            PlayerExtractionController rivalExtraction =
+                rivalObject.GetComponent<PlayerExtractionController>();
+            EntityId ownerId = ownerObject.GetComponent<PlayerCharacter>().Id;
+            EntityId rivalId = rivalObject.GetComponent<PlayerCharacter>().Id;
+
+            yield return Execute(runner => ownerProgress.TryApplyContribution(
+                new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(8101),
+                    long.MaxValue,
+                    runner.Tick)));
+
+            Assert.That(sanctuary.IsOwnedBy(ownerId), Is.True);
+            Assert.That(zone.IsAvailable, Is.False);
+            Assert.That(sanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot notStarted), Is.True);
+            Assert.That(notStarted.State, Is.EqualTo(ExtractionRitualState.NotStarted));
+            Assert.That(notStarted.TotalSeconds, Is.EqualTo(0.05f));
+            Assert.That(notStarted.RemainingSeconds, Is.EqualTo(0.05f));
+            Assert.That(notStarted.Progress, Is.Zero);
+            Assert.That(sanctuary.CanInteract(new InteractionRequest(ownerId, sanctuary.Id, _runner.Tick)), Is.True);
+            Assert.That(sanctuary.CanInteract(new InteractionRequest(rivalId, sanctuary.Id, _runner.Tick)), Is.False);
+
+            bool prematureExtraction = true;
+            yield return Execute(_ => prematureExtraction = ownerExtraction.TryBeginExtraction(zone.Id));
+            Assert.That(prematureExtraction, Is.False);
+
+            InteractionResult result = default;
+            yield return Execute(runner => result = sanctuary.Interact(
+                new InteractionRequest(ownerId, sanctuary.Id, runner.Tick)));
+            Assert.That(result.Success, Is.True);
+            Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.InProgress));
+            Assert.That(sanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot running), Is.True);
+            Assert.That(running.TotalSeconds, Is.EqualTo(0.05f));
+
+            float deadline = Time.realtimeSinceStartup + 2f;
+            while (sanctuary.RitualState != ExtractionRitualState.Completed &&
+                Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.Completed));
+            Assert.That(zone.IsAvailable, Is.True);
+            Assert.That(sanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot completed), Is.True);
+            Assert.That(completed.RemainingSeconds, Is.Zero);
+            Assert.That(completed.Progress, Is.EqualTo(1f));
+            Assert.That(sanctuary.CanUseExtraction(ownerId), Is.True);
+            Assert.That(sanctuary.CanUseExtraction(rivalId), Is.False);
+
+            yield return Execute(_ => { });
+            Assert.That(ownerExtraction.State, Is.EqualTo(ExtractionState.InProgress));
+            Assert.That(rivalExtraction.State, Is.EqualTo(ExtractionState.None));
+
+            bool disabled = true;
+            yield return Execute(_ => disabled = zone.TrySetAvailability(false));
+            Assert.That(disabled, Is.False);
+            Assert.That(zone.IsAvailable, Is.True);
+
+            yield return null;
+            yield return null;
+            Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.Completed));
+            Assert.That(zone.IsAvailable, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator Ritual_DefeatedOwnerCancelsTerminallyAndCannotRestart()
+        {
+            NetworkObject sanctuaryObject = SpawnRitualSanctuary(Vector3.zero, 1f);
+            NetworkObject ownerObject = Spawn(PlayerGuid, Vector3.zero);
+            ExtractionSanctuary sanctuary = sanctuaryObject.GetComponent<ExtractionSanctuary>();
+            PlayerCharacter owner = ownerObject.GetComponent<PlayerCharacter>();
+            PlayerExtractionProgressController progress =
+                ownerObject.GetComponent<PlayerExtractionProgressController>();
+
+            yield return Execute(runner => progress.TryApplyContribution(
+                new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(8201),
+                    long.MaxValue,
+                    runner.Tick)));
+            yield return Execute(runner => sanctuary.Interact(
+                new InteractionRequest(owner.Id, sanctuary.Id, runner.Tick)));
+
+            yield return Execute(runner => owner.ApplyDamage(new DamageRequest(
+                new EntityId(8202),
+                owner.Id,
+                1000f,
+                DamageType.TrueDamage,
+                Vector2.zero,
+                owner.transform.position,
+                runner.Tick)));
+
+            int frames = 60;
+            while (sanctuary.RitualState == ExtractionRitualState.InProgress && frames-- > 0)
+            {
+                yield return null;
+            }
+
+            Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.Cancelled));
+            Assert.That(sanctuaryObject.GetComponent<ExtractionZone>().IsAvailable, Is.False);
+            Assert.That(sanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot cancelled), Is.True);
+            Assert.That(cancelled.RemainingSeconds, Is.EqualTo(1f));
+            Assert.That(cancelled.Progress, Is.Zero);
+            Assert.That(sanctuary.CanInteract(
+                new InteractionRequest(owner.Id, sanctuary.Id, _runner.Tick)), Is.False);
+
+            InteractionResult repeated = default;
+            yield return Execute(runner => repeated = sanctuary.Interact(
+                new InteractionRequest(owner.Id, sanctuary.Id, runner.Tick)));
+            Assert.That(repeated.Success, Is.False);
+            Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.Cancelled));
+        }
+
+        [UnityTest]
+        public IEnumerator Ritual_ExecutionWithoutStateAuthorityReturnsTypedRejection()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SanctuaryPrefabPath);
+            GameObject instance = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                ExtractionSanctuary sanctuary = instance.GetComponent<ExtractionSanctuary>();
+                InteractionResult result = sanctuary.Interact(new InteractionRequest(
+                    new EntityId(1),
+                    new EntityId(2),
+                    1));
+
+                Assert.That(result.Success, Is.False);
+                Assert.That(result.FailureReason, Is.EqualTo(InteractionFailureReason.MissingStateAuthority));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SanctuaryAndZoneCleanup_IsOrderIndependentAndRemovesColliderMappingLast()
+        {
+            yield return VerifyCleanupOrder(sanctuaryFirst: true, Vector3.left * 3f);
+            yield return VerifyCleanupOrder(sanctuaryFirst: false, Vector3.right * 3f);
+        }
+
         private IEnumerator Execute(Action<NetworkRunner> action)
         {
             _driver.ClearException();
@@ -424,6 +595,72 @@ namespace Tests.PlayMode.Extraction
             string guid = AssetDatabase.AssetPathToGUID(SanctuaryPrefabPath);
             Assert.That(guid, Is.Not.Empty);
             return Spawn(guid, position);
+        }
+
+        private NetworkObject SpawnRitualSanctuary(Vector3 position, float durationSeconds)
+        {
+            string guid = AssetDatabase.AssetPathToGUID(SanctuaryPrefabPath);
+            NetworkObject prefab = Load(guid);
+            Assert.That(SanctuaryConfigField, Is.Not.Null);
+            Assert.That(RitualDurationField, Is.Not.Null);
+            ExtractionConfig source = (ExtractionConfig)SanctuaryConfigField.GetValue(
+                prefab.GetComponent<ExtractionSanctuary>());
+            ExtractionConfig config = UnityEngine.Object.Instantiate(source);
+            RitualDurationField.SetValue(config, durationSeconds);
+            _ritualTestConfigs.Add(config);
+
+            bool configured = false;
+            NetworkObject spawned = _runner.Spawn(
+                prefab,
+                position,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                {
+                    SanctuaryConfigField.SetValue(instance.GetComponent<ExtractionSanctuary>(), config);
+                    configured = true;
+                });
+            Assert.That(configured, Is.True);
+            Assert.That(spawned, Is.Not.Null);
+            return spawned;
+        }
+
+        private IEnumerator VerifyCleanupOrder(bool sanctuaryFirst, Vector3 position)
+        {
+            NetworkObject spawned = SpawnSanctuary(position);
+            ExtractionSanctuary sanctuary = spawned.GetComponent<ExtractionSanctuary>();
+            ExtractionZone zone = spawned.GetComponent<ExtractionZone>();
+            Collider2D collider = spawned.GetComponent<Collider2D>();
+            EntityRegistry registry = _runner.GetComponent<EntityRegistry>();
+            EntityId id = sanctuary.Id;
+
+            Assert.That(registry.TryGetEntityId(collider, out EntityId mapped), Is.True);
+            Assert.That(mapped, Is.EqualTo(id));
+
+            if (sanctuaryFirst)
+            {
+                sanctuary.Despawned(_runner, true);
+                Assert.That(registry.TryGetInteractable(id, out _), Is.False);
+                Assert.That(registry.TryGetExtractionSanctuary(id, out _), Is.False);
+                Assert.That(registry.TryGetExtractionZone(id, out _), Is.True);
+                Assert.That(registry.TryGetEntityId(collider, out _), Is.True);
+                zone.Despawned(_runner, true);
+            }
+            else
+            {
+                zone.Despawned(_runner, true);
+                Assert.That(registry.TryGetExtractionZone(id, out _), Is.False);
+                Assert.That(registry.TryGetExtractionSanctuary(id, out _), Is.True);
+                Assert.That(registry.TryGetInteractable(id, out _), Is.True);
+                Assert.That(registry.TryGetEntityId(collider, out _), Is.True);
+                sanctuary.Despawned(_runner, true);
+            }
+
+            Assert.That(registry.TryGetInteractable(id, out _), Is.False);
+            Assert.That(registry.TryGetExtractionSanctuary(id, out _), Is.False);
+            Assert.That(registry.TryGetExtractionZone(id, out _), Is.False);
+            Assert.That(registry.TryGetEntityId(collider, out _), Is.False);
+            yield return null;
         }
 
         private NetworkObject Load(string guid)

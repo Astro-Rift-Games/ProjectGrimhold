@@ -16,6 +16,9 @@ TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-2
 | Active zone | `PlayerExtractionController` | Networked primitive exposed as `EntityId` |
 | Countdown | `PlayerExtractionController` | `[Networked] TickTimer` |
 | Death | `ICharacter` | `IsAlive`; extraction never changes it |
+| Sanctuary reservation | `ExtractionSanctuary` | Primitive networked owner ID |
+| Ritual lifecycle | `ExtractionSanctuary` | `[Networked] ExtractionRitualState` and `TickTimer` |
+| Ritual timing | `ExtractionConfig` | Immutable `RitualDurationSeconds` |
 
 `EntityRegistry` is runner-scoped and stores zone and participant capabilities independently from character, damage, interaction, collider and loot capabilities. Every peer registers its local instances. Registration grants discovery only; it never grants authority to mutate gameplay. Conflicts are rejected and unregistration removes only the expected instance.
 
@@ -114,6 +117,18 @@ The assignment service is created on the `NetworkRunner` before `StartGame` and 
 
 During resimulation, the same inputs and free set select the same candidate. An existing reservation is returned idempotently before mutable eligibility is reconsidered, and `ExtractionSanctuary.TryReserve` performs the only final mutation while repeating the State Authority check. Destroying the runner clears the service seed, identities, buffers, and diagnostics. Sanctuary despawn removes both registrations, so a new session starts from newly spawned owner values of zero.
 
-TASK-54 does not implement `IInteractable`, ritual state, map markers, presentation, or extraction availability. TASK-55 will adapt ownership validation into ritual interaction and control the existing `ExtractionZone`; reservation remains independent from zone geometry, availability, and countdown.
+## TASK-55 authoritative individual ritual
 
-US-13 still leaves TASK-55 and TASK-56 ritual, map, marker, and progress presentation work unimplemented.
+Each `ExtractionSanctuary` now composes one `ExtractionZone` on the same root `NetworkObject` and therefore shares one canonical `EntityId`. The Sanctuary owns reservation, ritual state, ritual timer and interaction rules. The Zone independently owns geometry, candidate scanning and availability. The registry keeps `IExtractionSanctuary`, `IInteractable`, collider identity and `IExtractionZone` as distinct capabilities under that shared identity; no player-side assignment or second zone identity is synchronized.
+
+`Gameplay` contains four scene NetworkObjects rather than runtime-randomized Sanctuary spawns. Their positions are authored from valid cell centers of the scene's `Floor` tilemap, and the serialized-scene test requires every tile covered by each zone collider to exist on that tilemap. This keeps the endpoints reachable when the dungeon layout or floor transform offsets differ from raw world-space quadrants.
+
+Registration is compensated in the order Sanctuary capability, assignment service, then entity/interactable/collider. Sanctuary cleanup reverses that order. Zone cleanup remains independent. Both Sanctuary and Zone capability removal use the registry's expected-instance independent cleanup, so collider mappings remain while any co-located capability is registered and disappear when the last capability leaves, regardless of callback order.
+
+`CanInteract` is a side-effect-free query used by authoritative and predictive selection. It consumes only replicated reservation/ritual state plus the runner-local character capability, so only the living owner sees the ritual candidate. `Interact` repeats those validations under State Authority, starts one `TickTimer`, and never emits presentation effects from simulation.
+
+Simulation order is authoritative gameplay and damage, Sanctuary ritual at order 90, Zone scan at 100, then player extraction continuation at 110. An in-progress ritual validates composition and owner identity, resolves the owner, checks vitality, and only then checks expiry. Death on the expiry tick therefore cancels. `Cancelled` and `Completed` are terminal. Completion writes `Completed` before enabling the co-located Zone and subsequent authoritative ticks idempotently reaffirm availability.
+
+The Zone rejects attempts to disable itself after the co-located registered Sanctuary reaches `Completed`. Availability alone is not extraction authorization: `PlayerExtractionController` resolves the Sanctuary with the same zone ID and requires the participant to be its owner with a completed ritual both when starting and continuing.
+
+`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. Presentation, map/minimap markers, audio and VFX remain TASK-56 work.

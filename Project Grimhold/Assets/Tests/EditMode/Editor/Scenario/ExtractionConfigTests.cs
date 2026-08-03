@@ -26,6 +26,9 @@ namespace Tests.EditMode.Scenario
         private static readonly FieldInfo CancelWhenNotAliveField =
             typeof(ExtractionConfig).GetField("_cancelWhenNotAlive", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        private static readonly FieldInfo RitualDurationField =
+            typeof(ExtractionConfig).GetField("_ritualDurationSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
+
         [SetUp]
         public void SetUp()
         {
@@ -93,6 +96,26 @@ namespace Tests.EditMode.Scenario
             Assert.That(isValid, Is.False, $"TryValidate should fail for invalid BoundaryTolerance ({invalidTolerance}).");
             Assert.That(error, Is.Not.Null.And.Not.Empty);
             Assert.That(error, Does.Contain(nameof(ExtractionConfig.BoundaryTolerance)));
+        }
+
+        [TestCase(0f)]
+        [TestCase(-1f)]
+        [TestCase(float.NaN)]
+        [TestCase(float.PositiveInfinity)]
+        [TestCase(float.NegativeInfinity)]
+        public void TryValidate_InvalidRitualDuration_Fails(float invalidDuration)
+        {
+            Assert.That(RitualDurationField, Is.Not.Null);
+            RitualDurationField.SetValue(_config, invalidDuration);
+
+            Assert.That(_config.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain(nameof(ExtractionConfig.RitualDurationSeconds)));
+        }
+
+        [Test]
+        public void RitualDuration_DefaultsToTenSeconds()
+        {
+            Assert.That(_config.RitualDurationSeconds, Is.EqualTo(10f));
         }
 
         [Test]

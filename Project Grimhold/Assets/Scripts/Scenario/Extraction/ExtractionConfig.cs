@@ -41,6 +41,10 @@ public sealed class ExtractionConfig : ScriptableObject
     [SerializeField, Min(1)]
     private int _progressQuota = 100;
 
+    [Header("Individual Ritual")]
+    [SerializeField, Min(0.001f)]
+    private float _ritualDurationSeconds = 10f;
+
     /// <summary>
     /// Countdown duration in seconds required for a player to complete extraction.
     /// Must be finite and strictly greater than zero.
@@ -76,6 +80,11 @@ public sealed class ExtractionConfig : ScriptableObject
     public int ProgressQuota => _progressQuota;
 
     /// <summary>
+    /// Simulation duration required for an assigned player to complete their Sanctuary ritual.
+    /// </summary>
+    public float RitualDurationSeconds => _ritualDurationSeconds;
+
+    /// <summary>
     /// Validates that configuration properties contain valid, finite, and non-negative values.
     /// </summary>
     /// <param name="error">Outputs a descriptive error message when validation fails; otherwise <see langword="null"/>.</param>
@@ -102,6 +111,13 @@ public sealed class ExtractionConfig : ScriptableObject
             return false;
         }
 
+        if (float.IsNaN(_ritualDurationSeconds) || float.IsInfinity(_ritualDurationSeconds) ||
+            _ritualDurationSeconds <= 0f)
+        {
+            error = $"{nameof(ExtractionConfig)}: {nameof(RitualDurationSeconds)} must be a finite number strictly greater than zero.";
+            return false;
+        }
+
         return true;
     }
 
@@ -118,6 +134,16 @@ public sealed class ExtractionConfig : ScriptableObject
         }
 
         _progressQuota = Mathf.Max(1, _progressQuota);
+
+        if (float.IsNaN(_ritualDurationSeconds) || float.IsInfinity(_ritualDurationSeconds) ||
+            _ritualDurationSeconds <= 0f)
+        {
+            _ritualDurationSeconds = Mathf.Max(
+                0.001f,
+                float.IsNaN(_ritualDurationSeconds) || float.IsInfinity(_ritualDurationSeconds)
+                    ? 10f
+                    : _ritualDurationSeconds);
+        }
 
         if (!TryValidate(out string validationError))
         {

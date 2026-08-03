@@ -158,6 +158,13 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
             return false;
         }
 
+        if (!available && _entityRegistry != null &&
+            _entityRegistry.TryGetExtractionSanctuary(Id, out IExtractionSanctuary sanctuary) &&
+            sanctuary != null && sanctuary.RitualState == ExtractionRitualState.Completed)
+        {
+            return false;
+        }
+
         if (NetworkedIsAvailable != available)
         {
             NetworkedIsAvailable = available;

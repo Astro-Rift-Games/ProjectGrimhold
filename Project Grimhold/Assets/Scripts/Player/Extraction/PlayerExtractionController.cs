@@ -66,6 +66,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         None,
         InvalidZone,
         ZoneUnavailable,
+        SanctuaryUnauthorized,
         CharacterNotAlive,
         LeftZoneTolerance
     }
@@ -155,6 +156,11 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             return false;
         }
 
+        if (!CanUseSanctuaryZone(zoneId))
+        {
+            return false;
+        }
+
         if (!zone.ContainsExact(ValidationPoint))
         {
             return false;
@@ -231,6 +237,12 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             return false;
         }
 
+        if (!CanUseSanctuaryZone(ActiveZoneId))
+        {
+            reason = CancellationReason.SanctuaryUnauthorized;
+            return false;
+        }
+
         if (_config.CancelWhenNotAlive && (_character == null || !_character.IsAlive))
         {
             reason = CancellationReason.CharacterNotAlive;
@@ -244,6 +256,13 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         }
 
         return true;
+    }
+
+    private bool CanUseSanctuaryZone(EntityId zoneId)
+    {
+        return _entityRegistry != null &&
+            _entityRegistry.TryGetExtractionSanctuary(zoneId, out IExtractionSanctuary sanctuary) &&
+            sanctuary != null && sanctuary.Id == zoneId && sanctuary.CanUseExtraction(Id);
     }
 
     /// <summary>

@@ -18,3 +18,4 @@ MonoBehaviour:
   _requireAliveToStart: 1
   _cancelWhenNotAlive: 1
   _progressQuota: 100
+  _ritualDurationSeconds: 10

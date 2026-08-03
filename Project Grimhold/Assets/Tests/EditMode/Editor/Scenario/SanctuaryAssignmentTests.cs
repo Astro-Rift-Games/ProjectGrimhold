@@ -176,6 +176,8 @@ namespace Tests.EditMode.Scenario
         {
             var root = new GameObject("Authorityless sanctuary");
             root.AddComponent<NetworkObject>();
+            root.AddComponent<BoxCollider2D>();
+            root.AddComponent<ExtractionZone>();
             ExtractionSanctuary sanctuary = root.AddComponent<ExtractionSanctuary>();
             try
             {
@@ -223,7 +225,14 @@ namespace Tests.EditMode.Scenario
             public EntityId Id { get; }
             public EntityId OwnerId { get; private set; }
             public bool IsReserved => OwnerId.Value != 0;
+            public ExtractionRitualState RitualState => ExtractionRitualState.NotStarted;
             public bool IsOwnedBy(EntityId playerId) => playerId.Value != 0 && OwnerId == playerId;
+            public bool CanUseExtraction(EntityId playerId) => false;
+            public bool TryGetRitualProgress(out ExtractionRitualSnapshot snapshot)
+            {
+                snapshot = new ExtractionRitualSnapshot(RitualState, 10f, 10f, 0f);
+                return true;
+            }
             public bool TryReserve(EntityId playerId)
             {
                 if (playerId.Value == 0 || (IsReserved && OwnerId != playerId))

@@ -401,16 +401,19 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressDefeatSources.TryGetValue(id, out source);
     }
 
-    /// <summary>Registers a sanctuary capability independently from zones and colliders.</summary>
+    /// <summary>Registers a sanctuary capability independently from other capabilities.</summary>
     public bool TryRegisterExtractionSanctuary(EntityId id, IExtractionSanctuary sanctuary)
     {
         return TryRegisterIndependentCapability(id, sanctuary, _extractionSanctuaries);
     }
 
-    /// <summary>Removes only the expected sanctuary capability instance.</summary>
+    /// <summary>
+    /// Removes only the expected sanctuary capability and releases collider mappings when
+    /// no other capability remains under the same identity.
+    /// </summary>
     public bool TryUnregisterExtractionSanctuary(EntityId id, IExtractionSanctuary expectedSanctuary)
     {
-        return TryUnregisterIsolatedCapability(id, expectedSanctuary, _extractionSanctuaries);
+        return TryUnregisterIndependentCapability(id, expectedSanctuary, _extractionSanctuaries);
     }
 
     /// <summary>Attempts to resolve a sanctuary capability by canonical identity.</summary>
