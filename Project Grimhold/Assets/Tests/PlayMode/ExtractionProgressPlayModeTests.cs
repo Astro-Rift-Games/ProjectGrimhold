@@ -4,7 +4,9 @@ using System.Collections;
 using System.Collections.Generic;
 using Fusion;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Assert = NUnit.Framework.Assert;
 
@@ -17,6 +19,7 @@ namespace Tests.PlayMode.Extraction
         private const string EnemyRangedGuid = "6f7ab2fe6d6193a4ea17a843ff58f94b";
         private const string ContainerGuid = "2c19a78647c64b84a765ff0280706b7d";
         private const string PickupGuid = "5d26f13a358d7894b9419465e4ba1869";
+        private const string SanctuaryPrefabPath = "Assets/Prefabs/ExtractionSanctuary.prefab";
 
         private NetworkRunner _runner;
         private ExtractionProgressSimulationDriver _driver;
@@ -31,6 +34,10 @@ namespace Tests.PlayMode.Extraction
             var runnerObject = new GameObject("US13 Single Runner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
             runnerObject.AddComponent<EntityRegistry>();
+            runnerObject.AddComponent<LocalInputContext>();
+            ExtractionSanctuaryAssignmentService assignmentService =
+                runnerObject.AddComponent<ExtractionSanctuaryAssignmentService>();
+            Assert.That(assignmentService.Initialize(_runner, GameMode.Host), Is.True);
             _driver = runnerObject.AddComponent<ExtractionProgressSimulationDriver>();
             var sceneManager = runnerObject.AddComponent<NetworkSceneManagerDefault>();
             var objectProvider = runnerObject.AddComponent<NetworkObjectProviderDefault>();
@@ -87,6 +94,8 @@ namespace Tests.PlayMode.Extraction
             Assert.That(progress.CurrentProgress, Is.EqualTo(15));
             Assert.That((bool)progress.AssignmentRequested, Is.False);
 
+            LogAssert.Expect(UnityEngine.LogType.Error,
+                "ExtractionSanctuaryAssignmentService configuration failure: NoSanctuariesConfigured.");
             yield return Execute(runner => progress.TryApplyContribution(new ExtractionProgressContribution(
                 ExtractionProgressSourceType.LootFirstAcquisition, new EntityId(503), long.MaxValue, runner.Tick)));
             Assert.That(progress.CurrentProgress, Is.EqualTo(100));
@@ -123,6 +132,134 @@ namespace Tests.PlayMode.Extraction
             Assert.That(defeatResult.IsApplied && defeatResult.IsFatal, Is.True);
             Assert.That(acceptedAfterDefeat, Is.False);
             Assert.That(replacementProgress.CurrentProgress, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator QuotaCompletion_AssignsDistinctSanctuariesAndRepeatedRequestIsIdempotent()
+        {
+            NetworkObject firstSanctuary = SpawnSanctuary(Vector3.left * 4f);
+            NetworkObject secondSanctuary = SpawnSanctuary(Vector3.right * 4f);
+            NetworkObject firstPlayer = Spawn(PlayerGuid, Vector3.zero);
+            NetworkObject secondPlayer = Spawn(PlayerGuid, Vector3.up * 2f);
+            PlayerExtractionProgressController firstProgress =
+                firstPlayer.GetComponent<PlayerExtractionProgressController>();
+            PlayerExtractionProgressController secondProgress =
+                secondPlayer.GetComponent<PlayerExtractionProgressController>();
+            ExtractionSanctuaryAssignmentService service =
+                _runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+
+            yield return Execute(runner =>
+            {
+                Assert.That(firstProgress.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(7001),
+                    long.MaxValue,
+                    runner.Tick)), Is.True);
+                Assert.That(secondProgress.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(7002),
+                    long.MaxValue,
+                    runner.Tick)), Is.True);
+            });
+
+            SanctuaryAssignmentResult first = service.TryGetAssignment(firstProgress.Id);
+            SanctuaryAssignmentResult second = service.TryGetAssignment(secondProgress.Id);
+            Assert.That(first.Success, Is.True);
+            Assert.That(second.Success, Is.True);
+            Assert.That(first.SanctuaryId, Is.Not.EqualTo(second.SanctuaryId));
+            Assert.That(new[] { firstSanctuary.GetComponent<ExtractionSanctuary>().Id,
+                secondSanctuary.GetComponent<ExtractionSanctuary>().Id }, Does.Contain(first.SanctuaryId));
+
+            SanctuaryAssignmentResult repeated = default;
+            yield return Execute(runner =>
+            {
+                PlayerCharacter character = firstPlayer.GetComponent<PlayerCharacter>();
+                character.ApplyDamage(new DamageRequest(
+                    secondProgress.Id,
+                    character.Id,
+                    1000f,
+                    DamageType.TrueDamage,
+                    Vector2.zero,
+                    character.transform.position,
+                    runner.Tick));
+                repeated = service.TryAssign(firstProgress.Id);
+            });
+
+            Assert.That(repeated.Success, Is.True);
+            Assert.That(repeated.IsExistingAssignment, Is.True);
+            Assert.That(repeated.SanctuaryId, Is.EqualTo(first.SanctuaryId));
+        }
+
+        [UnityTest]
+        public IEnumerator QuotaCompletion_WithoutSanctuariesPreservesProgressWithoutPartialAssignment()
+        {
+            NetworkObject player = Spawn(PlayerGuid, Vector3.zero);
+            PlayerExtractionProgressController progress = player.GetComponent<PlayerExtractionProgressController>();
+            ExtractionSanctuaryAssignmentService service =
+                _runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+            SanctuaryAssignmentResult result = default;
+
+            LogAssert.Expect(UnityEngine.LogType.Error,
+                "ExtractionSanctuaryAssignmentService configuration failure: NoSanctuariesConfigured.");
+            yield return Execute(runner =>
+            {
+                Assert.That(progress.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(7101),
+                    long.MaxValue,
+                    runner.Tick)), Is.True);
+                result = service.TryAssign(progress.Id);
+            });
+
+            Assert.That(progress.CurrentProgress, Is.EqualTo(progress.Quota));
+            Assert.That((bool)progress.AssignmentRequested, Is.True);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.NoSanctuariesConfigured));
+            Assert.That(service.TryGetAssignment(progress.Id).FailureReason,
+                Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayScene_FusionSpawnsFourDistinctSanctuaryIdentities()
+        {
+            SceneRef gameplayScene = SceneRef.FromIndex(1);
+            NetworkSceneAsyncOp load = _runner.LoadScene(gameplayScene, LoadSceneMode.Additive);
+            while (!load.IsDone)
+            {
+                yield return null;
+            }
+
+            Assert.That(load.Error, Is.Null);
+            yield return null;
+
+            ExtractionSanctuary[] sanctuaries = UnityEngine.Object.FindObjectsByType<ExtractionSanctuary>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            Assert.That(sanctuaries.Length, Is.EqualTo(4));
+
+            var identities = new HashSet<EntityId>();
+            for (int i = 0; i < sanctuaries.Length; i++)
+            {
+                Assert.That(sanctuaries[i].Id.Value, Is.Not.Zero);
+                Assert.That(identities.Add(sanctuaries[i].Id), Is.True);
+            }
+
+            NetworkSceneAsyncOp unload = _runner.UnloadScene(gameplayScene);
+            while (!unload.IsDone)
+            {
+                yield return null;
+            }
+
+            Assert.That(unload.Error, Is.Null);
+            EntityRegistry registry = _runner.GetComponent<EntityRegistry>();
+            foreach (EntityId identity in identities)
+            {
+                Assert.That(registry.TryGetExtractionSanctuary(identity, out _), Is.False);
+            }
+
+            Assert.That(_runner.GetComponent<ExtractionSanctuaryAssignmentService>()
+                .TryGetAssignment(new EntityId(987654321)).FailureReason,
+                Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
         }
 
         [UnityTest]
@@ -280,6 +417,13 @@ namespace Tests.PlayMode.Extraction
                         runner, instance, entry, true, eligibleAmount));
             Assert.That(initialized, Is.True);
             return spawned;
+        }
+
+        private NetworkObject SpawnSanctuary(Vector3 position)
+        {
+            string guid = AssetDatabase.AssetPathToGUID(SanctuaryPrefabPath);
+            Assert.That(guid, Is.Not.Empty);
+            return Spawn(guid, position);
         }
 
         private NetworkObject Load(string guid)

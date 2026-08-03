@@ -27,6 +27,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour
     private GameObject _runnerObject;
     private NetworkSpawnManager _spawnManager;
     private NetworkMatchController _matchController;
+    private ExtractionSanctuaryAssignmentService _sanctuaryAssignmentService;
     private bool _isStarting;
 
     public NetworkRunner Runner => _runner;
@@ -65,6 +66,16 @@ public sealed class FusionSessionLauncher : MonoBehaviour
             _runnerObject = new GameObject("NetworkRunner");
             _runner = _runnerObject.AddComponent<NetworkRunner>();
             _runnerObject.AddComponent<EntityRegistry>();
+            _sanctuaryAssignmentService = _runnerObject.AddComponent<ExtractionSanctuaryAssignmentService>();
+            if (!_sanctuaryAssignmentService.Initialize(_runner, mode))
+            {
+                Debug.LogError(
+                    "[FusionSessionLauncher] Failed to initialize the sanctuary assignment service for the requested session.",
+                    this);
+                await ShutdownAndDestroyRunnerAsync();
+                return false;
+            }
+
             _runnerObject.AddComponent<LocalInputContext>();
 
             // 1. Create and associate the NetworkSpawnManager with the runner before callbacks/StartGame
@@ -196,6 +207,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour
         _runnerObject = null;
         _spawnManager = null;
         _matchController = null;
+        _sanctuaryAssignmentService = null;
 
         if (runnerToShutdown != null && runnerToShutdown.IsRunning)
         {

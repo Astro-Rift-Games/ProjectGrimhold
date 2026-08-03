@@ -17,7 +17,9 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionZone> _extractionZones = new();
     private readonly Dictionary<EntityId, IExtractionParticipant> _extractionParticipants = new();
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
+    private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
@@ -366,6 +368,24 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressReceivers.TryGetValue(id, out receiver);
     }
 
+    /// <summary>Registers a read-only extraction progress capability independently.</summary>
+    public bool TryRegisterExtractionProgressReader(EntityId id, IExtractionProgressReader reader)
+    {
+        return TryRegisterIndependentCapability(id, reader, _extractionProgressReaders);
+    }
+
+    /// <summary>Removes only the expected extraction progress reader instance.</summary>
+    public bool TryUnregisterExtractionProgressReader(EntityId id, IExtractionProgressReader expectedReader)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedReader, _extractionProgressReaders);
+    }
+
+    /// <summary>Attempts to resolve a read-only extraction progress capability.</summary>
+    public bool TryGetExtractionProgressReader(EntityId id, out IExtractionProgressReader reader)
+    {
+        return _extractionProgressReaders.TryGetValue(id, out reader);
+    }
+
     public bool TryRegisterExtractionProgressDefeatSource(EntityId id, IExtractionProgressDefeatSource source)
     {
         return TryRegisterIndependentCapability(id, source, _extractionProgressDefeatSources);
@@ -379,6 +399,24 @@ public sealed class EntityRegistry : MonoBehaviour
     public bool TryGetExtractionProgressDefeatSource(EntityId id, out IExtractionProgressDefeatSource source)
     {
         return _extractionProgressDefeatSources.TryGetValue(id, out source);
+    }
+
+    /// <summary>Registers a sanctuary capability independently from zones and colliders.</summary>
+    public bool TryRegisterExtractionSanctuary(EntityId id, IExtractionSanctuary sanctuary)
+    {
+        return TryRegisterIndependentCapability(id, sanctuary, _extractionSanctuaries);
+    }
+
+    /// <summary>Removes only the expected sanctuary capability instance.</summary>
+    public bool TryUnregisterExtractionSanctuary(EntityId id, IExtractionSanctuary expectedSanctuary)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedSanctuary, _extractionSanctuaries);
+    }
+
+    /// <summary>Attempts to resolve a sanctuary capability by canonical identity.</summary>
+    public bool TryGetExtractionSanctuary(EntityId id, out IExtractionSanctuary sanctuary)
+    {
+        return _extractionSanctuaries.TryGetValue(id, out sanctuary);
     }
 
     /// <summary>
@@ -587,7 +625,11 @@ public sealed class EntityRegistry : MonoBehaviour
             _lootReceivers.ContainsKey(id) ||
             _lootSources.ContainsKey(id) ||
             _extractionZones.ContainsKey(id) ||
-            _extractionParticipants.ContainsKey(id);
+            _extractionParticipants.ContainsKey(id) ||
+            _extractionProgressReceivers.ContainsKey(id) ||
+            _extractionProgressReaders.ContainsKey(id) ||
+            _extractionProgressDefeatSources.ContainsKey(id) ||
+            _extractionSanctuaries.ContainsKey(id);
     }
 
     private static bool TryRegisterIndependentCapability<TCapability>(

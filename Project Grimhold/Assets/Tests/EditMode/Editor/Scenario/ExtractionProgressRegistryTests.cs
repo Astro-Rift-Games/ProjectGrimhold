@@ -27,12 +27,14 @@ namespace Tests.EditMode.Scenario
             var id = new EntityId(41);
             var receiver = new Receiver(id);
             var conflictingReceiver = new Receiver(id);
+            var reader = new Reader(id);
             var defeatSource = new DefeatSource(id, 10);
 
             Assert.That(_registry.TryRegisterExtractionProgressReceiver(id, receiver), Is.True);
             Assert.That(_registry.TryRegisterExtractionProgressReceiver(id, receiver), Is.True);
             Assert.That(_registry.TryRegisterExtractionProgressReceiver(id, conflictingReceiver), Is.False);
             Assert.That(_registry.TryRegisterExtractionProgressDefeatSource(id, defeatSource), Is.True);
+            Assert.That(_registry.TryRegisterExtractionProgressReader(id, reader), Is.True);
             Assert.That(_registry.TryGetExtractionProgressReceiver(id, out var resolvedReceiver), Is.True);
             Assert.That(_registry.TryGetExtractionProgressDefeatSource(id, out var resolvedSource), Is.True);
             Assert.That(resolvedReceiver, Is.SameAs(receiver));
@@ -72,6 +74,17 @@ namespace Tests.EditMode.Scenario
 
             public EntityId Id { get; }
             public int DefeatProgressReward { get; }
+        }
+
+        private sealed class Reader : IExtractionProgressReader
+        {
+            public Reader(EntityId id) => Id = id;
+            public EntityId Id { get; }
+            public bool TryGetSnapshot(out ExtractionProgressSnapshot snapshot)
+            {
+                snapshot = new ExtractionProgressSnapshot(100, 100, true);
+                return true;
+            }
         }
     }
 }

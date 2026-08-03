@@ -4,14 +4,14 @@ using UnityEngine;
 /// <summary>
 /// Owns one player's authoritative, individual progress toward the extraction quota.
 /// It accepts direct contributions during Fusion simulation and exposes replicated state
-/// for future sanctuary assignment and presentation systems.
+/// for sanctuary assignment and presentation systems.
 /// </summary>
 /// <remarks>
 /// Producers own one-shot semantics. This receiver stores no source IDs, ticks, or contribution history.
 /// See <c>Docs/Architecture/ExtractionArchitecture.md</c>.
 /// </remarks>
 [DisallowMultipleComponent]
-public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtractionProgressReceiver
+public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtractionProgressReceiver, IExtractionProgressReader
 {
     [SerializeField]
     private ExtractionConfig _config;
@@ -24,8 +24,10 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
 
     private ICharacter _character;
     private EntityRegistry _registry;
+    private ExtractionSanctuaryAssignmentService _assignmentService;
     private EntityId _registeredId;
-    private bool _isRegistered;
+    private bool _isReceiverRegistered;
+    private bool _isReaderRegistered;
     private bool _dependenciesValid;
 
     [Networked]
@@ -49,7 +51,10 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     {
         CacheDependencies();
         _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
-        RegisterReceiver();
+        _assignmentService = Runner != null
+            ? Runner.GetComponent<ExtractionSanctuaryAssignmentService>()
+            : null;
+        RegisterCapabilities();
         _dependenciesValid = ValidateDependencies();
 
         if (HasStateAuthority)
@@ -61,7 +66,7 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        UnregisterReceiver();
+        UnregisterCapabilities();
         _dependenciesValid = false;
     }
 
@@ -109,6 +114,7 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         if (completedQuota)
         {
             AssignmentRequested = true;
+            _assignmentService.TryAssign(Id);
         }
 
         return true;
@@ -148,10 +154,12 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
             return false;
         }
 
-        if (_character == null || _extractionController == null || _registry == null || !_isRegistered)
+        if (_character == null || _extractionController == null || _registry == null ||
+            _assignmentService == null || !_isReceiverRegistered || !_isReaderRegistered)
         {
             Debug.LogError(
-                $"{nameof(PlayerExtractionProgressController)} requires character, extraction controller, registry, and a valid progress registration.",
+                $"{nameof(PlayerExtractionProgressController)} requires character, extraction controller, registry, " +
+                "assignment service, and valid receiver/reader registrations.",
                 this);
             return false;
         }
@@ -159,32 +167,52 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         return true;
     }
 
-    private void RegisterReceiver()
+    private void RegisterCapabilities()
     {
-        if (_isRegistered || _registry == null || Id.Value == 0)
+        if (_isReceiverRegistered || _isReaderRegistered || _registry == null || Id.Value == 0)
         {
             return;
         }
 
         _registeredId = Id;
-        _isRegistered = _registry.TryRegisterExtractionProgressReceiver(_registeredId, this);
-    }
+        _isReceiverRegistered = _registry.TryRegisterExtractionProgressReceiver(_registeredId, this);
+        if (!_isReceiverRegistered)
+        {
+            _registeredId = default;
+            return;
+        }
 
-    private void UnregisterReceiver()
-    {
-        if (!_isRegistered)
+        _isReaderRegistered = _registry.TryRegisterExtractionProgressReader(_registeredId, this);
+        if (_isReaderRegistered)
         {
             return;
         }
 
-        _registry?.TryUnregisterExtractionProgressReceiver(_registeredId, this);
+        _registry.TryUnregisterExtractionProgressReceiver(_registeredId, this);
+        _isReceiverRegistered = false;
         _registeredId = default;
-        _isRegistered = false;
+    }
+
+    private void UnregisterCapabilities()
+    {
+        if (_isReaderRegistered)
+        {
+            _registry?.TryUnregisterExtractionProgressReader(_registeredId, this);
+        }
+
+        if (_isReceiverRegistered)
+        {
+            _registry?.TryUnregisterExtractionProgressReceiver(_registeredId, this);
+        }
+
+        _registeredId = default;
+        _isReaderRegistered = false;
+        _isReceiverRegistered = false;
     }
 
     private void OnDestroy()
     {
-        UnregisterReceiver();
+        UnregisterCapabilities();
     }
 
 #if UNITY_EDITOR

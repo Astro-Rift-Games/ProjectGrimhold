@@ -1,0 +1,19 @@
+public enum SanctuaryAssignmentFailureReason
+{
+    None,
+    ServiceNotInitialized,
+    InvalidPlayer,
+    NoAuthority,
+    OutsideSimulation,
+    AssignmentNotFound,
+    ProgressReaderUnavailable,
+    InvalidProgressSnapshot,
+    QuotaIncomplete,
+    AssignmentNotRequested,
+    PlayerUnavailable,
+    NoSanctuariesConfigured,
+    NoFreeSanctuary,
+    SanctuaryRegistryInconsistent,
+    DuplicateExistingAssignment,
+    ReservationConflict
+}
