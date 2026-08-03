@@ -124,3 +124,15 @@ out-of-range rejection across peers, disconnect cleanup, a second session in
 the same process, and the final visual transition and pose.
 
 Automated coverage targets initialization rules, registry atomicity, transaction order, queue/idempotency semantics and prefab composition. Host/Client placement, range, capacity, competition, availability, feedback and session cleanup still require the manual development harness flow.
+
+## US-13 first acquisition and container opening
+
+`NetworkLootContainerInteractable` owns the networked one-shot first-open state because it is the authoritative interaction boundary. On the first valid interaction it captures whether the container currently has loot and then marks the open as resolved before contributing. A non-empty chest may contribute its configured reward once globally; an empty first open permanently consumes the opportunity. Later interactions still open the UI. Enemy and player corpse interactables have a zero first-open reward.
+
+`NetworkLootContainer` additionally owns a replicated eligible quantity per catalog index. Natural initial chest and enemy content begins fully eligible; exact content loaded from a defeated player and player deposits add no eligibility. A stack may mix both classes. Eligibility is always positive when stored, never exceeds total quantity and never exists without the total stack. `CommitExtraction` is the single origin commit and atomically consumes eligible units first, changes total and eligible quantities, removes empty entries and advances `LootChangeSequence`.
+
+The unchanged `LootTransferRequest` carries no provenance. After source validation, `LootTransferTransaction` performs the side-effect-free `ILootFirstAcquisitionSource` query, validates `0 <= EligibleAmount <= RequestedAmount`, validates reception, then executes the existing mandatory extraction and reception commits. A successful result exposes a separate immutable `LootFirstAcquisitionResult`; every rejection exposes zero. Out-of-range provenance is an integration violation. There is no second provenance commit, yield, callback or general transaction rollback. Existing provisional initialization, corpse-loading, pickup-spawn and drop-publication flows compensate total and eligibility together when they already support compensation.
+
+`PlayerLootTransferNetworkController` contributes only after both commits when the destination is its own `PlayerLootReceiver` and the eligible amount is positive. Deposits, other destinations, rejected transfers and credited-only units contribute zero. The definition's authoritative `ExtractionValuePerUnit` is multiplied by eligible units using `long`; the individual receiver performs final quota saturation. `PlayerLootReceiver` stores no provenance.
+
+Economy is independent: `ExtractionValuePerUnit` measures quota contribution and `SellValuePerUnit` measures money. Inventory total-value calculations and economic presentation use only the sell value.

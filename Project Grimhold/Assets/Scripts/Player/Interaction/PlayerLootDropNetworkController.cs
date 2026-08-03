@@ -313,7 +313,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
                         callbackRunner,
                         instance,
                         entry,
-                        false);
+                        false,
+                        0);
             });
 
         bool validSpawn = spawnStatus == NetworkSpawnStatus.Spawned &&

@@ -7,10 +7,10 @@ namespace Tests.EditMode.Editor.Scenario
     public sealed class ExtractionCoreTests
     {
         [Test]
-        public void ExtractionProgressSnapshot_ConservesActiveZoneIdAndRemainingSeconds()
+        public void ExtractionCountdownSnapshot_ConservesActiveZoneIdAndRemainingSeconds()
         {
             EntityId zoneId = new EntityId(1027);
-            ExtractionProgressSnapshot snapshot = new ExtractionProgressSnapshot(
+            ExtractionCountdownSnapshot snapshot = new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 zoneId,
                 remainingSeconds: 3.5f,
@@ -27,9 +27,9 @@ namespace Tests.EditMode.Editor.Scenario
         }
 
         [Test]
-        public void ExtractionProgressSnapshot_ClampsNegativeValuesDefensively()
+        public void ExtractionCountdownSnapshot_ClampsNegativeValuesDefensively()
         {
-            ExtractionProgressSnapshot snapshot = new ExtractionProgressSnapshot(
+            ExtractionCountdownSnapshot snapshot = new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 new EntityId(5),
                 remainingSeconds: -2.0f,
@@ -43,14 +43,14 @@ namespace Tests.EditMode.Editor.Scenario
         }
 
         [Test]
-        public void ExtractionProgressSnapshot_NoneAndExtractedFactories_ReturnDefaultValues()
+        public void ExtractionCountdownSnapshot_NoneAndExtractedFactories_ReturnDefaultValues()
         {
-            ExtractionProgressSnapshot none = ExtractionProgressSnapshot.None();
+            ExtractionCountdownSnapshot none = ExtractionCountdownSnapshot.None();
             Assert.AreEqual(ExtractionState.None, none.State);
             Assert.AreEqual(0, none.ActiveZoneId.Value);
 
             EntityId completedZoneId = new EntityId(72);
-            ExtractionProgressSnapshot extracted = ExtractionProgressSnapshot.Extracted(completedZoneId);
+            ExtractionCountdownSnapshot extracted = ExtractionCountdownSnapshot.Extracted(completedZoneId);
             Assert.AreEqual(ExtractionState.Extracted, extracted.State);
             Assert.AreEqual(completedZoneId, extracted.ActiveZoneId);
             Assert.AreEqual(1.0f, extracted.Progress);

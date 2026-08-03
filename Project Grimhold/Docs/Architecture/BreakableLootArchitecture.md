@@ -70,3 +70,9 @@ after destruction.
 - EditMode validates group dispatch, seed-domain separation, prefab composition, table/catalog compatibility and point idempotence.
 - PlayMode validates partial damage, fatal damage, repeated hits, collider and renderer removal, and unique pickup generation.
 - Manual Host/Client validation must confirm replicated destruction, identical pickups, collection, and late joining.
+
+## US-13 pickup provenance
+
+Every `NetworkLootPickup` replicates both total quantity and first-acquisition eligible quantity. Existing manually configured pickups and pickups spawned from natural or breakable content initialize eligibility equal to their quantity. A pickup provisionally spawned by `PlayerLootDropNetworkController` receives explicit eligibility zero and cannot be published otherwise. No separate pickup type is introduced.
+
+The pickup reserves its one-shot state before validating reception. A rejection releases the reservation without consuming eligibility. After `CommitReceive`, it computes `ExtractionValuePerUnit * EligibleAmount` with `long`, contributes directly to the receiving player's individual progress, clears eligibility, publishes the existing feedback and despawns. This ordering prevents rejected pickups, inventory drops and reacquisition from duplicating progress. Breakable destruction remains authoritative and non-rollback; only a failed provisional pickup spawn is compensated by despawning the invalid publication.

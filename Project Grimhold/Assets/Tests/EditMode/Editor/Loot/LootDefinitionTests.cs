@@ -53,6 +53,7 @@ namespace Tests.EditMode.Loot
             SetField("_category", LootCategory.Valuable);
             SetField("_rarity", LootRarity.Common);
             SetField("_extractionValuePerUnit", 10);
+            SetField("_sellValuePerUnit", 25);
             SetField("_defaultPickupQuantity", 1);
         }
 
@@ -141,6 +142,28 @@ namespace Tests.EditMode.Loot
             Assert.That(result, Is.True, $"Zero value should be valid but failed: {error}");
         }
 
+        [Test]
+        public void ExtractionAndSellValues_AreIndependent()
+        {
+            SetValidDefaults();
+            SetField("_extractionValuePerUnit", 7);
+            SetField("_sellValuePerUnit", 50);
+
+            Assert.That(_loot.TryValidate(out string error), Is.True, error);
+            Assert.That(_loot.ExtractionValuePerUnit, Is.EqualTo(7));
+            Assert.That(_loot.SellValuePerUnit, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void NegativeSellValue_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_sellValuePerUnit", -1);
+
+            Assert.That(_loot.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain("negative sell value"));
+        }
+
         [TestCase(0)]
         [TestCase(-1)]
         public void InvalidDefaultQuantity_FailsValidation(int invalidQty)
@@ -184,6 +207,7 @@ namespace Tests.EditMode.Loot
             Assert.That(_loot.Category, Is.EqualTo(LootCategory.Valuable));
             Assert.That(_loot.Rarity, Is.EqualTo(LootRarity.Common));
             Assert.That(_loot.ExtractionValuePerUnit, Is.EqualTo(10));
+            Assert.That(_loot.SellValuePerUnit, Is.EqualTo(25));
             Assert.That(_loot.DefaultPickupQuantity, Is.EqualTo(1));
         }
 
@@ -198,6 +222,7 @@ namespace Tests.EditMode.Loot
             Assert.That(typeof(LootDefinition).GetProperty("Category").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("Rarity").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("ExtractionValuePerUnit").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("SellValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("DefaultPickupQuantity").CanWrite, Is.False);
         }
     }

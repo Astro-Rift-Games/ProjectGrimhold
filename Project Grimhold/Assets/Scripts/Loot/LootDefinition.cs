@@ -29,6 +29,9 @@ public sealed class LootDefinition : ScriptableObject
     private int _extractionValuePerUnit;
 
     [SerializeField]
+    private int _sellValuePerUnit;
+
+    [SerializeField]
     private int _defaultPickupQuantity = 1;
 
     public string Id => _id;
@@ -39,11 +42,13 @@ public sealed class LootDefinition : ScriptableObject
     public LootCategory Category => _category;
     public LootRarity Rarity => _rarity;
     public int ExtractionValuePerUnit => _extractionValuePerUnit;
+    public int SellValuePerUnit => _sellValuePerUnit;
     public int DefaultPickupQuantity => _defaultPickupQuantity;
 
     private void OnValidate()
     {
         _extractionValuePerUnit = Mathf.Max(0, _extractionValuePerUnit);
+        _sellValuePerUnit = Mathf.Max(0, _sellValuePerUnit);
         _defaultPickupQuantity = Mathf.Max(1, _defaultPickupQuantity);
     }
 
@@ -89,6 +94,12 @@ public sealed class LootDefinition : ScriptableObject
         if (_extractionValuePerUnit < 0)
         {
             error = $"Loot definition '{_id}' has a negative extraction value: {_extractionValuePerUnit}.";
+            return false;
+        }
+
+        if (_sellValuePerUnit < 0)
+        {
+            error = $"Loot definition '{_id}' has a negative sell value: {_sellValuePerUnit}.";
             return false;
         }
 

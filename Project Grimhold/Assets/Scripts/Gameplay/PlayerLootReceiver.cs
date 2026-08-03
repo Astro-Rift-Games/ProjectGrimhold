@@ -466,7 +466,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     }
 
     /// <summary>
-    /// Calculates the current extraction value from replicated quantities and local definitions.
+    /// Calculates the current economic sell value from replicated quantities and local definitions.
     /// The total is derived and is never stored as separate mutable network state.
     /// </summary>
     public long CalculateTotalValue()
@@ -480,7 +480,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     }
 
     /// <summary>
-    /// Attempts to calculate the complete derived extraction value.
+    /// Attempts to calculate the complete derived economic sell value.
     /// The output remains zero when any catalog entry or arithmetic operation is invalid.
     /// </summary>
     public bool TryCalculateTotalValue(out long total)
@@ -501,7 +501,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
                     return false;
                 }
 
-                total = checked(total + checked((long)pair.Value * definition.ExtractionValuePerUnit));
+                total = checked(total + checked((long)pair.Value * definition.SellValuePerUnit));
             }
         }
         catch (OverflowException)

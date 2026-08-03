@@ -19,4 +19,5 @@ MonoBehaviour:
   _category: 1
   _rarity: 0
   _extractionValuePerUnit: 10
+  _sellValuePerUnit: 10
   _defaultPickupQuantity: 1

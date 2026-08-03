@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
   SortKey: 1518405591
   SendPriority: 1
@@ -69,7 +69,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _slotCapacity: 16
@@ -80,6 +80,7 @@ MonoBehaviour:
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
+  _interactionColliders: []
 --- !u!61 &3300000000000000005
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -136,8 +137,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
+  _firstOpenProgressReward: 5
+  _FirstOpenResolved:
+    RawValue: 0
 --- !u!114 &3300000000000000007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -148,7 +152,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 21db0beaf3cc4a7b86d572c82d706f81, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
   _promptText: Abrir cofre
 --- !u!114 &3300000000000000008
@@ -161,7 +165,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 431f074a18be4793a761ccb743377ae9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LootContainerRandomContentConfig
   _table: {fileID: 11400000, guid: 0a53f81a626e45a991d9362404348e49, type: 2}
 --- !u!1 &3300000000000000010

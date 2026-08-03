@@ -175,6 +175,12 @@ Inherits from `AttackConfig`. Validated fields:
 
 A fresh attack press rejected specifically by `CooldownActive` uses the same sequenced local channel to pulse the bottom cooldown icon. For `Hold` configurations the rejection is still emitted only on the physical press edge. Feedback never calls an attack, applies damage or changes the cooldown.
 
+## US-13 fatal defeat contribution
+
+`ExtractionProgressDefeatSource` is a separate co-located network component that owns only configured defeat reward, entity identity and runner-scoped registration. Player, base enemy and enemy variants serialize their own rewards. Characters, attacks, projectiles and traps contain no quota logic.
+
+After `IDamageable.ApplyDamage` returns, `DamageResolver` contributes only for an applied fatal `DamageResult` under State Authority. It resolves reward by `TargetId` and the individual receiver by `AttackerId`, then performs a direct call carrying source type, target identity, amount and simulation tick. Invalid/environmental attackers, zero rewards, non-fatal or rejected damage and already defeated targets contribute nothing. The target's fatal health transition supplies the producer one-shot guarantee; the receiver stores neither ticks nor defeated identities, so two distinct fatal contributions in the same simulation tick remain valid.
+
 ---
 
 ## Ranged Attack Flow

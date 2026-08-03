@@ -116,3 +116,9 @@ the new network behaviour registration and inherited melee/ranged variants.
 Manual Host/Client validation remains required for replicated publication,
 authoritative quantities under latency, competing pickup collection, wall and
 corner placement, and closing the inventory while a request is in flight.
+
+## US-13 credited world drops
+
+All content held by `PlayerLootReceiver` is already credited and therefore carries no provenance state in the player inventory. During a world drop the provisional `NetworkLootPickup` is initialized with eligible quantity zero. Validation requires that zero before publication; failed spawn, verification, extraction or publication despawns the provisional object, so total quantity and provenance cannot be published inconsistently. A later pickup may restore inventory quantity but contributes no extraction progress.
+
+This preserves the existing single authoritative extraction and provisional-publication protocol. US-13 adds no general rollback to `LootTransferTransaction` and no provenance commit beyond the source's existing `CommitExtraction`.

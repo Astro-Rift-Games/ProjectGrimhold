@@ -80,7 +80,9 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 ## Extraction presentation
 
-`LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionProgressSnapshot`, so joining during an active countdown or after completion does not emit a false transition. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
+`LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionCountdownSnapshot`, so joining during an active countdown or after completion does not emit a false transition. This countdown contract was renamed from `ExtractionProgressSnapshot` in US-13 so the latter can exclusively describe individual quota progress. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
+
+US-13 adds no progress HUD. `ExtractionProgressSnapshot` is available as a read-only individual quota contract for later work, but TASK-29 continues to render only `ExtractionCountdownSnapshot`. There is no team progress projection. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
 
 The extraction HUD section never writes player state, calls an extraction command, or uses a parallel local countdown. The local HUD remains available after `Extracted`; authoritative interaction, damage and loot protocols continue to enforce the existing terminal restrictions.
 

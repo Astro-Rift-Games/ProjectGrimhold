@@ -156,7 +156,7 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void ConfirmedExtractionSnapshotsDriveBaselineAndOneShotCancellation()
         {
-            InvokeApplyExtractionSnapshot(new ExtractionProgressSnapshot(
+            InvokeApplyExtractionSnapshot(new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 default,
                 2.34f,
@@ -164,18 +164,18 @@ namespace Tests.EditMode.Presentation
                 0.5f));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: 2,4 s"));
 
-            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.None());
+            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.None());
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: cancelada"));
 
             SetPresenterFloat("_cancellationFeedbackUntil", -1f);
-            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.None());
+            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.None());
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
         }
 
         [Test]
         public void InitialConfirmedTerminalSnapshotDoesNotEmitCancellation()
         {
-            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.Extracted(default));
+            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.Extracted(default));
 
             Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
         }
@@ -198,7 +198,7 @@ namespace Tests.EditMode.Presentation
             return (float)method.Invoke(null, new object[] { remaining });
         }
 
-        private void InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+        private void InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
         {
             MethodInfo method = typeof(RaidHudPresenter).GetMethod(
                 "ApplyExtractionSnapshot",

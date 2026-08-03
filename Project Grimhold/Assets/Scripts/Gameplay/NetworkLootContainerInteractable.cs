@@ -10,12 +10,20 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkLootContainer))]
 public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IInteractable
 {
+    [SerializeField, Min(0)]
+    private int _firstOpenProgressReward;
+
     private NetworkLootContainer _container;
     private EntityRegistry _registry;
     private EntityId _registeredId;
     private bool _compositionValid;
     private bool _isRegistered;
     private bool _reportedInvalidComposition;
+
+    [Networked]
+    public NetworkBool FirstOpenResolved { get; private set; }
+
+    public int FirstOpenProgressReward => _firstOpenProgressReward;
 
     public new EntityId Id => Object != null
         ? new EntityId(unchecked((int)Object.Id.Raw))
@@ -28,8 +36,14 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
 
     public override void Spawned()
     {
-        if (!ValidateComposition())
+        string validationError = null;
+        if (!ValidateComposition() || !TryValidate(out validationError))
         {
+            if (!string.IsNullOrEmpty(validationError))
+            {
+                Debug.LogError($"{nameof(NetworkLootContainerInteractable)} is invalid. {validationError}", this);
+            }
+
             return;
         }
 
@@ -45,6 +59,11 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
         }
 
         _isRegistered = true;
+
+        if (HasStateAuthority)
+        {
+            FirstOpenResolved = false;
+        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -72,9 +91,42 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
             return InteractionResult.Rejected(InteractionFailureReason.MissingStateAuthority);
         }
 
-        return CanInteract(request)
-            ? InteractionResult.Succeeded(isConsumed: false)
-            : InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
+        if (!CanInteract(request))
+        {
+            return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
+        }
+
+        if (!FirstOpenResolved)
+        {
+            bool containedLoot = !_container.IsEmpty;
+            FirstOpenResolved = true;
+            if (containedLoot && _firstOpenProgressReward > 0 &&
+                _registry != null &&
+                _registry.TryGetExtractionProgressReceiver(
+                    request.InteractorId,
+                    out IExtractionProgressReceiver receiver))
+            {
+                receiver.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.ContainerFirstOpen,
+                    Id,
+                    _firstOpenProgressReward,
+                    request.SimulationTick));
+            }
+        }
+
+        return InteractionResult.Succeeded(isConsumed: false);
+    }
+
+    public bool TryValidate(out string error)
+    {
+        error = null;
+        if (_firstOpenProgressReward < 0)
+        {
+            error = "First-open progress reward must be non-negative.";
+            return false;
+        }
+
+        return true;
     }
 
     private bool ValidateComposition()
@@ -101,6 +153,7 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
 #if UNITY_EDITOR
     private void OnValidate()
     {
+        _firstOpenProgressReward = Mathf.Max(0, _firstOpenProgressReward);
         if (!Application.isPlaying)
         {
             _container = GetComponent<NetworkLootContainer>();

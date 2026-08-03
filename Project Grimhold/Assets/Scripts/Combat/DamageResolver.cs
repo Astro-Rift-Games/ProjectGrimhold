@@ -88,7 +88,34 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
         // 4. Delegate damage application and handle authority validation within IDamageable
         DamageResult result = target.ApplyDamage(request);
+        TryAwardFatalProgress(request, result);
         return CompleteResolution(request, result);
+    }
+
+    private void TryAwardFatalProgress(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal ||
+            request.AttackerId.Value == 0 || request.TargetId.Value == 0 || _registry == null)
+        {
+            return;
+        }
+
+        if (!_registry.TryGetExtractionProgressDefeatSource(
+                request.TargetId,
+                out IExtractionProgressDefeatSource defeatSource) ||
+            defeatSource.DefeatProgressReward <= 0 ||
+            !_registry.TryGetExtractionProgressReceiver(
+                request.AttackerId,
+                out IExtractionProgressReceiver receiver))
+        {
+            return;
+        }
+
+        receiver.TryApplyContribution(new ExtractionProgressContribution(
+            ExtractionProgressSourceType.Defeat,
+            request.TargetId,
+            defeatSource.DefeatProgressReward,
+            request.SimulationTick));
     }
 
     private DamageResult CompleteResolution(in DamageRequest request, in DamageResult result)

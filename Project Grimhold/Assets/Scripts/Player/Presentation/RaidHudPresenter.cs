@@ -226,7 +226,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private void RefreshExtraction()
     {
         if (!IsSpawned(_extractionController) ||
-            !_extractionController.TryGetProgress(out ExtractionProgressSnapshot snapshot))
+            !_extractionController.TryGetProgress(out ExtractionCountdownSnapshot snapshot))
         {
             _hasExtractionState = false;
             _cancellationFeedbackUntil = 0f;
@@ -237,7 +237,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ApplyExtractionSnapshot(snapshot);
     }
 
-    private void ApplyExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+    private void ApplyExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
     {
         ExtractionState previousState = _observedExtractionState;
         bool hadObservedState = _hasExtractionState;
@@ -273,7 +273,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         PresentExtractionSnapshot(snapshot);
     }
 
-    private void PresentExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+    private void PresentExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
     {
         switch (snapshot.State)
         {

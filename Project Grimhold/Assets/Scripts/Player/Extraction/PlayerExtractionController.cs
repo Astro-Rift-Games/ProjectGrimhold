@@ -250,17 +250,17 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// Calculates a progress snapshot for presentation layers.
     /// Safe and side-effect free.
     /// </summary>
-    public bool TryGetProgress(out ExtractionProgressSnapshot snapshot)
+    public bool TryGetProgress(out ExtractionCountdownSnapshot snapshot)
     {
         if (State == ExtractionState.None)
         {
-            snapshot = ExtractionProgressSnapshot.None();
+            snapshot = ExtractionCountdownSnapshot.None();
             return true;
         }
 
         if (State == ExtractionState.Extracted)
         {
-            snapshot = ExtractionProgressSnapshot.Extracted(ActiveZoneId);
+            snapshot = ExtractionCountdownSnapshot.Extracted(ActiveZoneId);
             return true;
         }
 
@@ -283,7 +283,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             float remainingSeconds = remainingTime.Value;
             float progress = totalSeconds > 0f ? Mathf.Clamp01((totalSeconds - remainingSeconds) / totalSeconds) : 1f;
 
-            snapshot = new ExtractionProgressSnapshot(ExtractionState.InProgress, ActiveZoneId, remainingSeconds, totalSeconds, progress);
+            snapshot = new ExtractionCountdownSnapshot(ExtractionState.InProgress, ActiveZoneId, remainingSeconds, totalSeconds, progress);
             return true;
         }
 
@@ -425,7 +425,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     [ContextMenu("Debug: Log Extraction Status")]
     private void DebugLogStatus()
     {
-        bool hasProgress = TryGetProgress(out ExtractionProgressSnapshot progress);
+        bool hasProgress = TryGetProgress(out ExtractionCountdownSnapshot progress);
         bool canContinue = EvaluateContinuation(out CancellationReason reason);
         Debug.Log($"[PlayerExtractionController] Status for {name}: State={State}, ActiveZoneId={ActiveZoneIdValue}, CanContinue={canContinue} (Reason={reason}), Progress={(hasProgress ? $"{progress.Progress * 100f:F1}%" : "N/A")}", this);
     }
@@ -434,7 +434,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     {
         if (State == ExtractionState.InProgress)
         {
-            if (TryGetProgress(out ExtractionProgressSnapshot progress))
+            if (TryGetProgress(out ExtractionCountdownSnapshot progress))
             {
                 Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.8f);
                 Gizmos.DrawWireSphere(transform.position, 0.8f);

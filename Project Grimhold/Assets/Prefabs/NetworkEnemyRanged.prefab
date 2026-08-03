@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 10
+      value: 11
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -91,6 +91,10 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[9]'
       value: 
+      objectReference: {fileID: 7834044633982104018}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[10]'
+      value: 
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3988879926097982634, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _activeAttackSource
@@ -119,6 +123,10 @@ PrefabInstance:
     - target: {fileID: 4522316450052852347, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _defeatProgressReward
+      value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 9200230494000326815, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _animatorViewSource
@@ -267,3 +275,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e8bd94cbbf4a7aa8df4b8730b1be63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
+--- !u!114 &7834044633982104018 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9929b2493b8d49562370e8135fe23909, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ExtractionProgressDefeatSource

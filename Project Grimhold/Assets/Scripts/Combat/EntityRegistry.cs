@@ -16,6 +16,8 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, LootSourceRegistration> _lootSources = new();
     private readonly Dictionary<EntityId, IExtractionZone> _extractionZones = new();
     private readonly Dictionary<EntityId, IExtractionParticipant> _extractionParticipants = new();
+    private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
+    private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
@@ -349,6 +351,36 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionParticipants.TryGetValue(id, out participant);
     }
 
+    public bool TryRegisterExtractionProgressReceiver(EntityId id, IExtractionProgressReceiver receiver)
+    {
+        return TryRegisterIndependentCapability(id, receiver, _extractionProgressReceivers);
+    }
+
+    public bool TryUnregisterExtractionProgressReceiver(EntityId id, IExtractionProgressReceiver expectedReceiver)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedReceiver, _extractionProgressReceivers);
+    }
+
+    public bool TryGetExtractionProgressReceiver(EntityId id, out IExtractionProgressReceiver receiver)
+    {
+        return _extractionProgressReceivers.TryGetValue(id, out receiver);
+    }
+
+    public bool TryRegisterExtractionProgressDefeatSource(EntityId id, IExtractionProgressDefeatSource source)
+    {
+        return TryRegisterIndependentCapability(id, source, _extractionProgressDefeatSources);
+    }
+
+    public bool TryUnregisterExtractionProgressDefeatSource(EntityId id, IExtractionProgressDefeatSource expectedSource)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedSource, _extractionProgressDefeatSources);
+    }
+
+    public bool TryGetExtractionProgressDefeatSource(EntityId id, out IExtractionProgressDefeatSource source)
+    {
+        return _extractionProgressDefeatSources.TryGetValue(id, out source);
+    }
+
     /// <summary>
     /// Returns whether a collider is eligible for damage detection for its entity.
     /// Entities without an explicit damage-collider registration retain legacy behavior
@@ -597,6 +629,23 @@ public sealed class EntityRegistry : MonoBehaviour
             RemoveColliderMappings(id);
         }
 
+        return true;
+    }
+
+    private static bool TryUnregisterIsolatedCapability<TCapability>(
+        EntityId id,
+        TCapability expectedCapability,
+        Dictionary<EntityId, TCapability> registrations)
+        where TCapability : class, IEntity
+    {
+        if (expectedCapability == null || id.Value == 0 ||
+            !registrations.TryGetValue(id, out TCapability existing) ||
+            !ReferenceEquals(existing, expectedCapability))
+        {
+            return false;
+        }
+
+        registrations.Remove(id);
         return true;
     }
 

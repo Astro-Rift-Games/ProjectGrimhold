@@ -82,7 +82,7 @@ public sealed class LootHudPresenter : MonoBehaviour
             return;
         }
 
-        long valueIncrement = (long)grantEvent.Amount * definition.ExtractionValuePerUnit;
+        long valueIncrement = (long)grantEvent.Amount * definition.SellValuePerUnit;
         if (_toastText != null)
         {
             _toastText.text = $"+{grantEvent.Amount} {definition.DisplayName}  (+{valueIncrement})";

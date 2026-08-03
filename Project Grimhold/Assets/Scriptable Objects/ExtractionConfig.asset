@@ -17,3 +17,4 @@ MonoBehaviour:
   _boundaryTolerance: 0.5
   _requireAliveToStart: 1
   _cancelWhenNotAlive: 1
+  _progressQuota: 100

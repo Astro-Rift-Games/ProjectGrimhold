@@ -37,6 +37,10 @@ public sealed class ExtractionConfig : ScriptableObject
     [SerializeField]
     private bool _cancelWhenNotAlive = true;
 
+    [Header("Individual Progress")]
+    [SerializeField, Min(1)]
+    private int _progressQuota = 100;
+
     /// <summary>
     /// Countdown duration in seconds required for a player to complete extraction.
     /// Must be finite and strictly greater than zero.
@@ -66,6 +70,12 @@ public sealed class ExtractionConfig : ScriptableObject
     public bool CancelWhenNotAlive => _cancelWhenNotAlive;
 
     /// <summary>
+    /// Positive individual progress required before sanctuary assignment can be requested.
+    /// This static value is shared configuration and is not replicated.
+    /// </summary>
+    public int ProgressQuota => _progressQuota;
+
+    /// <summary>
     /// Validates that configuration properties contain valid, finite, and non-negative values.
     /// </summary>
     /// <param name="error">Outputs a descriptive error message when validation fails; otherwise <see langword="null"/>.</param>
@@ -86,6 +96,12 @@ public sealed class ExtractionConfig : ScriptableObject
             return false;
         }
 
+        if (_progressQuota <= 0)
+        {
+            error = $"{nameof(ExtractionConfig)}: {nameof(ProgressQuota)} must be strictly greater than zero.";
+            return false;
+        }
+
         return true;
     }
 
@@ -100,6 +116,8 @@ public sealed class ExtractionConfig : ScriptableObject
         {
             _boundaryTolerance = Mathf.Max(0f, float.IsNaN(_boundaryTolerance) || float.IsInfinity(_boundaryTolerance) ? 0f : _boundaryTolerance);
         }
+
+        _progressQuota = Mathf.Max(1, _progressQuota);
 
         if (!TryValidate(out string validationError))
         {

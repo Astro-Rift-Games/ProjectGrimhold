@@ -63,7 +63,8 @@ Cancellation writes `None`, invalidates `ActiveZoneId` and clears the timer. An 
 
 Completion writes `Extracted` first, preserves the completing zone identity, clears the timer and applies movement and attack restrictions through `TrySetControlEnabled(false)` and `TrySetAttackEnabled(false)`. These calls are reapplied idempotently while terminal. Player movement and combat retain only their existing enabled, vitality, cooldown and input rules; they do not depend on extraction types.
 
-`TryGetProgress(out ExtractionProgressSnapshot)` is side-effect free:
+`TryGetProgress(out ExtractionCountdownSnapshot)` is side-effect free. The contract was renamed from
+`ExtractionProgressSnapshot` during US-13 to distinguish the zone countdown from the individual quota snapshot:
 
 - `None`: valid, zero time and zero progress.
 - `InProgress`: valid only when runner, configuration, running timer and remaining time are available; no value is invented otherwise.
@@ -92,3 +93,13 @@ The extraction zone keeps its existing pozo visual and availability tint. TASK-2
 Zones clear overlap buffers' logical sets, occupant state and saturation diagnostics during despawn and destroy. Participants and zones unregister only their expected capabilities. Destroying the runner destroys its registry, preventing state from leaking into a later session.
 
 Automated coverage should include configuration and geometry boundaries, progress semantics, registry composition/conflicts, atomic enemy target invalidation, owner-protocol rejection, exact entry versus tolerant continuation, saturation behavior, authority, terminality and lifecycle. Fusion availability, timing, overlapping zones, independent players, despawn and clean-session behavior require runner tests plus the documented Host/Client manual checklist when no automated multi-runner harness proves them.
+
+## US-13 individual quota progress
+
+The MVP has individual progress only: the game supports solo expeditions and has no team progress, shared quota, team assignment or team contribution. `PlayerExtractionProgressController` on each player owns replicated `CurrentProgress` and `AssignmentRequested`; the positive quota remains immutable local configuration in `ExtractionConfig` and is not replicated. State Authority is the only writer. Contributions are accepted only during the matching authoritative simulation tick while the player is alive and not `Extracted`, use `long` arithmetic, and saturate at the configured quota. Reaching the quota changes `AssignmentRequested` once and it remains true for that player for the rest of the expedition. A new network player instance starts at zero with no pending assignment.
+
+`ExtractionProgressSnapshot` is the immutable quota projection: current progress, quota, percentage, completion and pending assignment. The pre-US-13 zone countdown contract was renamed to `ExtractionCountdownSnapshot`; this public rename prevents two unrelated meanings from sharing the same type name.
+
+`EntityRegistry` stores `IExtractionProgressReceiver` and `IExtractionProgressDefeatSource` in independent runner-scoped maps keyed by `EntityId`. These capabilities do not participate in collider registration or `TryRegisterEntity`. Producers call the receiver directly under State Authority; there is no global coordinator, gameplay event, RPC or event bus. `SimulationTick` is authoritative metadata and context validation, never a deduplication key. Multiple legitimate contributions may share one tick. One-shot behavior belongs to each producer: fatal `DamageResult`, first-open network state, provenance consumption during extraction, or pickup reservation/consumption.
+
+US-13 does not implement TASK-54–56 sanctuaries, reserves, rituals, maps, markers or progress UI.

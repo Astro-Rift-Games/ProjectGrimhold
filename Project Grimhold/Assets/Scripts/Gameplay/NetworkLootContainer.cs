@@ -12,6 +12,7 @@ using UnityEngine;
 public sealed class NetworkLootContainer : NetworkBehaviour,
     ILootReceiver,
     ILootExtractor,
+    ILootFirstAcquisitionSource,
     ILootQuantityReader,
     ILootContentReader,
     ILootSlotCapacityReader
@@ -39,6 +40,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     [Networked, Capacity(MaxLootTypes)]
     private NetworkDictionary<int, int> LootInventory => default;
+
+    [Networked, Capacity(MaxLootTypes)]
+    private NetworkDictionary<int, int> FirstAcquisitionEligibleInventory => default;
 
     [Networked]
     public NetworkBool IsInitialized { get; private set; }
@@ -125,10 +129,26 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             }
 
             NetworkDictionary<int, int> inventory = LootInventory;
-            for (int i = 0; i < resolvedEntries.Count; i++)
+            NetworkDictionary<int, int> eligibleInventory = FirstAcquisitionEligibleInventory;
+            inventory.Clear();
+            eligibleInventory.Clear();
+            try
             {
-                KeyValuePair<int, int> entry = resolvedEntries[i];
-                inventory.Set(entry.Key, entry.Value);
+                for (int i = 0; i < resolvedEntries.Count; i++)
+                {
+                    KeyValuePair<int, int> entry = resolvedEntries[i];
+                    inventory.Set(entry.Key, entry.Value);
+                    eligibleInventory.Set(entry.Key, entry.Value);
+                }
+            }
+            catch (Exception exception)
+            {
+                inventory.Clear();
+                eligibleInventory.Clear();
+                Debug.LogError(
+                    $"{nameof(NetworkLootContainer)}: Natural content and provenance initialization failed atomically for '{name}'. {exception.Message}",
+                    this);
+                return;
             }
 
             IsInitialized = true;
@@ -300,6 +320,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         bool hasStack = LootInventory.TryGet(index, out int currentAmount);
+        if (!TryValidateEligibility(index, currentAmount, hasStack))
+        {
+            Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent first-acquisition state for '{name}'.", this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
         return LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
     }
 
@@ -357,6 +383,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         NetworkDictionary<int, int> inventory = LootInventory;
         bool alreadyHeld = inventory.TryGet(index, out int currentAmount);
+        if (!TryValidateEligibility(index, currentAmount, alreadyHeld))
+        {
+            Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent first-acquisition state for '{name}'.", this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
         LootTransferFailureReason failure = LootInventoryRules.ValidateReceive(
             alreadyHeld,
             currentAmount,
@@ -396,17 +428,66 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         EnsureCommitContract(request, out int index, out int currentAmount);
 
-        int remainingAmount = checked(currentAmount - request.RequestedAmount);
+        if (!LootFirstAcquisitionRules.TryResolveExtraction(
+                currentAmount,
+                GetEligibleAmount(index),
+                request.RequestedAmount,
+                out _,
+                out int remainingAmount,
+                out int remainingEligibleAmount))
+        {
+            FailExtractionCommitContract();
+        }
+
         if (remainingAmount == 0)
         {
             LootInventory.Remove(index);
+            FirstAcquisitionEligibleInventory.Remove(index);
         }
         else
         {
             LootInventory.Set(index, remainingAmount);
+            if (remainingEligibleAmount > 0)
+            {
+                FirstAcquisitionEligibleInventory.Set(index, remainingEligibleAmount);
+            }
+            else
+            {
+                FirstAcquisitionEligibleInventory.Remove(index);
+            }
         }
 
         LootChangeSequence++;
+    }
+
+    /// <summary>
+    /// Resolves natural units for a request that has already passed source validation.
+    /// This query never mutates total or provenance state.
+    /// </summary>
+    public LootFirstAcquisitionResult ResolveFirstAcquisition(in LootTransferRequest request)
+    {
+        if (request.SourceId != Id || request.RequestedAmount <= 0 || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int index) ||
+            !LootInventory.TryGet(index, out int totalAmount) || totalAmount < request.RequestedAmount ||
+            !TryValidateEligibility(index, totalAmount, true))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ResolveFirstAcquisition)} requires a request already validated by this source.");
+        }
+
+        if (!LootFirstAcquisitionRules.TryResolveExtraction(
+                totalAmount,
+                GetEligibleAmount(index),
+                request.RequestedAmount,
+                out int eligibleAmount,
+                out _,
+                out _))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ResolveFirstAcquisition)} detected inconsistent validated provenance state.");
+        }
+
+        return new LootFirstAcquisitionResult(eligibleAmount);
     }
 
     public int GetLootAmount(LootId lootId)
@@ -421,7 +502,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public bool TryGetLootContent(out IReadOnlyList<LootEntry> content)
     {
         content = Array.Empty<LootEntry>();
-        if (_lootCatalog == null)
+        if (_lootCatalog == null || !TryValidateEligibilityState())
         {
             return false;
         }
@@ -464,7 +545,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
-        if (!IsInitialized || IsAvailable || !_isRegistered || LootInventory.Count != 0)
+        if (!IsInitialized || IsAvailable || !_isRegistered ||
+            LootInventory.Count != 0 || FirstAcquisitionEligibleInventory.Count != 0)
         {
             error = "Container must be initialized, registered, unavailable, and empty.";
             return false;
@@ -521,13 +603,16 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         LootInventory.Clear();
+        FirstAcquisitionEligibleInventory.Clear();
         LootChangeSequence++;
         return true;
     }
 
     internal bool HasExactContent(IReadOnlyList<LootEntry> expected)
     {
-        if (expected == null || !TryGetLootContent(out IReadOnlyList<LootEntry> actual) ||
+        if (expected == null || !TryValidateEligibilityState() ||
+            FirstAcquisitionEligibleInventory.Count != 0 ||
+            !TryGetLootContent(out IReadOnlyList<LootEntry> actual) ||
             actual.Count != expected.Count)
         {
             return false;
@@ -560,15 +645,57 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         out int index,
         out int currentAmount)
     {
+        index = default;
+        currentAmount = default;
         if (!HasStateAuthority || !IsInitialized || !IsAvailable || !_isRegistered ||
             request.SourceId != Id || request.DestinationId.Value == 0 ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out index) ||
             !LootInventory.TryGet(index, out currentAmount) || currentAmount < request.RequestedAmount)
         {
-            Debug.LogError($"{nameof(NetworkLootContainer)}: {nameof(CommitExtraction)} contract was violated for '{name}'.", this);
-            throw new InvalidOperationException("Loot extraction commit preconditions changed after successful validation.");
+            FailExtractionCommitContract();
         }
+
+        if (!TryValidateEligibility(index, currentAmount, true))
+        {
+            FailExtractionCommitContract();
+        }
+    }
+
+    private int GetEligibleAmount(int index)
+    {
+        return FirstAcquisitionEligibleInventory.TryGet(index, out int amount) ? amount : 0;
+    }
+
+    private bool TryValidateEligibility(int index, int totalAmount, bool hasStack)
+    {
+        bool hasEligible = FirstAcquisitionEligibleInventory.TryGet(index, out int eligibleAmount);
+        if (!hasStack)
+        {
+            return !hasEligible;
+        }
+
+        return totalAmount > 0 && (!hasEligible || eligibleAmount > 0 && eligibleAmount <= totalAmount);
+    }
+
+    private bool TryValidateEligibilityState()
+    {
+        foreach (KeyValuePair<int, int> pair in FirstAcquisitionEligibleInventory)
+        {
+            if (pair.Value <= 0 || !LootInventory.TryGet(pair.Key, out int totalAmount) ||
+                totalAmount <= 0 || pair.Value > totalAmount)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void FailExtractionCommitContract()
+    {
+        Debug.LogError($"{nameof(NetworkLootContainer)}: {nameof(CommitExtraction)} contract was violated for '{name}'.", this);
+        throw new InvalidOperationException("Loot extraction commit preconditions changed after successful validation.");
     }
 
     private void EnsureReceiveCommitContract(

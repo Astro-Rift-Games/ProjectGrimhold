@@ -3,12 +3,12 @@ using NUnit.Framework;
 namespace Tests.EditMode.Editor.Scenario
 {
     [TestFixture]
-    public sealed class ExtractionProgressSnapshotTests
+    public sealed class ExtractionCountdownSnapshotTests
     {
         [Test]
         public void None_ReturnsDefaultValues()
         {
-            ExtractionProgressSnapshot snapshot = ExtractionProgressSnapshot.None();
+            ExtractionCountdownSnapshot snapshot = ExtractionCountdownSnapshot.None();
 
             Assert.AreEqual(ExtractionState.None, snapshot.State);
             Assert.AreEqual(0f, snapshot.ElapsedSeconds);
@@ -20,7 +20,7 @@ namespace Tests.EditMode.Editor.Scenario
         public void Extracted_ReturnsExtractedValues()
         {
             EntityId zoneId = new EntityId(27);
-            ExtractionProgressSnapshot snapshot = ExtractionProgressSnapshot.Extracted(zoneId);
+            ExtractionCountdownSnapshot snapshot = ExtractionCountdownSnapshot.Extracted(zoneId);
 
             Assert.AreEqual(ExtractionState.Extracted, snapshot.State);
             Assert.AreEqual(zoneId, snapshot.ActiveZoneId);
@@ -32,7 +32,7 @@ namespace Tests.EditMode.Editor.Scenario
         [Test]
         public void InProgress_ClampsProgressZeroToOne()
         {
-            ExtractionProgressSnapshot snapshot = new ExtractionProgressSnapshot(
+            ExtractionCountdownSnapshot snapshot = new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 new EntityId(27),
                 remainingSeconds: 2.5f,
@@ -44,7 +44,7 @@ namespace Tests.EditMode.Editor.Scenario
             Assert.AreEqual(5f, snapshot.TotalSeconds);
             Assert.AreEqual(0.5f, snapshot.Progress);
 
-            ExtractionProgressSnapshot overclamped = new ExtractionProgressSnapshot(
+            ExtractionCountdownSnapshot overclamped = new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 new EntityId(27),
                 remainingSeconds: 0f,

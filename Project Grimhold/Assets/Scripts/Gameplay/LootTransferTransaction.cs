@@ -15,6 +15,20 @@ public static class LootTransferTransaction
         ILootReceiver destination,
         in LootTransferRequest request)
     {
+        return Execute(source, destination, request, out _);
+    }
+
+    /// <summary>
+    /// Executes the existing atomic transfer while exposing authoritative first-acquisition
+    /// provenance separately from the unchanged request.
+    /// </summary>
+    public static LootTransferResult Execute(
+        ILootExtractor source,
+        ILootReceiver destination,
+        in LootTransferRequest request,
+        out LootFirstAcquisitionResult firstAcquisition)
+    {
+        firstAcquisition = LootFirstAcquisitionResult.None;
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -31,6 +45,15 @@ public static class LootTransferTransaction
             return LootTransferResult.Rejected(failure);
         }
 
+        LootFirstAcquisitionResult resolvedAcquisition = source is ILootFirstAcquisitionSource provenanceSource
+            ? provenanceSource.ResolveFirstAcquisition(request)
+            : LootFirstAcquisitionResult.None;
+        if (!resolvedAcquisition.IsValidFor(request))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ILootFirstAcquisitionSource)} returned an amount outside the validated request range.");
+        }
+
         failure = destination.ValidateReceive(request);
         if (failure != LootTransferFailureReason.None)
         {
@@ -39,6 +62,7 @@ public static class LootTransferTransaction
 
         source.CommitExtraction(request);
         destination.CommitReceive(request);
+        firstAcquisition = resolvedAcquisition;
         return LootTransferResult.Succeeded(request);
     }
 }

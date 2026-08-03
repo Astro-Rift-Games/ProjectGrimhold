@@ -46,6 +46,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     private int SynchronizedAmount { get; set; }
 
+    [Networked]
+    public int FirstAcquisitionEligibleAmount { get; private set; }
+
     public bool IsAvailable => IsInitialized && IsPublished && !IsConsumed;
 
     public new EntityId Id => new EntityId(unchecked((int)Object.Id.Raw));
@@ -56,6 +59,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     private EntityId _registeredId;
     private LootEntry _spawnContentOverride;
     private bool _hasSpawnContentOverride;
+    private int _spawnEligibleAmountOverride;
     private LootDefinition _resolvedLootDefinition;
 
     /// <summary>Static loot definition resolved locally from replicated catalog identity.</summary>
@@ -134,7 +138,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         NetworkObject expectedObject,
         in LootEntry entry)
     {
-        return TrySetSpawnContentOverride(runner, expectedObject, entry, true);
+        return TrySetSpawnContentOverride(runner, expectedObject, entry, true, entry.Amount);
     }
 
     /// <summary>
@@ -147,11 +151,28 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         in LootEntry entry,
         bool initiallyPublished)
     {
+        return TrySetSpawnContentOverride(
+            runner,
+            expectedObject,
+            entry,
+            initiallyPublished,
+            entry.Amount);
+    }
+
+    internal bool TrySetSpawnContentOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        in LootEntry entry,
+        bool initiallyPublished,
+        int firstAcquisitionEligibleAmount)
+    {
         if (_hasSpawnContentOverride || runner == null || !runner.IsServer ||
             expectedObject == null || expectedObject.gameObject != gameObject ||
             expectedObject.GetComponent<NetworkLootPickup>() != this ||
             !entry.IsValid || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(entry.LootId, out _))
+            !_lootCatalog.TryGetIndex(entry.LootId, out _) ||
+            firstAcquisitionEligibleAmount < 0 ||
+            firstAcquisitionEligibleAmount > entry.Amount)
         {
             return false;
         }
@@ -159,6 +180,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _spawnContentOverride = entry;
         _hasSpawnContentOverride = true;
         _spawnStartsPublished = initiallyPublished;
+        _spawnEligibleAmountOverride = firstAcquisitionEligibleAmount;
         return true;
     }
 
@@ -168,7 +190,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     internal bool ValidateDropPublication(NetworkRunner runner, NetworkObject expectedObject)
     {
         return HasStateAuthority && runner == Runner && expectedObject == Object &&
-            IsInitialized && !IsPublished && !IsConsumed && _resolvedLootDefinition != null;
+            IsInitialized && !IsPublished && !IsConsumed && _resolvedLootDefinition != null &&
+            FirstAcquisitionEligibleAmount == 0;
     }
 
     /// <summary>
@@ -241,6 +264,22 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         // Commit cannot reject after successful prevalidation while State Authority
         // retains control. Any inability to apply is an integration contract violation.
         receiver.CommitReceive(transferRequest);
+        int eligibleAmount = FirstAcquisitionEligibleAmount;
+        if (eligibleAmount > 0 && _resolvedLootDefinition.ExtractionValuePerUnit > 0 &&
+            _registry.TryGetExtractionProgressReceiver(
+                request.InteractorId,
+                out IExtractionProgressReceiver progressReceiver))
+        {
+            long progressAmount = checked(
+                (long)_resolvedLootDefinition.ExtractionValuePerUnit * eligibleAmount);
+            progressReceiver.TryApplyContribution(new ExtractionProgressContribution(
+                ExtractionProgressSourceType.LootFirstAcquisition,
+                Id,
+                progressAmount,
+                request.SimulationTick));
+        }
+        FirstAcquisitionEligibleAmount = 0;
+
         if (receiver is ILootPickupFeedbackSink feedbackSink)
         {
             feedbackSink.PublishPickupGrant(transferRequest);
@@ -271,6 +310,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         LootCatalogIndex = catalogIndex;
         SynchronizedAmount = entry.Amount;
+        FirstAcquisitionEligibleAmount = _hasSpawnContentOverride
+            ? _spawnEligibleAmountOverride
+            : entry.Amount;
         IsConsumed = false;
         IsPublished = _hasSpawnContentOverride ? _spawnStartsPublished : true;
         IsInitialized = true;
