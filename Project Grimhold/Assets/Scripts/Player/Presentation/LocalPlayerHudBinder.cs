@@ -2,7 +2,7 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Binds the provisional gameplay HUD exclusively to this peer's Input Authority player.
+/// Binds the local gameplay HUD exclusively to this peer's Input Authority player.
 /// All dependencies are serialized within the network player prefab.
 /// </summary>
 [DisallowMultipleComponent]
@@ -43,6 +43,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     [SerializeField]
     private PlayerCombatNetworkController _combatController;
+
+    [SerializeField]
+    private PlayerExtractionController _extractionController;
 
     [SerializeField]
     private PlayerLootTransferNetworkController _lootTransferController;
@@ -110,7 +113,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _inventoryPresenter == null || _raidHudPresenter == null || _combatFeedbackPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null ||
-            _playerCharacter == null || _combatController == null)
+            _playerCharacter == null || _combatController == null || _extractionController == null)
         {
             Debug.LogError($"{nameof(LocalPlayerHudBinder)} has missing HUD dependencies.", this);
             SetHudActive(false);
@@ -139,7 +142,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         SetHudActive(true);
         _interactionPresenter.Bind(_candidateSource, _interactionController, Runner);
         _lootPresenter.Bind(_lootReceiver);
-        _raidHudPresenter.Bind(_playerCharacter, _combatController, _lootReceiver);
+        _raidHudPresenter.Bind(_playerCharacter, _combatController, _lootReceiver, _extractionController);
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;

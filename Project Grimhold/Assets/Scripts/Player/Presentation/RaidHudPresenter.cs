@@ -15,6 +15,11 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private PlayerCharacter _character;
     private PlayerCombatNetworkController _combatController;
     private PlayerLootReceiver _lootReceiver;
+    private PlayerExtractionController _extractionController;
+
+    [SerializeField]
+    [Min(0f)]
+    private float _cancellationFeedbackDuration = 1.25f;
 
     private bool _isBound;
     private bool _classResolved;
@@ -32,20 +37,29 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private int _observedLootSequence;
 
+    private bool _hasExtractionState;
+    private ExtractionState _observedExtractionState;
+    private float _cancellationFeedbackUntil;
+
     /// <summary>
     /// Binds the local presentation to the current Input Authority player's sources.
     /// Missing runtime sources degrade their own section without affecting gameplay.
     /// </summary>
+    /// <param name="extractionController">
+    /// Existing network component that supplies the confirmed local extraction snapshot.
+    /// </param>
     public void Bind(
         PlayerCharacter character,
         PlayerCombatNetworkController combatController,
-        PlayerLootReceiver lootReceiver)
+        PlayerLootReceiver lootReceiver,
+        PlayerExtractionController extractionController)
     {
         Unbind();
 
         _character = character;
         _combatController = combatController;
         _lootReceiver = lootReceiver;
+        _extractionController = extractionController;
         _isBound = true;
         ResetObservedState();
         _view?.Clear();
@@ -76,6 +90,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _character = null;
         _combatController = null;
         _lootReceiver = null;
+        _extractionController = null;
         _isBound = false;
         _classResolved = false;
         ResetObservedState();
@@ -113,14 +128,15 @@ public sealed class RaidHudPresenter : MonoBehaviour
         RefreshHealth();
         RefreshCombat();
         RefreshInventoryIfNeeded();
+        RefreshExtraction();
     }
 
     private void RefreshAll()
     {
-        _view?.PresentExtractionUnavailable();
         RefreshHealth();
         RefreshCombat();
         RefreshInventoryIfNeeded();
+        RefreshExtraction();
     }
 
     private void RefreshHealth()
@@ -207,6 +223,75 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedLootSequence = currentSequence;
     }
 
+    private void RefreshExtraction()
+    {
+        if (!IsSpawned(_extractionController) ||
+            !_extractionController.TryGetProgress(out ExtractionProgressSnapshot snapshot))
+        {
+            _hasExtractionState = false;
+            _cancellationFeedbackUntil = 0f;
+            _view?.PresentExtractionUnavailable();
+            return;
+        }
+
+        ApplyExtractionSnapshot(snapshot);
+    }
+
+    private void ApplyExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+    {
+        ExtractionState previousState = _observedExtractionState;
+        bool hadObservedState = _hasExtractionState;
+        _hasExtractionState = true;
+        _observedExtractionState = snapshot.State;
+
+        if (hadObservedState &&
+            previousState == ExtractionState.InProgress &&
+            snapshot.State == ExtractionState.None)
+        {
+            float duration = SanitizeDuration(_cancellationFeedbackDuration);
+            if (duration > 0f)
+            {
+                _cancellationFeedbackUntil = Time.unscaledTime + duration;
+                _view?.PresentExtractionCancelled();
+            }
+            else
+            {
+                _cancellationFeedbackUntil = 0f;
+                _view?.PresentExtractionUnavailable();
+            }
+
+            return;
+        }
+
+        if (snapshot.State == ExtractionState.None &&
+            _cancellationFeedbackUntil > Time.unscaledTime)
+        {
+            return;
+        }
+
+        _cancellationFeedbackUntil = 0f;
+        PresentExtractionSnapshot(snapshot);
+    }
+
+    private void PresentExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+    {
+        switch (snapshot.State)
+        {
+            case ExtractionState.None:
+                _view?.PresentExtractionUnavailable();
+                break;
+            case ExtractionState.InProgress:
+                _view?.PresentExtractionCountdown(SanitizeExtractionRemaining(snapshot.RemainingSeconds));
+                break;
+            case ExtractionState.Extracted:
+                _view?.PresentExtractionCompleted();
+                break;
+            default:
+                _view?.PresentExtractionUnavailable();
+                break;
+        }
+    }
+
     private void ResetObservedState()
     {
         _hasHealthState = false;
@@ -219,6 +304,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCooldownRemaining = 0f;
         _observedCooldownFill = 0f;
         _observedLootSequence = int.MinValue;
+        _hasExtractionState = false;
+        _observedExtractionState = ExtractionState.None;
+        _cancellationFeedbackUntil = 0f;
     }
 
     private static bool TryGetPlayerClassDisplayName(
@@ -262,6 +350,13 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         return IsFinite(durationSeconds) && durationSeconds > 0f
             ? durationSeconds
+            : 0f;
+    }
+
+    private static float SanitizeExtractionRemaining(float remainingSeconds)
+    {
+        return IsFinite(remainingSeconds) && remainingSeconds > 0f
+            ? Mathf.Ceil(remainingSeconds * 10f) * 0.1f
             : 0f;
     }
 

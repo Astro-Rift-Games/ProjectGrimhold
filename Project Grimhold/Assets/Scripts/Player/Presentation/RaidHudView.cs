@@ -155,10 +155,29 @@ public sealed class RaidHudView : MonoBehaviour
         SetText(_inventoryText, $"Inventario: {UnavailableValue} / {UnavailableValue}");
     }
 
-    /// <summary>Presents the provisional extraction placeholder for TASK-39.</summary>
+    /// <summary>Presents the unavailable extraction state.</summary>
     public void PresentExtractionUnavailable()
     {
         SetText(_extractionText, "Extracción: no disponible");
+    }
+
+    /// <summary>Presents the confirmed remaining duration of the local extraction process.</summary>
+    public void PresentExtractionCountdown(float remainingSeconds)
+    {
+        float safeRemaining = IsFinite(remainingSeconds) ? Mathf.Max(0f, remainingSeconds) : 0f;
+        SetText(_extractionText, $"Extracción: {safeRemaining:0.0} s");
+    }
+
+    /// <summary>Presents a transient cancellation confirmation for the local extraction process.</summary>
+    public void PresentExtractionCancelled()
+    {
+        SetText(_extractionText, "Extracción: cancelada");
+    }
+
+    /// <summary>Presents the terminal confirmed extracted state.</summary>
+    public void PresentExtractionCompleted()
+    {
+        SetText(_extractionText, "EXTRAÍDO");
     }
 
     /// <summary>Shows or hides the local defeated indicator without hiding the HUD.</summary>
@@ -170,7 +189,7 @@ public sealed class RaidHudView : MonoBehaviour
         }
     }
 
-    /// <summary>Restores all TASK-39 placeholders, fills, and local indicators.</summary>
+    /// <summary>Restores all HUD placeholders, fills, and local indicators.</summary>
     public void Clear()
     {
         if (_mainHudRoot != null && !_mainHudRoot.activeSelf)

@@ -2,7 +2,7 @@
 
 ## Context
 
-TASK-39 adds the always-available raid summary for the local player. It is presentation-only: it does not own health, combat, loot, class-selection, or extraction state, and it introduces no replicated fields.
+TASK-39 adds the always-available raid summary for the local player. TASK-29 connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, class-selection, or extraction state, and it introduces no replicated fields.
 
 The HUD is composed in `NetworkPlayer.prefab` under the existing `LocalGameplayHud` Canvas. `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` inherit that composition from the base prefab.
 
@@ -34,7 +34,7 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Selected class | runner-scoped `LocalPlayerJoinContext.JoinData.ClassId` |
 | Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
 | Loot value inside the inventory screen | `PlayerLootReceiver.TryCalculateTotalValue` |
-| Extraction | fixed provisional text: `Extracción: no disponible` |
+| Extraction | local `PlayerExtractionController.TryGetProgress` |
 
 `CharacterBase.MaxHealth` exposes the configured maximum as read-only data. It is not a second networked health value.
 
@@ -78,9 +78,11 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 `Unbind`, disable, Fusion despawn, destroy, and session replacement all remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies, impact numbers, pulses and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat keeps the persistent HUD visible but immediately clears transient combat feedback.
 
-## Extraction boundary
+## Extraction presentation
 
-There is no raid-extraction gameplay dependency in TASK-39. The view always displays `Extracción: no disponible`; the presenter does not poll, simulate, or define an extraction contract. Connecting a future extraction system is a separate task and does not keep TASK-39 open.
+`LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionProgressSnapshot`, so joining during an active countdown or after completion does not emit a false transition. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
+
+The extraction HUD section never writes player state, calls an extraction command, or uses a parallel local countdown. The local HUD remains available after `Extracted`; authoritative interaction, damage and loot protocols continue to enforce the existing terminal restrictions.
 
 ## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
 
@@ -101,7 +103,7 @@ There is no raid-extraction gameplay dependency in TASK-39. The view always disp
 
 ## Validation strategy
 
-EditMode tests cover class mapping and late resolution through presenter behavior, clearing between bindings, safe cooldown normalization, missing-source placeholders, and duplicate view writes.
+EditMode tests cover class mapping and late resolution through presenter behavior, clearing between bindings, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
 
 PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, Input Authority visibility, late class resolution, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and defeat without hiding the HUD.
 
@@ -110,4 +112,4 @@ Manual validation remains necessary for:
 - real Host/Client isolation and observed replication of health and cooldown;
 - complete session restart;
 - layout, anchors, contrast, radial fill, target resolutions, and coexistence with inventory and the interaction prompt;
-- defeat, loot collection/transfer, visible class labels, and the extraction placeholder in the actual game flow.
+- defeat, loot collection/transfer, visible class labels, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.

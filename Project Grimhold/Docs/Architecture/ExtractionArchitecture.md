@@ -2,7 +2,7 @@
 
 ## Context and status
 
-TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-29 remains future presentation scope. The core does not despawn the player, create rewards, persist loot, close the session, or depend on UI, animation, audio or VFX.
+TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-29 projects that confirmed state into the local HUD and replicated player visuals. The core does not despawn the player, create rewards, persist loot, close the session, or depend on UI, animation, audio or VFX.
 
 ## Sources of truth
 
@@ -78,6 +78,14 @@ Duration, remaining time and percentage are derived and are not networked. TASK-
 Interaction, loot transfer and world drop revalidate extraction inside their authoritative owner protocols. Interaction records `InteractorUnavailable`, advances `InteractionSequence`, sends the normal directed confirmation and publishes it during `Render` without querying or invoking an interactable. Transfer and drop return their `PlayerUnavailable` reasons through normal confirmations so pending state and `HasRequestInFlight` are released; Take All follows its existing success/rejection continuation policy.
 
 Enemy AI has no extraction dependency. `EnemyMovementAIController` owns one atomic target reference whose canonical identity is `EntityId` and whose `Transform` is only a cache. Acquisition and maintenance resolve `ICharacter` and `IDamageable` for that identity and require `IsAlive && CanReceiveDamage`. Invalidating an expected identity clears identity, transform, pursuit and attack flags together, allowing the existing FSM to leave `Chase` or `Attack`. `EnemyCombatAIController` repeats the same registry-backed validation before committing an attack and immediately before executing pending damage. Existing projectiles continue simulation, but impact resolution rejects an unavailable damage target.
+
+## TASK-29 presentation boundary
+
+`RaidHudPresenter` is bound only to the Input Authority player's `PlayerExtractionController`. It reads `TryGetProgress` during presentation updates and renders the confirmed local countdown, a one-shot cancellation message, or the terminal `Extracted` label. It does not start, cancel or complete extraction and does not maintain a gameplay timer. The cancellation message uses an unscaled presentation-only duration.
+
+`PlayerExtractionPresenter` observes the replicated `ExtractionState` on every peer. When the state is `Extracted`, it hides only the serialized `Body` and `CombatVisuals` roots. The NetworkObject, colliders, camera, HUD, interaction and authoritative gameplay components remain active. Disabling the presenter restores its serialized visual state; re-enabling it reapplies the terminal visual from the current confirmed state.
+
+The extraction zone keeps its existing pozo visual and availability tint. TASK-29 does not add world-space UI, audio, particles, a second extraction clock or another networked state source.
 
 ## Lifecycle and validation
 

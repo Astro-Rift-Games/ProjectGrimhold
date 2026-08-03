@@ -547,6 +547,7 @@ GameObject:
   - component: {fileID: 4100000000000000103}
   - component: {fileID: 4100000000000000104}
   - component: {fileID: 8121909954639136856}
+  - component: {fileID: 8121909954639136857}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -1005,6 +1006,7 @@ MonoBehaviour:
   _lootReceiver: {fileID: 3651456422916611865}
   _playerCharacter: {fileID: 729366679366126330}
   _combatController: {fileID: 2769229401594790361}
+  _extractionController: {fileID: 8121909954639136856}
   _lootTransferController: {fileID: 8800000000000000003}
   _lootDropController: {fileID: 8800000000000000004}
 --- !u!114 &8800000000000000003
@@ -1126,6 +1128,22 @@ MonoBehaviour:
   _combatController: {fileID: 2769229401594790361}
   _characterSource: {fileID: 729366679366126330}
   _State: 0
+--- !u!114 &8121909954639136857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3f8f19120c34eb6a6ecf0f6384c2d17, type: 3}
+  m_Name: ''
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionPresenter
+  _extractionController: {fileID: 8121909954639136856}
+  _visualRoots:
+  - {fileID: 1221760144332657486}
+  - {fileID: 2408805181285633772}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

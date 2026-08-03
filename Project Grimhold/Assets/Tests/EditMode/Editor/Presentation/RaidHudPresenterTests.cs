@@ -26,7 +26,7 @@ namespace Tests.EditMode.Presentation
             _view = _instance.GetComponentInChildren<RaidHudView>(true);
             Assert.That(_presenter, Is.Not.Null);
             Assert.That(_view, Is.Not.Null);
-            _presenter.Bind(null, null, null);
+            _presenter.Bind(null, null, null, null);
         }
 
         [TearDown]
@@ -119,6 +119,67 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.ClassText.havePropertiesChanged, Is.False);
         }
 
+        [TestCase(3.2f, "Extracción: 3,2 s")]
+        [TestCase(float.NaN, "Extracción: 0,0 s")]
+        [TestCase(-1f, "Extracción: 0,0 s")]
+        public void ExtractionViewPresentsSanitizedCountdown(float remainingSeconds, string expected)
+        {
+            _view.PresentExtractionCountdown(remainingSeconds);
+
+            Assert.That(_view.ExtractionText.text, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ExtractionViewPresentsCancellationAndTerminalState()
+        {
+            _view.PresentExtractionCancelled();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: cancelada"));
+
+            _view.PresentExtractionCompleted();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
+        }
+
+        [TestCase(3.21f, 3.3f)]
+        [TestCase(3.2f, 3.2f)]
+        [TestCase(0f, 0f)]
+        [TestCase(-1f, 0f)]
+        [TestCase(float.NaN, 0f)]
+        [TestCase(float.PositiveInfinity, 0f)]
+        public void ExtractionRemainingIsRoundedUpWithoutLeavingValidRange(float remainingSeconds, float expected)
+        {
+            float sanitized = InvokeSanitizeExtractionRemaining(remainingSeconds);
+
+            Assert.That(sanitized, Is.EqualTo(expected).Within(0.0001f));
+            Assert.That(sanitized, Is.GreaterThanOrEqualTo(0f));
+        }
+
+        [Test]
+        public void ConfirmedExtractionSnapshotsDriveBaselineAndOneShotCancellation()
+        {
+            InvokeApplyExtractionSnapshot(new ExtractionProgressSnapshot(
+                ExtractionState.InProgress,
+                default,
+                2.34f,
+                5f,
+                0.5f));
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: 2,4 s"));
+
+            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.None());
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: cancelada"));
+
+            SetPresenterFloat("_cancellationFeedbackUntil", -1f);
+            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.None());
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
+        }
+
+        [Test]
+        public void InitialConfirmedTerminalSnapshotDoesNotEmitCancellation()
+        {
+            InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot.Extracted(default));
+
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
+        }
+
         private static float InvokeNormalizeCooldown(float duration, float remaining)
         {
             MethodInfo method = typeof(RaidHudPresenter).GetMethod(
@@ -126,6 +187,33 @@ namespace Tests.EditMode.Presentation
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             return (float)method.Invoke(null, new object[] { duration, remaining });
+        }
+
+        private static float InvokeSanitizeExtractionRemaining(float remaining)
+        {
+            MethodInfo method = typeof(RaidHudPresenter).GetMethod(
+                "SanitizeExtractionRemaining",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (float)method.Invoke(null, new object[] { remaining });
+        }
+
+        private void InvokeApplyExtractionSnapshot(ExtractionProgressSnapshot snapshot)
+        {
+            MethodInfo method = typeof(RaidHudPresenter).GetMethod(
+                "ApplyExtractionSnapshot",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(_presenter, new object[] { snapshot });
+        }
+
+        private void SetPresenterFloat(string fieldName, float value)
+        {
+            FieldInfo field = typeof(RaidHudPresenter).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(_presenter, value);
         }
 
         private bool ReadPresenterFlag(string fieldName)
