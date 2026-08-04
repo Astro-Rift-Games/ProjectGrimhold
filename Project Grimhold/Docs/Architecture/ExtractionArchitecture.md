@@ -119,7 +119,7 @@ During resimulation, the same inputs and free set select the same candidate. An 
 
 ## TASK-55 authoritative individual ritual
 
-Each `ExtractionSanctuary` now composes one `ExtractionZone` on the same root `NetworkObject` and therefore shares one canonical `EntityId`. The Sanctuary owns reservation, ritual state, ritual timer and interaction rules. The Zone independently owns geometry, candidate scanning and availability. The registry keeps `IExtractionSanctuary`, `IInteractable`, collider identity and `IExtractionZone` as distinct capabilities under that shared identity; no player-side assignment or second zone identity is synchronized.
+Each `ExtractionSanctuary` composes one `ExtractionZone` on the same root `NetworkObject` and therefore shares one canonical `EntityId`. The Sanctuary is the single extraction interactable: it owns reservation, ritual state, ritual timer and the interaction that starts the ritual. The co-located Zone is only the Sanctuary's physical interaction/extraction area; after the ritual completes it validates geometry, availability and occupancy for the final countdown, but it is never a second interactable or destination. The registry keeps `IExtractionSanctuary`, `IInteractable`, collider identity and `IExtractionZone` as distinct capabilities under that shared identity; no player-side assignment or second zone identity is synchronized.
 
 `Gameplay` contains four scene NetworkObjects rather than runtime-randomized Sanctuary spawns. Their positions are authored from valid cell centers of the scene's `Floor` tilemap, and the serialized-scene test requires every tile covered by each zone collider to exist on that tilemap. This keeps the endpoints reachable when the dungeon layout or floor transform offsets differ from raw world-space quadrants.
 
@@ -127,8 +127,41 @@ Registration is compensated in the order Sanctuary capability, assignment servic
 
 `CanInteract` is a side-effect-free query used by authoritative and predictive selection. It consumes only replicated reservation/ritual state plus the runner-local character capability, so only the living owner sees the ritual candidate. `Interact` repeats those validations under State Authority, starts one `TickTimer`, and never emits presentation effects from simulation.
 
-Simulation order is authoritative gameplay and damage, Sanctuary ritual at order 90, Zone scan at 100, then player extraction continuation at 110. An in-progress ritual validates composition and owner identity, resolves the owner, checks vitality, and only then checks expiry. Death on the expiry tick therefore cancels. `Cancelled` and `Completed` are terminal. Completion writes `Completed` before enabling the co-located Zone and subsequent authoritative ticks idempotently reaffirm availability.
+Simulation order is authoritative gameplay and damage, Sanctuary ritual at order 90, Zone scan at 100, then player extraction continuation at 110. An in-progress ritual validates composition and owner identity, resolves the owner, checks vitality, and only then checks expiry. Death on the expiry tick therefore cancels. `Cancelled` and `Completed` are terminal. Completion writes `Completed` before enabling the co-located Zone and subsequent authoritative ticks idempotently reaffirm availability; while the owner remains inside, that area then starts the final countdown through the existing authoritative zone flow. The only interaction target is the Sanctuary.
 
 The Zone rejects attempts to disable itself after the co-located registered Sanctuary reaches `Completed`. Availability alone is not extraction authorization: `PlayerExtractionController` resolves the Sanctuary with the same zone ID and requires the participant to be its owner with a completed ritual both when starting and continuing.
 
-`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. Presentation, map/minimap markers, audio and VFX remain TASK-56 work.
+`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. TASK-56 consumes this projection for HUD and world presentation; map/minimap markers and spatial audio remain pending.
+
+## TASK-56 presentation boundary
+
+TASK-56 is a partial presentation delivery. The local HUD consumes the nullable
+`PlayerExtractionProgressController`, runner-scoped `ExtractionSanctuaryAssignmentService`,
+runner-scoped `EntityRegistry`, `IExtractionSanctuary`, `ExtractionProgressSnapshot`,
+`ExtractionRitualSnapshot` and the existing `ExtractionCountdownSnapshot`. Each source is
+evaluated independently: a missing assignment service or sanctuary does not hide valid
+progress, and a missing progress source does not disable the rest of the HUD.
+
+The extraction text has one explicit priority: terminal `Extracted`, active extraction
+countdown, existing cancellation feedback, completed ritual, in-progress ritual, cancelled
+ritual, quota confirmation, assigned Sanctuary, completed quota without a resolvable
+assignment, individual progress, and finally the unavailable placeholder. Progress and
+countdown maintain separate observation baselines. The first valid snapshot and the first
+snapshot after an invalid interval establish a baseline; only an observed incomplete-to-
+complete quota transition produces the local, unscaled confirmation feedback.
+
+`ExtractionZone` is simulation-only and is the interaction area of the Sanctuary.
+`ExtractionSanctuaryPresenter` is the only renderer owner for the Sanctuary visual. It resolves the current local PlayerObject on every presentation
+update from `Runner.LocalPlayer` and never retains a private player identity. Invalid or
+replaced runner/player context immediately falls back to the public visual state.
+
+The Sanctuary presenter exposes only public ritual progress to rivals: an unreserved/base
+state, a global `InProgress` pulse, or a permanent `Completed` state. Reserved and cancelled
+tints are private to the currently resolved local owner. The pulse uses unscaled time only as
+an aesthetic phase and never represents ritual duration or progress. All presenters preserve
+the alpha authored on each renderer; state changes modify RGB only and never alter zone
+transparency. Presentation components
+write no simulation state and add no replicated properties, RPCs or gameplay timers.
+
+Map/minimap markers and spatial audio remain explicitly pending because their systems and
+approved resources do not exist.

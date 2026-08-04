@@ -35,6 +35,8 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
 | Loot value inside the inventory screen | `PlayerLootReceiver.TryCalculateTotalValue` |
 | Extraction | local `PlayerExtractionController.TryGetProgress` |
+| Individual extraction progress | local `PlayerExtractionProgressController.TryGetSnapshot` |
+| Sanctuary assignment and ritual | runner `ExtractionSanctuaryAssignmentService`, `EntityRegistry`, `IExtractionSanctuary` |
 
 `CharacterBase.MaxHealth` exposes the configured maximum as read-only data. It is not a second networked health value.
 
@@ -76,15 +78,39 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 `OnEnable` before binding is valid and has no effect. Bind starts from an idempotent unbind, clears placeholders, caches the current sources, and requests initial reads.
 
-`Unbind`, disable, Fusion despawn, destroy, and session replacement all remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies, impact numbers, pulses and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat keeps the persistent HUD visible but immediately clears transient combat feedback.
+`Unbind`, Fusion despawn, destroy, and session replacement remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies, feedback and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Disabling `RaidHudPresenter` itself clears visual observations and baselines but keeps its sources so re-enable can rebuild without a second binder subscription. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat keeps the persistent HUD visible but immediately clears transient combat feedback.
 
 ## Extraction presentation
 
 `LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionCountdownSnapshot`, so joining during an active countdown or after completion does not emit a false transition. This countdown contract was renamed from `ExtractionProgressSnapshot` in US-13 so the latter can exclusively describe individual quota progress. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
 
-US-13 adds no progress HUD. `ExtractionProgressSnapshot` is available as a read-only individual quota contract for later work, but TASK-29 continues to render only `ExtractionCountdownSnapshot`. There is no team progress projection. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
+TASK-56 adds no team progress projection. `ExtractionProgressSnapshot` is presented as the local individual quota text, while assignment and ritual text are derived from the runner-scoped assignment service, registry and Sanctuary snapshot. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
 
 The extraction HUD section never writes player state, calls an extraction command, or uses a parallel local countdown. The local HUD remains available after `Extracted`; authoritative interaction, damage and loot protocols continue to enforce the existing terminal restrictions.
+
+TASK-56 extends the binding with nullable presentation sources for individual progress,
+Sanctuary assignment and the runner registry. `LocalPlayerHudBinder` resolves the assignment
+service and registry once per binding, but their absence is section-local and cannot disable
+the health, combat, inventory, interaction or menu HUD. `RaidHudPresenter.Bind` accepts all
+three extraction sources as nullable and evaluates them independently.
+
+`RaidHudPresenter.OnDisable` clears visual output, feedback and observation baselines while
+retaining bound references. `OnEnable` rebuilds from the current confirmed state and starts
+fresh baselines. `Unbind` and `OnDestroy` remove references and presentation state. A source
+that becomes invalid clears only its own baseline, so recovery cannot replay historical quota
+feedback or cancellation transitions.
+
+The world Sanctuary presentation is not local assignment state. Its presenter resolves
+`Runner.LocalPlayer` and the current `PlayerObject` on every update, derives the current
+`EntityId`, and discards private ownership immediately if that context disappears or changes.
+No Sanctuary uses `HasInputAuthority`, static identity, scene lookup or a parallel assignment
+cache. `ExtractionSanctuaryPresenter` is the exclusive visual owner of the Sanctuary renderer;
+the co-located `ExtractionZone` contributes only interaction geometry and contains no renderer
+or fallback logic. The presenter preserves the renderer's authored alpha and only changes RGB
+for state presentation.
+
+TASK-56 deliberately does not add map/minimap UI or spatial audio. Those remain pending and
+the delivery is therefore partial.
 
 ## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
 

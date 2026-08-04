@@ -21,15 +21,10 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
     private Collider2D _zoneCollider;
 
     [SerializeField]
-    private SpriteRenderer _spriteRenderer;
-
-    [SerializeField]
     private bool _startsAvailable = true;
 
     [SerializeField]
     private LayerMask _participantMask;
-
-    private static Sprite _fallbackSquareSprite;
 
     private EntityRegistry _entityRegistry;
     private bool _isRegistered;
@@ -62,13 +57,6 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
     {
         CacheCollider();
         ConfigureParticipantFilter();
-        CacheRenderer();
-        UpdateVisualPresentation();
-    }
-
-    public override void Render()
-    {
-        UpdateVisualPresentation();
     }
 
     public override void Spawned()
@@ -248,42 +236,6 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
         }
     }
 
-    private void CacheRenderer()
-    {
-        if (_spriteRenderer == null)
-        {
-            _spriteRenderer = GetComponent<SpriteRenderer>() ?? GetComponentInChildren<SpriteRenderer>();
-        }
-
-        if (_spriteRenderer != null && _spriteRenderer.sprite == null)
-        {
-            if (_fallbackSquareSprite == null)
-            {
-                Texture2D texture = Texture2D.whiteTexture;
-                _fallbackSquareSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), 1f);
-            }
-            _spriteRenderer.sprite = _fallbackSquareSprite;
-            _spriteRenderer.drawMode = SpriteDrawMode.Sliced;
-        }
-    }
-
-    private void UpdateVisualPresentation()
-    {
-        if (_spriteRenderer == null)
-        {
-            return;
-        }
-
-        bool isAvailable = Application.isPlaying ? IsAvailable : _startsAvailable;
-        Color targetColor = isAvailable ? new Color(0.2f, 0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.2f, 0.2f, 0.35f);
-        _spriteRenderer.color = targetColor;
-
-        if (_zoneCollider is BoxCollider2D box)
-        {
-            _spriteRenderer.size = box.size;
-        }
-    }
-
     private bool IsColliderValid()
     {
         return _zoneCollider != null &&
@@ -407,10 +359,6 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
     {
         CacheCollider();
         ConfigureParticipantFilter();
-        if (_spriteRenderer == null)
-        {
-            _spriteRenderer = GetComponent<SpriteRenderer>();
-        }
     }
 #endif
 }

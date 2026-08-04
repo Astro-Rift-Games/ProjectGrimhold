@@ -1011,6 +1011,7 @@ MonoBehaviour:
   _playerCharacter: {fileID: 729366679366126330}
   _combatController: {fileID: 2769229401594790361}
   _extractionController: {fileID: 8121909954639136856}
+  _extractionProgressController: {fileID: 7797292579446274991}
   _lootTransferController: {fileID: 8800000000000000003}
   _lootDropController: {fileID: 8800000000000000004}
 --- !u!114 &8800000000000000003
@@ -1547,6 +1548,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RaidHudPresenter
   _view: {fileID: 8800000000000000108}
   _cancellationFeedbackDuration: 1.25
+  _quotaCompletedFeedbackDuration: 1.25
 --- !u!114 &8800000000000000114
 MonoBehaviour:
   m_ObjectHideFlags: 0

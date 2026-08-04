@@ -180,6 +180,43 @@ public sealed class RaidHudView : MonoBehaviour
         SetText(_extractionText, "EXTRAÍDO");
     }
 
+    /// <summary>Presents the local player's confirmed individual quota progress.</summary>
+    public void PresentExtractionProgress(int currentProgress, int quota)
+    {
+        SetText(_extractionText, $"Progreso: {Mathf.Max(0, currentProgress)} / {Mathf.Max(0, quota)}");
+    }
+
+    /// <summary>Presents a transient confirmation that the individual quota was completed.</summary>
+    public void PresentQuotaCompleted()
+    {
+        SetText(_extractionText, "Cuota completada");
+    }
+
+    /// <summary>Presents the confirmed individual Sanctuary assignment.</summary>
+    public void PresentSanctuaryAssigned()
+    {
+        SetText(_extractionText, "Santuario asignado");
+    }
+
+    /// <summary>Presents the confirmed ritual progress derived from Fusion's snapshot.</summary>
+    public void PresentRitualProgress(float remainingSeconds)
+    {
+        float safeRemaining = IsFinite(remainingSeconds) ? Mathf.Max(0f, remainingSeconds) : 0f;
+        SetText(_extractionText, $"Ritual: {safeRemaining:0.0} s");
+    }
+
+    /// <summary>Presents the terminal ritual cancellation state.</summary>
+    public void PresentRitualCancelled()
+    {
+        SetText(_extractionText, "Ritual cancelado");
+    }
+
+    /// <summary>Presents the permanent enabled Sanctuary state.</summary>
+    public void PresentSanctuaryEnabled()
+    {
+        SetText(_extractionText, "Santuario habilitado");
+    }
+
     /// <summary>Shows or hides the local defeated indicator without hiding the HUD.</summary>
     public void PresentDefeated(bool isDefeated)
     {

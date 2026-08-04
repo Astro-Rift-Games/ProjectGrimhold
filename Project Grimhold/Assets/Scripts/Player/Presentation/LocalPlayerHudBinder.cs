@@ -48,6 +48,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private PlayerExtractionController _extractionController;
 
     [SerializeField]
+    private PlayerExtractionProgressController _extractionProgressController;
+
+    [SerializeField]
     private PlayerLootTransferNetworkController _lootTransferController;
 
     [SerializeField]
@@ -59,6 +62,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private LocalInputContext _inputContext;
     private LocalPlayerJoinContext _joinContext;
     private NetworkRunner _boundRunner;
+    private ExtractionSanctuaryAssignmentService _assignmentService;
+    private EntityRegistry _entityRegistry;
 
     public override void Spawned()
     {
@@ -129,6 +134,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             return;
         }
 
+        _assignmentService = _boundRunner.GetComponent<ExtractionSanctuaryAssignmentService>();
+        _entityRegistry = _boundRunner.GetComponent<EntityRegistry>();
+
         _inputContext = _boundRunner.GetComponent<LocalInputContext>();
         if (_inputContext == null)
         {
@@ -142,7 +150,14 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         SetHudActive(true);
         _interactionPresenter.Bind(_candidateSource, _interactionController, Runner);
         _lootPresenter.Bind(_lootReceiver);
-        _raidHudPresenter.Bind(_playerCharacter, _combatController, _lootReceiver, _extractionController);
+        _raidHudPresenter.Bind(
+            _playerCharacter,
+            _combatController,
+            _lootReceiver,
+            _extractionController,
+            _extractionProgressController,
+            _assignmentService,
+            _entityRegistry);
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
@@ -275,6 +290,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     {
         _joinContext = null;
         _boundRunner = null;
+        _assignmentService = null;
+        _entityRegistry = null;
     }
 
     private void SetHudActive(bool active)

@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 700000000000000002}
   - component: {fileID: 700000000000000003}
   - component: {fileID: 5786374723593555651}
+  - component: {fileID: 700000000000000004}
   m_Layer: 8
   m_Name: ExtractionSanctuary
   m_TagString: Untagged
@@ -73,6 +74,7 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: 8f4d2742272b465690541c37b55a3120, type: 2}
   _extractionZone: {fileID: 700000000000000001}
   _interactionCollider: {fileID: 700000000000000002}
+  _RitualState: 0
 --- !u!114 &700000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -86,7 +88,6 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionZone
   _zoneCollider: {fileID: 700000000000000002}
-  _spriteRenderer: {fileID: 5786374723593555651}
   _startsAvailable: 0
   _participantMask:
     serializedVersion: 2
@@ -129,8 +130,8 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
-    newSize: {x: 2, y: 2}
+    oldSize: {x: 3, y: 2}
+    newSize: {x: 3, y: 2}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0
@@ -149,7 +150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21db0beaf3cc4a7b86d572c82d706f81, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
-  _promptText: Iniciar ritual
+  _promptText: Usar santuario
 --- !u!212 &5786374723593555651
 SpriteRenderer:
   serializedVersion: 3
@@ -200,7 +201,7 @@ SpriteRenderer:
   m_SortingOrder: -1
   m_MaskInteraction: 0
   m_Sprite: {fileID: 5345056546347773101, guid: 539a4151746ae714c829d25fb0806f63, type: 3}
-  m_Color: {r: 0.2, g: 0.65, b: 1, a: 0.8}
+  m_Color: {r: 0.2, g: 0.65, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -210,3 +211,18 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!114 &700000000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4614841395197269660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccd28f6b0d6c4e63b2fdbb24a6a2e0d1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ExtractionSanctuaryPresenter
+  _sanctuary: {fileID: 3315208112669804750}
+  _spriteRenderer: {fileID: 5786374723593555651}
+  _pulseFrequency: 1.5

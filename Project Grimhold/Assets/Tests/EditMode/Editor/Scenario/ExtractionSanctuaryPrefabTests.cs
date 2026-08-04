@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using Fusion;
 using NUnit.Framework;
 using UnityEditor;
@@ -16,13 +17,22 @@ namespace Tests.EditMode.Scenario
         private const string ScenePath = "Assets/Scenes/Gameplay.unity";
 
         [Test]
-        public void Prefab_ComposesSanctuaryZoneInteractionAndProvisionalVisualUnderOneRoot()
+        public void ExtractionFlowHasNoStandaloneZonePrefab()
+        {
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/ExtractionZone.prefab"),
+                Is.Null);
+        }
+
+        [Test]
+        public void Prefab_ComposesSanctuaryAndInteractionAreaUnderOneRoot()
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkObject>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<ExtractionSanctuary>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<ExtractionZone>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<ExtractionSanctuaryPresenter>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<BoxCollider2D>(), Is.Not.Null);
             SpriteRenderer zoneRenderer = prefab.GetComponent<SpriteRenderer>();
             Assert.That(zoneRenderer, Is.Not.Null);
@@ -30,9 +40,12 @@ namespace Tests.EditMode.Scenario
             Assert.That(zoneRenderer.sortingLayerName, Is.EqualTo("Characters"));
             Assert.That(zoneRenderer.color.a, Is.GreaterThan(0f));
             Assert.That(prefab.GetComponent<IInteractable>(), Is.SameAs(prefab.GetComponent<ExtractionSanctuary>()));
-            Assert.That(prefab.GetComponent<InteractionPromptMetadata>().PromptText, Is.EqualTo("Iniciar ritual"));
+            Assert.That(prefab.GetComponent<InteractionPromptMetadata>().PromptText, Is.EqualTo("Usar santuario"));
             Assert.That(prefab.layer, Is.EqualTo(LayerMask.NameToLayer("Interactable")));
             Assert.That(prefab.GetComponent<ExtractionZone>().IsAvailable, Is.False);
+            Assert.That(
+                typeof(ExtractionZone).GetField("_spriteRenderer", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
         }
 
         [Test]
@@ -73,6 +86,18 @@ namespace Tests.EditMode.Scenario
                     SceneManager.SetActiveScene(previous);
                 }
             }
+        }
+
+        [Test]
+        public void ExtractionPresentationAddsNoAudioOrVfxResources()
+        {
+            GameObject sanctuary = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+
+            Assert.That(sanctuary.GetComponentsInChildren<AudioSource>(true), Is.Empty);
+            Assert.That(sanctuary.GetComponentsInChildren<ParticleSystem>(true), Is.Empty);
+            Assert.That(
+                AssetDatabase.FindAssets("t:AudioClip", new[] { "Assets/Scripts/Scenario/Extraction" }),
+                Is.Empty);
         }
 
         private static void AssertZoneFootprintIsOnFloor(ExtractionZone zone, Tilemap floor)

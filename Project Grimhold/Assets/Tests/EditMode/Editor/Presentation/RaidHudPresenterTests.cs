@@ -139,6 +139,43 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
         }
 
+        [Test]
+        public void ExtractionViewPresentsQuotaAndRitualStates()
+        {
+            _view.PresentExtractionProgress(12, 30);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Progreso: 12 / 30"));
+
+            _view.PresentQuotaCompleted();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Cuota completada"));
+
+            _view.PresentSanctuaryAssigned();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Santuario asignado"));
+
+            _view.PresentRitualProgress(2.34f);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 2,3 s"));
+
+            _view.PresentRitualCancelled();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual cancelado"));
+
+            _view.PresentSanctuaryEnabled();
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Santuario habilitado"));
+        }
+
+        [Test]
+        public void DisableClearsViewButRetainsPresenterBinding()
+        {
+            _presenter.Bind(null, null, null, null, null, null, null);
+
+            MethodInfo method = typeof(RaidHudPresenter).GetMethod(
+                "OnDisable",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(_presenter, null);
+
+            Assert.That(ReadPresenterFlag("_isBound"), Is.True);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
+        }
+
         [TestCase(3.21f, 3.3f)]
         [TestCase(3.2f, 3.2f)]
         [TestCase(0f, 0f)]
