@@ -9,7 +9,7 @@ using UnityEngine;
 /// Manages the health, lifecycle, and death of the networked entity.
 /// </summary>
 [DisallowMultipleComponent]
-public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
+public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable, IHealable
 {
     [Header("Health Configuration")]
     [SerializeField, Min(0.1f)]
@@ -147,6 +147,44 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable
             Health,
             isFatal,
             DamageFailureReason.None
+        );
+    }
+
+    /// <summary>
+    /// Processes and applies a heal request to the character.
+    /// </summary>
+    public HealResult ApplyHealing(in HealRequest request)
+    {
+        if (!HasStateAuthority)
+        {
+            return new HealResult(Id, false, 0f, Health, HealFailureReason.MissingAuthority);
+        }
+
+        if (!IsAlive)
+        {
+            return new HealResult(Id, false, 0f, Health, HealFailureReason.TargetDead);
+        }
+
+        if (request.Amount <= 0f)
+        {
+            return new HealResult(Id, false, 0f, Health, HealFailureReason.InvalidAmount);
+        }
+
+        if (Health >= _maxHealth)
+        {
+            return new HealResult(Id, false, 0f, Health, HealFailureReason.HealthFull);
+        }
+
+        float previousHealth = Health;
+        Health = Mathf.Min(_maxHealth, Health + request.Amount);
+        float actualHealed = Health - previousHealth;
+
+        return new HealResult(
+            Id,
+            true,
+            actualHealed,
+            Health,
+            HealFailureReason.None
         );
     }
 
