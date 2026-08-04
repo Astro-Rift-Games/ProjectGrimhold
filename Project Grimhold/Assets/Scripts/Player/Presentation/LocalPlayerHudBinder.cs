@@ -24,6 +24,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidHudPresenter _raidHudPresenter;
 
     [SerializeField]
+    private RaidMinimapPresenter _raidMinimapPresenter;
+
+    [SerializeField]
     private CombatFeedbackPresenter _combatFeedbackPresenter;
 
     [SerializeField]
@@ -158,6 +161,16 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _extractionProgressController,
             _assignmentService,
             _entityRegistry);
+        if (_raidMinimapPresenter != null)
+        {
+            _raidMinimapPresenter.Bind(
+                _boundRunner,
+                Object,
+                transform,
+                _extractionController,
+                _assignmentService,
+                _entityRegistry);
+        }
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
@@ -181,6 +194,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidHudPresenter != null)
         {
             _raidHudPresenter.Unbind();
+        }
+
+        if (_raidMinimapPresenter != null)
+        {
+            _raidMinimapPresenter.Unbind();
         }
 
         if (_combatFeedbackPresenter != null)

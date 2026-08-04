@@ -131,7 +131,7 @@ Simulation order is authoritative gameplay and damage, Sanctuary ritual at order
 
 The Zone rejects attempts to disable itself after the co-located registered Sanctuary reaches `Completed`. Availability alone is not extraction authorization: `PlayerExtractionController` resolves the Sanctuary with the same zone ID and requires the participant to be its owner with a completed ritual both when starting and continuing.
 
-`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. TASK-56 consumes this projection for HUD and world presentation; map/minimap markers and spatial audio remain pending.
+`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. TASK-56 consumes this projection for HUD and world presentation, while TASK-68 consumes it for the local private minimap marker.
 
 ## TASK-56 presentation boundary
 
@@ -163,5 +163,42 @@ the alpha authored on each renderer; state changes modify RGB only and never alt
 transparency. Presentation components
 write no simulation state and add no replicated properties, RPCs or gameplay timers.
 
-Map/minimap markers and spatial audio remain explicitly pending because their systems and
-approved resources do not exist.
+TASK-68 adds only the local minimap presentation described below. Spatial audio remains outside
+the extraction presentation boundary.
+
+## TASK-68 local minimap presentation
+
+`RaidMinimapPresenter` is an independent presentation section bound by `LocalPlayerHudBinder`
+to the current Input Authority `NetworkObject`, `Transform`, `PlayerExtractionController`,
+runner-local assignment service and `EntityRegistry`. Missing assignment infrastructure affects
+only the private Sanctuary marker and never disables the remaining HUD.
+
+`RaidMinimapView` is composed on the existing `LocalGameplayHud` Canvas. Its north-up
+`RaidMinimapGraphic` renders the immutable `MinimapLayout` generated from the serialized `Floor`,
+`Walls` and `Obstacles` Tilemaps in `Dungeon_Graybox.prefab`. The editor generator stores the
+combined bounds, cell size, world pivot, occupancy and a hash of those permitted sources, so a
+graybox edit regenerates a faithful layout without a hand-drawn PNG. The layout contains no runtime
+entities, and no minimap camera or RenderTexture exists. The viewport is masked with `RectMask2D`;
+the local marker remains centered while the generated geometry translates beneath it. Its encoded
+world pivot is the sole map-pivot source used by the presenter.
+The layout pivot is local to `Dungeon_Graybox.prefab`; `RaidMinimapPresenter` adds the serialized
+world origin of its static Gameplay instance before projection. This is presentation configuration,
+not replicated state, and avoids a scene lookup during tracking.
+
+`MinimapProjection` is pure math. `_uiUnitsPerWorldUnit` means local RectTransform units per
+world unit at the Canvas reference resolution, not physical monitor pixels. The map offset is
+`(mapPivotWorldPosition - playerWorldPosition) * uiUnitsPerWorldUnit * zoom`. Sanctuary markers
+use the same scale, intersect the direction vector with the useful rectangular bounds when
+outside, and treat exact boundary points as interior. `MinimapProjectionResult.AngleDegrees`
+uses `atan2(y, x)`: east `0`, north `90`, west `180`, south `-90`. Arrow orientation correction
+is applied only by `RaidMinimapView`; zero displacement is a valid centered marker.
+
+The presenter samples state only during `LateUpdate`. Extraction comes from
+`PlayerExtractionController.TryGetProgress`; `Extracted` hides only the private Sanctuary
+marker. Assignment comes from `ExtractionSanctuaryAssignmentService.TryGetAssignment`, and the
+capability is resolved and revalidated through `EntityRegistry.TryGetExtractionSanctuary`.
+The cached Sanctuary instance and Transform are presentation references only, never a second
+assignment source. Ritual state comes from `IExtractionSanctuary.TryGetRitualProgress` and maps
+to assigned, in-progress, cancelled and enabled visual states. Interior markers use a fixed,
+unrotated icon; exterior markers use a separate edge arrow. All visual state is rebuilt from
+current confirmed state after enable, rebind, replacement or a new session.
