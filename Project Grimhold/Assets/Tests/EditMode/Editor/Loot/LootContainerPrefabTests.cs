@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEngine;
 using NetworkBehaviour = Fusion.NetworkBehaviour;
 using NetworkObject = Fusion.NetworkObject;
+using NetworkTransform = Fusion.NetworkTransform;
 
 namespace Tests.EditMode.Loot
 {
@@ -16,6 +17,7 @@ namespace Tests.EditMode.Loot
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.layer, Is.EqualTo(8));
             Assert.That(prefab.GetComponent<NetworkObject>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<NetworkTransform>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainer>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>(), Is.Not.Null);

@@ -49,6 +49,7 @@ namespace Tests.EditMode.Loot
             BreakableObject breakable = prefab.GetComponent<BreakableObject>();
             Assert.That(breakable, Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkObject>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<Fusion.NetworkTransform>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<IInteractable>(), Is.Null);
             Assert.That(prefab.GetComponent<ILootExtractor>(), Is.Null);
             Assert.That(prefab.GetComponent<ILootQuantityReader>(), Is.Null);
