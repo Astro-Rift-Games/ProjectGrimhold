@@ -109,8 +109,30 @@ the co-located `ExtractionZone` contributes only interaction geometry and contai
 or fallback logic. The presenter preserves the renderer's authored alpha and only changes RGB
 for state presentation.
 
-TASK-56 deliberately does not add map/minimap UI or spatial audio. Those remain pending and
-the delivery is therefore partial.
+TASK-68 adds the local minimap as a separate `RaidMinimapPresenter`/`RaidMinimapView` section
+bound by `LocalPlayerHudBinder`; `RaidHudPresenter` retains responsibility only for textual HUD
+content. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
+`Floor`, `Walls` and `Obstacles` Tilemaps of `Dungeon_Graybox.prefab`, including its world pivot,
+cell size, occupancy and a source hash. `RaidMinimapGraphic` renders that north-up layout as uGUI
+geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
+adds no Canvas, camera, RenderTexture, networked property, RPC, event bus or gameplay timer. A
+changed graybox is regenerated through the permanent editor generator; no hand-drawn or static PNG
+representation is retained. The generated pivot is prefab-local; the presenter applies the
+serialized `Dungeon_Graybox` scene-instance world offset before projecting the background, keeping
+the fixed player marker aligned with the actual Gameplay placement without any scene lookup.
+
+The map uses `_uiUnitsPerWorldUnit` in local RectTransform units at the Canvas reference
+resolution. `MinimapProjection` computes the inverse background translation and the edge
+intersection for external Sanctuary positions. Its result uses mathematical angles (`0` east,
+`90` north, `180` west, `-90` south); `RaidMinimapView` alone applies the serialized arrow
+correction. Zero player/Sanctuary displacement is valid and remains centered.
+
+`RaidMinimapPresenter.LateUpdate` validates the current runner and PlayerObject, projects the
+background, reads confirmed extraction, resolves or revalidates only the local assignment, reads
+the current ritual snapshot and presents either the interior icon or exterior arrow. Extraction
+completion hides only the Sanctuary marker; defeat and extraction leave the minimap visible while
+the PlayerObject remains valid. Disable, despawn, replacement, shutdown and re-enable clear
+visuals and cached references without replaying historical transitions.
 
 ## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
 

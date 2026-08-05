@@ -32,6 +32,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly RaidLootSelectionState _containerSelection = new();
     private readonly RaidLootTakeAllState _takeAllState = new();
     private readonly LootDropContextActionProvider _dropActionProvider = new();
+    private readonly LootConsumeContextActionProvider _consumeActionProvider = new();
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
@@ -40,6 +41,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private PlayerInteractionNetworkController _interactionController;
     private PlayerLootTransferNetworkController _transferController;
     private PlayerLootDropNetworkController _dropController;
+    private PlayerConsumableNetworkController _consumableController;
     private NetworkRunner _runner;
     private Transform _localPlayerTransform;
     private EntityRegistry _registry;
@@ -70,13 +72,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PlayerInteractionNetworkController interactionController,
         PlayerLootTransferNetworkController transferController,
         PlayerLootDropNetworkController dropController,
+        PlayerConsumableNetworkController consumableController,
         NetworkRunner runner,
         Transform localPlayerTransform)
     {
         Unbind();
 
         if (lootReceiver == null || inputReader == null || interactionController == null ||
-            transferController == null || dropController == null || runner == null ||
+            transferController == null || dropController == null || consumableController == null || runner == null ||
             localPlayerTransform == null ||
             _view == null || _view.PlayerPanel == null || _view.ContainerPanel == null ||
             _view.ContextMenu == null || _lootCatalog == null || _interactionConfig == null)
@@ -90,9 +93,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _interactionController = interactionController;
         _transferController = transferController;
         _dropController = dropController;
+        _consumableController = consumableController;
         _dropActionProvider.Bind(dropController);
+        _consumeActionProvider.Bind(consumableController);
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_dropActionProvider);
+        _contextActionProviders.Add(_consumeActionProvider);
         _runner = runner;
         _localPlayerTransform = localPlayerTransform;
         _registry = runner.GetComponent<EntityRegistry>();
@@ -212,6 +218,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _dropController.RequestInFlightChanged += OnDropRequestInFlightChanged;
         _dropController.TransportRejected += OnDropTransportRejected;
         _dropController.DropConfirmed += OnDropConfirmed;
+        _consumableController.ConsumeConfirmed += OnConsumeConfirmed;
+        _consumableController.ConsumeRejected += OnConsumeRejected;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
         _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
@@ -252,6 +260,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _dropController.RequestInFlightChanged -= OnDropRequestInFlightChanged;
             _dropController.TransportRejected -= OnDropTransportRejected;
             _dropController.DropConfirmed -= OnDropConfirmed;
+        }
+
+        if (_consumableController != null)
+        {
+            _consumableController.ConsumeConfirmed -= OnConsumeConfirmed;
+            _consumableController.ConsumeRejected -= OnConsumeRejected;
         }
 
         if (_view != null && _view.PlayerPanel != null)
@@ -540,6 +554,34 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             {
                 _view.ShowTransferFeedback(GetDropFailureMessage(confirmation.Result.FailureReason));
             }
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnConsumeConfirmed(LootId _)
+    {
+        RefreshPlayerPanel();
+        if (_mode == ScreenMode.Personal)
+        {
+            _view.HideTransferFeedback();
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private void OnConsumeRejected(ConsumableFailureReason reason)
+    {
+        if (_mode == ScreenMode.Personal)
+        {
+            string message = reason switch
+            {
+                ConsumableFailureReason.TargetDead => "Estás muerto.",
+                ConsumableFailureReason.HealthFull => "Tu salud ya está al máximo.",
+                ConsumableFailureReason.InsufficientAmount => "No tienes suficientes consumibles.",
+                _ => "No se pudo usar el objeto."
+            };
+            _view.ShowTransferFeedback(message);
         }
 
         RefreshTransferInteraction();

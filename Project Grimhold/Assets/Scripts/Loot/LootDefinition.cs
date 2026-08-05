@@ -34,6 +34,10 @@ public sealed class LootDefinition : ScriptableObject
     [SerializeField]
     private int _defaultPickupQuantity = 1;
 
+    [SerializeField]
+    [Tooltip("Opcional. Configuración del consumible si este loot puede ser consumido.")]
+    private ConsumableDefinition _consumableDefinition;
+
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
@@ -44,6 +48,7 @@ public sealed class LootDefinition : ScriptableObject
     public int ExtractionValuePerUnit => _extractionValuePerUnit;
     public int SellValuePerUnit => _sellValuePerUnit;
     public int DefaultPickupQuantity => _defaultPickupQuantity;
+    public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
 
     private void OnValidate()
     {
@@ -112,6 +117,12 @@ public sealed class LootDefinition : ScriptableObject
         if (_worldSprite == null)
         {
             error = $"Loot definition '{_id}' lacks a valid World Sprite reference.";
+            return false;
+        }
+
+        if (_consumableDefinition != null && !_consumableDefinition.TryValidate(out string consumableError))
+        {
+            error = $"Loot definition '{_id}' has an invalid ConsumableDefinition: {consumableError}";
             return false;
         }
 

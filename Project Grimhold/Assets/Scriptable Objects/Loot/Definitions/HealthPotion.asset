@@ -21,3 +21,4 @@ MonoBehaviour:
   _extractionValuePerUnit: 5
   _sellValuePerUnit: 5
   _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 11400000, guid: 4904523b8bebe1c4b895bf5a426ded6a, type: 2}

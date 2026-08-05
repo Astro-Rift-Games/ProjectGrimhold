@@ -24,6 +24,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidHudPresenter _raidHudPresenter;
 
     [SerializeField]
+    private RaidMinimapPresenter _raidMinimapPresenter;
+
+    [SerializeField]
     private CombatFeedbackPresenter _combatFeedbackPresenter;
 
     [SerializeField]
@@ -55,6 +58,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     [SerializeField]
     private PlayerLootDropNetworkController _lootDropController;
+
+    [SerializeField]
+    private PlayerConsumableNetworkController _consumableController;
 
     private bool _isBound;
     private bool _isPlayerClassResolved;
@@ -117,7 +123,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_hudRoot == null || _interactionPresenter == null || _lootPresenter == null ||
             _inventoryPresenter == null || _raidHudPresenter == null || _combatFeedbackPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
-            _lootTransferController == null || _lootDropController == null ||
+            _lootTransferController == null || _lootDropController == null || _consumableController == null ||
             _playerCharacter == null || _combatController == null || _extractionController == null)
         {
             Debug.LogError($"{nameof(LocalPlayerHudBinder)} has missing HUD dependencies.", this);
@@ -158,6 +164,16 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _extractionProgressController,
             _assignmentService,
             _entityRegistry);
+        if (_raidMinimapPresenter != null)
+        {
+            _raidMinimapPresenter.Bind(
+                _boundRunner,
+                Object,
+                transform,
+                _extractionController,
+                _assignmentService,
+                _entityRegistry);
+        }
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
@@ -181,6 +197,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidHudPresenter != null)
         {
             _raidHudPresenter.Unbind();
+        }
+
+        if (_raidMinimapPresenter != null)
+        {
+            _raidMinimapPresenter.Unbind();
         }
 
         if (_combatFeedbackPresenter != null)
@@ -238,6 +259,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _interactionController,
                 _lootTransferController,
                 _lootDropController,
+                _consumableController,
                 Runner,
                 transform);
 
