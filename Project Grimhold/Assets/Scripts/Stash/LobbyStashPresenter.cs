@@ -7,6 +7,7 @@ using UnityEngine;
 public class LobbyStashPresenter : MonoBehaviour
 {
     [SerializeField] private LobbyStashUI _stashUI;
+    [SerializeField] private LootDefinitionCatalog _lootCatalog;
     private IPlayerStashService _stashService;
     private ProfileId _localProfileId;
 
@@ -52,6 +53,24 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
 
         var items = _stashService.GetStash(_localProfileId);
-        _stashUI.DisplayStash(items);
+        
+        var presentationData = new System.Collections.Generic.List<RaidInventorySlotData>();
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                LootDefinition definition = null;
+                if (_lootCatalog != null)
+                {
+                    _lootCatalog.TryGet(item.LootId.Value, out definition);
+                }
+                
+                LootEntry entry = new LootEntry(item.LootId, item.Amount);
+                var slotData = RaidInventorySlotData.Create(entry, definition, null);
+                presentationData.Add(slotData);
+            }
+        }
+
+        _stashUI.DisplayStash(presentationData);
     }
 }

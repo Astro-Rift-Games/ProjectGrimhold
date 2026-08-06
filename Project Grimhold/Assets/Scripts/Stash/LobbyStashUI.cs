@@ -11,7 +11,7 @@ public class LobbyStashUI : MonoBehaviour
     [SerializeField] private RectTransform _contentPanel;
     [SerializeField] private GameObject _itemSlotPrefab; // A simple prefab with a TextMeshProUGUI
 
-    public void DisplayStash(IReadOnlyList<StashItem> items)
+    public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items)
     {
         // Clear existing slots
         foreach (Transform child in _contentPanel)
@@ -28,10 +28,10 @@ public class LobbyStashUI : MonoBehaviour
         foreach (var item in items)
         {
             var slotObj = Instantiate(_itemSlotPrefab, _contentPanel);
-            var textComponent = slotObj.GetComponentInChildren<TextMeshProUGUI>();
-            if (textComponent != null)
+            var slotView = slotObj.GetComponent<RaidInventorySlotView>();
+            if (slotView != null)
             {
-                textComponent.text = $"{item.LootId}: {item.Amount}";
+                slotView.Present(in item);
             }
         }
     }
