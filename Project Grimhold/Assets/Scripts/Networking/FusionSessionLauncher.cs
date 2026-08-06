@@ -71,46 +71,26 @@ public sealed class FusionSessionLauncher : MonoBehaviour
 
         try
         {
-            _runnerObject = new GameObject("NetworkRunner");
-            _runner = _runnerObject.AddComponent<NetworkRunner>();
-            _runnerObject.AddComponent<EntityRegistry>();
-            _sanctuaryAssignmentService = _runnerObject.AddComponent<ExtractionSanctuaryAssignmentService>();
-            if (!_sanctuaryAssignmentService.Initialize(_runner, mode))
+            if (!NetworkRunnerFactory.TryCreate(
+                mode,
+                startupContext,
+                _playerClassCatalog,
+                _enemyPrefabs,
+                in joinData,
+                token,
+                out var composition))
             {
-                Debug.LogError(
-                    "[FusionSessionLauncher] Failed to initialize the sanctuary assignment service for the requested session.",
-                    this);
-                await ShutdownAndDestroyRunnerAsync();
+                Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);
                 return false;
             }
 
-            _runnerObject.AddComponent<LocalInputContext>();
+            _runnerObject = composition.RunnerObject;
+            _runner = composition.Runner;
+            _spawnManager = composition.SpawnManager;
+            _sanctuaryAssignmentService = composition.SanctuaryAssignmentService;
 
-            // 1. Create and associate the NetworkSpawnManager with the runner before callbacks/StartGame
-            _spawnManager = _runnerObject.AddComponent<NetworkSpawnManager>();
-            if (!_spawnManager.InitializeForRunner(_runner, _playerClassCatalog, _enemyPrefabs, startupContext))
-            {
-                Debug.LogError("[FusionSessionLauncher] Failed to initialize NetworkSpawnManager for the current runner.");
-                await ShutdownAndDestroyRunnerAsync();
-                return false;
-            }
-
-            // 2. Discover and register callbacks automatically.
-            // Since NetworkSpawnManager is a component of the runner GameObject, Fusion discovers it automatically.
-            // We do NOT need to call _runner.AddCallbacks(_spawnManager) manually to avoid double-registration,
-            // but if we want to be explicit without double-registering, we can rely on auto-discovery.
-            // However, to satisfy "Como el manager existe en el objeto del runner antes de StartGame, preferir el descubrimiento automático de Fusion",
-            // we do NOT add it manually here.
-
-            LocalPlayerJoinContext joinContext = _runnerObject.GetComponent<LocalPlayerJoinContext>();
-            if (joinContext == null)
-            {
-                joinContext = _runnerObject.AddComponent<LocalPlayerJoinContext>();
-            }
-            joinContext.Initialize(in joinData);
-
-            DontDestroyOnLoad(_runnerObject);
-            _runner.ProvideInput = true;
+            var listener = _runnerObject.AddComponent<LauncherShutdownListener>();
+            listener.Initialize(this, _runner);
 
             var args = new StartGameArgs
             {
@@ -215,31 +195,33 @@ public sealed class FusionSessionLauncher : MonoBehaviour
 
     private async Task ShutdownAndDestroyRunnerAsync()
     {
-        // Capture local references before clearing them
-        NetworkRunner runnerToShutdown = _runner;
-        GameObject objToDestroy = _runnerObject;
+        if (_runner != null)
+        {
+            if (_runner.IsRunning)
+            {
+                await _runner.Shutdown();
+            }
+            if (_runnerObject != null)
+            {
+                Destroy(_runnerObject);
+            }
+        }
+
+        // Manual cleanup if something failed before runner got properly initialized or shut down gracefully
+        ClearReferencesOnShutdown(_runner);
+    }
+
+    public void ClearReferencesOnShutdown(NetworkRunner shutdownRunner)
+    {
+        if (_runner != shutdownRunner)
+        {
+            return;
+        }
 
         _runner = null;
         _runnerObject = null;
         _spawnManager = null;
         _matchController = null;
         _sanctuaryAssignmentService = null;
-
-        if (runnerToShutdown != null && runnerToShutdown.IsRunning)
-        {
-            try
-            {
-                await runnerToShutdown.Shutdown();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[FusionSessionLauncher] Exception during runner shutdown: {ex.Message}");
-            }
-        }
-
-        if (objToDestroy != null)
-        {
-            Destroy(objToDestroy);
-        }
     }
 }
