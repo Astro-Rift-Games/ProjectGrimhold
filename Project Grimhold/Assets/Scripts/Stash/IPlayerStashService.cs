@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -13,4 +14,14 @@ public interface IPlayerStashService
     /// <param name="items">An immutable snapshot of items to store.</param>
     /// <returns>The result of the stash operation.</returns>
     StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items);
+
+    /// <summary>
+    /// Retrieves the current stash items for the specified profile.
+    /// </summary>
+    IReadOnlyList<StashItem> GetStash(ProfileId profileId);
+
+    /// <summary>
+    /// Fired when a profile's stash has been modified.
+    /// </summary>
+    event Action<ProfileId> StashChanged;
 }

@@ -9,6 +9,7 @@ public class LobbyMenuController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI sessionCodeText;
     [SerializeField] private Button _startGameButton;
     [SerializeField] private GameObject _statusText;
+    [SerializeField] private GameObject _stashPanel;
 
     [Header("Scene")]
     [SerializeField] private string gameplayScene = "Gameplay";
@@ -70,6 +71,17 @@ public class LobbyMenuController : MonoBehaviour
         {
             Debug.LogError("[LobbyMenuController] NetworkMatchController instance not found on launcher!");
             _startGameButton.interactable = true;
+        }
+    }
+
+    /// <summary>
+    /// Toggles the active state of the stash UI panel.
+    /// </summary>
+    public void ToggleStash()
+    {
+        if (_stashPanel != null)
+        {
+            _stashPanel.SetActive(!_stashPanel.activeSelf);
         }
     }
 }

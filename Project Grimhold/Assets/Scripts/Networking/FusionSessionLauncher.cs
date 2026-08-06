@@ -50,7 +50,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour
             throw new InvalidOperationException("[FusionSessionLauncher] Match coordinator prefab is invalid or missing.");
         }
 
-        var joinData = new PlayerJoinData(selectedClass);
+        var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
+        var joinData = new PlayerJoinData(selectedClass, profileId);
         if (!PlayerJoinDataCodec.TryEncode(joinData, out byte[] token))
         {
             throw new ArgumentException($"Invalid or unsupported selected class: {selectedClass}");

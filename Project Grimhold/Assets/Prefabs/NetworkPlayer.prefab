@@ -598,6 +598,10 @@ MonoBehaviour:
   _Health: 0
   _corpseGenerationController: {fileID: 4100000000000000101}
   _extractionController: {fileID: 8121909954639136856}
+  _ProfileIdString:
+    _length: 0
+    _data:
+      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 --- !u!114 &7201000000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2550,10 +2554,10 @@ RectTransform:
   - {fileID: 9100000000000000301}
   m_Father: {fileID: 8800000000000000171}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 760, y: -290}
+  m_SizeDelta: {x: 1520, y: 580}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8800000000000000182
 CanvasRenderer:

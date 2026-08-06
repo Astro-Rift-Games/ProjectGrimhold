@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,17 @@ using UnityEngine;
 public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashService
 {
     private readonly Dictionary<ProfileId, List<StashItem>> _stashes = new();
+
+    public event Action<ProfileId> StashChanged;
+
+    public IReadOnlyList<StashItem> GetStash(ProfileId profileId)
+    {
+        if (profileId.IsValid && _stashes.TryGetValue(profileId, out var stash))
+        {
+            return stash;
+        }
+        return System.Array.Empty<StashItem>();
+    }
 
     public StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items)
     {
@@ -70,6 +82,8 @@ public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashServ
             }
             Debug.Log($"[Stash SECURE] Profile: {profileId.Value} | Item ID: {item.LootId} | Amount Added: {item.Amount} | Total in Stash: {totalAmount}");
         }
+
+        StashChanged?.Invoke(profileId);
 
         return StashOperationResult.Success;
     }

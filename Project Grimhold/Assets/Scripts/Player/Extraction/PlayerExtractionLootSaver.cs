@@ -82,8 +82,19 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             stashItems[i] = new StashItem(snapshot[i].LootId, snapshot[i].Amount);
         }
 
-        // Generate a ProfileId. In the future this should come from a real account/profile system.
-        ProfileId profileId = new ProfileId(Object.InputAuthority.ToString());
+        // Read the persistent ProfileId from the networked player character
+        string profileIdValue = "UnknownProfile";
+        if (TryGetComponent(out PlayerCharacter playerCharacter) && !string.IsNullOrEmpty(playerCharacter.ProfileIdString.ToString()))
+        {
+            profileIdValue = playerCharacter.ProfileIdString.ToString();
+        }
+        else
+        {
+            Debug.LogWarning($"[PlayerExtractionLootSaver] Could not find ProfileIdString on PlayerCharacter. Falling back to InputAuthority.", this);
+            profileIdValue = Object.InputAuthority.ToString();
+        }
+
+        ProfileId profileId = new ProfileId(profileIdValue);
 
         StashOperationResult result = _stashService.TrySecureLoot(profileId, stashItems);
 
