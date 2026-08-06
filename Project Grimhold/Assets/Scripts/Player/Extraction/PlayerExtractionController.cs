@@ -1,3 +1,4 @@
+using System;
 using Fusion;
 using UnityEngine;
 
@@ -57,6 +58,12 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
 
     [Networked]
     private TickTimer ExtractionTimer { get; set; }
+
+    /// <summary>
+    /// Invoked locally on peers when the extraction completes successfully.
+    /// Used by integrations that require a reaction to the extraction event without polling.
+    /// </summary>
+    public event Action<PlayerExtractionController> ExtractionCompleted;
 
     /// <summary>
     /// Categorizes extraction continuation cancellation reasons for diagnostics.
@@ -324,6 +331,8 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         ExtractionTimer = TickTimer.None;
         ApplyExtractionRestrictions();
         Debug.Log($"[PlayerExtractionController] Extraction COMPLETED on {name}! Player is now EXTRACTED & Invulnerable.", this);
+        
+        ExtractionCompleted?.Invoke(this);
     }
 
     private void ApplyExtractionRestrictions()

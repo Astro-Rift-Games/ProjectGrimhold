@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 21
+      value: 22
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -142,6 +142,10 @@ PrefabInstance:
       objectReference: {fileID: 2606333914511627075}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[20]'
+      value: 
+      objectReference: {fileID: 5733442101354202811}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[21]'
       value: 
       objectReference: {fileID: 481970610349468446}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -280,6 +284,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8818a1382a7c4845126fd7024ed12808, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionProgressController
+--- !u!114 &5733442101354202811 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2262447401525612929, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f8a152c446782f40b65c6fff9451176, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionLootSaver
 --- !u!114 &6260509138164896363 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 438361259854513489, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

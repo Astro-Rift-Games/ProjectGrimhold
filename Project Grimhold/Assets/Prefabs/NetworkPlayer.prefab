@@ -551,6 +551,7 @@ GameObject:
   - component: {fileID: 7797292579446274991}
   - component: {fileID: 3762360656477037451}
   - component: {fileID: 8421478658459878521}
+  - component: {fileID: 2262447401525612929}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -931,6 +932,7 @@ MonoBehaviour:
   - {fileID: 7797292579446274991}
   - {fileID: 3762360656477037451}
   - {fileID: 8421478658459878521}
+  - {fileID: 2262447401525612929}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -1201,6 +1203,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConsumableNetworkController
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _characterSource: {fileID: 729366679366126330}
+--- !u!114 &2262447401525612929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f8a152c446782f40b65c6fff9451176, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionLootSaver
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
