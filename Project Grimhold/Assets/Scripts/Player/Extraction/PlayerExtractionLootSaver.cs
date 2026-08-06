@@ -26,15 +26,14 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
     public override void Spawned()
     {
-        _stashService = Runner.GetComponent<IPlayerStashService>();
-        if (_stashService == null)
+        var context = FindAnyObjectByType<ApplicationStashContext>();
+        if (context != null)
         {
-            // Fallback for Stage 1 if not attached to Runner
-            _stashService = FindAnyObjectByType<InMemoryPlayerStashService>();
-            if (_stashService == null)
-            {
-                Debug.LogWarning($"{nameof(PlayerExtractionLootSaver)}: No {nameof(IPlayerStashService)} found in the scene or on the Runner.", this);
-            }
+            _stashService = context.StashService;
+        }
+        else
+        {
+            Debug.LogWarning($"{nameof(PlayerExtractionLootSaver)}: {nameof(ApplicationStashContext)} not found. Stash service will be unavailable.", this);
         }
 
         if (_extractionController != null)

@@ -56,6 +56,21 @@ public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashServ
             }
         }
 
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            int totalAmount = 0;
+            for (int j = 0; j < currentStash.Count; j++)
+            {
+                if (currentStash[j].LootId == item.LootId)
+                {
+                    totalAmount = currentStash[j].Amount;
+                    break;
+                }
+            }
+            Debug.Log($"[Stash SECURE] Profile: {profileId.Value} | Item ID: {item.LootId} | Amount Added: {item.Amount} | Total in Stash: {totalAmount}");
+        }
+
         return StashOperationResult.Success;
     }
 }

@@ -66,7 +66,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour
             _runnerObject = new GameObject("NetworkRunner");
             _runner = _runnerObject.AddComponent<NetworkRunner>();
             _runnerObject.AddComponent<EntityRegistry>();
-            _runnerObject.AddComponent<InMemoryPlayerStashService>();
             _sanctuaryAssignmentService = _runnerObject.AddComponent<ExtractionSanctuaryAssignmentService>();
             if (!_sanctuaryAssignmentService.Initialize(_runner, mode))
             {
