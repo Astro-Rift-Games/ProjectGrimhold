@@ -136,3 +136,14 @@ Player spawning is protected by a strict fail-closed validation policy. `CanSpaw
 
 - **Try-Finally Safety**: The launcher's `StartSessionAsync` wraps the startup sequence in a `try/finally` block to guarantee `_isStarting` is reset to `false` in all execution paths.
 - **Controlled Shutdown**: Any failure after `StartGame` triggers `ShutdownAndDestroyRunnerAsync()`. It calls `runner.Shutdown()` asynchronously and destroys the runner GameObject, ensuring clean releases of network slots and resources.
+
+---
+
+## 10. Session Startup Context & Host Migration Resume
+
+To distinguish between a completely new session and one resumed via Host Migration, an immutable `SessionStartupContext` is used:
+- **Two Modes**: It defines either a `FreshSession` or a `HostMigrationResume`.
+- **Creation and Injection**: The context is created by the initiator of the session (e.g., `FusionSessionLauncher`) and explicitly injected into runner-scoped dependencies like `NetworkSpawnManager` via `InitializeForRunner`. It is not stored as a generic component on the runner.
+- **FreshSession Operations**: This mode permits the initial Host player bootstrap, initialization of the `MatchPhase` to `WaitingForPlayers`, and the fresh bootstrapping of initial scene entities (players, enemies, loot, breakables, new random seeds).
+- **HostMigrationResume Awaiting**: When resuming via migration, all initial bootstrap operations are skipped. Scene load completes by transitioning the spawn manager into an explicit `AwaitingHostMigrationRestore` state. Spawns remain locked and no fresh scene seed is generated.
+- **Migration Not Yet Functional**: Currently, this context establishes the protection layers required during the bootstrap pipeline; full snapshot restoration and the functional Host Migration lifecycle are not yet implemented.

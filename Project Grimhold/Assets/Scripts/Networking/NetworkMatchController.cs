@@ -25,21 +25,31 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (Runner.IsServer)
+        var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null)
         {
-            Phase = MatchPhase.WaitingForPlayers;
-            Debug.Log("[NetworkMatchController] Spawned on Host. Phase initialized to WaitingForPlayers.");
+            Debug.LogError("[NetworkMatchController] Spawned: NetworkSpawnManager is missing on the runner. This is a fatal composition error.");
+            return;
+        }
+
+        // Auto-register to the local spawn manager
+        spawnManager.BindMatchController(this);
+
+        if (HasStateAuthority)
+        {
+            if (spawnManager.ShouldInitializeMatchPhase)
+            {
+                Phase = MatchPhase.WaitingForPlayers;
+                Debug.Log("[NetworkMatchController] Spawned with StateAuthority. Phase initialized to WaitingForPlayers.");
+            }
+            else
+            {
+                Debug.Log($"[NetworkMatchController] Spawned with StateAuthority on HostMigrationResume. Phase untouched (currently {Phase}).");
+            }
         }
         else
         {
             Debug.Log($"[NetworkMatchController] Spawned on Client. Current Phase: {Phase}.");
-        }
-
-        // Auto-register to the local spawn manager
-        var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-        if (spawnManager != null)
-        {
-            spawnManager.BindMatchController(this);
         }
     }
 

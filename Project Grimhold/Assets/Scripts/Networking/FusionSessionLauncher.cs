@@ -33,8 +33,16 @@ public sealed class FusionSessionLauncher : MonoBehaviour
     public NetworkRunner Runner => _runner;
     public NetworkMatchController MatchController => _matchController;
 
-    public async Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
+    public Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
     {
+        return StartSessionInternalAsync(sessionName, mode, selectedClass, SessionStartupContext.FreshSession);
+    }
+
+    private async Task<bool> StartSessionInternalAsync(string sessionName, GameMode mode, PlayerClassId selectedClass, SessionStartupContext startupContext)
+    {
+        if (!startupContext.IsValid)
+            throw new ArgumentException("Invalid startup context provided to session launcher.");
+
         if (string.IsNullOrEmpty(sessionName) || string.IsNullOrWhiteSpace(sessionName))
             throw new Exception("Invalid session code. The code cannot be empty or null.");
 
@@ -44,8 +52,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour
             throw new ArgumentException($"Unsupported game mode: {mode}. Only GameMode.Host and GameMode.Client are supported.");
         }
 
-        // Valida el prefab del coordinador en modo Host
-        if (mode == GameMode.Host && !_matchControllerPrefab.IsValid)
+        // Valida el prefab del coordinador en modo Host, sólo si se requiere bootstrap del Host
+        if (mode == GameMode.Host && startupContext.ShouldExecuteHostBootstrap && !_matchControllerPrefab.IsValid)
         {
             throw new InvalidOperationException("[FusionSessionLauncher] Match coordinator prefab is invalid or missing.");
         }
@@ -80,7 +88,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour
 
             // 1. Create and associate the NetworkSpawnManager with the runner before callbacks/StartGame
             _spawnManager = _runnerObject.AddComponent<NetworkSpawnManager>();
-            if (!_spawnManager.InitializeForRunner(_runner, _playerClassCatalog, _enemyPrefabs))
+            if (!_spawnManager.InitializeForRunner(_runner, _playerClassCatalog, _enemyPrefabs, startupContext))
             {
                 Debug.LogError("[FusionSessionLauncher] Failed to initialize NetworkSpawnManager for the current runner.");
                 await ShutdownAndDestroyRunnerAsync();
@@ -143,44 +151,52 @@ public sealed class FusionSessionLauncher : MonoBehaviour
 
             if (_runner.IsServer)
             {
-                NetworkObject coordObj = _runner.Spawn(_matchControllerPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
-                if (coordObj == null)
+                if (startupContext.ShouldExecuteHostBootstrap)
                 {
-                    Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: Could not spawn match coordinator prefab.");
-                    await ShutdownAndDestroyRunnerAsync();
-                    return false;
-                }
+                    NetworkObject coordObj = _runner.Spawn(_matchControllerPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
+                    if (coordObj == null)
+                    {
+                        Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: Could not spawn match coordinator prefab.");
+                        await ShutdownAndDestroyRunnerAsync();
+                        return false;
+                    }
 
-                _matchController = coordObj.GetComponent<NetworkMatchController>();
-                if (_matchController == null)
+                    _matchController = coordObj.GetComponent<NetworkMatchController>();
+                    if (_matchController == null)
+                    {
+                        Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: NetworkMatchController component not found on spawned prefab.");
+                        await ShutdownAndDestroyRunnerAsync();
+                        return false;
+                    }
+
+                    // 2. Bind coordinator to NetworkSpawnManager
+                    if (!_spawnManager.BindMatchController(_matchController))
+                    {
+                        Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: Could not bind coordinator to spawn manager.");
+                        await ShutdownAndDestroyRunnerAsync();
+                        return false;
+                    }
+
+                    // 3. Atomically perform Host player bootstrap (admission + spawn attempt)
+                    HostBootstrapResult bootstrapResult = _spawnManager.TryBootstrapHost(_runner, _matchController);
+                    if (bootstrapResult != HostBootstrapResult.BootstrapCompleted && bootstrapResult != HostBootstrapResult.HostAdmittedSpawnPending)
+                    {
+                        Debug.LogError($"[FusionSessionLauncher] Host bootstrap failed: {bootstrapResult}.");
+                        await ShutdownAndDestroyRunnerAsync();
+                        return false;
+                    }
+
+                    // 4. Open and show the session after successful coordinator and Host initialization
+                    _runner.SessionInfo.IsOpen = true;
+                    _runner.SessionInfo.IsVisible = true;
+
+                    Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open and visible.");
+                }
+                else
                 {
-                    Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: NetworkMatchController component not found on spawned prefab.");
-                    await ShutdownAndDestroyRunnerAsync();
-                    return false;
+                    // Host Migration Resume
+                    Debug.Log("[FusionSessionLauncher] Host Migration Resume: skipping fresh host bootstrap (coordinator creation & opening session handled by restore).");
                 }
-
-                // 2. Bind coordinator to NetworkSpawnManager
-                if (!_spawnManager.BindMatchController(_matchController))
-                {
-                    Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: Could not bind coordinator to spawn manager.");
-                    await ShutdownAndDestroyRunnerAsync();
-                    return false;
-                }
-
-                // 3. Atomically perform Host player bootstrap (admission + spawn attempt)
-                HostBootstrapResult bootstrapResult = _spawnManager.TryBootstrapHost(_runner, _matchController);
-                if (bootstrapResult != HostBootstrapResult.BootstrapCompleted && bootstrapResult != HostBootstrapResult.HostAdmittedSpawnPending)
-                {
-                    Debug.LogError($"[FusionSessionLauncher] Host bootstrap failed: {bootstrapResult}.");
-                    await ShutdownAndDestroyRunnerAsync();
-                    return false;
-                }
-
-                // 4. Open and show the session after successful coordinator and Host initialization
-                _runner.SessionInfo.IsOpen = true;
-                _runner.SessionInfo.IsVisible = true;
-
-                Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open and visible.");
             }
 
             return true;

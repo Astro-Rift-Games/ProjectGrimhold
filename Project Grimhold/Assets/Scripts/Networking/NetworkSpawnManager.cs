@@ -19,7 +19,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Pending,
         Processing,
         Completed,
-        Failed
+        Failed,
+        AwaitingHostMigrationRestore
     }
 
     public enum SceneSpawnConfigurationStatus
@@ -53,6 +54,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private NetworkRunner _runner;
     private NetworkMatchController _matchController;
     private NetworkSpawnSceneConfiguration _sceneSpawnPointConfiguration;
+    private SessionStartupContext _startupContext;
 
     private int _currentSceneLoadGeneration = 0;
     private int _lastCompletedSceneLoadGeneration = -1;
@@ -66,6 +68,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public NetworkMatchController MatchController => _matchController;
     public NetworkPrefabRef LootContainerPrefab => _lootContainerPrefab;
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
+    
+    public bool ShouldInitializeMatchPhase => _startupContext.IsValid && _startupContext.ShouldInitializeMatchPhase;
 
     private void Awake()
     {
@@ -86,6 +90,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _matchController = null;
         _runner = null;
         _sceneSpawnPointConfiguration = null;
+        _startupContext = default;
     }
 
     /// <summary>
@@ -95,11 +100,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public bool InitializeForRunner(
         NetworkRunner runner,
         PlayerClassCatalog catalog,
-        NetworkPrefabRef[] enemyPrefab)
+        NetworkPrefabRef[] enemyPrefab,
+        SessionStartupContext startupContext)
     {
         if (runner == null)
         {
             Debug.LogError("[NetworkSpawnManager] InitializeForRunner: runner is null.");
+            return false;
+        }
+
+        if (!startupContext.IsValid)
+        {
+            Debug.LogError("[NetworkSpawnManager] InitializeForRunner: Invalid startup context.");
             return false;
         }
 
@@ -119,6 +131,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _runner = runner;
         _playerClassCatalog = catalog;
         _enemyPrefabs = enemyPrefab;
+        _startupContext = startupContext;
 
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
@@ -415,56 +428,72 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             // Only process players/enemies if the scene requires spawn points
             if (_sceneSpawnStatus == SceneSpawnConfigurationStatus.SpawnPointsReady)
             {
-                // Spawn players
-                foreach (PlayerRef player in runner.ActivePlayers)
+                if (_startupContext.ShouldExecuteInitialSceneBootstrap)
                 {
-                    if (_admittedPlayers.Contains(player))
+                    // Spawn players
+                    foreach (PlayerRef player in runner.ActivePlayers)
                     {
-                        SpawnPlayer(runner, player);
+                        if (_admittedPlayers.Contains(player))
+                        {
+                            SpawnPlayer(runner, player);
+                        }
+                    }
+
+                    // Spawn initial scene entities through explicit group integrations.
+                    if (_sceneSpawnPointConfiguration != null && _sceneSpawnPointConfiguration.SpawnGroups != null)
+                    {
+                        foreach (SpawnGroupDefinition group in _sceneSpawnPointConfiguration.SpawnGroups)
+                        {
+                            if (group == null)
+                            {
+                                continue;
+                            }
+
+                            switch (InitialSpawnGroupPolicy.Resolve(group.Group))
+                            {
+                                case InitialSpawnGroupPolicy.SpawnKind.Players:
+                                    break;
+                                case InitialSpawnGroupPolicy.SpawnKind.Enemies:
+                                    for (int i = 0; i < group.Amount; i++)
+                                    {
+                                        SpawnEnemy(runner);
+                                    }
+                                    break;
+                                case InitialSpawnGroupPolicy.SpawnKind.LootContainers:
+                                    SpawnConfiguredLootContainers(runner, group);
+                                    break;
+                                case InitialSpawnGroupPolicy.SpawnKind.Breakables:
+                                    SpawnConfiguredBreakables(runner, group);
+                                    break;
+                                default:
+                                    Debug.LogWarning(
+                                        $"[NetworkSpawnManager] Initial spawning for group '{group.Group}' is not implemented. The group was skipped.",
+                                        this);
+                                    break;
+                            }
+                        }
                     }
                 }
-
-                // Spawn initial scene entities through explicit group integrations.
-                if (_sceneSpawnPointConfiguration != null && _sceneSpawnPointConfiguration.SpawnGroups != null)
+                else
                 {
-                    foreach (SpawnGroupDefinition group in _sceneSpawnPointConfiguration.SpawnGroups)
-                    {
-                        if (group == null)
-                        {
-                            continue;
-                        }
-
-                        switch (InitialSpawnGroupPolicy.Resolve(group.Group))
-                        {
-                            case InitialSpawnGroupPolicy.SpawnKind.Players:
-                                break;
-                            case InitialSpawnGroupPolicy.SpawnKind.Enemies:
-                                for (int i = 0; i < group.Amount; i++)
-                                {
-                                    SpawnEnemy(runner);
-                                }
-                                break;
-                            case InitialSpawnGroupPolicy.SpawnKind.LootContainers:
-                                SpawnConfiguredLootContainers(runner, group);
-                                break;
-                            case InitialSpawnGroupPolicy.SpawnKind.Breakables:
-                                SpawnConfiguredBreakables(runner, group);
-                                break;
-                            default:
-                                Debug.LogWarning(
-                                    $"[NetworkSpawnManager] Initial spawning for group '{group.Group}' is not implemented. The group was skipped.",
-                                    this);
-                                break;
-                        }
-                    }
+                    Debug.Log($"[NetworkSpawnManager] Host Migration Resume: skipping fresh scene bootstrap.");
                 }
             }
 
-            // Mark completed successfully
-            _lastCompletedSceneLoadGeneration = thisLoadIdentity;
-            _sceneLoadState = SceneLoadProcessingState.Completed;
-            _spawnsBlocked = false;
-            Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Load generation {thisLoadIdentity} completed successfully (Status: {_sceneSpawnStatus}). Spawns unblocked.");
+            if (_startupContext.ShouldExecuteInitialSceneBootstrap)
+            {
+                // Mark completed successfully
+                _lastCompletedSceneLoadGeneration = thisLoadIdentity;
+                _sceneLoadState = SceneLoadProcessingState.Completed;
+                _spawnsBlocked = false;
+                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Load generation {thisLoadIdentity} completed successfully (Status: {_sceneSpawnStatus}). Spawns unblocked.");
+            }
+            else
+            {
+                _sceneLoadState = SceneLoadProcessingState.AwaitingHostMigrationRestore;
+                _spawnsBlocked = true;
+                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Awaiting Host Migration Restore. Spawns remain blocked.");
+            }
         }
         catch (Exception ex)
         {
