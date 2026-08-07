@@ -1,4 +1,5 @@
 using UnityEngine;
+using Fusion;
 
 /// <summary>
 /// Concrete network character implementation used by player-controlled entities.
@@ -13,6 +14,9 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField]
     private PlayerExtractionController _extractionController;
     private bool _reportedMissingExtractionController;
+
+    [Networked]
+    public NetworkString<_32> ProfileIdString { get; set; }
 
     /// <summary>
     /// Indicates whether the player character can receive damage.

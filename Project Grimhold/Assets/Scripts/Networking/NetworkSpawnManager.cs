@@ -782,6 +782,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         runner.SetPlayerObject(player, playerObject);
 
+        if (playerObject.TryGetBehaviour(out PlayerCharacter playerCharacter))
+        {
+            playerCharacter.ProfileIdString = joinData.ProfileId.Value;
+        }
+
         _spawnedPlayers.Add(player, playerObject);
 
         Debug.Log($"Spawned player {player} with class {joinData.ClassId}.");

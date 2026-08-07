@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 21
+      value: 22
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[5]'
@@ -118,6 +118,10 @@ PrefabInstance:
       objectReference: {fileID: 7134448978467409073}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[20]'
+      value: 
+      objectReference: {fileID: 628373506316998985}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[21]'
       value: 
       objectReference: {fileID: 4419447253773158415}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -171,6 +175,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 4419447253773158415}
   m_SourcePrefab: {fileID: 100100000, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+--- !u!114 &628373506316998985 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2262447401525612929, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f8a152c446782f40b65c6fff9451176, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionLootSaver
 --- !u!114 &1281523189680295321 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 438361259854513489, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
