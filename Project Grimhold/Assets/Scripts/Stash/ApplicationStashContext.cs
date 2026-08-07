@@ -8,13 +8,15 @@ using UnityEngine;
 public sealed class ApplicationStashContext : MonoBehaviour
 {
     public IPlayerStashService StashService { get; private set; }
+    public IPlayerLoadoutService LoadoutService { get; private set; }
 
     /// <summary>
     /// Injects the concrete implementation of the stash service.
     /// This should only be called during initialization by a bootstrapper.
     /// </summary>
-    public void Initialize(IPlayerStashService stashService)
+    public void Initialize(IPlayerStashService stashService, IPlayerLoadoutService loadoutService)
     {
         StashService = stashService;
+        LoadoutService = loadoutService;
     }
 }

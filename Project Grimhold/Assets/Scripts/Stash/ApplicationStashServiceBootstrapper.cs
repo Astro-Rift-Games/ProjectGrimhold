@@ -20,7 +20,8 @@ public static class ApplicationStashServiceBootstrapper
         var context = contextObject.AddComponent<ApplicationStashContext>();
         
         var inMemoryService = contextObject.AddComponent<InMemoryPlayerStashService>();
-        context.Initialize(inMemoryService);
+        var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
+        context.Initialize(inMemoryService, loadoutService);
 
         Object.DontDestroyOnLoad(contextObject);
 
