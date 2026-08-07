@@ -82,6 +82,15 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         BindLocalHud();
     }
 
+    public void TryBindAsLocalPlayer()
+    {
+        if (!HasInputAuthority)
+        {
+            return;
+        }
+        BindLocalHud();
+    }
+
     private void OnEnable()
     {
         if (Object != null && Object.IsValid && HasInputAuthority)

@@ -17,7 +17,12 @@ public sealed class LocalPlayerCameraBinder : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (!HasInputAuthority)
+        TryBindAsLocalPlayer();
+    }
+
+    public void TryBindAsLocalPlayer()
+    {
+        if (!HasInputAuthority || _registeredAsLocalTarget)
         {
             return;
         }

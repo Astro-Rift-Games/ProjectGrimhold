@@ -44,6 +44,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
+    private readonly Dictionary<PlayerRef, NetworkObject> _pendingHostMigrationReconnects = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
@@ -64,13 +65,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private SceneSpawnConfigurationStatus _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
     private bool _spawnsBlocked = true;
 
-    [SerializeField]
-    private float _hostMigrationReconnectWindowSeconds = 60f;
-
     private bool _resumedScenePipelineReady;
     private bool _snapshotRestoreReported;
     private bool _snapshotRestoreSucceeded;
-    private TickTimer _hostMigrationReconnectWindow;
 
     /// <summary>
     /// Exposes the linked coordinator.
@@ -101,7 +98,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _runner = null;
         _sceneSpawnPointConfiguration = null;
         _startupContext = default;
-        _hostMigrationReconnectWindow = default;
+        _pendingHostMigrationReconnects.Clear();
     }
 
     /// <summary>
@@ -146,6 +143,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
+        _pendingHostMigrationReconnects.Clear();
         _spawnedEnemies.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
@@ -164,7 +162,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _resumedScenePipelineReady = false;
         _snapshotRestoreReported = false;
         _snapshotRestoreSucceeded = false;
-        _hostMigrationReconnectWindow = default;
 
         Debug.Log($"[NetworkSpawnManager] Initialized for runner: {runner.name}");
         return true;
@@ -527,7 +524,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneSpawnPointConfiguration = null;
     }
 
-    public void ReportSnapshotRestoreResult(bool success, IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null)
+    public void ReportSnapshotRestoreResult(
+        bool success,
+        IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null,
+        IReadOnlyDictionary<PlayerRef, NetworkObject> pendingReconnects = null)
     {
         if (_snapshotRestoreReported)
         {
@@ -537,10 +537,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _snapshotRestoreReported = true;
         _snapshotRestoreSucceeded = success;
-        TryAdvanceHostMigrationRestoreState(restoredPlayerObjects);
+        TryAdvanceHostMigrationRestoreState(restoredPlayerObjects, pendingReconnects);
     }
 
-    private void TryAdvanceHostMigrationRestoreState(IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null)
+    private void TryAdvanceHostMigrationRestoreState(
+        IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null,
+        IReadOnlyDictionary<PlayerRef, NetworkObject> pendingReconnects = null)
     {
         if (_sceneLoadState == SceneLoadProcessingState.Failed || _sceneLoadState == SceneLoadProcessingState.HostMigrationRestoreFailed)
             return;
@@ -567,9 +569,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 Debug.LogWarning("[NetworkSpawnManager] Snapshot restore succeeded but no player mapping was provided or it was empty. No players were repopulated.");
             }
 
+            if (pendingReconnects != null && pendingReconnects.Count > 0)
+            {
+                foreach (var kvp in pendingReconnects)
+                {
+                    _pendingHostMigrationReconnects[kvp.Key] = kvp.Value;
+                }
+                Debug.Log($"[NetworkSpawnManager] Tracking {pendingReconnects.Count} pending reconnects from Host Migration.");
+            }
+
             _sceneLoadState = SceneLoadProcessingState.Completed;
             _spawnsBlocked = false;
-            _hostMigrationReconnectWindow = TickTimer.CreateFromSeconds(_runner, _hostMigrationReconnectWindowSeconds);
             Debug.Log("[NetworkSpawnManager] Host Migration Restore succeeded. Players repopulated and spawns unblocked.");
         }
         else
@@ -591,19 +601,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         bool isHostMigrationWindow = false;
         if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
         {
-            if (_sceneLoadState == SceneLoadProcessingState.AwaitingHostMigrationRestore || 
-                _sceneLoadState == SceneLoadProcessingState.SnapshotRestoredAwaitingRuntimeRebind)
+            if (_matchController != null && _matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
             {
                 isHostMigrationWindow = true;
-            }
-            else if (_sceneLoadState == SceneLoadProcessingState.Completed)
-            {
-                // Permit reconnection while the window is still open
-                bool withinReconnectWindow = !_hostMigrationReconnectWindow.ExpiredOrNotRunning(runner);
-                if (withinReconnectWindow)
-                {
-                    isHostMigrationWindow = true;
-                }
             }
         }
 
@@ -684,12 +684,46 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (_admittedPlayers.Contains(player))
             return true;
 
+        if (_pendingHostMigrationReconnects.TryGetValue(player, out NetworkObject pendingObj))
+        {
+            _pendingHostMigrationReconnects.Remove(player);
+            _admittedPlayers.Add(player);
+            _spawnedPlayers[player] = pendingObj;
+
+            pendingObj.AssignInputAuthority(player);
+            runner.SetPlayerObject(player, pendingObj);
+
+            Debug.Log($"[NetworkSpawnManager] Player {player} readmitted from pending Host Migration reconnect. Reassigned authority to NetworkId {pendingObj.Id}.");
+            return true;
+        }
+
         if (_matchController.Phase != NetworkMatchController.MatchPhase.WaitingForPlayers)
             return false;
 
         _admittedPlayers.Add(player);
         Debug.Log($"[NetworkSpawnManager] Player {player} registered as an admitted participant.");
         return true;
+    }
+
+    public void NotifyPendingReconnectCharacterDefeated(NetworkObject obj)
+    {
+        if (obj == null) return;
+        
+        PlayerRef? keyToRemove = null;
+        foreach (var kvp in _pendingHostMigrationReconnects)
+        {
+            if (kvp.Value == obj)
+            {
+                keyToRemove = kvp.Key;
+                break;
+            }
+        }
+
+        if (keyToRemove.HasValue)
+        {
+            _pendingHostMigrationReconnects.Remove(keyToRemove.Value);
+            Debug.Log($"[NetworkSpawnManager] Pending reconnect character for PlayerRef {keyToRemove.Value} was defeated. Removed from pending list.");
+        }
     }
 
     public HostBootstrapResult TryBootstrapHost(
@@ -1436,7 +1470,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _resumedScenePipelineReady = false;
             _snapshotRestoreReported = false;
             _snapshotRestoreSucceeded = false;
-            _hostMigrationReconnectWindow = default;
+            _pendingHostMigrationReconnects.Clear();
             Debug.Log("[NetworkSpawnManager] Shutdown complete. Cleared all states and references.");
         }
     }

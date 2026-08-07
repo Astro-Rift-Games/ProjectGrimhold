@@ -79,6 +79,9 @@ public sealed class PlayerCharacter : CharacterBase
         }
 
         _corpseGenerationController.TryConvertInventoryToCorpseLoot(Runner.Tick);
+
+        var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        spawnManager?.NotifyPendingReconnectCharacterDefeated(Object);
     }
 
     private void CacheDependencies()

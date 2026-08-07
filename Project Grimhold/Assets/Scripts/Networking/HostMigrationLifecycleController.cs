@@ -131,7 +131,9 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                 HostMigrationToken = token,
                 HostMigrationResume = newComposition.SnapshotRestorer.HostMigrationResumeCallback,
                 ConnectionToken = _connectionToken,
-                Scene = sceneInfo
+                Scene = sceneInfo,
+                IsOpen = true,
+                IsVisible = false
             };
 
             Debug.Log("[HostMigrationLifecycleController] Starting new runner with HostMigrationToken...");

@@ -16,8 +16,10 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     private readonly Dictionary<NetworkId, NetworkObject> _restoredSceneObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly List<NetworkObject> _spawnedThisExecution = new List<NetworkObject>();
     private readonly Dictionary<PlayerRef, NetworkObject> _restoredPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
+    private readonly Dictionary<PlayerRef, NetworkObject> _pendingReconnectPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
 
     public IReadOnlyDictionary<PlayerRef, NetworkObject> GetRestoredPlayerObjects() => _restoredPlayerObjects;
+    public IReadOnlyDictionary<PlayerRef, NetworkObject> GetPendingReconnectPlayerObjects() => _pendingReconnectPlayerObjects;
 
     public bool IsRestoringObject(NetworkObject networkObject)
     {
@@ -71,6 +73,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _restoredSceneObjects.Clear();
         _spawnedThisExecution.Clear();
         _restoredPlayerObjects.Clear();
+        _pendingReconnectPlayerObjects.Clear();
 
         Debug.Log("[HostMigrationSnapshotRestorer] Executing snapshot restoration...");
         try
@@ -83,7 +86,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             ValidateMatchController();
             RestorePlayerAuthorities(runner);
 
-            _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects());
+            _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects(), GetPendingReconnectPlayerObjects());
             Debug.Log("[HostMigrationSnapshotRestorer] Snapshot restoration finished successfully.");
         }
         catch (Exception ex)
@@ -109,6 +112,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
         _restoredPlayerObjects.Clear();
+        _pendingReconnectPlayerObjects.Clear();
     }
 
     public bool TryGetRestoredDynamicObject(NetworkId previousId, out NetworkObject restoredObject)
@@ -350,6 +354,24 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 {
                     newObject.AssignInputAuthority(playerRef);
                     runner.SetPlayerObject(playerRef, newObject);
+
+                    Debug.Log($"[HM-DIAG-TEMP] Checking rebind: playerRef={playerRef}, runner.LocalPlayer={runner.LocalPlayer}, match={playerRef == runner.LocalPlayer}");
+
+                    if (playerRef == runner.LocalPlayer)
+                    {
+                        Debug.Log($"[HM-DIAG-TEMP] LocalCameraController.Instance is {(LocalCameraController.Instance == null ? "NULL" : "valid")}");
+
+                        if (newObject.TryGetBehaviour(out LocalPlayerCameraBinder cameraBinder))
+                        {
+                            cameraBinder.TryBindAsLocalPlayer();
+                        }
+
+                        if (newObject.TryGetBehaviour(out LocalPlayerHudBinder hudBinder))
+                        {
+                            hudBinder.TryBindAsLocalPlayer();
+                        }
+                    }
+
                     _restoredPlayerObjects.Add(playerRef, newObject);
                     Debug.Log($"[HostMigrationSnapshotRestorer] Restored authority for PlayerRef {playerRef} to new NetworkId {newObject.Id}.");
                 }
@@ -360,7 +382,15 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             }
             else
             {
-                Debug.Log($"[HostMigrationSnapshotRestorer] PlayerRef {playerRef} is no longer active. Skipping authority restore.");
+                if (_restoredDynamicObjects.TryGetValue(oldNetworkId, out NetworkObject newObject))
+                {
+                    _pendingReconnectPlayerObjects.Add(playerRef, newObject);
+                    Debug.Log($"[HostMigrationSnapshotRestorer] PlayerRef {playerRef} is no longer active. Tracking as pending reconnect for NetworkId {newObject.Id}.");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Cannot resolve old NetworkId {oldNetworkId} for pending PlayerRef {playerRef} in restored dynamic objects.");
+                }
             }
         }
     }
