@@ -83,7 +83,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             ValidateMatchController();
             RestorePlayerAuthorities(runner);
 
-            _spawnManager.ReportSnapshotRestoreResult(true);
+            _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects());
             Debug.Log("[HostMigrationSnapshotRestorer] Snapshot restoration finished successfully.");
         }
         catch (Exception ex)
