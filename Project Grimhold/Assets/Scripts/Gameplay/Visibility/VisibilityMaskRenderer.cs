@@ -82,14 +82,6 @@ namespace ProjectGrimhold.Gameplay.Visibility
             }
         }
 
-        private void OnGUI()
-        {
-            if (_renderTexture == null) return;
 
-            // Dibuja la textura cruda en la esquina superior izquierda de la pantalla
-            // Esto permite verificar si la máscara se dibuja correctamente ignorando el shader y RenderGraph.
-            GUI.Box(new Rect(10, 10, 256, 20), "Diagnostic: Mask RT");
-            GUI.DrawTexture(new Rect(10, 30, 256, 256), _renderTexture, ScaleMode.ScaleToFit, false);
-        }
     }
 }
