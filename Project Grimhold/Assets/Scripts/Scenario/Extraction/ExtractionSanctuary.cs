@@ -363,6 +363,12 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         Unregister();
     }
 
+    internal int GetRestoredOwnerIdValue() => OwnerIdValue;
+    internal void SetRestoredOwnerId(EntityId newOwnerId)
+    {
+        OwnerIdValue = newOwnerId.Value;
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {

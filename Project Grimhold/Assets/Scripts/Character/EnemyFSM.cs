@@ -41,13 +41,13 @@ public sealed class EnemyFSM : NetworkBehaviour
     {
         CacheDependencies();
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             TransitionTo(EnemyStateType.Idle);
         }
         else
         {
-            SyncProxyCurrentState();
+            SyncLocalCurrentState();
         }
     }
 
@@ -55,11 +55,11 @@ public sealed class EnemyFSM : NetworkBehaviour
     {
         if (!HasStateAuthority)
         {
-            SyncProxyCurrentState();
+            SyncLocalCurrentState();
         }
     }
 
-    private void SyncProxyCurrentState()
+    private void SyncLocalCurrentState()
     {
         if (_currentState == null || _currentState.Type != CurrentStateType)
         {

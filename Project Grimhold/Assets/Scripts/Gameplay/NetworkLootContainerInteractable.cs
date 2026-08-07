@@ -60,7 +60,7 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
 
         _isRegistered = true;
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             FirstOpenResolved = false;
         }

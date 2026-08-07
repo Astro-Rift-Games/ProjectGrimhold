@@ -10,19 +10,22 @@ public static class NetworkRunnerFactory
         public readonly NetworkSpawnManager SpawnManager;
         public readonly ExtractionSanctuaryAssignmentService SanctuaryAssignmentService;
         public readonly HostMigrationLifecycleController HostMigrationController;
+        public readonly HostMigrationSnapshotRestorer SnapshotRestorer;
 
         public RunnerComposition(
             GameObject runnerObject,
             NetworkRunner runner,
             NetworkSpawnManager spawnManager,
             ExtractionSanctuaryAssignmentService sanctuaryAssignmentService,
-            HostMigrationLifecycleController hostMigrationController)
+            HostMigrationLifecycleController hostMigrationController,
+            HostMigrationSnapshotRestorer snapshotRestorer)
         {
             RunnerObject = runnerObject;
             Runner = runner;
             SpawnManager = spawnManager;
             SanctuaryAssignmentService = sanctuaryAssignmentService;
             HostMigrationController = hostMigrationController;
+            SnapshotRestorer = snapshotRestorer;
         }
     }
 
@@ -78,6 +81,9 @@ public static class NetworkRunnerFactory
             in joinData,
             copiedConnectionToken);
 
+        var snapshotRestorer = runnerObject.AddComponent<HostMigrationSnapshotRestorer>();
+        snapshotRestorer.Initialize(runner, startupContext, spawnManager);
+
         Object.DontDestroyOnLoad(runnerObject);
         runner.ProvideInput = true;
 
@@ -86,7 +92,8 @@ public static class NetworkRunnerFactory
             runner,
             spawnManager,
             sanctuaryAssignmentService,
-            hostMigrationController);
+            hostMigrationController,
+            snapshotRestorer);
 
         return true;
     }

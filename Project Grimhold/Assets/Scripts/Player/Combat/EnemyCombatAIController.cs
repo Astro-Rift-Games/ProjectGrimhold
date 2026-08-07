@@ -77,7 +77,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         _lastObservedSequence = AttackSequence;
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             IsAttackEnabled = false;
         }

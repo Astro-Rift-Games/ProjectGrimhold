@@ -87,7 +87,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         _spawnedStarted = true;
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             if (_initialContentOverrideState == InitialContentOverrideState.Rejected)
             {
@@ -166,7 +166,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         _isRegistered = true;
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             IsAvailable = _startsAvailable;
         }

@@ -20,7 +20,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Processing,
         Completed,
         Failed,
-        AwaitingHostMigrationRestore
+        AwaitingHostMigrationRestore,
+        SnapshotRestoredAwaitingRuntimeRebind,
+        HostMigrationRestoreFailed
     }
 
     public enum SceneSpawnConfigurationStatus
@@ -61,6 +63,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private SceneLoadProcessingState _sceneLoadState = SceneLoadProcessingState.None;
     private SceneSpawnConfigurationStatus _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
     private bool _spawnsBlocked = true;
+
+    private bool _resumedScenePipelineReady;
+    private bool _snapshotRestoreReported;
+    private bool _snapshotRestoreSucceeded;
 
     /// <summary>
     /// Exposes the linked coordinator.
@@ -149,6 +155,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.None;
         _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
         _spawnsBlocked = true;
+
+        _resumedScenePipelineReady = false;
+        _snapshotRestoreReported = false;
+        _snapshotRestoreSucceeded = false;
 
         Debug.Log($"[NetworkSpawnManager] Initialized for runner: {runner.name}");
         return true;
@@ -490,9 +500,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
             else
             {
-                _sceneLoadState = SceneLoadProcessingState.AwaitingHostMigrationRestore;
-                _spawnsBlocked = true;
-                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Awaiting Host Migration Restore. Spawns remain blocked.");
+                _resumedScenePipelineReady = true;
+                TryAdvanceHostMigrationRestoreState();
+                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Scene load pipeline ready. Awaiting Host Migration Restore. Spawns remain blocked.");
             }
         }
         catch (Exception ex)
@@ -509,6 +519,39 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnsBlocked = true;
         _spawnPointLookup.Clear();
         _sceneSpawnPointConfiguration = null;
+    }
+
+    public void ReportSnapshotRestoreResult(bool success)
+    {
+        _snapshotRestoreReported = true;
+        _snapshotRestoreSucceeded = success;
+        TryAdvanceHostMigrationRestoreState();
+    }
+
+    private void TryAdvanceHostMigrationRestoreState()
+    {
+        if (_sceneLoadState == SceneLoadProcessingState.Failed || _sceneLoadState == SceneLoadProcessingState.HostMigrationRestoreFailed)
+            return;
+
+        if (!_resumedScenePipelineReady || !_snapshotRestoreReported)
+        {
+            _sceneLoadState = SceneLoadProcessingState.AwaitingHostMigrationRestore;
+            _spawnsBlocked = true;
+            return;
+        }
+
+        if (_snapshotRestoreSucceeded)
+        {
+            _sceneLoadState = SceneLoadProcessingState.SnapshotRestoredAwaitingRuntimeRebind;
+            _spawnsBlocked = true;
+            Debug.Log("[NetworkSpawnManager] Host Migration Restore succeeded. Awaiting runtime rebind.");
+        }
+        else
+        {
+            _sceneLoadState = SceneLoadProcessingState.HostMigrationRestoreFailed;
+            _spawnsBlocked = true;
+            Debug.LogError("[NetworkSpawnManager] Host Migration Restore failed.");
+        }
     }
 
     public override void OnConnectRequest(

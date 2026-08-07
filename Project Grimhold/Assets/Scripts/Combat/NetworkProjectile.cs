@@ -269,6 +269,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
         }
     }
 
+    internal int GetRestoredOwnerEntityIdValue() => OwnerEntityIdValue;
+    internal void SetRestoredOwnerEntityId(EntityId newOwnerId)
+    {
+        OwnerEntityIdValue = newOwnerId.Value;
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {

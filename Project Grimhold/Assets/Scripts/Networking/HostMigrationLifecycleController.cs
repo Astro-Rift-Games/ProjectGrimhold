@@ -47,6 +47,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
 
     private async Task HandleHostMigrationAsync(NetworkRunner oldRunner, HostMigrationToken token)
     {
+        NetworkRunnerFactory.RunnerComposition newComposition = default;
         try
         {
             var spawnManager = oldRunner.GetComponent<NetworkSpawnManager>();
@@ -111,7 +112,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                 _enemyPrefabs,
                 in _joinData,
                 _connectionToken,
-                out var newComposition))
+                out newComposition))
             {
                 throw new InvalidOperationException("Failed to create replacement runner via factory.");
             }
@@ -124,7 +125,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
             {
                 GameMode = mode,
                 HostMigrationToken = token,
-                HostMigrationResume = newComposition.HostMigrationController.HostMigrationResumeCallback,
+                HostMigrationResume = newComposition.SnapshotRestorer.HostMigrationResumeCallback,
                 ConnectionToken = _connectionToken,
                 Scene = sceneInfo
             };
@@ -159,21 +160,20 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         {
             Debug.LogException(ex, this);
             _isMigrating = false; 
-            // Podríamos intentar destruir el object viejo, pero depende del estado en el que falló.
-            // Si falló antes de destruir, evitamos leaks.
+            
             if (oldRunner != null && oldRunner.gameObject != null)
             {
                 Destroy(oldRunner.gameObject);
             }
+
+            if (newComposition.Runner != null && newComposition.Runner.IsRunning)
+            {
+                _ = newComposition.Runner.Shutdown();
+            }
+            if (newComposition.RunnerObject != null)
+            {
+                Destroy(newComposition.RunnerObject);
+            }
         }
-    }
-
-    public void HostMigrationResumeCallback(NetworkRunner runner)
-    {
-        if (runner != _associatedRunner)
-            return;
-
-        Debug.Log("[HostMigrationLifecycleController] HostMigrationResume callback invoked. Waiting for resumed scene-load pipeline.");
-        // La barrera real (AwaitingHostMigrationRestore) se verifica en OnSceneLoadDone del NetworkSpawnManager.
     }
 }

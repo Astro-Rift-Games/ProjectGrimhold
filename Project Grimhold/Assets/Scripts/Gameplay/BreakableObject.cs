@@ -82,7 +82,7 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
 
     public override void Spawned()
     {
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             Health = _maximumHealth;
             IsDestroyed = false;

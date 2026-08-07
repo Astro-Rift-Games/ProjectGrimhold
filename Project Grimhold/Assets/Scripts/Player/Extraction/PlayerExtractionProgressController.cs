@@ -57,7 +57,7 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         RegisterCapabilities();
         _dependenciesValid = ValidateDependencies();
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !Object.IsResume)
         {
             CurrentProgress = 0;
             AssignmentRequested = false;

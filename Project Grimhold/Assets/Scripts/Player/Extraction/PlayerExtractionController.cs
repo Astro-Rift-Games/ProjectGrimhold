@@ -87,7 +87,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         RegisterParticipant();
         _dependenciesValid = ValidateDependencies();
 
-        if (HasStateAuthority && State == ExtractionState.None)
+        if (HasStateAuthority && State == ExtractionState.None && !Object.IsResume)
         {
             ActiveZoneIdValue = 0;
             ExtractionTimer = TickTimer.None;
@@ -465,6 +465,12 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             Gizmos.color = new Color(0.2f, 1f, 0.4f, 0.9f);
             Gizmos.DrawWireSphere(transform.position, 1.0f);
         }
+    }
+
+    internal int GetRestoredActiveZoneIdValue() => ActiveZoneIdValue;
+    internal void SetRestoredActiveZoneId(EntityId newZoneId)
+    {
+        ActiveZoneIdValue = newZoneId.Value;
     }
 
 #if UNITY_EDITOR
