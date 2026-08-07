@@ -95,7 +95,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _lastObservedSequence = AttackSequence;
         _pendingFeedbackEvents.Clear();
 
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             IsAttackEnabled = true;
         }

@@ -94,7 +94,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         RegisterParticipant();
         _dependenciesValid = ValidateDependencies();
 
-        if (HasStateAuthority && State == ExtractionState.None && !Object.IsResume)
+        if (HasStateAuthority && State == ExtractionState.None && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             ActiveZoneIdValue = 0;
             ExtractionTimer = TickTimer.None;

@@ -41,7 +41,7 @@ public sealed class EnemyFSM : NetworkBehaviour
     {
         CacheDependencies();
 
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             TransitionTo(EnemyStateType.Idle);
         }

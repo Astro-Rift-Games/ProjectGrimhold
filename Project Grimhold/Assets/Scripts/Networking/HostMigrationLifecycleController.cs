@@ -119,7 +119,11 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
 
             SceneRef sceneRef = SceneRef.FromIndex(oldSceneBuildIndex);
             var sceneInfo = new NetworkSceneInfo();
-            sceneInfo.AddSceneRef(sceneRef, LoadSceneMode.Single);
+            int sceneIndex = sceneInfo.AddSceneRef(sceneRef, LoadSceneMode.Single);
+            if (sceneIndex < 0)
+            {
+                throw new InvalidOperationException("Failed to add SceneRef to NetworkSceneInfo.");
+            }
 
             var startGameArgs = new StartGameArgs
             {
@@ -168,7 +172,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
 
             if (newComposition.Runner != null && newComposition.Runner.IsRunning)
             {
-                _ = newComposition.Runner.Shutdown();
+                await newComposition.Runner.Shutdown();
             }
             if (newComposition.RunnerObject != null)
             {

@@ -89,7 +89,8 @@ public sealed class ExtractionSanctuaryPresenter : MonoBehaviour
             return;
         }
 
-        if (_sanctuary.Object == null || !_sanctuary.Object.IsValid)
+        NetworkObject networkObject = _sanctuary.Object;
+        if (networkObject == null || !networkObject.IsValid || !networkObject.IsInSimulation)
         {
             _spriteRenderer.color = CreateColor(0.9f, 0.2f, 0.2f);
             return;

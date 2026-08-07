@@ -523,6 +523,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     public void ReportSnapshotRestoreResult(bool success)
     {
+        if (_snapshotRestoreReported)
+        {
+            Debug.LogWarning("[NetworkSpawnManager] Snapshot restore result already reported. Ignoring duplicate.");
+            return;
+        }
+
         _snapshotRestoreReported = true;
         _snapshotRestoreSucceeded = success;
         TryAdvanceHostMigrationRestoreState();
@@ -576,6 +582,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public override void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"PlayerJoined: {player}");
+
+        if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            Debug.Log($"[HM-DIAG] OnPlayerJoined during HostMigrationResume: PlayerRef={player}");
+        }
 
         if (!runner.IsServer || runner != _runner)
         {
@@ -750,6 +761,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
     {
+        if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            Debug.Log($"[HM-DIAG] SpawnPlayer during HostMigrationResume: PlayerRef={player}");
+        }
+
         if (!CanSpawnPlayer(runner, player))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejecting spawn for player {player}: validation failed.");

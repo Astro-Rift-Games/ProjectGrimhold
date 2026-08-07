@@ -60,7 +60,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     /// </summary>
     public override void Spawned()
     {
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             Health = _maxHealth;
         }

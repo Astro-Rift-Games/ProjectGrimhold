@@ -146,5 +146,20 @@ To distinguish between a completely new session and one resumed via Host Migrati
 - **Creation and Injection**: The context is created by the initiator of the session (e.g., `FusionSessionLauncher`) and explicitly injected into runner-scoped dependencies like `NetworkSpawnManager` via `InitializeForRunner`. It is not stored as a generic component on the runner.
 - **FreshSession Operations**: This mode permits the initial Host player bootstrap, initialization of the `MatchPhase` to `WaitingForPlayers`, and the fresh bootstrapping of initial scene entities (players, enemies, loot, breakables, new random seeds).
 - **HostMigrationResume Awaiting**: When resuming via migration, all initial bootstrap operations are skipped. Scene load completes by transitioning the spawn manager into an explicit `AwaitingHostMigrationRestore` state. Spawns remain locked and no fresh scene seed is generated.
-- **Migration Architecture (HM-02)**: Currently, snapshots are automatically generated. Upon migration, `HostMigrationLifecycleController` checks if it's an active expedition (rejecting if in lobby). It then shuts down the old runner, creates a temporary empty scene, unloads the old scene securely, and creates a completely new replacement runner via `NetworkRunnerFactory`. The factory makes defensive copies of configuration data and cleans up atomically on failure. A `LauncherShutdownListener` clears `FusionSessionLauncher` references upon shutdown. The scene is reloaded using `LoadSceneMode.Single` which replaces the temporary scene.
-- **Migration Not Yet Functional (Pending HM-03)**: Currently, this context establishes the protection layers required during the bootstrap pipeline and replaces the runner; full snapshot restoration of entities is not yet implemented.
+- **Migration Status**:
+  - **HM-01**: Supports `FreshSession` vs `HostMigrationResume` distinction and suppression of the initial bootstrap pipeline (no new random seeds or initial points).
+  - **HM-02**: Features a temporary migration scene to preserve memory, creates a fully configured replacement runner using `NetworkRunnerFactory`, and utilizes `HostMigrationToken` to rebuild the session connection state.
+  - **HM-03**: The core snapshot restoration is fully functional. 
+    - Recreates dynamic snapshot objects using `Runner.Spawn`.
+    - Obtains the initial transform exclusively from the `NetworkTRSP` snapshot to correctly position entities.
+    - Applies `CopyStateFrom` during `onBeforeSpawned` and temporarily strips Input Authority (`AssignInputAuthority(PlayerRef.None)`).
+    - La inicialización Fresh de sus `Spawned()` se suprime mediante `HostMigrationRestoreUtility.IsRestoreSpawn()`. `Runner.IsResume` confirma que estamos en un replacement runner, pero es el `HostMigrationSnapshotRestorer` quien identifica la instancia dinámica concreta que está recreando. Solamente esa instancia suprime su inicialización Fresh; los objetos creados normalmente más tarde en el mismo runner inicializan Fresh.
+    - Safely hydrates scene objects utilizing `GetResumeSnapshotNetworkSceneObjects`.
+    - Retains an internal immutable mapping from `old -> current` and applies explicit fixups for nested references (`EntityId`).
+    - Validates that the state of `NetworkMatchController` is strictly preserved (`MatchPhase.InProgress`).
+    - The spawning pipeline remains blocked (`_spawnsBlocked = true`).
+    - Once completed, the session transitions to an explicit barrier state: `SnapshotRestoredAwaitingRuntimeRebind`.
+  
+  **Important Distinctions**:
+  - **Character defeat != Host peer loss**: The death of a character belonging to the Host player does not execute `OnHostMigration`, does not replace the runner, and does not reload the scene. Host Migration exclusively occurs when the peer Host becomes unavailable and Fusion fires the `OnHostMigration` callback.
+  - **Simulation vs Spawning**: The barrier `_spawnsBlocked` only halts the spawning pipeline (initial entity bootstrap and new spawns). It **DOES NOT** pause `FixedUpdateNetwork`. Consequently, enemies and restored simulation can continue advancing even though HM-04 has not yet restored participants and input authorities. The world should not be considered "paused".

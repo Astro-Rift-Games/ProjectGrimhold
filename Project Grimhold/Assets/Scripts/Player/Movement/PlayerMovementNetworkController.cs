@@ -47,7 +47,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
 
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             IsControlEnabled = true;
 

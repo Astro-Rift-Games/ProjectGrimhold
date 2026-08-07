@@ -78,7 +78,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         _entityRegistry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         _dependenciesValid = ValidateDependencies();
 
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             IsControlEnabled = true;
 

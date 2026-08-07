@@ -90,7 +90,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
     public override void Spawned()
     {
-        if (HasStateAuthority && !Object.IsResume)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             InitializeAuthoritativeState();
         }
