@@ -34,6 +34,12 @@ public interface IPlayerLoadoutService
     StashOperationResult TryTransferAllToStash(ProfileId profileId);
 
     /// <summary>
+    /// Generic method to import items into the Loadout from an external source (e.g. extraction).
+    /// Enforces loadout capacity limits explicitly.
+    /// </summary>
+    StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items);
+
+    /// <summary>
     /// Locks and consumes the current loadout for the specified profile, returning an immutable snapshot 
     /// that can be safely injected into the raid. The active loadout is cleared.
     /// </summary>
