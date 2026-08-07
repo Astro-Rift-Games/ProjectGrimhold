@@ -38,6 +38,11 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private readonly Queue<LootGrantPresentationEvent> _pendingPresentationEvents = new();
 
     /// <summary>
+    /// Gets the loot definition catalog.
+    /// </summary>
+    public LootDefinitionCatalog LootCatalog => _lootCatalog;
+
+    /// <summary>
     /// Local presentation notification emitted during Render on the receiving player's peer.
     /// </summary>
     public event Action<LootGrantPresentationEvent> LootGranted;
