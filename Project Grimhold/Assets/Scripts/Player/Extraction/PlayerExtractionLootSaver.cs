@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Observes extraction completion events to securely transfer the player's raid inventory
-/// to their persistent stash. Executes exclusively on State Authority.
+/// to their Loadout in the Lobby. Executes exclusively on State Authority.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerExtractionController))]
@@ -13,7 +13,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 {
     private PlayerExtractionController _extractionController;
     private PlayerLootReceiver _lootReceiver;
-    private IPlayerStashService _stashService;
+    private IPlayerLoadoutService _loadoutService;
 
     [Networked]
     private NetworkBool HasSecuredLoot { get; set; }
@@ -29,11 +29,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         var context = FindAnyObjectByType<ApplicationStashContext>();
         if (context != null)
         {
-            _stashService = context.StashService;
+            _loadoutService = context.LoadoutService;
         }
         else
         {
-            Debug.LogWarning($"{nameof(PlayerExtractionLootSaver)}: {nameof(ApplicationStashContext)} not found. Stash service will be unavailable.", this);
+            Debug.LogWarning($"{nameof(PlayerExtractionLootSaver)}: {nameof(ApplicationStashContext)} not found. Loadout service will be unavailable.", this);
         }
 
         if (_extractionController != null)
@@ -57,9 +57,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        if (_stashService == null)
+        if (_loadoutService == null)
         {
-            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Cannot secure loot. {nameof(IPlayerStashService)} is missing.", this);
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Cannot secure loot. {nameof(IPlayerLoadoutService)} is missing.", this);
             return;
         }
 
@@ -96,14 +96,14 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         ProfileId profileId = new ProfileId(profileIdValue);
 
-        StashOperationResult result = _stashService.TrySecureLoot(profileId, stashItems);
+        StashOperationResult result = _loadoutService.TryImportItems(profileId, stashItems);
 
-        if (result == StashOperationResult.Success || result == StashOperationResult.AlreadySecured)
+        if (result == StashOperationResult.Success)
         {
             if (_lootReceiver.TryClearExactContent(snapshot, out string clearError))
             {
                 HasSecuredLoot = true;
-                Debug.Log($"[PlayerExtractionLootSaver] Successfully secured {snapshot.Count} item types to stash for profile {profileId}.", this);
+                Debug.Log($"[PlayerExtractionLootSaver] Successfully imported {snapshot.Count} item types to loadout for profile {profileId}.", this);
             }
             else
             {
@@ -112,7 +112,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
         else
         {
-            Debug.LogError($"[PlayerExtractionLootSaver] Failed to secure loot. Result: {result}. Inventory will not be cleared.", this);
+            Debug.LogError($"[PlayerExtractionLootSaver] Failed to secure loot to loadout. Result: {result}. Inventory will not be cleared.", this);
         }
     }
 }

@@ -212,6 +212,82 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
         return anySuccess ? StashOperationResult.Success : StashOperationResult.PersistenceFailed;
     }
 
+    public StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items)
+    {
+        if (!profileId.IsValid || items == null || items.Count == 0)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (!_loadouts.TryGetValue(profileId, out List<StashItem> currentLoadout))
+        {
+            currentLoadout = new List<StashItem>();
+            _loadouts[profileId] = currentLoadout;
+        }
+
+        // Calculate required new slots
+        int requiredNewSlots = 0;
+        foreach (var item in items)
+        {
+            if (item.Amount <= 0) continue;
+
+            bool exists = false;
+            for (int i = 0; i < currentLoadout.Count; i++)
+            {
+                if (currentLoadout[i].LootId == item.LootId)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists)
+            {
+                requiredNewSlots++;
+            }
+        }
+
+        if (currentLoadout.Count + requiredNewSlots > MaxLoadoutSlots)
+        {
+            Debug.LogWarning($"[InMemoryPlayerLoadoutService] Cannot import items for {profileId.Value}. Capacity exceeded (Max {MaxLoadoutSlots}).");
+            return StashOperationResult.PersistenceFailed;
+        }
+
+        // Import the items
+        bool changed = false;
+        foreach (var item in items)
+        {
+            if (item.Amount <= 0) continue;
+
+            int existingIndex = -1;
+            for (int i = 0; i < currentLoadout.Count; i++)
+            {
+                if (currentLoadout[i].LootId == item.LootId)
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            if (existingIndex != -1)
+            {
+                currentLoadout[existingIndex] = new StashItem(item.LootId, currentLoadout[existingIndex].Amount + item.Amount);
+            }
+            else
+            {
+                currentLoadout.Add(new StashItem(item.LootId, item.Amount));
+            }
+            changed = true;
+        }
+
+        if (changed)
+        {
+            LoadoutChanged?.Invoke(profileId);
+        }
+
+        return StashOperationResult.Success;
+    }
+
     public IReadOnlyList<LootEntry> ConsumeLoadoutForRaid(ProfileId profileId)
     {
         if (!profileId.IsValid || !_loadouts.TryGetValue(profileId, out List<StashItem> currentLoadout))
