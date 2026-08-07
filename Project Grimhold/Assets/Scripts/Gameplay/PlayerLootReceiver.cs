@@ -646,6 +646,57 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         throw new InvalidOperationException($"{commitName} preconditions changed after successful validation.");
     }
 
+    /// <summary>
+    /// Forcibly injects an initial loadout into the player's inventory.
+    /// Used by the loadout injector upon spawn to initialize the player's items.
+    /// Can only be called by State Authority.
+    /// </summary>
+    public void InitializeLoadout(IReadOnlyList<LootEntry> loadoutItems)
+    {
+        if (!HasStateAuthority)
+        {
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: InitializeLoadout requires State Authority.");
+            return;
+        }
+
+        if (loadoutItems == null || loadoutItems.Count == 0)
+        {
+            return; // Nothing to initialize
+        }
+
+        if (_lootCatalog == null)
+        {
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Cannot initialize loadout without a LootCatalog.");
+            return;
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        
+        foreach (var entry in loadoutItems)
+        {
+            if (!entry.IsValid || entry.Amount <= 0) continue;
+
+            if (_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
+            {
+                if (inventory.TryGet(definitionIndex, out int currentAmount))
+                {
+                    inventory.Set(definitionIndex, currentAmount + entry.Amount);
+                }
+                else if (inventory.Count < _slotCapacity && inventory.Count < inventory.Capacity)
+                {
+                    inventory.Set(definitionIndex, entry.Amount);
+                }
+                else
+                {
+                    Debug.LogWarning($"[PlayerLootReceiver] Not enough capacity to initialize item {entry.LootId}.");
+                }
+            }
+        }
+
+        LootChangeSequence++;
+        Debug.Log($"[PlayerLootReceiver] Initialized loadout for player {Id} with {loadoutItems.Count} items.");
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {

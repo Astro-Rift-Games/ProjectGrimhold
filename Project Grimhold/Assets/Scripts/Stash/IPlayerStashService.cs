@@ -21,6 +21,12 @@ public interface IPlayerStashService
     IReadOnlyList<StashItem> GetStash(ProfileId profileId);
 
     /// <summary>
+    /// Attempts to consume a specific amount of an item from the stash.
+    /// Used by the loadout service to move items out of the stash.
+    /// </summary>
+    StashOperationResult TryConsumeLoot(ProfileId profileId, LootId lootId, int amount);
+
+    /// <summary>
     /// Fired when a profile's stash has been modified.
     /// </summary>
     event Action<ProfileId> StashChanged;

@@ -21,6 +21,47 @@ public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashServ
         return System.Array.Empty<StashItem>();
     }
 
+    public StashOperationResult TryConsumeLoot(ProfileId profileId, LootId lootId, int amount)
+    {
+        if (!profileId.IsValid || !lootId.IsValid || amount <= 0)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (!_stashes.TryGetValue(profileId, out List<StashItem> currentStash))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        int stashIndex = -1;
+        for (int i = 0; i < currentStash.Count; i++)
+        {
+            if (currentStash[i].LootId == lootId)
+            {
+                stashIndex = i;
+                break;
+            }
+        }
+
+        if (stashIndex == -1 || currentStash[stashIndex].Amount < amount)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        int newAmount = currentStash[stashIndex].Amount - amount;
+        if (newAmount > 0)
+        {
+            currentStash[stashIndex] = new StashItem(lootId, newAmount);
+        }
+        else
+        {
+            currentStash.RemoveAt(stashIndex);
+        }
+
+        StashChanged?.Invoke(profileId);
+        return StashOperationResult.Success;
+    }
+
     public StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items)
     {
         if (!profileId.IsValid)
