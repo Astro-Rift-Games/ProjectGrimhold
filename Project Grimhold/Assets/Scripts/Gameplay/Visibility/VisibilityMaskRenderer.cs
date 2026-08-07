@@ -1,0 +1,76 @@
+using UnityEngine;
+
+namespace ProjectGrimhold.Gameplay.Visibility
+{
+    /// <summary>
+    /// Administra una cámara auxiliar encargada de renderizar los polígonos de visibilidad
+    /// hacia una RenderTexture, exponiéndola globalmente para los Shaders de consumo.
+    /// </summary>
+    [RequireComponent(typeof(Camera))]
+    public sealed class VisibilityMaskRenderer : MonoBehaviour
+    {
+        [Tooltip("Resolución de la RenderTexture de la máscara (ej. 512).")]
+        [SerializeField] private int _textureResolution = 512;
+        
+        [Tooltip("Layer exclusivo para dibujar el mesh de visión (ej. 'VisibilityMask').")]
+        [SerializeField] private LayerMask _maskLayer;
+
+        [Tooltip("Tamaño de la cámara ortográfica que captura la visión (debe cubrir el ViewRadius).")]
+        [SerializeField] private float _orthographicSize = 15f;
+
+        private Camera _camera;
+        private RenderTexture _renderTexture;
+
+        private void Awake()
+        {
+            _camera = GetComponent<Camera>();
+            
+            // Configuración estricta de la cámara para la máscara
+            _camera.clearFlags = CameraClearFlags.SolidColor;
+            _camera.backgroundColor = Color.black;
+            _camera.cullingMask = _maskLayer;
+            _camera.orthographic = true;
+            _camera.orthographicSize = _orthographicSize;
+            _camera.depth = -100; // Queremos que renderice antes que las cámaras principales
+            _camera.allowHDR = false;
+            _camera.allowMSAA = false;
+
+            // Creamos una textura de 8-bit (solo nos interesa la intensidad de 0 a 1)
+            // Usamos formato R8 o ARGB32 dependiendo de la compatibilidad requerida, ARGB32 es más universal en 2D.
+            _renderTexture = new RenderTexture(_textureResolution, _textureResolution, 0, RenderTextureFormat.ARGB32);
+            _renderTexture.name = "GlobalVisibilityMaskRT";
+            _renderTexture.filterMode = FilterMode.Bilinear;
+            _renderTexture.wrapMode = TextureWrapMode.Clamp;
+            _renderTexture.Create();
+
+            _camera.targetTexture = _renderTexture;
+        }
+
+        private void LateUpdate()
+        {
+            if (_renderTexture != null)
+            {
+                // Exponer la textura para cualquier shader global (como el Fog of War)
+                Shader.SetGlobalTexture("_GlobalVisibilityMask", _renderTexture);
+                
+                // Exponer parámetros de la cámara (Posición XY y Tamaño) para que los
+                // shaders sepan cómo mapear sus World Position a UVs de esta textura.
+                // UV = (WorldPos.xy - CameraPos.xy) / (OrthographicSize * 2) + 0.5
+                Shader.SetGlobalVector("_GlobalVisibilityParams", new Vector4(
+                    transform.position.x, 
+                    transform.position.y, 
+                    _camera.orthographicSize, 
+                    0f));
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_renderTexture != null)
+            {
+                _renderTexture.Release();
+                Destroy(_renderTexture);
+            }
+        }
+    }
+}

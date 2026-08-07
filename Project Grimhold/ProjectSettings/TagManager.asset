@@ -14,7 +14,7 @@ TagManager:
   - WorldCollision
   - Character
   - Interactable
-  - 
+  - VisibilityMask
   - 
   - 
   - 

@@ -16,5 +16,4 @@ MonoBehaviour:
   ObstacleLayer:
     serializedVersion: 2
     m_Bits: 64
-  BorderRays: 32
-  CornerWrapAngle: 0.1
+  BorderRays: 8
