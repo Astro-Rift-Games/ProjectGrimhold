@@ -34,10 +34,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _camera.depth = -100; // Queremos que renderice antes que las cámaras principales
             _camera.allowHDR = false;
             _camera.allowMSAA = false;
+            _camera.nearClipPlane = -50f;
+            _camera.farClipPlane = 50f;
 
             // Creamos una textura de 8-bit (solo nos interesa la intensidad de 0 a 1)
             // Usamos formato R8 o ARGB32 dependiendo de la compatibilidad requerida, ARGB32 es más universal en 2D.
-            _renderTexture = new RenderTexture(_textureResolution, _textureResolution, 0, RenderTextureFormat.ARGB32);
+            _renderTexture = new RenderTexture(_textureResolution, _textureResolution, 24, RenderTextureFormat.ARGB32);
             _renderTexture.name = "GlobalVisibilityMaskRT";
             _renderTexture.filterMode = FilterMode.Bilinear;
             _renderTexture.wrapMode = TextureWrapMode.Clamp;
@@ -71,6 +73,16 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 _renderTexture.Release();
                 Destroy(_renderTexture);
             }
+        }
+
+        private void OnGUI()
+        {
+            if (_renderTexture == null) return;
+
+            // Dibuja la textura cruda en la esquina superior izquierda de la pantalla
+            // Esto permite verificar si la máscara se dibuja correctamente ignorando el shader y RenderGraph.
+            GUI.Box(new Rect(10, 10, 256, 20), "Diagnostic: Mask RT");
+            GUI.DrawTexture(new Rect(10, 30, 256, 256), _renderTexture, ScaleMode.ScaleToFit, false);
         }
     }
 }

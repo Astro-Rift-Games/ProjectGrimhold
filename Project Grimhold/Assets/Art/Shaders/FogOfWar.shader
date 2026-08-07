@@ -22,40 +22,38 @@ Shader "Grimhold/Visibility/FogOfWar"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
             float4 _Color;
-
-            // Variables inyectadas por el VisibilityMaskRenderer
-            TEXTURE2D(_GlobalVisibilityMask);
-            SAMPLER(sampler_GlobalVisibilityMask);
-            float4 _GlobalVisibilityParams; // xy = MaskCameraPos, z = MaskCamera.orthoSize
+            
+            // Textura global inyectada en la Etapa 2
+            sampler2D _GlobalVisibilityMask;
+            // .xy = MaskCamera World Pos, .z = MaskCamera Ortho Size
+            float4 _GlobalVisibilityParams; 
 
             half4 Frag(Varyings input) : SV_Target
             {
-                // 1. Obtenemos el color original de la pantalla
+                // 1. Leemos el color original de la escena
                 half4 screenColor = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, input.texcoord);
                 
-                // 2. Reconstruimos la posición del mundo del pixel actual (Sólo válido para cámara principal Ortográfica)
-                // input.texcoord va de 0 a 1. Restando 0.5 lo centramos (-0.5 a 0.5).
-                // unity_OrthoParams.x es Width/2. unity_OrthoParams.y es Height/2 (Size).
-                float2 worldPos = _WorldSpaceCameraPos.xy + (input.texcoord - 0.5) * 2.0 * float2(unity_OrthoParams.x, unity_OrthoParams.y);
-
-                // 3. Transformamos el World Space a coordenadas UV de la textura de la Máscara
-                float maskTotalSize = _GlobalVisibilityParams.z * 2.0;
-                float2 maskUV = (worldPos - _GlobalVisibilityParams.xy) / maskTotalSize + 0.5;
-
-                // 4. Leemos el valor de iluminación de la máscara (0 = Oscuridad, 1 = Iluminado)
-                half maskValue = SAMPLE_TEXTURE2D(_GlobalVisibilityMask, sampler_GlobalVisibilityMask, maskUV).r;
-
-                // Si las coordenadas UV caen fuera de la textura, forzamos oscuridad
-                if (maskUV.x < 0 || maskUV.x > 1 || maskUV.y < 0 || maskUV.y > 1) 
-                {
-                    maskValue = 0.0;
-                }
-
-                // 5. Componemos el resultado. 
-                // lerp(Oscuridad, ColorOriginal, NivelDeLuz)
-                // Cuando maskValue es 1, se ve el juego normal. Cuando es 0, se aplica _Color (con su propio alpha)
-                half4 finalFogColor = lerp(screenColor, _Color, _Color.a);
-                return lerp(finalFogColor, screenColor, maskValue);
+                // 2. Reconstruimos la posición de mundo exacta para este píxel
+                // Z es irrelevante (0.5) porque estamos en una proyección ortográfica plana (2D)
+                float3 worldPos = ComputeWorldSpacePosition(input.texcoord, 0.5, UNITY_MATRIX_I_VP);
+                
+                // 3. Proyectamos World Space hacia el UV de la Mask Camera
+                float maskDiameter = _GlobalVisibilityParams.z * 2.0;
+                float2 maskUV = (worldPos.xy - _GlobalVisibilityParams.xy) / maskDiameter + 0.5;
+                
+                // 4. Lógica de Bounds Anti-Smearing
+                // Retorna 1.0 si maskUV está dentro de [0, 1], o 0.0 si está fuera.
+                half bounds = step(0.0, maskUV.x) * step(maskUV.x, 1.0) * step(0.0, maskUV.y) * step(maskUV.y, 1.0);
+                
+                // 5. Muestreamos la máscara (Visibilidad: 1.0 = visible, 0.0 = oscuro)
+                half maskValue = tex2D(_GlobalVisibilityMask, maskUV).r;
+                maskValue *= bounds; // Forzamos 0 absoluto si salimos del área capturada
+                
+                // 6. Mezclamos el color base (escena) con la oscuridad (niebla)
+                // Si maskValue es 1, fogAmount será 0. Si maskValue es 0, fogAmount será el Alpha del Fog Color.
+                half fogAmount = (1.0 - maskValue) * _Color.a;
+                
+                return lerp(screenColor, _Color, fogAmount);
             }
             ENDHLSL
         }

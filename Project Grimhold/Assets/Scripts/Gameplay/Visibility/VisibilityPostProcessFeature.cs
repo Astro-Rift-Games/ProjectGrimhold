@@ -34,6 +34,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 renderingData.cameraData.cameraType == CameraType.Reflection)
                 return;
 
+            // CRÍTICO: Evitamos que el efecto se aplique a la cámara auxiliar que genera la máscara.
+            // Si el post-proceso se ejecuta sobre ella, borrará su propio contenido al intentar leerse a sí misma.
+            if (renderingData.cameraData.camera.targetTexture != null && 
+                renderingData.cameraData.camera.targetTexture.name == "GlobalVisibilityMaskRT")
+                return;
+
             renderer.EnqueuePass(_pass);
         }
 

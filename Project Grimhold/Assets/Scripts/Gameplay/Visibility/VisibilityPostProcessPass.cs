@@ -43,25 +43,29 @@ namespace ProjectGrimhold.Gameplay.Visibility
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Visibility Fog Of War", out var passData))
             {
                 passData.material = _material;
+                passData.srcTexture = activeColor;
                 
                 builder.UseTexture(activeColor, AccessFlags.Read);
                 builder.SetRenderAttachment(tempTexture, 0);
 
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
-                    Blitter.BlitTexture(context.cmd, activeColor, new Vector4(1, 1, 0, 0), data.material, 0);
+                    RTHandle src = data.srcTexture;
+                    Blitter.BlitTexture(context.cmd, src, new Vector4(1, 1, 0, 0), data.material, 0);
                 });
             }
 
             // Segundo pase: Copiamos de vuelta desde TempTexture hacia ActiveColor
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Visibility Fog Copy Back", out var passData))
             {
+                passData.srcTexture = tempTexture;
                 builder.UseTexture(tempTexture, AccessFlags.Read);
                 builder.SetRenderAttachment(activeColor, 0);
                 
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
-                    Blitter.BlitTexture(context.cmd, tempTexture, new Vector4(1, 1, 0, 0), 0.0f, false);
+                    RTHandle src = data.srcTexture;
+                    Blitter.BlitTexture(context.cmd, src, new Vector4(1, 1, 0, 0), 0.0f, false);
                 });
             }
         }

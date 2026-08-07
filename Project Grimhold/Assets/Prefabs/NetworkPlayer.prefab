@@ -496,9 +496,9 @@ GameObject:
   - component: {fileID: 3746167982413245816}
   - component: {fileID: 757448823230558381}
   - component: {fileID: 6334326871933513234}
-  - component: {fileID: 6154947085753613651}
-  - component: {fileID: 5850953307760684513}
-  - component: {fileID: 2382218069124900385}
+  - component: {fileID: 7148326089942997707}
+  - component: {fileID: 5652865269272473243}
+  - component: {fileID: 6794287242699641599}
   m_Layer: 9
   m_Name: VisibilityMesh
   m_TagString: Untagged
@@ -608,7 +608,7 @@ MonoBehaviour:
   _originTransform: {fileID: 2520259848855165086}
   _sortingLayerName: Default
   _sortingOrder: 50
---- !u!20 &6154947085753613651
+--- !u!20 &7148326089942997707
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -642,12 +642,12 @@ Camera:
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
-  orthographic: 1
-  orthographic size: 12
+  orthographic: 0
+  orthographic size: 5
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 503
+    m_Bits: 512
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -659,7 +659,7 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!114 &5850953307760684513
+--- !u!114 &5652865269272473243
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -676,7 +676,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 512
   _orthographicSize: 15
---- !u!114 &2382218069124900385
+--- !u!114 &6794287242699641599
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
