@@ -15,6 +15,9 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     private readonly Dictionary<NetworkId, NetworkObject> _restoredDynamicObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly Dictionary<NetworkId, NetworkObject> _restoredSceneObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly List<NetworkObject> _spawnedThisExecution = new List<NetworkObject>();
+    private readonly Dictionary<PlayerRef, NetworkObject> _restoredPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
+
+    public IReadOnlyDictionary<PlayerRef, NetworkObject> GetRestoredPlayerObjects() => _restoredPlayerObjects;
 
     public bool IsRestoringObject(NetworkObject networkObject)
     {
@@ -67,6 +70,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
         _spawnedThisExecution.Clear();
+        _restoredPlayerObjects.Clear();
 
         Debug.Log("[HostMigrationSnapshotRestorer] Executing snapshot restoration...");
         try
@@ -77,6 +81,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             RestoreSceneObjects(runner);
             ApplyEntityIdFixups();
             ValidateMatchController();
+            RestorePlayerAuthorities(runner);
 
             _spawnManager.ReportSnapshotRestoreResult(true);
             Debug.Log("[HostMigrationSnapshotRestorer] Snapshot restoration finished successfully.");
@@ -103,6 +108,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _spawnedThisExecution.Clear();
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
+        _restoredPlayerObjects.Clear();
     }
 
     public bool TryGetRestoredDynamicObject(NetworkId previousId, out NetworkObject restoredObject)
@@ -327,6 +333,36 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
 
         if (matchController.Phase != NetworkMatchController.MatchPhase.InProgress)
             throw new InvalidOperationException($"MatchPhase is {matchController.Phase}, expected InProgress. Cannot resume safely.");
+    }
+
+    private void RestorePlayerAuthorities(NetworkRunner runner)
+    {
+        var activePlayers = new HashSet<PlayerRef>(runner.ActivePlayers);
+        
+        foreach (var pair in runner.GetResumeSnapshotNetworkObjectPlayerObjects())
+        {
+            PlayerRef playerRef = pair.Key;
+            NetworkId oldNetworkId = pair.Value;
+
+            if (activePlayers.Contains(playerRef))
+            {
+                if (_restoredDynamicObjects.TryGetValue(oldNetworkId, out NetworkObject newObject))
+                {
+                    newObject.AssignInputAuthority(playerRef);
+                    runner.SetPlayerObject(playerRef, newObject);
+                    _restoredPlayerObjects.Add(playerRef, newObject);
+                    Debug.Log($"[HostMigrationSnapshotRestorer] Restored authority for PlayerRef {playerRef} to new NetworkId {newObject.Id}.");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Cannot resolve old NetworkId {oldNetworkId} for PlayerRef {playerRef} in restored dynamic objects.");
+                }
+            }
+            else
+            {
+                Debug.Log($"[HostMigrationSnapshotRestorer] PlayerRef {playerRef} is no longer active. Skipping authority restore.");
+            }
+        }
     }
 }
 
