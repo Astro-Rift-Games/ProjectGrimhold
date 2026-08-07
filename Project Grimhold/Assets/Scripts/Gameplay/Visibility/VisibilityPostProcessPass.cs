@@ -33,9 +33,19 @@ namespace ProjectGrimhold.Gameplay.Visibility
             TextureHandle activeColor = resourceData.activeColorTexture;
             if (!activeColor.IsValid()) return;
 
+            RTHandle globalMaskHandle = VisibilityMaskRenderer.GlobalMaskRTHandle;
+            if (globalMaskHandle == null) return;
+            // IMPORTANTE: NO importamos la textura a Render Graph con ImportTexture.
+            // Al ser una textura externa generada por otra cámara con un depth buffer de 24 bits,
+            // ImportTexture crashearía (no soporta texturas combinadas color/depth).
+            // Como solo la leemos (no la escribimos) y su cámara ya terminó de dibujar, podemos consumirla directamente.
+
             RenderTextureDescriptor desc = cameraData.cameraTargetDescriptor;
             desc.depthBufferBits = 0; // Solo post-proceso de color
             
+            // Asignamos la textura al material en la fase de setup (CPU).
+            _material.SetTexture("_ProcessedMask", globalMaskHandle);
+
             // Creamos textura temporal dentro del grafo de render
             TextureHandle tempTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_VisibilityTempRT", false);
 
@@ -50,7 +60,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
-                    RTHandle src = data.srcTexture;
+                    TextureHandle src = data.srcTexture;
                     Blitter.BlitTexture(context.cmd, src, new Vector4(1, 1, 0, 0), data.material, 0);
                 });
             }

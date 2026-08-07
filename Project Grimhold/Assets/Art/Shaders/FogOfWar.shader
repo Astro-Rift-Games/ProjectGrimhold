@@ -23,8 +23,8 @@ Shader "Grimhold/Visibility/FogOfWar"
 
             float4 _Color;
             
-            // Textura global inyectada en la Etapa 2
-            sampler2D _GlobalVisibilityMask;
+            // Textura global inyectada localmente por el Render Graph
+            sampler2D _ProcessedMask;
             // .xy = MaskCamera World Pos, .z = MaskCamera Ortho Size
             float4 _GlobalVisibilityParams; 
 
@@ -45,8 +45,9 @@ Shader "Grimhold/Visibility/FogOfWar"
                 // Retorna 1.0 si maskUV está dentro de [0, 1], o 0.0 si está fuera.
                 half bounds = step(0.0, maskUV.x) * step(maskUV.x, 1.0) * step(0.0, maskUV.y) * step(maskUV.y, 1.0);
                 
-                // 5. Muestreamos la máscara (Visibilidad: 1.0 = visible, 0.0 = oscuro)
-                half maskValue = tex2D(_GlobalVisibilityMask, maskUV).r;
+            // 5. Muestreamos la máscara (Visibilidad: 1.0 = visible, 0.0 = oscuro)
+            // Ya no leemos _GlobalVisibilityMask directamente, sino _ProcessedMask inyectada por el RenderGraph.
+            half maskValue = tex2D(_ProcessedMask, maskUV).r;
                 maskValue *= bounds; // Forzamos 0 absoluto si salimos del área capturada
                 
                 // 6. Mezclamos el color base (escena) con la oscuridad (niebla)

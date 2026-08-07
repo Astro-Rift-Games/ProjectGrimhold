@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace ProjectGrimhold.Gameplay.Visibility
 {
@@ -21,6 +22,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
         private Camera _camera;
         private RenderTexture _renderTexture;
 
+        public static RTHandle GlobalMaskRTHandle { get; private set; }
+
         private void Awake()
         {
             _camera = GetComponent<Camera>();
@@ -37,8 +40,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _camera.nearClipPlane = -50f;
             _camera.farClipPlane = 50f;
 
-            // Creamos una textura de 8-bit (solo nos interesa la intensidad de 0 a 1)
-            // Usamos formato R8 o ARGB32 dependiendo de la compatibilidad requerida, ARGB32 es más universal en 2D.
+            // Restauramos el Depth a 24 bits. El Renderer2D Pass de URP 2D lo requiere para funcionar,
+            // de lo contrario tira error de "Fake or uninitialized surface".
             _renderTexture = new RenderTexture(_textureResolution, _textureResolution, 24, RenderTextureFormat.ARGB32);
             _renderTexture.name = "GlobalVisibilityMaskRT";
             _renderTexture.filterMode = FilterMode.Bilinear;
@@ -46,13 +49,14 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _renderTexture.Create();
 
             _camera.targetTexture = _renderTexture;
+            GlobalMaskRTHandle = RTHandles.Alloc(_renderTexture);
         }
 
         private void LateUpdate()
         {
             if (_renderTexture != null)
             {
-                // Exponer la textura para cualquier shader global (como el Fog of War)
+                // Exponer la textura para cualquier shader global (legacy pass)
                 Shader.SetGlobalTexture("_GlobalVisibilityMask", _renderTexture);
                 
                 // Exponer parámetros de la cámara (Posición XY y Tamaño) para que los
@@ -68,6 +72,9 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
         private void OnDestroy()
         {
+            GlobalMaskRTHandle?.Release();
+            GlobalMaskRTHandle = null;
+
             if (_renderTexture != null)
             {
                 _renderTexture.Release();
