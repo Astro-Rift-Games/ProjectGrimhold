@@ -43,6 +43,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 return;
             }
 
+            Shader.SetGlobalVector("_GlobalVisibilityOrigin", (Vector4)_originTransform.position);
+
             // En la Fase 1 actualizamos por frame a modo de MVP.
             // En la Fase 5 esto se limitará por tiempo (ej. 30hz).
             _calculator.Calculate(_originTransform.position);

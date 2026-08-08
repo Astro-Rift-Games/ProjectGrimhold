@@ -5,6 +5,9 @@ Shader "Grimhold/Visibility/FogOfWar"
         _Color ("Fog Color", Color) = (0, 0, 0, 0.85)
         _MaskBlurTexels ("Mask Blur Texels", Range(0, 4)) = 1.5
         [HideInInspector] _ProcessedMask ("Visibility Mask", 2D) = "white" {}
+        [Toggle] _FalloffEnabled ("Enable Falloff", Float) = 1
+        _FalloffStart ("Falloff Start Distance", Float) = 5.0
+        _FalloffEnd ("Falloff End Distance", Float) = 10.0
     }
     SubShader
     {
@@ -25,6 +28,9 @@ Shader "Grimhold/Visibility/FogOfWar"
 
             float4 _Color;
             float _MaskBlurTexels;
+            float _FalloffEnabled;
+            float _FalloffStart;
+            float _FalloffEnd;
             
             // Textura global inyectada localmente por el Render Graph
             TEXTURE2D(_ProcessedMask);
@@ -33,6 +39,9 @@ Shader "Grimhold/Visibility/FogOfWar"
             
             // .xy = MaskCamera World Pos, .z = MaskCamera Ortho Size
             float4 _GlobalVisibilityParams; 
+            
+            // Origen real de la visión (jugador) expuesto por VisibilityMeshBuilder
+            float4 _GlobalVisibilityOrigin;
 
             half4 Frag(Varyings input) : SV_Target
             {
@@ -71,9 +80,15 @@ Shader "Grimhold/Visibility/FogOfWar"
                 
                 maskValue *= bounds; // Forzamos 0 absoluto si salimos del area capturada
                 
+                // 5.5. Aplicamos Falloff radial (independiente de la mascara)
+                float dist = length(worldPos.xy - _GlobalVisibilityOrigin.xy);
+                float falloffValue = _FalloffEnabled > 0.5 ? smoothstep(_FalloffEnd, _FalloffStart, dist) : 1.0;
+                
+                float finalVisibility = maskValue * falloffValue;
+                
                 // 6. Mezclamos el color base (escena) con la oscuridad (niebla)
-                // Si maskValue es 1, fogAmount sera 0. Si maskValue es 0, fogAmount sera el Alpha del Fog Color.
-                half fogAmount = (1.0 - maskValue) * _Color.a;
+                // Si finalVisibility es 1, fogAmount sera 0. Si finalVisibility es 0, fogAmount sera el Alpha del Fog Color.
+                half fogAmount = (1.0 - finalVisibility) * _Color.a;
                 
                 return lerp(screenColor, _Color, fogAmount);
             }

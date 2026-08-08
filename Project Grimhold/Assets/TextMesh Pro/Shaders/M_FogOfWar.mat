@@ -46,6 +46,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _EnableExternalAlpha: 0
+    - _FalloffEnabled: 1
+    - _FalloffEnd: 15
+    - _FalloffStart: 10
     - _MaskBlurTexels: 2
     - _ZWrite: 0
     m_Colors:
