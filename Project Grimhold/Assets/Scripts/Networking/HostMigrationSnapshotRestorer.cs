@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [DisallowMultipleComponent]
 public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
@@ -15,6 +16,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     private readonly Dictionary<NetworkId, NetworkObject> _restoredDynamicObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly Dictionary<NetworkId, NetworkObject> _restoredSceneObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly List<NetworkObject> _spawnedThisExecution = new List<NetworkObject>();
+    private readonly HashSet<NetworkObject> _allRestoredObjects = new HashSet<NetworkObject>();
     private readonly Dictionary<PlayerRef, NetworkObject> _restoredPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
     private readonly Dictionary<PlayerRef, NetworkObject> _pendingReconnectPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
 
@@ -24,8 +26,8 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     public bool IsRestoringObject(NetworkObject networkObject)
     {
         return networkObject != null &&
-               networkObject == _objectBeingRestored &&
-               networkObject.Runner == _runner;
+               networkObject.Runner == _runner &&
+               (_objectBeingRestored == networkObject || _allRestoredObjects.Contains(networkObject));
     }
 
     public void Initialize(NetworkRunner runner, SessionStartupContext context, NetworkSpawnManager spawnManager)
@@ -69,9 +71,11 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         }
 
         _hasExecuted = true;
+        _hasExecuted = true;
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
         _spawnedThisExecution.Clear();
+        _allRestoredObjects.Clear();
         _restoredPlayerObjects.Clear();
         _pendingReconnectPlayerObjects.Clear();
 
@@ -83,7 +87,16 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             LogDiagnosticsAfterRestore();
             RestoreSceneObjects(runner);
             ApplyEntityIdFixups();
-            ValidateMatchController();
+
+            if (!ValidateMatchController(out string validationError))
+            {
+                Debug.LogWarning($"[HostMigrationSnapshotRestorer] Validation failed: {validationError}");
+                Rollback();
+                _spawnManager.ReportSnapshotRestoreResult(false);
+                AbortAndReturnToMainMenu(runner);
+                return;
+            }
+
             RestorePlayerAuthorities(runner);
 
             _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects(), GetPendingReconnectPlayerObjects());
@@ -94,6 +107,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             Debug.LogException(ex, this);
             Rollback();
             _spawnManager.ReportSnapshotRestoreResult(false);
+            AbortAndReturnToMainMenu(runner);
         }
     }
 
@@ -109,10 +123,22 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             }
         }
         _spawnedThisExecution.Clear();
+        _spawnedThisExecution.Clear();
+        _allRestoredObjects.Clear();
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
         _restoredPlayerObjects.Clear();
         _pendingReconnectPlayerObjects.Clear();
+    }
+
+    private void AbortAndReturnToMainMenu(NetworkRunner runner)
+    {
+        Debug.LogWarning("[HostMigrationSnapshotRestorer] Aborting match and returning to Main Menu.");
+        if (runner != null && runner.IsRunning)
+        {
+            runner.Shutdown(shutdownReason: ShutdownReason.Error);
+        }
+        SceneManager.LoadScene("MainMenu");
     }
 
     public bool TryGetRestoredDynamicObject(NetworkId previousId, out NetworkObject restoredObject)
@@ -217,6 +243,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
 
             _restoredDynamicObjects.Add(oldId, newObject);
             _spawnedThisExecution.Add(newObject);
+            _allRestoredObjects.Add(newObject);
 
             bool isPlayerChar = newObject.TryGetBehaviour<PlayerCharacter>(out _);
             Debug.Log($"[HM-DIAG] Restored dynamic: oldId={oldId} -> newId={newObject.Id}, name={newObject.gameObject.name}, isPlayer={isPlayerChar}");
@@ -249,6 +276,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
 
             currentSceneObject.CopyStateFrom(previousState);
             _restoredSceneObjects.Add(previousState.Id, currentSceneObject);
+            _allRestoredObjects.Add(currentSceneObject);
         }
     }
 
@@ -312,7 +340,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         }
     }
 
-    private void ValidateMatchController()
+    private bool ValidateMatchController(out string errorMessage)
     {
         NetworkMatchController matchController = null;
         int count = 0;
@@ -327,16 +355,31 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         }
 
         if (count != 1 || matchController == null)
-            throw new InvalidOperationException($"Expected exactly 1 NetworkMatchController in dynamic objects, found {count}.");
+        {
+            errorMessage = $"Expected exactly 1 NetworkMatchController in dynamic objects, found {count}.";
+            return false;
+        }
 
         if (matchController != _spawnManager.MatchController)
-            throw new InvalidOperationException("NetworkSpawnManager.MatchController does not match the restored NetworkMatchController.");
+        {
+            errorMessage = "NetworkSpawnManager.MatchController does not match the restored NetworkMatchController.";
+            return false;
+        }
             
         if (!matchController.HasStateAuthority)
-            throw new InvalidOperationException("Host does not have State Authority over the NetworkMatchController.");
+        {
+            errorMessage = "Host does not have State Authority over the NetworkMatchController.";
+            return false;
+        }
 
         if (matchController.Phase != NetworkMatchController.MatchPhase.InProgress)
-            throw new InvalidOperationException($"MatchPhase is {matchController.Phase}, expected InProgress. Cannot resume safely.");
+        {
+            errorMessage = $"MatchPhase is {matchController.Phase}, expected InProgress. Cannot resume safely.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
     }
 
     private void RestorePlayerAuthorities(NetworkRunner runner)

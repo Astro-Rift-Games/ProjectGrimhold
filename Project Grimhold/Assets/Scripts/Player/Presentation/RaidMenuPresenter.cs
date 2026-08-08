@@ -147,6 +147,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         if (runnerToShutdown.IsRunning)
         {
+            if (runnerToShutdown.IsServer)
+            {
+                // Delay briefly to allow the final snapshot (e.g., death state) to be uploaded to the cloud
+                // before severing the connection, minimizing rollback severity on Host Migration.
+                await Task.Delay(1000);
+            }
             await runnerToShutdown.Shutdown();
         }
 
