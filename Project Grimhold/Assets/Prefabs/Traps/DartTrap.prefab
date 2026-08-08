@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 4222689577850092183}
   - component: {fileID: 4357536583330511076}
   - component: {fileID: 637749287531242511}
+  - component: {fileID: 3805923845886484448}
   m_Layer: 0
   m_Name: DartTrap
   m_TagString: Untagged
@@ -196,6 +197,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba6e9ecc0c8b7a941af085f53dd307e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageResolver
+--- !u!114 &3805923845886484448
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 821147236289366688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1034b07a347ea6f49b3e51df4b7f18d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
+  _renderers:
+  - {fileID: 2611892531448910942}
+  _visibilityOffset: {x: 0, y: 0}
 --- !u!1 &2995710529447935909
 GameObject:
   m_ObjectHideFlags: 0

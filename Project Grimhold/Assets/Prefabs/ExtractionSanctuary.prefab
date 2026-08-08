@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 700000000000000003}
   - component: {fileID: 5786374723593555651}
   - component: {fileID: 700000000000000004}
+  - component: {fileID: 6655921470210224870}
   m_Layer: 8
   m_Name: ExtractionSanctuary
   m_TagString: Untagged
@@ -48,7 +49,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
   SortKey: 1605593485
   SendPriority: 1
@@ -69,7 +70,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 25d2975f2140491d8c2079d48d6abc87, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionSanctuary
   _config: {fileID: 11400000, guid: 8f4d2742272b465690541c37b55a3120, type: 2}
   _extractionZone: {fileID: 700000000000000001}
@@ -85,7 +86,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f1c78c100832a684f984309f5ae297d4, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionZone
   _zoneCollider: {fileID: 700000000000000002}
   _startsAvailable: 0
@@ -148,7 +149,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 21db0beaf3cc4a7b86d572c82d706f81, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
   _promptText: Usar santuario
 --- !u!212 &5786374723593555651
@@ -221,8 +222,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ccd28f6b0d6c4e63b2fdbb24a6a2e0d1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionSanctuaryPresenter
   _sanctuary: {fileID: 3315208112669804750}
   _spriteRenderer: {fileID: 5786374723593555651}
   _pulseFrequency: 1.5
+--- !u!114 &6655921470210224870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4614841395197269660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1034b07a347ea6f49b3e51df4b7f18d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
+  _renderers:
+  - {fileID: 5786374723593555651}
+  _visibilityOffset: {x: 0, y: 0}
