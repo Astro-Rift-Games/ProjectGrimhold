@@ -100,7 +100,7 @@ public sealed class RaidMinimapPrefabTests
         Assert.That(vertices.currentVertCount, Is.EqualTo(layerCount * 4));
         Assert.That(vertices.currentIndexCount, Is.EqualTo(layerCount * 6));
         Assert.That(AssetDatabase.FindAssets("GrayboxMinimap t:Texture2D"), Is.Empty);
-        Assert.That(prefab.GetComponentsInChildren<Camera>(true), Is.Empty);
+        Assert.That(graphic.GetComponentInParent<RaidMinimapView>(true).GetComponentsInChildren<Camera>(true), Is.Empty);
     }
 
     [Test]

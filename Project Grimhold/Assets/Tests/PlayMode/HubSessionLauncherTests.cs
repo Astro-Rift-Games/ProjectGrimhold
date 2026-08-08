@@ -1,0 +1,53 @@
+using System.Collections;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+using Fusion;
+using System.Threading.Tasks;
+
+public class HubSessionLauncherTests
+{
+    [UnityTest]
+    public IEnumerator Test_StartAndShutdownHubSession_DoesNotThrow()
+    {
+        var go = new GameObject("LauncherTest");
+        var launcher = go.AddComponent<HubSessionLauncher>();
+        
+        bool startCompleted = false;
+        bool startSuccess = false;
+
+        var task = launcher.StartHubSessionAsync(PlayerClassId.Melee);
+
+        // Convert async to coroutine
+        while (!task.IsCompleted)
+        {
+            yield return null;
+        }
+
+        if (task.IsFaulted)
+        {
+            Debug.LogException(task.Exception);
+            NUnit.Framework.Assert.Fail("StartHubSessionAsync threw an exception.");
+        }
+
+        startSuccess = task.Result;
+        NUnit.Framework.Assert.IsTrue(startSuccess, "Session should start successfully.");
+        NUnit.Framework.Assert.IsNotNull(launcher.Runner, "Runner should be assigned.");
+        NUnit.Framework.Assert.IsTrue(launcher.Runner.IsRunning, "Runner should be running.");
+        NUnit.Framework.Assert.AreEqual(GameMode.Shared, launcher.Runner.GameMode, "GameMode should be Shared.");
+        
+        var shutdownTask = launcher.ShutdownAndDestroyRunnerAsync();
+        while (!shutdownTask.IsCompleted)
+        {
+            yield return null;
+        }
+        
+        if (shutdownTask.IsFaulted)
+        {
+            Debug.LogException(shutdownTask.Exception);
+            NUnit.Framework.Assert.Fail("ShutdownAndDestroyRunnerAsync threw an exception.");
+        }
+
+        NUnit.Framework.Assert.IsNull(launcher.Runner, "Runner reference should be cleared after shutdown.");
+    }
+}
