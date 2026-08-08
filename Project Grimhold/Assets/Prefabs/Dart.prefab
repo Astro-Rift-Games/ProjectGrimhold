@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 500520456212000080}
   - component: {fileID: 1532808097076341949}
   - component: {fileID: 4671091807356884903}
+  - component: {fileID: 633315671701742096}
   m_Layer: 0
   m_Name: Dart
   m_TagString: Untagged
@@ -83,7 +84,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 1
+  m_SortingLayer: 2
   m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: d9603d1a18e123e4bb3ab0821057a68d, type: 3}
@@ -235,3 +236,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NetworkProjectile
   _projectileCollider: {fileID: 500520456212000080}
   _rigidbody: {fileID: 4456985290246199832}
+--- !u!114 &633315671701742096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5725387740323611867}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1034b07a347ea6f49b3e51df4b7f18d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
+  _renderers:
+  - {fileID: 227959515893590042}
+  _visibilityOffset: {x: 0, y: 0}

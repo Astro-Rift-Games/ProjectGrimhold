@@ -19,6 +19,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
         [SerializeField] private string _sortingLayerName = "Default";
         [SerializeField] private int _sortingOrder = 50;
 
+        /// <summary>
+        /// Provee acceso a la consulta geométrica del polígono calculado en este frame.
+        /// Su ciclo de vida y actualización es gestionado internamente por este componente.
+        /// </summary>
+        public LosPolygonHandle LosHandle { get; } = new LosPolygonHandle();
+
         private Mesh _mesh;
         private MeshRenderer _meshRenderer;
         private readonly List<Vector3> _vertices = new List<Vector3>();
@@ -43,9 +49,14 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 return;
             }
 
+            Shader.SetGlobalVector("_GlobalVisibilityOrigin", (Vector4)_originTransform.position);
+
             // En la Fase 1 actualizamos por frame a modo de MVP.
             // En la Fase 5 esto se limitará por tiempo (ej. 30hz).
             _calculator.Calculate(_originTransform.position);
+            
+            // Actualizamos la abstracción geométrica para consumo de sistemas externos (ocultamiento de entidades)
+            LosHandle.UpdatePolygon(_calculator.PolygonVertices, 1, _calculator.PolygonVertices.Count - 1);
 
             BuildMesh(_calculator.PolygonVertices);
         }
