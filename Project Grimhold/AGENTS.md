@@ -4,7 +4,7 @@
 
 * Unity 6 project written in C#.
 * Multiplayer 2D top-down extraction game.
-* Networking uses Photon Fusion 2.1 in Host/Client mode.
+* Networking uses Photon Fusion 2.1 in Host/Client mode (except for the Town, which uses Shared Mode. See `Docs/Architecture/LobbyAndSessionTransitionArchitecture.md`).
 * Gameplay systems must support client prediction, state authority and resimulation.
 * Prefer simple, modular architecture over framework-heavy solutions.
 * Treat this file as repository-wide guidance.
