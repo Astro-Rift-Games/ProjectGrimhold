@@ -38,6 +38,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _clientJoinRetryDelaySeconds = 0.5f;
 
+    [SerializeField, Min(0f)]
+    private float _raidClosureHostGraceSeconds = 5f;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
@@ -45,6 +48,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private RaidTransitionTicket? _activeTicket;
     private int _acknowledgedLaunchSequence;
     private bool _launchDispatchActive;
+    private bool _raidClosureReturnStarted;
+    private float _raidClosureHostShutdownAt = -1f;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -121,6 +126,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void Update()
     {
+        ObserveCompletedRaid();
+
         if (_acknowledgedLaunchSequence == 0 || _operationActive)
         {
             return;
@@ -129,6 +136,33 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         int launchSequence = _acknowledgedLaunchSequence;
         _acknowledgedLaunchSequence = 0;
         _ = BeginAcknowledgedRaidLaunchAsync(launchSequence);
+    }
+
+    private void ObserveCompletedRaid()
+    {
+        if (_raidClosureReturnStarted || _operationActive || State != SessionConnectionState.Raid ||
+            _raidLauncher == null || _raidLauncher.Runner == null || _raidLauncher.MatchController == null ||
+            _raidLauncher.MatchController.Phase != NetworkMatchController.MatchPhase.Finished)
+        {
+            return;
+        }
+
+        if (_raidLauncher.Runner.IsServer)
+        {
+            if (_raidClosureHostShutdownAt < 0f)
+            {
+                _raidClosureHostShutdownAt = Time.unscaledTime + _raidClosureHostGraceSeconds;
+                return;
+            }
+
+            if (Time.unscaledTime < _raidClosureHostShutdownAt)
+            {
+                return;
+            }
+        }
+
+        _raidClosureReturnStarted = true;
+        _ = ReturnToTownAsync();
     }
 
     private async Task BeginAcknowledgedRaidLaunchAsync(int launchSequence)
@@ -375,6 +409,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             TransitionTo(SessionConnectionState.Raid);
             UpdateTicketState(SessionConnectionState.Raid);
+            _raidClosureReturnStarted = false;
+            _raidClosureHostShutdownAt = -1f;
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)
@@ -430,6 +466,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             TransitionTo(SessionConnectionState.Town);
             _activeTicket = null;
+            _raidClosureReturnStarted = false;
+            _raidClosureHostShutdownAt = -1f;
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)

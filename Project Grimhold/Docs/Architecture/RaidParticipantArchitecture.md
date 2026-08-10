@@ -7,6 +7,10 @@ It owns session-scoped profile identity, selected build, terminal participant st
 the current avatar reference. `NetworkPlayerMelee` and `NetworkPlayerRanged` are
 temporary avatars, never the persistent participant identity.
 
+Each participant also replicates the `RaidGenerationId` assigned by
+`NetworkMatchController`; it is an identity marker only and does not duplicate
+inventory, extraction or lifecycle state.
+
 State Authority alone transitions `Raiding` to `Defeated`, `Extracted` or `Aborted`.
 The transition state is not another health, extraction or inventory source of truth:
 it records the authoritative outcome after those existing systems have completed.

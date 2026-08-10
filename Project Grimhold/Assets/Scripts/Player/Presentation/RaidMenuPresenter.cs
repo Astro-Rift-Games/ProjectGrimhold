@@ -241,6 +241,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested += OnResumeRequested;
             _view.AbandonRequested += OnAbandonRequested;
+            _view.CancelRaidRequested += OnCancelRaidRequested;
         }
 
         _isSubscribed = true;
@@ -262,6 +263,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested -= OnResumeRequested;
             _view.AbandonRequested -= OnAbandonRequested;
+            _view.CancelRaidRequested -= OnCancelRaidRequested;
         }
 
         _isSubscribed = false;
@@ -337,6 +339,27 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.PresentAliveState();
         }
+
+        NetworkMatchController matchController = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
+            : null;
+        bool canCancelRaid = _runner != null && _runner.IsServer && matchController != null &&
+            matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
+            !_awaitingAbandonConfirmation && !_wasDefeatedObserved;
+        _view.SetCancelRaidVisible(canCancelRaid);
+    }
+
+    private void OnCancelRaidRequested()
+    {
+        NetworkMatchController matchController = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
+            : null;
+        if (_runner == null || !_runner.IsServer || matchController == null)
+        {
+            return;
+        }
+
+        matchController.TryCancelRaid();
     }
 
     private void ObserveParticipantState()

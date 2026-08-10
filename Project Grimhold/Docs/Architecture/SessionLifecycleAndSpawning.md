@@ -158,6 +158,9 @@ To distinguish between a completely new session and one resumed via Host Migrati
 
 This document specifies the lifecycle phases of a multiplayer session, the authoritative flow for starting a match, late join prevention mechanisms, and defensive validations executed before player spawning.
 
+Raid-generation closure, persistence barriers and repeatable cleanup are specified in
+`Docs/Architecture/RaidGenerationLifecycleArchitecture.md`.
+
 ---
 
 ## 1. Match Phases

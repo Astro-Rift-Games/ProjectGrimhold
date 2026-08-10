@@ -215,7 +215,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             {
                 if (startupContext.ShouldExecuteHostBootstrap)
                 {
-                    NetworkObject coordObj = _runner.Spawn(_matchControllerPrefab, flags: NetworkSpawnFlags.DontDestroyOnLoad);
+                    string generationId = raidManifest.IsValid
+                        ? raidManifest.RaidId
+                        : Guid.NewGuid().ToString("N");
+                    NetworkObject coordObj = _runner.Spawn(
+                        _matchControllerPrefab,
+                        flags: NetworkSpawnFlags.DontDestroyOnLoad);
                     if (coordObj == null)
                     {
                         Debug.LogError("[FusionSessionLauncher] Host bootstrap failed: Could not spawn match coordinator prefab.");
@@ -230,6 +235,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                         await ShutdownAndDestroyRunnerAsync();
                         return false;
                     }
+
+                    _matchController.InitializeRaidGeneration(generationId);
 
                     // 2. Bind coordinator to NetworkSpawnManager
                     if (!_spawnManager.BindMatchController(_matchController))

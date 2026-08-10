@@ -38,11 +38,20 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField]
     private TMP_Text _abandonButtonText;
 
+    [SerializeField]
+    private Button _cancelRaidButton;
+
+    [SerializeField]
+    private TMP_Text _cancelRaidButtonText;
+
     /// <summary>Raised when the user clicks the resume button.</summary>
     public event Action ResumeRequested;
 
     /// <summary>Raised when the user clicks the abandon button.</summary>
     public event Action AbandonRequested;
+
+    /// <summary>Raised when the Host requests cancellation of the entire raid.</summary>
+    public event Action CancelRaidRequested;
 
     /// <summary>Gets the visual root controlled by this view.</summary>
     public GameObject MenuRoot => _menuRoot;
@@ -65,11 +74,15 @@ public sealed class RaidMenuView : MonoBehaviour
     /// <summary>Gets the label used by the context-sensitive abandon/return action.</summary>
     public TMP_Text AbandonButtonText => _abandonButtonText;
 
+    /// <summary>Gets the optional Host-only raid cancellation button.</summary>
+    public Button CancelRaidButton => _cancelRaidButton;
+
     /// <summary>Indicates whether the menu root is currently active in hierarchy.</summary>
     public bool IsOpen => _menuRoot != null && _menuRoot.activeSelf;
 
     private void Awake()
     {
+        CreateFallbackCancelButton();
         CacheButtonLabel();
         BindButtonListeners();
     }
@@ -116,6 +129,7 @@ public sealed class RaidMenuView : MonoBehaviour
             _abandonButton.interactable = true;
         }
         SetText(_abandonButtonText, "Abandonar Incursión");
+        SetCancelRaidVisible(false);
     }
 
     /// <summary>Presents the menu state for a defeated player.</summary>
@@ -185,6 +199,19 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_abandonButtonText, "Confirmar abandono");
     }
 
+    /// <summary>Presents the optional Host-only global cancellation action.</summary>
+    public void SetCancelRaidVisible(bool visible)
+    {
+        if (_cancelRaidButton == null)
+        {
+            return;
+        }
+
+        _cancelRaidButton.gameObject.SetActive(visible);
+        _cancelRaidButton.interactable = visible;
+        SetText(_cancelRaidButtonText, "Cancelar raid");
+    }
+
     /// <summary>Clears text fields and hides the menu root.</summary>
     public void Clear()
     {
@@ -192,6 +219,7 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_statusText, string.Empty);
         SetText(_controlsText, string.Empty);
         SetMenuVisible(false);
+        SetCancelRaidVisible(false);
     }
 
     private void BindButtonListeners()
@@ -207,6 +235,12 @@ public sealed class RaidMenuView : MonoBehaviour
             _abandonButton.onClick.RemoveListener(OnAbandonButtonClicked);
             _abandonButton.onClick.AddListener(OnAbandonButtonClicked);
         }
+
+        if (_cancelRaidButton != null)
+        {
+            _cancelRaidButton.onClick.RemoveListener(OnCancelRaidButtonClicked);
+            _cancelRaidButton.onClick.AddListener(OnCancelRaidButtonClicked);
+        }
     }
 
     private void CacheButtonLabel()
@@ -215,6 +249,31 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButtonText = _abandonButton.GetComponentInChildren<TMP_Text>(true);
         }
+
+        if (_cancelRaidButtonText == null && _cancelRaidButton != null)
+        {
+            _cancelRaidButtonText = _cancelRaidButton.GetComponentInChildren<TMP_Text>(true);
+        }
+    }
+
+    private void CreateFallbackCancelButton()
+    {
+        if (_cancelRaidButton != null || _abandonButton == null || _abandonButton.transform.parent == null)
+        {
+            return;
+        }
+
+        _cancelRaidButton = Instantiate(_abandonButton, _abandonButton.transform.parent);
+        _cancelRaidButton.name = "CancelRaidButton";
+        RectTransform sourceRect = _abandonButton.transform as RectTransform;
+        RectTransform cancelRect = _cancelRaidButton.transform as RectTransform;
+        if (sourceRect != null && cancelRect != null)
+        {
+            cancelRect.anchoredPosition = sourceRect.anchoredPosition + new Vector2(0f, -40f);
+        }
+
+        _cancelRaidButtonText = _cancelRaidButton.GetComponentInChildren<TMP_Text>(true);
+        SetCancelRaidVisible(false);
     }
 
     private void UnbindButtonListeners()
@@ -228,6 +287,11 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButton.onClick.RemoveListener(OnAbandonButtonClicked);
         }
+
+        if (_cancelRaidButton != null)
+        {
+            _cancelRaidButton.onClick.RemoveListener(OnCancelRaidButtonClicked);
+        }
     }
 
     private void OnResumeButtonClicked()
@@ -238,6 +302,11 @@ public sealed class RaidMenuView : MonoBehaviour
     private void OnAbandonButtonClicked()
     {
         AbandonRequested?.Invoke();
+    }
+
+    private void OnCancelRaidButtonClicked()
+    {
+        CancelRaidRequested?.Invoke();
     }
 
     private static void SetText(TMP_Text target, string value)

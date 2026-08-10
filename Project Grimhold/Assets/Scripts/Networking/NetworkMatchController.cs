@@ -17,6 +17,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
         WaitingForPlayers,
         Starting,
         InProgress,
+        Closing,
         Finished
     }
 
@@ -28,6 +29,21 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     [Networked]
     private TickTimer AdmissionTimer { get; set; }
+
+    [Networked]
+    public NetworkString<_32> RaidGenerationId { get; private set; }
+
+    [Networked]
+    public RaidClosureState ClosureState { get; private set; }
+
+    [Networked]
+    public RaidClosureReason ClosureReason { get; private set; }
+
+    [Networked]
+    public int CleanupFailureCount { get; private set; }
+
+    private bool _hasObservedParticipant;
+    private bool _cleanupAttempted;
 
     public override void Spawned()
     {
@@ -46,6 +62,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
             if (spawnManager.ShouldInitializeMatchPhase)
             {
                 Phase = MatchPhase.WaitingForPlayers;
+                ClosureState = RaidClosureState.None;
+                CleanupFailureCount = 0;
                 Debug.Log("[NetworkMatchController] Spawned with StateAuthority. Phase initialized to WaitingForPlayers.");
             }
             else
@@ -57,6 +75,41 @@ public sealed class NetworkMatchController : NetworkBehaviour
         {
             Debug.Log($"[NetworkMatchController] Spawned on Client. Current Phase: {Phase}.");
         }
+    }
+
+    /// <summary>
+    /// Initializes the runner-scoped generation identity before the first participant spawn.
+    /// </summary>
+    public void InitializeRaidGeneration(string raidGenerationId)
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers ||
+            string.IsNullOrWhiteSpace(raidGenerationId))
+        {
+            return;
+        }
+
+        RaidGenerationId = raidGenerationId;
+    }
+
+    /// <summary>
+    /// Requests a global raid cancellation. Only the Host/State Authority may invoke it.
+    /// </summary>
+    public bool TryCancelRaid()
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.InProgress)
+        {
+            return false;
+        }
+
+        NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null)
+        {
+            return false;
+        }
+
+        spawnManager.AbortRaidingParticipantsForClosure();
+        BeginClosure(RaidClosureReason.HostCancellation);
+        return true;
     }
 
     /// <summary>
@@ -76,7 +129,34 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers || ExpectedAdmissionCount <= 0)
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        if (Phase == MatchPhase.InProgress)
+        {
+            NetworkSpawnManager activeSpawnManager = Runner.GetComponent<NetworkSpawnManager>();
+            if (activeSpawnManager != null &&
+                (activeSpawnManager.HasAdmittedRaidParticipants || _hasObservedParticipant))
+            {
+                _hasObservedParticipant |= activeSpawnManager.HasRaidingParticipants;
+                if (_hasObservedParticipant && !activeSpawnManager.HasRaidingParticipants)
+                {
+                    BeginClosure(RaidClosureReason.NaturalCompletion);
+                }
+            }
+
+            return;
+        }
+
+        if (Phase == MatchPhase.Closing)
+        {
+            AdvanceClosure();
+            return;
+        }
+
+        if (Phase != MatchPhase.WaitingForPlayers || ExpectedAdmissionCount <= 0)
         {
             return;
         }
@@ -85,6 +165,62 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if ((spawnManager != null && spawnManager.AdmittedRaidProfileCount >= ExpectedAdmissionCount) || AdmissionTimer.Expired(Runner))
         {
             ClosePreloadedRaidAdmission();
+        }
+    }
+
+    private void BeginClosure(RaidClosureReason reason)
+    {
+        if (Phase != MatchPhase.InProgress || !HasStateAuthority)
+        {
+            return;
+        }
+
+        Runner.SessionInfo.IsOpen = false;
+        Runner.SessionInfo.IsVisible = false;
+        ClosureReason = reason;
+        ClosureState = RaidClosureState.AwaitingPersistence;
+        Phase = MatchPhase.Closing;
+        Debug.Log($"[NetworkMatchController] Raid closure started: {reason}.", this);
+    }
+
+    private void AdvanceClosure()
+    {
+        NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null)
+        {
+            ClosureState = RaidClosureState.Failed;
+            CleanupFailureCount++;
+            return;
+        }
+
+        if (ClosureState == RaidClosureState.AwaitingPersistence)
+        {
+            if (spawnManager.HasPendingExtractionCommits)
+            {
+                return;
+            }
+
+            ClosureState = RaidClosureState.Cleaning;
+        }
+
+        if (ClosureState != RaidClosureState.Cleaning || _cleanupAttempted)
+        {
+            return;
+        }
+
+        _cleanupAttempted = true;
+        bool cleanupSucceeded = spawnManager.TryCleanupRaidGeneration(out int failureCount);
+        CleanupFailureCount = failureCount;
+        ClosureState = RaidClosureState.ReturnOrdered;
+        Phase = MatchPhase.Finished;
+        ClosureState = RaidClosureState.Finished;
+        if (!cleanupSucceeded)
+        {
+            Debug.LogError($"[NetworkMatchController] Raid cleanup completed with {failureCount} failure(s); return still ordered.", this);
+        }
+        else
+        {
+            Debug.Log("[NetworkMatchController] Raid cleanup completed; return ordered.", this);
         }
     }
 
@@ -148,4 +284,22 @@ public sealed class NetworkMatchController : NetworkBehaviour
         Phase = MatchPhase.InProgress;
         Debug.Log("[NetworkMatchController] Phase changed to InProgress.");
     }
+}
+
+/// <summary>Authoritative progress of a raid generation after admission closes.</summary>
+public enum RaidClosureState : byte
+{
+    None = 0,
+    AwaitingPersistence = 1,
+    Cleaning = 2,
+    ReturnOrdered = 3,
+    Finished = 4,
+    Failed = 5
+}
+
+/// <summary>Reason that State Authority started closing the raid generation.</summary>
+public enum RaidClosureReason : byte
+{
+    NaturalCompletion = 0,
+    HostCancellation = 1
 }

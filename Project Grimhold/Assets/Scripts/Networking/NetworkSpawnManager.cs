@@ -50,6 +50,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _pendingHostMigrationReconnects = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
+    private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
 
@@ -78,6 +79,46 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     /// Exposes the linked coordinator.
     /// </summary>
     public NetworkMatchController MatchController => _matchController;
+    public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
+
+    /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
+    public bool HasRaidingParticipants
+    {
+        get
+        {
+            foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+            {
+                if (participantObject != null &&
+                    participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                    participant.State == RaidParticipantState.Raiding)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>Returns whether an extracted participant still awaits TASK-80 confirmation.</summary>
+    public bool HasPendingExtractionCommits
+    {
+        get
+        {
+            foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+            {
+                if (participantObject != null &&
+                    participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                    participant.State == RaidParticipantState.Extracted &&
+                    !participant.IsExtractionCommitConfirmed)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
     public NetworkPrefabRef LootContainerPrefab => _lootContainerPrefab;
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
     
@@ -108,6 +149,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _startupContext = default;
         _raidManifest = default;
         _pendingHostMigrationReconnects.Clear();
+        _cleanupBuffer.Clear();
     }
 
     /// <summary>
@@ -960,7 +1002,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             (r, obj) => {
                 if (obj.TryGetBehaviour(out NetworkRaidParticipant participant))
                 {
-                    participant.Initialize(joinData.ProfileId.Value, joinData.ClassId);
+                    participant.Initialize(
+                        joinData.ProfileId.Value,
+                        joinData.ClassId,
+                        _matchController != null ? _matchController.RaidGenerationId.ToString() : null);
                 }
             });
 
@@ -1018,6 +1063,84 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedAvatars.Add(player, avatarObject);
 
         Debug.Log($"Spawned participant and avatar for player {player} with class {joinData.ClassId}.");
+    }
+
+    /// <summary>
+    /// Aborts every currently active participant for a Host-requested raid closure.
+    /// </summary>
+    public void AbortRaidingParticipantsForClosure()
+    {
+        if (_runner == null || !_runner.IsServer)
+        {
+            return;
+        }
+
+        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+        {
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+            {
+                participant.TryAbortForClosure();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Despawns every network object owned by this runner except the lifecycle coordinator.
+    /// Runner scope is the generation boundary: a different raid always owns a new runner.
+    /// </summary>
+    public bool TryCleanupRaidGeneration(out int failureCount)
+    {
+        failureCount = 0;
+        if (_runner == null || !_runner.IsServer)
+        {
+            failureCount = 1;
+            return false;
+        }
+
+        _spawnsBlocked = true;
+        _cleanupBuffer.Clear();
+        _runner.GetAllNetworkObjects(_cleanupBuffer);
+
+        for (int index = 0; index < _cleanupBuffer.Count; index++)
+        {
+            NetworkObject networkObject = _cleanupBuffer[index];
+            if (networkObject == null ||
+                networkObject.TryGetBehaviour(out NetworkMatchController _) ||
+                networkObject.NetworkTypeId.IsSceneObject)
+            {
+                continue;
+            }
+
+            try
+            {
+                _runner.Despawn(networkObject);
+            }
+            catch (Exception exception)
+            {
+                failureCount++;
+                Debug.LogException(exception, networkObject);
+            }
+        }
+
+        _spawnedPlayers.Clear();
+        _spawnedAvatars.Clear();
+        _spawnedEnemies.Clear();
+        _admittedPlayers.Clear();
+        _admittedProfiles.Clear();
+        _lootSpawnState.Clear();
+        _breakableSpawnState.Clear();
+        _lootSessionSeed = 0;
+        _hasLootSessionSeed = false;
+        _spawnPointLookup.Clear();
+        _sceneSpawnPointConfiguration = null;
+        _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
+        _sceneLoadState = SceneLoadProcessingState.None;
+        _runner.GetComponent<EntityRegistry>()?.ClearForRaidClosure();
+        _runner.GetComponent<ExtractionSanctuaryAssignmentService>()?.ResetForRaidClosure();
+        _cleanupBuffer.Clear();
+
+        return failureCount == 0;
     }
 
     private void SpawnEnemy(NetworkRunner runner)
@@ -1591,6 +1714,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (participantObject != null && participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
         {
             _departedProfiles.Add(participant.ProfileId.ToString());
+            participant.TryAbortForClosure();
             if (participant.State != RaidParticipantState.Defeated && avatarObject != null)
             {
                 runner.Despawn(avatarObject);
@@ -1658,6 +1782,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (_matchController == null || _matchController.Runner != runner)
             return false;
 
+        NetworkMatchController.MatchPhase phase = _matchController.Phase;
+        bool phaseAllowsSpawning = phase == NetworkMatchController.MatchPhase.WaitingForPlayers ||
+                                   phase == NetworkMatchController.MatchPhase.Starting ||
+                                   phase == NetworkMatchController.MatchPhase.InProgress;
+        if (!phaseAllowsSpawning)
+            return false;
+
         if (_sceneSpawnPointConfiguration == null)
             return false;
 
@@ -1675,7 +1806,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!runner.IsServer)
             return false;
 
-        return true;
+        if (_matchController == null)
+            return false;
+
+        NetworkMatchController.MatchPhase phase = _matchController.Phase;
+        return phase == NetworkMatchController.MatchPhase.WaitingForPlayers ||
+               phase == NetworkMatchController.MatchPhase.Starting ||
+               phase == NetworkMatchController.MatchPhase.InProgress;
     }
 
     public NetworkObject Spawn(

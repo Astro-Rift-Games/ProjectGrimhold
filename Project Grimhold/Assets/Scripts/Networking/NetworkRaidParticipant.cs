@@ -14,6 +14,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
 
+    /// <summary>Identifies the runner-scoped raid generation that owns this participant.</summary>
+    [Networked]
+    public NetworkString<_32> RaidGenerationId { get; private set; }
+
     [Networked]
     public PlayerClassId SelectedBuild { get; private set; }
 
@@ -45,9 +49,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     /// <summary>
     /// Initializes this participant during the State Authority spawn callback.
     /// </summary>
-    internal void Initialize(string profileId, PlayerClassId selectedBuild)
+    internal void Initialize(string profileId, PlayerClassId selectedBuild, string raidGenerationId = null)
     {
         ProfileId = profileId;
+        RaidGenerationId = raidGenerationId ?? string.Empty;
         SelectedBuild = selectedBuild;
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;
@@ -103,6 +108,24 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
 
         State = RaidParticipantState.Extracted;
         ResultSequence++;
+        return true;
+    }
+
+    /// <summary>
+    /// Marks an active participant as aborted during an authoritative raid-wide close.
+    /// No inventory or stash operation is performed by this transition.
+    /// </summary>
+    internal bool TryAbortForClosure()
+    {
+        if (!HasStateAuthority || State != RaidParticipantState.Raiding)
+        {
+            return false;
+        }
+
+        State = RaidParticipantState.Aborted;
+        CurrentAvatarId = default;
+        ResultSequence++;
+        IsReturnAuthorized = true;
         return true;
     }
 

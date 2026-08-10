@@ -24,6 +24,28 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
 
+    /// <summary>
+    /// Clears runner-local capability registrations after its raid generation has closed.
+    /// The owning runner is no longer eligible for gameplay spawns at this point.
+    /// </summary>
+    public void ClearForRaidClosure()
+    {
+        _entities.Clear();
+        _characters.Clear();
+        _interactables.Clear();
+        _lootReceivers.Clear();
+        _lootSources.Clear();
+        _extractionZones.Clear();
+        _extractionParticipants.Clear();
+        _extractionProgressReceivers.Clear();
+        _extractionProgressReaders.Clear();
+        _extractionProgressDefeatSources.Clear();
+        _extractionSanctuaries.Clear();
+        _colliders.Clear();
+        _damageColliderRegistrations.Clear();
+        _damageColliders.Clear();
+    }
+
     private readonly struct DamageColliderRegistration
     {
         public IDamageable Damageable { get; }

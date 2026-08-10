@@ -24,6 +24,16 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
     public bool IsInitialized => _isInitialized;
     public bool HasSessionSeed => _hasSessionSeed;
 
+    /// <summary>Clears runner-local assignment state after the raid generation closes.</summary>
+    public void ResetForRaidClosure()
+    {
+        _sanctuaryIds.Clear();
+        _freeSanctuaryIds.Clear();
+        _reportedConfigurationFailures.Clear();
+        _sessionSeed = 0UL;
+        _hasSessionSeed = false;
+    }
+
     /// <summary>
     /// Binds this service to exactly one runner. Host initialization creates one local,
     /// non-replicated seed; Client initialization remains query-only.
@@ -326,9 +336,7 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
 
     private void OnDestroy()
     {
-        _sanctuaryIds.Clear();
-        _freeSanctuaryIds.Clear();
-        _reportedConfigurationFailures.Clear();
+        ResetForRaidClosure();
         _runner = null;
         _registry = null;
         _sessionSeed = 0UL;
