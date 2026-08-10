@@ -3,129 +3,36 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Temporary in-memory implementation of <see cref="IPlayerStashService"/>.
-/// Stores accumulated stash items for Stage 1. Does not persist across application sessions.
+/// Compatibility adapter exposing the persistent store through the existing
+/// stash service contract. It owns no stash state.
 /// </summary>
 public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashService
 {
-    private readonly Dictionary<ProfileId, List<StashItem>> _stashes = new();
+    private LocalProfileStore _store;
 
     public event Action<ProfileId> StashChanged;
 
-    public IReadOnlyList<StashItem> GetStash(ProfileId profileId)
+    public void Initialize(LocalProfileStore store)
     {
-        if (profileId.IsValid && _stashes.TryGetValue(profileId, out var stash))
-        {
-            return stash;
-        }
-        return System.Array.Empty<StashItem>();
+        if (_store != null) _store.ProfileCommitted -= OnProfileCommitted;
+        _store = store;
+        if (_store != null) _store.ProfileCommitted += OnProfileCommitted;
     }
 
-    public StashOperationResult TryConsumeLoot(ProfileId profileId, LootId lootId, int amount)
+    public IReadOnlyList<StashItem> GetStash(ProfileId profileId) => IsProfile(profileId) ? _store.GetStash() : Array.Empty<StashItem>();
+
+    public StashOperationResult TryConsumeLoot(ProfileId profileId, LootId lootId, int amount) =>
+        IsProfile(profileId) ? _store.TryConsumeLoot(lootId, amount) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items) =>
+        IsProfile(profileId) ? _store.TrySecureLoot(items) : StashOperationResult.InvalidInventory;
+
+    private bool IsProfile(ProfileId profileId) => _store != null && profileId == _store.ProfileId;
+
+    private void OnProfileCommitted(ProfileId profileId) => StashChanged?.Invoke(profileId);
+
+    private void OnDestroy()
     {
-        if (!profileId.IsValid || !lootId.IsValid || amount <= 0)
-        {
-            return StashOperationResult.InvalidInventory;
-        }
-
-        if (!_stashes.TryGetValue(profileId, out List<StashItem> currentStash))
-        {
-            return StashOperationResult.InvalidInventory;
-        }
-
-        int stashIndex = -1;
-        for (int i = 0; i < currentStash.Count; i++)
-        {
-            if (currentStash[i].LootId == lootId)
-            {
-                stashIndex = i;
-                break;
-            }
-        }
-
-        if (stashIndex == -1 || currentStash[stashIndex].Amount < amount)
-        {
-            return StashOperationResult.InvalidInventory;
-        }
-
-        int newAmount = currentStash[stashIndex].Amount - amount;
-        if (newAmount > 0)
-        {
-            currentStash[stashIndex] = new StashItem(lootId, newAmount);
-        }
-        else
-        {
-            currentStash.RemoveAt(stashIndex);
-        }
-
-        StashChanged?.Invoke(profileId);
-        return StashOperationResult.Success;
-    }
-
-    public StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items)
-    {
-        if (!profileId.IsValid)
-        {
-            Debug.LogError($"{nameof(InMemoryPlayerStashService)}: ProfileId is invalid.");
-            return StashOperationResult.PersistenceFailed;
-        }
-
-        if (items == null || items.Count == 0)
-        {
-            return StashOperationResult.InvalidInventory;
-        }
-
-        if (!_stashes.TryGetValue(profileId, out List<StashItem> currentStash))
-        {
-            currentStash = new List<StashItem>();
-            _stashes[profileId] = currentStash;
-        }
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            StashItem incomingItem = items[i];
-            if (!incomingItem.IsValid)
-            {
-                continue;
-            }
-
-            bool merged = false;
-            for (int j = 0; j < currentStash.Count; j++)
-            {
-                StashItem existingItem = currentStash[j];
-                // For Stage 1, we merge by LootId. 
-                // Later stages with instance-specific state may change merging logic.
-                if (existingItem.LootId == incomingItem.LootId)
-                {
-                    currentStash[j] = new StashItem(existingItem.LootId, existingItem.Amount + incomingItem.Amount);
-                    merged = true;
-                    break;
-                }
-            }
-
-            if (!merged)
-            {
-                currentStash.Add(incomingItem);
-            }
-        }
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            int totalAmount = 0;
-            for (int j = 0; j < currentStash.Count; j++)
-            {
-                if (currentStash[j].LootId == item.LootId)
-                {
-                    totalAmount = currentStash[j].Amount;
-                    break;
-                }
-            }
-            Debug.Log($"[Stash SECURE] Profile: {profileId.Value} | Item ID: {item.LootId} | Amount Added: {item.Amount} | Total in Stash: {totalAmount}");
-        }
-
-        StashChanged?.Invoke(profileId);
-
-        return StashOperationResult.Success;
+        if (_store != null) _store.ProfileCommitted -= OnProfileCommitted;
     }
 }

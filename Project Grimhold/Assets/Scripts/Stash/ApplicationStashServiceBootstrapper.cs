@@ -19,9 +19,29 @@ public static class ApplicationStashServiceBootstrapper
         var contextObject = new GameObject(ContextName);
         var context = contextObject.AddComponent<ApplicationStashContext>();
         
-        var inMemoryService = contextObject.AddComponent<InMemoryPlayerStashService>();
+        var configuration = Resources.Load<LocalProfilePersistenceConfiguration>("LocalProfilePersistenceConfiguration");
+        if (configuration == null || configuration.LootCatalog == null)
+        {
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local persistence configuration or loot catalog is missing.");
+            Object.DontDestroyOnLoad(contextObject);
+            return;
+        }
+
+        ProfileId profileId = LocalProfileProvider.GetOrCreateLocalProfile();
+        var repository = new LocalProfileRepository(new LocalProfileFileStore(), Application.persistentDataPath);
+        if (!repository.Initialize(profileId, configuration.LootCatalog))
+        {
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Persistence unavailable: {repository.LastError}");
+            Object.DontDestroyOnLoad(contextObject);
+            return;
+        }
+
+        var store = new LocalProfileStore(repository, profileId);
+        var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
-        context.Initialize(inMemoryService, loadoutService);
+        stashService.Initialize(store);
+        loadoutService.Initialize(store);
+        context.Initialize(store, stashService, loadoutService);
 
         Object.DontDestroyOnLoad(contextObject);
 

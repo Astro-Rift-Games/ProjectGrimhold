@@ -12,6 +12,7 @@ public class LobbyStashPresenter : MonoBehaviour
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
     private IPlayerStashService _stashService;
     private IPlayerLoadoutService _loadoutService;
+    private ApplicationStashContext _context;
     private ProfileId _localProfileId;
 
     private void OnEnable()
@@ -25,20 +26,12 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
         }
 
-        var context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context != null)
+        _context = FindAnyObjectByType<ApplicationStashContext>();
+        if (_context != null)
         {
-            _stashService = context.StashService;
-            _loadoutService = context.LoadoutService;
-
-            if (_stashService != null)
-            {
-                _stashService.StashChanged += OnStashChanged;
-            }
-            if (_loadoutService != null)
-            {
-                _loadoutService.LoadoutChanged += OnLoadoutChanged;
-            }
+            _stashService = _context.StashService;
+            _loadoutService = _context.LoadoutService;
+            _context.ProfileCommitted += OnProfileCommitted;
             RefreshUI();
         }
         else
@@ -56,14 +49,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
         }
 
-        if (_stashService != null)
-        {
-            _stashService.StashChanged -= OnStashChanged;
-        }
-        if (_loadoutService != null)
-        {
-            _loadoutService.LoadoutChanged -= OnLoadoutChanged;
-        }
+        if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
+        _context = null;
     }
 
     private void OnTakeAllRequested()
@@ -108,15 +95,7 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private void OnStashChanged(ProfileId updatedProfileId)
-    {
-        if (updatedProfileId.Value == _localProfileId.Value)
-        {
-            RefreshUI();
-        }
-    }
-
-    private void OnLoadoutChanged(ProfileId updatedProfileId)
+    private void OnProfileCommitted(ProfileId updatedProfileId)
     {
         if (updatedProfileId.Value == _localProfileId.Value)
         {
