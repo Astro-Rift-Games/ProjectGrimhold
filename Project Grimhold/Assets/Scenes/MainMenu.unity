@@ -146,7 +146,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_ComponentVersion: 4
   m_LightType: 4
@@ -371,6 +371,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2f8bd57375eb5941a068dc70c55a353, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FusionSessionLauncher
+--- !u!114 &2005038007 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4286063876978952089, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+  m_PrefabInstance: {fileID: 2005038005}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7002582639387c643bdddf35689d292b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SessionConnectionCoordinator
 --- !u!1001 &424614772561200027
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -428,9 +439,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2011631449984759449, guid: 29f439518d3e565498687c9928661656, type: 3}
-      propertyPath: launcher
-      value: 
-      objectReference: {fileID: 2005038006}
+      propertyPath: _connectionCoordinator
+      value:
+      objectReference: {fileID: 2005038007}
     - target: {fileID: 2348136094593496772, guid: 29f439518d3e565498687c9928661656, type: 3}
       propertyPath: m_Pivot.x
       value: 0

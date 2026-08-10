@@ -1,14 +1,13 @@
 using Fusion;
 using System;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MainMenuController : MonoBehaviour
+public sealed class MainMenuController : MonoBehaviour
 {
     [SerializeField]
-    private FusionSessionLauncher launcher;
+    private SessionConnectionCoordinator _connectionCoordinator;
 
     [SerializeField]
     private TMP_InputField roomCodeInput;
@@ -46,6 +45,21 @@ public class MainMenuController : MonoBehaviour
         joinRoomButton.onClick.AddListener(JoinRoom);
         meleeClassButton.onClick.AddListener(SelectMelee);
         rangedClassButton.onClick.AddListener(SelectRanged);
+
+        if (_connectionCoordinator == null)
+        {
+            _connectionCoordinator = SessionConnectionCoordinator.Instance;
+        }
+
+        roomCodeInput.gameObject.SetActive(false);
+        joinRoomButton.gameObject.SetActive(false);
+        lobbyPanel.SetActive(false);
+
+        TMP_Text createButtonLabel = createRoomButton.GetComponentInChildren<TMP_Text>(true);
+        if (createButtonLabel != null)
+        {
+            createButtonLabel.text = "Enter Town";
+        }
 
         RefreshConnectionButtons();
     }
@@ -103,29 +117,28 @@ public class MainMenuController : MonoBehaviour
         }
 
         SetUIInteractable(false);
-        _statusText.text = "Creating room...";
-
-        string roomCode = GenerateRoomCode();
+        _statusText.text = "Connecting to Town...";
 
         try
         {
-            await launcher.StartSessionAsync(
-                roomCode,
-                GameMode.Host,
-                _selectedClass);
+            if (_connectionCoordinator == null)
+            {
+                throw new InvalidOperationException("Session connection coordinator is unavailable.");
+            }
+
+            SessionTransitionResult result =
+                await _connectionCoordinator.ConnectToTownAsync(_selectedClass);
+
+            if (result != SessionTransitionResult.Succeeded)
+            {
+                _statusText.text = $"Failed to enter Town: {result}.";
+                SetUIInteractable(true);
+            }
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Error creating room: {ex.Message}");
-            _statusText.text = $"Failed to create room: {ex.Message}";
-        }
-
-        if (launcher.Runner != null)
-        {
-            ShowLobby();
-        }
-        else
-        {
+            Debug.LogError($"Error entering Town: {ex.Message}");
+            _statusText.text = $"Failed to enter Town: {ex.Message}";
             SetUIInteractable(true);
         }
     }
@@ -153,10 +166,15 @@ public class MainMenuController : MonoBehaviour
         SetUIInteractable(false);
         _statusText.text = "Joining...";
 
-        bool success = false;
+        SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
         try
         {
-            success = await launcher.StartSessionAsync(
+            if (_connectionCoordinator == null)
+            {
+                throw new InvalidOperationException("Session connection coordinator is unavailable.");
+            }
+
+            result = await _connectionCoordinator.StartDirectRaidForDevelopmentAsync(
                 roomCodeInput.text,
                 GameMode.Client,
                 _selectedClass);
@@ -165,12 +183,11 @@ public class MainMenuController : MonoBehaviour
         {
             Debug.LogError($"Error joining room: {ex.Message}");
             _statusText.text = $"Failed to join room: {ex.Message}";
-            success = false;
         }
 
-        if (success && launcher.Runner != null)
+        if (result == SessionTransitionResult.Succeeded)
         {
-            ShowLobby();
+            _statusText.text = "Connected through the direct development route.";
         }
         else
         {
@@ -182,16 +199,4 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private void ShowLobby()
-    {
-        menuPanel.SetActive(false);
-        lobbyPanel.SetActive(true);
-
-        lobbyMenu.Initialize(launcher.Runner, launcher);
-    }
-
-    private string GenerateRoomCode()
-    {
-        return UnityEngine.Random.Range(100000, 999999).ToString();
-    }
 }

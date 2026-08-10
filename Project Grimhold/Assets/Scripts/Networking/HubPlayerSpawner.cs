@@ -1,46 +1,119 @@
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [DisallowMultipleComponent]
 public sealed class HubPlayerSpawner : NetworkRunnerCallbacksAdapter
 {
     private NetworkPrefabRef _socialPlayerPrefab;
-    private Vector3 _spawnPosition;
-    private Quaternion _spawnRotation;
+    private HubSpawnSceneConfiguration _sceneConfiguration;
+    private PlayerRef _pendingLocalPlayer;
+    private bool _hasPendingLocalPlayer;
 
-    public void Initialize(NetworkPrefabRef socialPlayerPrefab, Transform spawnPoint)
+    public void Initialize(NetworkPrefabRef socialPlayerPrefab)
     {
         _socialPlayerPrefab = socialPlayerPrefab;
-        if (spawnPoint != null)
-        {
-            _spawnPosition = spawnPoint.position;
-            _spawnRotation = spawnPoint.rotation;
-        }
-        else
-        {
-            _spawnPosition = Vector3.zero;
-            _spawnRotation = Quaternion.identity;
-        }
     }
 
     public override void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        // In Shared Mode, state authority belongs to the client that spawns the object.
-        // We only want to spawn the local player's avatar.
-        if (runner.LocalPlayer == player)
+        if (runner.LocalPlayer != player)
         {
-            if (_socialPlayerPrefab.IsValid)
+            return;
+        }
+
+        _pendingLocalPlayer = player;
+        _hasPendingLocalPlayer = true;
+        TrySpawnPendingPlayer(runner);
+    }
+
+    public override void OnSceneLoadStart(NetworkRunner runner)
+    {
+        _sceneConfiguration = null;
+    }
+
+    public override void OnSceneLoadDone(NetworkRunner runner)
+    {
+        if (!TryResolveSceneConfiguration(runner))
+        {
+            return;
+        }
+
+        TrySpawnPendingPlayer(runner);
+    }
+
+    private bool TryResolveSceneConfiguration(NetworkRunner runner)
+    {
+        if (runner.SceneManager == null)
+        {
+            Debug.LogError($"{nameof(HubPlayerSpawner)} requires a Fusion scene manager.", this);
+            return false;
+        }
+
+        Scene runnerScene = runner.SceneManager.MainRunnerScene;
+        if (!runnerScene.IsValid() || !runnerScene.isLoaded)
+        {
+            Debug.LogError($"{nameof(HubPlayerSpawner)} could not resolve the loaded Town scene.", this);
+            return false;
+        }
+
+        HubSpawnSceneConfiguration found = null;
+        GameObject[] roots = runnerScene.GetRootGameObjects();
+        for (int rootIndex = 0; rootIndex < roots.Length; rootIndex++)
+        {
+            HubSpawnSceneConfiguration[] configurations =
+                roots[rootIndex].GetComponentsInChildren<HubSpawnSceneConfiguration>(true);
+            for (int index = 0; index < configurations.Length; index++)
             {
-                runner.Spawn(
-                    _socialPlayerPrefab,
-                    _spawnPosition,
-                    _spawnRotation,
-                    player);
-            }
-            else
-            {
-                Debug.LogError("[HubPlayerSpawner] Social Player Prefab is not valid.");
+                if (found != null && found != configurations[index])
+                {
+                    Debug.LogError($"Town scene '{runnerScene.name}' contains multiple {nameof(HubSpawnSceneConfiguration)} components.", configurations[index]);
+                    return false;
+                }
+
+                found = configurations[index];
             }
         }
+
+        if (found == null || found.SpawnPointCount == 0)
+        {
+            Debug.LogError($"Town scene '{runnerScene.name}' has no valid social spawn configuration.", this);
+            return false;
+        }
+
+        _sceneConfiguration = found;
+        return true;
+    }
+
+    private void TrySpawnPendingPlayer(NetworkRunner runner)
+    {
+        if (!_hasPendingLocalPlayer || _sceneConfiguration == null)
+        {
+            return;
+        }
+
+        PlayerRef player = _pendingLocalPlayer;
+        if (runner.GetPlayerObject(player) != null)
+        {
+            _hasPendingLocalPlayer = false;
+            return;
+        }
+
+        if (!_socialPlayerPrefab.IsValid ||
+            !_sceneConfiguration.TryGetSpawnPose(player.RawEncoded, out Vector3 position, out Quaternion rotation))
+        {
+            Debug.LogError($"{nameof(HubPlayerSpawner)} cannot spawn the local social player because its prefab or spawn pose is invalid.", this);
+            return;
+        }
+
+        NetworkObject playerObject = runner.Spawn(_socialPlayerPrefab, position, rotation, player);
+        if (playerObject == null)
+        {
+            Debug.LogError($"{nameof(HubPlayerSpawner)} failed to spawn the local social player.", this);
+            return;
+        }
+
+        runner.SetPlayerObject(player, playerObject);
+        _hasPendingLocalPlayer = false;
     }
 }

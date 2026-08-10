@@ -2,8 +2,9 @@ using Fusion;
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-public sealed class FusionSessionLauncher : MonoBehaviour
+public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 {
     [Header("Session")]
     [SerializeField]
@@ -29,16 +30,42 @@ public sealed class FusionSessionLauncher : MonoBehaviour
     private NetworkMatchController _matchController;
     private ExtractionSanctuaryAssignmentService _sanctuaryAssignmentService;
     private bool _isStarting;
+    private LauncherShutdownListener _shutdownListener;
 
     public NetworkRunner Runner => _runner;
     public NetworkMatchController MatchController => _matchController;
+    public event Action<NetworkRunner, ShutdownReason> RunnerShutdownObserved;
 
     public Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
     {
-        return StartSessionInternalAsync(sessionName, mode, selectedClass, SessionStartupContext.FreshSession);
+        return StartSessionInternalAsync(
+            sessionName,
+            mode,
+            selectedClass,
+            SessionStartupContext.FreshSession,
+            null);
     }
 
-    private async Task<bool> StartSessionInternalAsync(string sessionName, GameMode mode, PlayerClassId selectedClass, SessionStartupContext startupContext)
+    public Task<bool> StartCoordinatedSessionAsync(
+        string sessionName,
+        GameMode mode,
+        PlayerClassId selectedClass,
+        string gameplaySceneName)
+    {
+        return StartSessionInternalAsync(
+            sessionName,
+            mode,
+            selectedClass,
+            SessionStartupContext.FreshSession,
+            gameplaySceneName);
+    }
+
+    private async Task<bool> StartSessionInternalAsync(
+        string sessionName,
+        GameMode mode,
+        PlayerClassId selectedClass,
+        SessionStartupContext startupContext,
+        string initialSceneName)
     {
         if (!startupContext.IsValid)
             throw new ArgumentException("Invalid startup context provided to session launcher.");
@@ -50,6 +77,18 @@ public sealed class FusionSessionLauncher : MonoBehaviour
         if (mode != GameMode.Host && mode != GameMode.Client)
         {
             throw new ArgumentException($"Unsupported game mode: {mode}. Only GameMode.Host and GameMode.Client are supported.");
+        }
+
+        int initialSceneBuildIndex = -1;
+        if (!string.IsNullOrWhiteSpace(initialSceneName))
+        {
+            initialSceneBuildIndex = NetworkSceneBuildIndexResolver.Resolve(initialSceneName);
+            if (initialSceneBuildIndex < 0)
+            {
+                throw new ArgumentException(
+                    $"Raid scene '{initialSceneName}' is not enabled in build settings.",
+                    nameof(initialSceneName));
+            }
         }
 
         // Valida el prefab del coordinador en modo Host, sólo si se requiere bootstrap del Host
@@ -90,16 +129,26 @@ public sealed class FusionSessionLauncher : MonoBehaviour
             _spawnManager = composition.SpawnManager;
             _sanctuaryAssignmentService = composition.SanctuaryAssignmentService;
 
-            var listener = _runnerObject.AddComponent<LauncherShutdownListener>();
-            listener.Initialize(this, _runner);
+            _shutdownListener = _runnerObject.AddComponent<LauncherShutdownListener>();
+            _shutdownListener.Initialize(_runner, HandleRunnerShutdown);
 
             var args = new StartGameArgs
             {
                 GameMode = mode,
                 SessionName = sessionName,
                 PlayerCount = _maxPlayers,
-                ConnectionToken = token
+                ConnectionToken = token,
+                SceneManager = composition.SceneManager
             };
+
+            if (initialSceneBuildIndex >= 0)
+            {
+                var sceneInfo = new NetworkSceneInfo();
+                sceneInfo.AddSceneRef(
+                    SceneRef.FromIndex(initialSceneBuildIndex),
+                    LoadSceneMode.Single);
+                args.Scene = sceneInfo;
+            }
 
             if (mode == GameMode.Client)
             {
@@ -120,6 +169,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour
                     $"Fusion failed to start. Reason: {result.ShutdownReason}",
                     this);
 
+                await ShutdownAndDestroyRunnerAsync();
+                return false;
+            }
+
+            if (initialSceneBuildIndex >= 0 &&
+                !await _shutdownListener.WaitForInitialSceneAsync())
+            {
+                Debug.LogError("[FusionSessionLauncher] Gameplay scene did not finish loading on the active runner.", this);
                 await ShutdownAndDestroyRunnerAsync();
                 return false;
             }
@@ -194,22 +251,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour
         }
     }
 
-    private async Task ShutdownAndDestroyRunnerAsync()
+    public async Task<bool> ShutdownAndDestroyRunnerAsync()
     {
-        if (_runner != null)
+        NetworkRunner runner = _runner;
+        GameObject runnerObject = _runnerObject;
+        if (runner == null && runnerObject == null)
         {
-            if (_runner.IsRunning)
-            {
-                await _runner.Shutdown();
-            }
-            if (_runnerObject != null)
-            {
-                Destroy(_runnerObject);
-            }
+            return true;
         }
 
-        // Manual cleanup if something failed before runner got properly initialized or shut down gracefully
-        ClearReferencesOnShutdown(_runner);
+        _shutdownListener?.Detach();
+        _shutdownListener = null;
+        bool succeeded = await RunnerShutdownUtility.ShutdownAndDestroyAsync(runner, runnerObject);
+        ClearReferencesOnShutdown(runner);
+        return succeeded;
     }
 
     public void ClearReferencesOnShutdown(NetworkRunner shutdownRunner)
@@ -224,5 +279,17 @@ public sealed class FusionSessionLauncher : MonoBehaviour
         _spawnManager = null;
         _matchController = null;
         _sanctuaryAssignmentService = null;
+        _shutdownListener = null;
+    }
+
+    private void HandleRunnerShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        if (_runner != runner)
+        {
+            return;
+        }
+
+        ClearReferencesOnShutdown(runner);
+        RunnerShutdownObserved?.Invoke(runner, shutdownReason);
     }
 }

@@ -7,6 +7,7 @@ public static class NetworkRunnerFactory
     {
         public readonly GameObject RunnerObject;
         public readonly NetworkRunner Runner;
+        public readonly NetworkSceneManagerDefault SceneManager;
         public readonly NetworkSpawnManager SpawnManager;
         public readonly ExtractionSanctuaryAssignmentService SanctuaryAssignmentService;
         public readonly HostMigrationLifecycleController HostMigrationController;
@@ -15,6 +16,7 @@ public static class NetworkRunnerFactory
         public RunnerComposition(
             GameObject runnerObject,
             NetworkRunner runner,
+            NetworkSceneManagerDefault sceneManager,
             NetworkSpawnManager spawnManager,
             ExtractionSanctuaryAssignmentService sanctuaryAssignmentService,
             HostMigrationLifecycleController hostMigrationController,
@@ -22,6 +24,7 @@ public static class NetworkRunnerFactory
         {
             RunnerObject = runnerObject;
             Runner = runner;
+            SceneManager = sceneManager;
             SpawnManager = spawnManager;
             SanctuaryAssignmentService = sanctuaryAssignmentService;
             HostMigrationController = hostMigrationController;
@@ -42,6 +45,7 @@ public static class NetworkRunnerFactory
 
         GameObject runnerObject = new GameObject("NetworkRunner");
         NetworkRunner runner = runnerObject.AddComponent<NetworkRunner>();
+        var sceneManager = runnerObject.AddComponent<NetworkSceneManagerDefault>();
         runnerObject.AddComponent<EntityRegistry>();
         
         var sanctuaryAssignmentService = runnerObject.AddComponent<ExtractionSanctuaryAssignmentService>();
@@ -90,6 +94,7 @@ public static class NetworkRunnerFactory
         composition = new RunnerComposition(
             runnerObject,
             runner,
+            sceneManager,
             spawnManager,
             sanctuaryAssignmentService,
             hostMigrationController,

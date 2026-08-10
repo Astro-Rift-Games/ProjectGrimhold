@@ -3,7 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Fusion;
-using System.Threading.Tasks;
+using System.Reflection;
 
 public class HubSessionLauncherTests
 {
@@ -12,8 +12,13 @@ public class HubSessionLauncherTests
     {
         var go = new GameObject("LauncherTest");
         var launcher = go.AddComponent<HubSessionLauncher>();
-        
-        bool startCompleted = false;
+        FieldInfo socialPrefabField = typeof(HubSessionLauncher).GetField(
+            "_socialPlayerPrefab",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        socialPrefabField.SetValue(
+            launcher,
+            new NetworkPrefabRef("b58bec13d63beb74ca61349f7d983c36"));
+
         bool startSuccess = false;
 
         var task = launcher.StartHubSessionAsync(PlayerClassId.Melee);
