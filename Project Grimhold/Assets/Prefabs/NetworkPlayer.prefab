@@ -1874,6 +1874,7 @@ MonoBehaviour:
   _controlsText: {fileID: 8800000000000000533}
   _resumeButton: {fileID: 8800000000000000544}
   _abandonButton: {fileID: 8800000000000000554}
+  _abandonButtonText: {fileID: 8800000000000000558}
 --- !u!114 &8800000000000000115
 MonoBehaviour:
   m_ObjectHideFlags: 0

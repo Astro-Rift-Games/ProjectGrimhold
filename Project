@@ -1,0 +1,27 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.5/staging' branch; Version is '6000.5.1f1 (0d9463e84828) revision 889955'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) Professional' Language: 'es' Physical Memory: 32649 MB
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-Dani" at "2026-08-10T04:41:01.4831889Z"
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-08-10T04:41:01Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.5.1f1\Editor\Unity.exe
+-batchmode
+-nographics
+-projectPath
+C:\Users\Dani\OneDrive\Documentos\GitHub\ProjectGrimhold\Project
+Grimhold
+-runTests
+-testPlatform
+editmode
+-testResults
+C:\Users\Dani\OneDrive\Documentos\GitHub\ProjectGrimhold\Project
+Grimhold\Logs\Task58ExtractionMenuEditMode.xml
+-logFile
+C:\Users\Dani\OneDrive\Documentos\GitHub\ProjectGrimhold\Project
+Grimhold\Logs\Task58ExtractionMenuEditMode.log
+Couldn't set project path to: C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/Project Grimhold/C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/Project
+Exiting without the bug reporter. Application will terminate with return code 1

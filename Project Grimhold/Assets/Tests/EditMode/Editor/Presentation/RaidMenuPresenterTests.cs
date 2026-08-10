@@ -48,6 +48,9 @@ namespace Tests.EditMode.Presentation
             GameObject abandonObj = new GameObject("AbandonButton");
             abandonObj.transform.SetParent(menuRoot.transform);
             var abandonButton = abandonObj.AddComponent<Button>();
+            GameObject abandonLabelObj = new GameObject("AbandonButtonText");
+            abandonLabelObj.transform.SetParent(abandonObj.transform);
+            var abandonButtonText = abandonLabelObj.AddComponent<TMPro.TextMeshProUGUI>();
 
             SetPrivateField(_view, "_menuRoot", menuRoot);
             SetPrivateField(_view, "_titleText", titleText);
@@ -55,6 +58,7 @@ namespace Tests.EditMode.Presentation
             SetPrivateField(_view, "_controlsText", controlsText);
             SetPrivateField(_view, "_resumeButton", resumeButton);
             SetPrivateField(_view, "_abandonButton", abandonButton);
+            SetPrivateField(_view, "_abandonButtonText", abandonButtonText);
 
             SetPrivateField(_presenter, "_view", _view);
 
@@ -81,6 +85,7 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.True);
             Assert.That(_view.ResumeButton.interactable, Is.True);
             Assert.That(_view.AbandonButton.interactable, Is.True);
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Abandonar Incursión"));
         }
 
         [Test]
@@ -91,6 +96,30 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.TitleText.text, Is.EqualTo("Has sido Derrotado"));
             Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.False);
             Assert.That(_view.AbandonButton.interactable, Is.True);
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
+        }
+
+        [Test]
+        public void View_PresentExtractedPending_ShowsSuccessAndDisablesReturn()
+        {
+            _view.PresentExtractedState(false);
+
+            Assert.That(_view.TitleText.text, Is.EqualTo("Extracción completada"));
+            Assert.That(_view.StatusText.text, Does.Contain("Guardado pendiente"));
+            Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.False);
+            Assert.That(_view.AbandonButton.interactable, Is.False);
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
+        }
+
+        [Test]
+        public void View_PresentExtractedConfirmed_EnablesReturn()
+        {
+            _view.PresentExtractedState(true);
+
+            Assert.That(_view.TitleText.text, Is.EqualTo("Extracción completada"));
+            Assert.That(_view.StatusText.text, Does.Contain("botín fue asegurado"));
+            Assert.That(_view.AbandonButton.interactable, Is.True);
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
         }
 
         [Test]

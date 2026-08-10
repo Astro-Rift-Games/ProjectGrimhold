@@ -27,6 +27,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _wasDefeatedObserved;
     private bool _awaitingAbandonConfirmation;
     private bool _returnStarted;
+    private RaidParticipantState _observedParticipantState;
+    private bool _observedExtractionCommitConfirmed;
 
     /// <summary>Indicates whether the presenter is bound and the menu overlay is open.</summary>
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -60,12 +62,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
         _isBound = true;
-        _wasDefeatedObserved = !_character.IsAlive;
+        _wasDefeatedObserved = _participant != null
+            ? _participant.State == RaidParticipantState.Defeated
+            : !_character.IsAlive;
+        _observedParticipantState = _participant != null
+            ? _participant.State
+            : RaidParticipantState.Raiding;
+        _observedExtractionCommitConfirmed = _participant != null && _participant.IsExtractionCommitConfirmed;
 
         if (isActiveAndEnabled)
         {
             Subscribe();
-            if (_wasDefeatedObserved)
+            if (HasPersistentResultScreen())
             {
                 OpenMenu();
             }
@@ -92,6 +100,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _wasDefeatedObserved = false;
         _awaitingAbandonConfirmation = false;
         _returnStarted = false;
+        _observedParticipantState = RaidParticipantState.Raiding;
+        _observedExtractionCommitConfirmed = false;
         _view?.Clear();
     }
 
@@ -129,6 +139,11 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
+        if (HasPersistentResultScreen())
+        {
+            return;
+        }
+
         if (IsOpen)
         {
             CloseMenu();
@@ -161,7 +176,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         Subscribe();
-        if (_wasDefeatedObserved)
+        if (HasPersistentResultScreen())
         {
             OpenMenu();
         }
@@ -195,6 +210,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private void ObserveCharacterState(bool isAlive)
     {
+        // The participant is the authoritative result source. Health remains a
+        // compatibility fallback for the direct-development path without a participant.
+        if (_participant != null)
+        {
+            return;
+        }
+
         if (!isAlive && !_wasDefeatedObserved)
         {
             _wasDefeatedObserved = true;
@@ -302,7 +324,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.PresentAbandonConfirmation();
         }
-        else if (_wasDefeatedObserved)
+        else if (_participant != null && _participant.State == RaidParticipantState.Extracted)
+        {
+            _view.PresentExtractedState(_participant.IsExtractionCommitConfirmed);
+        }
+        else if (_wasDefeatedObserved ||
+                 (_participant != null && _participant.State == RaidParticipantState.Defeated))
         {
             _view.PresentDefeatedState();
         }
@@ -326,10 +353,32 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_participant.State == RaidParticipantState.Extracted)
+        RaidParticipantState state = _participant.State;
+        bool commitConfirmed = _participant.IsExtractionCommitConfirmed;
+        bool resultChanged = state != _observedParticipantState ||
+                             commitConfirmed != _observedExtractionCommitConfirmed;
+        _observedParticipantState = state;
+        _observedExtractionCommitConfirmed = commitConfirmed;
+
+        if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
         {
+            _wasDefeatedObserved = true;
+            _inventoryPresenter?.Close();
             OpenMenu();
-            _view?.PresentDefeatedState();
+            return;
+        }
+
+        if (state == RaidParticipantState.Extracted)
+        {
+            if (!IsOpen)
+            {
+                _inventoryPresenter?.Close();
+                OpenMenu();
+            }
+            else if (resultChanged)
+            {
+                RefreshViewContent();
+            }
         }
     }
 
@@ -367,7 +416,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     {
         _view?.SetMenuVisible(false);
 
-        if (forceReleaseSuppression || !_wasDefeatedObserved)
+        if (forceReleaseSuppression || !HasPersistentResultScreen())
         {
             ReleaseInputSuppression();
         }
@@ -376,5 +425,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             // For a defeated player, ensure input suppression remains active
             EnsureInputSuppression();
         }
+    }
+
+    private bool HasPersistentResultScreen()
+    {
+        return _wasDefeatedObserved ||
+               (_participant != null &&
+                (_participant.State == RaidParticipantState.Defeated ||
+                 _participant.State == RaidParticipantState.Extracted));
     }
 }

@@ -35,6 +35,9 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField]
     private Button _abandonButton;
 
+    [SerializeField]
+    private TMP_Text _abandonButtonText;
+
     /// <summary>Raised when the user clicks the resume button.</summary>
     public event Action ResumeRequested;
 
@@ -59,11 +62,15 @@ public sealed class RaidMenuView : MonoBehaviour
     /// <summary>Gets the abandon button for verification.</summary>
     public Button AbandonButton => _abandonButton;
 
+    /// <summary>Gets the label used by the context-sensitive abandon/return action.</summary>
+    public TMP_Text AbandonButtonText => _abandonButtonText;
+
     /// <summary>Indicates whether the menu root is currently active in hierarchy.</summary>
     public bool IsOpen => _menuRoot != null && _menuRoot.activeSelf;
 
     private void Awake()
     {
+        CacheButtonLabel();
         BindButtonListeners();
     }
 
@@ -108,6 +115,7 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButton.interactable = true;
         }
+        SetText(_abandonButtonText, "Abandonar Incursión");
     }
 
     /// <summary>Presents the menu state for a defeated player.</summary>
@@ -126,6 +134,33 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButton.interactable = true;
         }
+        SetText(_abandonButtonText, "Volver al pueblo");
+    }
+
+    /// <summary>
+    /// Presents a successful extraction while TASK-80 confirms the matching stash commit.
+    /// </summary>
+    public void PresentExtractedState(bool isCommitConfirmed)
+    {
+        SetText(_titleText, "Extracción completada");
+        SetText(
+            _statusText,
+            isCommitConfirmed
+                ? "El botín fue asegurado. Ya puedes volver al pueblo."
+                : "Guardado pendiente. Esperando confirmación del botín extraído.");
+        SetText(_controlsText, string.Empty);
+
+        if (_resumeButton != null)
+        {
+            _resumeButton.gameObject.SetActive(false);
+        }
+
+        if (_abandonButton != null)
+        {
+            _abandonButton.interactable = isCommitConfirmed;
+        }
+
+        SetText(_abandonButtonText, "Volver al pueblo");
     }
 
     /// <summary>
@@ -133,8 +168,8 @@ public sealed class RaidMenuView : MonoBehaviour
     /// </summary>
     public void PresentAbandonConfirmation()
     {
-        SetText(_titleText, "Abandonar incursiÃ³n");
-        SetText(_statusText, "PerderÃ¡s el loot temporal. Pulsa Abandonar otra vez para confirmar o Reanudar para cancelar.");
+        SetText(_titleText, "Abandonar incursión");
+        SetText(_statusText, "Perderás el loot temporal. Pulsa Abandonar otra vez para confirmar o Reanudar para cancelar.");
         SetText(_controlsText, string.Empty);
 
         if (_resumeButton != null)
@@ -147,6 +182,7 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButton.interactable = true;
         }
+        SetText(_abandonButtonText, "Confirmar abandono");
     }
 
     /// <summary>Clears text fields and hides the menu root.</summary>
@@ -170,6 +206,14 @@ public sealed class RaidMenuView : MonoBehaviour
         {
             _abandonButton.onClick.RemoveListener(OnAbandonButtonClicked);
             _abandonButton.onClick.AddListener(OnAbandonButtonClicked);
+        }
+    }
+
+    private void CacheButtonLabel()
+    {
+        if (_abandonButtonText == null && _abandonButton != null)
+        {
+            _abandonButtonText = _abandonButton.GetComponentInChildren<TMP_Text>(true);
         }
     }
 

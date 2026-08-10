@@ -33,6 +33,11 @@ Local camera, HUD and minimap verify that their avatar matches the participant's
 is observed by presentation, which sends one local return request to
 `SessionConnectionCoordinator`. No UI component shuts down a runner or loads MainMenu.
 
+`Defeated` and `Extracted` use distinct result presentations. Defeat reports the fallen
+avatar and permits an explicit return. Extraction reports success, displays the pending
+stash commit and keeps return disabled until `IsExtractionCommitConfirmed` corresponds
+to the current `ResultSequence`.
+
 The avatar's Fusion `Spawned` callbacks run before `NetworkSpawnManager` can assign
 `CurrentAvatarId` after `runner.Spawn` returns. Camera and HUD binders therefore observe
 the relationship during `Render`: they retry until both replicated directions resolve,
