@@ -36,6 +36,34 @@ The admission closes when every manifest profile is admitted or after the config
 
 The Town NPC prefab must remain a `MasterClientObject` with a trigger collider, `TownRaidQueueNetworkController`, `TownRaidNpcInteractable` and `InteractionPromptMetadata`. The SocialPlayer network prefab contains `SocialPlayerIdentity` and `TownRaidQueuePresenter`; its local view is created only for Input Authority. Queue request methods return whether Fusion accepted the local invocation or transport attempt so presentation can report immediate transport failure.
 
+## NPC de stash y presentación local
+
+El NPC de stash comparte la frontera de interacción confirmada, pero no comparte
+el estado de la cola ni el estado de red del jugador:
+
+```text
+TownStashNpcInteractable
+  -> InteractionResolved confirmado
+  -> TownStashPresenter (sólo Input Authority)
+  -> TownStashView local
+  -> StashInventory.prefab / LobbyStashPresenter
+  -> ApplicationStashContext / LocalProfileStore
+```
+
+`TownStashNpcInteractable` sólo registra sus colliders en `EntityRegistry` y
+devuelve un resultado exitoso para el `TargetId` correcto. `TownStashPresenter`
+resuelve ese objetivo exacto, comprueba que el perfil local está disponible y
+abre una única instancia local de `StashInventory`; no publica stash ni loadout
+en Fusion. La UI reutiliza el prompt genérico de
+`LocalInteractionCandidateSource` y `InteractionPromptMetadata`.
+
+Mientras la vista está abierta se adquiere un único token de supresión de input.
+Escape, una nueva pulsación de interacción, pérdida del runner, despawn,
+disable o destrucción cierran la vista y desuscriben los listeners. Los commits
+mostrados siguen siendo los de `ApplicationStashContext`, cuya fuente
+persistente es el repositorio local versionado documentado en
+`Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
+
 ## Limits
 
 The initial cohort cap is four and solo launch is permitted. Host departure before launch dissolves the queue. This feature does not add party persistence, automatic matchmaking, a backend, re-entry, or general Host Migration changes. TASK-79 may extend the manifest ticket with loadout data; TASK-80 owns extraction persistence.

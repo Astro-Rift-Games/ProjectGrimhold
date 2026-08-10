@@ -53,6 +53,7 @@ GameObject:
   - component: {fileID: 5355948798340248655}
   - component: {fileID: 2815579535755130247}
   - component: {fileID: 7001849326501124311}
+  - component: {fileID: -4837222205145677922}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -257,6 +258,7 @@ MonoBehaviour:
   - {fileID: 5355948798340248655}
   - {fileID: 2815579535755130247}
   - {fileID: 7001849326501124311}
+  - {fileID: -4837222205145677922}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9115544833474229447
 MonoBehaviour:
@@ -336,7 +338,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 12c035883244964408ecab2d2e984c23, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SocialPlayerIdentity
   _ProfileId:
     _length: 0
@@ -352,9 +354,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b7f4e2953e24f76823dd9cd7a8445d9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownRaidQueuePresenter
   _candidateSource: {fileID: 6856292445654665185}
+  _interactionController: {fileID: 1101445917034815865}
+--- !u!114 &-4837222205145677922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d2b35b8c9e75d1eaf502b3c4d6e8f92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownStashPresenter
+  _stashInventoryPrefab: {fileID: 5586755783176356032, guid: 021f9a522f4fa8247b4a03df5d020060, type: 3}
   _interactionController: {fileID: 1101445917034815865}
 --- !u!1 &8396914955327986455
 GameObject:
