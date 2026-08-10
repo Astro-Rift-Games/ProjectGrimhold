@@ -230,9 +230,22 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
         localPlayerId = default;
         if (_runner == null || !_runner.IsRunning || _playerObject == null || !_playerObject.IsValid ||
             _playerTransform == null || _runner.LocalPlayer.IsNone ||
-            _playerObject.InputAuthority != _runner.LocalPlayer ||
-            !_runner.TryGetPlayerObject(_runner.LocalPlayer, out NetworkObject currentPlayer) ||
-            currentPlayer == null || !ReferenceEquals(currentPlayer, _playerObject))
+            _playerObject.InputAuthority != _runner.LocalPlayer)
+        {
+            return false;
+        }
+
+        if (_playerObject.TryGetBehaviour(out RaidAvatarParticipantLink participantLink))
+        {
+            if (!participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+                !participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) ||
+                !ReferenceEquals(currentAvatar, _playerObject))
+            {
+                return false;
+            }
+        }
+        else if (!_runner.TryGetPlayerObject(_runner.LocalPlayer, out NetworkObject legacyPlayer) ||
+                 !ReferenceEquals(legacyPlayer, _playerObject))
         {
             return false;
         }

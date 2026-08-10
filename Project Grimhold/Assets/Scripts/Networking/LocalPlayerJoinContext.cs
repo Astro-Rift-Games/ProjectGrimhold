@@ -10,6 +10,8 @@ public sealed class LocalPlayerJoinContext : MonoBehaviour
     /// Datos de conexión del jugador local.
     /// </summary>
     public PlayerJoinData JoinData { get; private set; }
+    public RaidAdmissionData RaidAdmission { get; private set; }
+    public bool HasRaidAdmission { get; private set; }
 
     /// <summary>
     /// Inicializa el contexto local con los datos provistos.
@@ -17,5 +19,14 @@ public sealed class LocalPlayerJoinContext : MonoBehaviour
     public void Initialize(in PlayerJoinData joinData)
     {
         JoinData = joinData;
+        RaidAdmission = default;
+        HasRaidAdmission = false;
+    }
+
+    public void Initialize(in PlayerJoinData joinData, in RaidAdmissionData raidAdmission)
+    {
+        JoinData = joinData;
+        RaidAdmission = raidAdmission;
+        HasRaidAdmission = raidAdmission.IsValid;
     }
 }

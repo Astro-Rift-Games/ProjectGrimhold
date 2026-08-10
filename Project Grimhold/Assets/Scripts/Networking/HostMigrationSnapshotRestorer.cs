@@ -317,6 +317,38 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                     }
                 }
             }
+
+            if (obj.TryGetBehaviour<NetworkRaidParticipant>(out var participant))
+            {
+                NetworkId oldAvatarId = participant.CurrentAvatarId;
+                if (oldAvatarId.IsValid)
+                {
+                    if (_restoredDynamicObjects.TryGetValue(oldAvatarId, out NetworkObject restoredAvatar))
+                    {
+                        participant.SetRestoredCurrentAvatar(restoredAvatar.Id);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Cannot resolve old avatar {oldAvatarId} for restored raid participant.");
+                    }
+                }
+            }
+
+            if (obj.TryGetBehaviour<RaidAvatarParticipantLink>(out var avatarLink))
+            {
+                NetworkId oldParticipantId = avatarLink.ParticipantId;
+                if (oldParticipantId.IsValid)
+                {
+                    if (_restoredDynamicObjects.TryGetValue(oldParticipantId, out NetworkObject restoredParticipant))
+                    {
+                        avatarLink.SetRestoredParticipant(restoredParticipant.Id);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Cannot resolve old participant {oldParticipantId} for restored avatar.");
+                    }
+                }
+            }
         }
 
         foreach (var obj in _restoredSceneObjects.Values)
@@ -397,6 +429,14 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 {
                     newObject.AssignInputAuthority(playerRef);
                     runner.SetPlayerObject(playerRef, newObject);
+
+                    if (newObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                        participant.TryResolveCurrentAvatar(out NetworkObject avatar) &&
+                        (participant.State == RaidParticipantState.Raiding ||
+                         participant.State == RaidParticipantState.Extracted))
+                    {
+                        avatar.AssignInputAuthority(playerRef);
+                    }
 
                     Debug.Log($"[HM-DIAG-TEMP] Checking rebind: playerRef={playerRef}, runner.LocalPlayer={runner.LocalPlayer}, match={playerRef == runner.LocalPlayer}");
 

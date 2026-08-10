@@ -290,7 +290,9 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         {
             foreach (PlayerCharacter pc in _targetCandidates)
             {
-                if (pc == null || !TryResolveEligibleTarget(pc.Id))
+                // A compensated Fusion spawn can remain alive until the end of the tick
+                // after its NetworkObject has already become invalid.
+                if (pc == null || pc.Object == null || !pc.Object.IsValid || !TryResolveEligibleTarget(pc.Id))
                 {
                     continue;
                 }

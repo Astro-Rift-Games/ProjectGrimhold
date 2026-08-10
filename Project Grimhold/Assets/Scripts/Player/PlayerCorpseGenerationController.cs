@@ -46,11 +46,21 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
     /// Attempts the one-shot authoritative inventory conversion for the fatal transition
     /// that has just been accepted by <see cref="CharacterBase.ApplyDamage"/>.
     /// </summary>
-    internal void TryConvertInventoryToCorpseLoot(int simulationTick)
+    internal bool TryConvertInventoryToCorpseLoot(int simulationTick)
     {
-        if (!HasStateAuthority || State != GenerationState.Waiting)
+        if (!HasStateAuthority)
         {
-            return;
+            return false;
+        }
+
+        if (State == GenerationState.Completed)
+        {
+            return true;
+        }
+
+        if (State != GenerationState.Waiting)
+        {
+            return false;
         }
 
         State = GenerationState.Processing;
@@ -63,7 +73,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 !Runner.IsSimulationUpdating)
             {
                 FailAndCompensate(contentLoaded, null, simulationTick, "Dependencies or runner are invalid.");
-                return;
+                return false;
             }
 
             string snapshotError = null;
@@ -71,19 +81,19 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 !TryValidateSnapshot(snapshot, out snapshotError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Cannot capture a valid inventory snapshot. {snapshotError}");
-                return;
+                return false;
             }
 
             if (!_lootContainer.IsInitialized || _lootContainer.IsAvailable || !_lootContainer.IsEmpty)
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, "The co-located container is not empty and unavailable.");
-                return;
+                return false;
             }
 
             if (!_lootContainer.TryLoadExactContent(snapshot, out string loadError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Cannot load the container. {loadError}");
-                return;
+                return false;
             }
             contentLoaded = true;
 
@@ -92,36 +102,38 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 !_lootReceiver.TryMatchesExactContent(snapshot, out inventoryError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Snapshot verification failed. {inventoryError}");
-                return;
+                return false;
             }
 
 #if UNITY_INCLUDE_TESTS
             if (TestShouldClearPlayerInventory != null && !TestShouldClearPlayerInventory())
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, "The focused test seam rejected player inventory clearing.");
-                return;
+                return false;
             }
 #endif
 
             if (!_lootReceiver.TryClearExactContent(snapshot, out string clearError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Inventory changed before atomic clear. {clearError}");
-                return;
+                return false;
             }
 
             if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> clearedInventory) || clearedInventory.Count != 0)
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, "Player inventory did not become empty after the exact clear.");
-                return;
+                return false;
             }
 
             _lootContainer.SetAvailability(true);
             State = GenerationState.Completed;
+            return true;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
             FailAndCompensate(contentLoaded, snapshot, simulationTick, "Unexpected inventory conversion exception.");
+            return false;
         }
     }
 

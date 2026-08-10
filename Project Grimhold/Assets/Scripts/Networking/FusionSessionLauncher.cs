@@ -18,11 +18,17 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private PlayerClassCatalog _playerClassCatalog;
 
     [SerializeField]
+    private NetworkPrefabRef _raidParticipantPrefab;
+
+    [SerializeField]
     private NetworkPrefabRef[] _enemyPrefabs;
 
     [Header("Coordinator Configuration")]
     [SerializeField]
     private NetworkPrefabRef _matchControllerPrefab;
+
+    [SerializeField, Min(1f)]
+    private float _coordinatedAdmissionTimeoutSeconds = 20f;
 
     private NetworkRunner _runner;
     private GameObject _runnerObject;
@@ -50,14 +56,16 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         string sessionName,
         GameMode mode,
         PlayerClassId selectedClass,
-        string gameplaySceneName)
+        string gameplaySceneName,
+        RaidLaunchManifest raidManifest = default)
     {
         return StartSessionInternalAsync(
             sessionName,
             mode,
             selectedClass,
             SessionStartupContext.FreshSession,
-            gameplaySceneName);
+            gameplaySceneName,
+            raidManifest);
     }
 
     private async Task<bool> StartSessionInternalAsync(
@@ -65,7 +73,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         GameMode mode,
         PlayerClassId selectedClass,
         SessionStartupContext startupContext,
-        string initialSceneName)
+        string initialSceneName,
+        RaidLaunchManifest raidManifest = default)
     {
         if (!startupContext.IsValid)
             throw new ArgumentException("Invalid startup context provided to session launcher.");
@@ -99,7 +108,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
         var joinData = new PlayerJoinData(selectedClass, profileId);
-        if (!PlayerJoinDataCodec.TryEncode(joinData, out byte[] token))
+        byte[] token;
+        if (raidManifest.IsValid)
+        {
+            var admissionData = new RaidAdmissionData(
+                raidManifest.RaidId,
+                raidManifest.AccessSecret,
+                profileId,
+                selectedClass);
+            if (!raidManifest.Contains(profileId) || !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
+            {
+                throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
+            }
+        }
+        else if (!PlayerJoinDataCodec.TryEncode(joinData, out token))
         {
             throw new ArgumentException($"Invalid or unsupported selected class: {selectedClass}");
         }
@@ -115,9 +137,11 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 mode,
                 startupContext,
                 _playerClassCatalog,
+                _raidParticipantPrefab,
                 _enemyPrefabs,
                 in joinData,
                 token,
+                raidManifest,
                 out var composition))
             {
                 Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);
@@ -224,11 +248,18 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                         return false;
                     }
 
-                    // 4. Open and show the session after successful coordinator and Host initialization
+                    // 4. Open the session after successful coordinator and Host initialization.
                     _runner.SessionInfo.IsOpen = true;
-                    _runner.SessionInfo.IsVisible = true;
+                    _runner.SessionInfo.IsVisible = !raidManifest.IsValid;
 
-                    Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open and visible.");
+                    if (raidManifest.IsValid)
+                    {
+                        _matchController.ConfigurePreloadedRaidAdmission(
+                            raidManifest.AdmittedProfiles.Count,
+                            _coordinatedAdmissionTimeoutSeconds);
+                    }
+
+                    Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open.");
                 }
                 else
                 {

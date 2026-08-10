@@ -36,9 +36,11 @@ public static class NetworkRunnerFactory
         GameMode mode,
         SessionStartupContext startupContext,
         PlayerClassCatalog playerClassCatalog,
+        NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
         byte[] connectionToken,
+        RaidLaunchManifest raidManifest,
         out RunnerComposition composition)
     {
         composition = default;
@@ -63,7 +65,13 @@ public static class NetworkRunnerFactory
             : null;
 
         var spawnManager = runnerObject.AddComponent<NetworkSpawnManager>();
-        if (!spawnManager.InitializeForRunner(runner, playerClassCatalog, copiedEnemyPrefabs, startupContext))
+        if (!spawnManager.InitializeForRunner(
+                runner,
+                playerClassCatalog,
+                raidParticipantPrefab,
+                copiedEnemyPrefabs,
+                startupContext,
+                raidManifest))
         {
             Debug.LogError("[NetworkRunnerFactory] Failed to initialize NetworkSpawnManager.");
             Object.Destroy(runnerObject);
@@ -71,7 +79,19 @@ public static class NetworkRunnerFactory
         }
 
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
-        joinContext.Initialize(in joinData);
+        if (raidManifest.IsValid)
+        {
+            var admission = new RaidAdmissionData(
+                raidManifest.RaidId,
+                raidManifest.AccessSecret,
+                joinData.ProfileId,
+                joinData.ClassId);
+            joinContext.Initialize(in joinData, in admission);
+        }
+        else
+        {
+            joinContext.Initialize(in joinData);
+        }
 
         byte[] copiedConnectionToken = connectionToken != null
             ? (byte[])connectionToken.Clone()
@@ -81,9 +101,11 @@ public static class NetworkRunnerFactory
         hostMigrationController.Initialize(
             runner,
             playerClassCatalog,
+            raidParticipantPrefab,
             copiedEnemyPrefabs,
             in joinData,
-            copiedConnectionToken);
+            copiedConnectionToken,
+            in raidManifest);
 
         var snapshotRestorer = runnerObject.AddComponent<HostMigrationSnapshotRestorer>();
         snapshotRestorer.Initialize(runner, startupContext, spawnManager);

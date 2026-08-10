@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Fusion;
 using NUnit.Framework;
 using TMPro;
@@ -13,6 +14,11 @@ public sealed class SessionCompositionConfigurationTests
 {
     private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
     private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
+    private const string TownRaidNpcPath = "Assets/Prefabs/TownRaidNpc.prefab";
+    private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
+    private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
+    private const string MeleeRaidAvatarPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
+    private const string RangedRaidAvatarPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
     private const string MainMenuCanvasPath = "Assets/Prefabs/MainMenu Canvas.prefab";
     private const string TownScenePath = "Assets/Scenes/Lobby-Town.unity";
 
@@ -34,6 +40,26 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponentsInChildren<HubSessionLauncher>(true), Has.Length.EqualTo(1));
         Assert.That(prefab.GetComponentsInChildren<FusionSessionLauncher>(true), Has.Length.EqualTo(1));
         Assert.That(prefab.GetComponentsInChildren<DirectRaidDevelopmentStarter>(true), Has.Length.EqualTo(1));
+        string participantGuid = AssetDatabase.AssetPathToGUID(RaidParticipantPath);
+        Assert.That(File.ReadAllText(SystemsPath), Does.Contain($"RawGuidValue: {participantGuid}"));
+    }
+
+    [Test]
+    public void RaidParticipantAndAvatars_HaveSeparatedNetworkComposition()
+    {
+        GameObject participantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RaidParticipantPath);
+
+        Assert.That(participantPrefab, Is.Not.Null);
+        NetworkObject participantObject = participantPrefab.GetComponent<NetworkObject>();
+        NetworkRaidParticipant participant = participantPrefab.GetComponent<NetworkRaidParticipant>();
+        Assert.That(participantObject, Is.Not.Null);
+        Assert.That(participant, Is.Not.Null);
+        Assert.That(participantPrefab.GetComponent<PlayerCharacter>(), Is.Null);
+        Assert.That(participantObject.NetworkedBehaviours, Does.Contain(participant));
+
+        AssertRaidAvatarComposition(BaseRaidAvatarPath);
+        AssertRaidAvatarComposition(MeleeRaidAvatarPath);
+        AssertRaidAvatarComposition(RangedRaidAvatarPath);
     }
 
     [Test]
@@ -47,6 +73,9 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponent<SocialPlayerCharacter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<PlayerMovementNetworkController>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<PlayerInteractionNetworkController>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<LocalInteractionCandidateSource>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<SocialPlayerIdentity>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<TownRaidQueuePresenter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalPlayerCameraBinder>(), Is.Not.Null);
         Assert.That(prefab.GetComponentInChildren<PlayerAnimatorView>(true), Is.Not.Null);
 
@@ -80,6 +109,28 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(FindChild(prefab.transform, "DamageHitbox"), Is.Null);
         Assert.That(FindChild(prefab.transform, "CorpseLootInteraction"), Is.Null);
         Assert.That(FindChild(prefab.transform, "VisibilityMesh"), Is.Null);
+
+        NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidQueuePresenter>()));
+    }
+
+    [Test]
+    public void TownRaidNpc_HasAuthoritativeQueueAndInteractionComposition()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidNpcPath);
+
+        Assert.That(prefab, Is.Not.Null);
+        NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+        TownRaidQueueNetworkController queue = prefab.GetComponent<TownRaidQueueNetworkController>();
+        TownRaidNpcInteractable interactable = prefab.GetComponent<TownRaidNpcInteractable>();
+        Assert.That(networkObject, Is.Not.Null);
+        Assert.That(queue, Is.Not.Null);
+        Assert.That(interactable, Is.Not.Null);
+        Assert.That(prefab.GetComponent<InteractionPromptMetadata>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<Collider2D>(), Is.Not.Null);
+        Assert.That(networkObject.Flags.HasFlag(NetworkObjectFlags.MasterClientObject), Is.True);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(queue));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(interactable));
     }
 
     [Test]
@@ -135,6 +186,19 @@ public sealed class SessionCompositionConfigurationTests
         }
 
         return found;
+    }
+
+    private static void AssertRaidAvatarComposition(string prefabPath)
+    {
+        GameObject avatarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+        Assert.That(avatarPrefab, Is.Not.Null, prefabPath);
+        NetworkObject networkObject = avatarPrefab.GetComponent<NetworkObject>();
+        RaidAvatarParticipantLink participantLink = avatarPrefab.GetComponent<RaidAvatarParticipantLink>();
+        Assert.That(networkObject, Is.Not.Null, prefabPath);
+        Assert.That(avatarPrefab.GetComponent<PlayerCharacter>(), Is.Not.Null, prefabPath);
+        Assert.That(participantLink, Is.Not.Null, prefabPath);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(participantLink), prefabPath);
     }
 
     private static Transform FindChild(Transform root, string childName)

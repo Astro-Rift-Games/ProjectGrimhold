@@ -82,11 +82,14 @@ MonoBehaviour:
   _sessionName: Project Grimhold
   _maxPlayers: 4
   _playerClassCatalog: {fileID: 11400000, guid: 7d62cc447157aaa4c97bc7cdb8855836, type: 2}
+  _raidParticipantPrefab:
+    RawGuidValue: c39d451563bae6e43934008a0dadc6d6
   _enemyPrefabs:
   - RawGuidValue: 5deca87613df0fa409d98702aec643d4
   - RawGuidValue: 6f7ab2fe6d6193a4ea17a843ff58f94b
   _matchControllerPrefab:
     RawGuidValue: b91f8c7e96a4d784a92c3bd1a88dfec8
+  _coordinatedAdmissionTimeoutSeconds: 20
 --- !u!114 &7366466056960329881
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -117,6 +120,9 @@ MonoBehaviour:
   _raidLauncher: {fileID: 8121898311945185702}
   _townSceneName: Lobby-Town
   _gameplaySceneName: Gameplay
+  _clientLaunchDelaySeconds: 1
+  _clientJoinAttempts: 5
+  _clientJoinRetryDelaySeconds: 0.5
 --- !u!114 &500828127470096320
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -173,7 +179,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a32f66e916face4cad1f0f0b5f45101, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Spawning.NetworkSpawnSceneConfiguration
   _spawnPointPolicy: 0
   _spawnGroups: []

@@ -165,7 +165,16 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
     public override void Render()
     {
-        while (_pendingPresentationEvents.Count > 0)
+        if (!HasInputAuthority)
+        {
+            _pendingPresentationEvents.Clear();
+            return;
+        }
+
+        // Dispatch only the events that existed when this render pass began. This keeps
+        // presentation callbacks from extending the same dispatch pass re-entrantly.
+        int pendingCount = _pendingPresentationEvents.Count;
+        for (int index = 0; index < pendingCount; index++)
         {
             InteractionResolved?.Invoke(_pendingPresentationEvents.Dequeue());
         }
@@ -180,17 +189,33 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         LastInteractionConsumed = result.IsConsumed;
         LastInteractionFailureReasonValue = (int)result.FailureReason;
 
-        RPC_ReceiveInteractionResult(
-            InteractionSequence,
-            targetId.Value,
-            simulationTick,
-            result.Success,
-            result.IsConsumed,
-            (int)result.FailureReason,
-            (int)result.LootFailureReason);
+        if (InteractionResultDeliveryPolicy.ShouldEnqueueLocally(HasStateAuthority, HasInputAuthority))
+        {
+            EnqueueInteractionResult(
+                InteractionSequence,
+                targetId.Value,
+                simulationTick,
+                result.Success,
+                result.IsConsumed,
+                (int)result.FailureReason,
+                (int)result.LootFailureReason);
+            return;
+        }
+
+        if (InteractionResultDeliveryPolicy.ShouldSendRemote(HasStateAuthority, HasInputAuthority))
+        {
+            RPC_ReceiveInteractionResult(
+                InteractionSequence,
+                targetId.Value,
+                simulationTick,
+                result.Success,
+                result.IsConsumed,
+                (int)result.FailureReason,
+                (int)result.LootFailureReason);
+        }
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority, InvokeLocal = false)]
     private void RPC_ReceiveInteractionResult(
         int sequence,
         int targetIdValue,
@@ -200,6 +225,30 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         int failureReasonValue,
         int lootFailureReasonValue)
     {
+        EnqueueInteractionResult(
+            sequence,
+            targetIdValue,
+            simulationTick,
+            succeeded,
+            consumed,
+            failureReasonValue,
+            lootFailureReasonValue);
+    }
+
+    private void EnqueueInteractionResult(
+        int sequence,
+        int targetIdValue,
+        int simulationTick,
+        bool succeeded,
+        bool consumed,
+        int failureReasonValue,
+        int lootFailureReasonValue)
+    {
+        if (!HasInputAuthority)
+        {
+            return;
+        }
+
         _pendingPresentationEvents.Enqueue(new InteractionPresentationEvent(
             sequence,
             _character != null ? _character.Id : default,

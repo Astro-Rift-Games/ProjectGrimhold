@@ -28,17 +28,142 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField]
     private string _gameplaySceneName = "Gameplay";
 
+    [Header("Coordinated Raid Transition")]
+    [SerializeField, Min(0f)]
+    private float _clientLaunchDelaySeconds = 1f;
+
+    [SerializeField, Min(1)]
+    private int _clientJoinAttempts = 5;
+
+    [SerializeField, Min(0f)]
+    private float _clientJoinRetryDelaySeconds = 0.5f;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
     private PlayerClassId _selectedBuild = PlayerClassId.None;
     private RaidTransitionTicket? _activeTicket;
+    private int _acknowledgedLaunchSequence;
+    private bool _launchDispatchActive;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
     public bool IsTransitioning => _operationActive;
 
     public event Action<SessionConnectionState> StateChanged;
+
+    /// <summary>
+    /// Stores a directed Town queue manifest before the Town runner is shut down.
+    /// The method is idempotent for the same launch sequence.
+    /// </summary>
+    public bool ReceiveRaidLaunchManifest(in RaidLaunchManifest manifest)
+    {
+        if (!manifest.IsValid || State != SessionConnectionState.Town || _operationActive)
+        {
+            return false;
+        }
+
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        if (!manifest.Contains(localProfile) || !PlayerJoinDataCodec.IsSupported(_selectedBuild))
+        {
+            return false;
+        }
+
+        if (_activeTicket.HasValue && _activeTicket.Value.HasManifest)
+        {
+            return _activeTicket.Value.Manifest.LaunchSequence == manifest.LaunchSequence &&
+                   string.Equals(_activeTicket.Value.Manifest.RaidId, manifest.RaidId, StringComparison.Ordinal);
+        }
+
+        RaidConnectionRole role = manifest.HostProfileId == localProfile
+            ? RaidConnectionRole.Host
+            : RaidConnectionRole.Client;
+        var request = new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
+        _activeTicket = new RaidTransitionTicket(request, manifest, _selectedBuild, SessionConnectionState.Town);
+        return true;
+    }
+
+    /// <summary>
+    /// Starts a locally stored manifest exactly once after the queue has received all acknowledgements.
+    /// </summary>
+    public void BeginAcknowledgedRaidLaunch(int launchSequence)
+    {
+        if (State != SessionConnectionState.Town || _operationActive || _launchDispatchActive ||
+            _acknowledgedLaunchSequence != 0 ||
+            !_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
+            _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+        {
+            return;
+        }
+
+        // Update dispatches this on the following rendered frame so the Town runner is
+        // never shut down from inside Fusion's RPC invocation stack.
+        _launchDispatchActive = true;
+        _acknowledgedLaunchSequence = launchSequence;
+    }
+
+    /// <summary>
+    /// Discards a locally stored ticket when the authoritative Town cohort aborts before release.
+    /// </summary>
+    public void CancelPendingRaidLaunch(int launchSequence)
+    {
+        if (State != SessionConnectionState.Town || _operationActive ||
+            !_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
+            _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+        {
+            return;
+        }
+
+        _acknowledgedLaunchSequence = 0;
+        _launchDispatchActive = false;
+        _activeTicket = null;
+    }
+
+    private void Update()
+    {
+        if (_acknowledgedLaunchSequence == 0 || _operationActive)
+        {
+            return;
+        }
+
+        int launchSequence = _acknowledgedLaunchSequence;
+        _acknowledgedLaunchSequence = 0;
+        _ = BeginAcknowledgedRaidLaunchAsync(launchSequence);
+    }
+
+    private async Task BeginAcknowledgedRaidLaunchAsync(int launchSequence)
+    {
+        try
+        {
+            if (!_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
+                _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+            {
+                return;
+            }
+
+            RaidTransitionTicket ticket = _activeTicket.Value;
+            if (ticket.Request.Role == RaidConnectionRole.Client && _clientLaunchDelaySeconds > 0f)
+            {
+                int delayMilliseconds = Mathf.CeilToInt(_clientLaunchDelaySeconds * 1000f);
+                await Task.Delay(delayMilliseconds);
+            }
+
+            if (this == null || !_activeTicket.HasValue ||
+                _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+            {
+                return;
+            }
+
+            await EnterRaidAsync(ticket);
+        }
+        finally
+        {
+            if (this != null)
+            {
+                _launchDispatchActive = false;
+            }
+        }
+    }
 
     private void Awake()
     {
@@ -169,13 +294,28 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// </summary>
     public async Task<SessionTransitionResult> EnterRaidAsync(RaidConnectionRequest request)
     {
+        var ticket = new RaidTransitionTicket(request, _selectedBuild, SessionConnectionState.PreparingRaid);
+        return await EnterRaidAsync(ticket);
+    }
+
+    /// <summary>
+    /// Replaces the active Town runner using a manifest previously acknowledged by the Town queue.
+    /// </summary>
+    public async Task<SessionTransitionResult> EnterRaidAsync(RaidTransitionTicket ticket)
+    {
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
         }
 
-        if (!request.IsValid ||
-            !PlayerJoinDataCodec.IsSupported(_selectedBuild) ||
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        RaidConnectionRole expectedRole = ticket.HasManifest && ticket.Manifest.HostProfileId == localProfile
+            ? RaidConnectionRole.Host
+            : RaidConnectionRole.Client;
+        if (!ticket.IsValid ||
+            (ticket.HasManifest && !ticket.Manifest.Contains(localProfile)) ||
+            (ticket.HasManifest && ticket.Request.Role != expectedRole) ||
+            !PlayerJoinDataCodec.IsSupported(ticket.SelectedBuild) ||
             !IsSceneEnabled(_gameplaySceneName))
         {
             return SessionTransitionResult.InvalidRequest;
@@ -187,10 +327,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
-        _activeTicket = new RaidTransitionTicket(
-            request,
-            _selectedBuild,
-            SessionConnectionState.PreparingRaid);
+        _selectedBuild = ticket.SelectedBuild;
+        _activeTicket = ticket.WithState(SessionConnectionState.PreparingRaid);
 
         try
         {
@@ -204,15 +342,31 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             TransitionTo(SessionConnectionState.ConnectingRaid);
             UpdateTicketState(SessionConnectionState.ConnectingRaid);
 
-            GameMode mode = request.Role == RaidConnectionRole.Host
+            GameMode mode = ticket.Request.Role == RaidConnectionRole.Host
                 ? GameMode.Host
                 : GameMode.Client;
 
-            bool started = await _raidLauncher.StartCoordinatedSessionAsync(
-                request.SessionName,
-                mode,
-                _selectedBuild,
-                _gameplaySceneName);
+            bool started = false;
+            int attempts = ticket.HasManifest && ticket.Request.Role == RaidConnectionRole.Client
+                ? Mathf.Max(1, _clientJoinAttempts)
+                : 1;
+            for (int attempt = 0; attempt < attempts && !started; attempt++)
+            {
+                started = await _raidLauncher.StartCoordinatedSessionAsync(
+                    ticket.Request.SessionName,
+                    mode,
+                    _selectedBuild,
+                    _gameplaySceneName,
+                    ticket.HasManifest ? ticket.Manifest : default);
+                if (!started && attempt + 1 < attempts)
+                {
+                    int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
+                    if (retryDelayMilliseconds > 0)
+                    {
+                        await Task.Delay(retryDelayMilliseconds);
+                    }
+                }
+            }
 
             if (!started)
             {

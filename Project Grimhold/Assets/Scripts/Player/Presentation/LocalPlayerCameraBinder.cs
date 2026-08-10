@@ -14,6 +14,12 @@ public sealed class LocalPlayerCameraBinder : NetworkBehaviour
     public static LocalPlayerCameraBinder LocalPlayerInstance { get; private set; }
 
     private bool _registeredAsLocalTarget;
+    private RaidAvatarParticipantLink _participantLink;
+
+    private void Awake()
+    {
+        _participantLink = GetComponent<RaidAvatarParticipantLink>();
+    }
 
     public override void Spawned()
     {
@@ -22,7 +28,7 @@ public sealed class LocalPlayerCameraBinder : NetworkBehaviour
 
     public void TryBindAsLocalPlayer()
     {
-        if (!HasInputAuthority || _registeredAsLocalTarget)
+        if (!HasInputAuthority || _registeredAsLocalTarget || !IsCurrentRaidAvatar())
         {
             return;
         }
@@ -34,6 +40,40 @@ public sealed class LocalPlayerCameraBinder : NetworkBehaviour
         {
             LocalCameraController.Instance.SetTarget(transform);
         }
+    }
+
+    public override void Render()
+    {
+        if (!HasInputAuthority)
+        {
+            UnregisterLocalTarget();
+            return;
+        }
+
+        if (!_registeredAsLocalTarget)
+        {
+            // The participant assigns CurrentAvatarId after runner.Spawn returns,
+            // so the relationship may not be complete during Spawned.
+            TryBindAsLocalPlayer();
+            return;
+        }
+
+        if (!IsCurrentRaidAvatar())
+        {
+            UnregisterLocalTarget();
+        }
+    }
+
+    private bool IsCurrentRaidAvatar()
+    {
+        if (_participantLink == null)
+        {
+            // SocialPlayer intentionally has no raid participant link.
+            return true;
+        }
+
+        return _participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+            participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar == Object;
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)

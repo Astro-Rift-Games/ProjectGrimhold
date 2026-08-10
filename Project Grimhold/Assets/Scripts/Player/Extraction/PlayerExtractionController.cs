@@ -28,6 +28,9 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     [SerializeField]
     private MonoBehaviour _characterSource;
 
+    [SerializeField]
+    private RaidAvatarParticipantLink _participantLink;
+
     private ICharacter _character;
     private EntityRegistry _entityRegistry;
     private bool _dependenciesValid;
@@ -331,7 +334,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         ExtractionTimer = TickTimer.None;
         ApplyExtractionRestrictions();
         Debug.Log($"[PlayerExtractionController] Extraction COMPLETED on {name}! Player is now EXTRACTED & Invulnerable.", this);
-        
+        _participantLink?.NotifyExtractionCompleted();
         ExtractionCompleted?.Invoke(this);
     }
 
@@ -368,6 +371,11 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         if (_character == null)
         {
             _character = GetComponent<ICharacter>() ?? GetComponentInParent<ICharacter>();
+        }
+
+        if (_participantLink == null)
+        {
+            _participantLink = GetComponent<RaidAvatarParticipantLink>();
         }
     }
 

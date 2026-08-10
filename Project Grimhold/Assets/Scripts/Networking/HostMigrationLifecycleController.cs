@@ -9,23 +9,29 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
 {
     private NetworkRunner _associatedRunner;
     private PlayerClassCatalog _playerClassCatalog;
+    private NetworkPrefabRef _raidParticipantPrefab;
     private NetworkPrefabRef[] _enemyPrefabs;
     private PlayerJoinData _joinData;
     private byte[] _connectionToken;
+    private RaidLaunchManifest _raidManifest;
     private bool _isMigrating;
 
     public void Initialize(
         NetworkRunner runner,
         PlayerClassCatalog playerClassCatalog,
+        NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
-        byte[] connectionToken)
+        byte[] connectionToken,
+        in RaidLaunchManifest raidManifest)
     {
         _associatedRunner = runner;
         _playerClassCatalog = playerClassCatalog;
+        _raidParticipantPrefab = raidParticipantPrefab;
         _enemyPrefabs = enemyPrefabs;
         _joinData = joinData; // Struct copy
         _connectionToken = connectionToken;
+        _raidManifest = raidManifest;
     }
 
     public override void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken)
@@ -109,9 +115,11 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                 mode,
                 SessionStartupContext.HostMigrationResume,
                 _playerClassCatalog,
+                _raidParticipantPrefab,
                 _enemyPrefabs,
                 in _joinData,
                 _connectionToken,
+                _raidManifest,
                 out newComposition))
             {
                 throw new InvalidOperationException("Failed to create replacement runner via factory.");

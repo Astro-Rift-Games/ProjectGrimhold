@@ -23,6 +23,12 @@ public sealed class NetworkMatchController : NetworkBehaviour
     [Networked]
     public MatchPhase Phase { get; set; }
 
+    [Networked]
+    public int ExpectedAdmissionCount { get; private set; }
+
+    [Networked]
+    private TickTimer AdmissionTimer { get; set; }
+
     public override void Spawned()
     {
         var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
@@ -51,6 +57,43 @@ public sealed class NetworkMatchController : NetworkBehaviour
         {
             Debug.Log($"[NetworkMatchController] Spawned on Client. Current Phase: {Phase}.");
         }
+    }
+
+    /// <summary>
+    /// Configures a raid whose gameplay scene was loaded as part of StartGame.
+    /// It closes admission once the manifest cohort has connected or the timeout expires.
+    /// </summary>
+    public void ConfigurePreloadedRaidAdmission(int expectedAdmissionCount, float timeoutSeconds)
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers || expectedAdmissionCount <= 0)
+        {
+            return;
+        }
+
+        ExpectedAdmissionCount = expectedAdmissionCount;
+        AdmissionTimer = TickTimer.CreateFromSeconds(Runner, Mathf.Max(1f, timeoutSeconds));
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers || ExpectedAdmissionCount <= 0)
+        {
+            return;
+        }
+
+        NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if ((spawnManager != null && spawnManager.AdmittedRaidProfileCount >= ExpectedAdmissionCount) || AdmissionTimer.Expired(Runner))
+        {
+            ClosePreloadedRaidAdmission();
+        }
+    }
+
+    private void ClosePreloadedRaidAdmission()
+    {
+        Runner.SessionInfo.IsOpen = false;
+        Runner.SessionInfo.IsVisible = false;
+        Phase = MatchPhase.InProgress;
+        Debug.Log("[NetworkMatchController] Preloaded raid admission closed.");
     }
 
     /// <summary>

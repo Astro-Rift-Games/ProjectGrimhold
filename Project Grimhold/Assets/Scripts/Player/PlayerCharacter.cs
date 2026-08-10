@@ -13,6 +13,9 @@ public sealed class PlayerCharacter : CharacterBase
 
     [SerializeField]
     private PlayerExtractionController _extractionController;
+
+    [SerializeField]
+    private RaidAvatarParticipantLink _participantLink;
     private bool _reportedMissingExtractionController;
 
     [Networked]
@@ -78,7 +81,11 @@ public sealed class PlayerCharacter : CharacterBase
             return;
         }
 
-        _corpseGenerationController.TryConvertInventoryToCorpseLoot(Runner.Tick);
+        bool corpseReady = _corpseGenerationController.TryConvertInventoryToCorpseLoot(Runner.Tick);
+        if (corpseReady)
+        {
+            _participantLink?.NotifyCorpseConversionCompleted();
+        }
 
         var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         spawnManager?.NotifyPendingReconnectCharacterDefeated(Object);
@@ -94,6 +101,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_extractionController == null)
         {
             _extractionController = GetComponent<PlayerExtractionController>();
+        }
+
+        if (_participantLink == null)
+        {
+            _participantLink = GetComponent<RaidAvatarParticipantLink>();
         }
     }
 

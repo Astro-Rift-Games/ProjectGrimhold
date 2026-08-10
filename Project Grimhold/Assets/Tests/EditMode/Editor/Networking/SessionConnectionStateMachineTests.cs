@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using Fusion;
 using NUnit.Framework;
 using UnityEngine;
@@ -75,6 +76,32 @@ public sealed class SessionConnectionStateMachineTests
         Assert.That(updated.Request, Is.EqualTo(request));
         Assert.That(updated.SelectedBuild, Is.EqualTo(PlayerClassId.Ranged));
         Assert.That(updated.State, Is.EqualTo(SessionConnectionState.ConnectingRaid));
+    }
+
+    [Test]
+    public void ManifestTicket_ValidationIsPureAndRequiresMatchingIdentity()
+    {
+        var host = new ProfileId("11111111111111111111111111111111");
+        var manifest = new RaidLaunchManifest(
+            "raid-1",
+            "session-1",
+            "22222222222222222222222222222222",
+            host,
+            new List<ProfileId> { host },
+            1);
+        var valid = new RaidTransitionTicket(
+            new RaidConnectionRequest("raid-1", RaidConnectionRole.Host, "session-1"),
+            manifest,
+            PlayerClassId.Melee,
+            SessionConnectionState.Town);
+        var mismatched = new RaidTransitionTicket(
+            new RaidConnectionRequest("other-raid", RaidConnectionRole.Host, "session-1"),
+            manifest,
+            PlayerClassId.Melee,
+            SessionConnectionState.Town);
+
+        Assert.That(valid.IsValid, Is.True);
+        Assert.That(mismatched.IsValid, Is.False);
     }
 
     [Test]

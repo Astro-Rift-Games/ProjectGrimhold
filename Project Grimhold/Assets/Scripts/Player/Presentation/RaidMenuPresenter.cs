@@ -2,12 +2,12 @@ using System;
 using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Orchestrates the local in-raid pause and defeat menu overlay.
 /// Manages local gameplay input suppression, displays basic controls and defeat state,
-/// and handles session abandonment through <see cref="NetworkRunner.Shutdown"/> and returning to MainMenu.
+/// and requests individual participant results. Runner lifecycle remains owned by
+/// <see cref="SessionConnectionCoordinator"/>.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RaidMenuPresenter : MonoBehaviour
@@ -19,12 +19,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private PlayerInputReader _inputReader;
     private RaidInventoryPresenter _inventoryPresenter;
     private NetworkRunner _runner;
+    private NetworkRaidParticipant _participant;
 
     private IDisposable _inputSuppression;
     private bool _isBound;
     private bool _isSubscribed;
     private bool _wasDefeatedObserved;
-    private bool _isAbandoning;
+    private bool _awaitingAbandonConfirmation;
+    private bool _returnStarted;
 
     /// <summary>Indicates whether the presenter is bound and the menu overlay is open.</summary>
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -50,6 +52,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inputReader = inputReader;
         _inventoryPresenter = inventoryPresenter;
         _runner = runner;
+        RaidAvatarParticipantLink participantLink = character.GetComponent<RaidAvatarParticipantLink>();
+        if (participantLink != null && !participantLink.TryResolveParticipant(out _participant))
+        {
+            Debug.LogError($"{nameof(RaidMenuPresenter)} could not resolve {nameof(NetworkRaidParticipant)}.", this);
+            Unbind();
+            return;
+        }
         _isBound = true;
         _wasDefeatedObserved = !_character.IsAlive;
 
@@ -78,8 +87,11 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inputReader = null;
         _inventoryPresenter = null;
         _runner = null;
+        _participant = null;
         _isBound = false;
         _wasDefeatedObserved = false;
+        _awaitingAbandonConfirmation = false;
+        _returnStarted = false;
         _view?.Clear();
     }
 
@@ -132,31 +144,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     }
 
     /// <summary>
-    /// Shuts down the active Fusion session before returning to MainMenu.
+    /// Compatibility entry point for callers that previously requested immediate runner shutdown.
+    /// It now only sends the authoritative abandonment request; return is observed separately.
     /// </summary>
-    public async Task AbandonRaidAsync()
+    public Task AbandonRaidAsync()
     {
-        if (!_isBound || _runner == null || _isAbandoning)
-        {
-            return;
-        }
-
-        _isAbandoning = true;
-        NetworkRunner runnerToShutdown = _runner;
-        Unbind();
-
-        if (runnerToShutdown.IsRunning)
-        {
-            if (runnerToShutdown.IsServer)
-            {
-                // Delay briefly to allow the final snapshot (e.g., death state) to be uploaded to the cloud
-                // before severing the connection, minimizing rollback severity on Host Migration.
-                await Task.Delay(1000);
-            }
-            await runnerToShutdown.Shutdown();
-        }
-
-        SceneManager.LoadScene("MainMenu");
+        _participant?.RequestAbandon();
+        return Task.CompletedTask;
     }
 
     private void OnEnable()
@@ -196,6 +190,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         ObserveCharacterState(_character.IsAlive);
+        ObserveParticipantState();
     }
 
     private void ObserveCharacterState(bool isAlive)
@@ -257,24 +252,43 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private void OnResumeRequested()
     {
+        if (_awaitingAbandonConfirmation)
+        {
+            _awaitingAbandonConfirmation = false;
+            RefreshViewContent();
+            return;
+        }
+
         if (_wasDefeatedObserved)
         {
+            _participant?.RequestReturn();
             return;
         }
 
         CloseMenu();
     }
 
-    private async void OnAbandonRequested()
+    private void OnAbandonRequested()
     {
-        try
+        if (_participant == null)
         {
-            await AbandonRaidAsync();
+            return;
         }
-        catch (Exception exception)
+
+        if (_wasDefeatedObserved || _participant.State == RaidParticipantState.Extracted)
         {
-            Debug.LogException(exception, this);
+            _participant.RequestReturn();
+            return;
         }
+
+        if (!_awaitingAbandonConfirmation)
+        {
+            _awaitingAbandonConfirmation = true;
+            _view?.PresentAbandonConfirmation();
+            return;
+        }
+
+        _participant.RequestAbandon();
     }
 
     private void RefreshViewContent()
@@ -284,13 +298,54 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_wasDefeatedObserved)
+        if (_awaitingAbandonConfirmation)
+        {
+            _view.PresentAbandonConfirmation();
+        }
+        else if (_wasDefeatedObserved)
         {
             _view.PresentDefeatedState();
         }
         else
         {
             _view.PresentAliveState();
+        }
+    }
+
+    private void ObserveParticipantState()
+    {
+        if (_participant == null)
+        {
+            return;
+        }
+
+        if (_participant.IsReturnAuthorized && !_returnStarted)
+        {
+            _returnStarted = true;
+            ReturnToTownAsync();
+            return;
+        }
+
+        if (_participant.State == RaidParticipantState.Extracted)
+        {
+            OpenMenu();
+            _view?.PresentDefeatedState();
+        }
+    }
+
+    private async void ReturnToTownAsync()
+    {
+        try
+        {
+            if (SessionConnectionCoordinator.Instance != null)
+            {
+                await SessionConnectionCoordinator.Instance.ReturnToTownAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            _returnStarted = false;
         }
     }
 

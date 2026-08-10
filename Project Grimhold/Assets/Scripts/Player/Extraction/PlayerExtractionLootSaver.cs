@@ -25,18 +25,13 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (_extractionController != null)
-        {
-            _extractionController.ExtractionCompleted += HandleExtractionCompleted;
-        }
+        // TASK-58 intentionally leaves extraction pending. The previous implementation
+        // cleared authoritative raid inventory before a local persistence acknowledgement.
+        // TASK-80 replaces it with an idempotent stash transaction and ACK.
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        if (_extractionController != null)
-        {
-            _extractionController.ExtractionCompleted -= HandleExtractionCompleted;
-        }
     }
 
     private void HandleExtractionCompleted(PlayerExtractionController controller)

@@ -70,10 +70,16 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private NetworkRunner _boundRunner;
     private ExtractionSanctuaryAssignmentService _assignmentService;
     private EntityRegistry _entityRegistry;
+    private RaidAvatarParticipantLink _participantLink;
+
+    private void Awake()
+    {
+        _participantLink = GetComponent<RaidAvatarParticipantLink>();
+    }
 
     public override void Spawned()
     {
-        if (!HasInputAuthority)
+        if (!HasInputAuthority || !IsCurrentRaidAvatar())
         {
             SetHudActive(false);
             return;
@@ -84,7 +90,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     public void TryBindAsLocalPlayer()
     {
-        if (!HasInputAuthority)
+        if (!HasInputAuthority || !IsCurrentRaidAvatar())
         {
             return;
         }
@@ -93,7 +99,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     private void OnEnable()
     {
-        if (Object != null && Object.IsValid && HasInputAuthority)
+        if (Object != null && Object.IsValid && HasInputAuthority && IsCurrentRaidAvatar())
         {
             BindLocalHud();
         }
@@ -106,6 +112,23 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     public override void Render()
     {
+        if (!HasInputAuthority || !IsCurrentRaidAvatar())
+        {
+            if (_isBound)
+            {
+                UnbindLocalHud();
+            }
+
+            return;
+        }
+
+        if (!_isBound)
+        {
+            // CurrentAvatarId is assigned after runner.Spawn returns and can also
+            // arrive after this avatar on a remote peer.
+            BindLocalHud();
+        }
+
         if (_isBound && !_isPlayerClassResolved && _joinContext != null)
         {
             TryResolvePlayerClass();
@@ -331,5 +354,16 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         {
             _hudRoot.SetActive(active);
         }
+    }
+
+    private bool IsCurrentRaidAvatar()
+    {
+        if (_participantLink == null)
+        {
+            return true;
+        }
+
+        return _participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+            participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar == Object;
     }
 }

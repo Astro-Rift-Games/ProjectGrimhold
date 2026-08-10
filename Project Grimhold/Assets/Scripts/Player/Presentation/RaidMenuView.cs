@@ -128,6 +128,27 @@ public sealed class RaidMenuView : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Presents a local confirmation before an abandonment request is sent to State Authority.
+    /// </summary>
+    public void PresentAbandonConfirmation()
+    {
+        SetText(_titleText, "Abandonar incursiÃ³n");
+        SetText(_statusText, "PerderÃ¡s el loot temporal. Pulsa Abandonar otra vez para confirmar o Reanudar para cancelar.");
+        SetText(_controlsText, string.Empty);
+
+        if (_resumeButton != null)
+        {
+            _resumeButton.gameObject.SetActive(true);
+            _resumeButton.interactable = true;
+        }
+
+        if (_abandonButton != null)
+        {
+            _abandonButton.interactable = true;
+        }
+    }
+
     /// <summary>Clears text fields and hides the menu root.</summary>
     public void Clear()
     {
