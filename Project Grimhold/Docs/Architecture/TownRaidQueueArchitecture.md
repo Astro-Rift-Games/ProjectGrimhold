@@ -28,7 +28,15 @@ The queue observes `IPlayerLeft`: Host departure dissolves the cohort, while ano
 
 ## Raid admission
 
-`RaidAdmissionDataCodec` is intentionally separate from the Town `PlayerJoinDataCodec`. A private raid token includes raid id, secret, profile and selected build. `NetworkSpawnManager` validates it during connection request and claims each profile once during admission. The Host session stays hidden from public matchmaking while it is open for the frozen cohort.
+`RaidAdmissionDataCodec` is intentionally separate from the Town `PlayerJoinDataCodec`.
+Version 2 carries raid id, secret, profile, selected build, reservation id and the
+player's reserved snapshot. It uses explicit UTF-8 lengths, Int32 quantities and
+an exact 512-byte project limit (maximum 16 distinct entries, 9,999 each).
+The coordinator creates the durable reservation before ACKing the manifest.
+`NetworkSpawnManager` validates credential, profile, build, reservation shape,
+catalog and capacity in State Authority; it never reads a remote local profile.
+Admission succeeds only after participant, avatar and exact receiver inventory
+exist. Pre-admission failure rolls back; post-admission failure keeps it pending.
 
 The admission closes when every manifest profile is admitted or after the configured timeout. A player whose admission fails after connecting is disconnected, including duplicate-profile races. The raid scene was already loaded by the coordinated launch, so the match controller advances to `InProgress` without loading it again.
 

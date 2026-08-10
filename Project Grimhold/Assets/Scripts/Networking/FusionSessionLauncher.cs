@@ -57,7 +57,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         GameMode mode,
         PlayerClassId selectedClass,
         string gameplaySceneName,
-        RaidLaunchManifest raidManifest = default)
+        RaidLaunchManifest raidManifest = default,
+        PendingLoadoutReservation loadoutReservation = null)
     {
         return StartSessionInternalAsync(
             sessionName,
@@ -65,7 +66,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             selectedClass,
             SessionStartupContext.FreshSession,
             gameplaySceneName,
-            raidManifest);
+            raidManifest,
+            loadoutReservation);
     }
 
     private async Task<bool> StartSessionInternalAsync(
@@ -74,7 +76,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         PlayerClassId selectedClass,
         SessionStartupContext startupContext,
         string initialSceneName,
-        RaidLaunchManifest raidManifest = default)
+        RaidLaunchManifest raidManifest = default,
+        PendingLoadoutReservation loadoutReservation = null)
     {
         if (!startupContext.IsValid)
             throw new ArgumentException("Invalid startup context provided to session launcher.");
@@ -111,11 +114,25 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         byte[] token;
         if (raidManifest.IsValid)
         {
+            if (loadoutReservation == null)
+            {
+                throw new ArgumentException("A coordinated raid requires a reserved loadout.", nameof(loadoutReservation));
+            }
+
+            var reservedLoadout = new System.Collections.Generic.List<LootEntry>(loadoutReservation.Items.Count);
+            for (int index = 0; index < loadoutReservation.Items.Count; index++)
+            {
+                StashItem item = loadoutReservation.Items[index];
+                reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
+            }
+
             var admissionData = new RaidAdmissionData(
                 raidManifest.RaidId,
                 raidManifest.AccessSecret,
                 profileId,
-                selectedClass);
+                selectedClass,
+                loadoutReservation.ReservationId,
+                reservedLoadout);
             if (!raidManifest.Contains(profileId) || !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
@@ -142,6 +159,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 in joinData,
                 token,
                 raidManifest,
+                loadoutReservation,
                 out var composition))
             {
                 Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);
@@ -275,6 +293,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 }
             }
 
+            if (raidManifest.IsValid &&
+                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, _coordinatedAdmissionTimeoutSeconds))
+            {
+                Debug.LogError("[FusionSessionLauncher] Local raid admission did not complete with the exact reserved loadout.", this);
+                await ShutdownAndDestroyRunnerAsync();
+                return false;
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -287,6 +313,69 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         {
             _isStarting = false;
         }
+    }
+
+    private async Task<bool> WaitForLocalRaidAdmissionAsync(
+        PendingLoadoutReservation reservation,
+        float timeoutSeconds)
+    {
+        if (_runner == null || reservation == null)
+        {
+            return false;
+        }
+
+        float deadline = Time.realtimeSinceStartup + Mathf.Max(1f, timeoutSeconds);
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
+        {
+            NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
+                string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
+                participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
+                avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
+                receiver.TryGetLootContent(out System.Collections.Generic.IReadOnlyList<LootEntry> actual) &&
+                MatchesLoadout(reservation.Items, actual))
+            {
+                return true;
+            }
+
+            await Task.Delay(50);
+        }
+
+        return false;
+    }
+
+    private static bool MatchesLoadout(
+        System.Collections.Generic.IReadOnlyList<StashItem> expected,
+        System.Collections.Generic.IReadOnlyList<LootEntry> actual)
+    {
+        if (expected == null || actual == null || expected.Count != actual.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < expected.Count; index++)
+        {
+            bool found = false;
+            for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
+            {
+                if (expected[index].LootId == actual[actualIndex].LootId &&
+                    expected[index].Amount == actual[actualIndex].Amount)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

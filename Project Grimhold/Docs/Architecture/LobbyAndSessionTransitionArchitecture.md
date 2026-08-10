@@ -60,7 +60,7 @@ the explicit development entry point. Invalid transitions do not mutate state.
 | Current local connection state | `SessionConnectionStateMachine.State` | Coordinator |
 | Transition concurrency | Coordinator operation flag | Coordinator |
 | Selected build | Coordinator field | Coordinator |
-| Active raid request and progress | `RaidTransitionTicket` | Coordinator |
+| Active raid request, reservation and progress | `RaidTransitionTicket` | Coordinator |
 | Active Town runner identity | `HubSessionLauncher.Runner` | Hub launcher |
 | Active raid runner identity | `FusionSessionLauncher.Runner` | Raid launcher |
 | Town spawn positions | `HubSpawnSceneConfiguration` in `Lobby-Town` | Town scene |
@@ -77,9 +77,14 @@ second gameplay source of truth.
 `RaidConnectionRole` (`Host` or `Client`). A request is invalid when either identifier is
 blank or the role is unsupported.
 
-`RaidTransitionTicket` captures the validated request, the selected build, and the current
-transition state. `SessionTransitionResult` distinguishes success, busy and invalid requests,
-invalid state, shutdown failure, connection failure, and recovery failure.
+`RaidTransitionTicket` captures the validated request, selected build, immutable
+`PendingLoadoutReservation` snapshot and current transition state. Admission is
+complete only when participant, avatar, `CurrentAvatarId` and exact receiver
+inventory are present. Before that boundary a failed launch rolls back; after it
+confirmation is retried without rollback. `SessionTransitionResult` distinguishes
+reservation, rollback and confirmation failures from connection failures. The
+direct development route uses the same manifest, reservation, codec and admission
+path as the Town queue.
 
 ## Runner lifecycle
 

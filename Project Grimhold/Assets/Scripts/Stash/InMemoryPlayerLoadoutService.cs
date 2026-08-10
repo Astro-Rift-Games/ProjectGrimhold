@@ -36,8 +36,29 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
     public StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items) =>
         IsProfile(profileId) ? _store.TryImportItems(items) : StashOperationResult.InvalidInventory;
 
-    public IReadOnlyList<LootEntry> ConsumeLoadoutForRaid(ProfileId profileId) =>
-        IsProfile(profileId) ? _store.ConsumeLoadoutForRaid() : Array.Empty<LootEntry>();
+    public StashOperationResult TryCreateLoadoutReservation(
+        ProfileId profileId,
+        string reservationId,
+        out IReadOnlyList<StashItem> items)
+    {
+        if (!IsProfile(profileId))
+        {
+            items = Array.Empty<StashItem>();
+            return StashOperationResult.InvalidInventory;
+        }
+
+        return _store.TryCreateLoadoutReservation(reservationId, out items);
+    }
+
+    public StashOperationResult TryConfirmLoadoutReservation(ProfileId profileId, string reservationId) =>
+        IsProfile(profileId)
+            ? _store.TryConfirmLoadoutReservation(reservationId)
+            : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult TryRollbackLoadoutReservation(ProfileId profileId, string reservationId) =>
+        IsProfile(profileId)
+            ? _store.TryRollbackLoadoutReservation(reservationId)
+            : StashOperationResult.InvalidInventory;
 
     private bool IsProfile(ProfileId profileId) => _store != null && profileId == _store.ProfileId;
 

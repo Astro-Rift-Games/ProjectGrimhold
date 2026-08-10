@@ -61,6 +61,15 @@ Fusion may carry `ProfileId` and session snapshots for the active runner, but it
 does not read another player's local files and never owns persistent stash or
 loadout state. `PlayerRef` is not persisted.
 
+### TASK-79 loadout reservation boundary
+
+`TryCreateLoadoutReservation` durably moves the complete local loadout, including
+an empty snapshot, into `PendingLoadoutReservation` before the Town queue ACK.
+The same reservation id is idempotent; a different id is rejected while pending.
+Rollback is valid only before raid admission. After participant, avatar and exact
+inventory are observed, confirmation is retried until its durable commit succeeds.
+An abrupt handshake close remains pending and is not automatically rolled back.
+
 ## Validation strategy
 
 Pure codec, repository and store behavior is covered by EditMode tests using an

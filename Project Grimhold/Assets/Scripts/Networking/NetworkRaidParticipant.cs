@@ -22,6 +22,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     public PlayerClassId SelectedBuild { get; private set; }
 
     [Networked]
+    public NetworkString<_64> LoadoutReservationId { get; private set; }
+
+    [Networked]
     public RaidParticipantState State { get; private set; }
 
     [Networked]
@@ -49,11 +52,16 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     /// <summary>
     /// Initializes this participant during the State Authority spawn callback.
     /// </summary>
-    internal void Initialize(string profileId, PlayerClassId selectedBuild, string raidGenerationId = null)
+    internal void Initialize(
+        string profileId,
+        PlayerClassId selectedBuild,
+        string raidGenerationId = null,
+        string loadoutReservationId = null)
     {
         ProfileId = profileId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
         SelectedBuild = selectedBuild;
+        LoadoutReservationId = loadoutReservationId ?? string.Empty;
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;
         ResultSequence = 0;

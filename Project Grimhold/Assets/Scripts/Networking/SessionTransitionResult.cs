@@ -6,5 +6,8 @@ public enum SessionTransitionResult
     InvalidState,
     ShutdownFailed,
     ConnectionFailed,
-    RecoveryFailed
+    RecoveryFailed,
+    LoadoutReservationFailed,
+    LoadoutRollbackFailed,
+    LoadoutConfirmationFailed
 }

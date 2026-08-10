@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
@@ -41,6 +42,22 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _raidClosureHostGraceSeconds = 5f;
 
+    [Header("Direct Development Manifest")]
+    [SerializeField]
+    private string _developmentRaidId = "development-raid";
+
+    [SerializeField]
+    private string _developmentAccessSecret = "development-secret";
+
+    [SerializeField]
+    private string _developmentHostProfileId;
+
+    [SerializeField]
+    private string[] _developmentAdmittedProfileIds;
+
+    [SerializeField, Min(1)]
+    private int _developmentLaunchSequence = 1;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
@@ -48,6 +65,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private RaidTransitionTicket? _activeTicket;
     private int _acknowledgedLaunchSequence;
     private bool _launchDispatchActive;
+    private bool _raidAdmissionConfirmed;
+    private bool _loadoutConfirmationPending;
     private bool _raidClosureReturnStarted;
     private float _raidClosureHostShutdownAt = -1f;
 
@@ -80,11 +99,36 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                    string.Equals(_activeTicket.Value.Manifest.RaidId, manifest.RaidId, StringComparison.Ordinal);
         }
 
+        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (stashContext == null || stashContext.LoadoutService == null)
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Cannot reserve loadout without the application stash context.", this);
+            return false;
+        }
+
+        string reservationId = Guid.NewGuid().ToString("N");
+        StashOperationResult reservationResult = stashContext.LoadoutService.TryCreateLoadoutReservation(
+            localProfile,
+            reservationId,
+            out System.Collections.Generic.IReadOnlyList<StashItem> reservedItems);
+        if (reservationResult != StashOperationResult.Success)
+        {
+            Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Loadout reservation failed: {reservationResult}.", this);
+            return false;
+        }
+
+        var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
+
         RaidConnectionRole role = manifest.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
         var request = new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
-        _activeTicket = new RaidTransitionTicket(request, manifest, _selectedBuild, SessionConnectionState.Town);
+        _activeTicket = new RaidTransitionTicket(
+            request,
+            manifest,
+            reservation,
+            _selectedBuild,
+            SessionConnectionState.Town);
         return true;
     }
 
@@ -121,12 +165,22 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _acknowledgedLaunchSequence = 0;
         _launchDispatchActive = false;
+        if (!TryRollbackActiveReservation())
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Could not roll back the cancelled raid reservation.", this);
+            return;
+        }
+
         _activeTicket = null;
     }
 
     private void Update()
     {
         ObserveCompletedRaid();
+        if (_loadoutConfirmationPending)
+        {
+            TryConfirmActiveReservation();
+        }
 
         if (_acknowledgedLaunchSequence == 0 || _operationActive)
         {
@@ -296,6 +350,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             if (!await ShutdownActiveRunnersAsync())
             {
+                if (!TryRollbackActiveReservation())
+                {
+                    TransitionTo(SessionConnectionState.Failed);
+                    return SessionTransitionResult.LoadoutRollbackFailed;
+                }
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ShutdownFailed;
             }
@@ -308,12 +367,31 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             TransitionTo(SessionConnectionState.Town);
+            if (_raidAdmissionConfirmed && _loadoutConfirmationPending && !TryConfirmActiveReservation())
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Admission completed but the local reservation confirmation is still pending.", this);
+                return SessionTransitionResult.LoadoutConfirmationFailed;
+            }
+
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Raid failed before admission but reservation rollback failed.", this);
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
+
             _activeTicket = null;
+            _raidAdmissionConfirmed = false;
+            _loadoutConfirmationPending = false;
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                TransitionTo(SessionConnectionState.Failed);
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
             TransitionTo(SessionConnectionState.Failed);
             return SessionTransitionResult.ConnectionFailed;
         }
@@ -391,7 +469,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     mode,
                     _selectedBuild,
                     _gameplaySceneName,
-                    ticket.HasManifest ? ticket.Manifest : default);
+                    ticket.HasManifest ? ticket.Manifest : default,
+                    ticket.LoadoutReservation);
                 if (!started && attempt + 1 < attempts)
                 {
                     int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
@@ -409,6 +488,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             TransitionTo(SessionConnectionState.Raid);
             UpdateTicketState(SessionConnectionState.Raid);
+            _raidAdmissionConfirmed = ticket.HasLoadoutReservation;
+            _loadoutConfirmationPending = ticket.HasLoadoutReservation;
+            TryConfirmActiveReservation();
             _raidClosureReturnStarted = false;
             _raidClosureHostShutdownAt = -1f;
             return SessionTransitionResult.Succeeded;
@@ -448,6 +530,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _operationActive = true;
         try
         {
+            if (_loadoutConfirmationPending && !TryConfirmActiveReservation())
+            {
+                return SessionTransitionResult.LoadoutConfirmationFailed;
+            }
+
             TransitionTo(SessionConnectionState.ReturningTown);
             UpdateTicketState(SessionConnectionState.ReturningTown);
 
@@ -465,7 +552,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             TransitionTo(SessionConnectionState.Town);
+            if (_raidAdmissionConfirmed && _loadoutConfirmationPending && !TryConfirmActiveReservation())
+            {
+                return SessionTransitionResult.LoadoutConfirmationFailed;
+            }
+
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
+
             _activeTicket = null;
+            _raidAdmissionConfirmed = false;
+            _loadoutConfirmationPending = false;
             _raidClosureReturnStarted = false;
             _raidClosureHostShutdownAt = -1f;
             return SessionTransitionResult.Succeeded;
@@ -512,26 +611,75 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _selectedBuild = selectedBuild;
         try
         {
+            ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+            if (!TryBuildDevelopmentManifest(sessionName, localProfile, mode, out RaidLaunchManifest manifest))
+            {
+                return SessionTransitionResult.InvalidRequest;
+            }
+
+            ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+            if (stashContext == null || stashContext.LoadoutService == null)
+            {
+                return SessionTransitionResult.LoadoutReservationFailed;
+            }
+
+            string reservationId = Guid.NewGuid().ToString("N");
+            if (stashContext.LoadoutService.TryCreateLoadoutReservation(
+                    localProfile,
+                    reservationId,
+                    out IReadOnlyList<StashItem> reservedItems) != StashOperationResult.Success)
+            {
+                return SessionTransitionResult.LoadoutReservationFailed;
+            }
+
+            var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
+            RaidConnectionRole role = mode == GameMode.Host ? RaidConnectionRole.Host : RaidConnectionRole.Client;
+            var request = new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
+            _activeTicket = new RaidTransitionTicket(request, manifest, reservation, selectedBuild, SessionConnectionState.ConnectingRaid);
             TransitionTo(SessionConnectionState.ConnectingRaid);
             if (!await ShutdownActiveRunnersAsync())
             {
+                if (!TryRollbackActiveReservation())
+                {
+                    TransitionTo(SessionConnectionState.Failed);
+                    return SessionTransitionResult.LoadoutRollbackFailed;
+                }
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            bool started = await _raidLauncher.StartSessionAsync(sessionName, mode, selectedBuild);
+            bool started = await _raidLauncher.StartCoordinatedSessionAsync(
+                sessionName,
+                mode,
+                selectedBuild,
+                _gameplaySceneName,
+                manifest,
+                reservation);
             if (!started)
             {
+                if (!TryRollbackActiveReservation())
+                {
+                    TransitionTo(SessionConnectionState.Failed);
+                    return SessionTransitionResult.LoadoutRollbackFailed;
+                }
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ConnectionFailed;
             }
 
             TransitionTo(SessionConnectionState.Raid);
+            _raidAdmissionConfirmed = true;
+            _loadoutConfirmationPending = true;
+            TryConfirmActiveReservation();
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                TransitionTo(SessionConnectionState.Failed);
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
             TransitionTo(SessionConnectionState.Failed);
             return SessionTransitionResult.ConnectionFailed;
         }
@@ -561,8 +709,136 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         TransitionTo(SessionConnectionState.Town);
+        if (_raidAdmissionConfirmed && _loadoutConfirmationPending && !TryConfirmActiveReservation())
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Admission completed but the local reservation confirmation is still pending.", this);
+            return SessionTransitionResult.LoadoutConfirmationFailed;
+        }
+
+        if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Raid failed before admission but reservation rollback failed.", this);
+            return SessionTransitionResult.LoadoutRollbackFailed;
+        }
+
         _activeTicket = null;
+        _raidAdmissionConfirmed = false;
+        _loadoutConfirmationPending = false;
         return originalFailure;
+    }
+
+    private bool TryRollbackActiveReservation()
+    {
+        if (!_activeTicket.HasValue || !_activeTicket.Value.HasLoadoutReservation)
+        {
+            return true;
+        }
+
+        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (stashContext == null || stashContext.LoadoutService == null)
+        {
+            return false;
+        }
+
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        StashOperationResult result = stashContext.LoadoutService.TryRollbackLoadoutReservation(
+            localProfile,
+            _activeTicket.Value.LoadoutReservation.ReservationId);
+        return result == StashOperationResult.Success;
+    }
+
+    private bool TryBuildDevelopmentManifest(
+        string sessionName,
+        ProfileId localProfile,
+        GameMode mode,
+        out RaidLaunchManifest manifest)
+    {
+        manifest = default;
+        if (string.IsNullOrWhiteSpace(sessionName))
+        {
+            return false;
+        }
+
+        ProfileId hostProfile;
+        try
+        {
+            hostProfile = string.IsNullOrWhiteSpace(_developmentHostProfileId)
+                ? localProfile
+                : new ProfileId(_developmentHostProfileId);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        var profiles = new List<ProfileId>();
+        if (_developmentAdmittedProfileIds != null)
+        {
+            for (int index = 0; index < _developmentAdmittedProfileIds.Length; index++)
+            {
+                if (string.IsNullOrWhiteSpace(_developmentAdmittedProfileIds[index]))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    profiles.Add(new ProfileId(_developmentAdmittedProfileIds[index]));
+                }
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (profiles.Count == 0)
+        {
+            profiles.Add(hostProfile);
+        }
+
+        if (!profiles.Contains(localProfile) ||
+            (mode == GameMode.Host && hostProfile != localProfile) ||
+            (mode == GameMode.Client && hostProfile == localProfile))
+        {
+            return false;
+        }
+
+        manifest = new RaidLaunchManifest(
+            string.IsNullOrWhiteSpace(_developmentRaidId) ? $"development-{sessionName}" : _developmentRaidId,
+            sessionName,
+            string.IsNullOrWhiteSpace(_developmentAccessSecret) ? "development-secret" : _developmentAccessSecret,
+            hostProfile,
+            profiles,
+            Mathf.Max(1, _developmentLaunchSequence));
+        return manifest.IsValid;
+    }
+
+    private bool TryConfirmActiveReservation()
+    {
+        if (!_activeTicket.HasValue || !_activeTicket.Value.HasLoadoutReservation)
+        {
+            _loadoutConfirmationPending = false;
+            return true;
+        }
+
+        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (stashContext == null || stashContext.LoadoutService == null)
+        {
+            return false;
+        }
+
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        StashOperationResult result = stashContext.LoadoutService.TryConfirmLoadoutReservation(
+            localProfile,
+            _activeTicket.Value.LoadoutReservation.ReservationId);
+        if (result == StashOperationResult.Success)
+        {
+            _loadoutConfirmationPending = false;
+            return true;
+        }
+
+        return false;
     }
 
     private async Task<bool> ShutdownActiveRunnersAsync()
@@ -613,7 +889,21 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             TransitionTo(SessionConnectionState.Town);
+            if (_raidAdmissionConfirmed && _loadoutConfirmationPending && !TryConfirmActiveReservation())
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Admission completed during an unexpected shutdown, but confirmation remains pending.", this);
+                return;
+            }
+
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Unexpected shutdown occurred before admission and rollback failed.", this);
+                return;
+            }
+
             _activeTicket = null;
+            _raidAdmissionConfirmed = false;
+            _loadoutConfirmationPending = false;
         }
         catch (Exception exception)
         {

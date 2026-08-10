@@ -111,6 +111,59 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
+    public void Store_EmptyLoadoutReservationIsDurableAndIdempotent()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("88888888888888888888888888888888");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        int eventCount = 0;
+        store.ProfileCommitted += _ => eventCount++;
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-empty", out IReadOnlyList<StashItem> items), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(items, Is.Empty);
+        Assert.That(store.PendingReservation, Is.Not.Null);
+        Assert.That(store.TryCreateLoadoutReservation("reservation-empty", out IReadOnlyList<StashItem> repeated), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(repeated, Is.Empty);
+        Assert.That(eventCount, Is.EqualTo(1));
+
+        var reloaded = new LocalProfileRepository(files, ".");
+        Assert.That(reloaded.Initialize(profile, _catalog), Is.True, reloaded.LastError);
+        Assert.That(reloaded.Snapshot.PendingReservation.ReservationId, Is.EqualTo("reservation-empty"));
+        Assert.That(reloaded.Snapshot.PendingReservation.Items, Is.Empty);
+    }
+
+    [Test]
+    public void Store_LoadoutReservationRollbackRestoresExactContentAndConfirmConsumesIt()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("99999999999999999999999999999999");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var snapshot = repository.Snapshot.Clone();
+        snapshot.Loadout.Add(new StashItem(new LootId("coins"), 7));
+        snapshot.Loadout.Add(new StashItem(new LootId("bone"), 2));
+        Assert.That(repository.TrySave(snapshot, out _), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-1", out IReadOnlyList<StashItem> items), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(items, Has.Count.EqualTo(2));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.TryRollbackLoadoutReservation("reservation-1"), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
+        {
+            new StashItem(new LootId("coins"), 7),
+            new StashItem(new LootId("bone"), 2)
+        }));
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-2", out _), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryConfirmLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(store.GetLoadout(), Is.Empty);
+    }
+
+    [Test]
     public void Repository_UsesValidBackupWhenMainIsMalformed()
     {
         var files = new MemoryFileStore();

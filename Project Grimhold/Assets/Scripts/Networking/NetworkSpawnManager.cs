@@ -43,9 +43,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     [SerializeField]
     private NetworkPrefabRef _breakablePrefab;
 
+    [SerializeField]
+    private LootDefinitionCatalog _lootCatalog;
+
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
+    private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly HashSet<string> _departedProfiles = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _pendingHostMigrationReconnects = new();
@@ -135,6 +139,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
+        _admissionData.Clear();
         _departedProfiles.Clear();
         _admittedProfiles.Clear();
         _spawnedEnemies.Clear();
@@ -199,6 +204,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
+        _admissionData.Clear();
         _departedProfiles.Clear();
         _admittedProfiles.Clear();
         _pendingHostMigrationReconnects.Clear();
@@ -238,6 +244,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _lootContainerPrefab = configuredManager._lootContainerPrefab;
         _breakablePrefab = configuredManager._breakablePrefab;
+        _lootCatalog = configuredManager._lootCatalog;
         if (!_lootContainerPrefab.IsValid)
         {
             Debug.LogError(
@@ -727,7 +734,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
             else
             {
-                SpawnPlayer(runner, player);
+                if (!SpawnPlayer(runner, player) && player != runner.LocalPlayer)
+                {
+                    runner.Disconnect(player);
+                }
             }
 
             return;
@@ -756,6 +766,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
 
         if (!TryGetJoinData(runner, player, out PlayerJoinData joinData))
+        {
+            return false;
+        }
+
+        RaidAdmissionData admission = default;
+        bool hasAdmission = _raidManifest.IsValid;
+        if (hasAdmission && !TryGetAdmissionData(runner, player, out admission))
         {
             return false;
         }
@@ -794,6 +811,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _admittedPlayers.Add(player);
         _admittedProfiles[profileKey] = player;
+        if (hasAdmission)
+        {
+            _admissionData[player] = admission;
+        }
         Debug.Log($"[NetworkSpawnManager] Player {player} registered as an admitted participant.");
         return true;
     }
@@ -851,7 +872,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         // Spawn points are configured, spawn immediately
-        SpawnPlayer(runner, runner.LocalPlayer);
+        if (!SpawnPlayer(runner, runner.LocalPlayer))
+        {
+            return HostBootstrapResult.AdmissionFailed;
+        }
 
         if (_spawnedPlayers.ContainsKey(runner.LocalPlayer))
         {
@@ -904,12 +928,43 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
+    private bool TryGetAdmissionData(
+        NetworkRunner runner,
+        PlayerRef player,
+        out RaidAdmissionData admission)
+    {
+        admission = default;
+        byte[] token = runner.GetPlayerConnectionToken(player);
+        if (!RaidAdmissionDataCodec.TryDecode(token, out admission) || !IsRaidAdmissionValid(admission))
+        {
+            return false;
+        }
+
+        if (!RaidLoadoutRules.TryValidate(
+                admission.ReservedLoadout,
+                _lootCatalog,
+                LocalProfileSnapshot.MaxLoadoutSlots,
+                out string validationError))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Rejected loadout for profile '{admission.ProfileId.Value}': {validationError}.");
+            return false;
+        }
+
+        return true;
+    }
+
     public int ExpectedRaidAdmissionCount => _raidManifest.IsValid ? _raidManifest.AdmittedProfiles.Count : 0;
     public int AdmittedRaidProfileCount => _admittedProfiles.Count;
 
     private bool TryValidateRaidAdmissionToken(byte[] token, out RaidAdmissionData admission)
     {
-        return RaidAdmissionDataCodec.TryDecode(token, out admission) && IsRaidAdmissionValid(admission);
+        return RaidAdmissionDataCodec.TryDecode(token, out admission) &&
+               IsRaidAdmissionValid(admission) &&
+               RaidLoadoutRules.TryValidate(
+                   admission.ReservedLoadout,
+                   _lootCatalog,
+                   LocalProfileSnapshot.MaxLoadoutSlots,
+                   out _);
     }
 
     private bool IsRaidAdmissionValid(in RaidAdmissionData admission)
@@ -963,7 +1018,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return phaseAllowsSpawning;
     }
 
-    private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
+    private bool SpawnPlayer(NetworkRunner runner, PlayerRef player)
     {
         if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
         {
@@ -973,20 +1028,24 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!CanSpawnPlayer(runner, player))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejecting spawn for player {player}: validation failed.");
-            return;
+            return false;
         }
 
         if (!TryGetJoinData(runner, player, out PlayerJoinData joinData))
         {
             Debug.LogError($"Rejecting spawn for player {player}: Invalid or missing join data.");
-            return;
+            return false;
         }
 
         if (!_playerClassCatalog.TryGetPrefab(joinData.ClassId, out NetworkPrefabRef prefab))
         {
             Debug.LogError($"Rejecting spawn for player {player}: Class {joinData.ClassId} not registered.");
-            return;
+            return false;
         }
+
+        _admissionData.TryGetValue(player, out RaidAdmissionData admission);
+        bool hasAdmission = _raidManifest.IsValid;
+        bool loadoutInitialized = !hasAdmission;
 
         GetSpawnTransform(
             SpawnGroupType.Players,
@@ -1005,7 +1064,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     participant.Initialize(
                         joinData.ProfileId.Value,
                         joinData.ClassId,
-                        _matchController != null ? _matchController.RaidGenerationId.ToString() : null);
+                        _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
+                        hasAdmission ? admission.ReservationId : null);
                 }
             });
 
@@ -1017,7 +1077,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
 
             Debug.LogError($"Rejecting spawn for player {player}: participant prefab is missing {nameof(NetworkRaidParticipant)}.");
-            return;
+            return false;
         }
 
         NetworkObject avatarObject = runner.Spawn(
@@ -1035,6 +1095,23 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 {
                     avatarLink.Initialize(participantObject);
                 }
+
+                if (hasAdmission)
+                {
+                    if (!obj.TryGetBehaviour(out PlayerLootReceiver lootReceiver))
+                    {
+                        loadoutInitialized = false;
+                        return;
+                    }
+
+                    loadoutInitialized = lootReceiver.TryInitializeLoadout(
+                        admission.ReservedLoadout,
+                        out string loadoutError);
+                    if (!loadoutInitialized)
+                    {
+                        Debug.LogError($"[NetworkSpawnManager] Failed to initialize loadout for player {player}: {loadoutError}.", obj);
+                    }
+                }
             });
 
         if (avatarObject == null || !avatarObject.TryGetBehaviour(out RaidAvatarParticipantLink _))
@@ -1046,7 +1123,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             runner.Despawn(participantObject);
             Debug.LogError($"Rejecting spawn for player {player}: avatar prefab is missing {nameof(RaidAvatarParticipantLink)}.");
-            return;
+            return false;
+        }
+
+        if (!loadoutInitialized)
+        {
+            runner.Despawn(avatarObject);
+            runner.Despawn(participantObject);
+            return false;
         }
 
         if (!raidParticipant.TrySetCurrentAvatar(avatarObject))
@@ -1054,7 +1138,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             runner.Despawn(avatarObject);
             runner.Despawn(participantObject);
             Debug.LogError($"Rejecting spawn for player {player}: participant initialization failed.");
-            return;
+            return false;
         }
 
         runner.SetPlayerObject(player, participantObject);
@@ -1063,6 +1147,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedAvatars.Add(player, avatarObject);
 
         Debug.Log($"Spawned participant and avatar for player {player} with class {joinData.ClassId}.");
+        return true;
     }
 
     /// <summary>
@@ -1125,6 +1210,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
+        _admissionData.Clear();
         _spawnedEnemies.Clear();
         _admittedPlayers.Clear();
         _admittedProfiles.Clear();
@@ -1689,6 +1775,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
 
         _admittedPlayers.Remove(player);
+        _admissionData.Remove(player);
         if (_admittedProfiles.Count > 0)
         {
             string profileToRemove = null;

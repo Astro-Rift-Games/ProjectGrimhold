@@ -41,6 +41,7 @@ public static class NetworkRunnerFactory
         in PlayerJoinData joinData,
         byte[] connectionToken,
         RaidLaunchManifest raidManifest,
+        PendingLoadoutReservation loadoutReservation,
         out RunnerComposition composition)
     {
         composition = default;
@@ -81,11 +82,31 @@ public static class NetworkRunnerFactory
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         if (raidManifest.IsValid)
         {
-            var admission = new RaidAdmissionData(
-                raidManifest.RaidId,
-                raidManifest.AccessSecret,
-                joinData.ProfileId,
-                joinData.ClassId);
+            RaidAdmissionData admission;
+            if (loadoutReservation != null)
+            {
+                var reservedLoadout = new System.Collections.Generic.List<LootEntry>(loadoutReservation.Items.Count);
+                for (int index = 0; index < loadoutReservation.Items.Count; index++)
+                {
+                    StashItem item = loadoutReservation.Items[index];
+                    reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
+                }
+
+                admission = new RaidAdmissionData(
+                    raidManifest.RaidId,
+                    raidManifest.AccessSecret,
+                    joinData.ProfileId,
+                    joinData.ClassId,
+                    loadoutReservation.ReservationId,
+                    reservedLoadout);
+            }
+            else if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
+            {
+                Debug.LogError("[NetworkRunnerFactory] Coordinated runner is missing valid admission data.");
+                Object.Destroy(runnerObject);
+                return false;
+            }
+
             joinContext.Initialize(in joinData, in admission);
         }
         else

@@ -675,54 +675,76 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     }
 
     /// <summary>
-    /// Forcibly injects an initial loadout into the player's inventory.
-    /// Used by the loadout injector upon spawn to initialize the player's items.
-    /// Can only be called by State Authority.
+    /// Initializes the exact loadout supplied by the authoritative raid admission.
+    /// Validation completes before the network dictionary is modified, so invalid
+    /// input cannot leave a partially initialized inventory.
     /// </summary>
-    public void InitializeLoadout(IReadOnlyList<LootEntry> loadoutItems)
+    public bool TryInitializeLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error)
     {
+        error = null;
         if (!HasStateAuthority)
         {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: InitializeLoadout requires State Authority.");
-            return;
+            error = "Loadout initialization requires State Authority.";
+            return false;
         }
 
-        if (loadoutItems == null || loadoutItems.Count == 0)
+        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error))
         {
-            return; // Nothing to initialize
-        }
-
-        if (_lootCatalog == null)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Cannot initialize loadout without a LootCatalog.");
-            return;
+            return false;
         }
 
         NetworkDictionary<int, int> inventory = LootInventory;
-        
-        foreach (var entry in loadoutItems)
+        if (inventory.Count != 0)
         {
-            if (!entry.IsValid || entry.Amount <= 0) continue;
-
-            if (_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
+            if (TryMatchesInitialLoadout(inventory, loadoutItems))
             {
-                if (inventory.TryGet(definitionIndex, out int currentAmount))
-                {
-                    inventory.Set(definitionIndex, currentAmount + entry.Amount);
-                }
-                else if (inventory.Count < _slotCapacity && inventory.Count < inventory.Capacity)
-                {
-                    inventory.Set(definitionIndex, entry.Amount);
-                }
-                else
-                {
-                    Debug.LogWarning($"[PlayerLootReceiver] Not enough capacity to initialize item {entry.LootId}.");
-                }
+                return true;
+            }
+
+            error = "Player loot inventory was already initialized with different content.";
+            return false;
+        }
+
+        for (int index = 0; index < loadoutItems.Count; index++)
+        {
+            LootEntry entry = loadoutItems[index];
+            if (!_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
+            {
+                error = $"Loot catalog does not contain '{entry.LootId.Value}'.";
+                return false;
+            }
+
+            inventory.Set(definitionIndex, entry.Amount);
+        }
+
+        if (loadoutItems.Count > 0)
+        {
+            LootChangeSequence++;
+        }
+
+        return true;
+    }
+
+    private bool TryMatchesInitialLoadout(
+        NetworkDictionary<int, int> inventory,
+        IReadOnlyList<LootEntry> expected)
+    {
+        if (inventory.Count != expected.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < expected.Count; index++)
+        {
+            if (!_lootCatalog.TryGetIndex(expected[index].LootId, out int definitionIndex) ||
+                !inventory.TryGet(definitionIndex, out int amount) ||
+                amount != expected[index].Amount)
+            {
+                return false;
             }
         }
 
-        LootChangeSequence++;
-        Debug.Log($"[PlayerLootReceiver] Initialized loadout for player {Id} with {loadoutItems.Count} items.");
+        return true;
     }
 
 #if UNITY_EDITOR

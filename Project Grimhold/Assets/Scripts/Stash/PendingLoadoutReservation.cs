@@ -6,15 +6,16 @@ using System.Collections.Generic;
 public sealed class PendingLoadoutReservation
 {
     public string ReservationId { get; }
-    public List<StashItem> Items { get; }
+    private readonly List<StashItem> _items;
+    public IReadOnlyList<StashItem> Items => _items;
 
     public PendingLoadoutReservation(string reservationId, IReadOnlyList<StashItem> items)
     {
         ReservationId = reservationId;
-        Items = new List<StashItem>();
+        _items = new List<StashItem>();
         if (items != null)
         {
-            Items.AddRange(items);
+            _items.AddRange(items);
         }
     }
 

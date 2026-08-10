@@ -120,6 +120,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                 in _joinData,
                 _connectionToken,
                 _raidManifest,
+                null,
                 out newComposition))
             {
                 throw new InvalidOperationException("Failed to create replacement runner via factory.");

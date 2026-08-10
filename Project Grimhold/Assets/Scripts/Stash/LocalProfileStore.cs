@@ -109,22 +109,19 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public IReadOnlyList<LootEntry> ConsumeLoadoutForRaid()
-    {
-        var next = _repository.Snapshot.Clone();
-        var result = new List<LootEntry>(next.Loadout.Count);
-        foreach (StashItem item in next.Loadout) result.Add(new LootEntry(item.LootId, item.Amount));
-        if (result.Count == 0) return result.AsReadOnly();
-        next.Loadout.Clear();
-        return Commit(next) == StashOperationResult.Success ? result.AsReadOnly() : Array.Empty<LootEntry>();
-    }
-
     public StashOperationResult TryCreateLoadoutReservation(string reservationId, out IReadOnlyList<StashItem> items)
     {
         items = Array.Empty<StashItem>();
         if (string.IsNullOrWhiteSpace(reservationId) || !IsAvailable) return StashOperationResult.InvalidInventory;
         var current = _repository.Snapshot;
-        if (current.PendingReservation != null || current.Loadout.Count == 0) return StashOperationResult.InvalidInventory;
+        if (current.PendingReservation != null)
+        {
+            if (!string.Equals(current.PendingReservation.ReservationId, reservationId, StringComparison.Ordinal))
+                return StashOperationResult.InvalidInventory;
+
+            items = new List<StashItem>(current.PendingReservation.Items).AsReadOnly();
+            return StashOperationResult.Success;
+        }
         var next = current.Clone();
         items = new List<StashItem>(next.Loadout).AsReadOnly();
         next.PendingReservation = new PendingLoadoutReservation(reservationId, next.Loadout);

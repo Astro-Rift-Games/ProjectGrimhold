@@ -39,11 +39,17 @@ public interface IPlayerLoadoutService
     /// </summary>
     StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items);
 
-    /// <summary>
-    /// Locks and consumes the current loadout for the specified profile, returning an immutable snapshot 
-    /// that can be safely injected into the raid. The active loadout is cleared.
-    /// </summary>
-    IReadOnlyList<LootEntry> ConsumeLoadoutForRaid(ProfileId profileId);
+    /// <summary>Creates or reuses the durable reservation for a raid admission.</summary>
+    StashOperationResult TryCreateLoadoutReservation(
+        ProfileId profileId,
+        string reservationId,
+        out IReadOnlyList<StashItem> items);
+
+    /// <summary>Confirms that the reserved loadout was admitted to the raid.</summary>
+    StashOperationResult TryConfirmLoadoutReservation(ProfileId profileId, string reservationId);
+
+    /// <summary>Restores a reservation that never reached raid admission.</summary>
+    StashOperationResult TryRollbackLoadoutReservation(ProfileId profileId, string reservationId);
 
     /// <summary>
     /// Fired when a profile's loadout has been modified.

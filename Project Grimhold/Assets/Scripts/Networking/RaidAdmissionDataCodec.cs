@@ -1,12 +1,15 @@
 using System;
+using System.IO;
 using System.Text;
 
 /// <summary>
-/// Versioned binary codec for the private raid admission token.
+/// Versioned, bounded binary codec for the private raid admission token.
+/// The payload contains only the local player's reserved loadout.
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte Version = 1;
+    private const byte Version = 2;
+    private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
     {
@@ -16,72 +19,150 @@ public static class RaidAdmissionDataCodec
             return false;
         }
 
-        byte[] raidBytes = Encoding.UTF8.GetBytes(data.RaidId);
-        byte[] secretBytes = Encoding.UTF8.GetBytes(data.AccessSecret);
-        byte[] profileBytes = Encoding.UTF8.GetBytes(data.ProfileId.Value);
-        if (raidBytes.Length > byte.MaxValue || secretBytes.Length > byte.MaxValue || profileBytes.Length > byte.MaxValue)
+        try
+        {
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream, Utf8, true);
+            writer.Write(Version);
+            writer.Write((byte)data.SelectedBuild);
+            if (!TryWriteText(writer, data.RaidId) ||
+                !TryWriteText(writer, data.AccessSecret) ||
+                !TryWriteText(writer, data.ProfileId.Value) ||
+                !TryWriteText(writer, data.ReservationId))
+            {
+                return false;
+            }
+
+            writer.Write((byte)data.ReservedLoadout.Count);
+            for (int index = 0; index < data.ReservedLoadout.Count; index++)
+            {
+                LootEntry entry = data.ReservedLoadout[index];
+                if (!TryWriteText(writer, entry.LootId.Value))
+                {
+                    return false;
+                }
+
+                writer.Write(entry.Amount);
+            }
+
+            writer.Flush();
+            if (stream.Length > RaidLoadoutRules.MaximumTokenBytes)
+            {
+                return false;
+            }
+
+            token = stream.ToArray();
+            return true;
+        }
+        catch (EncoderFallbackException)
         {
             return false;
         }
-
-        token = new byte[5 + raidBytes.Length + secretBytes.Length + profileBytes.Length];
-        int offset = 0;
-        token[offset++] = Version;
-        token[offset++] = (byte)data.SelectedBuild;
-        token[offset++] = (byte)raidBytes.Length;
-        Buffer.BlockCopy(raidBytes, 0, token, offset, raidBytes.Length);
-        offset += raidBytes.Length;
-        token[offset++] = (byte)secretBytes.Length;
-        Buffer.BlockCopy(secretBytes, 0, token, offset, secretBytes.Length);
-        offset += secretBytes.Length;
-        token[offset++] = (byte)profileBytes.Length;
-        Buffer.BlockCopy(profileBytes, 0, token, offset, profileBytes.Length);
-        return true;
     }
 
     public static bool TryDecode(byte[] token, out RaidAdmissionData data)
     {
         data = default;
-        if (token == null || token.Length < 5 || token[0] != Version)
+        if (token == null || token.Length == 0 || token.Length > RaidLoadoutRules.MaximumTokenBytes)
         {
             return false;
         }
 
-        PlayerClassId build = (PlayerClassId)token[1];
-        if (!PlayerJoinDataCodec.IsSupported(build))
+        try
+        {
+            using var stream = new MemoryStream(token, false);
+            using var reader = new BinaryReader(stream, Utf8, true);
+            if (reader.ReadByte() != Version)
+            {
+                return false;
+            }
+
+            PlayerClassId selectedBuild = (PlayerClassId)reader.ReadByte();
+            if (!PlayerJoinDataCodec.IsSupported(selectedBuild) ||
+                !TryReadText(reader, out string raidId) ||
+                !TryReadText(reader, out string accessSecret) ||
+                !TryReadText(reader, out string profileId) ||
+                !TryReadText(reader, out string reservationId))
+            {
+                return false;
+            }
+
+            int entryCount = reader.ReadByte();
+            if (entryCount > RaidLoadoutRules.MaximumEntries)
+            {
+                return false;
+            }
+
+            var entries = new LootEntry[entryCount];
+            for (int index = 0; index < entryCount; index++)
+            {
+                if (!TryReadText(reader, out string lootIdValue))
+                {
+                    return false;
+                }
+
+                int amount = reader.ReadInt32();
+                entries[index] = new LootEntry(new LootId(lootIdValue), amount);
+            }
+
+            if (stream.Position != stream.Length)
+            {
+                return false;
+            }
+
+            data = new RaidAdmissionData(
+                raidId,
+                accessSecret,
+                new ProfileId(profileId),
+                selectedBuild,
+                reservationId,
+                entries);
+            return data.IsValid;
+        }
+        catch (ArgumentException)
         {
             return false;
         }
-
-        int offset = 2;
-        if (!TryReadString(token, ref offset, out string raidId) ||
-            !TryReadString(token, ref offset, out string secret) ||
-            !TryReadString(token, ref offset, out string profileId) ||
-            offset != token.Length)
+        catch (EndOfStreamException)
         {
             return false;
         }
-
-        data = new RaidAdmissionData(raidId, secret, new ProfileId(profileId), build);
-        return data.IsValid;
     }
 
-    private static bool TryReadString(byte[] token, ref int offset, out string value)
+    private static bool TryWriteText(BinaryWriter writer, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        byte[] bytes = Utf8.GetBytes(value);
+        if (bytes.Length > RaidLoadoutRules.MaximumTextBytes)
+        {
+            return false;
+        }
+
+        writer.Write((byte)bytes.Length);
+        writer.Write(bytes);
+        return true;
+    }
+
+    private static bool TryReadText(BinaryReader reader, out string value)
     {
         value = null;
-        if (offset >= token.Length)
+        int length = reader.ReadByte();
+        if (length <= 0 || length > RaidLoadoutRules.MaximumTextBytes)
         {
             return false;
         }
 
-        int length = token[offset++];
-        if (offset + length > token.Length)
+        byte[] bytes = reader.ReadBytes(length);
+        if (bytes.Length != length)
         {
             return false;
         }
 
-        value = Encoding.UTF8.GetString(token, offset, length);
-        offset += length;
-        return true;
+        value = Utf8.GetString(bytes);
+        return !string.IsNullOrWhiteSpace(value);
     }
 }

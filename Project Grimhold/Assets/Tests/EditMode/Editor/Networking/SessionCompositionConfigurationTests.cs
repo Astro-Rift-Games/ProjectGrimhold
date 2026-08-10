@@ -198,6 +198,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(networkObject, Is.Not.Null, prefabPath);
         Assert.That(avatarPrefab.GetComponent<PlayerCharacter>(), Is.Not.Null, prefabPath);
         Assert.That(participantLink, Is.Not.Null, prefabPath);
+        Assert.That(avatarPrefab.GetComponent<PlayerLoadoutInjector>(), Is.Null, prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(participantLink), prefabPath);
     }
 
