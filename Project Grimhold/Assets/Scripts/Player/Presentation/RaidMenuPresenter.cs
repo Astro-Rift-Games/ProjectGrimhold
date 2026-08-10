@@ -20,6 +20,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private RaidInventoryPresenter _inventoryPresenter;
     private NetworkRunner _runner;
     private NetworkRaidParticipant _participant;
+    private PlayerExtractionLootSaver _extractionLootSaver;
 
     private IDisposable _inputSuppression;
     private bool _isBound;
@@ -29,6 +30,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _returnStarted;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionCommitConfirmed;
+    private ExtractionLootSaveStatus _observedSaveStatus;
 
     /// <summary>Indicates whether the presenter is bound and the menu overlay is open.</summary>
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -54,6 +56,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inputReader = inputReader;
         _inventoryPresenter = inventoryPresenter;
         _runner = runner;
+        _extractionLootSaver = character.GetComponent<PlayerExtractionLootSaver>();
         RaidAvatarParticipantLink participantLink = character.GetComponent<RaidAvatarParticipantLink>();
         if (participantLink != null && !participantLink.TryResolveParticipant(out _participant))
         {
@@ -69,6 +72,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             ? _participant.State
             : RaidParticipantState.Raiding;
         _observedExtractionCommitConfirmed = _participant != null && _participant.IsExtractionCommitConfirmed;
+        _observedSaveStatus = _extractionLootSaver != null
+            ? _extractionLootSaver.LocalSaveStatus
+            : ExtractionLootSaveStatus.None;
 
         if (isActiveAndEnabled)
         {
@@ -96,12 +102,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inventoryPresenter = null;
         _runner = null;
         _participant = null;
+        _extractionLootSaver = null;
         _isBound = false;
         _wasDefeatedObserved = false;
         _awaitingAbandonConfirmation = false;
         _returnStarted = false;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionCommitConfirmed = false;
+        _observedSaveStatus = ExtractionLootSaveStatus.None;
         _view?.Clear();
     }
 
@@ -289,6 +297,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
+        if (_participant != null && _participant.State == RaidParticipantState.Extracted &&
+            _extractionLootSaver != null &&
+            _extractionLootSaver.LocalSaveStatus == ExtractionLootSaveStatus.PersistenceFailed)
+        {
+            _extractionLootSaver.RetryLocalCommit();
+            RefreshViewContent();
+            return;
+        }
+
         CloseMenu();
     }
 
@@ -328,7 +345,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         else if (_participant != null && _participant.State == RaidParticipantState.Extracted)
         {
-            _view.PresentExtractedState(_participant.IsExtractionCommitConfirmed);
+            ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
+                ? _extractionLootSaver.LocalSaveStatus
+                : (_participant.IsExtractionCommitConfirmed
+                    ? ExtractionLootSaveStatus.Committed
+                    : ExtractionLootSaveStatus.Pending);
+            _view.PresentExtractedState(saveStatus);
         }
         else if (_wasDefeatedObserved ||
                  (_participant != null && _participant.State == RaidParticipantState.Defeated))
@@ -378,10 +400,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         RaidParticipantState state = _participant.State;
         bool commitConfirmed = _participant.IsExtractionCommitConfirmed;
+        ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
+            ? _extractionLootSaver.LocalSaveStatus
+            : ExtractionLootSaveStatus.None;
         bool resultChanged = state != _observedParticipantState ||
-                             commitConfirmed != _observedExtractionCommitConfirmed;
+                             commitConfirmed != _observedExtractionCommitConfirmed ||
+                             saveStatus != _observedSaveStatus;
         _observedParticipantState = state;
         _observedExtractionCommitConfirmed = commitConfirmed;
+        _observedSaveStatus = saveStatus;
 
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
         {

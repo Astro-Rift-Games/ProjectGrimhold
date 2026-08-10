@@ -28,11 +28,25 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 _system = FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
             }
 
+        if (_system != null)
+        {
+            _system.Register(this);
+        }
+    }
+
+    private void LateUpdate()
+    {
+        // Networked scene objects can enable before the scene-level visibility
+        // system is created. Retry registration until that dependency exists.
+        if (_system == null)
+        {
+            _system = FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
             if (_system != null)
             {
                 _system.Register(this);
             }
         }
+    }
 
         private void OnDisable()
         {

@@ -178,6 +178,37 @@ public sealed class RaidMenuView : MonoBehaviour
     }
 
     /// <summary>
+    /// Presents extraction progress and exposes the resume button as a local
+    /// persistence retry only after a durable save failure.
+    /// </summary>
+    public void PresentExtractedState(ExtractionLootSaveStatus saveStatus)
+    {
+        SetText(_titleText, "Extraccion completada");
+        string status = saveStatus switch
+        {
+            ExtractionLootSaveStatus.Committed => "El botin fue asegurado. Ya puedes volver al pueblo.",
+            ExtractionLootSaveStatus.PersistenceFailed => "No se pudo guardar el botin. Pulsa Reanudar para reintentar.",
+            _ => "Guardado pendiente. Esperando confirmacion del botin extraido."
+        };
+        SetText(_statusText, status);
+        SetText(_controlsText, string.Empty);
+
+        bool retryVisible = saveStatus == ExtractionLootSaveStatus.PersistenceFailed;
+        if (_resumeButton != null)
+        {
+            _resumeButton.gameObject.SetActive(retryVisible);
+            _resumeButton.interactable = retryVisible;
+        }
+
+        if (_abandonButton != null)
+        {
+            _abandonButton.interactable = saveStatus == ExtractionLootSaveStatus.Committed;
+        }
+
+        SetText(_abandonButtonText, "Volver al pueblo");
+    }
+
+    /// <summary>
     /// Presents a local confirmation before an abandonment request is sent to State Authority.
     /// </summary>
     public void PresentAbandonConfirmation()

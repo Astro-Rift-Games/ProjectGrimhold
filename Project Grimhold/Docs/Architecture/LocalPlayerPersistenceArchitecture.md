@@ -50,9 +50,12 @@ empty profile silently.
 Stash and loadout transfers, loadout reservations and extraction receipt
 application are complete aggregate commits. Duplicate extraction receipts are
 idempotent and do not publish another change. Reservation primitives are local
-storage capabilities for TASK-79; this task does not attach them to the raid
-transition ticket. Extraction commits are local storage capabilities for
-TASK-80; this task does not add the network ACK/RPC flow.
+storage capabilities for TASK-79. TASK-80 supplies the network boundary around
+`TryCommitExtraction`: State Authority keeps the raid snapshot, Input Authority
+commits it locally, and an ACK is sent only after the durable write succeeds.
+The raid inventory is cleared only after that ACK. A lost or repeated delivery
+therefore returns `AlreadySecured` instead of duplicating loot. A disk failure
+is retained as a local retryable error and is not retried by transport duplicates.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it
 does not read another player's local files and never owns persistent stash or

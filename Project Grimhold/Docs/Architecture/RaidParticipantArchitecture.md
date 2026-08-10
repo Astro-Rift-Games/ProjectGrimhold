@@ -27,8 +27,12 @@ Authority. The avatar stays spawned as the synchronised lootable body. On confir
 abandon, the temporary avatar is despawned without any persistence operation.
 
 Extraction enters `Extracted`, but return remains unavailable until TASK-80 confirms the
-matching `ResultSequence` after its idempotent stash commit. TASK-58 deliberately disables
-the previous loadout-saving listener because it cleared raid inventory before that ACK.
+matching `ResultSequence` after its idempotent stash commit. `PlayerLootReceiver` derives
+its mutation lock from the existing extraction state, so no second inventory-lock source
+is replicated. TASK-58 deliberately disables the previous loadout-saving listener because
+it cleared raid inventory before that ACK. TASK-80 retains the complete snapshot and
+resends it from State Authority until the local commit is acknowledged; duplicate receipts
+are accepted idempotently and a local persistence failure requires an explicit retry.
 
 ## Presentation and return
 

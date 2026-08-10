@@ -123,6 +123,17 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void View_PresentExtractedPersistenceFailure_ExposesRetryAndDisablesReturn()
+        {
+            _view.PresentExtractedState(ExtractionLootSaveStatus.PersistenceFailed);
+
+            Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.True);
+            Assert.That(_view.ResumeButton.interactable, Is.True);
+            Assert.That(_view.AbandonButton.interactable, Is.False);
+            Assert.That(_view.StatusText.text, Does.Contain("reintentar"));
+        }
+
+        [Test]
         public void Presenter_OpenMenu_AcquiresInputSuppressionAndMakesViewVisible()
         {
             SetPresenterBoundState();

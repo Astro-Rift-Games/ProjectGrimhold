@@ -1,154 +1,440 @@
+using System;
 using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Observes extraction completion events to securely transfer the player's raid inventory
-/// to their Loadout in the Lobby via network RPC. Executes exclusively on State Authority.
+/// Local presentation state for the extraction-to-stash transaction.
+/// This is not replicated gameplay state; State Authority remains the source
+/// of truth for the participant result and inventory contents.
+/// </summary>
+public enum ExtractionLootSaveStatus
+{
+    None,
+    Pending,
+    PersistenceFailed,
+    Committed
+}
+
+/// <summary>
+/// Coordinates the authoritative extraction result with the local player's
+/// durable stash commit.
+///
+/// State Authority retains the raid snapshot until Input Authority acknowledges
+/// an idempotent local commit. The raid inventory is therefore never cleared
+/// before persistence succeeds, and a lost RPC can be retried safely.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerExtractionController))]
 [RequireComponent(typeof(PlayerLootReceiver))]
 public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 {
+    private const int MaxSnapshotEntries = PlayerLootReceiver.MaxLootTypes;
+    private const float RetryIntervalSeconds = 1f;
+
     private PlayerExtractionController _extractionController;
     private PlayerLootReceiver _lootReceiver;
+    private RaidAvatarParticipantLink _participantLink;
+    private NetworkRaidParticipant _participant;
+    private IReadOnlyList<LootEntry> _pendingSnapshot;
+    private int[] _pendingCatalogIndices;
+    private int[] _pendingAmounts;
+    private int _pendingResultSequence;
+    private bool _localCommitAttempted;
 
     [Networked]
-    private NetworkBool HasSecuredLoot { get; set; }
+    private TickTimer RetryTimer { get; set; }
+
+    /// <summary>
+    /// Gets the local persistence state observed by the result presenter.
+    /// </summary>
+    public ExtractionLootSaveStatus LocalSaveStatus { get; private set; }
 
     private void Awake()
     {
         _extractionController = GetComponent<PlayerExtractionController>();
         _lootReceiver = GetComponent<PlayerLootReceiver>();
+        _participantLink = GetComponent<RaidAvatarParticipantLink>();
+        LocalSaveStatus = ExtractionLootSaveStatus.None;
     }
 
     public override void Spawned()
     {
-        // TASK-58 intentionally leaves extraction pending. The previous implementation
-        // cleared authoritative raid inventory before a local persistence acknowledgement.
-        // TASK-80 replaces it with an idempotent stash transaction and ACK.
+        _extractionController.ExtractionCompleted += HandleExtractionCompleted;
+        _participantLink?.TryResolveParticipant(out _participant);
+
+        if (HasStateAuthority && TryResolvePendingParticipant() &&
+            _participant.State == RaidParticipantState.Extracted &&
+            !_participant.IsExtractionCommitConfirmed)
+        {
+            PreparePendingTransaction();
+        }
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority || !TryResolvePendingParticipant() ||
+            _participant.State != RaidParticipantState.Extracted ||
+            _participant.IsExtractionCommitConfirmed)
+        {
+            return;
+        }
+
+        if (!HasPendingTransaction() && !PreparePendingTransaction())
+        {
+            return;
+        }
+
+        if (!RetryTimer.ExpiredOrNotRunning(Runner))
+        {
+            return;
+        }
+
+        SendPendingTransaction();
+        RetryTimer = TickTimer.CreateFromSeconds(Runner, RetryIntervalSeconds);
+    }
+
+    public override void Render()
+    {
+        if (HasStateAuthority || LocalSaveStatus != ExtractionLootSaveStatus.Pending ||
+            _localCommitAttempted || !HasValidPendingPayload())
+        {
+            return;
+        }
+
+        // Fusion may deliver the RPC before the participant's Extracted state
+        // is visible on this peer. Keep the validated payload and retry once
+        // the replicated participant state catches up.
+        TryCommitPendingLocally();
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        if (_extractionController != null)
+        {
+            _extractionController.ExtractionCompleted -= HandleExtractionCompleted;
+        }
+
+        _participant = null;
+        _pendingSnapshot = null;
+        _pendingCatalogIndices = null;
+        _pendingAmounts = null;
+        RetryTimer = TickTimer.None;
+    }
+
+    /// <summary>
+    /// Requests one local persistence retry after a disk failure. Network
+    /// retransmission remains automatic, but it never reopens a failed disk
+    /// operation without an explicit local retry.
+    /// </summary>
+    public void RetryLocalCommit()
+    {
+        if (LocalSaveStatus != ExtractionLootSaveStatus.PersistenceFailed ||
+            !HasValidPendingPayload())
+        {
+            return;
+        }
+
+        _localCommitAttempted = false;
+        LocalSaveStatus = ExtractionLootSaveStatus.Pending;
+        TryCommitPendingLocally();
     }
 
     private void HandleExtractionCompleted(PlayerExtractionController controller)
     {
-        if (!HasStateAuthority || HasSecuredLoot)
+        if (!HasStateAuthority || controller != _extractionController ||
+            !TryResolvePendingParticipant() ||
+            _participant.State != RaidParticipantState.Extracted ||
+            _participant.IsExtractionCommitConfirmed)
         {
             return;
         }
 
-        if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> snapshot))
+        PreparePendingTransaction();
+        RetryTimer = TickTimer.None;
+    }
+
+    private bool PreparePendingTransaction()
+    {
+        if (!TryResolvePendingParticipant() ||
+            _participant.State != RaidParticipantState.Extracted ||
+            _participant.IsExtractionCommitConfirmed ||
+            _lootReceiver == null ||
+            !_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> snapshot))
         {
-            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Failed to capture inventory snapshot.", this);
-            return;
+            return false;
         }
 
-        if (snapshot.Count == 0)
+        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
+        if (catalog == null || snapshot.Count > MaxSnapshotEntries)
         {
-            HasSecuredLoot = true;
-            return;
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Extraction snapshot cannot be resolved.", this);
+            return false;
         }
 
-        var catalog = _lootReceiver.LootCatalog;
-        if (catalog == null)
-        {
-            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: LootDefinitionCatalog is missing from PlayerLootReceiver.", this);
-            return;
-        }
-
-        var catalogIndices = new List<int>();
-        var amounts = new List<int>();
-
+        var indices = new int[snapshot.Count];
+        var amounts = new int[snapshot.Count];
         for (int i = 0; i < snapshot.Count; i++)
         {
-            if (catalog.TryGetIndex(snapshot[i].LootId, out int index))
+            LootEntry entry = snapshot[i];
+            if (!entry.IsValid || !catalog.TryGetIndex(entry.LootId, out int index) ||
+                index < 0 || index >= MaxSnapshotEntries)
             {
-                catalogIndices.Add(index);
-                amounts.Add(snapshot[i].Amount);
+                Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Invalid extraction snapshot entry.", this);
+                return false;
             }
-            else
+
+            for (int previous = 0; previous < i; previous++)
             {
-                Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Could not resolve catalog index for LootId '{snapshot[i].LootId.Value}'. Item ignored.", this);
+                if (indices[previous] == index)
+                {
+                    Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Duplicate extraction snapshot entry.", this);
+                    return false;
+                }
             }
+
+            indices[i] = index;
+            amounts[i] = entry.Amount;
         }
 
-        if (catalogIndices.Count == 0)
+        _pendingSnapshot = snapshot;
+        _pendingCatalogIndices = indices;
+        _pendingAmounts = amounts;
+        _pendingResultSequence = _participant.ResultSequence;
+        LocalSaveStatus = ExtractionLootSaveStatus.Pending;
+        _localCommitAttempted = false;
+        return true;
+    }
+
+    private void SendPendingTransaction()
+    {
+        if (!HasValidPendingPayload() || !TryResolvePendingParticipant())
         {
-            HasSecuredLoot = true;
             return;
         }
 
-        // 1. Mark as secured and clear inventory on State Authority (Server)
-        if (_lootReceiver.TryClearExactContent(snapshot, out string clearError))
-        {
-            HasSecuredLoot = true;
-            Debug.Log($"[PlayerExtractionLootSaver] Authoritatively cleared {catalogIndices.Count} loot types in raid. Sending RPC to client.", this);
-
-            // 2. Send RPC to Input Authority (Client) to import into their local Loadout
-            RPC_SecureLootOnClient(catalogIndices.ToArray(), amounts.ToArray());
-        }
-        else
-        {
-            Debug.LogError($"[PlayerExtractionLootSaver] Failed to clear raid inventory: {clearError}. Loot will not be secured on client.", this);
-        }
+        RPC_CommitExtractionOnInputAuthority(
+            _pendingResultSequence,
+            _pendingCatalogIndices,
+            _pendingAmounts);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
-    private void RPC_SecureLootOnClient(int[] catalogIndices, int[] amounts)
+    private void RPC_CommitExtractionOnInputAuthority(
+        int resultSequence,
+        int[] catalogIndices,
+        int[] amounts)
     {
-        if (catalogIndices == null || amounts == null || catalogIndices.Length != amounts.Length)
+        if (!ValidateIncomingPayload(catalogIndices, amounts))
         {
-            Debug.LogError($"[PlayerExtractionLootSaver] RPC received with invalid payload.", this);
+            LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
             return;
         }
 
-        var catalog = _lootReceiver.LootCatalog;
-        if (catalog == null)
+        if (LocalSaveStatus == ExtractionLootSaveStatus.PersistenceFailed &&
+            _localCommitAttempted && _pendingResultSequence == resultSequence)
         {
-            Debug.LogError($"[PlayerExtractionLootSaver] Client LootDefinitionCatalog is missing.", this);
             return;
         }
 
-        var items = new List<StashItem>(catalogIndices.Length);
+        _pendingResultSequence = resultSequence;
+        _pendingCatalogIndices = (int[])catalogIndices.Clone();
+        _pendingAmounts = (int[])amounts.Clone();
+        _pendingSnapshot = BuildSnapshot(catalogIndices, amounts);
+        if (_pendingSnapshot == null)
+        {
+            LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
+            return;
+        }
+        _localCommitAttempted = false;
+        LocalSaveStatus = ExtractionLootSaveStatus.Pending;
+        TryCommitPendingLocally();
+    }
+
+    private void TryCommitPendingLocally()
+    {
+        if (!TryResolvePendingParticipant() || !HasValidPendingPayload() ||
+            _participant.State != RaidParticipantState.Extracted ||
+            _pendingResultSequence != _participant.ResultSequence)
+        {
+            // The payload is valid, but the participant snapshot has not caught
+            // up on this peer yet. Render() will retry without touching disk.
+            return;
+        }
+
+        _localCommitAttempted = true;
+
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        ProfileId expectedProfileId = new ProfileId(_participant.ProfileId.Value);
+        if (context?.Store == null || context.Store.ProfileId != expectedProfileId)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Local stash context is unavailable or belongs to another profile.",
+                this);
+            LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
+            return;
+        }
+
+        ProfileId localProfileId = context.Store.ProfileId;
+
+        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
+        var items = new List<StashItem>(_pendingCatalogIndices.Length);
+        for (int i = 0; i < _pendingCatalogIndices.Length; i++)
+        {
+            if (!catalog.TryGetByIndex(_pendingCatalogIndices[i], out LootDefinition definition))
+            {
+                LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
+                return;
+            }
+
+            items.Add(new StashItem(definition.LootId, _pendingAmounts[i]));
+        }
+
+        ExtractionReceipt receipt = new ExtractionReceipt(
+            _participant.RaidGenerationId.ToString(),
+            localProfileId,
+            _pendingResultSequence);
+        StashOperationResult result = context.Store.TryCommitExtraction(receipt, items);
+        if (result != StashOperationResult.Success && result != StashOperationResult.AlreadySecured)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Local extraction commit failed with {result}. " +
+                $"Persistence={context.PersistenceStatus}; Error={context.PersistenceError ?? "none"}.",
+                this);
+            LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
+            return;
+        }
+
+        LocalSaveStatus = ExtractionLootSaveStatus.Committed;
+        RPC_AcknowledgeExtractionCommit(_pendingResultSequence);
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_AcknowledgeExtractionCommit(int resultSequence)
+    {
+        if (!HasStateAuthority || !TryResolvePendingParticipant() ||
+            _participant.State != RaidParticipantState.Extracted ||
+            _participant.IsExtractionCommitConfirmed ||
+            resultSequence != _participant.ResultSequence ||
+            resultSequence != _pendingResultSequence ||
+            !HasValidPendingPayload())
+        {
+            return;
+        }
+
+        if (!_lootReceiver.TryClearExactContent(_pendingSnapshot, out string clearError))
+        {
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Extraction inventory changed before ACK: {clearError}.", this);
+            return;
+        }
+
+        if (!_participant.TryConfirmExtractionCommit(resultSequence))
+        {
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Could not confirm extraction result.", this);
+            return;
+        }
+
+        _pendingSnapshot = null;
+        _pendingCatalogIndices = null;
+        _pendingAmounts = null;
+        RetryTimer = TickTimer.None;
+    }
+
+    private bool ValidateIncomingPayload(int[] catalogIndices, int[] amounts)
+    {
+        if (catalogIndices == null || amounts == null ||
+            catalogIndices.Length != amounts.Length ||
+            catalogIndices.Length > MaxSnapshotEntries ||
+            _lootReceiver.LootCatalog == null)
+        {
+            return false;
+        }
+
+        if (TryResolvePendingParticipant() && _participant.IsExtractionCommitConfirmed)
+        {
+            return false;
+        }
+
+        return ValidatePayloadShape(
+            catalogIndices,
+            amounts,
+            MaxSnapshotEntries,
+            index => _lootReceiver.LootCatalog.TryGetByIndex(index, out _));
+    }
+
+    /// <summary>
+    /// Validates the complete wire payload before any local persistence begins.
+    /// </summary>
+    internal static bool ValidatePayloadShape(
+        int[] catalogIndices,
+        int[] amounts,
+        int maximumEntries,
+        Func<int, bool> isKnownIndex)
+    {
+        if (catalogIndices == null || amounts == null ||
+            catalogIndices.Length != amounts.Length ||
+            catalogIndices.Length > maximumEntries || isKnownIndex == null)
+        {
+            return false;
+        }
+
         for (int i = 0; i < catalogIndices.Length; i++)
         {
-            if (catalog.TryGetByIndex(catalogIndices[i], out LootDefinition definition))
+            if (catalogIndices[i] < 0 || catalogIndices[i] >= maximumEntries ||
+                amounts[i] <= 0 || !isKnownIndex(catalogIndices[i]))
             {
-                items.Add(new StashItem(definition.LootId, amounts[i]));
+                return false;
             }
-            else
+
+            for (int previous = 0; previous < i; previous++)
             {
-                Debug.LogError($"[PlayerExtractionLootSaver] Client failed to resolve catalog index {catalogIndices[i]}", this);
+                if (catalogIndices[previous] == catalogIndices[i])
+                {
+                    return false;
+                }
             }
         }
 
-        if (items.Count == 0)
+        return true;
+    }
+
+    private bool HasValidPendingPayload()
+    {
+        return _pendingSnapshot != null && _pendingCatalogIndices != null &&
+            _pendingAmounts != null && _pendingCatalogIndices.Length == _pendingAmounts.Length &&
+            _pendingCatalogIndices.Length == _pendingSnapshot.Count &&
+            _pendingResultSequence > 0;
+    }
+
+    private IReadOnlyList<LootEntry> BuildSnapshot(int[] catalogIndices, int[] amounts)
+    {
+        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
+        var snapshot = new List<LootEntry>(catalogIndices.Length);
+        for (int i = 0; i < catalogIndices.Length; i++)
         {
-            return;
+            if (!catalog.TryGetByIndex(catalogIndices[i], out LootDefinition definition))
+            {
+                return null;
+            }
+
+            snapshot.Add(new LootEntry(definition.LootId, amounts[i]));
         }
 
-        ProfileId localProfileId = LocalProfileProvider.GetOrCreateLocalProfile();
-        
-        var context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context != null && context.LoadoutService != null)
+        return snapshot.AsReadOnly();
+    }
+
+    private bool HasPendingTransaction()
+    {
+        return HasValidPendingPayload();
+    }
+
+    private bool TryResolvePendingParticipant()
+    {
+        if (_participant != null)
         {
-            StashOperationResult result = context.LoadoutService.TryImportItems(localProfileId, items);
-            if (result == StashOperationResult.Success)
-            {
-                Debug.Log($"[PlayerExtractionLootSaver] Client successfully secured {items.Count} items to local loadout.", this);
-            }
-            else
-            {
-                Debug.LogError($"[PlayerExtractionLootSaver] Client failed to secure items to local loadout. Result: {result}", this);
-            }
+            return true;
         }
-        else
-        {
-            Debug.LogError($"[PlayerExtractionLootSaver] Client ApplicationStashContext or LoadoutService not found. Extracted items were lost!", this);
-        }
+
+        return _participantLink != null && _participantLink.TryResolveParticipant(out _participant);
     }
 }

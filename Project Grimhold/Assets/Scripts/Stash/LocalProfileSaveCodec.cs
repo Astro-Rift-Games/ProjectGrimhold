@@ -119,10 +119,21 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        if (data.pendingReservation != null)
+        // JsonUtility materializes an empty nested DTO for a serialized null
+        // reference. Treat that exact empty shape as "no reservation"; any
+        // reservation carrying data still requires a valid identity.
+        bool hasPendingReservationData = data.pendingReservation != null &&
+            (!string.IsNullOrWhiteSpace(data.pendingReservation.reservationId) ||
+             (data.pendingReservation.items != null && data.pendingReservation.items.Length > 0));
+        if (hasPendingReservationData)
         {
-            if (string.IsNullOrWhiteSpace(data.pendingReservation.reservationId) ||
-                !TryReadItems(data.pendingReservation.items, catalog, out List<StashItem> reservationItems, "reservation", out error))
+            if (string.IsNullOrWhiteSpace(data.pendingReservation.reservationId))
+            {
+                error = "Pending loadout reservation has no valid reservation ID.";
+                return false;
+            }
+
+            if (!TryReadItems(data.pendingReservation.items, catalog, out List<StashItem> reservationItems, "reservation", out error))
             {
                 return false;
             }

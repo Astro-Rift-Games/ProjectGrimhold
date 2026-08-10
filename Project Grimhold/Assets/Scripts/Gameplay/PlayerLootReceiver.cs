@@ -33,6 +33,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
     private EntityRegistry _registry;
     private ICharacter _character;
+    private PlayerExtractionController _extractionController;
     private bool _isRegistered;
     private EntityId _registeredId;
     private readonly Queue<LootGrantPresentationEvent> _pendingPresentationEvents = new();
@@ -78,6 +79,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private void Awake()
     {
         _character = GetComponent<ICharacter>();
+        _extractionController = GetComponent<PlayerExtractionController>();
     }
 
     public override void Spawned()
@@ -137,6 +139,11 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (!HasStateAuthority)
         {
             return LootTransferFailureReason.MissingAuthority;
+        }
+
+        if (IsExtractionLocked())
+        {
+            return LootTransferFailureReason.ContainerUnavailable;
         }
 
         if (request.SourceId.Value == 0)
@@ -232,6 +239,11 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (!HasStateAuthority)
         {
             return LootTransferFailureReason.MissingAuthority;
+        }
+
+        if (IsExtractionLocked())
+        {
+            return LootTransferFailureReason.ContainerUnavailable;
         }
 
         if (request.SourceId.Value == 0 || request.SourceId != Id)
@@ -611,7 +623,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         definitionIndex = default;
         currentAmount = default;
-        if (!HasStateAuthority || request.SourceId.Value == 0 || request.DestinationId != Id ||
+        if (!HasStateAuthority || IsExtractionLocked() || request.SourceId.Value == 0 || request.DestinationId != Id ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out definitionIndex) ||
             definitionIndex < 0 || definitionIndex >= MaxLootTypes)
@@ -635,7 +647,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         definitionIndex = default;
         currentAmount = default;
-        if (!HasStateAuthority || request.SourceId != Id || request.DestinationId.Value == 0 ||
+        if (!HasStateAuthority || IsExtractionLocked() || request.SourceId != Id || request.DestinationId.Value == 0 ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out definitionIndex) ||
             definitionIndex < 0 || definitionIndex >= MaxLootTypes ||
@@ -649,6 +661,17 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         Debug.LogError($"{nameof(PlayerLootReceiver)}: {commitName} contract was violated after successful validation.", this);
         throw new InvalidOperationException($"{commitName} preconditions changed after successful validation.");
+    }
+
+    /// <summary>
+    /// Extraction state is the single source of truth for the inventory freeze.
+    /// The extraction saver may still call <see cref="TryClearExactContent"/>
+    /// to finalize its already-validated transaction.
+    /// </summary>
+    private bool IsExtractionLocked()
+    {
+        return _extractionController != null &&
+            _extractionController.State == ExtractionState.Extracted;
     }
 
     /// <summary>

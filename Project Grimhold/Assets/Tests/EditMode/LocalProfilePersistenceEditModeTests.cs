@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -36,6 +37,25 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
+    public void Codec_RoundTripWithoutPendingReservationKeepsReservationAbsent()
+    {
+        var profile = new ProfileId("77777777777777777777777777777777");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+
+        bool decoded = LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(snapshot),
+            profile,
+            _catalog,
+            out LocalProfileSnapshot restored,
+            out LocalProfilePersistenceStatus status,
+            out string error);
+
+        Assert.That(decoded, Is.True, error);
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+        Assert.That(restored.PendingReservation, Is.Null);
+    }
+
+    [Test]
     public void Store_RepeatedExtractionReceiptDoesNotDuplicateLootOrEvents()
     {
         var files = new MemoryFileStore();
@@ -52,6 +72,42 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.AlreadySecured));
         Assert.That(store.GetStash()[0].Amount, Is.EqualTo(3));
         Assert.That(eventCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Store_ExtractionPersistenceFailurePreservesSnapshotAndRetryCommitsOnce()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("55555555555555555555555555555555");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var receipt = new ExtractionReceipt("raid-failure", profile, 1);
+        var items = new[] { new StashItem(new LootId("coins"), 5) };
+
+        files.FailWrites = true;
+        Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.PersistenceFailed));
+        Assert.That(store.GetStash(), Is.Empty);
+
+        files.FailWrites = false;
+        Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.AlreadySecured));
+        Assert.That(store.GetStash()[0], Is.EqualTo(items[0]));
+    }
+
+    [Test]
+    public void Store_EmptyExtractionCommitsReceiptWithoutCreatingStashEntries()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("66666666666666666666666666666666");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var receipt = new ExtractionReceipt("raid-empty", profile, 1);
+
+        Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>()), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>()), Is.EqualTo(StashOperationResult.AlreadySecured));
+        Assert.That(store.GetStash(), Is.Empty);
     }
 
     [Test]
@@ -90,6 +146,7 @@ public sealed class LocalProfilePersistenceEditModeTests
     private sealed class MemoryFileStore : ILocalProfileFileStore
     {
         public readonly Dictionary<string, string> Files = new(StringComparer.Ordinal);
+        public bool FailWrites;
 
         public bool Exists(string path) => Files.ContainsKey(path);
         public bool TryRead(string path, out string contents, out string error)
@@ -101,6 +158,12 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         public bool TryWriteAtomically(string mainPath, string temporaryPath, string backupPath, string contents, out string error)
         {
+            if (FailWrites)
+            {
+                error = "Simulated disk failure";
+                return false;
+            }
+
             if (Files.TryGetValue(mainPath, out string previous)) Files[backupPath] = previous;
             Files[temporaryPath] = contents;
             Files[mainPath] = Files[temporaryPath];
@@ -118,3 +181,4 @@ public sealed class LocalProfilePersistenceEditModeTests
         }
     }
 }
+#endif

@@ -288,6 +288,18 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         RitualState = ExtractionRitualState.Completed;
         RitualTimer = TickTimer.None;
         _extractionZone.TrySetAvailability(true);
+
+        // The ritual and the extraction countdown are two authoritative stages,
+        // but the owner interacted from inside this same collider. Start the
+        // second stage immediately when the owner is still there; the zone's
+        // normal broadphase remains the fallback for a player who moved away.
+        if (_registry != null &&
+            _registry.TryGetExtractionParticipant(OwnerId, out IExtractionParticipant participant) &&
+            participant != null &&
+            _extractionZone.ContainsExact(participant.ValidationPoint))
+        {
+            participant.TryBeginExtraction(Id);
+        }
     }
 
     private void CancelRitual()

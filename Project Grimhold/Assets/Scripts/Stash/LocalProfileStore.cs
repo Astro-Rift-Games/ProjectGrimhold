@@ -178,7 +178,9 @@ public sealed class LocalProfileStore
             bool saved = IsAvailable && _repository.TrySave(next, out error);
             if (!saved)
             {
-                if (!string.IsNullOrEmpty(error)) Debug.LogError($"[LocalProfileStore] {error}");
+                Debug.LogError(
+                    $"[LocalProfileStore] Commit failed. Available={IsAvailable}; " +
+                    $"Status={Status}; Error={error ?? _repository.LastError ?? "none"}.");
                 return StashOperationResult.PersistenceFailed;
             }
             ProfileCommitted?.Invoke(_profileId);

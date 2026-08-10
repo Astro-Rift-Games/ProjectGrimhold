@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -56,3 +57,4 @@ public class HubSessionLauncherTests
         NUnit.Framework.Assert.IsNull(launcher.Runner, "Runner reference should be cleared after shutdown.");
     }
 }
+#endif
