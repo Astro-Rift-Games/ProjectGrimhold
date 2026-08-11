@@ -181,6 +181,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     {
         if (HasInputAuthority)
         {
+            Debug.Log(
+                $"[HOST-RETURN-MIGRATION] NetworkRaidParticipant.RequestReturn. " +
+                $"State={State}, IsServer={Runner != null && Runner.IsServer}.",
+                this);
             RPC_RequestReturn();
         }
     }
@@ -197,6 +201,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
         CurrentAvatarId = default;
         ResultSequence++;
         IsReturnAuthorized = true;
+        Debug.Log(
+            $"[HOST-RETURN-MIGRATION] Participant return authorized. State={State}.",
+            this);
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

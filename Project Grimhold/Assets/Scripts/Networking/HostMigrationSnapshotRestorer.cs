@@ -39,8 +39,13 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
 
     public void HostMigrationResumeCallback(NetworkRunner runner)
     {
+        Debug.Log("[HOST-RETURN-MIGRATION] HostMigrationResumeCallback entered.", this);
         if (runner == null || runner != _runner)
+        {
+            _hasExecuted = true;
+            _spawnManager?.ReportSnapshotRestoreResult(false);
             return;
+        }
 
         if (_hasExecuted)
         {
@@ -71,7 +76,6 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         }
 
         _hasExecuted = true;
-        _hasExecuted = true;
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
         _spawnedThisExecution.Clear();
@@ -93,21 +97,21 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 Debug.LogWarning($"[HostMigrationSnapshotRestorer] Validation failed: {validationError}");
                 Rollback();
                 _spawnManager.ReportSnapshotRestoreResult(false);
-                AbortAndReturnToMainMenu(runner);
+                ReportRestoreFailure();
                 return;
             }
 
             RestorePlayerAuthorities(runner);
 
+            Debug.Log("[HOST-RETURN-MIGRATION] Snapshot restoration finished successfully.");
             _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects(), GetPendingReconnectPlayerObjects());
-            Debug.Log("[HostMigrationSnapshotRestorer] Snapshot restoration finished successfully.");
         }
         catch (Exception ex)
         {
             Debug.LogException(ex, this);
             Rollback();
             _spawnManager.ReportSnapshotRestoreResult(false);
-            AbortAndReturnToMainMenu(runner);
+            ReportRestoreFailure();
         }
     }
 
@@ -131,14 +135,10 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _pendingReconnectPlayerObjects.Clear();
     }
 
-    private void AbortAndReturnToMainMenu(NetworkRunner runner)
+    private void ReportRestoreFailure()
     {
-        Debug.LogWarning("[HostMigrationSnapshotRestorer] Aborting match and returning to Main Menu.");
-        if (runner != null && runner.IsRunning)
-        {
-            runner.Shutdown(shutdownReason: ShutdownReason.Error);
-        }
-        SceneManager.LoadScene("MainMenu");
+        Debug.LogWarning(
+            "[HOST-RETURN-MIGRATION] Snapshot restoration failed; lifecycle owner will clean up the replacement.");
     }
 
     public bool TryGetRestoredDynamicObject(NetworkId previousId, out NetworkObject restoredObject)

@@ -42,6 +42,7 @@ public static class NetworkRunnerFactory
         byte[] connectionToken,
         RaidLaunchManifest raidManifest,
         PendingLoadoutReservation loadoutReservation,
+        FusionSessionLauncher runnerOwner,
         out RunnerComposition composition)
     {
         composition = default;
@@ -133,7 +134,8 @@ public static class NetworkRunnerFactory
             copiedEnemyPrefabs,
             in joinData,
             copiedConnectionToken,
-            in raidManifest);
+            in raidManifest,
+            runnerOwner);
 
         var snapshotRestorer = runnerObject.AddComponent<HostMigrationSnapshotRestorer>();
         snapshotRestorer.Initialize(runner, startupContext, spawnManager);

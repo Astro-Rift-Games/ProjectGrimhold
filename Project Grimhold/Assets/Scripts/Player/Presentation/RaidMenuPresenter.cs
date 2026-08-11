@@ -457,7 +457,10 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             if (SessionConnectionCoordinator.Instance != null)
             {
-                await SessionConnectionCoordinator.Instance.ReturnToTownAsync();
+                Debug.Log(
+                    "[HOST-RETURN-MIGRATION] RaidMenuPresenter observed return authorization and is delegating participant return.",
+                    this);
+                await SessionConnectionCoordinator.Instance.ReturnParticipantToTownAsync();
             }
         }
         catch (Exception exception)

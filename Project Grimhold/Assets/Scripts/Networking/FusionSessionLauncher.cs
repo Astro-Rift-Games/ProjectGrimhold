@@ -34,6 +34,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private ExtractionSanctuaryAssignmentService _sanctuaryAssignmentService;
     private bool _isStarting;
     private LauncherShutdownListener _shutdownListener;
+    private NetworkRunner _hostMigrationSourceRunner;
 
     public NetworkRunner Runner => _runner;
     public NetworkMatchController MatchController => _matchController;
@@ -177,6 +178,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 token,
                 raidManifest,
                 loadoutReservation,
+                this,
                 out var composition))
             {
                 LastStartShutdownReason = ShutdownReason.Error;
@@ -416,7 +418,87 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         _shutdownListener = null;
         bool succeeded = await RunnerShutdownUtility.ShutdownAndDestroyAsync(runner, runnerObject);
         ClearReferencesOnShutdown(runner);
+        _hostMigrationSourceRunner = null;
         return succeeded;
+    }
+
+    /// <summary>
+    /// Shuts down this peer's Host runner as an individual participant departure.
+    /// Remaining peers own any resulting Host Migration; this method never closes the match.
+    /// </summary>
+    public async Task<bool> ShutdownForHostMigrationDepartureAsync()
+    {
+        NetworkRunner departingRunner = _runner;
+        Debug.Log(
+            $"[HOST-RETURN-MIGRATION] Host participant is leaving runner " +
+            $"'{departingRunner?.SessionInfo.Name}'. Remaining peers may migrate.",
+            this);
+        return await ShutdownAndDestroyRunnerAsync();
+    }
+
+    /// <summary>
+    /// Marks the current Client runner as the source of an in-progress Host Migration.
+    /// </summary>
+    internal bool TryBeginHostMigration(NetworkRunner sourceRunner)
+    {
+        if (sourceRunner == null || _runner != sourceRunner || _hostMigrationSourceRunner != null)
+        {
+            return false;
+        }
+
+        _hostMigrationSourceRunner = sourceRunner;
+        Debug.Log("[HOST-RETURN-MIGRATION] Launcher marked the current raid runner as migrating.", this);
+        return true;
+    }
+
+    /// <summary>
+    /// Adopts a successfully started and restored Host Migration composition.
+    /// </summary>
+    internal bool TryAdoptMigratedRunner(
+        NetworkRunner sourceRunner,
+        in NetworkRunnerFactory.RunnerComposition replacement)
+    {
+        NetworkMatchController restoredMatchController = replacement.SpawnManager != null
+            ? replacement.SpawnManager.MatchController
+            : null;
+        if (_hostMigrationSourceRunner != sourceRunner || replacement.RunnerObject == null ||
+            replacement.Runner == null || replacement.SpawnManager == null ||
+            replacement.SanctuaryAssignmentService == null || restoredMatchController == null)
+        {
+            return false;
+        }
+
+        _shutdownListener?.Detach();
+        _runnerObject = replacement.RunnerObject;
+        _runner = replacement.Runner;
+        _spawnManager = replacement.SpawnManager;
+        _matchController = restoredMatchController;
+        _sanctuaryAssignmentService = replacement.SanctuaryAssignmentService;
+        _shutdownListener = _runnerObject.AddComponent<LauncherShutdownListener>();
+        _shutdownListener.Initialize(_runner, HandleRunnerShutdown);
+        if (_runner.IsRunning)
+        {
+            _runner.AddCallbacks(_shutdownListener);
+        }
+        _hostMigrationSourceRunner = null;
+
+        Debug.Log("[HOST-RETURN-MIGRATION] Launcher adopted replacement runner and shutdown listener.", this);
+        return true;
+    }
+
+    /// <summary>
+    /// Routes a failed Host Migration back through the launcher's normal shutdown observer.
+    /// </summary>
+    internal void ReportHostMigrationFailure(NetworkRunner sourceRunner, string reason)
+    {
+        if (_hostMigrationSourceRunner != sourceRunner)
+        {
+            return;
+        }
+
+        _hostMigrationSourceRunner = null;
+        Debug.LogError($"[HOST-RETURN-MIGRATION] HostMigration failed: {reason}", this);
+        RunnerShutdownObserved?.Invoke(sourceRunner, ShutdownReason.Error);
     }
 
     public void ClearReferencesOnShutdown(NetworkRunner shutdownRunner)
@@ -441,6 +523,10 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             return;
         }
 
+        Debug.Log(
+            $"[HOST-RETURN-MIGRATION] FusionSessionLauncher observed runner shutdown. " +
+            $"Reason={shutdownReason}.",
+            this);
         ClearReferencesOnShutdown(runner);
         RunnerShutdownObserved?.Invoke(runner, shutdownReason);
     }

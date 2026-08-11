@@ -1,9 +1,12 @@
+using System;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Fusion;
 using NUnit.Framework;
 using UnityEngine;
 using Assert = NUnit.Framework.Assert;
+using Object = UnityEngine.Object;
 
 public sealed class SessionConnectionStateMachineTests
 {
@@ -170,6 +173,313 @@ public sealed class SessionConnectionStateMachineTests
         }
     }
 
+    [TestCase(false, 2, false)]
+    [TestCase(true, 1, false)]
+    [TestCase(true, 2, true)]
+    [TestCase(true, 4, true)]
+    public void ParticipantReturnPolicy_UsesMigrationOnlyForHostWithRemainingPeers(
+        bool isServer,
+        int activePlayerCount,
+        bool expected)
+    {
+        Assert.That(
+            SessionConnectionCoordinator.ShouldUseHostMigrationDeparture(
+                isServer,
+                activePlayerCount),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void HostMigrationShutdown_DoesNotRouteToUnexpectedRecovery()
+    {
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.Error),
+            Is.True);
+    }
+
+    [Test]
+    public void Coordinator_HostMigrationShutdownKeepsRaidState()
+    {
+        var owner = new GameObject("Migration Coordinator Test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var runnerObject = new GameObject("Migrating Runner");
+        NetworkRunner runner = runnerObject.AddComponent<NetworkRunner>();
+        SessionConnectionStateMachine stateMachine =
+            ReadPrivateField<SessionConnectionStateMachine>(coordinator, "_stateMachine");
+
+        try
+        {
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingRaid), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.Raid), Is.True);
+
+            InvokePrivateMethod(
+                coordinator,
+                "OnRaidRunnerShutdown",
+                runner,
+                ShutdownReason.HostMigration);
+
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.Raid));
+            Assert.That(coordinator.IsTransitioning, Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+            Object.DestroyImmediate(runnerObject);
+        }
+    }
+
+    [Test]
+    public void Launcher_AdoptsMigratedRunnerAndReplacementShutdownListener()
+    {
+        var launcherObject = new GameObject("Migration Launcher Test");
+        var sourceObject = new GameObject("Source Runner");
+        var replacementObject = new GameObject("Replacement Runner");
+        var matchObject = new GameObject("Restored Match Controller");
+        FusionSessionLauncher launcher = launcherObject.AddComponent<FusionSessionLauncher>();
+        NetworkRunner sourceRunner = sourceObject.AddComponent<NetworkRunner>();
+        NetworkRunner replacementRunner = replacementObject.AddComponent<NetworkRunner>();
+        NetworkSceneManagerDefault sceneManager =
+            replacementObject.AddComponent<NetworkSceneManagerDefault>();
+        NetworkSpawnManager spawnManager = replacementObject.AddComponent<NetworkSpawnManager>();
+        ExtractionSanctuaryAssignmentService sanctuary =
+            replacementObject.AddComponent<ExtractionSanctuaryAssignmentService>();
+        HostMigrationLifecycleController migrationController =
+            replacementObject.AddComponent<HostMigrationLifecycleController>();
+        HostMigrationSnapshotRestorer restorer =
+            replacementObject.AddComponent<HostMigrationSnapshotRestorer>();
+        matchObject.AddComponent<NetworkObject>();
+        NetworkMatchController matchController = matchObject.AddComponent<NetworkMatchController>();
+        SetPrivateField(spawnManager, "_matchController", matchController);
+        SetPrivateField(launcher, "_runner", sourceRunner);
+        SetPrivateField(launcher, "_runnerObject", sourceObject);
+
+        var composition = new NetworkRunnerFactory.RunnerComposition(
+            replacementObject,
+            replacementRunner,
+            sceneManager,
+            spawnManager,
+            sanctuary,
+            migrationController,
+            restorer);
+
+        try
+        {
+            Assert.That(launcher.TryBeginHostMigration(sourceRunner), Is.True);
+            Assert.That(
+                launcher.TryAdoptMigratedRunner(sourceRunner, in composition),
+                Is.True);
+            Assert.That(launcher.Runner, Is.SameAs(replacementRunner));
+            Assert.That(launcher.MatchController, Is.SameAs(matchController));
+            Assert.That(ReadPrivateField<NetworkRunner>(launcher, "_hostMigrationSourceRunner"), Is.Null);
+
+            LauncherShutdownListener listener =
+                ReadPrivateField<LauncherShutdownListener>(launcher, "_shutdownListener");
+            Assert.That(listener, Is.Not.Null);
+            Assert.That(
+                ReadPrivateField<NetworkRunner>(listener, "_expectedRunner"),
+                Is.SameAs(replacementRunner));
+        }
+        finally
+        {
+            Object.DestroyImmediate(launcherObject);
+            Object.DestroyImmediate(sourceObject);
+            Object.DestroyImmediate(replacementObject);
+            Object.DestroyImmediate(matchObject);
+        }
+    }
+
+    [Test]
+    public async Task HostMigrationCompletion_PendingDoesNotFailOrCompleteEarly()
+    {
+        CreateMigrationSpawnManager(
+            "Pending Migration Completion",
+            out GameObject owner,
+            out NetworkSpawnManager spawnManager);
+
+        try
+        {
+            Task<NetworkSpawnManager.HostMigrationCompletionResult> pending =
+                spawnManager.WaitForHostMigrationCompletionAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(pending.IsCompleted, Is.False);
+
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Failure,
+                "Test cleanup.");
+            await pending;
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task HostMigrationCompletion_SuccessIsOneShot()
+    {
+        CreateMigrationSpawnManager(
+            "Successful Migration Completion",
+            out GameObject owner,
+            out NetworkSpawnManager spawnManager);
+
+        try
+        {
+            Task<NetworkSpawnManager.HostMigrationCompletionResult> pending =
+                spawnManager.WaitForHostMigrationCompletionAsync(TimeSpan.FromSeconds(5));
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Success,
+                "Runtime rebind completed.");
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Failure,
+                "Late failure must not replace success.");
+
+            NetworkSpawnManager.HostMigrationCompletionResult result = await pending;
+            Assert.That(result.Status,
+                Is.EqualTo(NetworkSpawnManager.HostMigrationCompletionStatus.Success));
+            Assert.That(result.Succeeded, Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task HostMigrationCompletion_FailureCompletesWithoutWaitingForTimeout()
+    {
+        CreateMigrationSpawnManager(
+            "Failed Migration Completion",
+            out GameObject owner,
+            out NetworkSpawnManager spawnManager);
+
+        try
+        {
+            Task<NetworkSpawnManager.HostMigrationCompletionResult> pending =
+                spawnManager.WaitForHostMigrationCompletionAsync(TimeSpan.FromSeconds(5));
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Failure,
+                "Snapshot restore failed.");
+
+            NetworkSpawnManager.HostMigrationCompletionResult result = await pending;
+            Assert.That(result.Status,
+                Is.EqualTo(NetworkSpawnManager.HostMigrationCompletionStatus.Failure));
+            Assert.That(result.Succeeded, Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task HostMigrationCompletion_PendingTimesOut()
+    {
+        CreateMigrationSpawnManager(
+            "Timed Out Migration Completion",
+            out GameObject owner,
+            out NetworkSpawnManager spawnManager);
+
+        try
+        {
+            NetworkSpawnManager.HostMigrationCompletionResult result =
+                await spawnManager.WaitForHostMigrationCompletionAsync(
+                    TimeSpan.FromMilliseconds(50));
+
+            Assert.That(result.Status,
+                Is.EqualTo(NetworkSpawnManager.HostMigrationCompletionStatus.Timeout));
+            Assert.That(result.Details, Does.Contain("SnapshotReported=False"));
+
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Success,
+                "Late success must not revive a timed-out migration.");
+            NetworkSpawnManager.HostMigrationCompletionResult repeated =
+                await spawnManager.WaitForHostMigrationCompletionAsync(
+                    TimeSpan.FromSeconds(5));
+            Assert.That(repeated.Status,
+                Is.EqualTo(NetworkSpawnManager.HostMigrationCompletionStatus.Timeout));
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task HostMigrationCompletion_AlreadySuccessfulReturnsImmediately()
+    {
+        CreateMigrationSpawnManager(
+            "Immediate Migration Completion",
+            out GameObject owner,
+            out NetworkSpawnManager spawnManager);
+
+        try
+        {
+            CompleteMigration(
+                spawnManager,
+                NetworkSpawnManager.HostMigrationCompletionStatus.Success,
+                "Completed before lifecycle await.");
+
+            Task<NetworkSpawnManager.HostMigrationCompletionResult> completed =
+                spawnManager.WaitForHostMigrationCompletionAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(completed.IsCompleted, Is.True);
+            Assert.That((await completed).Succeeded, Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    private static void CreateMigrationSpawnManager(
+        string name,
+        out GameObject owner,
+        out NetworkSpawnManager spawnManager)
+    {
+        owner = new GameObject(name);
+        NetworkRunner runner = owner.AddComponent<NetworkRunner>();
+        spawnManager = owner.AddComponent<NetworkSpawnManager>();
+        Assert.That(
+            spawnManager.InitializeForRunner(
+                runner,
+                null,
+                default,
+                Array.Empty<NetworkPrefabRef>(),
+                SessionStartupContext.HostMigrationResume,
+                default),
+            Is.True);
+    }
+
+    private static void CompleteMigration(
+        NetworkSpawnManager spawnManager,
+        NetworkSpawnManager.HostMigrationCompletionStatus status,
+        string details)
+    {
+        InvokePrivateMethod(
+            spawnManager,
+            "CompleteHostMigration",
+            status,
+            details);
+    }
+
     private static void SetPrivateField(object target, string fieldName, object value)
     {
         FieldInfo field = target.GetType().GetField(
@@ -177,5 +487,26 @@ public sealed class SessionConnectionStateMachineTests
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.That(field, Is.Not.Null);
         field.SetValue(target, value);
+    }
+
+    private static T ReadPrivateField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null);
+        return (T)field.GetValue(target);
+    }
+
+    private static object InvokePrivateMethod(
+        object target,
+        string methodName,
+        params object[] arguments)
+    {
+        MethodInfo method = target.GetType().GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null);
+        return method.Invoke(target, arguments);
     }
 }
