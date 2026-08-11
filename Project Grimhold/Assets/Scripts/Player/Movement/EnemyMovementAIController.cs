@@ -49,6 +49,13 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [Header("Obstacle Detection")]
     [SerializeField] private LayerMask _obstacleLayer;
 
+    [SerializeField] private EnemyObstacleAvoidanceSettings _avoidanceSettings = new EnemyObstacleAvoidanceSettings
+    {
+        CastRadius = 0.4f,
+        CastDistance = 1.0f,
+        AvoidanceStrength = 0.8f
+    };
+
     [Header("Scan")]
     [Tooltip("Interval in seconds between target scans when no target is active.")]
     [SerializeField, Min(0.05f)] private float _scanInterval = 0.1f;
@@ -104,6 +111,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     private bool _dependenciesValid;
     private CharacterBase _characterBase;
     private EntityRegistry _entityRegistry;
+    private EnemyObstacleAvoidance _obstacleAvoidance;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Networked state
@@ -159,6 +167,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     private void Awake()
     {
         CacheDependencies();
+        _obstacleAvoidance = new EnemyObstacleAvoidance(_obstacleLayer);
     }
 
     public override void Spawned()
@@ -503,20 +512,38 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// Pursues the active target when IsOnPursuit is true.
     /// Patrols when IsPatrolActive is true.
     /// Returns zero when neither pursuit nor patrol direction is applicable.
+    /// Applies obstacle avoidance steering to the chosen direction.
     /// </summary>
     private Vector2 ComputeMoveDirection()
     {
+        Vector2 intendedDir = Vector2.zero;
+        Vector2 targetPos = transform.position;
+
         if (IsOnPursuit && TryGetCurrentTarget(out _, out Transform targetTransform))
         {
-            return ComputePursuitDirection(targetTransform);
+            targetPos = targetTransform.position;
+            intendedDir = ComputePursuitDirection(targetTransform);
         }
-
-        if (IsPatrolActive)
+        else if (IsPatrolActive)
         {
-            return ComputePatrolDirection();
+            if (HasPatrolRoute && _patrolRoute.TryGetWaypoint(PatrolWaypointIndex, out Transform waypoint))
+            {
+                targetPos = waypoint.position;
+                intendedDir = ComputePatrolDirection();
+            }
         }
 
-        return Vector2.zero;
+        if (intendedDir.sqrMagnitude > ValidDirectionSqrThreshold && _characterBase != null)
+        {
+            return _obstacleAvoidance.Steer(
+                transform.position,
+                targetPos,
+                intendedDir,
+                in _avoidanceSettings,
+                (int)_characterBase.Id.Value);
+        }
+
+        return intendedDir;
     }
 
     /// <summary>
@@ -553,7 +580,6 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     /// <summary>
     /// Returns the normalized direction from the enemy toward the active target.
-    /// Etapa 3: EnemyObstacleAvoidance.Steer will be applied here.
     /// </summary>
     private Vector2 ComputePursuitDirection(Transform target)
     {
