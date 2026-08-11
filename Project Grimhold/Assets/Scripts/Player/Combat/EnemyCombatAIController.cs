@@ -36,6 +36,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     private AttackRequest _pendingDamageRequest;
     private EntityId _pendingTargetId;
     private bool _hasPendingDamage;
+    private bool _executeAttackNextTick;
 
     [Networked]
     private TickTimer AttackCooldown { get; set; }
@@ -88,6 +89,12 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         if (!_dependenciesValid || !HasStateAuthority)
         {
             return;
+        }
+
+        if (_executeAttackNextTick)
+        {
+            _executeAttackNextTick = false;
+            ApplyPendingDamage();
         }
 
         if (_movementController == null || _character == null)
@@ -183,18 +190,29 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         // Bypassing animation event for Ranged enemies since they do not have attack animations yet.
         if (_activeAttack != null && _activeAttack.Type == AttackType.Ranged)
         {
-            ExecutePendingDamage();
+            _executeAttackNextTick = true;
         }
     }
 
     /// <summary>
-    /// Applies the stored pending damage request.
+    /// Flags the pending damage request for execution in the next simulation tick.
     /// Must be called from a trusted source (Animation Event via EnemyAttackAnimationListener)
     /// only on the State Authority peer.
-    ///
-    /// Safe to call multiple times per attack window: the pending flag is cleared on first execution.
     /// </summary>
     public void ExecutePendingDamage()
+    {
+        if (!HasStateAuthority || !_hasPendingDamage)
+        {
+            return;
+        }
+        
+        _executeAttackNextTick = true;
+    }
+
+    /// <summary>
+    /// Applies the stored pending damage request during authoritative simulation flow.
+    /// </summary>
+    private void ApplyPendingDamage()
     {
         if (!HasStateAuthority || !_hasPendingDamage)
         {
@@ -360,6 +378,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             _entityRegistry != null &&
             _entityRegistry.TryGetCharacter(targetId, out ICharacter character) &&
             character != null &&
+            character is PlayerCharacter &&
             character.IsAlive &&
             _entityRegistry.TryGetDamageable(targetId, out IDamageable damageable) &&
             damageable != null &&

@@ -361,7 +361,6 @@ GameObject:
   - component: {fileID: -3796636682103364817}
   - component: {fileID: 7872507663536347850}
   - component: {fileID: 3762208006993684416}
-  - component: {fileID: 3694394704434487686}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -443,7 +442,6 @@ MonoBehaviour:
   _patrolSpeed: 0.75
   _pursuitSpeedMultiplier: 2
   _defaultFacingDirection: {x: 0, y: -1}
-  _patrolRoute: {fileID: 3694394704434487686}
   _waypointReachRadius: 0.3
   _detectionRange: 6
   _disengageRange: 10
@@ -844,19 +842,6 @@ MonoBehaviour:
   - {fileID: 1066720069559603162}
   - {fileID: 4522316450052852347}
   _visibilityOffset: {x: 0, y: 1}
---- !u!114 &3694394704434487686
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4369124737019072436}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a8e1b00ca6261d44b76a26c760f7319, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyPatrolRoute
-  _waypoints: []
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
@@ -899,7 +884,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7201000000000000021}
   - component: {fileID: 7201000000000000022}
-  m_Layer: 8
+  m_Layer: 7
   m_Name: LootInteraction
   m_TagString: Untagged
   m_Icon: {fileID: 0}

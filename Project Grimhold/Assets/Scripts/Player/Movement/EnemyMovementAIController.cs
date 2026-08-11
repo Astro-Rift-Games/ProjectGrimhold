@@ -32,7 +32,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [SerializeField] private Vector2 _defaultFacingDirection = Vector2.down;
 
     [Header("Patrol")]
-    [SerializeField] private EnemyPatrolRoute _patrolRoute;
+    private EnemyPatrolRoute _patrolRoute;
     [SerializeField, Min(0f)] private float _waypointReachRadius = 0.3f;
 
     [Header("Detection")]
@@ -181,7 +181,27 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             IsAttacking = false;
             _pursuitLostTickCount = 0;
             PatrolWaypointIndex = 0;
-            IsPatrolActive = false;
+        }
+    }
+
+    /// <summary>
+    /// Injects the patrol route before the first tick.
+    /// Should be called from Fusion's onBeforeSpawned callback.
+    /// </summary>
+    public void InitializePatrolRoute(EnemyPatrolRoute route)
+    {
+        if (route != null && route.HasWaypoints)
+        {
+            _patrolRoute = route;
+        }
+        else if (route != null && !route.HasWaypoints)
+        {
+            Debug.LogWarning("[EnemyMovementAIController] InitializePatrolRoute received a route with no waypoints. Defaulting to Idle.", this);
+            _patrolRoute = null;
+        }
+        else
+        {
+            _patrolRoute = null;
         }
     }
 
@@ -575,6 +595,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             && _entityRegistry != null
             && _entityRegistry.TryGetCharacter(targetId, out ICharacter character)
             && character != null
+            && character is PlayerCharacter
             && character.IsAlive
             && _entityRegistry.TryGetDamageable(targetId, out IDamageable damageable)
             && damageable != null

@@ -895,15 +895,41 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return;
         }
-        GetSpawnTransform(
+        Transform spawnPoint = GetSpawnTransform(
             SpawnGroupType.Enemies,
             UnityEngine.Random.Range(0, int.MaxValue),
             out Vector3 position,
             out Quaternion rotation);
+
+        EnemyPatrolRoute resolvedRoute = null;
+        if (spawnPoint != null)
+        {
+            EnemySpawnPoint es = spawnPoint.GetComponent<EnemySpawnPoint>();
+            if (es != null)
+            {
+                resolvedRoute = es.PatrolRoute;
+            }
+        }
+
         NetworkObject enemyObject = runner.Spawn(
             _enemyPrefabs[UnityEngine.Random.Range(0, _enemyPrefabs.Length)],
             position,
-            rotation);
+            rotation,
+            inputAuthority: null,
+            onBeforeSpawned: (callbackRunner, instance) =>
+            {
+                if (instance != null)
+                {
+                    if (instance.TryGetBehaviour(out EnemyMovementAIController controller))
+                    {
+                        controller.InitializePatrolRoute(resolvedRoute);
+                    }
+                    else
+                    {
+                        Debug.LogError("[NetworkSpawnManager] Spawned enemy has no EnemyMovementAIController.", instance);
+                    }
+                }
+            });
 
         _spawnedEnemies.Add(enemyObject);
         Debug.Log($"Spawned enemy at {position}.");
@@ -1586,7 +1612,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             rotation);
     }
 
-    private void GetSpawnTransform(
+    private Transform GetSpawnTransform(
         SpawnGroupType group,
         int seed,
         out Vector3 position,
@@ -1596,14 +1622,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             position = Vector3.zero;
             rotation = Quaternion.identity;
-            return;
+            return null;
         }
 
         if (spawnPoints == null || spawnPoints.Length == 0)
         {
             position = Vector3.zero;
             rotation = Quaternion.identity;
-            return;
+            return null;
         }
 
         int spawnIndex = Mathf.Abs(seed) % spawnPoints.Length;
@@ -1612,6 +1638,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         position = spawnPoint.position;
         rotation = spawnPoint.rotation;
+        
+        return spawnPoint;
     }
 }
 
