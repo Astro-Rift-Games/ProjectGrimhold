@@ -21,11 +21,12 @@ public sealed class TownRaidQueueRulesTests
     }
 
     [Test]
-    public void Departure_DissolvesForHostOrAnyLaunchingMember()
+    public void Departure_DissolvesOnlyForHost()
     {
         Assert.That(TownRaidQueueRules.ShouldDissolveAfterDeparture(TownRaidQueueState.Forming, true), Is.True);
+        Assert.That(TownRaidQueueRules.ShouldDissolveAfterDeparture(TownRaidQueueState.Launching, true), Is.True);
         Assert.That(TownRaidQueueRules.ShouldDissolveAfterDeparture(TownRaidQueueState.Forming, false), Is.False);
-        Assert.That(TownRaidQueueRules.ShouldDissolveAfterDeparture(TownRaidQueueState.Launching, false), Is.True);
+        Assert.That(TownRaidQueueRules.ShouldDissolveAfterDeparture(TownRaidQueueState.Launching, false), Is.False);
     }
 
     [Test]

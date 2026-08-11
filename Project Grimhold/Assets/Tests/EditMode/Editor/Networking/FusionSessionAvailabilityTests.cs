@@ -5,11 +5,16 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class FusionSessionAvailabilityTests
 {
-    [TestCase(ShutdownReason.GameNotFound)]
-    [TestCase(ShutdownReason.GameClosed)]
-    public void SessionAvailabilityPending_WaitsForHost(ShutdownReason reason)
+    [Test]
+    public void GameNotFound_WaitsForHost()
     {
-        Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(reason), Is.True);
+        Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(ShutdownReason.GameNotFound), Is.True);
+    }
+
+    [Test]
+    public void GameClosed_DoesNotWaitForHost()
+    {
+        Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(ShutdownReason.GameClosed), Is.False);
     }
 
     [TestCase(ShutdownReason.Error)]
