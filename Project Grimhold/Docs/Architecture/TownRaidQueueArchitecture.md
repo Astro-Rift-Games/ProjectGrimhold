@@ -12,18 +12,18 @@ The current MVP uses explicit six-digit raid codes instead. The Host creates a r
 TownRaidNpcInteractable (confirmed local interaction)
   -> TownRaidQueuePresenter / TownRaidQueueView (local code input)
   -> SessionConnectionCoordinator (single-runner lifecycle + loadout reservation)
-  -> RaidLaunchManifest.Code (deterministic session identity and admission secret)
+  -> RaidLaunchManifest.Code (deterministic session identity)
   -> FusionSessionLauncher (Host creates / Client joins exact hidden session)
   -> NetworkSpawnManager (authoritative admission and loadout validation)
 ```
 
-`TownRaidQueueView` generates a six-digit suggestion locally and lets the player edit or copy it. `RaidLaunchManifest.Code` accepts exactly six ASCII digits. The normalized code deterministically creates the same session name, raid id and access secret in every application process.
+`TownRaidQueueView` generates a six-digit suggestion locally and lets the player edit or copy it. `RaidLaunchManifest.Code` accepts exactly six ASCII digits. The normalized code deterministically creates the same session name and raid id in every application process. The canonical admission token carries the `RaidCode`; it does not carry a separate raid id, access secret or profile roster.
 
 Creating and joining are explicit UI actions. The coordinator reserves the local loadout before leaving Town, destroys the Shared runner, creates a fresh Host or Client runner and submits `RaidAdmissionData`. A failed Client lookup is definitive and recovers that player to Town. Clients do not poll for a Host that has not created the coded session yet.
 
 ## Authority and admission
 
-The Host starts in Gameplay immediately. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the raid id, code-derived secret, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
+The Host starts in Gameplay immediately. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the code, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
 
 The session is hidden from public matchmaking but remains open while the raid is `InProgress`, allowing Clients to join later with the code. It closes through the existing authoritative raid cancellation or natural-completion flow. There is no elapsed-time admission cutoff.
 

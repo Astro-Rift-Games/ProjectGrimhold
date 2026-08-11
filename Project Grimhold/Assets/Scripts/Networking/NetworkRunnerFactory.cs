@@ -92,13 +92,20 @@ public static class NetworkRunnerFactory
                     reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
                 }
 
-                admission = new RaidAdmissionData(
-                    raidManifest.RaidId,
-                    raidManifest.AccessSecret,
-                    joinData.ProfileId,
-                    joinData.ClassId,
-                    loadoutReservation.ReservationId,
-                    reservedLoadout);
+                admission = raidManifest.RaidCode.IsValid
+                    ? new RaidAdmissionData(
+                        raidManifest.RaidCode,
+                        joinData.ProfileId,
+                        joinData.ClassId,
+                        loadoutReservation.ReservationId,
+                        reservedLoadout)
+                    : new RaidAdmissionData(
+                        raidManifest.RaidId,
+                        raidManifest.AccessSecret,
+                        joinData.ProfileId,
+                        joinData.ClassId,
+                        loadoutReservation.ReservationId,
+                        reservedLoadout);
             }
             else if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
             {

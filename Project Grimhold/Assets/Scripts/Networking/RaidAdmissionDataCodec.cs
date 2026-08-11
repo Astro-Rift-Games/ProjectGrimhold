@@ -8,7 +8,8 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte Version = 2;
+    private const byte LegacyVersion = 2;
+    private const byte CanonicalVersion = 3;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -23,11 +24,21 @@ public static class RaidAdmissionDataCodec
         {
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream, Utf8, true);
-            writer.Write(Version);
+            writer.Write(data.RaidCode.IsValid ? CanonicalVersion : LegacyVersion);
             writer.Write((byte)data.SelectedBuild);
-            if (!TryWriteText(writer, data.RaidId) ||
-                !TryWriteText(writer, data.AccessSecret) ||
-                !TryWriteText(writer, data.ProfileId.Value) ||
+            if (data.RaidCode.IsValid)
+            {
+                if (!TryWriteText(writer, data.RaidCode.Value))
+                {
+                    return false;
+                }
+            }
+            else if (!TryWriteText(writer, data.RaidId) || !TryWriteText(writer, data.AccessSecret))
+            {
+                return false;
+            }
+
+            if (!TryWriteText(writer, data.ProfileId.Value) ||
                 !TryWriteText(writer, data.ReservationId))
             {
                 return false;
@@ -72,16 +83,35 @@ public static class RaidAdmissionDataCodec
         {
             using var stream = new MemoryStream(token, false);
             using var reader = new BinaryReader(stream, Utf8, true);
-            if (reader.ReadByte() != Version)
+            byte version = reader.ReadByte();
+            if (version != LegacyVersion && version != CanonicalVersion)
             {
                 return false;
             }
 
             PlayerClassId selectedBuild = (PlayerClassId)reader.ReadByte();
-            if (!PlayerJoinDataCodec.IsSupported(selectedBuild) ||
-                !TryReadText(reader, out string raidId) ||
-                !TryReadText(reader, out string accessSecret) ||
-                !TryReadText(reader, out string profileId) ||
+            if (!PlayerJoinDataCodec.IsSupported(selectedBuild))
+            {
+                return false;
+            }
+
+            RaidCode raidCode = default;
+            string raidId = null;
+            string accessSecret = null;
+            if (version == CanonicalVersion)
+            {
+                if (!TryReadText(reader, out string codeValue) ||
+                    !RaidCode.TryParse(codeValue, out raidCode))
+                {
+                    return false;
+                }
+            }
+            else if (!TryReadText(reader, out raidId) || !TryReadText(reader, out accessSecret))
+            {
+                return false;
+            }
+
+            if (!TryReadText(reader, out string profileId) ||
                 !TryReadText(reader, out string reservationId))
             {
                 return false;
@@ -110,13 +140,9 @@ public static class RaidAdmissionDataCodec
                 return false;
             }
 
-            data = new RaidAdmissionData(
-                raidId,
-                accessSecret,
-                new ProfileId(profileId),
-                selectedBuild,
-                reservationId,
-                entries);
+            data = version == CanonicalVersion
+                ? new RaidAdmissionData(raidCode, new ProfileId(profileId), selectedBuild, reservationId, entries)
+                : new RaidAdmissionData(raidId, accessSecret, new ProfileId(profileId), selectedBuild, reservationId, entries);
             return data.IsValid;
         }
         catch (ArgumentException)

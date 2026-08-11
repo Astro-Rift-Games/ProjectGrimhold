@@ -132,13 +132,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
             }
 
-            var admissionData = new RaidAdmissionData(
-                raidManifest.RaidId,
-                raidManifest.AccessSecret,
-                profileId,
-                selectedClass,
-                loadoutReservation.ReservationId,
-                reservedLoadout);
+            var admissionData = raidManifest.RaidCode.IsValid
+                ? new RaidAdmissionData(
+                    raidManifest.RaidCode,
+                    profileId,
+                    selectedClass,
+                    loadoutReservation.ReservationId,
+                    reservedLoadout)
+                : new RaidAdmissionData(
+                    raidManifest.RaidId,
+                    raidManifest.AccessSecret,
+                    profileId,
+                    selectedClass,
+                    loadoutReservation.ReservationId,
+                    reservedLoadout);
             if (!raidManifest.Contains(profileId) || !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");

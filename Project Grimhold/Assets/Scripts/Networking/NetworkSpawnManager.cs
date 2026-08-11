@@ -982,8 +982,19 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool IsRaidAdmissionValid(in RaidAdmissionData admission)
     {
-        return _raidManifest.IsValid && admission.IsValid &&
-               string.Equals(admission.RaidId, _raidManifest.RaidId, StringComparison.Ordinal) &&
+        if (!_raidManifest.IsValid || !admission.IsValid)
+        {
+            return false;
+        }
+
+        if (_raidManifest.RaidCode.IsValid)
+        {
+            return admission.RaidCode.IsValid &&
+                   admission.RaidCode == _raidManifest.RaidCode &&
+                   admission.ProfileId.IsValid;
+        }
+
+        return string.Equals(admission.RaidId, _raidManifest.RaidId, StringComparison.Ordinal) &&
                string.Equals(admission.AccessSecret, _raidManifest.AccessSecret, StringComparison.Ordinal) &&
                _raidManifest.Contains(admission.ProfileId);
     }

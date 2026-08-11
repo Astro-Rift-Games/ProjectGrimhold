@@ -70,6 +70,7 @@ public sealed class RaidLaunchManifestTests
         Assert.That(host.IsValid, Is.True);
         Assert.That(client.SessionName, Is.EqualTo(host.SessionName));
         Assert.That(client.RaidId, Is.EqualTo(host.RaidId));
-        Assert.That(client.AccessSecret, Is.EqualTo(host.AccessSecret));
+        Assert.That(host.AccessSecret, Is.Null);
+        Assert.That(client.AccessSecret, Is.Null);
     }
 }

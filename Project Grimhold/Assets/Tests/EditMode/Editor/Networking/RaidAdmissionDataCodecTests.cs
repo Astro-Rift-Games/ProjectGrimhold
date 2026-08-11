@@ -5,6 +5,44 @@ using Assert = NUnit.Framework.Assert;
 public sealed class RaidAdmissionDataCodecTests
 {
     [Test]
+    public void CanonicalCodeToken_RoundTripsWithoutRaidIdOrAccessSecret()
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var source = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-code"),
+            PlayerClassId.Ranged,
+            "reservation-code",
+            new[] { new LootEntry(new LootId("coins"), 4) });
+
+        Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
+        Assert.That(token[0], Is.EqualTo(3));
+        Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
+        Assert.That(decoded.RaidCode, Is.EqualTo(code));
+        Assert.That(decoded.RaidId, Is.EqualTo(code.RaidId));
+        Assert.That(decoded.AccessSecret, Is.Null);
+        Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
+        Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
+    }
+
+    [Test]
+    public void CanonicalCodeToken_RejectsDifferentCodeAtAuthoritativeBoundary()
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode first), Is.True);
+        Assert.That(RaidCode.TryParse("038272", out RaidCode second), Is.True);
+        var source = new RaidAdmissionData(
+            first,
+            new ProfileId("profile-code"),
+            PlayerClassId.Melee,
+            "reservation-code",
+            new List<LootEntry>());
+
+        Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
+        Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
+        Assert.That(decoded.RaidCode, Is.Not.EqualTo(second));
+    }
+
+    [Test]
     public void RoundTrip_PreservesAllAdmissionFields()
     {
         var source = new RaidAdmissionData(

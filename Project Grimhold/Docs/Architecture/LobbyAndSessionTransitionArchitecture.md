@@ -73,9 +73,9 @@ second gameplay source of truth.
 
 ## Requests and results
 
-`RaidConnectionRequest` contains the raid identifier, exact Fusion session name, and
-`RaidConnectionRole` (`Host` or `Client`). A request is invalid when either identifier is
-blank or the role is unsupported.
+`RaidConnectionRequest` contains the canonical `RaidCode` and
+`RaidConnectionRole` (`Host` or `Client`). `SessionName` and `RaidId` are derived from
+the code and are not independently supplied by the coded access path.
 
 `RaidTransitionTicket` captures the validated request, selected build, immutable
 `PendingLoadoutReservation` snapshot and current transition state. Admission is
@@ -84,7 +84,8 @@ inventory are present. Before that boundary a failed launch rolls back; after it
 confirmation is retried without rollback. `SessionTransitionResult` distinguishes
 reservation, rollback and confirmation failures from connection failures. The
 direct development route uses the same manifest, reservation, codec and admission
-path as the Town queue.
+path as the Town queue. The coded token carries `RaidCode`; the previous
+`RaidId`/`AccessSecret` token format remains only for legacy frozen manifests.
 
 ## Runner lifecycle
 

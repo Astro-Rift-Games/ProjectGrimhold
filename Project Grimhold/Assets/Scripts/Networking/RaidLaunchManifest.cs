@@ -37,7 +37,7 @@ public readonly struct RaidLaunchManifest
                 return default;
             }
 
-            return CreateCodeAdmission(raidCode.RaidId, raidCode.SessionName, $"code-{raidCode}", 1);
+            return CreateCodeAdmission(raidCode.RaidId, raidCode.SessionName, null, 1);
         }
     }
 
@@ -47,6 +47,7 @@ public readonly struct RaidLaunchManifest
     public string RaidId { get; }
     public string SessionName { get; }
     public string AccessSecret { get; }
+    public RaidCode RaidCode { get; }
     public ProfileId HostProfileId { get; }
     public int LaunchSequence { get; }
     public IReadOnlyList<ProfileId> AdmittedProfiles => _admittedProfiles ?? Array.Empty<ProfileId>();
@@ -57,14 +58,23 @@ public readonly struct RaidLaunchManifest
         get
         {
             if (string.IsNullOrWhiteSpace(RaidId) || string.IsNullOrWhiteSpace(SessionName) ||
-                string.IsNullOrWhiteSpace(AccessSecret) || LaunchSequence <= 0)
+                LaunchSequence <= 0)
             {
                 return false;
             }
 
             if (_allowsCodeAdmission)
             {
-                return !HostProfileId.IsValid && (_admittedProfiles == null || _admittedProfiles.Length == 0);
+                return RaidCode.IsValid &&
+                       string.Equals(RaidCode.RaidId, RaidId, StringComparison.Ordinal) &&
+                       string.Equals(RaidCode.SessionName, SessionName, StringComparison.Ordinal) &&
+                       !HostProfileId.IsValid &&
+                       (_admittedProfiles == null || _admittedProfiles.Length == 0);
+            }
+
+            if (string.IsNullOrWhiteSpace(AccessSecret))
+            {
+                return false;
             }
 
             if (!HostProfileId.IsValid || _admittedProfiles == null ||
@@ -110,6 +120,7 @@ public readonly struct RaidLaunchManifest
         RaidId = raidId;
         SessionName = sessionName;
         AccessSecret = accessSecret;
+        RaidCode = default;
         HostProfileId = hostProfileId;
         LaunchSequence = launchSequence;
         _admittedProfiles = CopyProfiles(admittedProfiles);
@@ -125,6 +136,7 @@ public readonly struct RaidLaunchManifest
         RaidId = raidId;
         SessionName = sessionName;
         AccessSecret = accessSecret;
+        RaidCode = TryGetRaidCode(raidId, sessionName);
         HostProfileId = default;
         LaunchSequence = launchSequence;
         _admittedProfiles = Array.Empty<ProfileId>();
@@ -178,5 +190,25 @@ public readonly struct RaidLaunchManifest
         }
 
         return copied;
+    }
+
+    private static RaidCode TryGetRaidCode(string raidId, string sessionName)
+    {
+        if (!RaidCode.TryParse(ExtractCode(raidId), out RaidCode code) ||
+            !string.Equals(code.SessionName, sessionName, StringComparison.Ordinal) ||
+            !string.Equals(code.RaidId, raidId, StringComparison.Ordinal))
+        {
+            return default;
+        }
+
+        return code;
+    }
+
+    private static string ExtractCode(string identity)
+    {
+        const string prefix = "raid-";
+        return identity != null && identity.StartsWith(prefix, StringComparison.Ordinal)
+            ? identity.Substring(prefix.Length)
+            : null;
     }
 }
