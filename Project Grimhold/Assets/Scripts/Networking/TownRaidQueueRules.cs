@@ -16,7 +16,7 @@ public static class TownRaidQueueRules
 
     public static bool ShouldDissolveAfterDeparture(TownRaidQueueState state, bool departingMemberIsHost)
     {
-        return departingMemberIsHost || state == TownRaidQueueState.Launching;
+        return departingMemberIsHost;
     }
 
     public static bool ShouldCancelAfterAuthorityTransfer(TownRaidQueueState state)

@@ -44,6 +44,9 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     [SerializeField, Range(1, RaidLaunchManifest.MaximumMembers)]
     private int _maximumMembers = RaidLaunchManifest.MaximumMembers;
 
+    [SerializeField, Min(1f)]
+    private float _coordinatedReleaseTimeoutSeconds = 15f;
+
     [Networked]
     public TownRaidQueueState State { get; private set; }
 
@@ -72,11 +75,17 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     private QueueMemberNetwork Member3 { get; set; }
 
     private readonly HashSet<string> _launchAcknowledgements = new();
+    private readonly HashSet<string> _expectedRemoteProfiles = new();
+    private readonly HashSet<string> _releasedRemoteProfiles = new();
+    private readonly HashSet<string> _departedRemoteProfiles = new();
     private RaidLaunchManifest _pendingManifest;
     private ManifestDeliveryBuffer _manifestDelivery;
     private int _deliveredManifestSequence;
     private bool _queueInteractionRequested;
     private bool _cancelLaunchRequested;
+    private bool _releaseDispatched;
+    private bool _hostReleaseRequested;
+    private float _releaseDeadline;
 
     public event Action QueueInteractionRequested;
 
@@ -129,7 +138,20 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || !_cancelLaunchRequested)
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        if (State == TownRaidQueueState.Launching && _releaseDispatched && !_hostReleaseRequested &&
+            _releaseDeadline > 0f && Time.time >= _releaseDeadline)
+        {
+            LogTransition("Coordinated release timeout; cancelling launch");
+            _cancelLaunchRequested = true;
+            _releaseDeadline = 0f;
+        }
+
+        if (!_cancelLaunchRequested)
         {
             return;
         }
@@ -166,6 +188,7 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         }
 
         QueueMemberNetwork member = GetMember(memberIndex);
+        LogTransition($"PlayerLeft observed profile={member.ProfileId} player={player}");
         bool isHost = string.Equals(
             member.ProfileId.ToString(),
             HostProfileId.ToString(),
@@ -174,11 +197,35 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         {
             if (State == TownRaidQueueState.Launching)
             {
+                if (_hostReleaseRequested && isHost)
+                {
+                    return;
+                }
+
                 _cancelLaunchRequested = true;
             }
             else
             {
                 ResetQueue();
+            }
+
+            return;
+        }
+
+        if (State == TownRaidQueueState.Launching)
+        {
+            string departingProfile = member.ProfileId.ToString();
+            if (_expectedRemoteProfiles.Contains(departingProfile))
+            {
+                if (_releasedRemoteProfiles.Contains(departingProfile))
+                {
+                    _departedRemoteProfiles.Add(departingProfile);
+                    TryReleaseHostAfterRemoteDepartures();
+                }
+                else
+                {
+                    _cancelLaunchRequested = true;
+                }
             }
 
             return;
@@ -194,7 +241,9 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     /// </summary>
     public void StateAuthorityChanged()
     {
-        if (HasStateAuthority && TownRaidQueueRules.ShouldCancelAfterAuthorityTransfer(State))
+        LogTransition("StateAuthorityChanged");
+        if (HasStateAuthority && State == TownRaidQueueState.Launching && !_hostReleaseRequested &&
+            TownRaidQueueRules.ShouldCancelAfterAuthorityTransfer(State))
         {
             _cancelLaunchRequested = true;
         }
@@ -304,6 +353,7 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         State = TownRaidQueueState.Launching;
         _launchAcknowledgements.Clear();
         SnapshotRevision++;
+        LogTransition($"RequestLaunch accepted sequence={LaunchSequence} members={MemberCount}");
         DeliverManifestToMembers(_pendingManifest);
         return default;
     }
@@ -319,13 +369,13 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         }
 
         _launchAcknowledgements.Add(profileId.Value);
+        LogTransition($"Launch ACK received profile={profileId.Value} acks={_launchAcknowledgements.Count}/{_pendingManifest.AdmittedProfiles.Count}");
         if (_launchAcknowledgements.Count != _pendingManifest.AdmittedProfiles.Count)
         {
             return;
         }
 
-        ReleaseMembers(_pendingManifest);
-        ResetQueue();
+        PrepareCoordinatedRelease(_pendingManifest);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All, Channel = RpcChannel.Reliable)]
@@ -403,6 +453,7 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
     private void RPC_ReleaseLaunch([RpcTarget] PlayerRef target, int sequence)
     {
+        LogTransition($"Release received target={target} sequence={sequence}");
         SessionConnectionCoordinator.Instance?.BeginAcknowledgedRaidLaunch(sequence);
     }
 
@@ -506,16 +557,59 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         _deliveredManifestSequence = 0;
     }
 
-    private void ReleaseMembers(in RaidLaunchManifest manifest)
+    private void PrepareCoordinatedRelease(in RaidLaunchManifest manifest)
     {
+        _expectedRemoteProfiles.Clear();
+        _releasedRemoteProfiles.Clear();
+        _departedRemoteProfiles.Clear();
+        _releaseDispatched = true;
+        _releaseDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
+        LogTransition($"All context ACKs complete; releasing remotes expected={manifest.AdmittedProfiles.Count - 1}");
+
         for (int index = 0; index < RaidLaunchManifest.MaximumMembers; index++)
         {
             QueueMemberNetwork member = GetMember(index);
-            if (member.IsOccupied)
+            if (!member.IsOccupied)
             {
-                RPC_ReleaseLaunch(member.Player, manifest.LaunchSequence);
+                continue;
             }
+
+            if (string.Equals(member.ProfileId.ToString(), manifest.HostProfileId.Value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            _expectedRemoteProfiles.Add(member.ProfileId.ToString());
+            _releasedRemoteProfiles.Add(member.ProfileId.ToString());
+            LogTransition($"Release sent profile={member.ProfileId} player={member.Player}");
+            RPC_ReleaseLaunch(member.Player, manifest.LaunchSequence);
         }
+
+        TryReleaseHostAfterRemoteDepartures();
+    }
+
+    private void TryReleaseHostAfterRemoteDepartures()
+    {
+        if (!_releaseDispatched || _hostReleaseRequested ||
+            _departedRemoteProfiles.Count < _expectedRemoteProfiles.Count)
+        {
+            return;
+        }
+
+        _hostReleaseRequested = true;
+        _releaseDeadline = 0f;
+        LogTransition("All remote members departed; releasing Host");
+        SessionConnectionCoordinator.Instance?.BeginAcknowledgedRaidLaunch(_pendingManifest.LaunchSequence);
+    }
+
+    private void LogTransition(string message)
+    {
+        string localProfile = TryGetLocalProfile(out ProfileId profile) ? profile.Value : "<unknown>";
+        Debug.Log(
+            $"[TOWN-RAID-TRANSITION] {message} localProfile={localProfile} " +
+            $"player={Runner?.LocalPlayer} code={RaidCodeValue} sequence={LaunchSequence} " +
+            $"state={State} authority={HasStateAuthority}",
+            this);
     }
 
     private RaidLaunchManifest CreateManifest(int sequence)
@@ -709,6 +803,12 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         Member3 = default;
         _pendingManifest = default;
         _launchAcknowledgements.Clear();
+        _expectedRemoteProfiles.Clear();
+        _releasedRemoteProfiles.Clear();
+        _departedRemoteProfiles.Clear();
+        _releaseDispatched = false;
+        _hostReleaseRequested = false;
+        _releaseDeadline = 0f;
         SnapshotRevision++;
     }
 
