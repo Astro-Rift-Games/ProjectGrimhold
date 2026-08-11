@@ -69,11 +69,6 @@ public sealed class TownRaidQueueView : MonoBehaviour
     {
         _promptRoot?.SetActive(false);
         _panelRoot?.SetActive(true);
-        if (_codeInput != null && string.IsNullOrWhiteSpace(_codeInput.text))
-        {
-            _codeInput.text = RaidLaunchManifest.Code.Generate();
-        }
-
         ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
         SetBusy(false);
     }
@@ -135,9 +130,9 @@ public sealed class TownRaidQueueView : MonoBehaviour
 
         _codeInput = CreateCodeInput(_panelRoot.transform);
         _createButton = CreateButton(
-            "Crear raid con este código",
+            "Crear raid",
             _panelRoot.transform,
-            () => Submit(CreateRequested),
+            () => CreateRequested?.Invoke(null),
             out _);
         _joinButton = CreateButton(
             "Unirse con este código",

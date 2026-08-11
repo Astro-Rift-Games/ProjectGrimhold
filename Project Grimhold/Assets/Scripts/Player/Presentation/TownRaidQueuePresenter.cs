@@ -53,6 +53,12 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         _view.JoinRequested += JoinRaid;
         _view.CloseRequested += ClosePanel;
         _interactionController.InteractionResolved += OnInteractionResolved;
+
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null && coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure))
+        {
+            _view.ShowTransitionFailure(failure);
+        }
     }
 
     public override void Render()
@@ -100,9 +106,9 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         AcquireInputSuppression();
     }
 
-    private async void CreateRaid(string code)
+    private async void CreateRaid(string _)
     {
-        await StartRaidTransition(code, true);
+        await StartRaidTransition(null, true);
     }
 
     private async void JoinRaid(string code)
@@ -119,9 +125,9 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
             return;
         }
 
-        _view?.SetBusy(true, create ? $"Creando raid {code}…" : $"Uniéndose a raid {code}…");
+        _view?.SetBusy(true, create ? "Creando raid…" : $"Uniéndose a raid {code}…");
         SessionTransitionResult result = create
-            ? await coordinator.CreateCodeRaidAsync(code)
+            ? await coordinator.CreateCodeRaidAsync()
             : await coordinator.JoinCodeRaidAsync(code);
 
         if (result != SessionTransitionResult.Succeeded && this != null)
