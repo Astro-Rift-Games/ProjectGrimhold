@@ -179,6 +179,9 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         );
         _pendingTargetId = targetId;
         _hasPendingDamage = true;
+        {
+            ExecutePendingDamage();
+        }
     }
 
     /// <summary>
