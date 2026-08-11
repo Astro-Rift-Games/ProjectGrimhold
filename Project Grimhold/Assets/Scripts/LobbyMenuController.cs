@@ -46,7 +46,7 @@ public class LobbyMenuController : MonoBehaviour
         sessionCodeText.text = _runner.SessionInfo.Name;
     }
 
-    public async void StartGame()
+    public void StartGame()
     {
         if (_runner == null || !_runner.IsServer)
             return;
@@ -57,13 +57,9 @@ public class LobbyMenuController : MonoBehaviour
         var matchController = _launcher != null ? _launcher.MatchController : null;
         if (matchController != null)
         {
-            try
+            if (!matchController.TryStartRaid())
             {
-                await matchController.StartGameAsync(gameplayScene);
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[LobbyMenuController] Failed to start game: {ex.Message}");
+                Debug.LogError("[LobbyMenuController] Failed to start raid.");
                 _startGameButton.interactable = true;
             }
         }

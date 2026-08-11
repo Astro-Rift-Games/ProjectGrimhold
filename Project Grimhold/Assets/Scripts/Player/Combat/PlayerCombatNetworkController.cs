@@ -33,6 +33,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private ICharacter _character;
     private IAttack _activeAttack;
     private bool _dependenciesValid;
+    private NetworkMatchController _matchController;
+    private NetworkMatchController.MatchPhase _lastObservedPhase;
     private int _lastObservedSequence;
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
@@ -89,6 +91,10 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     {
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
+        _lastObservedPhase = _matchController != null
+            ? _matchController.Phase
+            : NetworkMatchController.MatchPhase.InProgress;
 
         // Initialize the local observed sequence with the current network sequence
         // to prevent triggering events from attacks performed before this proxy spawned.
@@ -97,7 +103,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
-            IsAttackEnabled = true;
+            IsAttackEnabled = _matchController == null ||
+                              _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         }
     }
 
@@ -107,6 +114,19 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         {
             return;
         }
+
+        bool gameplayPhaseActive = _matchController == null ||
+                                    _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
+        if (HasStateAuthority && _matchController != null &&
+            _lastObservedPhase != NetworkMatchController.MatchPhase.InProgress &&
+            _matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
+        {
+            IsAttackEnabled = true;
+        }
+
+        _lastObservedPhase = _matchController != null
+            ? _matchController.Phase
+            : NetworkMatchController.MatchPhase.InProgress;
 
         // Read input from Fusion. If no input is available for this tick, exit immediately.
         if (!GetInput(out PlayerNetworkInput input))
@@ -142,7 +162,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
-        if (!attackPressed)
+        if (!gameplayPhaseActive || !attackPressed)
         {
             return;
         }

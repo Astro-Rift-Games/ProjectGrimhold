@@ -33,6 +33,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Invalid
     }
 
+    private enum InitialRaidBootstrapState
+    {
+        NotStarted,
+        Running,
+        Completed,
+        Failed
+    }
+
     private PlayerClassCatalog _playerClassCatalog;
     private NetworkPrefabRef _raidParticipantPrefab;
     private NetworkPrefabRef[] _enemyPrefabs;
@@ -74,6 +82,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private SceneLoadProcessingState _sceneLoadState = SceneLoadProcessingState.None;
     private SceneSpawnConfigurationStatus _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
     private bool _spawnsBlocked = true;
+    private InitialRaidBootstrapState _initialRaidBootstrapState = InitialRaidBootstrapState.NotStarted;
 
     private bool _resumedScenePipelineReady;
     private bool _snapshotRestoreReported;
@@ -127,6 +136,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
     
     public bool ShouldInitializeMatchPhase => _startupContext.IsValid && _startupContext.ShouldInitializeMatchPhase;
+    public bool IsScenePrepared => _sceneLoadState == SceneLoadProcessingState.Completed &&
+                                   _sceneSpawnStatus != SceneSpawnConfigurationStatus.Invalid;
+    public bool HasCompletedInitialRaidBootstrap => _initialRaidBootstrapState == InitialRaidBootstrapState.Completed;
 
     private void Awake()
     {
@@ -222,6 +234,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.None;
         _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
         _spawnsBlocked = true;
+        _initialRaidBootstrapState = InitialRaidBootstrapState.NotStarted;
 
         _resumedScenePipelineReady = false;
         _snapshotRestoreReported = false;
@@ -357,6 +370,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.Pending;
         _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
         _spawnsBlocked = true;
+        _initialRaidBootstrapState = InitialRaidBootstrapState.NotStarted;
 
         Debug.Log($"[NetworkSpawnManager] OnSceneLoadStart: Starting load generation {_currentSceneLoadGeneration} (State: {_sceneLoadState}). Blocked spawning and cleared spatial config.");
     }
@@ -503,68 +517,26 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         // Start processing spawns
         try
         {
-            // Only process players/enemies if the scene requires spawn points
+            // Scene loading prepares spatial state and admits already-registered players.
+            // Initial PvPvE content is deliberately deferred until Start Raid.
             if (_sceneSpawnStatus == SceneSpawnConfigurationStatus.SpawnPointsReady)
             {
-                if (_startupContext.ShouldExecuteInitialSceneBootstrap)
+                foreach (PlayerRef player in runner.ActivePlayers)
                 {
-                    // Spawn players
-                    foreach (PlayerRef player in runner.ActivePlayers)
+                    if (_admittedPlayers.Contains(player))
                     {
-                        if (_admittedPlayers.Contains(player))
-                        {
-                            SpawnPlayer(runner, player);
-                        }
+                        SpawnPlayer(runner, player);
                     }
-
-                    // Spawn initial scene entities through explicit group integrations.
-                    if (_sceneSpawnPointConfiguration != null && _sceneSpawnPointConfiguration.SpawnGroups != null)
-                    {
-                        foreach (SpawnGroupDefinition group in _sceneSpawnPointConfiguration.SpawnGroups)
-                        {
-                            if (group == null)
-                            {
-                                continue;
-                            }
-
-                            switch (InitialSpawnGroupPolicy.Resolve(group.Group))
-                            {
-                                case InitialSpawnGroupPolicy.SpawnKind.Players:
-                                    break;
-                                case InitialSpawnGroupPolicy.SpawnKind.Enemies:
-                                    for (int i = 0; i < group.Amount; i++)
-                                    {
-                                        SpawnEnemy(runner);
-                                    }
-                                    break;
-                                case InitialSpawnGroupPolicy.SpawnKind.LootContainers:
-                                    SpawnConfiguredLootContainers(runner, group);
-                                    break;
-                                case InitialSpawnGroupPolicy.SpawnKind.Breakables:
-                                    SpawnConfiguredBreakables(runner, group);
-                                    break;
-                                default:
-                                    Debug.LogWarning(
-                                        $"[NetworkSpawnManager] Initial spawning for group '{group.Group}' is not implemented. The group was skipped.",
-                                        this);
-                                    break;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    Debug.Log($"[NetworkSpawnManager] Host Migration Resume: skipping fresh scene bootstrap.");
                 }
             }
 
             if (_startupContext.ShouldExecuteInitialSceneBootstrap)
             {
-                // Mark completed successfully
+                // Mark scene preparation complete. Initial PvPvE content is not part of this callback.
                 _lastCompletedSceneLoadGeneration = thisLoadIdentity;
                 _sceneLoadState = SceneLoadProcessingState.Completed;
                 _spawnsBlocked = false;
-                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Load generation {thisLoadIdentity} completed successfully (Status: {_sceneSpawnStatus}). Spawns unblocked.");
+                Debug.Log($"[NetworkSpawnManager] OnSceneLoadDone: Load generation {thisLoadIdentity} prepared successfully (Status: {_sceneSpawnStatus}). Participant spawns unblocked; initial PvPvE bootstrap is pending Start Raid.");
             }
             else
             {
@@ -577,6 +549,112 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             Debug.LogError($"[NetworkSpawnManager] Exception during spawn processing: {ex.Message}");
             FailSceneLoadPipeline();
+        }
+    }
+
+    /// <summary>
+    /// Executes the one-time initial PvPvE content bootstrap after the authoritative
+    /// match has entered Starting. Scene preparation and participant spawning are
+    /// intentionally completed before this method is called.
+    /// </summary>
+    public bool TryExecuteInitialRaidBootstrap(out string failure)
+    {
+        failure = null;
+        if (_runner == null || !_runner.IsServer)
+        {
+            failure = "Initial raid bootstrap requires the active server runner.";
+            return false;
+        }
+
+        if (_startupContext.Mode != SessionStartupMode.FreshSession)
+        {
+            failure = "Host Migration Resume cannot execute a fresh raid bootstrap.";
+            return false;
+        }
+
+        if (_matchController == null || _matchController.Phase != NetworkMatchController.MatchPhase.Starting)
+        {
+            failure = "Initial raid bootstrap requires the match to be in Starting.";
+            return false;
+        }
+
+        if (!IsScenePrepared)
+        {
+            failure = "Initial raid bootstrap requires a prepared Gameplay scene.";
+            return false;
+        }
+
+        if (_initialRaidBootstrapState != InitialRaidBootstrapState.NotStarted)
+        {
+            failure = $"Initial raid bootstrap is already {_initialRaidBootstrapState}.";
+            return false;
+        }
+
+        _initialRaidBootstrapState = InitialRaidBootstrapState.Running;
+        try
+        {
+            if (_sceneSpawnPointConfiguration?.SpawnGroups == null)
+            {
+                _initialRaidBootstrapState = InitialRaidBootstrapState.Completed;
+                return true;
+            }
+
+            foreach (SpawnGroupDefinition group in _sceneSpawnPointConfiguration.SpawnGroups)
+            {
+                if (group == null)
+                {
+                    continue;
+                }
+
+                switch (InitialSpawnGroupPolicy.Resolve(group.Group))
+                {
+                    case InitialSpawnGroupPolicy.SpawnKind.Players:
+                        break;
+                    case InitialSpawnGroupPolicy.SpawnKind.Enemies:
+                        for (int index = 0; index < group.Amount; index++)
+                        {
+                            if (!SpawnEnemy(_runner))
+                            {
+                                failure = $"Enemy bootstrap failed for group '{group.Group}'.";
+                                _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
+                                return false;
+                            }
+                        }
+                        break;
+                    case InitialSpawnGroupPolicy.SpawnKind.LootContainers:
+                        if (!SpawnConfiguredLootContainers(_runner, group))
+                        {
+                            failure = $"Loot bootstrap failed for group '{group.Group}'.";
+                            _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
+                            return false;
+                        }
+                        break;
+                    case InitialSpawnGroupPolicy.SpawnKind.Breakables:
+                        if (!SpawnConfiguredBreakables(_runner, group))
+                        {
+                            failure = $"Breakables bootstrap failed for group '{group.Group}'.";
+                            _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
+                            return false;
+                        }
+                        break;
+                    default:
+                        Debug.LogWarning(
+                            $"[NetworkSpawnManager] Initial spawning for group '{group.Group}' is not implemented. The group was skipped.",
+                            this);
+                        break;
+                }
+            }
+
+            _initialRaidBootstrapState = InitialRaidBootstrapState.Completed;
+            Debug.Log("[NetworkSpawnManager] Initial PvPvE bootstrap completed successfully.", this);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
+            failure = exception.Message;
+            Debug.LogException(exception, this);
+            return false;
         }
     }
 
@@ -740,9 +818,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
             else
             {
-                if (!SpawnPlayer(runner, player) && player != runner.LocalPlayer)
+                if (!SpawnPlayer(runner, player))
                 {
-                    runner.Disconnect(player);
+                    RemoveAdmissionRecord(player);
+                    if (player != runner.LocalPlayer)
+                    {
+                        runner.Disconnect(player);
+                    }
                 }
             }
 
@@ -884,6 +966,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         // Spawn points are configured, spawn immediately
         if (!SpawnPlayer(runner, runner.LocalPlayer))
         {
+            RemoveAdmissionRecord(runner.LocalPlayer);
             return HostBootstrapResult.AdmissionFailed;
         }
 
@@ -1040,6 +1123,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                                    _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
 
         return phaseAllowsSpawning;
+    }
+
+    private void RemoveAdmissionRecord(PlayerRef player)
+    {
+        _admittedPlayers.Remove(player);
+        _admissionData.Remove(player);
+
+        string profileToRemove = null;
+        foreach (var pair in _admittedProfiles)
+        {
+            if (pair.Value == player)
+            {
+                profileToRemove = pair.Key;
+                break;
+            }
+        }
+
+        if (profileToRemove != null)
+        {
+            _admittedProfiles.Remove(profileToRemove);
+        }
     }
 
     private bool SpawnPlayer(NetworkRunner runner, PlayerRef player)
@@ -1253,12 +1357,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return failureCount == 0;
     }
 
-    private void SpawnEnemy(NetworkRunner runner)
+    private bool SpawnEnemy(NetworkRunner runner)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
-            return;
+            return false;
         }
         GetSpawnTransform(
             SpawnGroupType.Enemies,
@@ -1270,18 +1374,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             position,
             rotation);
 
+        if (enemyObject == null)
+        {
+            Debug.LogError("Cannot spawn enemy: Fusion returned a null NetworkObject.", this);
+            return false;
+        }
+
         _spawnedEnemies.Add(enemyObject);
         Debug.Log($"Spawned enemy at {position}.");
+        return true;
     }
 
-    private void SpawnConfiguredLootContainers(NetworkRunner runner, SpawnGroupDefinition definition)
+    private bool SpawnConfiguredLootContainers(NetworkRunner runner, SpawnGroupDefinition definition)
     {
         if (!_lootContainerPrefab.IsValid)
         {
             Debug.LogError(
                 "[NetworkSpawnManager] Loot group skipped because LootContainer.prefab is not configured on the Gameplay scene manager.",
                 this);
-            return;
+            return false;
         }
 
         if (!TryPrepareLootContentSnapshot(
@@ -1292,14 +1403,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogError(
                 $"[NetworkSpawnManager] Loot group skipped because its random-content configuration is invalid. {preparationError}",
                 this);
-            return;
+            return false;
         }
 
         if (!EnsureLootSessionSeed(runner))
         {
             Debug.LogError("[NetworkSpawnManager] Loot group skipped because a server-owned session seed could not be created.", this);
-            return;
+            return false;
         }
+
+        bool completed = true;
 
         int spawnCount = InitialSpawnGroupPolicy.GetLootSpawnCount(definition, out bool wasClamped);
         if (wasClamped)
@@ -1344,6 +1457,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 if (fatalIntegrationFailure)
                 {
+                    completed = false;
                     break;
                 }
 
@@ -1352,6 +1466,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             _lootSpawnState.TryRecordSuccessfulSpawn(spawnIndex, lootContainer);
         }
+
+        return completed;
     }
 
     private NetworkObject SpawnLootContainer(
@@ -1538,14 +1654,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
-    private void SpawnConfiguredBreakables(NetworkRunner runner, SpawnGroupDefinition definition)
+    private bool SpawnConfiguredBreakables(NetworkRunner runner, SpawnGroupDefinition definition)
     {
         if (!_breakablePrefab.IsValid)
         {
             Debug.LogError(
                 "[NetworkSpawnManager] Breakables group skipped because its network prefab is not configured.",
                 this);
-            return;
+            return false;
         }
 
         if (!TryPrepareBreakableContentSnapshot(
@@ -1556,7 +1672,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogError(
                 $"[NetworkSpawnManager] Breakables group skipped because its configuration is invalid. {preparationError}",
                 this);
-            return;
+            return false;
         }
 
         if (!EnsureLootSessionSeed(runner))
@@ -1564,8 +1680,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogError(
                 "[NetworkSpawnManager] Breakables group skipped because a server-owned session seed could not be created.",
                 this);
-            return;
+            return false;
         }
+
+        bool completed = true;
 
         int spawnCount = InitialSpawnGroupPolicy.GetPointBoundedSpawnCount(
             definition,
@@ -1611,6 +1729,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 if (fatalIntegrationFailure)
                 {
+                    completed = false;
                     break;
                 }
 
@@ -1619,6 +1738,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             _breakableSpawnState.TryRecordSuccessfulSpawn(spawnIndex, breakableObject);
         }
+
+        return completed;
     }
 
     private NetworkObject SpawnBreakable(

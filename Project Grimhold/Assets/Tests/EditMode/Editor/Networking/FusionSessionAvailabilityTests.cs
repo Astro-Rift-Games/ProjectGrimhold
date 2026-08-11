@@ -30,16 +30,16 @@ public sealed class FusionSessionAvailabilityTests
     }
 
     [Test]
-    public void CodeAdmission_RemainsOpenOnlyDuringActiveCodedRaid()
+    public void CodeAdmission_RemainsOpenOnlyDuringWaiting()
     {
         Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.InProgress),
+            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.WaitingForPlayers),
             Is.True);
         Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(false, NetworkMatchController.MatchPhase.InProgress),
+            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.Starting),
             Is.False);
         Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.Closing),
+            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.InProgress),
             Is.False);
     }
 

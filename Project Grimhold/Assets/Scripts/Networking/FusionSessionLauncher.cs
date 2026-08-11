@@ -304,11 +304,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
                     if (raidManifest.IsValid)
                     {
-                        if (raidManifest.AllowsCodeAdmission)
-                        {
-                            _matchController.ConfigureCodeRaidAdmission();
-                        }
-                        else
+                        if (!raidManifest.AllowsCodeAdmission)
                         {
                             _matchController.ConfigurePreloadedRaidAdmission(
                                 raidManifest.AdmittedProfiles.Count);

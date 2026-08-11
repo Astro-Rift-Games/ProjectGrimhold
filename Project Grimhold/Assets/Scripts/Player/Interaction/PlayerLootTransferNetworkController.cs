@@ -34,6 +34,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     private EntityRegistry _registry;
     private PlayerExtractionController _extractionController;
     private IExtractionProgressReceiver _progressReceiver;
+    private NetworkMatchController _matchController;
     private bool _dependenciesValid;
 
     private readonly LootTransferClientRequestState _clientRequest = new();
@@ -66,13 +67,14 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     {
         CacheDependencies();
         _registry = Runner.GetComponent<EntityRegistry>();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
         _dependenciesValid = ValidateDependencies();
         ResetLocalState();
     }
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || !_dependenciesValid ||
+        if (!HasStateAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
             !_authoritativeRequests.TryConsume(out LootTransferRequestIdentity identity))
         {
             return;
@@ -127,7 +129,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId playerId = _character?.Id ?? default;
         bool playerIsSource = sourceId == playerId;
         bool playerIsDestination = destinationId == playerId;
-        if (!HasInputAuthority || !_dependenciesValid || sourceId.Value == 0 ||
+        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() || sourceId.Value == 0 ||
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
             !IsSupportedQuantityMode(quantityMode) ||
@@ -161,6 +163,12 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         _clientRequest.MarkSent(identity);
         EnqueueRequestStateChanged(true);
         return true;
+    }
+
+    private bool IsGameplayPhaseActive()
+    {
+        return _matchController == null ||
+               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
     }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -284,6 +292,14 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
         {
+            return default;
+        }
+
+        if (!IsGameplayPhaseActive())
+        {
+            RPC_ReceiveTransportRejection(
+                requestSequence,
+                (int)LootTransferTransportRejectionReason.DependenciesUnavailable);
             return default;
         }
 

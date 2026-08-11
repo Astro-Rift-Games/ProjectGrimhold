@@ -47,6 +47,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     private IMovementState _movementState;
     private PlayerLootReceiver _lootReceiver;
     private PlayerExtractionController _extractionController;
+    private NetworkMatchController _matchController;
     private bool _dependenciesValid;
 
     public event Action<LootDropConfirmation> DropConfirmed;
@@ -64,12 +65,13 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     {
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
         ResetLocalState();
     }
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || !_dependenciesValid ||
+        if (!HasStateAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
             !_authoritativeRequests.TryConsume(out LootDropRequestIdentity identity))
         {
             return;
@@ -111,7 +113,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     /// </summary>
     public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        if (!HasInputAuthority || !_dependenciesValid ||
+        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex) ||
             !_clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out LootDropRequestIdentity identity))
@@ -133,6 +135,12 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         return true;
     }
 
+    private bool IsGameplayPhaseActive()
+    {
+        return _matchController == null ||
+               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
+    }
+
     [Rpc(
         RpcSources.InputAuthority,
         RpcTargets.StateAuthority,
@@ -146,6 +154,14 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
         {
+            return default;
+        }
+
+        if (!IsGameplayPhaseActive())
+        {
+            RPC_ReceiveTransportRejection(
+                requestSequence,
+                (int)LootTransferTransportRejectionReason.DependenciesUnavailable);
             return default;
         }
 

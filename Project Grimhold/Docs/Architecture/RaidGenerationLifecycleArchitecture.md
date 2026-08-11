@@ -17,11 +17,24 @@ publishes the return order. A different runner is created for the next raid.
 The lifecycle is:
 
 ```text
+WaitingForPlayers (Gameplay prepared; no initial PvPvE generation)
+  -> Starting / one-time bootstrap
+  -> InProgress
 InProgress
   -> Closing / AwaitingPersistence
   -> Cleaning
   -> Finished / ReturnOrdered
+
+Starting / bootstrap failure
+  -> Closing / AwaitingPersistence
+  -> Cleaning
+  -> Finished / ReturnOrdered
 ```
+
+`Start Raid` is authoritative and closes the session before invoking
+`NetworkSpawnManager`'s one-time bootstrap API. A failed bootstrap uses
+`RaidClosureReason.BootstrapFailure`; it does not pass through `InProgress` and
+cleanup remains idempotent.
 
 Host cancellation marks only `Raiding` participants as `Aborted`. An individual
 Host abandonment remains a participant result: if another participant is still

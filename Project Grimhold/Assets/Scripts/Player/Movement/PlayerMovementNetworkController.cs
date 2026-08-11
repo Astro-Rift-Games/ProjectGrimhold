@@ -36,6 +36,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     public NetworkBool IsMoving { get; private set; }
 
     private CharacterBase _characterBase;
+    private NetworkMatchController _matchController;
+    private NetworkMatchController.MatchPhase _lastObservedPhase;
 
     private void Awake()
     {
@@ -46,10 +48,15 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     {
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
+        _lastObservedPhase = _matchController != null
+            ? _matchController.Phase
+            : NetworkMatchController.MatchPhase.InProgress;
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
-            IsControlEnabled = true;
+            IsControlEnabled = _matchController == null ||
+                               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
 
             FacingDirection =
                 PlayerAimMath.NormalizeInitialFacing(_defaultFacingDirection);
@@ -66,13 +73,26 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         IsMoving = false;
 
+        bool gameplayPhaseActive = _matchController == null ||
+                                    _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
+        if (HasStateAuthority && _matchController != null &&
+            _lastObservedPhase != NetworkMatchController.MatchPhase.InProgress &&
+            _matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
+        {
+            IsControlEnabled = true;
+        }
+
+        _lastObservedPhase = _matchController != null
+            ? _matchController.Phase
+            : NetworkMatchController.MatchPhase.InProgress;
+
         bool hasInput = GetInput(out PlayerNetworkInput input);
         Vector2 moveDirection = hasInput
             ? Vector2.ClampMagnitude(input.MoveDirection, 1f)
             : Vector2.zero;
 
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
-        bool canMove = IsControlEnabled && isAlive;
+        bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive;
 
         Vector2 displacement = canMove
             ? moveDirection * _moveSpeed * Runner.DeltaTime
@@ -87,7 +107,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Combat consumes FacingDirection later in this simulation tick. Resolve from
         // the motor's final position so aiming follows the same authoritative state.
-        if (hasInput && !IsDefaultInput(in input) && isAlive &&
+        if (gameplayPhaseActive && hasInput && !IsDefaultInput(in input) && isAlive &&
             PlayerAimMath.TryResolveDirection(
                 (Vector2)transform.position,
                 input.AimWorldPosition,

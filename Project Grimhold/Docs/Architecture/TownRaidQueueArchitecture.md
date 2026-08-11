@@ -23,9 +23,9 @@ Creating and joining are explicit UI actions. The coordinator reserves the local
 
 ## Authority and admission
 
-The Host starts in Gameplay immediately. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the code, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
+The Host starts in Gameplay in a preparation-only `WaitingForPlayers` phase. Gameplay is loaded, the Host is admitted and the session then becomes `IsOpen=true`/`IsVisible=false`; the initial PvPvE world is not generated yet. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the code, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
 
-The session is hidden from public matchmaking but remains open while the raid is `InProgress`, allowing Clients to join later with the code. It closes through the existing authoritative raid cancellation or natural-completion flow. There is no elapsed-time admission cutoff.
+Clients may join by code only while the phase is `WaitingForPlayers`. Host `Start Raid` closes and hides the session, enters `Starting`, executes the one-time initial PvPvE bootstrap without reloading Gameplay, and enters `InProgress` only after success. Starting, InProgress and closure phases reject normal code admission. A bootstrap failure follows the normal closure lifecycle and never enters InProgress.
 
 Frozen-cohort manifests and the previous network queue implementation remain in code for compatibility with existing tests and development paths, but the Town NPC presentation no longer invokes that workflow. The code path is the active player-facing source of truth.
 

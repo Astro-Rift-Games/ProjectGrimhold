@@ -20,6 +20,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
 
     private ICharacter _character;
     private PlayerLootReceiver _lootReceiver;
+    private NetworkMatchController _matchController;
     private bool _dependenciesValid;
 
     // Tracking para evitar duplicados en concurrencia
@@ -53,6 +54,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     {
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
         _clientNextSequence = 1;
         _serverLastProcessedSequence = 0;
         _clientInFlightSequence = 0;
@@ -64,7 +66,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     /// </summary>
     public bool TryRequestConsume(LootId lootId)
     {
-        if (!HasInputAuthority || !_dependenciesValid || HasRequestInFlight)
+        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() || HasRequestInFlight)
         {
             return false;
         }
@@ -87,6 +89,12 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         return true;
     }
 
+    private bool IsGameplayPhaseActive()
+    {
+        return _matchController == null ||
+               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
+    }
+
     [Rpc(
         RpcSources.InputAuthority,
         RpcTargets.StateAuthority,
@@ -96,6 +104,16 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
         {
+            return default;
+        }
+
+        if (!IsGameplayPhaseActive())
+        {
+            RPC_ReceiveConsumeConfirmation(
+                requestSequence,
+                catalogIndex,
+                false,
+                (int)ConsumableFailureReason.EffectFailed);
             return default;
         }
 

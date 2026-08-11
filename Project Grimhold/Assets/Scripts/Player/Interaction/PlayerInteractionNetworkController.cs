@@ -30,6 +30,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private IInteractionTargetQuery _query;
     private EntityRegistry _registry;
     private PlayerExtractionController _extractionController;
+    private NetworkMatchController _matchController;
     private bool _dependenciesValid;
     private readonly Queue<InteractionPresentationEvent> _pendingPresentationEvents = new();
 
@@ -77,6 +78,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         _dependenciesValid = ValidateDependencies();
 
         _registry = Runner.GetComponent<EntityRegistry>();
+        _matchController = Runner.GetComponent<NetworkMatchController>();
         if (_registry == null)
         {
             Debug.LogError($"{nameof(PlayerInteractionNetworkController)}: EntityRegistry was not found on the NetworkRunner.", this);
@@ -93,6 +95,13 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
         if (!_dependenciesValid)
         {
+            return;
+        }
+
+        if (_matchController != null &&
+            _matchController.Phase != NetworkMatchController.MatchPhase.InProgress)
+        {
+            PreviousButtons = default;
             return;
         }
 

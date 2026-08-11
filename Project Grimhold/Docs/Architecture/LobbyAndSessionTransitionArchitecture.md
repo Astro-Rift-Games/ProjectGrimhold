@@ -87,6 +87,32 @@ direct development route uses the same manifest, reservation, codec and admissio
 path as the Town queue. The coded token carries `RaidCode`; the previous
 `RaidId`/`AccessSecret` token format remains only for legacy frozen manifests.
 
+## Coded raid waiting lifecycle
+
+For a fresh coded raid, the Host creates the runner with `SessionInfo.IsOpen=false`
+and `IsVisible=false`. After Gameplay has loaded and `NetworkMatchController` is
+available, `NetworkSpawnManager` resolves the scene configuration, admits the Host
+and spawns only the participant/avatar required by the admission contract. The
+session then enters `WaitingForPlayers` with `IsOpen=true` and `IsVisible=false`.
+No initial enemies, loot containers or breakables are generated in this phase.
+
+The Host's `Start Raid` call is State Authority-only. It changes the phase to
+`Starting`, closes the session, invokes the existing spawn manager's one-time
+initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
+bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
+Gameplay or represents failure as `InProgress`. Normal code admission is accepted
+only in `WaitingForPlayers`; Host Migration reconnect/rebind remains a separate
+validated path and must not reopen the session.
+
+The serialized `Gameplay` scene audit found configuration/input/visibility
+behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,
+`PlayerInputReader`, `VisibilityObstacleCache` and `EntityVisibilitySystem`) that
+do not advance raid simulation during the waiting phase. Dynamic initial content
+is owned by `NetworkSpawnManager` and is now enabled only by the Starting
+bootstrap. No preplaced trap, hazard, extraction, sanctuary, timer or AI behaviour
+was changed without evidence that it mutates state before `InProgress`; nested
+prefabs remain subject to the same phase audit when their behaviour is introduced.
+
 ## Runner lifecycle
 
 Both launchers implement `ISessionRunnerOwner`. Each runner composition contains its own

@@ -1,8 +1,6 @@
 using Fusion;
 using System;
-using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Authoritative match coordinator that tracks the current game lifecycle phase.
@@ -124,21 +122,6 @@ public sealed class NetworkMatchController : NetworkBehaviour
     }
 
     /// <summary>
-    /// Starts gameplay while keeping admission open for clients that know the raid code.
-    /// The session closes through the normal authoritative cancellation or completion flow.
-    /// </summary>
-    public void ConfigureCodeRaidAdmission()
-    {
-        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers)
-        {
-            return;
-        }
-
-        ExpectedAdmissionCount = 0;
-        Phase = MatchPhase.InProgress;
-    }
-
-    /// <summary>
     /// Determines whether every profile frozen into the Town launch manifest was admitted.
     /// There is intentionally no elapsed-time condition in this policy.
     /// </summary>
@@ -147,7 +130,41 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     /// <summary>Returns whether late code-based admission is valid in the current match phase.</summary>
     public static bool IsCodeAdmissionOpen(bool allowsCodeAdmission, MatchPhase phase) =>
-        allowsCodeAdmission && phase == MatchPhase.InProgress;
+        allowsCodeAdmission && phase == MatchPhase.WaitingForPlayers;
+
+    /// <summary>
+    /// Authoritatively starts the already-loaded raid and executes its one-time
+    /// initial PvPvE bootstrap without reloading Gameplay.
+    /// </summary>
+    public bool TryStartRaid()
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers)
+        {
+            return false;
+        }
+
+        NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null)
+        {
+            return false;
+        }
+
+        Phase = MatchPhase.Starting;
+        Runner.SessionInfo.IsOpen = false;
+        Runner.SessionInfo.IsVisible = false;
+
+        if (!spawnManager.TryExecuteInitialRaidBootstrap(out string failure))
+        {
+            Debug.LogError($"[NetworkMatchController] Initial raid bootstrap failed: {failure}", this);
+            spawnManager.AbortRaidingParticipantsForClosure();
+            BeginClosure(RaidClosureReason.BootstrapFailure);
+            return false;
+        }
+
+        Phase = MatchPhase.InProgress;
+        Debug.Log("[NetworkMatchController] Raid started after successful initial bootstrap.", this);
+        return true;
+    }
 
     public override void FixedUpdateNetwork()
     {
@@ -193,7 +210,9 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     private void BeginClosure(RaidClosureReason reason)
     {
-        if (Phase != MatchPhase.InProgress || !HasStateAuthority)
+        bool validPhase = Phase == MatchPhase.InProgress ||
+                          (Phase == MatchPhase.Starting && reason == RaidClosureReason.BootstrapFailure);
+        if (!validPhase || !HasStateAuthority)
         {
             return;
         }
@@ -249,64 +268,15 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     private void ClosePreloadedRaidAdmission()
     {
-        Runner.SessionInfo.IsOpen = false;
-        Runner.SessionInfo.IsVisible = false;
-        Phase = MatchPhase.InProgress;
-        Debug.Log("[NetworkMatchController] Preloaded raid admission closed.");
+        // Frozen-manifest/development admission reaches the same authoritative
+        // Starting boundary as coded admission; it must not bypass the deferred
+        // initial PvPvE bootstrap by assigning InProgress directly.
+        if (!TryStartRaid())
+        {
+            Debug.LogError("[NetworkMatchController] Preloaded raid admission could not start the raid.", this);
+        }
     }
 
-    /// <summary>
-    /// Starts the game transition. Can only be invoked by the Host/Server.
-    /// Closes the session and loads the gameplay scene.
-    /// </summary>
-    public async Task StartGameAsync(string gameplaySceneName)
-    {
-        if (!Runner.IsServer)
-        {
-            Debug.LogWarning("[NetworkMatchController] Only the Host can start the game.");
-            return;
-        }
-
-        if (Phase != MatchPhase.WaitingForPlayers)
-        {
-            Debug.LogWarning($"[NetworkMatchController] Cannot start game from phase {Phase}.");
-            return;
-        }
-
-        // Validate scene index
-        int sceneBuildIndex = SceneUtility.GetBuildIndexByScenePath(gameplaySceneName);
-        if (sceneBuildIndex < 0)
-        {
-            throw new ArgumentException($"[NetworkMatchController] Invalid scene name or index: {gameplaySceneName}");
-        }
-
-        // 1. Set phase to Starting
-        Phase = MatchPhase.Starting;
-
-        // 2. Set SessionInfo properties (Close and hide session)
-        Runner.SessionInfo.IsOpen = false;
-        Runner.SessionInfo.IsVisible = false;
-
-        Debug.Log("[NetworkMatchController] Phase changed to Starting. Session closed & hidden.");
-
-        try
-        {
-            // 3. Load the scene
-            await Runner.LoadScene(
-                SceneRef.FromIndex(sceneBuildIndex),
-                LoadSceneMode.Single);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[NetworkMatchController] Failed to load scene: {ex.Message}");
-            // Remain in Starting or keep session closed on failure. Do not advance phase.
-            throw;
-        }
-
-        // 4. Change phase to InProgress
-        Phase = MatchPhase.InProgress;
-        Debug.Log("[NetworkMatchController] Phase changed to InProgress.");
-    }
 }
 
 /// <summary>Authoritative progress of a raid generation after admission closes.</summary>
@@ -324,5 +294,6 @@ public enum RaidClosureState : byte
 public enum RaidClosureReason : byte
 {
     NaturalCompletion = 0,
-    HostCancellation = 1
+    HostCancellation = 1,
+    BootstrapFailure = 2
 }
