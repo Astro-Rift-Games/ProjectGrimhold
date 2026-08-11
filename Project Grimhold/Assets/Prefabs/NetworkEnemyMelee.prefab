@@ -113,6 +113,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _visibilityOffset.y
       value: 0
       objectReference: {fileID: 0}
@@ -124,6 +128,18 @@ PrefabInstance:
       propertyPath: _activeAttackSource
       value: 
       objectReference: {fileID: 6249109546555964142}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _attackRange
+      value: 1.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _detectionRange
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _disengageRange
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Name
       value: NetworkEnemyMelee
