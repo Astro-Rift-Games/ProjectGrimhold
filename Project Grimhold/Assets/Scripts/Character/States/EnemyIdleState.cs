@@ -13,6 +13,11 @@ public sealed class EnemyIdleState : IEnemyState
         if (fsm.MovementController != null)
         {
             fsm.MovementController.TrySetControlEnabled(true);
+            if (fsm.MovementController.HasPatrolRoute)
+            {
+                fsm.TransitionTo(EnemyStateType.Patrol);
+                return;
+            }
         }
 
         if (fsm.CombatController != null)
@@ -26,6 +31,12 @@ public sealed class EnemyIdleState : IEnemyState
         if (!fsm.Character.IsAlive)
         {
             fsm.TransitionTo(EnemyStateType.Dead);
+            return;
+        }
+
+        if (fsm.MovementController.HasPatrolRoute)
+        {
+            fsm.TransitionTo(EnemyStateType.Patrol);
             return;
         }
 

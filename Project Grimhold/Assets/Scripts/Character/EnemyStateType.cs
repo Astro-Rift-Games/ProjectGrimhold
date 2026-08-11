@@ -6,5 +6,6 @@ public enum EnemyStateType
     Idle = 0,
     Chase = 1,
     Attack = 2,
-    Dead = 3
+    Dead = 3,
+    Patrol = 4
 }

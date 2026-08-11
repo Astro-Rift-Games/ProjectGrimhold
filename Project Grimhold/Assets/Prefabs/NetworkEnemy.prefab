@@ -361,6 +361,7 @@ GameObject:
   - component: {fileID: -3796636682103364817}
   - component: {fileID: 7872507663536347850}
   - component: {fileID: 3762208006993684416}
+  - component: {fileID: 3694394704434487686}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -441,14 +442,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyMovementAIController
   _patrolSpeed: 0.75
   _pursuitSpeedMultiplier: 2
-  _decisionInterval: 1
-  _LOSDistance: 4
-  _attackRange: 1
+  _defaultFacingDirection: {x: 0, y: -1}
+  _patrolRoute: {fileID: 3694394704434487686}
+  _waypointReachRadius: 0.3
+  _detectionRange: 6
+  _disengageRange: 10
+  _pursuitLostGraceTicks: 10
+  _attackRange: 8
   _obstacleLayer:
     serializedVersion: 2
     m_Bits: 64
+  _scanInterval: 0.1
+  _playerLayer:
+    serializedVersion: 2
+    m_Bits: 128
   _movementMotor: {fileID: 7201000000000000004}
-  _defaultFacingDirection: {x: 0, y: -1}
   _IsControlEnabled:
     RawValue: 0
   _FacingDirection: {x: 0, y: 0}
@@ -458,6 +466,7 @@ MonoBehaviour:
     RawValue: 0
   _IsOnPursuit:
     RawValue: 0
+  _PatrolWaypointIndex: 0
 --- !u!114 &3988879926097982634
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -835,6 +844,19 @@ MonoBehaviour:
   - {fileID: 1066720069559603162}
   - {fileID: 4522316450052852347}
   _visibilityOffset: {x: 0, y: 1}
+--- !u!114 &3694394704434487686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a8e1b00ca6261d44b76a26c760f7319, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPatrolRoute
+  _waypoints: []
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
