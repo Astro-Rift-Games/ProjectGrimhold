@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Ensures the existence of the persistent application stash context exactly once per application run.
+/// Creates one process-local stash context that survives scene and NetworkRunner transitions.
+/// Its gameplay data is intentionally discarded when the application closes.
 /// </summary>
 public static class ApplicationStashServiceBootstrapper
 {
@@ -22,16 +23,16 @@ public static class ApplicationStashServiceBootstrapper
         var configuration = Resources.Load<LocalProfilePersistenceConfiguration>("LocalProfilePersistenceConfiguration");
         if (configuration == null || configuration.LootCatalog == null)
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local persistence configuration or loot catalog is missing.");
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile configuration or loot catalog is missing.");
             Object.DontDestroyOnLoad(contextObject);
             return;
         }
 
         ProfileId profileId = LocalProfileProvider.GetOrCreateLocalProfile();
-        var repository = new LocalProfileRepository(new LocalProfileFileStore(), Application.persistentDataPath);
+        var repository = new InMemoryLocalProfileRepository();
         if (!repository.Initialize(profileId, configuration.LootCatalog))
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Persistence unavailable: {repository.LastError}");
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] In-memory profile unavailable: {repository.LastError}");
             Object.DontDestroyOnLoad(contextObject);
             return;
         }
@@ -45,6 +46,6 @@ public static class ApplicationStashServiceBootstrapper
 
         Object.DontDestroyOnLoad(contextObject);
 
-        Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Initialized {ContextName} successfully.");
+        Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Initialized process-local {ContextName} successfully.");
     }
 }

@@ -18,11 +18,11 @@ public enum ExtractionLootSaveStatus
 
 /// <summary>
 /// Coordinates the authoritative extraction result with the local player's
-/// durable stash commit.
+/// process-local stash commit.
 ///
 /// State Authority retains the raid snapshot until Input Authority acknowledges
 /// an idempotent local commit. The raid inventory is therefore never cleared
-/// before persistence succeeds, and a lost RPC can be retried safely.
+/// before the local commit succeeds, and a lost RPC can be retried safely.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerExtractionController))]
@@ -46,7 +46,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private TickTimer RetryTimer { get; set; }
 
     /// <summary>
-    /// Gets the local persistence state observed by the result presenter.
+    /// Gets the local commit state observed by the result presenter.
     /// </summary>
     public ExtractionLootSaveStatus LocalSaveStatus { get; private set; }
 
@@ -123,9 +123,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     }
 
     /// <summary>
-    /// Requests one local persistence retry after a disk failure. Network
-    /// retransmission remains automatic, but it never reopens a failed disk
-    /// operation without an explicit local retry.
+    /// Requests one retry after a local aggregate commit failure. Network
+    /// retransmission remains automatic, but it never reopens a failed local
+    /// operation without an explicit retry.
     /// </summary>
     public void RetryLocalCommit()
     {
@@ -258,7 +258,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             _pendingResultSequence != _participant.ResultSequence)
         {
             // The payload is valid, but the participant snapshot has not caught
-            // up on this peer yet. Render() will retry without touching disk.
+            // up on this peer yet. Render() will retry without committing locally.
             return;
         }
 
@@ -363,7 +363,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     }
 
     /// <summary>
-    /// Validates the complete wire payload before any local persistence begins.
+    /// Validates the complete wire payload before any local commit begins.
     /// </summary>
     internal static bool ValidatePayloadShape(
         int[] catalogIndices,

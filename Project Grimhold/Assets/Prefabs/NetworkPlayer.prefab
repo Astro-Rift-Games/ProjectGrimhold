@@ -505,7 +505,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &3178200572973960886
 Transform:
   m_ObjectHideFlags: 0
@@ -790,6 +790,7 @@ GameObject:
   - component: {fileID: 8421478658459878521}
   - component: {fileID: 2262447401525612929}
   - component: {fileID: 5489547608340585132}
+  - component: {fileID: 9100000000000000900}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -1178,7 +1179,22 @@ MonoBehaviour:
   - {fileID: 8421478658459878521}
   - {fileID: 2262447401525612929}
   - {fileID: 5489547608340585132}
+  - {fileID: 9100000000000000900}
   ForceRemoteRenderTimeframe: 0
+--- !u!114 &9100000000000000900
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b0bf9c60ce64f6abf2ecff05513e9e1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerVisibilityBinder
+  _visibilityRoot: {fileID: 4193479825060399403}
+  _meshBuilder: {fileID: 6334326871933513234}
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

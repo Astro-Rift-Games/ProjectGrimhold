@@ -11,7 +11,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
     [DisallowMultipleComponent]
     public sealed class EntityVisibilitySystem : MonoBehaviour
     {
-        private VisibilityMeshBuilder _meshBuilder;
+        private VisibilityMeshBuilder _localMeshBuilder;
 
         private readonly List<IVisibilityTarget> _targets = new List<IVisibilityTarget>();
         private readonly Dictionary<IVisibilityTarget, bool> _lastState = new Dictionary<IVisibilityTarget, bool>();
@@ -39,20 +39,39 @@ namespace ProjectGrimhold.Gameplay.Visibility
             }
         }
 
+        /// <summary>
+        /// Registers the single LOS producer belonging to this peer's current
+        /// local raid avatar. Proxy avatars must never register a builder.
+        /// </summary>
+        public void RegisterLocalMeshBuilder(VisibilityMeshBuilder meshBuilder)
+        {
+            if (meshBuilder != null)
+            {
+                _localMeshBuilder = meshBuilder;
+            }
+        }
+
+        /// <summary>
+        /// Clears the LOS producer only when the caller still owns it, so an old
+        /// avatar cannot clear a replacement avatar's local presentation.
+        /// </summary>
+        public void UnregisterLocalMeshBuilder(VisibilityMeshBuilder meshBuilder)
+        {
+            if (_localMeshBuilder == meshBuilder)
+            {
+                _localMeshBuilder = null;
+            }
+        }
+
         private void LateUpdate()
         {
-            if (_meshBuilder == null)
-            {
-                _meshBuilder = FindAnyObjectByType<VisibilityMeshBuilder>();
-                if (_meshBuilder == null) return;
-            }
-
-            if (_meshBuilder.LosHandle == null)
+            if (_localMeshBuilder == null || !_localMeshBuilder.isActiveAndEnabled ||
+                _localMeshBuilder.LosHandle == null)
             {
                 return;
             }
 
-            LosPolygonHandle handle = _meshBuilder.LosHandle;
+            LosPolygonHandle handle = _localMeshBuilder.LosHandle;
 
             // Iteramos hacia atrás para remover referencias nulas de forma segura
             for (int i = _targets.Count - 1; i >= 0; i--)
@@ -68,7 +87,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 }
 
                 // Evaluación geométrica pura usando Point-in-Polygon
-                bool inside = handle.IsInsideLos(target.VisibilityPoint);
+                bool inside = target.IsVisible(handle);
 
                 // Sólo aplicamos el cambio si el estado es diferente al registrado previamente
                 if (!_lastState.TryGetValue(target, out bool wasInside) || wasInside != inside)

@@ -27,9 +27,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     [SerializeField]
     private NetworkPrefabRef _matchControllerPrefab;
 
-    [SerializeField, Min(1f)]
-    private float _coordinatedAdmissionTimeoutSeconds = 20f;
-
     private NetworkRunner _runner;
     private GameObject _runnerObject;
     private NetworkSpawnManager _spawnManager;
@@ -40,7 +37,16 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     public NetworkRunner Runner => _runner;
     public NetworkMatchController MatchController => _matchController;
+    public ShutdownReason LastStartShutdownReason { get; private set; } = ShutdownReason.Ok;
     public event Action<NetworkRunner, ShutdownReason> RunnerShutdownObserved;
+
+    /// <summary>
+    /// Returns whether a coordinated Client should keep waiting for its exact Host session.
+    /// A missing session has not been created yet; a closed session is still completing
+    /// authoritative Host bootstrap. Other reasons are definitive connection failures.
+    /// </summary>
+    public static bool IsSessionAvailabilityPending(ShutdownReason shutdownReason) =>
+        shutdownReason == ShutdownReason.GameNotFound || shutdownReason == ShutdownReason.GameClosed;
 
     public Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
     {
@@ -144,9 +150,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         if (_isStarting || _runner != null)
+        {
+            LastStartShutdownReason = ShutdownReason.Error;
             return false;
+        }
 
         _isStarting = true;
+        LastStartShutdownReason = ShutdownReason.Ok;
 
         try
         {
@@ -162,6 +172,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 loadoutReservation,
                 out var composition))
             {
+                LastStartShutdownReason = ShutdownReason.Error;
                 Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);
                 return false;
             }
@@ -207,13 +218,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
             if (!result.Ok)
             {
-                Debug.LogError(
-                    $"Fusion failed to start. Reason: {result.ShutdownReason}",
-                    this);
+                LastStartShutdownReason = result.ShutdownReason;
+                if (mode != GameMode.Client || !raidManifest.IsValid ||
+                    !IsSessionAvailabilityPending(result.ShutdownReason))
+                {
+                    Debug.LogError(
+                        $"Fusion failed to start. Reason: {result.ShutdownReason}",
+                        this);
+                }
 
                 await ShutdownAndDestroyRunnerAsync();
                 return false;
             }
+
+            LastStartShutdownReason = ShutdownReason.Ok;
 
             if (initialSceneBuildIndex >= 0 &&
                 !await _shutdownListener.WaitForInitialSceneAsync())
@@ -279,9 +297,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
                     if (raidManifest.IsValid)
                     {
-                        _matchController.ConfigurePreloadedRaidAdmission(
-                            raidManifest.AdmittedProfiles.Count,
-                            _coordinatedAdmissionTimeoutSeconds);
+                        if (raidManifest.AllowsCodeAdmission)
+                        {
+                            _matchController.ConfigureCodeRaidAdmission();
+                        }
+                        else
+                        {
+                            _matchController.ConfigurePreloadedRaidAdmission(
+                                raidManifest.AdmittedProfiles.Count);
+                        }
                     }
 
                     Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open.");
@@ -294,7 +318,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
 
             if (raidManifest.IsValid &&
-                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, _coordinatedAdmissionTimeoutSeconds))
+                !await WaitForLocalRaidAdmissionAsync(loadoutReservation))
             {
                 Debug.LogError("[FusionSessionLauncher] Local raid admission did not complete with the exact reserved loadout.", this);
                 await ShutdownAndDestroyRunnerAsync();
@@ -305,6 +329,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
         catch (Exception ex)
         {
+            LastStartShutdownReason = ShutdownReason.Error;
             Debug.LogException(ex, this);
             await ShutdownAndDestroyRunnerAsync();
             throw;
@@ -315,18 +340,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
     }
 
-    private async Task<bool> WaitForLocalRaidAdmissionAsync(
-        PendingLoadoutReservation reservation,
-        float timeoutSeconds)
+    private async Task<bool> WaitForLocalRaidAdmissionAsync(PendingLoadoutReservation reservation)
     {
         if (_runner == null || reservation == null)
         {
             return false;
         }
 
-        float deadline = Time.realtimeSinceStartup + Mathf.Max(1f, timeoutSeconds);
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
+        while (_runner != null && _runner.IsRunning)
         {
             NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
             if (participantObject != null &&

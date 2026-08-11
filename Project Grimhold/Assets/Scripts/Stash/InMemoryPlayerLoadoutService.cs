@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Compatibility adapter exposing persistent loadout operations through the
+/// Compatibility adapter exposing process-local loadout operations through the
 /// existing service contract. It owns no loadout state.
 /// </summary>
 public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadoutService

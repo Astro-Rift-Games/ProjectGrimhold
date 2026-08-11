@@ -89,14 +89,19 @@ public sealed class SessionConnectionStateMachineTests
             host,
             new List<ProfileId> { host },
             1);
+        var reservation = new PendingLoadoutReservation(
+            "reservation-1",
+            new List<StashItem>());
         var valid = new RaidTransitionTicket(
             new RaidConnectionRequest("raid-1", RaidConnectionRole.Host, "session-1"),
             manifest,
+            reservation,
             PlayerClassId.Melee,
             SessionConnectionState.Town);
         var mismatched = new RaidTransitionTicket(
             new RaidConnectionRequest("other-raid", RaidConnectionRole.Host, "session-1"),
             manifest,
+            reservation,
             PlayerClassId.Melee,
             SessionConnectionState.Town);
 

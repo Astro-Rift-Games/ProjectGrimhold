@@ -9,7 +9,7 @@ public readonly struct PlayerJoinData
     public PlayerClassId ClassId { get; }
 
     /// <summary>
-    /// Identificador del perfil persistente del jugador.
+    /// Identificador del perfil del jugador para la ejecución actual.
     /// </summary>
     public ProfileId ProfileId { get; }
 

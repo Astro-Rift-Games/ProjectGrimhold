@@ -10,7 +10,7 @@ public interface IPlayerStashService
     /// <summary>
     /// Attempts to securely store a list of stash items for the given player profile.
     /// </summary>
-    /// <param name="profileId">The persistent profile identifier of the player.</param>
+    /// <param name="profileId">The profile identifier of the player for the current application run.</param>
     /// <param name="items">An immutable snapshot of items to store.</param>
     /// <returns>The result of the stash operation.</returns>
     StashOperationResult TrySecureLoot(ProfileId profileId, IReadOnlyList<StashItem> items);

@@ -2,78 +2,84 @@
 
 ## Context
 
-Project Grimhold has one local player profile per installation. Stash and
-loadout are application data and must survive scene changes, NetworkRunner
-replacement and application restarts. Fusion state belongs only to the active
-session and must never become the persistent identity source.
+Project Grimhold currently needs stash and loadout state to survive scene changes and
+`NetworkRunner` replacement during one Town-Raid-Town cycle. Durable progression across
+application restarts is intentionally deferred until the persistence system is developed
+further. Loading an older local save must not prevent a multiplayer raid from starting.
 
 ## Decision
 
-The application owns one versioned local aggregate identified by `ProfileId`.
-`PlayerPrefs` stores only the existing local identity. The aggregate is stored
-as JSON under `Application.persistentDataPath` and contains schema version,
-profile ID, stash, loadout, one pending loadout reservation and the most recent
-256 applied extraction receipts.
+The application owns one profile aggregate identified by `ProfileId` for the lifetime of
+the current process. `ApplicationStashServiceBootstrapper` creates a single
+`ApplicationStashContext` with `InMemoryLocalProfileRepository` before the first scene.
+The context is marked `DontDestroyOnLoad`, so stash, loadout, pending loadout reservation
+and extraction receipts survive Town-Raid-Town transitions.
 
-The persistence boundary is split into three layers:
+The aggregate starts empty on every application launch and is discarded when the process
+closes. The active composition does not read or write `Application.persistentDataPath`.
+Existing `grimhold-profile.json` files and the previous `PlayerPrefs` identity are ignored.
+`LocalProfileProvider` generates one `ProfileId` per application process. This value is
+stable across runner and scene transitions, but a new process receives a new value. As a
+result, multiple standalone processes under the same operating-system account remain
+distinct Town queue members.
 
 ```text
 IPlayerStashService / IPlayerLoadoutService
                 -> LocalProfileStore
                 -> ILocalProfileRepository
-                -> ILocalProfileFileStore
+                -> InMemoryLocalProfileRepository
 ```
 
-`LocalProfileStore` owns the in-memory snapshot, validates domain mutations,
-serializes operations and publishes one profile-commit notification after a
-successful durable write. The repository loads and saves the complete
-aggregate. The file store owns paths and atomic filesystem operations and is
-replaceable in EditMode tests.
+`LocalProfileStore` remains the transactional domain boundary. It validates mutations,
+serializes operations and publishes one profile-commit notification after the in-memory
+snapshot accepts a complete aggregate. The repository validates each replacement and
+keeps its own snapshot for the remainder of the process.
 
-## Format and durability
-
-Schema version 1 is encoded with Unity `JsonUtility` DTOs. A save is written to
-`grimhold-profile.json.tmp`, closed, decoded and validated, then atomically
-replaces `grimhold-profile.json` while retaining
-`grimhold-profile.json.bak`. A failed write leaves the last valid main file and
-the in-memory snapshot unchanged.
-
-The main file may be recovered from a valid backup when it is malformed. The
-recovered state is reported and the main file is repaired without replacing the
-valid backup with the corrupt file. A future/unsupported schema never falls
-back to an older version. If no valid state exists, persistence becomes
-read-only and operations fail clearly; invalid data is never replaced by an
-empty profile silently.
+The versioned codec, filesystem repository and atomic file store remain isolated behind
+`ILocalProfileRepository`, but they are not part of the runtime composition. They may be
+revisited or replaced when durable persistence receives an approved design.
 
 ## Domain and authority boundaries
 
-Stash and loadout transfers, loadout reservations and extraction receipt
-application are complete aggregate commits. Duplicate extraction receipts are
-idempotent and do not publish another change. Reservation primitives are local
-storage capabilities for TASK-79. TASK-80 supplies the network boundary around
-`TryCommitExtraction`: State Authority keeps the raid snapshot, Input Authority
-commits it locally, and an ACK is sent only after the durable write succeeds.
-The raid inventory is cleared only after that ACK. A lost or repeated delivery
-therefore returns `AlreadySecured` instead of duplicating loot. A disk failure
-is retained as a local retryable error and is not retried by transport duplicates.
+Stash and loadout transfers, loadout reservations and extraction receipt application are
+complete aggregate commits. Duplicate extraction receipts remain idempotent within the
+current application process. Closing the application resets both the loot and the receipt
+history, as intended by the temporary lifetime policy.
 
-Fusion may carry `ProfileId` and session snapshots for the active runner, but it
-does not read another player's local files and never owns persistent stash or
-loadout state. `PlayerRef` is not persisted.
+Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
+own the local stash or loadout. A raid Host never reads another client's local aggregate.
+`PlayerRef` is not a gameplay-persistence identity.
 
-### TASK-79 loadout reservation boundary
+### Loadout reservation boundary
 
-`TryCreateLoadoutReservation` durably moves the complete local loadout, including
-an empty snapshot, into `PendingLoadoutReservation` before the Town queue ACK.
-The same reservation id is idempotent; a different id is rejected while pending.
-Rollback is valid only before raid admission. After participant, avatar and exact
-inventory are observed, confirmation is retried until its durable commit succeeds.
-An abrupt handshake close remains pending and is not automatically rolled back.
+`TryCreateLoadoutReservation` moves the complete local loadout, including an empty
+snapshot, into `PendingLoadoutReservation` before the Town queue ACK. The same reservation
+id is idempotent; a different id is rejected while pending. Pre-admission failure rolls it
+back. After participant, avatar and exact inventory are observed, confirmation consumes it.
+All of these guarantees apply while the application remains open; an application close
+discards an unfinished reservation.
+
+### Extraction boundary
+
+State Authority retains the raid result snapshot while Input Authority commits it to its
+application-level aggregate. An ACK is sent only after that in-memory commit succeeds, and
+the raid inventory is cleared only after the ACK. Transport duplicates cannot duplicate
+loot during the same application run because extraction receipts remain in the aggregate.
+
+## Risks and deferred durability
+
+- Closing or crashing the application discards stash, loadout and secured extraction loot.
+- Reopening the application permits the same raid receipt to be applied again because no
+  receipt history survives the process boundary.
+- The dormant file implementation is not evidence that restart persistence is supported.
+- Durable storage requires a separate decision covering migration, corruption recovery,
+  identity, save compatibility and multiplayer acknowledgement semantics.
 
 ## Validation strategy
 
-Pure codec, repository and store behavior is covered by EditMode tests using an
-injected file store. PlayMode tests verify bootstrap lifetime, context
-replacement and presenter subscription cleanup. A final build check verifies
-that data survives a complete application restart through
-`Application.persistentDataPath`.
+EditMode tests verify that one in-memory repository retains committed state while a new
+repository starts empty, and that profile boundaries are enforced. Existing codec and
+filesystem-repository tests remain as isolated coverage for the dormant implementation.
+Store tests continue to cover transactions, reservations, extraction idempotency and
+failure behavior. Manual validation must cover a complete Town-Raid-Town cycle in one run
+and confirm that a full application restart begins with an empty stash and loadout.

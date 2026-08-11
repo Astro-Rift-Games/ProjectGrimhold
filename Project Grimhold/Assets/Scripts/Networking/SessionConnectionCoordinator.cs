@@ -31,12 +31,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     [Header("Coordinated Raid Transition")]
     [SerializeField, Min(0f)]
-    private float _clientLaunchDelaySeconds = 1f;
-
-    [SerializeField, Min(1)]
-    private int _clientJoinAttempts = 5;
-
-    [SerializeField, Min(0f)]
     private float _clientJoinRetryDelaySeconds = 0.5f;
 
     [SerializeField, Min(0f)]
@@ -174,6 +168,100 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _activeTicket = null;
     }
 
+    /// <summary>
+    /// Leaves Town and creates a code-admitted raid as Host. The session remains open until
+    /// authoritative raid closure so clients can join later with the same code.
+    /// </summary>
+    public Task<SessionTransitionResult> CreateCodeRaidAsync(string code)
+    {
+        return StartCodeRaidAsync(code, RaidConnectionRole.Host);
+    }
+
+    /// <summary>
+    /// Leaves Town and joins the existing raid identified by the supplied six-digit code.
+    /// A missing or invalid session is a definitive failure and recovers the player to Town.
+    /// </summary>
+    public Task<SessionTransitionResult> JoinCodeRaidAsync(string code)
+    {
+        return StartCodeRaidAsync(code, RaidConnectionRole.Client);
+    }
+
+    /// <summary>
+    /// Determines whether a Client should keep polling while a frozen cohort waits for its Host.
+    /// Manual code joins never poll because their Host must create the session first.
+    /// </summary>
+    public static bool ShouldRetryRaidSessionAvailability(
+        in RaidLaunchManifest manifest,
+        RaidConnectionRole role,
+        ShutdownReason shutdownReason)
+    {
+        return manifest.IsValid && !manifest.AllowsCodeAdmission &&
+               role == RaidConnectionRole.Client &&
+               FusionSessionLauncher.IsSessionAvailabilityPending(shutdownReason);
+    }
+
+    private async Task<SessionTransitionResult> StartCodeRaidAsync(string code, RaidConnectionRole role)
+    {
+        if (_operationActive)
+        {
+            return SessionTransitionResult.Busy;
+        }
+
+        RaidLaunchManifest manifest = RaidLaunchManifest.Code.CreateManifest(code);
+        if (!manifest.IsValid || State != SessionConnectionState.Town || _hubLauncher.Runner == null ||
+            !PlayerJoinDataCodec.IsSupported(_selectedBuild) || !IsSceneEnabled(_gameplaySceneName))
+        {
+            return SessionTransitionResult.InvalidRequest;
+        }
+
+        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (stashContext == null || stashContext.LoadoutService == null)
+        {
+            return SessionTransitionResult.LoadoutReservationFailed;
+        }
+
+        string reservationId = Guid.NewGuid().ToString("N");
+        StashOperationResult reservationResult = stashContext.LoadoutService.TryCreateLoadoutReservation(
+            localProfile,
+            reservationId,
+            out IReadOnlyList<StashItem> reservedItems);
+        if (reservationResult != StashOperationResult.Success)
+        {
+            return SessionTransitionResult.LoadoutReservationFailed;
+        }
+
+        if (!RaidCode.TryParse(code, out RaidCode raidCode))
+        {
+            return SessionTransitionResult.InvalidRequest;
+        }
+
+        var request = new RaidConnectionRequest(raidCode, role);
+        var ticket = new RaidTransitionTicket(
+            request,
+            manifest,
+            new PendingLoadoutReservation(reservationId, reservedItems),
+            _selectedBuild,
+            SessionConnectionState.Town);
+        _activeTicket = ticket;
+
+        SessionTransitionResult result = await EnterRaidAsync(ticket);
+        if ((result == SessionTransitionResult.InvalidRequest ||
+             result == SessionTransitionResult.InvalidState ||
+             result == SessionTransitionResult.Busy) &&
+            _activeTicket.HasValue)
+        {
+            if (!TryRollbackActiveReservation())
+            {
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
+
+            _activeTicket = null;
+        }
+
+        return result;
+    }
+
     private void Update()
     {
         ObserveCompletedRaid();
@@ -230,11 +318,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             RaidTransitionTicket ticket = _activeTicket.Value;
-            if (ticket.Request.Role == RaidConnectionRole.Client && _clientLaunchDelaySeconds > 0f)
-            {
-                int delayMilliseconds = Mathf.CeilToInt(_clientLaunchDelaySeconds * 1000f);
-                await Task.Delay(delayMilliseconds);
-            }
 
             if (this == null || !_activeTicket.HasValue ||
                 _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
@@ -242,7 +325,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return;
             }
 
-            await EnterRaidAsync(ticket);
+            SessionTransitionResult result = await EnterRaidAsync(ticket);
+            if (result != SessionTransitionResult.Succeeded)
+            {
+                Debug.LogError(
+                    $"[{nameof(SessionConnectionCoordinator)}] Coordinated raid launch failed. " +
+                    $"Role={ticket.Request.Role}; Session={ticket.Request.SessionName}; Result={result}.",
+                    this);
+            }
         }
         finally
         {
@@ -421,9 +511,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        RaidConnectionRole expectedRole = ticket.HasManifest && ticket.Manifest.HostProfileId == localProfile
-            ? RaidConnectionRole.Host
-            : RaidConnectionRole.Client;
+        RaidConnectionRole expectedRole = ticket.HasManifest && !ticket.Manifest.AllowsCodeAdmission
+            ? (ticket.Manifest.HostProfileId == localProfile ? RaidConnectionRole.Host : RaidConnectionRole.Client)
+            : ticket.Request.Role;
         if (!ticket.IsValid ||
             (ticket.HasManifest && !ticket.Manifest.Contains(localProfile)) ||
             (ticket.HasManifest && ticket.Request.Role != expectedRole) ||
@@ -459,10 +549,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 : GameMode.Client;
 
             bool started = false;
-            int attempts = ticket.HasManifest && ticket.Request.Role == RaidConnectionRole.Client
-                ? Mathf.Max(1, _clientJoinAttempts)
-                : 1;
-            for (int attempt = 0; attempt < attempts && !started; attempt++)
+            bool availabilityWaitLogged = false;
+            while (!started)
             {
                 started = await _raidLauncher.StartCoordinatedSessionAsync(
                     ticket.Request.SessionName,
@@ -471,18 +559,44 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     _gameplaySceneName,
                     ticket.HasManifest ? ticket.Manifest : default,
                     ticket.LoadoutReservation);
-                if (!started && attempt + 1 < attempts)
+                if (started)
                 {
-                    int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
-                    if (retryDelayMilliseconds > 0)
-                    {
-                        await Task.Delay(retryDelayMilliseconds);
-                    }
+                    break;
+                }
+
+                bool hostSessionPending = ticket.HasManifest &&
+                                          ShouldRetryRaidSessionAvailability(
+                                              ticket.Manifest,
+                                              ticket.Request.Role,
+                                              _raidLauncher.LastStartShutdownReason);
+                if (!hostSessionPending || _isQuitting)
+                {
+                    break;
+                }
+
+                if (!availabilityWaitLogged)
+                {
+                    availabilityWaitLogged = true;
+                    Debug.Log(
+                        $"[{nameof(SessionConnectionCoordinator)}] Waiting for Host raid session " +
+                        $"'{ticket.Request.SessionName}' to become available.",
+                        this);
+                }
+
+                int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
+                if (retryDelayMilliseconds > 0)
+                {
+                    await Task.Delay(retryDelayMilliseconds);
                 }
             }
 
             if (!started)
             {
+                if (_isQuitting)
+                {
+                    return SessionTransitionResult.ConnectionFailed;
+                }
+
                 return await RecoverTownAfterRaidFailureAsync(SessionTransitionResult.ConnectionFailed);
             }
 

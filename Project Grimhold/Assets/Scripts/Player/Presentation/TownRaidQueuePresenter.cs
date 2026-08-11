@@ -3,8 +3,8 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Binds the local Shared Mode player to the Town interaction prompt and raid queue view.
-/// It observes confirmed interaction results and never mutates authoritative state directly.
+/// Binds the local Shared Mode player to the Town raid-code view.
+/// It forwards explicit UI requests to the application session coordinator and owns no session state.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerInteractionNetworkController))]
@@ -19,12 +19,8 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
     private PlayerInteractionNetworkController _interactionController;
 
     private TownRaidQueueView _view;
-    private TownRaidQueueNetworkController _queue;
-    private SocialPlayerIdentity _identity;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
-    private int _lastSnapshotRevision = -1;
-    private ProfileId _localProfile;
 
     private void Awake()
     {
@@ -47,24 +43,14 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
 
     private void Bind()
     {
-        if (!HasInputAuthority || _candidateSource == null || _interactionController == null ||
-            _identity == null || string.IsNullOrWhiteSpace(_identity.ProfileId.ToString()))
+        if (!HasInputAuthority || _candidateSource == null || _interactionController == null || _view != null)
         {
             return;
         }
 
-        if (_view != null)
-        {
-            return;
-        }
-
-        _localProfile = new ProfileId(_identity.ProfileId.ToString());
         _view = TownRaidQueueView.Create(transform);
-        _view.CreateRequested += RequestCreate;
-        _view.JoinRequested += RequestJoin;
-        _view.LeaveRequested += RequestLeave;
-        _view.ReadyRequested += RequestReady;
-        _view.LaunchRequested += RequestLaunch;
+        _view.CreateRequested += CreateRaid;
+        _view.JoinRequested += JoinRaid;
         _view.CloseRequested += ClosePanel;
         _interactionController.InteractionResolved += OnInteractionResolved;
     }
@@ -79,24 +65,6 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         _view.SetPrompt(
             _candidateSource != null && _candidateSource.HasCandidate,
             _candidateSource?.CurrentPromptText);
-
-        if (!_view.IsPanelOpen)
-        {
-            return;
-        }
-
-        if (_queue == null || _queue.Object == null || !_queue.Object.IsValid)
-        {
-            ClosePanel();
-            return;
-        }
-
-        if (_lastSnapshotRevision != _queue.SnapshotRevision)
-        {
-            _lastSnapshotRevision = _queue.SnapshotRevision;
-            TownRaidQueueSnapshot snapshot = _queue.Snapshot;
-            _view.Refresh(in snapshot, _localProfile);
-        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -123,36 +91,48 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
-            !target.TryGetBehaviour(out TownRaidNpcInteractable npc) || npc.QueueController == null)
+            !target.TryGetBehaviour(out TownRaidNpcInteractable _))
         {
             return;
         }
 
-        _queue = npc.QueueController;
-        _lastSnapshotRevision = -1;
         _view.Open();
         AcquireInputSuppression();
     }
 
-    private void RequestCreate() => ReportSend(_queue != null && _queue.RequestCreate());
-    private void RequestJoin() => ReportSend(_queue != null && _queue.RequestJoin());
-    private void RequestLeave() => ReportSend(_queue != null && _queue.RequestLeave());
-    private void RequestReady(bool ready) => ReportSend(_queue != null && _queue.RequestSetReady(ready));
-    private void RequestLaunch() => ReportSend(_queue != null && _queue.RequestLaunch());
-
-    private void ReportSend(bool sent)
+    private async void CreateRaid(string code)
     {
-        if (!sent)
+        await StartRaidTransition(code, true);
+    }
+
+    private async void JoinRaid(string code)
+    {
+        await StartRaidTransition(code, false);
+    }
+
+    private async System.Threading.Tasks.Task StartRaidTransition(string code, bool create)
+    {
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator == null)
         {
-            _view?.ShowTransportFailure();
+            _view?.ShowTransitionFailure(SessionTransitionResult.InvalidState);
+            return;
+        }
+
+        _view?.SetBusy(true, create ? $"Creando raid {code}…" : $"Uniéndose a raid {code}…");
+        SessionTransitionResult result = create
+            ? await coordinator.CreateCodeRaidAsync(code)
+            : await coordinator.JoinCodeRaidAsync(code);
+
+        if (result != SessionTransitionResult.Succeeded && this != null)
+        {
+            _view?.ShowTransitionFailure(result);
         }
     }
 
     private void ClosePanel()
     {
         _view?.Close();
-        _queue = null;
-        _lastSnapshotRevision = -1;
         ReleaseInputSuppression();
     }
 
@@ -205,12 +185,12 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         ReleaseInputSuppression();
         if (_view != null)
         {
+            _view.CreateRequested -= CreateRaid;
+            _view.JoinRequested -= JoinRaid;
+            _view.CloseRequested -= ClosePanel;
             Destroy(_view.gameObject);
             _view = null;
         }
-
-        _queue = null;
-        _lastSnapshotRevision = -1;
     }
 
     private void CacheDependencies()
@@ -223,11 +203,6 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         if (_interactionController == null)
         {
             _interactionController = GetComponent<PlayerInteractionNetworkController>();
-        }
-
-        if (_identity == null)
-        {
-            _identity = GetComponent<SocialPlayerIdentity>();
         }
     }
 

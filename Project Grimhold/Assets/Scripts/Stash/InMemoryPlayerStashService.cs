@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Compatibility adapter exposing the persistent store through the existing
+/// Compatibility adapter exposing the application-level store through the existing
 /// stash service contract. It owns no stash state.
 /// </summary>
 public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashService

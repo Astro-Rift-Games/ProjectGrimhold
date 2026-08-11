@@ -15,9 +15,44 @@ namespace ProjectGrimhold.Gameplay.Visibility
         [Tooltip("Offset relativo al transform.position para evaluar la visibilidad. Útil para entidades altas donde el pivot está en la base.")]
         [SerializeField] private Vector2 _visibilityOffset;
 
+        [Tooltip("Collider whose footprint is sampled for large entities such as Sanctuaries.")]
+        [SerializeField] private Collider2D _visibilityCollider;
+
+        [Tooltip("Show this entity when any sampled point inside the collider enters local LOS.")]
+        [SerializeField] private bool _useColliderBounds;
+
         private EntityVisibilitySystem _system;
 
         public Vector2 VisibilityPoint => (Vector2)transform.position + _visibilityOffset;
+
+        /// <inheritdoc />
+        public bool IsVisible(LosPolygonHandle losHandle)
+        {
+            if (losHandle == null)
+            {
+                return false;
+            }
+
+            if (!_useColliderBounds || _visibilityCollider == null)
+            {
+                return losHandle.IsInsideLos(VisibilityPoint);
+            }
+
+            Bounds bounds = _visibilityCollider.bounds;
+            Vector2 center = bounds.center;
+            if (losHandle.IsInsideLos(center))
+            {
+                return true;
+            }
+
+            // Sample inset corners so a meaningful portion of an authored
+            // footprint can enter LOS without testing outside its collider.
+            Vector2 extents = bounds.extents * 0.9f;
+            return losHandle.IsInsideLos(center + new Vector2(-extents.x, -extents.y)) ||
+                   losHandle.IsInsideLos(center + new Vector2(-extents.x, extents.y)) ||
+                   losHandle.IsInsideLos(center + new Vector2(extents.x, -extents.y)) ||
+                   losHandle.IsInsideLos(center + new Vector2(extents.x, extents.y));
+        }
 
         private void OnEnable()
         {

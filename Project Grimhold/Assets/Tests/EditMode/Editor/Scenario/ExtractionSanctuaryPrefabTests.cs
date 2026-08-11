@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
+using ProjectGrimhold.Gameplay.Visibility;
 using Assert = NUnit.Framework.Assert;
 
 namespace Tests.EditMode.Scenario
@@ -43,6 +44,15 @@ namespace Tests.EditMode.Scenario
             Assert.That(prefab.GetComponent<InteractionPromptMetadata>().PromptText, Is.EqualTo("Usar santuario"));
             Assert.That(prefab.layer, Is.EqualTo(LayerMask.NameToLayer("Interactable")));
             Assert.That(prefab.GetComponent<ExtractionZone>().IsAvailable, Is.False);
+            EntityVisibilityPresenter visibilityPresenter = prefab.GetComponent<EntityVisibilityPresenter>();
+            Assert.That(visibilityPresenter, Is.Not.Null);
+            SerializedObject serializedVisibility = new SerializedObject(visibilityPresenter);
+            Assert.That(
+                serializedVisibility.FindProperty("_visibilityCollider").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<BoxCollider2D>()));
+            Assert.That(
+                serializedVisibility.FindProperty("_useColliderBounds").boolValue,
+                Is.True);
             Assert.That(
                 typeof(ExtractionZone).GetField("_spriteRenderer", BindingFlags.Instance | BindingFlags.NonPublic),
                 Is.Null);

@@ -269,7 +269,14 @@ namespace Tests.EditMode.Loot
             Assert.That(renderer.transform.parent, Is.EqualTo(prefab.transform));
             Assert.That(renderer.gameObject.name, Is.EqualTo("WorldVisual"));
             Assert.That(prefab.GetComponent<Collider2D>(), Is.Not.Null);
-            Assert.That(prefab.GetComponent<Fusion.NetworkObject>(), Is.Not.Null);
+            Fusion.NetworkObject networkObject = prefab.GetComponent<Fusion.NetworkObject>();
+            Fusion.NetworkTransform networkTransform = prefab.GetComponent<Fusion.NetworkTransform>();
+            Assert.That(networkObject, Is.Not.Null);
+            Assert.That(networkTransform, Is.Not.Null);
+            Assert.That(networkObject.NetworkedBehaviours, Does.Contain(networkTransform));
+            Assert.That(
+                networkObject.Flags.HasFlag(Fusion.NetworkObjectFlags.HasMainNetworkTRSP),
+                Is.True);
         }
 
     }

@@ -28,9 +28,6 @@ public sealed class NetworkMatchController : NetworkBehaviour
     public int ExpectedAdmissionCount { get; private set; }
 
     [Networked]
-    private TickTimer AdmissionTimer { get; set; }
-
-    [Networked]
     public NetworkString<_32> RaidGenerationId { get; private set; }
 
     [Networked]
@@ -114,9 +111,9 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     /// <summary>
     /// Configures a raid whose gameplay scene was loaded as part of StartGame.
-    /// It closes admission once the manifest cohort has connected or the timeout expires.
+    /// It closes admission only after the complete frozen manifest cohort has connected.
     /// </summary>
-    public void ConfigurePreloadedRaidAdmission(int expectedAdmissionCount, float timeoutSeconds)
+    public void ConfigurePreloadedRaidAdmission(int expectedAdmissionCount)
     {
         if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers || expectedAdmissionCount <= 0)
         {
@@ -124,8 +121,33 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         ExpectedAdmissionCount = expectedAdmissionCount;
-        AdmissionTimer = TickTimer.CreateFromSeconds(Runner, Mathf.Max(1f, timeoutSeconds));
     }
+
+    /// <summary>
+    /// Starts gameplay while keeping admission open for clients that know the raid code.
+    /// The session closes through the normal authoritative cancellation or completion flow.
+    /// </summary>
+    public void ConfigureCodeRaidAdmission()
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.WaitingForPlayers)
+        {
+            return;
+        }
+
+        ExpectedAdmissionCount = 0;
+        Phase = MatchPhase.InProgress;
+    }
+
+    /// <summary>
+    /// Determines whether every profile frozen into the Town launch manifest was admitted.
+    /// There is intentionally no elapsed-time condition in this policy.
+    /// </summary>
+    public static bool IsExpectedCohortAdmitted(int expectedAdmissionCount, int admittedProfileCount) =>
+        expectedAdmissionCount > 0 && admittedProfileCount >= expectedAdmissionCount;
+
+    /// <summary>Returns whether late code-based admission is valid in the current match phase.</summary>
+    public static bool IsCodeAdmissionOpen(bool allowsCodeAdmission, MatchPhase phase) =>
+        allowsCodeAdmission && phase == MatchPhase.InProgress;
 
     public override void FixedUpdateNetwork()
     {
@@ -162,7 +184,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-        if ((spawnManager != null && spawnManager.AdmittedRaidProfileCount >= ExpectedAdmissionCount) || AdmissionTimer.Expired(Runner))
+        if (spawnManager != null &&
+            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.AdmittedRaidProfileCount))
         {
             ClosePreloadedRaidAdmission();
         }

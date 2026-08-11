@@ -89,7 +89,6 @@ MonoBehaviour:
   - RawGuidValue: 6f7ab2fe6d6193a4ea17a843ff58f94b
   _matchControllerPrefab:
     RawGuidValue: b91f8c7e96a4d784a92c3bd1a88dfec8
-  _coordinatedAdmissionTimeoutSeconds: 20
 --- !u!114 &7366466056960329881
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -120,8 +119,6 @@ MonoBehaviour:
   _raidLauncher: {fileID: 8121898311945185702}
   _townSceneName: Lobby-Town
   _gameplaySceneName: Gameplay
-  _clientLaunchDelaySeconds: 1
-  _clientJoinAttempts: 5
   _clientJoinRetryDelaySeconds: 0.5
 --- !u!114 &500828127470096320
 MonoBehaviour:

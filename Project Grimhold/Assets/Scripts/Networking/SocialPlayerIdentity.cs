@@ -2,8 +2,8 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Replicates the persistent profile identity of a Town PlayerObject.
-/// The Shared Mode queue uses it to validate RPC senders without treating PlayerRef as persistent identity.
+/// Replicates the process-local profile identity of a Town PlayerObject.
+/// The Shared Mode queue uses it to validate RPC senders without treating PlayerRef as profile identity.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]

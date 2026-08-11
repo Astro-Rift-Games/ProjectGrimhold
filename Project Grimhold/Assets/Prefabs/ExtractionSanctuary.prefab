@@ -242,3 +242,5 @@ MonoBehaviour:
   _renderers:
   - {fileID: 5786374723593555651}
   _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 700000000000000002}
+  _useColliderBounds: 1

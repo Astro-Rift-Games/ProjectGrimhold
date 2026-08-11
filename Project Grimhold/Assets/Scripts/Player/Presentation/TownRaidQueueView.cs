@@ -1,12 +1,11 @@
 using System;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Local-only runtime view for the Town interaction prompt and raid queue.
-/// It owns no gameplay or network state and only emits explicit UI intentions.
+/// Local-only Town view for creating or joining a raid through a six-digit session code.
+/// It owns no connection state and emits explicit UI intentions to its presenter.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class TownRaidQueueView : MonoBehaviour
@@ -15,20 +14,14 @@ public sealed class TownRaidQueueView : MonoBehaviour
     private TMP_Text _promptText;
     private GameObject _panelRoot;
     private TMP_Text _statusText;
-    private TMP_Text _membersText;
+    private TMP_InputField _codeInput;
     private Button _createButton;
     private Button _joinButton;
-    private Button _leaveButton;
-    private Button _readyButton;
-    private Button _launchButton;
-    private TMP_Text _readyButtonText;
-    private bool _localReady;
+    private Button _copyButton;
+    private Button _closeButton;
 
-    public event Action CreateRequested;
-    public event Action JoinRequested;
-    public event Action LeaveRequested;
-    public event Action<bool> ReadyRequested;
-    public event Action LaunchRequested;
+    public event Action<string> CreateRequested;
+    public event Action<string> JoinRequested;
     public event Action CloseRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
@@ -43,6 +36,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
             typeof(GraphicRaycaster),
             typeof(TownRaidQueueView));
         root.transform.SetParent(owner, false);
+
         Canvas canvas = root.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
@@ -75,6 +69,13 @@ public sealed class TownRaidQueueView : MonoBehaviour
     {
         _promptRoot?.SetActive(false);
         _panelRoot?.SetActive(true);
+        if (_codeInput != null && string.IsNullOrWhiteSpace(_codeInput.text))
+        {
+            _codeInput.text = RaidLaunchManifest.Code.Generate();
+        }
+
+        ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
+        SetBusy(false);
     }
 
     public void Close()
@@ -82,64 +83,33 @@ public sealed class TownRaidQueueView : MonoBehaviour
         _panelRoot?.SetActive(false);
     }
 
-    public void ShowTransportFailure()
+    public void SetBusy(bool busy, string status = null)
     {
-        if (_statusText != null)
+        if (_codeInput != null)
         {
-            _statusText.text = "No se pudo enviar la solicitud.";
+            _codeInput.interactable = !busy;
+        }
+
+        if (_createButton != null) _createButton.interactable = !busy;
+        if (_joinButton != null) _joinButton.interactable = !busy;
+        if (_copyButton != null) _copyButton.interactable = !busy;
+        if (_closeButton != null) _closeButton.interactable = !busy;
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            ShowStatus(status);
         }
     }
 
-    public void Refresh(in TownRaidQueueSnapshot snapshot, ProfileId localProfile)
+    public void ShowInvalidCode()
     {
-        bool isMember = false;
-        bool isReady = false;
-        bool allReady = snapshot.Members.Count > 0;
-        var membersBuilder = new StringBuilder(128);
-        for (int index = 0; index < snapshot.Members.Count; index++)
-        {
-            TownRaidQueueMember member = snapshot.Members[index];
-            bool isLocal = member.ProfileId == localProfile;
-            isMember |= isLocal;
-            if (isLocal)
-            {
-                isReady = member.IsReady;
-            }
+        ShowStatus("El código debe tener exactamente 6 números.");
+    }
 
-            allReady &= member.IsReady;
-            membersBuilder.Append(member.ProfileId == snapshot.HostProfileId ? "Host · " : "Miembro · ");
-            membersBuilder.Append(member.ProfileId.Value);
-            membersBuilder.Append(member.IsReady ? " · Ready" : " · No listo");
-            membersBuilder.AppendLine();
-        }
-
-        if (_membersText != null)
-        {
-            _membersText.text = membersBuilder.Length > 0 ? membersBuilder.ToString() : "No hay una expedición formada.";
-        }
-
-        bool isHost = isMember && snapshot.HostProfileId == localProfile;
-        _localReady = isReady;
-        if (_statusText != null)
-        {
-            _statusText.text = snapshot.State switch
-            {
-                TownRaidQueueState.Empty => "Creá una expedición o esperá a que otro jugador la forme.",
-                TownRaidQueueState.Forming => "La expedición está esperando a que todos estén Ready.",
-                TownRaidQueueState.Launching => "Preparando la raid…",
-                _ => "Estado de cola no disponible."
-            };
-        }
-
-        SetButton(_createButton, snapshot.State == TownRaidQueueState.Empty);
-        SetButton(_joinButton, snapshot.State == TownRaidQueueState.Forming && !isMember);
-        SetButton(_leaveButton, snapshot.State == TownRaidQueueState.Forming && isMember);
-        SetButton(_readyButton, snapshot.State == TownRaidQueueState.Forming && isMember);
-        SetButton(_launchButton, snapshot.State == TownRaidQueueState.Forming && isHost && allReady);
-        if (_readyButtonText != null)
-        {
-            _readyButtonText.text = isReady ? "No estoy Ready" : "Estoy Ready";
-        }
+    public void ShowTransitionFailure(SessionTransitionResult result)
+    {
+        SetBusy(false);
+        ShowStatus($"No se pudo conectar a la raid: {result}.");
     }
 
     private void Build()
@@ -147,10 +117,10 @@ public sealed class TownRaidQueueView : MonoBehaviour
         _promptRoot = CreatePanel("InteractionPrompt", transform, new Vector2(0f, 110f), new Vector2(430f, 64f));
         _promptText = CreateText("PromptText", _promptRoot.transform, 28f, TextAlignmentOptions.Center);
 
-        _panelRoot = CreatePanel("RaidQueuePanel", transform, Vector2.zero, new Vector2(620f, 620f));
+        _panelRoot = CreatePanel("RaidCodePanel", transform, Vector2.zero, new Vector2(620f, 440f));
         var layout = _panelRoot.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(28, 28, 24, 24);
-        layout.spacing = 12f;
+        layout.spacing = 14f;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.childControlHeight = false;
         layout.childControlWidth = true;
@@ -159,19 +129,83 @@ public sealed class TownRaidQueueView : MonoBehaviour
         TMP_Text title = CreateText("Title", _panelRoot.transform, 34f, TextAlignmentOptions.Center);
         title.text = "Expedición";
         SetPreferredHeight(title.gameObject, 50f);
-        _statusText = CreateText("Status", _panelRoot.transform, 22f, TextAlignmentOptions.Center);
-        SetPreferredHeight(_statusText.gameObject, 70f);
-        _membersText = CreateText("Members", _panelRoot.transform, 19f, TextAlignmentOptions.TopLeft);
-        SetPreferredHeight(_membersText.gameObject, 180f);
 
-        _createButton = CreateButton("Crear expedición", _panelRoot.transform, () => CreateRequested?.Invoke(), out _);
-        _joinButton = CreateButton("Unirse", _panelRoot.transform, () => JoinRequested?.Invoke(), out _);
-        _leaveButton = CreateButton("Salir de la cola", _panelRoot.transform, () => LeaveRequested?.Invoke(), out _);
-        _readyButton = CreateButton("Estoy Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _readyButtonText);
-        _launchButton = CreateButton("Lanzar raid", _panelRoot.transform, () => LaunchRequested?.Invoke(), out _);
-        CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
+        _statusText = CreateText("Status", _panelRoot.transform, 21f, TextAlignmentOptions.Center);
+        SetPreferredHeight(_statusText.gameObject, 62f);
+
+        _codeInput = CreateCodeInput(_panelRoot.transform);
+        _createButton = CreateButton(
+            "Crear raid con este código",
+            _panelRoot.transform,
+            () => Submit(CreateRequested),
+            out _);
+        _joinButton = CreateButton(
+            "Unirse con este código",
+            _panelRoot.transform,
+            () => Submit(JoinRequested),
+            out _);
+        _copyButton = CreateButton("Copiar código", _panelRoot.transform, CopyCode, out _);
+        _closeButton = CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
+
         _panelRoot.SetActive(false);
         _promptRoot.SetActive(false);
+    }
+
+    private void Submit(Action<string> action)
+    {
+        if (!RaidLaunchManifest.Code.TryNormalize(_codeInput?.text, out string code))
+        {
+            ShowInvalidCode();
+            return;
+        }
+
+        action?.Invoke(code);
+    }
+
+    private void CopyCode()
+    {
+        if (!RaidLaunchManifest.Code.TryNormalize(_codeInput?.text, out string code))
+        {
+            ShowInvalidCode();
+            return;
+        }
+
+        GUIUtility.systemCopyBuffer = code;
+        ShowStatus($"Código {code} copiado.");
+    }
+
+    private void ShowStatus(string status)
+    {
+        if (_statusText != null)
+        {
+            _statusText.text = status;
+        }
+    }
+
+    private static TMP_InputField CreateCodeInput(Transform parent)
+    {
+        var inputObject = new GameObject(
+            "RaidCodeInput",
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(TMP_InputField),
+            typeof(LayoutElement));
+        inputObject.transform.SetParent(parent, false);
+        inputObject.GetComponent<Image>().color = new Color(0.10f, 0.13f, 0.18f, 1f);
+        SetPreferredHeight(inputObject, 58f);
+
+        TMP_Text text = CreateText("Text", inputObject.transform, 28f, TextAlignmentOptions.Center);
+        TMP_Text placeholder = CreateText("Placeholder", inputObject.transform, 22f, TextAlignmentOptions.Center);
+        placeholder.text = "Código de 6 números";
+        placeholder.color = new Color(1f, 1f, 1f, 0.45f);
+
+        TMP_InputField input = inputObject.GetComponent<TMP_InputField>();
+        input.textComponent = text;
+        input.placeholder = placeholder;
+        input.contentType = TMP_InputField.ContentType.IntegerNumber;
+        input.characterLimit = RaidLaunchManifest.Code.Length;
+        input.lineType = TMP_InputField.LineType.SingleLine;
+        return input;
     }
 
     private static GameObject CreatePanel(string name, Transform parent, Vector2 anchoredPosition, Vector2 size)
@@ -225,13 +259,5 @@ public sealed class TownRaidQueueView : MonoBehaviour
         }
 
         element.preferredHeight = height;
-    }
-
-    private static void SetButton(Button button, bool visible)
-    {
-        if (button != null)
-        {
-            button.gameObject.SetActive(visible);
-        }
     }
 }

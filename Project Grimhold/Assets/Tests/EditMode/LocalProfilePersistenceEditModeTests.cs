@@ -20,6 +20,41 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
+    public void InMemoryRepository_NewInstanceStartsWithEmptyGameplayData()
+    {
+        var profile = new ProfileId("10101010101010101010101010101010");
+        var currentProcess = new InMemoryLocalProfileRepository();
+        Assert.That(currentProcess.Initialize(profile, _catalog), Is.True);
+        var snapshot = currentProcess.Snapshot.Clone();
+        snapshot.Stash.Add(new StashItem(new LootId("coins"), 5));
+        Assert.That(currentProcess.TrySave(snapshot, out string error), Is.True, error);
+        Assert.That(currentProcess.Snapshot.Stash, Has.Count.EqualTo(1));
+
+        var nextProcess = new InMemoryLocalProfileRepository();
+        Assert.That(nextProcess.Initialize(profile, _catalog), Is.True);
+        Assert.That(nextProcess.Snapshot.Stash, Is.Empty);
+        Assert.That(nextProcess.Snapshot.Loadout, Is.Empty);
+        Assert.That(nextProcess.Snapshot.PendingReservation, Is.Null);
+        Assert.That(nextProcess.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void InMemoryRepository_RejectsSnapshotFromAnotherProfile()
+    {
+        var localProfile = new ProfileId("20202020202020202020202020202020");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(localProfile, _catalog), Is.True);
+        var foreignSnapshot = new LocalProfileSnapshot
+        {
+            ProfileId = new ProfileId("30303030303030303030303030303030")
+        };
+
+        Assert.That(repository.TrySave(foreignSnapshot, out string error), Is.False);
+        Assert.That(error, Does.Contain("does not match"));
+        Assert.That(repository.Snapshot.ProfileId, Is.EqualTo(localProfile));
+    }
+
+    [Test]
     public void Repository_RoundTripsVersionOneSnapshot()
     {
         var files = new MemoryFileStore();

@@ -685,8 +685,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        // Accept connection requests ONLY during the lobby phase (WaitingForPlayers) or during a valid Host Migration window
-        bool allowJoin = (_matchController != null && _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers) || isHostMigrationWindow;
+        bool codeAdmissionWindow = _matchController != null &&
+                                   NetworkMatchController.IsCodeAdmissionOpen(
+                                       _raidManifest.AllowsCodeAdmission,
+                                       _matchController.Phase);
+        bool allowJoin = (_matchController != null &&
+                          _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers) ||
+                         codeAdmissionWindow ||
+                         isHostMigrationWindow;
 
         if (!allowJoin)
         {
@@ -806,7 +812,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return true;
         }
 
-        if (_matchController.Phase != NetworkMatchController.MatchPhase.WaitingForPlayers)
+        bool admissionPhaseIsOpen = _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers ||
+                                    NetworkMatchController.IsCodeAdmissionOpen(
+                                        _raidManifest.AllowsCodeAdmission,
+                                        _matchController.Phase);
+        if (!admissionPhaseIsOpen)
             return false;
 
         _admittedPlayers.Add(player);
@@ -953,7 +963,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
-    public int ExpectedRaidAdmissionCount => _raidManifest.IsValid ? _raidManifest.AdmittedProfiles.Count : 0;
+    public int ExpectedRaidAdmissionCount =>
+        _raidManifest.IsValid && !_raidManifest.AllowsCodeAdmission
+            ? _raidManifest.AdmittedProfiles.Count
+            : 0;
     public int AdmittedRaidProfileCount => _admittedProfiles.Count;
 
     private bool TryValidateRaidAdmissionToken(byte[] token, out RaidAdmissionData admission)

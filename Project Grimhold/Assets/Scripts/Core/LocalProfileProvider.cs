@@ -1,25 +1,32 @@
 using UnityEngine;
 
 /// <summary>
-/// Provides a persistent local ProfileId. 
-/// Generates a random GUID on first launch and saves it to PlayerPrefs.
+/// Provides one local ProfileId for the lifetime of the current application process.
+/// Separate processes receive separate identities, including multiple builds launched
+/// under the same operating-system account.
 /// </summary>
 public static class LocalProfileProvider
 {
-    private const string ProfilePrefsKey = "grimhold_profile_id";
+    private static ProfileId _processProfile;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetProcessProfile()
+    {
+        _processProfile = default;
+    }
+
+    /// <summary>
+    /// Returns the identity shared by every Town and raid runner in this process.
+    /// The first call creates it; application restart discards it.
+    /// </summary>
     public static ProfileId GetOrCreateLocalProfile()
     {
-        string profileValue = PlayerPrefs.GetString(ProfilePrefsKey, string.Empty);
-        
-        if (string.IsNullOrEmpty(profileValue))
+        if (!_processProfile.IsValid)
         {
-            profileValue = System.Guid.NewGuid().ToString("N");
-            PlayerPrefs.SetString(ProfilePrefsKey, profileValue);
-            PlayerPrefs.Save();
-            Debug.Log($"[LocalProfileProvider] Generated new persistent local ProfileId: {profileValue}");
+            _processProfile = new ProfileId(System.Guid.NewGuid().ToString("N"));
+            Debug.Log($"[{nameof(LocalProfileProvider)}] Generated process-local ProfileId: {_processProfile.Value}");
         }
 
-        return new ProfileId(profileValue);
+        return _processProfile;
     }
 }

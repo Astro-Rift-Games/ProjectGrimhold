@@ -1,7 +1,8 @@
 using System;
 
 /// <summary>
-/// Persistent identifier for a player's profile across sessions and hosts.
+/// Identifier for one player's profile within the currently supported lifetime boundary.
+/// The active runtime composition assigns a new value per application process.
 /// </summary>
 public readonly struct ProfileId : IEquatable<ProfileId>
 {

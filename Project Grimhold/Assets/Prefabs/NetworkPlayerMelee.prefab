@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 23
+      value: 24
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -151,7 +151,7 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[22]'
       value: 
-      objectReference: {fileID: 481970610349468446}
+      objectReference: {fileID: 3367888860775322814}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[23]'
       value: 
@@ -281,6 +281,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02e8540a5586c884eb6d345af809486d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerLootDropNetworkController
+--- !u!114 &3367888860775322814 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 9100000000000000900, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b0bf9c60ce64f6abf2ecff05513e9e1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerVisibilityBinder
 --- !u!114 &3682681716924389183 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7201000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

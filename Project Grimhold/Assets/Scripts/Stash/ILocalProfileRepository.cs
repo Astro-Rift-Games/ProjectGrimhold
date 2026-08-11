@@ -1,5 +1,6 @@
 /// <summary>
-/// Durable storage boundary for one local profile aggregate.
+/// Storage boundary for one local profile aggregate.
+/// Implementations define whether the snapshot is process-local or durable.
 /// </summary>
 public interface ILocalProfileRepository
 {

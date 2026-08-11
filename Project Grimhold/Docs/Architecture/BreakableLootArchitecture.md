@@ -39,6 +39,7 @@ DamageRequest
 - The content table, catalog, pickup prefab and local offsets are immutable prefab configuration.
 - The rolled `LootEntry[]` exists only on the authoritative breakable until destruction. Proxies never receive a seed and never roll.
 - Each spawned pickup owns the replicated catalog index, quantity and consumed state. Static display data is resolved locally from the shared catalog.
+- `NetworkLootPickup` is spawned at an authoritative world position and therefore its root requires `Fusion.NetworkTransform`, registration in `NetworkedBehaviours`, and `HasMainNetworkTRSP`. This is transform replication, not an AOI workaround.
 - `IsDestroyed` is committed before pickup spawning and is the one-shot guard against simultaneous or repeated damage.
 
 ## Boundaries and failure policy

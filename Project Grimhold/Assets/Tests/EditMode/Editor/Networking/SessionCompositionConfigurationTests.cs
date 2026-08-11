@@ -195,11 +195,17 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(avatarPrefab, Is.Not.Null, prefabPath);
         NetworkObject networkObject = avatarPrefab.GetComponent<NetworkObject>();
         RaidAvatarParticipantLink participantLink = avatarPrefab.GetComponent<RaidAvatarParticipantLink>();
+        LocalPlayerVisibilityBinder visibilityBinder = avatarPrefab.GetComponent<LocalPlayerVisibilityBinder>();
         Assert.That(networkObject, Is.Not.Null, prefabPath);
         Assert.That(avatarPrefab.GetComponent<PlayerCharacter>(), Is.Not.Null, prefabPath);
         Assert.That(participantLink, Is.Not.Null, prefabPath);
+        Assert.That(visibilityBinder, Is.Not.Null, prefabPath);
         Assert.That(avatarPrefab.GetComponent<PlayerLoadoutInjector>(), Is.Null, prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(participantLink), prefabPath);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(visibilityBinder), prefabPath);
+        Transform visibilityMesh = FindChild(avatarPrefab.transform, "VisibilityMesh");
+        Assert.That(visibilityMesh, Is.Not.Null, prefabPath);
+        Assert.That(visibilityMesh.gameObject.activeSelf, Is.False, prefabPath);
     }
 
     private static Transform FindChild(Transform root, string childName)

@@ -1,77 +1,45 @@
-# Town Raid Queue Architecture
+# Town Raid Code Architecture
 
 ## Context and decision
 
-`TASK-59` connects the Shared Mode Town to private Host/Client raids without ever keeping two runners on one client. A manually configured Town NPC exposes a local queue view; it does not own queue state.
+Town and raids use different Fusion runners. Automatically moving a complete Shared Mode cohort required the Host to deliver a final release RPC immediately before shutting down Town, which allowed the Host shutdown to race the Client's receipt of that RPC.
+
+The current MVP uses explicit six-digit raid codes instead. The Host creates a raid with a code and leaves Town. Each Client enters the same code at the raid NPC and joins independently. There is no Ready cohort, launch deadline or automatic group transition.
 
 ## Ownership and flow
 
 ```text
-TownRaidNpcInteractable (authoritative interaction result)
-  -> TownRaidQueueNetworkController (Shared Master Client authority)
-  -> TownRaidQueuePresenter / TownRaidQueueView (local presentation)
-  -> four directed reliable manifest fragments + local reassembly + ACK
-  -> SessionConnectionCoordinator ticket
-  -> Host creates hidden session / clients join its exact name
-  -> NetworkSpawnManager validates RaidAdmissionData
+TownRaidNpcInteractable (confirmed local interaction)
+  -> TownRaidQueuePresenter / TownRaidQueueView (local code input)
+  -> SessionConnectionCoordinator (single-runner lifecycle + loadout reservation)
+  -> RaidLaunchManifest.Code (deterministic session identity and admission secret)
+  -> FusionSessionLauncher (Host creates / Client joins exact hidden session)
+  -> NetworkSpawnManager (authoritative admission and loadout validation)
 ```
 
-The queue is a `NetworkObject` configured as `MasterClientObject`. It owns the only pending cohort, each member's Ready state and the launch sequence. `ProfileId` is the identity; `PlayerRef` only validates the active sender. `SocialPlayerIdentity` replicates that profile from the local Town join context.
+`TownRaidQueueView` generates a six-digit suggestion locally and lets the player edit or copy it. `RaidLaunchManifest.Code` accepts exactly six ASCII digits. The normalized code deterministically creates the same session name, raid id and access secret in every application process.
 
-The Host creates the manifest only when every member, including itself, is Ready. It has a new raid id, session name and secret. Fusion limits one RPC payload to 512 bytes and serializes each `NetworkString` at its declared capacity, so the queue sends identity, credential and two member pairs as four targeted reliable fragments. The receiver isolates fragments by `LaunchSequence`, reconstructs and validates the complete manifest, persists it locally, and only then sends its ACK. The queue waits for every ACK, releases those peers, then resets for a new cohort. Stale fragments, repeated acknowledgements and release requests do not create another raid.
+Creating and joining are explicit UI actions. The coordinator reserves the local loadout before leaving Town, destroys the Shared runner, creates a fresh Host or Client runner and submits `RaidAdmissionData`. A failed Client lookup is definitive and recovers that player to Town. Clients do not poll for a Host that has not created the coded session yet.
 
-Interaction results use a local fast path when Shared Mode gives the same `SocialPlayer` State Authority and Input Authority. A State Authority to Input Authority RPC is reserved for a genuinely remote owner and has local invocation disabled. Presentation is dispatched from `Render`; neither the NPC nor an RPC opens UI or shuts down a runner synchronously from simulation.
+## Authority and admission
 
-`TownRaidQueuePresenter` exists only on the local `SocialPlayer`. It renders the nearby prompt, resolves the confirmed NPC by `TargetId`, opens the queue view and converts buttons into discrete queue requests. Opening the panel suppresses gameplay input until it closes.
+The Host starts in Gameplay immediately. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the raid id, code-derived secret, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
 
-The queue observes `IPlayerLeft`: Host departure dissolves the cohort, while another departure removes that member. Because the frozen manifest and ACK set intentionally contain a private credential and are not replicated, a Master Client transfer during `Launching` cancels the launch and clears every locally stored ticket. `Forming` survives authority transfer.
+The session is hidden from public matchmaking but remains open while the raid is `InProgress`, allowing Clients to join later with the code. It closes through the existing authoritative raid cancellation or natural-completion flow. There is no elapsed-time admission cutoff.
 
-## Raid admission
+Frozen-cohort manifests and the previous network queue implementation remain in code for compatibility with existing tests and development paths, but the Town NPC presentation no longer invokes that workflow. The code path is the active player-facing source of truth.
 
-`RaidAdmissionDataCodec` is intentionally separate from the Town `PlayerJoinDataCodec`.
-Version 2 carries raid id, secret, profile, selected build, reservation id and the
-player's reserved snapshot. It uses explicit UTF-8 lengths, Int32 quantities and
-an exact 512-byte project limit (maximum 16 distinct entries, 9,999 each).
-The coordinator creates the durable reservation before ACKing the manifest.
-`NetworkSpawnManager` validates credential, profile, build, reservation shape,
-catalog and capacity in State Authority; it never reads a remote local profile.
-Admission succeeds only after participant, avatar and exact receiver inventory
-exist. Pre-admission failure rolls back; post-admission failure keeps it pending.
+## Presentation boundary
 
-The admission closes when every manifest profile is admitted or after the configured timeout. A player whose admission fails after connecting is disconnected, including duplicate-profile races. The raid scene was already loaded by the coordinated launch, so the match controller advances to `InProgress` without loading it again.
+`TownRaidQueuePresenter` exists only for the local `SocialPlayer`. It observes the confirmed NPC interaction, opens the local view, suppresses gameplay input while the panel is open and forwards create/join requests to the application coordinator. Presentation never mutates Fusion simulation or authoritative raid state.
 
-## Configuration required outside this task
+## Validation strategy
 
-The Town NPC prefab must remain a `MasterClientObject` with a trigger collider, `TownRaidQueueNetworkController`, `TownRaidNpcInteractable` and `InteractionPromptMetadata`. The SocialPlayer network prefab contains `SocialPlayerIdentity` and `TownRaidQueuePresenter`; its local view is created only for Input Authority. Queue request methods return whether Fusion accepted the local invocation or transport attempt so presentation can report immediate transport failure.
-
-## NPC de stash y presentación local
-
-El NPC de stash comparte la frontera de interacción confirmada, pero no comparte
-el estado de la cola ni el estado de red del jugador:
-
-```text
-TownStashNpcInteractable
-  -> InteractionResolved confirmado
-  -> TownStashPresenter (sólo Input Authority)
-  -> TownStashView local
-  -> StashInventory.prefab / LobbyStashPresenter
-  -> ApplicationStashContext / LocalProfileStore
-```
-
-`TownStashNpcInteractable` sólo registra sus colliders en `EntityRegistry` y
-devuelve un resultado exitoso para el `TargetId` correcto. `TownStashPresenter`
-resuelve ese objetivo exacto, comprueba que el perfil local está disponible y
-abre una única instancia local de `StashInventory`; no publica stash ni loadout
-en Fusion. La UI reutiliza el prompt genérico de
-`LocalInteractionCandidateSource` y `InteractionPromptMetadata`.
-
-Mientras la vista está abierta se adquiere un único token de supresión de input.
-Escape, una nueva pulsación de interacción, pérdida del runner, despawn,
-disable o destrucción cierran la vista y desuscriben los listeners. Los commits
-mostrados siguen siendo los de `ApplicationStashContext`, cuya fuente
-persistente es el repositorio local versionado documentado en
-`Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
+- EditMode: code normalization and deterministic manifest identity.
+- EditMode: frozen and code-admitted manifest policies.
+- Compilation: runtime UI, coordinator, launcher and authority boundary.
+- Manual two-application validation: Host creates a code, Client joins it after Host reaches Gameplay, invalid code recovers to Town, solo Host can cancel, and a second Town-Raid-Town cycle uses a new code.
 
 ## Limits
 
-The initial cohort cap is four and solo launch is permitted. Host departure before launch dissolves the queue. This feature does not add party persistence, automatic matchmaking, a backend, re-entry, or general Host Migration changes. TASK-79 may extend the manifest ticket with loadout data; TASK-80 owns extraction persistence.
+The initial session cap remains four. The code is an MVP shared secret, not an account invitation, backend reservation or cryptographic credential. A Host cannot run Town and raid simultaneously, and there is no automatic party persistence or re-entry after a profile has departed the raid.

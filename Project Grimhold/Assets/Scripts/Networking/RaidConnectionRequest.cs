@@ -2,36 +2,48 @@ using System;
 
 public readonly struct RaidConnectionRequest : IEquatable<RaidConnectionRequest>
 {
-    public string RaidId { get; }
+    private readonly string _legacyRaidId;
+    private readonly string _legacySessionName;
+
+    public RaidCode RaidCode { get; }
     public RaidConnectionRole Role { get; }
-    public string SessionName { get; }
+    public string RaidId => RaidCode.IsValid ? RaidCode.RaidId : _legacyRaidId;
+    public string SessionName => RaidCode.IsValid ? RaidCode.SessionName : _legacySessionName;
 
     public bool IsValid =>
-        !string.IsNullOrWhiteSpace(RaidId) &&
-        !string.IsNullOrWhiteSpace(SessionName) &&
+        (RaidCode.IsValid || (!string.IsNullOrWhiteSpace(_legacyRaidId) &&
+                              !string.IsNullOrWhiteSpace(_legacySessionName))) &&
         (Role == RaidConnectionRole.Host || Role == RaidConnectionRole.Client);
 
+    public RaidConnectionRequest(RaidCode raidCode, RaidConnectionRole role)
+    {
+        RaidCode = raidCode;
+        Role = role;
+        _legacyRaidId = null;
+        _legacySessionName = null;
+    }
+
+    /// <summary>
+    /// Compatibility path for the still-existing frozen-manifest workflow.
+    /// Coded Raid access must use the RaidCode constructor.
+    /// </summary>
+    [Obsolete("Use the RaidCode constructor for coded Raid access.")]
     public RaidConnectionRequest(string raidId, RaidConnectionRole role, string sessionName)
     {
-        RaidId = raidId;
+        RaidCode = default;
         Role = role;
-        SessionName = sessionName;
+        _legacyRaidId = raidId;
+        _legacySessionName = sessionName;
     }
 
     public bool Equals(RaidConnectionRequest other)
     {
-        return string.Equals(RaidId, other.RaidId, StringComparison.Ordinal) &&
+        return RaidCode == other.RaidCode &&
+               string.Equals(_legacyRaidId, other._legacyRaidId, StringComparison.Ordinal) &&
                Role == other.Role &&
-               string.Equals(SessionName, other.SessionName, StringComparison.Ordinal);
+               string.Equals(_legacySessionName, other._legacySessionName, StringComparison.Ordinal);
     }
 
-    public override bool Equals(object obj)
-    {
-        return obj is RaidConnectionRequest other && Equals(other);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(RaidId, Role, SessionName);
-    }
+    public override bool Equals(object obj) => obj is RaidConnectionRequest other && Equals(other);
+    public override int GetHashCode() => HashCode.Combine(RaidCode, Role, _legacyRaidId, _legacySessionName);
 }

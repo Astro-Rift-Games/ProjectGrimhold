@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Runtime configuration required to initialize local profile persistence.
+/// Runtime configuration required to initialize the local profile aggregate.
 /// </summary>
 [CreateAssetMenu(fileName = "LocalProfilePersistenceConfiguration", menuName = "Grimhold/Persistence/Local Profile Configuration")]
 public sealed class LocalProfilePersistenceConfiguration : ScriptableObject

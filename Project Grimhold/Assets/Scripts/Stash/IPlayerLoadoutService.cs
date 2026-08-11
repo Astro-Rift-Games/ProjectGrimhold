@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Service abstraction for interacting with a player's pre-match loadout.
-/// Handles transfers between the persistent stash and the active loadout configuration.
+/// Handles transfers between the application-level stash and the active loadout configuration.
 /// Serves as the authority for loadout limits and validation.
 /// </summary>
 public interface IPlayerLoadoutService
@@ -39,7 +39,7 @@ public interface IPlayerLoadoutService
     /// </summary>
     StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items);
 
-    /// <summary>Creates or reuses the durable reservation for a raid admission.</summary>
+    /// <summary>Creates or reuses the current application reservation for a raid admission.</summary>
     StashOperationResult TryCreateLoadoutReservation(
         ProfileId profileId,
         string reservationId,
