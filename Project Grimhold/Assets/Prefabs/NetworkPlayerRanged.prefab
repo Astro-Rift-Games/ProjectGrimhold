@@ -232,7 +232,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94978841ce6b54e4d993548e1fcdb9cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
-  _config: {fileID: 11400000, guid: 72c2830a8240480099febce01129a88f, type: 2}
+  _config: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
   _damageResolverSource: {fileID: 1281523189680295321}
 --- !u!114 &3403487621947590829 stripped
 MonoBehaviour:
