@@ -10,17 +10,20 @@ public readonly struct TownRaidQueueSnapshot
 
     public TownRaidQueueState State { get; }
     public ProfileId HostProfileId { get; }
+    public RaidCode RaidCode { get; }
     public int LaunchSequence { get; }
     public IReadOnlyList<TownRaidQueueMember> Members => _members ?? Array.Empty<TownRaidQueueMember>();
 
     public TownRaidQueueSnapshot(
         TownRaidQueueState state,
         ProfileId hostProfileId,
+        RaidCode raidCode,
         int launchSequence,
         IReadOnlyList<TownRaidQueueMember> members)
     {
         State = state;
         HostProfileId = hostProfileId;
+        RaidCode = raidCode;
         LaunchSequence = launchSequence;
         _members = members == null ? Array.Empty<TownRaidQueueMember>() : Copy(members);
     }

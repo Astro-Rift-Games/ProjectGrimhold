@@ -10,6 +10,7 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class TownRaidQueueView : MonoBehaviour
 {
+    public const string ResourcesPrefabName = "TownRaidQueueView";
     private GameObject _promptRoot;
     private TMP_Text _promptText;
     private GameObject _panelRoot;
@@ -18,15 +19,39 @@ public sealed class TownRaidQueueView : MonoBehaviour
     private Button _createButton;
     private Button _joinButton;
     private Button _copyButton;
+    private Button _readyButton;
+    private Button _startButton;
+    private bool _localReady;
     private Button _closeButton;
 
     public event Action<string> CreateRequested;
     public event Action<string> JoinRequested;
+    public event Action<bool> ReadyRequested;
+    public event Action StartRequested;
     public event Action CloseRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
 
     public static TownRaidQueueView Create(Transform owner)
+    {
+        TownRaidQueueView prefab = Resources.Load<TownRaidQueueView>(ResourcesPrefabName);
+        if (prefab == null)
+        {
+            Debug.LogError(
+                $"[{nameof(TownRaidQueueView)}] Missing required Resources prefab " +
+                $"'{ResourcesPrefabName}.prefab'. Generate it from " +
+                "Tools/Project Grimhold/UI/Generate Town Raid Queue Prefab.");
+            return null;
+        }
+
+        TownRaidQueueView instance = UnityEngine.Object.Instantiate(prefab, owner, false);
+        instance.name = prefab.name;
+        instance.CacheSerializedReferences();
+        return instance;
+    }
+
+#if UNITY_EDITOR
+    public static TownRaidQueueView CreateEditorSource(Transform owner)
     {
         var root = new GameObject(
             "TownRaidHud",
@@ -49,6 +74,56 @@ public sealed class TownRaidQueueView : MonoBehaviour
         TownRaidQueueView view = root.GetComponent<TownRaidQueueView>();
         view.Build();
         return view;
+    }
+#endif
+
+    private void Awake()
+    {
+        CacheSerializedReferences();
+    }
+
+    private void CacheSerializedReferences()
+    {
+        _promptRoot = FindChild("InteractionPrompt");
+        _promptText = FindText("InteractionPrompt/PromptText");
+        _panelRoot = FindChild("RaidCodePanel");
+        _statusText = FindText("RaidCodePanel/Status");
+        _codeInput = FindComponent<TMP_InputField>("RaidCodePanel/RaidCodeInput");
+        _createButton = FindComponent<Button>("RaidCodePanel/Crear raid");
+        _joinButton = FindComponent<Button>("RaidCodePanel/Unirse con este código");
+        _copyButton = FindComponent<Button>("RaidCodePanel/Copiar código");
+        _readyButton = FindComponent<Button>("RaidCodePanel/Ready");
+        _startButton = FindComponent<Button>("RaidCodePanel/Iniciar raid");
+        _closeButton = FindComponent<Button>("RaidCodePanel/Cerrar");
+
+        if (_panelRoot == null || _statusText == null || _codeInput == null)
+        {
+            return;
+        }
+
+        WireButton(_createButton, () => CreateRequested?.Invoke(null));
+        WireButton(_joinButton, () => Submit(JoinRequested));
+        WireButton(_copyButton, CopyCode);
+        WireButton(_readyButton, () => ReadyRequested?.Invoke(!_localReady));
+        WireButton(_startButton, () => StartRequested?.Invoke());
+        WireButton(_closeButton, () => CloseRequested?.Invoke());
+    }
+
+    private GameObject FindChild(string path) => transform.Find(path)?.gameObject;
+
+    private T FindComponent<T>(string path) where T : Component => transform.Find(path)?.GetComponent<T>();
+
+    private TMP_Text FindText(string path) => FindComponent<TMP_Text>(path);
+
+    private static void WireButton(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(action);
     }
 
     public void SetPrompt(bool visible, string action)
@@ -88,11 +163,38 @@ public sealed class TownRaidQueueView : MonoBehaviour
         if (_createButton != null) _createButton.interactable = !busy;
         if (_joinButton != null) _joinButton.interactable = !busy;
         if (_copyButton != null) _copyButton.interactable = !busy;
+        if (_readyButton != null) _readyButton.interactable = !busy;
+        if (_startButton != null) _startButton.interactable = !busy;
         if (_closeButton != null) _closeButton.interactable = !busy;
 
         if (!string.IsNullOrWhiteSpace(status))
         {
             ShowStatus(status);
+        }
+    }
+
+    public void PresentPreparation(TownRaidQueueSnapshot snapshot, bool isHost, bool localReady, bool canStart)
+    {
+        _localReady = localReady;
+        if (_codeInput != null)
+        {
+            _codeInput.text = snapshot.RaidCode.Value;
+            _codeInput.interactable = false;
+        }
+
+        ShowStatus($"Código: {snapshot.RaidCode.Value}  Jugadores: {snapshot.Members.Count} / 4\n" +
+            (isHost ? "Todos listos para iniciar." : "Esperando al Host..."));
+        if (_createButton != null) _createButton.gameObject.SetActive(false);
+        if (_joinButton != null) _joinButton.gameObject.SetActive(false);
+        if (_readyButton != null)
+        {
+            _readyButton.gameObject.SetActive(true);
+            _readyButton.GetComponentInChildren<TMP_Text>().text = localReady ? "Cancelar Ready" : "Ready";
+        }
+        if (_startButton != null)
+        {
+            _startButton.gameObject.SetActive(isHost);
+            _startButton.interactable = canStart;
         }
     }
 
@@ -140,10 +242,14 @@ public sealed class TownRaidQueueView : MonoBehaviour
             () => Submit(JoinRequested),
             out _);
         _copyButton = CreateButton("Copiar código", _panelRoot.transform, CopyCode, out _);
+        _readyButton = CreateButton("Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _);
+        _startButton = CreateButton("Iniciar raid", _panelRoot.transform, () => StartRequested?.Invoke(), out _);
         _closeButton = CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
 
         _panelRoot.SetActive(false);
         _promptRoot.SetActive(false);
+        _readyButton.gameObject.SetActive(false);
+        _startButton.gameObject.SetActive(false);
     }
 
     private void Submit(Action<string> action)

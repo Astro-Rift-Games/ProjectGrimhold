@@ -1,6 +1,11 @@
 public enum TownRaidQueueState
 {
     Empty = 0,
-    Forming,
-    Launching
+    WaitingForPlayers = 1,
+    Starting = 2,
+
+    // Compatibility aliases for the pre-cohort naming used by the existing
+    // network controller and serialized tests.
+    Forming = WaitingForPlayers,
+    Launching = Starting
 }

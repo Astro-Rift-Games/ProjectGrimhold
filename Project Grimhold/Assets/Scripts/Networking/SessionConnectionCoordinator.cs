@@ -65,7 +65,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private float _raidClosureHostShutdownAt = -1f;
     private SessionTransitionResult? _pendingTransitionFailure;
 
-    private const int MaximumHostCodeCreationAttempts = 5;
+    private const int MaximumCoordinatedClientAttempts = 5;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -119,13 +119,21 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         RaidConnectionRole role = manifest.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
-        var request = new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
+        var request = manifest.RaidCode.IsValid
+            ? new RaidConnectionRequest(manifest.RaidCode, role)
+            : new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
+        var launchContext = new RaidLaunchContext(
+            manifest.RaidCode,
+            manifest.HostProfileId,
+            manifest.AdmittedProfiles,
+            localProfile);
         _activeTicket = new RaidTransitionTicket(
             request,
             manifest,
             reservation,
             _selectedBuild,
-            SessionConnectionState.Town);
+            SessionConnectionState.Town,
+            launchContext);
         return true;
     }
 
@@ -255,7 +263,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
         SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
-        int attemptCount = isHostCreation ? MaximumHostCodeCreationAttempts : 1;
+        const int attemptCount = 1;
         for (int attempt = 0; attempt < attemptCount; attempt++)
         {
             RaidCode raidCode;
@@ -624,8 +632,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             bool started = false;
             bool availabilityWaitLogged = false;
-            while (!started)
+            int coordinatedAttempt = 0;
+            while (!started && coordinatedAttempt < MaximumCoordinatedClientAttempts)
             {
+                coordinatedAttempt++;
                 started = await _raidLauncher.StartCoordinatedSessionAsync(
                     ticket.Request.SessionName,
                     mode,

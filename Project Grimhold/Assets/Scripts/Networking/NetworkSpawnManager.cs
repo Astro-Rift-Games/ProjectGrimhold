@@ -969,7 +969,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             RemoveAdmissionRecord(runner.LocalPlayer);
             return HostBootstrapResult.AdmissionFailed;
         }
-
         if (_spawnedPlayers.ContainsKey(runner.LocalPlayer))
         {
             return HostBootstrapResult.BootstrapCompleted;
@@ -1964,7 +1963,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         Debug.Log($"Despawned participant for player {player}.");
     }
-
     public override void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
         if (runner == _runner)

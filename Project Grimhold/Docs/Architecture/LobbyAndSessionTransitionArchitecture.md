@@ -87,16 +87,25 @@ direct development route uses the same manifest, reservation, codec and admissio
 path as the Town queue. The coded token carries `RaidCode`; the previous
 `RaidId`/`AccessSecret` token format remains only for legacy frozen manifests.
 
-## Coded raid waiting lifecycle
+## Coded Raid preparation and technical waiting
 
-For a fresh coded raid, the Host creates the runner with `SessionInfo.IsOpen=false`
+Create and Join remain in the Town Shared runner. The replicated Town preparation
+owns the six-digit code, ProfileId members, Ready flags and Host Start boundary.
+Start freezes the cohort and the coordinator copies a runner-independent launch
+context before Town shutdown. Gameplay `WaitingForPlayers` is only the technical
+connecting phase; it has no Ready or player-facing Start UI. The existing bootstrap
+must wait for every frozen profile and then advance automatically to `InProgress`.
+
+### Raid runner lifecycle
+
+For the Raid runner, the Host creates the runner with `SessionInfo.IsOpen=false`
 and `IsVisible=false`. After Gameplay has loaded and `NetworkMatchController` is
-available, `NetworkSpawnManager` resolves the scene configuration, admits the Host
-and spawns only the participant/avatar required by the admission contract. The
-session then enters `WaitingForPlayers` with `IsOpen=true` and `IsVisible=false`.
+available, `NetworkSpawnManager` resolves the scene configuration and admits only
+the frozen cohort's profiles. The session then enters technical
+`WaitingForPlayers`; no player-facing preparation UI exists in Gameplay.
 No initial enemies, loot containers or breakables are generated in this phase.
 
-The Host's `Start Raid` call is State Authority-only. It changes the phase to
+After the complete frozen cohort is prepared, State Authority changes the phase to
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
 bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
@@ -227,7 +236,7 @@ and must be reported independently.
 
 ## Scope limits
 
-TASK-57 does not implement party/cohort behavior, NPCs, Ready state, loadout, results,
-persistence, backend, stores, or saving. TASK-58 and TASK-59 will consume the coordinator
-APIs. The incorrect TASK-77 dependency is an administrative correction and does not affect
-this repository architecture.
+The Town preparation owns the temporary cohort, Ready state and launch boundary. It does
+not replace persistent inventory, extraction receipts, backend, stores or saving. The
+coordinator remains the single runner-transition owner, and Host Migration consumes the
+same frozen context without introducing a second membership source.

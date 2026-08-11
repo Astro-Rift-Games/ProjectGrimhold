@@ -256,7 +256,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         {
             _menuPresenter.Unbind();
         }
-
         _isBound = false;
         _isPlayerClassResolved = false;
         _missingJoinContextReported = false;

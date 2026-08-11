@@ -24,7 +24,6 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     [Networked]
     public int ExpectedAdmissionCount { get; private set; }
-
     [Networked]
     public NetworkString<_32> RaidGenerationId { get; private set; }
 
@@ -127,7 +126,6 @@ public sealed class NetworkMatchController : NetworkBehaviour
     /// </summary>
     public static bool IsExpectedCohortAdmitted(int expectedAdmissionCount, int admittedProfileCount) =>
         expectedAdmissionCount > 0 && admittedProfileCount >= expectedAdmissionCount;
-
     /// <summary>Returns whether late code-based admission is valid in the current match phase.</summary>
     public static bool IsCodeAdmissionOpen(bool allowsCodeAdmission, MatchPhase phase) =>
         allowsCodeAdmission && phase == MatchPhase.WaitingForPlayers;

@@ -42,11 +42,11 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     /// <summary>
     /// Returns whether a coordinated Client should keep waiting for its exact Host session.
-    /// A missing session has not been created yet; a closed session is still completing
-    /// authoritative Host bootstrap. Other reasons are definitive connection failures.
+    /// Only a missing session is transient while the Host is still creating it. A closed
+    /// session already exists and is therefore a terminal transition failure.
     /// </summary>
     public static bool IsSessionAvailabilityPending(ShutdownReason shutdownReason) =>
-        shutdownReason == ShutdownReason.GameNotFound || shutdownReason == ShutdownReason.GameClosed;
+        shutdownReason == ShutdownReason.GameNotFound;
 
     public Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
     {

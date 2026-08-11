@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Binds the local Shared Mode player to the Town raid-code view.
-/// It forwards explicit UI requests to the application session coordinator and owns no session state.
+/// It forwards explicit UI requests to the Town cohort controller and owns no session state.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerInteractionNetworkController))]
@@ -19,6 +19,7 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
     private PlayerInteractionNetworkController _interactionController;
 
     private TownRaidQueueView _view;
+    private TownRaidQueueNetworkController _queueController;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
 
@@ -49,8 +50,15 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         }
 
         _view = TownRaidQueueView.Create(transform);
+        if (_view == null)
+        {
+            return;
+        }
+
         _view.CreateRequested += CreateRaid;
         _view.JoinRequested += JoinRaid;
+        _view.ReadyRequested += SetReady;
+        _view.StartRequested += StartRaid;
         _view.CloseRequested += ClosePanel;
         _interactionController.InteractionResolved += OnInteractionResolved;
 
@@ -71,6 +79,50 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         _view.SetPrompt(
             _candidateSource != null && _candidateSource.HasCandidate,
             _candidateSource?.CurrentPromptText);
+
+        if (_queueController != null)
+        {
+            TownRaidQueueSnapshot snapshot = _queueController.Snapshot;
+            ProfileId localProfile = GetLocalProfile();
+            bool isMember = false;
+            foreach (TownRaidQueueMember member in snapshot.Members)
+            {
+                if (member.ProfileId == localProfile)
+                {
+                    isMember = true;
+                    break;
+                }
+            }
+
+            if (snapshot.RaidCode.IsValid && isMember)
+            {
+                bool localReady = false;
+                foreach (TownRaidQueueMember member in snapshot.Members)
+                {
+                    if (member.ProfileId == localProfile)
+                    {
+                        localReady = member.IsReady;
+                        break;
+                    }
+                }
+
+                bool allReady = snapshot.Members.Count > 0;
+                foreach (TownRaidQueueMember member in snapshot.Members)
+                {
+                    if (!member.IsReady)
+                    {
+                        allReady = false;
+                        break;
+                    }
+                }
+
+                _view.PresentPreparation(
+                    snapshot,
+                    snapshot.HostProfileId == localProfile,
+                    localReady,
+                    allReady);
+            }
+        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -90,50 +142,41 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
+        if (_view == null || !interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
         {
             return;
         }
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
-            !target.TryGetBehaviour(out TownRaidNpcInteractable _))
+            !target.TryGetBehaviour(out TownRaidNpcInteractable npc))
         {
             return;
         }
 
+        _queueController = npc.QueueController;
         _view.Open();
         AcquireInputSuppression();
     }
 
-    private async void CreateRaid(string _)
+    private void CreateRaid(string _)
     {
-        await StartRaidTransition(null, true);
+        _queueController?.RequestCreate();
     }
 
-    private async void JoinRaid(string code)
+    private void JoinRaid(string code)
     {
-        await StartRaidTransition(code, false);
+        _queueController?.RequestJoin(code);
     }
 
-    private async System.Threading.Tasks.Task StartRaidTransition(string code, bool create)
+    private void SetReady(bool ready) => _queueController?.RequestSetReady(ready);
+
+    private void StartRaid() => _queueController?.RequestLaunch();
+
+    private ProfileId GetLocalProfile()
     {
-        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
-        if (coordinator == null)
-        {
-            _view?.ShowTransitionFailure(SessionTransitionResult.InvalidState);
-            return;
-        }
-
-        _view?.SetBusy(true, create ? "Creando raid…" : $"Uniéndose a raid {code}…");
-        SessionTransitionResult result = create
-            ? await coordinator.CreateCodeRaidAsync()
-            : await coordinator.JoinCodeRaidAsync(code);
-
-        if (result != SessionTransitionResult.Succeeded && this != null)
-        {
-            _view?.ShowTransitionFailure(result);
-        }
+        LocalPlayerJoinContext context = Runner != null ? Runner.GetComponent<LocalPlayerJoinContext>() : null;
+        return context != null ? context.JoinData.ProfileId : default;
     }
 
     private void ClosePanel()
@@ -193,6 +236,8 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         {
             _view.CreateRequested -= CreateRaid;
             _view.JoinRequested -= JoinRaid;
+            _view.ReadyRequested -= SetReady;
+            _view.StartRequested -= StartRaid;
             _view.CloseRequested -= ClosePanel;
             Destroy(_view.gameObject);
             _view = null;

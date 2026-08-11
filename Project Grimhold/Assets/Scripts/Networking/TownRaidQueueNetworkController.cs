@@ -51,6 +51,9 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     public NetworkString<_32> HostProfileId { get; private set; }
 
     [Networked]
+    public NetworkString<_8> RaidCodeValue { get; private set; }
+
+    [Networked]
     public int LaunchSequence { get; private set; }
 
     [Networked]
@@ -85,7 +88,7 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
 
     /// <summary>Sends a local request to join the current cohort.</summary>
     /// <returns>Whether Fusion accepted local invocation or transport.</returns>
-    public bool RequestJoin() => CanSendRequest && TrySend(RPC_RequestJoin());
+    public bool RequestJoin(string code) => CanSendRequest && RaidCode.TryParse(code, out _) && TrySend(RPC_RequestJoin(code));
 
     /// <summary>Sends a local request to leave the current cohort.</summary>
     /// <returns>Whether Fusion accepted local invocation or transport.</returns>
@@ -207,15 +210,17 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
 
         State = TownRaidQueueState.Forming;
         HostProfileId = profileId.Value;
+        RaidCodeValue = GenerateRaidCode();
         SetMember(0, new QueueMemberNetwork { ProfileId = profileId.Value, Player = info.Source, IsReady = false });
         SnapshotRevision++;
         return default;
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-    private RpcInvokeInfo RPC_RequestJoin(RpcInfo info = default)
+    private RpcInvokeInfo RPC_RequestJoin(NetworkString<_8> requestedCode, RpcInfo info = default)
     {
-        if (!TryResolveSender(info.Source, out ProfileId profileId) ||
+        if (!string.Equals(requestedCode.ToString(), RaidCodeValue.ToString(), StringComparison.Ordinal) ||
+            !TryResolveSender(info.Source, out ProfileId profileId) ||
             !TownRaidQueueRules.CanJoin(State, MemberCount, _maximumMembers, FindMember(profileId) >= 0))
         {
             return default;
@@ -515,6 +520,11 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
 
     private RaidLaunchManifest CreateManifest(int sequence)
     {
+        if (!RaidCode.TryParse(RaidCodeValue.ToString(), out RaidCode raidCode))
+        {
+            return default;
+        }
+
         var profiles = new List<ProfileId>(MemberCount);
         for (int index = 0; index < RaidLaunchManifest.MaximumMembers; index++)
         {
@@ -526,9 +536,9 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         }
 
         return new RaidLaunchManifest(
-            Guid.NewGuid().ToString("N"),
-            $"raid-{Guid.NewGuid():N}",
-            Guid.NewGuid().ToString("N"),
+            raidCode.RaidId,
+            raidCode.SessionName,
+            raidCode.Value,
             new ProfileId(HostProfileId.ToString()),
             profiles,
             sequence);
@@ -580,7 +590,8 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
             }
         }
 
-        return new TownRaidQueueSnapshot(State, new ProfileId(HostProfileId.ToString()), LaunchSequence, members);
+        RaidCode.TryParse(RaidCodeValue.ToString(), out RaidCode raidCode);
+        return new TownRaidQueueSnapshot(State, new ProfileId(HostProfileId.ToString()), raidCode, LaunchSequence, members);
     }
 
     private int MemberCount
@@ -691,6 +702,7 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
     {
         State = TownRaidQueueState.Empty;
         HostProfileId = default;
+        RaidCodeValue = default;
         Member0 = default;
         Member1 = default;
         Member2 = default;
@@ -698,6 +710,11 @@ public sealed class TownRaidQueueNetworkController : NetworkBehaviour, IPlayerLe
         _pendingManifest = default;
         _launchAcknowledgements.Clear();
         SnapshotRevision++;
+    }
+
+    private static NetworkString<_8> GenerateRaidCode()
+    {
+        return UnityEngine.Random.Range(0, 1_000_000).ToString("D6");
     }
 
     private void CancelLaunchingCohort()

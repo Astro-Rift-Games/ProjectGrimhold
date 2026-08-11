@@ -5,6 +5,7 @@ public readonly struct RaidTransitionTicket
     public PlayerClassId SelectedBuild { get; }
     public SessionConnectionState State { get; }
     public PendingLoadoutReservation LoadoutReservation { get; }
+    public RaidLaunchContext LaunchContext { get; }
 
     public bool HasManifest => Manifest.IsValid;
     public bool HasLoadoutReservation => LoadoutReservation != null;
@@ -27,12 +28,24 @@ public readonly struct RaidTransitionTicket
         PendingLoadoutReservation loadoutReservation,
         PlayerClassId selectedBuild,
         SessionConnectionState state)
+        : this(request, manifest, loadoutReservation, selectedBuild, state, null)
+    {
+    }
+
+    public RaidTransitionTicket(
+        in RaidConnectionRequest request,
+        in RaidLaunchManifest manifest,
+        PendingLoadoutReservation loadoutReservation,
+        PlayerClassId selectedBuild,
+        SessionConnectionState state,
+        RaidLaunchContext launchContext)
     {
         Request = request;
         Manifest = manifest;
         LoadoutReservation = loadoutReservation?.Clone();
         SelectedBuild = selectedBuild;
         State = state;
+        LaunchContext = launchContext ?? CreateContext(request, manifest);
     }
 
     public RaidTransitionTicket(
@@ -46,6 +59,17 @@ public readonly struct RaidTransitionTicket
 
     public RaidTransitionTicket WithState(SessionConnectionState state)
     {
-        return new RaidTransitionTicket(Request, Manifest, LoadoutReservation, SelectedBuild, state);
+        return new RaidTransitionTicket(Request, Manifest, LoadoutReservation, SelectedBuild, state, LaunchContext);
+    }
+
+    private static RaidLaunchContext CreateContext(
+        in RaidConnectionRequest request,
+        in RaidLaunchManifest manifest)
+    {
+        return new RaidLaunchContext(
+            manifest.RaidCode.IsValid ? manifest.RaidCode : request.RaidCode,
+            manifest.HostProfileId,
+            manifest.AdmittedProfiles,
+            default);
     }
 }

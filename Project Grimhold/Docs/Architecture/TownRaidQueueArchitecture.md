@@ -1,45 +1,75 @@
-# Town Raid Code Architecture
+# Town Raid Preparation Architecture
 
-## Context and decision
+## Decision
 
-Town and raids use different Fusion runners. Automatically moving a complete Shared Mode cohort required the Host to deliver a final release RPC immediately before shutting down Town, which allowed the Host shutdown to race the Client's receipt of that RPC.
-
-The current MVP uses explicit six-digit raid codes instead. The Host creates a raid with a code and leaves Town. Each Client enters the same code at the raid NPC and joins independently. There is no Ready cohort, launch deadline or automatic group transition.
-
-## Ownership and flow
+Raid preparation is a replicated cohort owned by the Town Shared Mode runner. The
+Host and Clients remain in Town until the Host explicitly starts the raid. The
+Dungeon/Gameplay runner is not created by the NPC Create or Join actions.
 
 ```text
-TownRaidNpcInteractable (confirmed local interaction)
-  -> TownRaidQueuePresenter / TownRaidQueueView (local code input)
-  -> SessionConnectionCoordinator (single-runner lifecycle + loadout reservation)
-  -> RaidLaunchManifest.Code (deterministic session identity)
-  -> FusionSessionLauncher (Host creates / Client joins exact hidden session)
-  -> NetworkSpawnManager (authoritative admission and loadout validation)
+TownRaidNpcInteractable
+  -> TownRaidQueuePresenter / TownRaidQueueView
+  -> TownRaidQueueNetworkController (State Authority)
+  -> Ready cohort freeze and launch envelope
+  -> SessionConnectionCoordinator (single runner transition)
+  -> Raid runner with the frozen profiles only
 ```
 
-`TownRaidQueueView` generates a six-digit suggestion locally and lets the player edit or copy it. `RaidLaunchManifest.Code` accepts exactly six ASCII digits. The normalized code deterministically creates the same session name and raid id in every application process. The canonical admission token carries the `RaidCode`; it does not carry a separate raid id, access secret or profile roster.
+The State Authority generates one six-digit `RaidCode` at creation and replicates
+it with the cohort. Joining requires that exact code. The replicated snapshot is
+the presentation source of truth for the code, members, capacity and Ready flags;
+there is no second client roster.
 
-Creating and joining are explicit UI actions. The coordinator reserves the local loadout before leaving Town, destroys the Shared runner, creates a fresh Host or Client runner and submits `RaidAdmissionData`. A failed Client lookup is definitive and recovers that player to Town. Clients do not poll for a Host that has not created the coded session yet.
+## Lifecycle
 
-## Authority and admission
+1. Create: Host is added to an `Empty` preparation and receives a fixed code.
+2. Join: Clients validate the supplied code and are admitted to the Town cohort.
+3. Ready: every current member, including the Host, explicitly sets Ready.
+4. Start: only the Host may start and only when all current members are Ready.
+   The authoritative controller changes to `Launching`, freezes membership and
+   delivers one launch envelope. Create/Join/Ready do not reserve loadout data.
+5. Transition: each frozen member acknowledges the envelope; the coordinator
+   shuts down Town once and creates or joins the exact code-derived Raid session.
 
-The Host starts in Gameplay in a preparation-only `WaitingForPlayers` phase. Gameplay is loaded, the Host is admitted and the session then becomes `IsOpen=true`/`IsVisible=false`; the initial PvPvE world is not generated yet. A code-admitted manifest has no frozen profile list; possession of the code authorizes any valid process-local profile until Fusion capacity is reached. The Host validates the code, unique profile, selected build, reservation and exact reserved loadout. Duplicate or departed profiles remain rejected.
+Before Town shutdown, each member stores a `RaidLaunchContext` containing the
+code, frozen profile identities, Host profile and local profile. It contains no
+Town `NetworkObject`, `NetworkBehaviour`, `PlayerRef` or UI reference. A Client
+may retry the same session name/code at most five times only for Fusion's typed
+`GameNotFound` availability result. `GameClosed` is terminal because the session
+already exists but no longer accepts joins. `GameFull`, authentication,
+token, version, scene and generic failures are terminal; Host
+`GameIdAlreadyExists` is terminal and never generates another code.
 
-Clients may join by code only while the phase is `WaitingForPlayers`. Host `Start Raid` closes and hides the session, enters `Starting`, executes the one-time initial PvPvE bootstrap without reloading Gameplay, and enters `InProgress` only after success. Starting, InProgress and closure phases reject normal code admission. A bootstrap failure follows the normal closure lifecycle and never enters InProgress.
+An admission or departure racing Start is resolved by State Authority ordering:
+only members present in the frozen envelope participate. A member whose launch
+acknowledgement cannot be completed is rolled back and returned to Town; no
+partially admitted participant is retained.
 
-Frozen-cohort manifests and the previous network queue implementation remain in code for compatibility with existing tests and development paths, but the Town NPC presentation no longer invokes that workflow. The code path is the active player-facing source of truth.
+## Identity and admission
 
-## Presentation boundary
+`RaidCode` is the canonical identity. It deterministically derives `SessionName`
+and `RaidId`; the old manifest remains only as a compatibility transport for the
+frozen cohort and must use those same identities. Raid admission validates the
+frozen profile list, not an open late-join roster. A code is never regenerated
+after session creation or collision; failure is recovered through the normal
+transition cleanup path.
 
-`TownRaidQueuePresenter` exists only for the local `SocialPlayer`. It observes the confirmed NPC interaction, opens the local view, suppresses gameplay input while the panel is open and forwards create/join requests to the application coordinator. Presentation never mutates Fusion simulation or authoritative raid state.
+Once the Raid runner exists, `WaitingForPlayers` is only a technical connecting
+phase. The frozen cohort is admitted automatically; there is no second player-
+facing Start button in Gameplay. Deferred PvPvE bootstrap, gameplay guards,
+BootstrapFailure closure and Host Migration remain owned by their respective
+architecture documents.
 
-## Validation strategy
+## Presentation
 
-- EditMode: code normalization and deterministic manifest identity.
-- EditMode: frozen and code-admitted manifest policies.
-- Compilation: runtime UI, coordinator, launcher and authority boundary.
-- Manual two-application validation: Host creates a code, Client joins it after Host reaches Gameplay, invalid code recovers to Town, solo Host can cancel, and a second Town-Raid-Town cycle uses a new code.
+The Town presenter owns only local UI and input suppression. It observes the
+replicated `TownRaidQueueSnapshot` and forwards typed intentions (`Create`,
+`Join`, `Ready`, `Start`) to the network controller. It does not call the session
+coordinator during Create/Join and does not mutate simulation state.
 
-## Limits
+## Validation
 
-The initial session cap remains four. The code is an MVP shared secret, not an account invitation, backend reservation or cryptographic credential. A Host cannot run Town and raid simultaneously, and there is no automatic party persistence or re-entry after a profile has departed the raid.
+EditMode tests cover create/join code matching, capacity, Ready/all-Ready rules,
+Host-only Start and deterministic freeze ordering. Integration validation must
+cover solo Host, multi-client preparation, a simultaneous Join/Start race,
+transition failure rollback, and a second Town-to-Raid cycle.
