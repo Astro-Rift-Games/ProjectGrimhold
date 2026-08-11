@@ -179,6 +179,9 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         );
         _pendingTargetId = targetId;
         _hasPendingDamage = true;
+
+        // Bypassing animation event for Ranged enemies since they do not have attack animations yet.
+        if (_activeAttack != null && _activeAttack.Type == AttackType.Ranged)
         {
             ExecutePendingDamage();
         }
