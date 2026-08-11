@@ -2,7 +2,8 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Binds the local gameplay HUD exclusively to this peer's Input Authority player.
+/// Binds the local gameplay HUD to this peer's active raid avatar and retains its
+/// terminal result UI when the local participant becomes defeated.
 /// All dependencies are serialized within the network player prefab.
 /// </summary>
 [DisallowMultipleComponent]
@@ -79,7 +80,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (!HasInputAuthority || !IsCurrentRaidAvatar())
+        if (!ShouldOwnLocalHud())
         {
             SetHudActive(false);
             return;
@@ -90,7 +91,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     public void TryBindAsLocalPlayer()
     {
-        if (!HasInputAuthority || !IsCurrentRaidAvatar())
+        if (!ShouldOwnLocalHud())
         {
             return;
         }
@@ -99,7 +100,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     private void OnEnable()
     {
-        if (Object != null && Object.IsValid && HasInputAuthority && IsCurrentRaidAvatar())
+        if (Object != null && Object.IsValid && ShouldOwnLocalHud())
         {
             BindLocalHud();
         }
@@ -112,7 +113,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     public override void Render()
     {
-        if (!HasInputAuthority || !IsCurrentRaidAvatar())
+        if (!ShouldOwnLocalHud())
         {
             if (_isBound)
             {
@@ -355,14 +356,25 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         }
     }
 
-    private bool IsCurrentRaidAvatar()
+    private bool ShouldOwnLocalHud()
     {
         if (_participantLink == null)
+        {
+            return HasInputAuthority;
+        }
+
+        if (!_participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+            !participant.HasInputAuthority)
+        {
+            return false;
+        }
+
+        if (participant.State == RaidParticipantState.Defeated)
         {
             return true;
         }
 
-        return _participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+        return HasInputAuthority &&
             participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar == Object;
     }
 }

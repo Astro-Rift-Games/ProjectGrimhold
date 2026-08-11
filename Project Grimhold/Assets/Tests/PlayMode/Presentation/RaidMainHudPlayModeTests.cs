@@ -18,11 +18,15 @@ namespace Tests.PlayMode.Presentation
         private const string MeleePrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
         private const string RangedPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string MeleePrefabGuid = "982f360e5acbdd344a8a75bbc0af94ec";
+        private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
 
         private NetworkRunner _runner;
         private GameObject _inputReaderObject;
+        private PlayerInputReader _inputReader;
         private NetworkObject _localPlayer;
         private NetworkObject _proxyPlayer;
+        private NetworkRaidParticipant _localParticipant;
+        private NetworkRaidParticipant _proxyParticipant;
         private LocalPlayerJoinContext _joinContext;
         private PrimaryAttackStatusSimulationDriver _cooldownDriver;
         private PlayerCorpseGenerationSimulationDriver _defeatDriver;
@@ -109,6 +113,27 @@ namespace Tests.PlayMode.Presentation
             }
         }
 
+        [Test]
+        public void BinderWithUnresolvedParticipantLinkDoesNotUseAvatarAuthorityFallback()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            GameObject instance = Object.Instantiate(prefab);
+            try
+            {
+                LocalPlayerHudBinder binder = instance.GetComponent<LocalPlayerHudBinder>();
+                MethodInfo ownershipMethod = typeof(LocalPlayerHudBinder).GetMethod(
+                    "ShouldOwnLocalHud",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+
+                Assert.That(ownershipMethod, Is.Not.Null);
+                Assert.That(ownershipMethod.Invoke(binder, null), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
         [TestCase(MeleePrefabPath)]
         [TestCase(RangedPrefabPath)]
         public void PlayerVariantCooldownUsesAnExistingWeaponSprite(string prefabPath)
@@ -189,17 +214,58 @@ namespace Tests.PlayMode.Presentation
             NetworkPrefabId playerId =
                 _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(MeleePrefabGuid));
             NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
+            NetworkPrefabId participantId =
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid));
+            NetworkObject participantPrefab = _runner.Config.PrefabTable.Load(participantId, true);
+
+            NetworkObject localParticipantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("local-profile", PlayerClassId.Melee));
+            _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
                 Quaternion.identity,
-                _runner.LocalPlayer);
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(localParticipantObject));
+
+            RaidHudView localViewBeforeAvatarAssignment =
+                _localPlayer.GetComponentInChildren<RaidHudView>(true);
+            GameObject localHudBeforeAvatarAssignment = localViewBeforeAvatarAssignment
+                .GetComponentInParent<Canvas>(true)
+                .gameObject;
+            Assert.That(
+                localHudBeforeAvatarAssignment.activeSelf,
+                Is.False,
+                "The HUD must wait while the participant has no CurrentAvatarId.");
+            Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
+            _runner.SetPlayerObject(_runner.LocalPlayer, localParticipantObject);
+
+            NetworkObject proxyParticipantObject = _runner.Spawn(
+                participantPrefab,
+                new Vector3(3f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("remote-profile", PlayerClassId.Melee));
+            _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             _proxyPlayer = _runner.Spawn(
                 playerPrefab,
                 new Vector3(3f, 0f, 0f),
                 Quaternion.identity,
-                inputAuthority: null);
-            yield return null;
+                inputAuthority: null,
+                (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(proxyParticipantObject));
+            Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
+
+            yield return WaitUntil(
+                () => localHudBeforeAvatarAssignment.activeSelf,
+                "The local HUD did not bind after CurrentAvatarId was assigned.");
 
             LocalPlayerHudBinder binder = _localPlayer.GetComponent<LocalPlayerHudBinder>();
             RaidHudPresenter presenter = _localPlayer.GetComponentInChildren<RaidHudPresenter>(true);
@@ -216,6 +282,8 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(localHud.activeSelf, Is.True);
             Assert.That(proxyHud.activeSelf, Is.False);
+            Assert.That(_localParticipant.HasInputAuthority, Is.True);
+            Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
             Assert.That(ReadPresenterFlag(presenter, "_isBound"), Is.True);
             Assert.That(view.ClassText.text, Is.EqualTo("Clase: —"));
             Assert.That(view.HealthText.text, Is.Not.EqualTo("Salud: — / —"));
@@ -312,10 +380,50 @@ namespace Tests.PlayMode.Presentation
             _defeatDriver.Receiver = receiver;
             _defeatDriver.IsRequested = true;
             yield return WaitUntil(
-                () => !character.IsAlive && view.DefeatedRoot.activeSelf,
+                () => !character.IsAlive &&
+                    _localParticipant.State == RaidParticipantState.Defeated &&
+                    !_localParticipant.CurrentAvatarId.IsValid &&
+                    _localPlayer.InputAuthority.IsNone &&
+                    view.DefeatedRoot.activeSelf,
                 "Defeat was not presented by the raid HUD.");
             Assert.That(localHud.activeSelf, Is.True);
             Assert.That(view.MainHudRoot.activeSelf, Is.True);
+
+            RaidMenuPresenter menuPresenter =
+                _localPlayer.GetComponentInChildren<RaidMenuPresenter>(true);
+            RaidMenuView menuView = _localPlayer.GetComponentInChildren<RaidMenuView>(true);
+            Assert.That(menuPresenter.IsOpen, Is.True);
+            Assert.That(menuView.TitleText.text, Is.EqualTo("Has sido Derrotado"));
+            Assert.That(menuView.ResumeButton.gameObject.activeSelf, Is.False);
+
+            int localResultSequence = _localParticipant.ResultSequence;
+            menuView.AbandonButton.onClick.Invoke();
+            menuView.AbandonButton.onClick.Invoke();
+            yield return WaitUntil(
+                () => _localParticipant.IsReturnAuthorized,
+                "The defeated participant return was not authorized.");
+            Assert.That(ReadFlag(menuPresenter, "_returnRequested"), Is.True);
+            yield return WaitUntil(
+                () => ReadFlag(menuPresenter, "_returnStarted"),
+                "The authorized return did not reach its one-shot coordinator guard.");
+            Assert.That(_localParticipant.ResultSequence, Is.EqualTo(localResultSequence));
+            Assert.That(_localPlayer.IsValid, Is.True, "Return authorization must not despawn the corpse.");
+
+            PlayerCharacter proxyCharacter = _proxyPlayer.GetComponent<PlayerCharacter>();
+            _defeatDriver.Target = proxyCharacter;
+            _defeatDriver.Receiver = _proxyPlayer.GetComponent<PlayerLootReceiver>();
+            _defeatDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => !proxyCharacter.IsAlive &&
+                    _proxyParticipant.State == RaidParticipantState.Defeated &&
+                    _proxyPlayer.InputAuthority.IsNone,
+                "Remote participant defeat did not complete.");
+            Assert.That(proxyHud.activeSelf, Is.False, "A remote defeated body must not own local HUD.");
+
+            _runner.GetComponent<LocalInputContext>().Clear();
+            yield return null;
+            Assert.That(menuPresenter.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
         }
 
         private IEnumerator StartRunner()
@@ -329,8 +437,8 @@ namespace Tests.PlayMode.Presentation
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
 
             _inputReaderObject = new GameObject("RaidMainHudInputReader");
-            PlayerInputReader inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
-            Assert.That(inputContext.TryRegister(inputReader), Is.True);
+            _inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
+            Assert.That(inputContext.TryRegister(_inputReader), Is.True);
 
             var startTask = _runner.StartGame(new StartGameArgs
             {
@@ -366,6 +474,15 @@ namespace Tests.PlayMode.Presentation
             Assert.That(field, Is.Not.Null);
             var callbacks = field.GetValue(context) as Delegate;
             return callbacks?.GetInvocationList().Length ?? 0;
+        }
+
+        private static int ReadSuppressionCount(PlayerInputReader reader)
+        {
+            FieldInfo field = typeof(PlayerInputReader).GetField(
+                "_gameplaySuppressionCount",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (int)field.GetValue(reader);
         }
 
         private static bool ReadPresenterFlag(RaidHudPresenter presenter, string fieldName)

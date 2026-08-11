@@ -136,12 +136,25 @@ visuals and cached references without replaying historical transitions.
 
 ## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
 
-`RaidMenuPresenter` and `RaidMenuView` manage the local pause and defeat UI overlay on `LocalGameplayHud`:
+`RaidMenuPresenter` and `RaidMenuView` manage the local pause and defeat UI overlay on `LocalGameplayHud`.
+While the participant is `Raiding`, `LocalPlayerHudBinder` owns that composition only when the
+linked participant has local Input Authority and identifies this Input Authority avatar through
+`CurrentAvatarId`. A link that has not resolved its participant yet leaves the HUD unbound and is
+retried during `Render`; only the direct-development composition without a link falls back to the
+avatar's Input Authority.
+
+After the local participant becomes `Defeated`, terminal HUD ownership remains with that
+`NetworkRaidParticipant`. The avatar can have no Input Authority and the participant can have no
+`CurrentAvatarId`, while the same local composition remains bound long enough to present the result
+and request return. A remote defeated participant never activates local HUD. This presentation rule
+does not restore movement, combat, interaction, loot or consumable input and does not make the body
+controllable again. The minimap retains its existing presentation behavior; camera ownership may be
+released because no spectator camera is part of this decision.
 
 - **Input Suppression**: Opening the menu acquires a local gameplay input suppression token (`PlayerInputReader.AcquireGameplayInputSuppression`), preventing player movement and attack actions while navigating the menu overlay.
 - **Pause State (Living Player)**: Activated by pressing `Escape` / `Cancel` action (`MenuToggleRequested`). Displays basic control bindings and allows resuming gameplay or abandoning the raid.
-- **Defeat State (Defeated Player)**: Automatically observed when `!CharacterBase.IsAlive`. Displays defeat text, hides the Resume button, and retains input suppression so the local player cannot issue gameplay movement or combat commands.
-- **Session Abandonment**: Clicking "Abandon" invokes `AbandonRaidAsync()`, which calls `NetworkRunner.Shutdown()` asynchronously to clean up the Fusion session before loading `MainMenu`.
+- **Defeat State (Defeated Player)**: The participant's authoritative `Defeated` state opens a persistent result screen, displays defeat text, hides Resume, and retains input suppression. Character health is only the direct-development fallback when no participant exists.
+- **Session Abandonment and Return**: A living player requests authoritative abandonment. A defeated player sends one `NetworkRaidParticipant.RequestReturn()` intent; State Authority sets `IsReturnAuthorized`, and the presenter then invokes `SessionConnectionCoordinator.ReturnToTownAsync()`. Views never shut down runners or load scenes directly.
 
 
 ## Alternatives not selected
@@ -155,7 +168,7 @@ visuals and cached references without replaying historical transitions.
 
 EditMode tests cover class mapping and late resolution through presenter behavior, clearing between bindings, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
 
-PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, Input Authority visibility, late class resolution, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and defeat without hiding the HUD.
+PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, unresolved participant links, local and remote ownership, late class resolution, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and local participant defeat without hiding the HUD after avatar authority is removed.
 
 Manual validation remains necessary for:
 

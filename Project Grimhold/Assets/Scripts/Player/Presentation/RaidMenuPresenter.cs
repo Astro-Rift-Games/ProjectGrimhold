@@ -27,6 +27,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _isSubscribed;
     private bool _wasDefeatedObserved;
     private bool _awaitingAbandonConfirmation;
+    private bool _returnRequested;
     private bool _returnStarted;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionCommitConfirmed;
@@ -106,6 +107,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _isBound = false;
         _wasDefeatedObserved = false;
         _awaitingAbandonConfirmation = false;
+        _returnRequested = false;
         _returnStarted = false;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionCommitConfirmed = false;
@@ -293,7 +295,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         if (_wasDefeatedObserved)
         {
-            _participant?.RequestReturn();
+            RequestTerminalReturnOnce();
             return;
         }
 
@@ -318,7 +320,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         if (_wasDefeatedObserved || _participant.State == RaidParticipantState.Extracted)
         {
-            _participant.RequestReturn();
+            RequestTerminalReturnOnce();
             return;
         }
 
@@ -330,6 +332,23 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _participant.RequestAbandon();
+    }
+
+    private void RequestTerminalReturnOnce()
+    {
+        if (_participant == null || _returnRequested)
+        {
+            return;
+        }
+
+        if (_participant.State == RaidParticipantState.Extracted &&
+            !_participant.IsExtractionCommitConfirmed)
+        {
+            return;
+        }
+
+        _returnRequested = true;
+        _participant.RequestReturn();
     }
 
     private void RefreshViewContent()

@@ -36,10 +36,19 @@ are accepted idempotently and a local persistence failure requires an explicit r
 
 ## Presentation and return
 
-Local camera, HUD and minimap verify that their avatar matches the participant's
-`CurrentAvatarId`; they must not infer it from `runner.GetPlayerObject`. A terminal result
-is observed by presentation, which sends one local return request to
-`SessionConnectionCoordinator`. No UI component shuts down a runner or loads MainMenu.
+While `Raiding`, local camera, HUD and minimap verify that their avatar matches the
+participant's `CurrentAvatarId`; they must not infer it from `runner.GetPlayerObject`.
+An unresolved avatar-to-participant link leaves presentation unbound until `Render` can
+resolve both directions. The direct-development composition without a participant link
+may still fall back to avatar Input Authority.
+
+After `Defeated`, the avatar is no longer current or locally controllable, but the local
+participant retains Input Authority and therefore owns the terminal HUD composition. The
+HUD remains bound to display the result and issue one return request without restoring any
+gameplay input. Remote defeated bodies cannot own local HUD. Camera ownership may be
+released at defeat; no spectator camera is defined by this architecture. Presentation
+observes return authorization and delegates the local runner transition to
+`SessionConnectionCoordinator`. No UI component shuts down a runner or loads a scene.
 
 `Defeated` and `Extracted` use distinct result presentations. Defeat reports the fallen
 avatar and permits an explicit return. Extraction reports success, displays the pending
@@ -48,9 +57,10 @@ to the current `ResultSequence`.
 
 The avatar's Fusion `Spawned` callbacks run before `NetworkSpawnManager` can assign
 `CurrentAvatarId` after `runner.Spawn` returns. Camera and HUD binders therefore observe
-the relationship during `Render`: they retry until both replicated directions resolve,
-then release their local bindings if the avatar stops being current. This observation is
-presentation-only and never advances participant simulation state.
+the relationship during `Render` and retry until both replicated directions resolve.
+Camera and active-gameplay bindings may be released when the avatar stops being current;
+the HUD binder instead retains only the local defeated participant's terminal composition.
+This observation is presentation-only and never advances participant simulation state.
 
 ## Host migration
 
