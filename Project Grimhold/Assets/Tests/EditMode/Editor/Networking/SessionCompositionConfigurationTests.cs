@@ -8,6 +8,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Spawning;
 using Assert = NUnit.Framework.Assert;
 
 public sealed class SessionCompositionConfigurationTests
@@ -15,12 +16,16 @@ public sealed class SessionCompositionConfigurationTests
     private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
     private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
     private const string TownRaidNpcPath = "Assets/Prefabs/TownRaidNpc.prefab";
+    private const string TownRaidPreparationPath = "Assets/Prefabs/TownRaidPreparation.prefab";
+    private const string TownRaidPreparationGuid = "a4c85a62e2f24d0ba0fcdb7dca91ce44";
+    private const string TownRaidPreparationViewPath = "Assets/Resources/TownRaidPreparationView.prefab";
     private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
     private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
     private const string MeleeRaidAvatarPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
     private const string RangedRaidAvatarPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
     private const string MainMenuCanvasPath = "Assets/Prefabs/MainMenu Canvas.prefab";
     private const string TownScenePath = "Assets/Scenes/Lobby-Town.unity";
+    private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
 
     [Test]
     public void NetworkScenes_AreEnabledAndResolvableByConfiguredName()
@@ -42,6 +47,8 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponentsInChildren<DirectRaidDevelopmentStarter>(true), Has.Length.EqualTo(1));
         string participantGuid = AssetDatabase.AssetPathToGUID(RaidParticipantPath);
         Assert.That(File.ReadAllText(SystemsPath), Does.Contain($"RawGuidValue: {participantGuid}"));
+        Assert.That(File.ReadAllText(SystemsPath), Does.Not.Contain("_maxPlayers:"));
+        Assert.That(RaidSessionRules.MaxParticipants, Is.EqualTo(16));
     }
 
     [Test]
@@ -75,7 +82,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponent<PlayerInteractionNetworkController>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalInteractionCandidateSource>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<SocialPlayerIdentity>(), Is.Not.Null);
-        Assert.That(prefab.GetComponent<TownRaidQueuePresenter>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<TownRaidPreparationPresenter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalPlayerCameraBinder>(), Is.Not.Null);
         Assert.That(prefab.GetComponentInChildren<PlayerAnimatorView>(true), Is.Not.Null);
 
@@ -111,26 +118,59 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(FindChild(prefab.transform, "VisibilityMesh"), Is.Null);
 
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
-        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidQueuePresenter>()));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidPreparationPresenter>()));
     }
 
     [Test]
-    public void TownRaidNpc_HasAuthoritativeQueueAndInteractionComposition()
+    public void TownRaidNpc_HasAuthoritativePreparationDirectoryAndInteractionComposition()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidNpcPath);
 
         Assert.That(prefab, Is.Not.Null);
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
-        TownRaidQueueNetworkController queue = prefab.GetComponent<TownRaidQueueNetworkController>();
+        TownRaidPreparationDirectory directory = prefab.GetComponent<TownRaidPreparationDirectory>();
         TownRaidNpcInteractable interactable = prefab.GetComponent<TownRaidNpcInteractable>();
         Assert.That(networkObject, Is.Not.Null);
-        Assert.That(queue, Is.Not.Null);
+        Assert.That(directory, Is.Not.Null);
         Assert.That(interactable, Is.Not.Null);
         Assert.That(prefab.GetComponent<InteractionPromptMetadata>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<Collider2D>(), Is.Not.Null);
         Assert.That(networkObject.Flags.HasFlag(NetworkObjectFlags.MasterClientObject), Is.True);
-        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(queue));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(directory));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(interactable));
+        Assert.That(interactable.PreparationDirectory, Is.SameAs(directory));
+    }
+
+    [Test]
+    public void TownRaidPreparation_IsAUiFreeRegisteredNetworkPrefab()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidPreparationPath);
+
+        Assert.That(prefab, Is.Not.Null);
+        NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+        TownRaidPreparationNetworkController preparation =
+            prefab.GetComponent<TownRaidPreparationNetworkController>();
+        Assert.That(networkObject, Is.Not.Null);
+        Assert.That(preparation, Is.Not.Null);
+        Assert.That(networkObject.Flags.HasFlag(NetworkObjectFlags.MasterClientObject), Is.True);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(preparation));
+        Assert.That(prefab.GetComponentInChildren<Canvas>(true), Is.Null);
+        NetworkPrefabId prefabId = NetworkProjectConfig.Global.PrefabTable.GetId(
+            NetworkObjectGuid.Parse(TownRaidPreparationGuid));
+        Assert.That(prefabId.IsValid, Is.True);
+    }
+
+    [Test]
+    public void TownRaidPreparationView_HasSerializedLeaveAndCapacityPresentation()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidPreparationViewPath);
+
+        Assert.That(prefab, Is.Not.Null);
+        Assert.That(prefab.GetComponent<TownRaidPreparationView>(), Is.Not.Null);
+        Assert.That(prefab.transform.Find("RaidCodePanel/Abandonar preparacion"), Is.Not.Null);
+        TMP_Text status = prefab.transform.Find("RaidCodePanel/Status")?.GetComponent<TMP_Text>();
+        Assert.That(status, Is.Not.Null);
+        Assert.That(status.GetComponent<LayoutElement>().preferredHeight, Is.GreaterThanOrEqualTo(300f));
     }
 
     [Test]
@@ -161,11 +201,147 @@ public sealed class SessionCompositionConfigurationTests
 
         try
         {
-            Assert.That(FindInScene<HubSpawnSceneConfiguration>(scene), Has.Count.EqualTo(1));
+            List<HubSpawnSceneConfiguration> configurations = FindInScene<HubSpawnSceneConfiguration>(scene);
+            Assert.That(configurations, Has.Count.EqualTo(1));
+            Assert.That(configurations[0].SpawnPointCount, Is.EqualTo(RaidSessionRules.MaxParticipants));
+            Assert.That(configurations[0].Validate(out _), Is.True);
             Assert.That(FindInScene<HubSessionLauncher>(scene), Is.Empty);
             Assert.That(FindInScene<LocalCameraController>(scene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<PlayerInputReader>(scene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<FusionInputProvider>(scene), Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            if (openedForTest)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+    }
+
+    [Test]
+    public void TownScene_AllSocialSpawnPointsClearActualWorldCollisionAndEachOther()
+    {
+        Scene scene = SceneManager.GetSceneByPath(TownScenePath);
+        bool openedForTest = !scene.IsValid() || !scene.isLoaded;
+        if (openedForTest)
+        {
+            scene = EditorSceneManager.OpenScene(TownScenePath, OpenSceneMode.Additive);
+        }
+
+        GameObject probe = null;
+        try
+        {
+            HubSpawnSceneConfiguration configuration = FindInScene<HubSpawnSceneConfiguration>(scene)[0];
+            CompositeCollider2D worldCollision = FindInScene<CompositeCollider2D>(scene)[0];
+            GameObject socialPlayerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+            BoxCollider2D sourceCollider = socialPlayerPrefab.GetComponent<BoxCollider2D>();
+            Kinematic2DMovementMotor movementMotor = socialPlayerPrefab.GetComponent<Kinematic2DMovementMotor>();
+            var serializedMotor = new SerializedObject(movementMotor);
+            int collisionMask = serializedMotor.FindProperty("_collisionMask").intValue;
+
+            Assert.That(sourceCollider, Is.Not.Null);
+            Assert.That(worldCollision, Is.Not.Null);
+            Assert.That(collisionMask & (1 << worldCollision.gameObject.layer), Is.Not.Zero);
+
+            var serializedConfiguration = new SerializedObject(configuration);
+            SerializedProperty spawnPoints = serializedConfiguration.FindProperty("_spawnPoints");
+            var spawnBounds = new List<Bounds>(spawnPoints.arraySize);
+
+            probe = new GameObject("Town social spawn collision probe");
+            BoxCollider2D probeCollider = probe.AddComponent<BoxCollider2D>();
+            probeCollider.size = sourceCollider.size;
+            probeCollider.offset = sourceCollider.offset;
+
+            for (int index = 0; index < spawnPoints.arraySize; index++)
+            {
+                Transform spawnPoint = spawnPoints.GetArrayElementAtIndex(index).objectReferenceValue as Transform;
+                Assert.That(spawnPoint, Is.Not.Null, $"Town social spawn point {index} is missing.");
+
+                probe.transform.SetPositionAndRotation(spawnPoint.position, spawnPoint.rotation);
+                Physics2D.SyncTransforms();
+                ColliderDistance2D distance = probeCollider.Distance(worldCollision);
+                Assert.That(distance.isOverlapped, Is.False, $"Town social spawn point {index} overlaps WorldCollision.");
+                Assert.That(distance.distance, Is.GreaterThanOrEqualTo(0.25f),
+                    $"Town social spawn point {index} is too close to WorldCollision.");
+
+                int clearDirections = 0;
+                Vector2[] directions = { Vector2.left, Vector2.right, Vector2.up, Vector2.down };
+                for (int directionIndex = 0; directionIndex < directions.Length; directionIndex++)
+                {
+                    probe.transform.position = spawnPoint.position + (Vector3)(directions[directionIndex] * 0.25f);
+                    Physics2D.SyncTransforms();
+                    if (!probeCollider.Distance(worldCollision).isOverlapped)
+                    {
+                        clearDirections++;
+                    }
+                }
+
+                Assert.That(clearDirections, Is.GreaterThanOrEqualTo(2),
+                    $"Town social spawn point {index} cannot begin moving in at least two directions.");
+
+                Vector3 center = spawnPoint.position + (Vector3)sourceCollider.offset;
+                spawnBounds.Add(new Bounds(center, sourceCollider.size));
+            }
+
+            for (int index = 0; index < spawnBounds.Count; index++)
+            {
+                for (int other = index + 1; other < spawnBounds.Count; other++)
+                {
+                    Assert.That(spawnBounds[index].Intersects(spawnBounds[other]), Is.False,
+                        $"Town social spawn points {index} and {other} overlap using the SocialPlayer collider.");
+                }
+            }
+        }
+        finally
+        {
+            if (probe != null)
+            {
+                Object.DestroyImmediate(probe);
+            }
+
+            if (openedForTest)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+    }
+
+    [Test]
+    public void GameplayScene_HasSixteenValidUniquePlayerSpawnPoints()
+    {
+        Scene scene = SceneManager.GetSceneByPath(GameplayScenePath);
+        bool openedForTest = !scene.IsValid() || !scene.isLoaded;
+        if (openedForTest)
+        {
+            scene = EditorSceneManager.OpenScene(GameplayScenePath, OpenSceneMode.Additive);
+        }
+
+        try
+        {
+            List<NetworkSpawnSceneConfiguration> configurations =
+                FindInScene<NetworkSpawnSceneConfiguration>(scene);
+            Assert.That(configurations, Has.Count.EqualTo(1));
+            Assert.That(configurations[0].Validate(out string failure), Is.True, failure);
+            SpawnGroupDefinition players = System.Array.Find(
+                configurations[0].SpawnGroups,
+                group => group.Group == SpawnGroupType.Players);
+            Assert.That(players, Is.Not.Null);
+            Assert.That(players.SpawnPoints, Has.Length.EqualTo(RaidSessionRules.MaxParticipants));
+
+            var positions = new List<Vector3>(players.SpawnPoints.Length);
+            for (int index = 0; index < players.SpawnPoints.Length; index++)
+            {
+                positions.Add(players.SpawnPoints[index].position);
+            }
+
+            Assert.That(
+                RaidParticipantSpawnRules.ValidateSpawnPositions(
+                    positions,
+                    RaidSessionRules.MaxParticipants,
+                    out failure),
+                Is.True,
+                failure);
         }
         finally
         {

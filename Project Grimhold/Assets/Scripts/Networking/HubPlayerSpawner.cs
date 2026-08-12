@@ -75,9 +75,15 @@ public sealed class HubPlayerSpawner : NetworkRunnerCallbacksAdapter
             }
         }
 
-        if (found == null || found.SpawnPointCount == 0)
+        if (found == null)
         {
-            Debug.LogError($"Town scene '{runnerScene.name}' has no valid social spawn configuration.", this);
+            Debug.LogError($"Town scene '{runnerScene.name}' has no social spawn configuration.", this);
+            return false;
+        }
+
+        if (!found.Validate(out string failure))
+        {
+            Debug.LogError($"Town scene '{runnerScene.name}' has invalid social spawn configuration: {failure}", this);
             return false;
         }
 
@@ -100,7 +106,7 @@ public sealed class HubPlayerSpawner : NetworkRunnerCallbacksAdapter
         }
 
         if (!_socialPlayerPrefab.IsValid ||
-            !_sceneConfiguration.TryGetSpawnPose(player.RawEncoded, out Vector3 position, out Quaternion rotation))
+            !_sceneConfiguration.TryGetSpawnPose(player.PlayerId, out Vector3 position, out Quaternion rotation))
         {
             Debug.LogError($"{nameof(HubPlayerSpawner)} cannot spawn the local social player because its prefab or spawn pose is invalid.", this);
             return;

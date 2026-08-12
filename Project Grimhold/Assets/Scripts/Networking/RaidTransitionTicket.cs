@@ -1,75 +1,46 @@
 public readonly struct RaidTransitionTicket
 {
     public RaidConnectionRequest Request { get; }
-    public RaidLaunchManifest Manifest { get; }
     public PlayerClassId SelectedBuild { get; }
     public SessionConnectionState State { get; }
     public PendingLoadoutReservation LoadoutReservation { get; }
     public RaidLaunchContext LaunchContext { get; }
 
-    public bool HasManifest => Manifest.IsValid;
     public bool HasLoadoutReservation => LoadoutReservation != null;
     public bool IsValid => Request.IsValid && PlayerJoinDataCodec.IsSupported(SelectedBuild) &&
-                           (!HasManifest || (HasLoadoutReservation &&
-                            string.Equals(Request.RaidId, Manifest.RaidId, System.StringComparison.Ordinal) &&
-                            string.Equals(Request.SessionName, Manifest.SessionName, System.StringComparison.Ordinal)));
+                           LaunchContext != null && HasLoadoutReservation &&
+                           LaunchContext.RaidCode.IsValid &&
+                           string.Equals(Request.RaidId, LaunchContext.RaidCode.RaidId, System.StringComparison.Ordinal) &&
+                           string.Equals(Request.SessionName, LaunchContext.RaidCode.SessionName, System.StringComparison.Ordinal) &&
+                           LaunchContext.LocalProfileId.IsValid &&
+                           Request.Role == (LaunchContext.LocalProfileId == LaunchContext.HostProfileId
+                               ? RaidConnectionRole.Host
+                               : RaidConnectionRole.Client);
 
     public RaidTransitionTicket(
         in RaidConnectionRequest request,
         PlayerClassId selectedBuild,
         SessionConnectionState state)
-        : this(request, default, selectedBuild, state)
+        : this(request, null, selectedBuild, state, null)
     {
     }
 
     public RaidTransitionTicket(
         in RaidConnectionRequest request,
-        in RaidLaunchManifest manifest,
-        PendingLoadoutReservation loadoutReservation,
-        PlayerClassId selectedBuild,
-        SessionConnectionState state)
-        : this(request, manifest, loadoutReservation, selectedBuild, state, null)
-    {
-    }
-
-    public RaidTransitionTicket(
-        in RaidConnectionRequest request,
-        in RaidLaunchManifest manifest,
         PendingLoadoutReservation loadoutReservation,
         PlayerClassId selectedBuild,
         SessionConnectionState state,
         RaidLaunchContext launchContext)
     {
         Request = request;
-        Manifest = manifest;
         LoadoutReservation = loadoutReservation?.Clone();
         SelectedBuild = selectedBuild;
         State = state;
-        LaunchContext = launchContext ?? CreateContext(request, manifest);
-    }
-
-    public RaidTransitionTicket(
-        in RaidConnectionRequest request,
-        in RaidLaunchManifest manifest,
-        PlayerClassId selectedBuild,
-        SessionConnectionState state)
-        : this(request, manifest, null, selectedBuild, state)
-    {
+        LaunchContext = launchContext;
     }
 
     public RaidTransitionTicket WithState(SessionConnectionState state)
     {
-        return new RaidTransitionTicket(Request, Manifest, LoadoutReservation, SelectedBuild, state, LaunchContext);
-    }
-
-    private static RaidLaunchContext CreateContext(
-        in RaidConnectionRequest request,
-        in RaidLaunchManifest manifest)
-    {
-        return new RaidLaunchContext(
-            manifest.RaidCode.IsValid ? manifest.RaidCode : request.RaidCode,
-            manifest.HostProfileId,
-            manifest.AdmittedProfiles,
-            default);
+        return new RaidTransitionTicket(Request, LoadoutReservation, SelectedBuild, state, LaunchContext);
     }
 }

@@ -8,9 +8,9 @@ using UnityEngine.UI;
 /// It owns no connection state and emits explicit UI intentions to its presenter.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class TownRaidQueueView : MonoBehaviour
+public sealed class TownRaidPreparationView : MonoBehaviour
 {
-    public const string ResourcesPrefabName = "TownRaidQueueView";
+    public const string ResourcesPrefabName = "TownRaidPreparationView";
     private GameObject _promptRoot;
     private TMP_Text _promptText;
     private GameObject _panelRoot;
@@ -21,6 +21,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
     private Button _copyButton;
     private Button _readyButton;
     private Button _startButton;
+    private Button _leaveButton;
     private bool _localReady;
     private Button _closeButton;
 
@@ -28,30 +29,30 @@ public sealed class TownRaidQueueView : MonoBehaviour
     public event Action<string> JoinRequested;
     public event Action<bool> ReadyRequested;
     public event Action StartRequested;
+    public event Action LeaveRequested;
     public event Action CloseRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
 
-    public static TownRaidQueueView Create(Transform owner)
+    public static TownRaidPreparationView Create(Transform owner)
     {
-        TownRaidQueueView prefab = Resources.Load<TownRaidQueueView>(ResourcesPrefabName);
+        TownRaidPreparationView prefab = Resources.Load<TownRaidPreparationView>(ResourcesPrefabName);
         if (prefab == null)
         {
             Debug.LogError(
-                $"[{nameof(TownRaidQueueView)}] Missing required Resources prefab " +
-                $"'{ResourcesPrefabName}.prefab'. Generate it from " +
-                "Tools/Project Grimhold/UI/Generate Town Raid Queue Prefab.");
+                $"[{nameof(TownRaidPreparationView)}] Missing required Resources prefab " +
+                $"'{ResourcesPrefabName}.prefab'.");
             return null;
         }
 
-        TownRaidQueueView instance = UnityEngine.Object.Instantiate(prefab, owner, false);
+        TownRaidPreparationView instance = UnityEngine.Object.Instantiate(prefab, owner, false);
         instance.name = prefab.name;
         instance.CacheSerializedReferences();
         return instance;
     }
 
 #if UNITY_EDITOR
-    public static TownRaidQueueView CreateEditorSource(Transform owner)
+    public static TownRaidPreparationView CreateEditorSource(Transform owner)
     {
         var root = new GameObject(
             "TownRaidHud",
@@ -59,7 +60,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
             typeof(Canvas),
             typeof(CanvasScaler),
             typeof(GraphicRaycaster),
-            typeof(TownRaidQueueView));
+            typeof(TownRaidPreparationView));
         root.transform.SetParent(owner, false);
 
         Canvas canvas = root.GetComponent<Canvas>();
@@ -71,7 +72,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
 
-        TownRaidQueueView view = root.GetComponent<TownRaidQueueView>();
+        TownRaidPreparationView view = root.GetComponent<TownRaidPreparationView>();
         view.Build();
         return view;
     }
@@ -94,6 +95,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
         _copyButton = FindComponent<Button>("RaidCodePanel/Copiar código");
         _readyButton = FindComponent<Button>("RaidCodePanel/Ready");
         _startButton = FindComponent<Button>("RaidCodePanel/Iniciar raid");
+        _leaveButton = FindComponent<Button>("RaidCodePanel/Abandonar preparacion");
         _closeButton = FindComponent<Button>("RaidCodePanel/Cerrar");
 
         if (_panelRoot == null || _statusText == null || _codeInput == null)
@@ -106,6 +108,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
         WireButton(_copyButton, CopyCode);
         WireButton(_readyButton, () => ReadyRequested?.Invoke(!_localReady));
         WireButton(_startButton, () => StartRequested?.Invoke());
+        WireButton(_leaveButton, () => LeaveRequested?.Invoke());
         WireButton(_closeButton, () => CloseRequested?.Invoke());
     }
 
@@ -148,6 +151,24 @@ public sealed class TownRaidQueueView : MonoBehaviour
         SetBusy(false);
     }
 
+    public void PresentNoPreparation()
+    {
+        _localReady = false;
+        if (_codeInput != null)
+        {
+            _codeInput.text = string.Empty;
+            _codeInput.interactable = true;
+        }
+
+        ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
+        if (_createButton != null) _createButton.gameObject.SetActive(true);
+        if (_joinButton != null) _joinButton.gameObject.SetActive(true);
+        if (_copyButton != null) _copyButton.gameObject.SetActive(false);
+        if (_readyButton != null) _readyButton.gameObject.SetActive(false);
+        if (_startButton != null) _startButton.gameObject.SetActive(false);
+        if (_leaveButton != null) _leaveButton.gameObject.SetActive(false);
+    }
+
     public void Close()
     {
         _panelRoot?.SetActive(false);
@@ -165,6 +186,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
         if (_copyButton != null) _copyButton.interactable = !busy;
         if (_readyButton != null) _readyButton.interactable = !busy;
         if (_startButton != null) _startButton.interactable = !busy;
+        if (_leaveButton != null) _leaveButton.interactable = !busy;
         if (_closeButton != null) _closeButton.interactable = !busy;
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -173,29 +195,44 @@ public sealed class TownRaidQueueView : MonoBehaviour
         }
     }
 
-    public void PresentPreparation(TownRaidQueueSnapshot snapshot, bool isHost, bool localReady, bool canStart)
+    public void PresentPreparation(in TownRaidPreparationPresentation presentation)
     {
-        _localReady = localReady;
+        TownRaidPreparationSnapshot snapshot = presentation.Snapshot;
+        _localReady = presentation.LocalReady;
         if (_codeInput != null)
         {
             _codeInput.text = snapshot.RaidCode.Value;
             _codeInput.interactable = false;
         }
 
-        ShowStatus($"Código: {snapshot.RaidCode.Value}  Jugadores: {snapshot.Members.Count} / 4\n" +
-            (isHost ? "Todos listos para iniciar." : "Esperando al Host..."));
+        var status = new System.Text.StringBuilder();
+        status.Append("Código: ").Append(snapshot.RaidCode.Value)
+            .Append("  Jugadores: ").Append(snapshot.Members.Count)
+            .Append(" / ").Append(RaidSessionRules.MaxParticipants).AppendLine();
+        for (int index = 0; index < snapshot.Members.Count; index++)
+        {
+            TownRaidPreparationMember member = snapshot.Members[index];
+            status.Append(member.ProfileId.Value)
+                .Append(member.IsReady ? " — Ready" : " — No Ready")
+                .AppendLine();
+        }
+
+        status.Append(presentation.IsHost ? "Preparación del Host." : "Esperando al Host...");
+        ShowStatus(status.ToString());
         if (_createButton != null) _createButton.gameObject.SetActive(false);
         if (_joinButton != null) _joinButton.gameObject.SetActive(false);
+        if (_copyButton != null) _copyButton.gameObject.SetActive(true);
         if (_readyButton != null)
         {
             _readyButton.gameObject.SetActive(true);
-            _readyButton.GetComponentInChildren<TMP_Text>().text = localReady ? "Cancelar Ready" : "Ready";
+            _readyButton.GetComponentInChildren<TMP_Text>().text = presentation.LocalReady ? "Cancelar Ready" : "Ready";
         }
         if (_startButton != null)
         {
-            _startButton.gameObject.SetActive(isHost);
-            _startButton.interactable = canStart;
+            _startButton.gameObject.SetActive(presentation.IsHost);
+            _startButton.interactable = presentation.CanStart;
         }
+        if (_leaveButton != null) _leaveButton.gameObject.SetActive(true);
     }
 
     public void ShowInvalidCode()
@@ -244,35 +281,37 @@ public sealed class TownRaidQueueView : MonoBehaviour
         _copyButton = CreateButton("Copiar código", _panelRoot.transform, CopyCode, out _);
         _readyButton = CreateButton("Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _);
         _startButton = CreateButton("Iniciar raid", _panelRoot.transform, () => StartRequested?.Invoke(), out _);
+        _leaveButton = CreateButton("Abandonar preparacion", _panelRoot.transform, () => LeaveRequested?.Invoke(), out _);
         _closeButton = CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
 
         _panelRoot.SetActive(false);
         _promptRoot.SetActive(false);
         _readyButton.gameObject.SetActive(false);
         _startButton.gameObject.SetActive(false);
+        _leaveButton.gameObject.SetActive(false);
     }
 
     private void Submit(Action<string> action)
     {
-        if (!RaidLaunchManifest.Code.TryNormalize(_codeInput?.text, out string code))
+        if (!RaidCode.TryParse(_codeInput?.text, out RaidCode raidCode))
         {
             ShowInvalidCode();
             return;
         }
 
-        action?.Invoke(code);
+        action?.Invoke(raidCode.Value);
     }
 
     private void CopyCode()
     {
-        if (!RaidLaunchManifest.Code.TryNormalize(_codeInput?.text, out string code))
+        if (!RaidCode.TryParse(_codeInput?.text, out RaidCode raidCode))
         {
             ShowInvalidCode();
             return;
         }
 
-        GUIUtility.systemCopyBuffer = code;
-        ShowStatus($"Código {code} copiado.");
+        GUIUtility.systemCopyBuffer = raidCode.Value;
+        ShowStatus($"Código {raidCode.Value} copiado.");
     }
 
     private void ShowStatus(string status)
@@ -304,7 +343,7 @@ public sealed class TownRaidQueueView : MonoBehaviour
         input.textComponent = text;
         input.placeholder = placeholder;
         input.contentType = TMP_InputField.ContentType.IntegerNumber;
-        input.characterLimit = RaidLaunchManifest.Code.Length;
+        input.characterLimit = RaidCode.Length;
         input.lineType = TMP_InputField.LineType.SingleLine;
         return input;
     }

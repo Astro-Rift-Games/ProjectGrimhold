@@ -100,7 +100,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private NetworkMatchController _matchController;
     private NetworkSpawnSceneConfiguration _sceneSpawnPointConfiguration;
     private SessionStartupContext _startupContext;
-    private RaidLaunchManifest _raidManifest;
+    private RaidLaunchContext _launchContext;
 
     private int _currentSceneLoadGeneration = 0;
     private int _lastCompletedSceneLoadGeneration = -1;
@@ -192,7 +192,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _runner = null;
         _sceneSpawnPointConfiguration = null;
         _startupContext = default;
-        _raidManifest = default;
+        _launchContext = null;
         _pendingHostMigrationReconnects.Clear();
         _cleanupBuffer.Clear();
     }
@@ -207,7 +207,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefab,
         SessionStartupContext startupContext,
-        RaidLaunchManifest raidManifest)
+        RaidLaunchContext launchContext)
     {
         if (runner == null)
         {
@@ -239,7 +239,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _raidParticipantPrefab = raidParticipantPrefab;
         _enemyPrefabs = enemyPrefab;
         _startupContext = startupContext;
-        _raidManifest = raidManifest;
+        _launchContext = launchContext;
 
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
@@ -546,6 +546,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             _sceneSpawnStatus = SceneSpawnConfigurationStatus.SpawnPointsReady;
             ConfigureForScene(sceneConfig);
+            if (!TryValidatePlayerSpawnPreflight(out string playerSpawnFailure))
+            {
+                Debug.LogError($"[NetworkSpawnManager] Player spawn preflight failed: {playerSpawnFailure}");
+                FailSceneLoadPipeline();
+                return;
+            }
         }
 
         // Start processing spawns
@@ -951,20 +957,15 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
-        if (_raidManifest.IsValid && !TryValidateRaidAdmissionToken(token, out _))
+        if (_launchContext != null && !TryValidateRaidAdmissionToken(token, out _))
         {
             Debug.LogWarning("[NetworkSpawnManager] Refusing connection request with an invalid raid admission token.");
             request.Refuse();
             return;
         }
 
-        bool codeAdmissionWindow = _matchController != null &&
-                                   NetworkMatchController.IsCodeAdmissionOpen(
-                                       _raidManifest.AllowsCodeAdmission,
-                                       _matchController.Phase);
         bool allowJoin = (_matchController != null &&
                           _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers) ||
-                         codeAdmissionWindow ||
                          isHostMigrationWindow;
 
         if (!allowJoin)
@@ -1054,7 +1055,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         RaidAdmissionData admission = default;
-        bool hasAdmission = _raidManifest.IsValid;
+        bool hasAdmission = _launchContext != null;
         if (hasAdmission && !TryGetAdmissionData(runner, player, out admission))
         {
             return false;
@@ -1089,10 +1090,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return true;
         }
 
-        bool admissionPhaseIsOpen = _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers ||
-                                    NetworkMatchController.IsCodeAdmissionOpen(
-                                        _raidManifest.AllowsCodeAdmission,
-                                        _matchController.Phase);
+        bool admissionPhaseIsOpen = _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers;
         if (!admissionPhaseIsOpen)
             return false;
 
@@ -1179,7 +1177,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     {
         byte[] token = runner.GetPlayerConnectionToken(player);
 
-        if (_raidManifest.IsValid && RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData raidAdmission))
+        if (_launchContext != null && RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData raidAdmission))
         {
             if (IsRaidAdmissionValid(raidAdmission))
             {
@@ -1205,7 +1203,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         LocalPlayerJoinContext context = runner.GetComponent<LocalPlayerJoinContext>();
 
         if (context == null || !PlayerJoinDataCodec.IsSupported(context.JoinData.ClassId) ||
-            (_raidManifest.IsValid && (!context.HasRaidAdmission || !IsRaidAdmissionValid(context.RaidAdmission))))
+            (_launchContext != null && (!context.HasRaidAdmission || !IsRaidAdmissionValid(context.RaidAdmission))))
         {
             joinData = default;
             return false;
@@ -1241,10 +1239,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     }
 
     public int ExpectedRaidAdmissionCount =>
-        _raidManifest.IsValid && !_raidManifest.AllowsCodeAdmission
-            ? _raidManifest.AdmittedProfiles.Count
+        _launchContext != null
+            ? _launchContext.ParticipantProfileIds.Count
             : 0;
     public int AdmittedRaidProfileCount => _admittedProfiles.Count;
+    public int ReadyRaidProfileCount => _spawnedPlayers.Count;
 
     private bool TryValidateRaidAdmissionToken(byte[] token, out RaidAdmissionData admission)
     {
@@ -1259,21 +1258,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool IsRaidAdmissionValid(in RaidAdmissionData admission)
     {
-        if (!_raidManifest.IsValid || !admission.IsValid)
-        {
-            return false;
-        }
-
-        if (_raidManifest.RaidCode.IsValid)
-        {
-            return admission.RaidCode.IsValid &&
-                   admission.RaidCode == _raidManifest.RaidCode &&
-                   admission.ProfileId.IsValid;
-        }
-
-        return string.Equals(admission.RaidId, _raidManifest.RaidId, StringComparison.Ordinal) &&
-               string.Equals(admission.AccessSecret, _raidManifest.AccessSecret, StringComparison.Ordinal) &&
-               _raidManifest.Contains(admission.ProfileId);
+        return RaidAdmissionRules.IsAdmitted(_launchContext, admission);
     }
 
     private bool CanSpawnPlayer(NetworkRunner runner, PlayerRef player)
@@ -1366,14 +1351,24 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _admissionData.TryGetValue(player, out RaidAdmissionData admission);
-        bool hasAdmission = _raidManifest.IsValid;
+        bool hasAdmission = _launchContext != null;
         bool loadoutInitialized = !hasAdmission;
 
-        GetSpawnTransform(
-            SpawnGroupType.Players,
-            player.RawEncoded,
-            out Vector3 position,
-            out Quaternion rotation);
+        if (_launchContext == null ||
+            !RaidParticipantSpawnRules.TryGetSpawnIndex(
+                _launchContext.ParticipantProfileIds,
+                joinData.ProfileId,
+                out int spawnIndex) ||
+            !TryGetSpawnTransformByIndex(
+                SpawnGroupType.Players,
+                spawnIndex,
+                out Vector3 position,
+                out Quaternion rotation))
+        {
+            Debug.LogError(
+                $"Rejecting spawn for profile '{joinData.ProfileId.Value}': frozen spawn mapping is unavailable.");
+            return false;
+        }
 
         NetworkObject participantObject = runner.Spawn(
             _raidParticipantPrefab,
@@ -2349,6 +2344,42 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         position = spawnPoint.position;
         rotation = spawnPoint.rotation;
+    }
+
+    private bool TryGetSpawnTransformByIndex(
+        SpawnGroupType group,
+        int index,
+        out Vector3 position,
+        out Quaternion rotation)
+    {
+        position = default;
+        rotation = Quaternion.identity;
+        if (!_spawnPointLookup.TryGetValue(group, out Transform[] spawnPoints) ||
+            spawnPoints == null || index < 0 || index >= spawnPoints.Length || spawnPoints[index] == null)
+        {
+            return false;
+        }
+
+        position = spawnPoints[index].position;
+        rotation = spawnPoints[index].rotation;
+        return true;
+    }
+
+    private bool TryValidatePlayerSpawnPreflight(out string failure)
+    {
+        failure = null;
+        if (_launchContext == null ||
+            !_spawnPointLookup.TryGetValue(SpawnGroupType.Players, out Transform[] spawnPoints) ||
+            spawnPoints == null)
+        {
+            failure = "Canonical launch context or Players spawn group is missing.";
+            return false;
+        }
+
+        return RaidParticipantSpawnRules.ValidateSpawnPoints(
+            spawnPoints,
+            _launchContext.ParticipantProfileIds.Count,
+            out failure);
     }
 }
 

@@ -6,6 +6,13 @@ using Assert = NUnit.Framework.Assert;
 public sealed class FusionSessionAvailabilityTests
 {
     [Test]
+    public void RaidRuntimeCapacity_DerivesFromCanonicalSixteenParticipantRule()
+    {
+        Assert.That(FusionSessionLauncher.RaidPlayerCapacity, Is.EqualTo(16));
+        Assert.That(FusionSessionLauncher.RaidPlayerCapacity, Is.EqualTo(RaidSessionRules.MaxParticipants));
+    }
+
+    [Test]
     public void GameNotFound_WaitsForHost()
     {
         Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(ShutdownReason.GameNotFound), Is.True);
@@ -35,26 +42,12 @@ public sealed class FusionSessionAvailabilityTests
     }
 
     [Test]
-    public void CodeAdmission_RemainsOpenOnlyDuringWaiting()
-    {
-        Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.WaitingForPlayers),
-            Is.True);
-        Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.Starting),
-            Is.False);
-        Assert.That(
-            NetworkMatchController.IsCodeAdmissionOpen(true, NetworkMatchController.MatchPhase.InProgress),
-            Is.False);
-    }
-
-    [Test]
-    public void MissingCodeSession_IsDefinitiveButFrozenClientWaitsForHost()
+    public void FrozenClientWaitsOnlyForMissingHostSession()
     {
         var host = new ProfileId("host");
-        var frozen = new RaidLaunchManifest(
-            "raid", "session", "secret", host, new[] { host }, 1);
-        RaidLaunchManifest coded = RaidLaunchManifest.Code.CreateManifest("123456");
+        var client = new ProfileId("client");
+        RaidCode.TryParse("123456", out RaidCode code);
+        RaidLaunchContext.TryCreate(code, host, new[] { host, client }, client, 1, out RaidLaunchContext frozen);
 
         Assert.That(
             SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
@@ -62,7 +55,7 @@ public sealed class FusionSessionAvailabilityTests
             Is.True);
         Assert.That(
             SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
-                coded, RaidConnectionRole.Client, ShutdownReason.GameNotFound),
+                frozen, RaidConnectionRole.Client, ShutdownReason.GameClosed),
             Is.False);
     }
 }

@@ -14,19 +14,52 @@ public sealed class RaidLaunchContext
     public RaidCode RaidCode { get; }
     public ProfileId HostProfileId { get; }
     public ProfileId LocalProfileId { get; }
+    public int LaunchRevision { get; }
     public IReadOnlyList<ProfileId> ParticipantProfileIds => _readOnlyParticipantProfileIds;
 
-    public RaidLaunchContext(
+    private RaidLaunchContext(
         RaidCode raidCode,
         ProfileId hostProfileId,
         IReadOnlyList<ProfileId> participantProfileIds,
-        ProfileId localProfileId)
+        ProfileId localProfileId,
+        int launchRevision)
     {
         RaidCode = raidCode;
         HostProfileId = hostProfileId;
         LocalProfileId = localProfileId;
+        LaunchRevision = launchRevision;
         _participantProfileIds = Copy(participantProfileIds);
         _readOnlyParticipantProfileIds = Array.AsReadOnly(_participantProfileIds);
+    }
+
+    /// <summary>
+    /// Creates a runner-independent context only when every stable Raid identity belongs to
+    /// the same valid frozen cohort and launch revision.
+    /// </summary>
+    public static bool TryCreate(
+        RaidCode raidCode,
+        ProfileId hostProfileId,
+        IReadOnlyList<ProfileId> participantProfileIds,
+        ProfileId localProfileId,
+        int launchRevision,
+        out RaidLaunchContext context)
+    {
+        if (!raidCode.IsValid || !localProfileId.IsValid ||
+            !RaidSessionRules.IsValidLaunchRevision(launchRevision) ||
+            !RaidSessionRules.IsValidParticipantCohort(hostProfileId, participantProfileIds) ||
+            !RaidSessionRules.ContainsProfile(participantProfileIds, localProfileId))
+        {
+            context = null;
+            return false;
+        }
+
+        context = new RaidLaunchContext(
+            raidCode,
+            hostProfileId,
+            participantProfileIds,
+            localProfileId,
+            launchRevision);
+        return true;
     }
 
     private static ProfileId[] Copy(IReadOnlyList<ProfileId> profiles)

@@ -19,7 +19,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
     private NetworkPrefabRef[] _enemyPrefabs;
     private PlayerJoinData _joinData;
     private byte[] _connectionToken;
-    private RaidLaunchManifest _raidManifest;
+    private RaidLaunchContext _launchContext;
     private FusionSessionLauncher _runnerOwner;
     private bool _isMigrating;
 
@@ -30,7 +30,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
         byte[] connectionToken,
-        in RaidLaunchManifest raidManifest,
+        RaidLaunchContext launchContext,
         FusionSessionLauncher runnerOwner)
     {
         _associatedRunner = runner;
@@ -39,7 +39,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         _enemyPrefabs = enemyPrefabs;
         _joinData = joinData;
         _connectionToken = connectionToken;
-        _raidManifest = raidManifest;
+        _launchContext = launchContext;
         _runnerOwner = runnerOwner;
     }
 
@@ -134,7 +134,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                     _enemyPrefabs,
                     in _joinData,
                     _connectionToken,
-                    _raidManifest,
+                    _launchContext,
                     null,
                     _runnerOwner,
                     out replacement))
@@ -156,6 +156,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                 HostMigrationToken = token,
                 HostMigrationResume = replacement.SnapshotRestorer.HostMigrationResumeCallback,
                 ConnectionToken = _connectionToken,
+                PlayerCount = RaidSessionRules.MaxParticipants,
                 Scene = sceneInfo,
                 IsOpen = true,
                 IsVisible = false

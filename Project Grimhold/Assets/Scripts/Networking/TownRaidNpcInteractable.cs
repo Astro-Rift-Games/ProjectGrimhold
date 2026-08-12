@@ -2,15 +2,15 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Town interaction adapter that opens local queue presentation without owning queue state.
-/// Queue mutations remain explicit requests on <see cref="TownRaidQueueNetworkController"/>.
+/// Town interaction adapter that opens local preparation presentation without owning preparation state.
+/// Mutations remain explicit requests on <see cref="TownRaidPreparationDirectory"/>.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
 public sealed class TownRaidNpcInteractable : NetworkBehaviour, IInteractable
 {
     [SerializeField]
-    private TownRaidQueueNetworkController _queue;
+    private TownRaidPreparationDirectory _directory;
 
     private Collider2D[] _colliders;
     private EntityRegistry _registry;
@@ -21,7 +21,7 @@ public sealed class TownRaidNpcInteractable : NetworkBehaviour, IInteractable
         ? new EntityId(unchecked((int)Object.Id.Raw))
         : default;
 
-    public TownRaidQueueNetworkController QueueController => _queue;
+    public TownRaidPreparationDirectory PreparationDirectory => _directory;
 
     private void Awake()
     {
@@ -32,10 +32,10 @@ public sealed class TownRaidNpcInteractable : NetworkBehaviour, IInteractable
     {
         _registry = Runner.GetComponent<EntityRegistry>();
         _registeredId = Id;
-        _isRegistered = _queue != null && _registry != null && _registry.TryRegisterEntity(_registeredId, this, _colliders);
+        _isRegistered = _directory != null && _registry != null && _registry.TryRegisterEntity(_registeredId, this, _colliders);
         if (!_isRegistered)
         {
-            Debug.LogError($"{nameof(TownRaidNpcInteractable)} requires a queue controller and EntityRegistry.", this);
+            Debug.LogError($"{nameof(TownRaidNpcInteractable)} requires a preparation directory and EntityRegistry.", this);
         }
     }
 
@@ -56,7 +56,7 @@ public sealed class TownRaidNpcInteractable : NetworkBehaviour, IInteractable
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
-        _queue.NotifyLocalQueueRequested();
+        _directory.NotifyLocalInteractionRequested();
         return InteractionResult.Succeeded();
     }
 

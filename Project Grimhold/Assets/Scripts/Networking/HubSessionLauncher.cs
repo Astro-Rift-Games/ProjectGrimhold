@@ -67,6 +67,7 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             {
                 GameMode = GameMode.Shared,
                 SessionName = LobbyTownSessionName,
+                PlayerCount = RaidSessionRules.MaxParticipants,
                 ConnectionToken = token,
                 Scene = sceneInfo,
                 SceneManager = composition.SceneManager

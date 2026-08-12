@@ -196,6 +196,11 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(store.TryConfirmLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.PendingReservation, Is.Null);
         Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.TryRollbackLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.InvalidInventory));
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-3", out _), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("reservation-3"));
+        Assert.That(store.PendingReservation.ReservationId, Is.Not.EqualTo("reservation-2"));
     }
 
     [Test]

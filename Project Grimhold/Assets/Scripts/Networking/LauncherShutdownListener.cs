@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
@@ -6,6 +7,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class LauncherShutdownListener : NetworkRunnerCallbacksAdapter
 {
+    private static readonly TimeSpan InitialSceneTimeout = TimeSpan.FromSeconds(30);
+
     private Action<NetworkRunner, ShutdownReason> _shutdownHandler;
     private NetworkRunner _expectedRunner;
     private TaskCompletionSource<bool> _initialSceneReady;
@@ -20,9 +23,29 @@ public sealed class LauncherShutdownListener : NetworkRunnerCallbacksAdapter
             TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    public Task<bool> WaitForInitialSceneAsync()
+    /// <summary>
+    /// Waits for the initial Fusion scene callback within a bounded startup lifetime.
+    /// Cancellation belongs to the transition that owns the runner being created.
+    /// </summary>
+    public async Task<bool> WaitForInitialSceneAsync(CancellationToken cancellationToken = default)
     {
-        return _initialSceneReady?.Task ?? Task.FromResult(false);
+        if (_initialSceneReady == null)
+        {
+            return false;
+        }
+
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task timeout = Task.Delay(InitialSceneTimeout, timeoutCancellation.Token);
+        Task<bool> ready = _initialSceneReady.Task;
+        Task completed = await Task.WhenAny(ready, timeout);
+        if (completed != ready)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return false;
+        }
+
+        timeoutCancellation.Cancel();
+        return await ready;
     }
 
     public override void OnSceneLoadDone(NetworkRunner runner)
@@ -57,6 +80,13 @@ public sealed class LauncherShutdownListener : NetworkRunnerCallbacksAdapter
             _expectedRunner.RemoveCallbacks(this);
         }
 
+        _initialSceneReady?.TrySetResult(false);
+        _shutdownHandler = null;
+        _expectedRunner = null;
+    }
+
+    private void OnDestroy()
+    {
         _initialSceneReady?.TrySetResult(false);
         _shutdownHandler = null;
         _expectedRunner = null;

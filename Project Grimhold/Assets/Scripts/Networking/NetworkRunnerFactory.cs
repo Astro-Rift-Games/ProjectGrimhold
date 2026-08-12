@@ -40,7 +40,7 @@ public static class NetworkRunnerFactory
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
         byte[] connectionToken,
-        RaidLaunchManifest raidManifest,
+        RaidLaunchContext launchContext,
         PendingLoadoutReservation loadoutReservation,
         FusionSessionLauncher runnerOwner,
         out RunnerComposition composition)
@@ -73,7 +73,7 @@ public static class NetworkRunnerFactory
                 raidParticipantPrefab,
                 copiedEnemyPrefabs,
                 startupContext,
-                raidManifest))
+                launchContext))
         {
             Debug.LogError("[NetworkRunnerFactory] Failed to initialize NetworkSpawnManager.");
             Object.Destroy(runnerObject);
@@ -81,7 +81,7 @@ public static class NetworkRunnerFactory
         }
 
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
-        if (raidManifest.IsValid)
+        if (launchContext != null)
         {
             RaidAdmissionData admission;
             if (loadoutReservation != null)
@@ -93,20 +93,12 @@ public static class NetworkRunnerFactory
                     reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
                 }
 
-                admission = raidManifest.RaidCode.IsValid
-                    ? new RaidAdmissionData(
-                        raidManifest.RaidCode,
-                        joinData.ProfileId,
-                        joinData.ClassId,
-                        loadoutReservation.ReservationId,
-                        reservedLoadout)
-                    : new RaidAdmissionData(
-                        raidManifest.RaidId,
-                        raidManifest.AccessSecret,
-                        joinData.ProfileId,
-                        joinData.ClassId,
-                        loadoutReservation.ReservationId,
-                        reservedLoadout);
+                admission = new RaidAdmissionData(
+                    launchContext.RaidCode,
+                    joinData.ProfileId,
+                    joinData.ClassId,
+                    loadoutReservation.ReservationId,
+                    reservedLoadout);
             }
             else if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
             {
@@ -134,7 +126,7 @@ public static class NetworkRunnerFactory
             copiedEnemyPrefabs,
             in joinData,
             copiedConnectionToken,
-            in raidManifest,
+            launchContext,
             runnerOwner);
 
         var snapshotRestorer = runnerObject.AddComponent<HostMigrationSnapshotRestorer>();

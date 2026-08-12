@@ -10,6 +10,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class NetworkMatchController : NetworkBehaviour
 {
+    private const float ExpectedAdmissionTimeoutSeconds = 30f;
     public enum MatchPhase
     {
         WaitingForPlayers,
@@ -24,6 +25,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     [Networked]
     public int ExpectedAdmissionCount { get; private set; }
+    [Networked]
+    public TickTimer ExpectedAdmissionDeadline { get; private set; }
     [Networked]
     public NetworkString<_32> RaidGenerationId { get; private set; }
 
@@ -118,18 +121,15 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         ExpectedAdmissionCount = expectedAdmissionCount;
+        ExpectedAdmissionDeadline = TickTimer.CreateFromSeconds(Runner, ExpectedAdmissionTimeoutSeconds);
     }
 
     /// <summary>
-    /// Determines whether every profile frozen into the Town launch manifest was admitted.
+    /// Determines whether every profile frozen in Town completed admission and player bootstrap.
     /// There is intentionally no elapsed-time condition in this policy.
     /// </summary>
     public static bool IsExpectedCohortAdmitted(int expectedAdmissionCount, int admittedProfileCount) =>
         expectedAdmissionCount > 0 && admittedProfileCount >= expectedAdmissionCount;
-    /// <summary>Returns whether late code-based admission is valid in the current match phase.</summary>
-    public static bool IsCodeAdmissionOpen(bool allowsCodeAdmission, MatchPhase phase) =>
-        allowsCodeAdmission && phase == MatchPhase.WaitingForPlayers;
-
     /// <summary>
     /// Authoritatively starts the already-loaded raid and executes its one-time
     /// initial PvPvE bootstrap without reloading Gameplay.
@@ -200,9 +200,19 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
         NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         if (spawnManager != null &&
-            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.AdmittedRaidProfileCount))
+            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.ReadyRaidProfileCount))
         {
             ClosePreloadedRaidAdmission();
+            return;
+        }
+
+        if (ExpectedAdmissionDeadline.Expired(Runner))
+        {
+            Phase = MatchPhase.Starting;
+            Runner.SessionInfo.IsOpen = false;
+            Runner.SessionInfo.IsVisible = false;
+            spawnManager?.AbortRaidingParticipantsForClosure();
+            BeginClosure(RaidClosureReason.BootstrapFailure);
         }
     }
 

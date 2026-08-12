@@ -3,14 +3,14 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Binds the local Shared Mode player to the Town raid-code view.
-/// It forwards explicit UI requests to the Town cohort controller and owns no session state.
+/// Binds the local Shared Mode player to only their own Town Raid preparation.
+/// It reads the directory cache and forwards explicit UI intentions without owning replicated state.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerInteractionNetworkController))]
 [RequireComponent(typeof(LocalInteractionCandidateSource))]
 [RequireComponent(typeof(SocialPlayerIdentity))]
-public sealed class TownRaidQueuePresenter : NetworkBehaviour
+public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 {
     [SerializeField]
     private LocalInteractionCandidateSource _candidateSource;
@@ -18,10 +18,13 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
 
-    private TownRaidQueueView _view;
-    private TownRaidQueueNetworkController _queueController;
+    private TownRaidPreparationView _view;
+    private TownRaidPreparationDirectory _directory;
+    private TownRaidPreparationNetworkController _presentedPreparation;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
+    private int _presentedRevision = -1;
+    private bool _showingNoPreparation;
 
     private void Awake()
     {
@@ -42,33 +45,6 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         }
     }
 
-    private void Bind()
-    {
-        if (!HasInputAuthority || _candidateSource == null || _interactionController == null || _view != null)
-        {
-            return;
-        }
-
-        _view = TownRaidQueueView.Create(transform);
-        if (_view == null)
-        {
-            return;
-        }
-
-        _view.CreateRequested += CreateRaid;
-        _view.JoinRequested += JoinRaid;
-        _view.ReadyRequested += SetReady;
-        _view.StartRequested += StartRaid;
-        _view.CloseRequested += ClosePanel;
-        _interactionController.InteractionResolved += OnInteractionResolved;
-
-        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
-        if (coordinator != null && coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure))
-        {
-            _view.ShowTransitionFailure(failure);
-        }
-    }
-
     public override void Render()
     {
         if (!HasInputAuthority || _view == null)
@@ -79,50 +55,7 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         _view.SetPrompt(
             _candidateSource != null && _candidateSource.HasCandidate,
             _candidateSource?.CurrentPromptText);
-
-        if (_queueController != null)
-        {
-            TownRaidQueueSnapshot snapshot = _queueController.Snapshot;
-            ProfileId localProfile = GetLocalProfile();
-            bool isMember = false;
-            foreach (TownRaidQueueMember member in snapshot.Members)
-            {
-                if (member.ProfileId == localProfile)
-                {
-                    isMember = true;
-                    break;
-                }
-            }
-
-            if (snapshot.RaidCode.IsValid && isMember)
-            {
-                bool localReady = false;
-                foreach (TownRaidQueueMember member in snapshot.Members)
-                {
-                    if (member.ProfileId == localProfile)
-                    {
-                        localReady = member.IsReady;
-                        break;
-                    }
-                }
-
-                bool allReady = snapshot.Members.Count > 0;
-                foreach (TownRaidQueueMember member in snapshot.Members)
-                {
-                    if (!member.IsReady)
-                    {
-                        allReady = false;
-                        break;
-                    }
-                }
-
-                _view.PresentPreparation(
-                    snapshot,
-                    snapshot.HostProfileId == localProfile,
-                    localReady,
-                    allReady);
-            }
-        }
+        RefreshPreparationPresentation(false);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -140,6 +73,34 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         Unbind();
     }
 
+    private void Bind()
+    {
+        if (!HasInputAuthority || _candidateSource == null || _interactionController == null || _view != null)
+        {
+            return;
+        }
+
+        _view = TownRaidPreparationView.Create(transform);
+        if (_view == null)
+        {
+            return;
+        }
+
+        _view.CreateRequested += CreateRaid;
+        _view.JoinRequested += JoinRaid;
+        _view.LeaveRequested += LeaveRaid;
+        _view.ReadyRequested += SetReady;
+        _view.StartRequested += StartRaid;
+        _view.CloseRequested += ClosePanel;
+        _interactionController.InteractionResolved += OnInteractionResolved;
+
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null && coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure))
+        {
+            _view.ShowTransitionFailure(failure);
+        }
+    }
+
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
         if (_view == null || !interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
@@ -154,24 +115,46 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
             return;
         }
 
-        _queueController = npc.QueueController;
+        _directory = npc.PreparationDirectory;
         _view.Open();
+        RefreshPreparationPresentation(true);
         AcquireInputSuppression();
     }
 
-    private void CreateRaid(string _)
+    private void RefreshPreparationPresentation(bool force)
     {
-        _queueController?.RequestCreate();
+        ProfileId localProfile = GetLocalProfile();
+        if (_directory == null || !_directory.TryGetPreparation(localProfile, out TownRaidPreparationNetworkController preparation) ||
+            !TownRaidPreparationPresentation.TryCreate(preparation.Snapshot, localProfile, out TownRaidPreparationPresentation presentation))
+        {
+            if (force || !_showingNoPreparation)
+            {
+                _view.PresentNoPreparation();
+                _showingNoPreparation = true;
+                _presentedPreparation = null;
+                _presentedRevision = -1;
+            }
+
+            return;
+        }
+
+        if (!force && !_showingNoPreparation && _presentedPreparation == preparation &&
+            _presentedRevision == preparation.SnapshotRevision)
+        {
+            return;
+        }
+
+        _showingNoPreparation = false;
+        _presentedPreparation = preparation;
+        _presentedRevision = preparation.SnapshotRevision;
+        _view.PresentPreparation(presentation);
     }
 
-    private void JoinRaid(string code)
-    {
-        _queueController?.RequestJoin(code);
-    }
-
-    private void SetReady(bool ready) => _queueController?.RequestSetReady(ready);
-
-    private void StartRaid() => _queueController?.RequestLaunch();
+    private void CreateRaid(string _) => _directory?.RequestCreate();
+    private void JoinRaid(string code) => _directory?.RequestJoin(code);
+    private void LeaveRaid() => _directory?.RequestLeave();
+    private void SetReady(bool ready) => _directory?.RequestSetReady(ready);
+    private void StartRaid() => _directory?.RequestStart();
 
     private ProfileId GetLocalProfile()
     {
@@ -236,12 +219,18 @@ public sealed class TownRaidQueuePresenter : NetworkBehaviour
         {
             _view.CreateRequested -= CreateRaid;
             _view.JoinRequested -= JoinRaid;
+            _view.LeaveRequested -= LeaveRaid;
             _view.ReadyRequested -= SetReady;
             _view.StartRequested -= StartRaid;
             _view.CloseRequested -= ClosePanel;
             Destroy(_view.gameObject);
             _view = null;
         }
+
+        _directory = null;
+        _presentedPreparation = null;
+        _presentedRevision = -1;
+        _showingNoPreparation = false;
     }
 
     private void CacheDependencies()

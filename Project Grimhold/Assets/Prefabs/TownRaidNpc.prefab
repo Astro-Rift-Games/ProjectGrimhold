@@ -159,16 +159,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7290314261216576876}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ab34a7ca1154abd4680ade6a495fb0b5, type: 3}
+  m_Script: {fileID: 11500000, guid: 7b419bc11e3c4a9b93a071d73cae1f85, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TownRaidQueueNetworkController
-  _maximumMembers: 4
-  _State: 0
-  _HostProfileId:
-    _length: 0
-    _data:
-      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-  _LaunchSequence: 0
+  m_EditorClassIdentifier: Assembly-CSharp::TownRaidPreparationDirectory
+  _preparationPrefab:
+    RawGuidValue: a4c85a62e2f24d0ba0fcdb7dca91ce44
 --- !u!114 &5063217787893318300
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -181,7 +176,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2864e5ddc1ba9ef41a6433653707f3ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownRaidNpcInteractable
-  _queue: {fileID: 2234728297665594424}
+  _directory: {fileID: 2234728297665594424}
 --- !u!114 &439343322531755603
 MonoBehaviour:
   m_ObjectHideFlags: 0

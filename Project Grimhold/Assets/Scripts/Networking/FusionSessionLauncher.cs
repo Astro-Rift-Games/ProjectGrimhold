@@ -1,17 +1,16 @@
 using Fusion;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 {
+    private const float LocalAdmissionTimeoutSeconds = 30f;
     [Header("Session")]
     [SerializeField]
     private string _sessionName;
-
-    [SerializeField, Min(1)]
-    private int _maxPlayers = 4;
 
     [Header("Spawning Configuration")]
     [SerializeField]
@@ -37,6 +36,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private NetworkRunner _hostMigrationSourceRunner;
 
     public NetworkRunner Runner => _runner;
+    public static int RaidPlayerCapacity => RaidSessionRules.MaxParticipants;
     public NetworkMatchController MatchController => _matchController;
     public ShutdownReason LastStartShutdownReason { get; private set; } = ShutdownReason.Ok;
     public event Action<NetworkRunner, ShutdownReason> RunnerShutdownObserved;
@@ -49,23 +49,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     public static bool IsSessionAvailabilityPending(ShutdownReason shutdownReason) =>
         shutdownReason == ShutdownReason.GameNotFound;
 
-    public Task<bool> StartSessionAsync(string sessionName, GameMode mode, PlayerClassId selectedClass)
-    {
-        return StartSessionInternalAsync(
-            sessionName,
-            mode,
-            selectedClass,
-            SessionStartupContext.FreshSession,
-            null);
-    }
-
     public Task<bool> StartCoordinatedSessionAsync(
         string sessionName,
         GameMode mode,
         PlayerClassId selectedClass,
         string gameplaySceneName,
-        RaidLaunchManifest raidManifest = default,
-        PendingLoadoutReservation loadoutReservation = null)
+        RaidLaunchContext launchContext,
+        PendingLoadoutReservation loadoutReservation = null,
+        CancellationToken cancellationToken = default)
     {
         return StartSessionInternalAsync(
             sessionName,
@@ -73,8 +64,9 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             selectedClass,
             SessionStartupContext.FreshSession,
             gameplaySceneName,
-            raidManifest,
-            loadoutReservation);
+            launchContext,
+            loadoutReservation,
+            cancellationToken);
     }
 
     private async Task<bool> StartSessionInternalAsync(
@@ -83,11 +75,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         PlayerClassId selectedClass,
         SessionStartupContext startupContext,
         string initialSceneName,
-        RaidLaunchManifest raidManifest = default,
-        PendingLoadoutReservation loadoutReservation = null)
+        RaidLaunchContext launchContext = null,
+        PendingLoadoutReservation loadoutReservation = null,
+        CancellationToken cancellationToken = default)
     {
         if (!startupContext.IsValid)
             throw new ArgumentException("Invalid startup context provided to session launcher.");
+
+        if (launchContext == null)
+            throw new ArgumentNullException(nameof(launchContext), "Raid startup requires a canonical launch context.");
 
         if (string.IsNullOrEmpty(sessionName) || string.IsNullOrWhiteSpace(sessionName))
             throw new Exception("Invalid session code. The code cannot be empty or null.");
@@ -119,7 +115,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
         var joinData = new PlayerJoinData(selectedClass, profileId);
         byte[] token;
-        if (raidManifest.IsValid)
+        if (launchContext != null)
         {
             if (loadoutReservation == null)
             {
@@ -133,21 +129,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
             }
 
-            var admissionData = raidManifest.RaidCode.IsValid
-                ? new RaidAdmissionData(
-                    raidManifest.RaidCode,
-                    profileId,
-                    selectedClass,
-                    loadoutReservation.ReservationId,
-                    reservedLoadout)
-                : new RaidAdmissionData(
-                    raidManifest.RaidId,
-                    raidManifest.AccessSecret,
-                    profileId,
-                    selectedClass,
-                    loadoutReservation.ReservationId,
-                    reservedLoadout);
-            if (!raidManifest.Contains(profileId) || !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
+            var admissionData = new RaidAdmissionData(
+                launchContext.RaidCode,
+                profileId,
+                selectedClass,
+                loadoutReservation.ReservationId,
+                reservedLoadout);
+            if (!RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
+                !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }
@@ -176,7 +165,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 _enemyPrefabs,
                 in joinData,
                 token,
-                raidManifest,
+                launchContext,
                 loadoutReservation,
                 this,
                 out var composition))
@@ -198,7 +187,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             {
                 GameMode = mode,
                 SessionName = sessionName,
-                PlayerCount = _maxPlayers,
+                PlayerCount = RaidPlayerCapacity,
                 ConnectionToken = token,
                 SceneManager = composition.SceneManager
             };
@@ -224,11 +213,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
 
             StartGameResult result = await _runner.StartGame(args);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!result.Ok)
             {
                 LastStartShutdownReason = result.ShutdownReason;
-                if (mode != GameMode.Client || !raidManifest.IsValid ||
+                if (mode != GameMode.Client || launchContext == null ||
                     !IsSessionAvailabilityPending(result.ShutdownReason))
                 {
                     Debug.LogError(
@@ -243,12 +233,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             LastStartShutdownReason = ShutdownReason.Ok;
 
             if (initialSceneBuildIndex >= 0 &&
-                !await _shutdownListener.WaitForInitialSceneAsync())
+                !await _shutdownListener.WaitForInitialSceneAsync(cancellationToken))
             {
                 Debug.LogError("[FusionSessionLauncher] Gameplay scene did not finish loading on the active runner.", this);
                 await ShutdownAndDestroyRunnerAsync();
                 return false;
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             Debug.Log(
                 $"Fusion session started. " +
@@ -260,8 +252,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             {
                 if (startupContext.ShouldExecuteHostBootstrap)
                 {
-                    string generationId = raidManifest.IsValid
-                        ? raidManifest.RaidId
+                    string generationId = launchContext != null
+                        ? launchContext.RaidCode.RaidId
                         : Guid.NewGuid().ToString("N");
                     NetworkObject coordObj = _runner.Spawn(
                         _matchControllerPrefab,
@@ -302,16 +294,9 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
                     // 4. Open the session after successful coordinator and Host initialization.
                     _runner.SessionInfo.IsOpen = true;
-                    _runner.SessionInfo.IsVisible = !raidManifest.IsValid;
-
-                    if (raidManifest.IsValid)
-                    {
-                        if (!raidManifest.AllowsCodeAdmission)
-                        {
-                            _matchController.ConfigurePreloadedRaidAdmission(
-                                raidManifest.AdmittedProfiles.Count);
-                        }
-                    }
+                    _runner.SessionInfo.IsVisible = false;
+                    _matchController.ConfigurePreloadedRaidAdmission(
+                        launchContext.ParticipantProfileIds.Count);
 
                     Debug.Log($"[FusionSessionLauncher] Host bootstrap completed ({bootstrapResult}). Session is now open.");
                 }
@@ -322,8 +307,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 }
             }
 
-            if (raidManifest.IsValid &&
-                !await WaitForLocalRaidAdmissionAsync(loadoutReservation))
+            if (launchContext != null &&
+                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, cancellationToken))
             {
                 Debug.LogError("[FusionSessionLauncher] Local raid admission did not complete with the exact reserved loadout.", this);
                 await ShutdownAndDestroyRunnerAsync();
@@ -331,6 +316,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
 
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            LastStartShutdownReason = ShutdownReason.Error;
+            await ShutdownAndDestroyRunnerAsync();
+            return false;
         }
         catch (Exception ex)
         {
@@ -345,7 +336,9 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
     }
 
-    private async Task<bool> WaitForLocalRaidAdmissionAsync(PendingLoadoutReservation reservation)
+    private async Task<bool> WaitForLocalRaidAdmissionAsync(
+        PendingLoadoutReservation reservation,
+        CancellationToken cancellationToken)
     {
         if (_runner == null || reservation == null)
         {
@@ -353,8 +346,10 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        while (_runner != null && _runner.IsRunning)
+        float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
+        while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
             if (participantObject != null &&
                 participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
@@ -368,7 +363,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 return true;
             }
 
-            await Task.Delay(50);
+            await Task.Delay(50, cancellationToken);
         }
 
         return false;

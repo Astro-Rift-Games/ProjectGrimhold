@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Fusion;
 using NUnit.Framework;
@@ -17,11 +18,62 @@ public sealed class SessionConnectionStateMachineTests
 
         Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingTown), Is.True);
         Assert.That(stateMachine.TryTransition(SessionConnectionState.Town), Is.True);
-        Assert.That(stateMachine.TryTransition(SessionConnectionState.PreparingRaid), Is.True);
-        Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingRaid), Is.True);
-        Assert.That(stateMachine.TryTransition(SessionConnectionState.Raid), Is.True);
-        Assert.That(stateMachine.TryTransition(SessionConnectionState.ReturningTown), Is.True);
-        Assert.That(stateMachine.TryTransition(SessionConnectionState.Town), Is.True);
+
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.PreparingRaid), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingRaid), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.Raid), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.ReturningTown), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.Town), Is.True);
+        }
+    }
+
+    [Test]
+    public void CompletedTownEntry_ClearsRaidScopedStateAndPreservesSelectedBuild()
+    {
+        var owner = new GameObject("Repeat lifecycle coordinator test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var profile = new ProfileId("11111111111111111111111111111111");
+        RaidCode.TryParse("123456", out RaidCode code);
+        RaidLaunchContext.TryCreate(code, profile, new[] { profile }, profile, 7, out RaidLaunchContext context);
+        var ticket = new RaidTransitionTicket(
+            new RaidConnectionRequest(code, RaidConnectionRole.Host),
+            new PendingLoadoutReservation("old-reservation", Array.Empty<StashItem>()),
+            PlayerClassId.Ranged,
+            SessionConnectionState.Raid,
+            context);
+
+        try
+        {
+            SetPrivateField(coordinator, "_selectedBuild", PlayerClassId.Ranged);
+            SetPrivateField(coordinator, "_activeTicket", (RaidTransitionTicket?)ticket);
+            SetPrivateField(coordinator, "_acknowledgedLaunchSequence", 7);
+            SetPrivateField(coordinator, "_launchDispatchActive", true);
+            SetPrivateField(coordinator, "_raidAdmissionConfirmed", true);
+            SetPrivateField(coordinator, "_loadoutConfirmationPending", true);
+            SetPrivateField(coordinator, "_raidClosureReturnStarted", true);
+            SetPrivateField(coordinator, "_raidClosureHostShutdownAt", 10f);
+            SetPrivateField(coordinator, "_pendingTransitionFailure", (SessionTransitionResult?)SessionTransitionResult.ConnectionFailed);
+
+            InvokePrivateMethod(coordinator, "CompleteTownEntry", new object[] { null });
+
+            Assert.That(coordinator.ActiveTicket, Is.Null);
+            Assert.That(ReadPrivateField<int>(coordinator, "_acknowledgedLaunchSequence"), Is.Zero);
+            Assert.That(ReadPrivateField<bool>(coordinator, "_launchDispatchActive"), Is.False);
+            Assert.That(ReadPrivateField<bool>(coordinator, "_raidAdmissionConfirmed"), Is.False);
+            Assert.That(ReadPrivateField<bool>(coordinator, "_loadoutConfirmationPending"), Is.False);
+            Assert.That(ReadPrivateField<bool>(coordinator, "_raidClosureReturnStarted"), Is.False);
+            Assert.That(ReadPrivateField<float>(coordinator, "_raidClosureHostShutdownAt"), Is.EqualTo(-1f));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out _), Is.False);
+            Assert.That(ReadPrivateField<PlayerClassId>(coordinator, "_selectedBuild"), Is.EqualTo(PlayerClassId.Ranged));
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
     }
 
     [Test]
@@ -82,31 +134,26 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
-    public void ManifestTicket_ValidationIsPureAndRequiresMatchingIdentity()
+    public void LaunchTicket_ValidationIsPureAndRequiresMatchingIdentity()
     {
         var host = new ProfileId("11111111111111111111111111111111");
-        var manifest = new RaidLaunchManifest(
-            "raid-1",
-            "session-1",
-            "22222222222222222222222222222222",
-            host,
-            new List<ProfileId> { host },
-            1);
+        RaidCode.TryParse("123456", out RaidCode code);
+        RaidLaunchContext.TryCreate(code, host, new List<ProfileId> { host }, host, 1, out RaidLaunchContext context);
         var reservation = new PendingLoadoutReservation(
             "reservation-1",
             new List<StashItem>());
         var valid = new RaidTransitionTicket(
-            new RaidConnectionRequest("raid-1", RaidConnectionRole.Host, "session-1"),
-            manifest,
+            new RaidConnectionRequest(code, RaidConnectionRole.Host),
             reservation,
             PlayerClassId.Melee,
-            SessionConnectionState.Town);
+            SessionConnectionState.Town,
+            context);
         var mismatched = new RaidTransitionTicket(
-            new RaidConnectionRequest("other-raid", RaidConnectionRole.Host, "session-1"),
-            manifest,
+            new RaidConnectionRequest("other-raid", RaidConnectionRole.Host, code.SessionName),
             reservation,
             PlayerClassId.Melee,
-            SessionConnectionState.Town);
+            SessionConnectionState.Town,
+            context);
 
         Assert.That(valid.IsValid, Is.True);
         Assert.That(mismatched.IsValid, Is.False);
@@ -170,6 +217,69 @@ public sealed class SessionConnectionStateMachineTests
             Object.DestroyImmediate(launcherObject);
             Object.DestroyImmediate(olderRunnerObject);
             Object.DestroyImmediate(currentRunnerObject);
+        }
+    }
+
+    [Test]
+    public async Task InitialSceneWait_CancellationAndOwnerDestructionCannotPollForever()
+    {
+        var runnerObject = new GameObject("Initial scene wait runner");
+        NetworkRunner runner = runnerObject.AddComponent<NetworkRunner>();
+        LauncherShutdownListener listener = runnerObject.AddComponent<LauncherShutdownListener>();
+        listener.Initialize(runner, (_, _) => { });
+
+        using (var cancellation = new CancellationTokenSource())
+        {
+            cancellation.Cancel();
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await listener.WaitForInitialSceneAsync(cancellation.Token));
+        }
+
+        listener.Initialize(runner, (_, _) => { });
+        Task<bool> destroyedOwnerWait = listener.WaitForInitialSceneAsync();
+        Object.DestroyImmediate(listener);
+
+        Assert.That(await destroyedOwnerWait, Is.False);
+        Object.DestroyImmediate(runnerObject);
+    }
+
+    [Test]
+    public void NewTownJoinContext_DoesNotInheritDestroyedRaidAdmission()
+    {
+        var oldRunnerObject = new GameObject("Old raid join context");
+        var newRunnerObject = new GameObject("New Town join context");
+        var profile = new ProfileId("22222222222222222222222222222222");
+        RaidCode.TryParse("654321", out RaidCode code);
+        var joinData = new PlayerJoinData(PlayerClassId.Melee, profile);
+        var raidAdmission = new RaidAdmissionData(
+            code,
+            profile,
+            PlayerClassId.Melee,
+            "old-reservation",
+            Array.Empty<LootEntry>());
+
+        try
+        {
+            LocalPlayerJoinContext oldContext = oldRunnerObject.AddComponent<LocalPlayerJoinContext>();
+            oldContext.Initialize(in joinData, in raidAdmission);
+            Assert.That(oldContext.HasRaidAdmission, Is.True);
+
+            Object.DestroyImmediate(oldRunnerObject);
+
+            LocalPlayerJoinContext townContext = newRunnerObject.AddComponent<LocalPlayerJoinContext>();
+            townContext.Initialize(in joinData);
+            Assert.That(townContext.HasRaidAdmission, Is.False);
+            Assert.That(townContext.JoinData.ProfileId, Is.EqualTo(profile));
+            Assert.That(townContext.RaidAdmission.IsValid, Is.False);
+        }
+        finally
+        {
+            if (oldRunnerObject != null)
+            {
+                Object.DestroyImmediate(oldRunnerObject);
+            }
+
+            Object.DestroyImmediate(newRunnerObject);
         }
     }
 

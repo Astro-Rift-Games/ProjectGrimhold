@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
@@ -36,12 +37,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _raidClosureHostGraceSeconds = 5f;
 
-    [Header("Direct Development Manifest")]
+    [Header("Direct Development Context")]
     [SerializeField]
-    private string _developmentRaidId = "development-raid";
-
-    [SerializeField]
-    private string _developmentAccessSecret = "development-secret";
+    private string _developmentRaidCode = "900001";
 
     [SerializeField]
     private string _developmentHostProfileId;
@@ -64,6 +62,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _raidClosureReturnStarted;
     private float _raidClosureHostShutdownAt = -1f;
     private SessionTransitionResult? _pendingTransitionFailure;
+    private CancellationTokenSource _activeTransitionCancellation;
 
     private const int MaximumCoordinatedClientAttempts = 5;
 
@@ -74,26 +73,30 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     public event Action<SessionConnectionState> StateChanged;
 
     /// <summary>
-    /// Stores a directed Town queue manifest before the Town runner is shut down.
-    /// The method is idempotent for the same launch sequence.
+    /// Stores the canonical context observed from a complete replicated frozen preparation.
+    /// The method is idempotent for the same RaidCode and LaunchRevision.
     /// </summary>
-    public bool ReceiveRaidLaunchManifest(in RaidLaunchManifest manifest)
+    public bool TryStoreRaidLaunchContext(RaidLaunchContext launchContext)
     {
-        if (!manifest.IsValid || State != SessionConnectionState.Town || _operationActive)
+        if (launchContext == null || State != SessionConnectionState.Town || _operationActive)
         {
             return false;
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        if (!manifest.Contains(localProfile) || !PlayerJoinDataCodec.IsSupported(_selectedBuild))
+        if (launchContext.LocalProfileId != localProfile ||
+            !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile) ||
+            !PlayerJoinDataCodec.IsSupported(_selectedBuild))
         {
             return false;
         }
 
-        if (_activeTicket.HasValue && _activeTicket.Value.HasManifest)
+        if (_activeTicket.HasValue)
         {
-            return _activeTicket.Value.Manifest.LaunchSequence == manifest.LaunchSequence &&
-                   string.Equals(_activeTicket.Value.Manifest.RaidId, manifest.RaidId, StringComparison.Ordinal);
+            return HasActiveLaunchTicket(
+                launchContext.RaidCode.Value,
+                launchContext.LaunchRevision,
+                localProfile);
         }
 
         ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
@@ -116,20 +119,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
 
-        RaidConnectionRole role = manifest.HostProfileId == localProfile
+        RaidConnectionRole role = launchContext.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
-        var request = manifest.RaidCode.IsValid
-            ? new RaidConnectionRequest(manifest.RaidCode, role)
-            : new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
-        var launchContext = new RaidLaunchContext(
-            manifest.RaidCode,
-            manifest.HostProfileId,
-            manifest.AdmittedProfiles,
-            localProfile);
+        var request = new RaidConnectionRequest(launchContext.RaidCode, role);
         _activeTicket = new RaidTransitionTicket(
             request,
-            manifest,
             reservation,
             _selectedBuild,
             SessionConnectionState.Town,
@@ -137,15 +132,40 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return true;
     }
 
+    public bool HasActiveLaunchTicket(string raidCode, int launchRevision, ProfileId localProfileId)
+    {
+        return RaidCode.TryParse(raidCode, out RaidCode parsed) && _activeTicket.HasValue &&
+               _activeTicket.Value.LaunchContext != null &&
+               _activeTicket.Value.LaunchContext.RaidCode == parsed &&
+               _activeTicket.Value.LaunchContext.LaunchRevision == launchRevision &&
+               _activeTicket.Value.LaunchContext.LocalProfileId == localProfileId;
+    }
+
+    public static bool CanConsumeLaunchRelease(
+        in RaidTransitionTicket ticket,
+        string raidCode,
+        int launchRevision,
+        ProfileId localProfileId)
+    {
+        return RaidCode.TryParse(raidCode, out RaidCode parsed) && ticket.IsValid &&
+               ticket.LaunchContext.RaidCode == parsed &&
+               ticket.LaunchContext.LaunchRevision == launchRevision &&
+               ticket.LaunchContext.LocalProfileId == localProfileId;
+    }
+
     /// <summary>
-    /// Starts a locally stored manifest exactly once after the queue has received all acknowledgements.
+    /// Starts a locally stored context exactly once after the preparation has released this peer.
     /// </summary>
-    public void BeginAcknowledgedRaidLaunch(int launchSequence)
+    public void BeginAcknowledgedRaidLaunch(string raidCode, int launchSequence)
     {
         if (State != SessionConnectionState.Town || _operationActive || _launchDispatchActive ||
             _acknowledgedLaunchSequence != 0 ||
-            !_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
-            _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+            !_activeTicket.HasValue ||
+            !CanConsumeLaunchRelease(
+                _activeTicket.Value,
+                raidCode,
+                launchSequence,
+                LocalProfileProvider.GetOrCreateLocalProfile()))
         {
             return;
         }
@@ -159,11 +179,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// <summary>
     /// Discards a locally stored ticket when the authoritative Town cohort aborts before release.
     /// </summary>
-    public void CancelPendingRaidLaunch(int launchSequence)
+    public void CancelPendingRaidLaunch(string raidCode, int launchSequence)
     {
         if (State != SessionConnectionState.Town || _operationActive ||
-            !_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
-            _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+            !_activeTicket.HasValue ||
+            !CanConsumeLaunchRelease(
+                _activeTicket.Value,
+                raidCode,
+                launchSequence,
+                LocalProfileProvider.GetOrCreateLocalProfile()))
         {
             return;
         }
@@ -180,23 +204,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 
     /// <summary>
-    /// Leaves Town and creates a code-admitted raid as Host. The session remains open until
-    /// authoritative raid closure so clients can join later with the same code.
-    /// </summary>
-    public Task<SessionTransitionResult> CreateCodeRaidAsync()
-    {
-        return StartCodeRaidAsync(null, RaidConnectionRole.Host);
-    }
-
-    /// <summary>
-    /// Leaves Town and joins the existing raid identified by the supplied six-digit code.
-    /// A missing or invalid session is a definitive failure and recovers the player to Town.
-    /// </summary>
-    public Task<SessionTransitionResult> JoinCodeRaidAsync(string code)
-    {
-        return StartCodeRaidAsync(code, RaidConnectionRole.Client);
-    }
-
     /// <summary>Consumes the latest player-facing transition failure once.</summary>
     public bool TryConsumeLastTransitionFailure(out SessionTransitionResult result)
     {
@@ -216,11 +223,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// Manual code joins never poll because their Host must create the session first.
     /// </summary>
     public static bool ShouldRetryRaidSessionAvailability(
-        in RaidLaunchManifest manifest,
+        RaidLaunchContext launchContext,
         RaidConnectionRole role,
         ShutdownReason shutdownReason)
     {
-        return manifest.IsValid && !manifest.AllowsCodeAdmission &&
+        return launchContext != null &&
                role == RaidConnectionRole.Client &&
                FusionSessionLauncher.IsSessionAvailabilityPending(shutdownReason);
     }
@@ -238,108 +245,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         return !operationActive && !isQuitting && state == SessionConnectionState.Raid &&
                shutdownReason != ShutdownReason.HostMigration;
-    }
-
-    private async Task<SessionTransitionResult> StartCodeRaidAsync(string code, RaidConnectionRole role)
-    {
-        if (_operationActive)
-        {
-            return SessionTransitionResult.Busy;
-        }
-
-        bool isHostCreation = role == RaidConnectionRole.Host;
-        if (!isHostCreation && !RaidCode.TryParse(code, out _))
-        {
-            return SessionTransitionResult.InvalidRequest;
-        }
-
-        if (State != SessionConnectionState.Town || _hubLauncher.Runner == null ||
-            !PlayerJoinDataCodec.IsSupported(_selectedBuild) || !IsSceneEnabled(_gameplaySceneName))
-        {
-            return SessionTransitionResult.InvalidRequest;
-        }
-
-        ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
-        if (stashContext == null || stashContext.LoadoutService == null)
-        {
-            return SessionTransitionResult.LoadoutReservationFailed;
-        }
-
-        string reservationId = Guid.NewGuid().ToString("N");
-        StashOperationResult reservationResult = stashContext.LoadoutService.TryCreateLoadoutReservation(
-            localProfile,
-            reservationId,
-            out IReadOnlyList<StashItem> reservedItems);
-        if (reservationResult != StashOperationResult.Success)
-        {
-            return SessionTransitionResult.LoadoutReservationFailed;
-        }
-
-        var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
-        SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
-        const int attemptCount = 1;
-        for (int attempt = 0; attempt < attemptCount; attempt++)
-        {
-            RaidCode raidCode;
-            if (isHostCreation)
-            {
-                raidCode = GenerateCandidateRaidCode();
-            }
-            else if (!RaidCode.TryParse(code, out raidCode))
-            {
-                result = SessionTransitionResult.InvalidRequest;
-                break;
-            }
-            RaidLaunchManifest manifest = RaidLaunchManifest.Code.CreateManifest(raidCode.Value);
-            var request = new RaidConnectionRequest(raidCode, role);
-            var ticket = new RaidTransitionTicket(
-                request,
-                manifest,
-                reservation,
-                _selectedBuild,
-                SessionConnectionState.Town);
-            _activeTicket = ticket;
-            result = await EnterRaidAsync(ticket, isHostCreation && attempt < attemptCount - 1);
-
-            if (result == SessionTransitionResult.Succeeded ||
-                !isHostCreation ||
-                _raidLauncher.LastStartShutdownReason != ShutdownReason.GameIdAlreadyExists)
-            {
-                break;
-            }
-        }
-        if ((result == SessionTransitionResult.InvalidRequest ||
-             result == SessionTransitionResult.InvalidState ||
-             result == SessionTransitionResult.Busy) &&
-            _activeTicket.HasValue)
-        {
-            if (!TryRollbackActiveReservation())
-            {
-                return SessionTransitionResult.LoadoutRollbackFailed;
-            }
-
-            _activeTicket = null;
-        }
-
-        if (result != SessionTransitionResult.Succeeded && State != SessionConnectionState.Town)
-        {
-            result = await RecoverTownAfterRaidFailureAsync(result);
-        }
-
-        return result;
-    }
-
-    private static RaidCode GenerateCandidateRaidCode()
-    {
-        while (true)
-        {
-            string candidate = UnityEngine.Random.Range(0, 1_000_000).ToString("D6");
-            if (RaidCode.TryParse(candidate, out RaidCode code))
-            {
-                return code;
-            }
-        }
     }
 
     private void Update()
@@ -391,8 +296,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         try
         {
-            if (!_activeTicket.HasValue || !_activeTicket.Value.HasManifest ||
-                _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+            if (!_activeTicket.HasValue || _activeTicket.Value.LaunchContext == null ||
+                _activeTicket.Value.LaunchContext.LaunchRevision != launchSequence)
             {
                 return;
             }
@@ -400,7 +305,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             RaidTransitionTicket ticket = _activeTicket.Value;
 
             if (this == null || !_activeTicket.HasValue ||
-                _activeTicket.Value.Manifest.LaunchSequence != launchSequence)
+                _activeTicket.Value.LaunchContext == null ||
+                _activeTicket.Value.LaunchContext.LaunchRevision != launchSequence)
             {
                 return;
             }
@@ -468,6 +374,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void OnDestroy()
     {
+        _activeTransitionCancellation?.Cancel();
+        _activeTransitionCancellation?.Dispose();
+        _activeTransitionCancellation = null;
+
         if (_hubLauncher != null)
         {
             _hubLauncher.RunnerShutdownObserved -= OnHubRunnerShutdown;
@@ -549,9 +459,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
 
-            _activeTicket = null;
-            _raidAdmissionConfirmed = false;
-            _loadoutConfirmationPending = false;
+            CompleteTownEntry();
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)
@@ -572,16 +480,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 
     /// <summary>
-    /// Replaces the active Shared runner with a new Host or Client raid runner.
-    /// </summary>
-    public async Task<SessionTransitionResult> EnterRaidAsync(RaidConnectionRequest request)
-    {
-        var ticket = new RaidTransitionTicket(request, _selectedBuild, SessionConnectionState.PreparingRaid);
-        return await EnterRaidAsync(ticket);
-    }
-
-    /// <summary>
-    /// Replaces the active Town runner using a manifest previously acknowledged by the Town queue.
+    /// Replaces the active Town runner using the canonical context acknowledged by its preparation.
     /// </summary>
     public async Task<SessionTransitionResult> EnterRaidAsync(RaidTransitionTicket ticket)
     {
@@ -598,12 +497,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        RaidConnectionRole expectedRole = ticket.HasManifest && !ticket.Manifest.AllowsCodeAdmission
-            ? (ticket.Manifest.HostProfileId == localProfile ? RaidConnectionRole.Host : RaidConnectionRole.Client)
-            : ticket.Request.Role;
-        if (!ticket.IsValid ||
-            (ticket.HasManifest && !ticket.Manifest.Contains(localProfile)) ||
-            (ticket.HasManifest && ticket.Request.Role != expectedRole) ||
+        if (!ticket.IsValid || ticket.LaunchContext.LocalProfileId != localProfile ||
             !PlayerJoinDataCodec.IsSupported(ticket.SelectedBuild) ||
             !IsSceneEnabled(_gameplaySceneName))
         {
@@ -618,6 +512,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
         _selectedBuild = ticket.SelectedBuild;
         _activeTicket = ticket.WithState(SessionConnectionState.PreparingRaid);
 
@@ -656,16 +551,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     mode,
                     _selectedBuild,
                     _gameplaySceneName,
-                    ticket.HasManifest ? ticket.Manifest : default,
-                    ticket.LoadoutReservation);
+                    ticket.LaunchContext,
+                    ticket.LoadoutReservation,
+                    cancellationToken);
                 if (started)
                 {
                     break;
                 }
 
-                bool hostSessionPending = ticket.HasManifest &&
-                                          ShouldRetryRaidSessionAvailability(
-                                              ticket.Manifest,
+                bool hostSessionPending = ShouldRetryRaidSessionAvailability(
+                                              ticket.LaunchContext,
                                               ticket.Request.Role,
                                               _raidLauncher.LastStartShutdownReason);
                 if (!hostSessionPending || _isQuitting)
@@ -685,7 +580,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
                 if (retryDelayMilliseconds > 0)
                 {
-                    await Task.Delay(retryDelayMilliseconds);
+                    await Task.Delay(retryDelayMilliseconds, cancellationToken);
                 }
             }
 
@@ -711,6 +606,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _pendingTransitionFailure = null;
             return SessionTransitionResult.Succeeded;
         }
+        catch (OperationCanceledException)
+        {
+            if (this == null || _isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
+            return recoverTownOnFailure
+                ? await RecoverTownAfterRaidFailureAsync(SessionTransitionResult.ConnectionFailed)
+                : await CleanupFailedRaidAttemptAsync(SessionTransitionResult.ConnectionFailed);
+        }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
@@ -720,6 +626,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
         finally
         {
+            EndTransitionCancellation();
             _operationActive = false;
         }
     }
@@ -811,11 +718,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
 
-            _activeTicket = null;
-            _raidAdmissionConfirmed = false;
-            _loadoutConfirmationPending = false;
-            _raidClosureReturnStarted = false;
-            _raidClosureHostShutdownAt = -1f;
+            CompleteTownEntry();
             return SessionTransitionResult.Succeeded;
         }
         catch (Exception exception)
@@ -861,7 +764,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         try
         {
             ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-            if (!TryBuildDevelopmentManifest(sessionName, localProfile, mode, out RaidLaunchManifest manifest))
+            if (!TryBuildDevelopmentLaunchContext(
+                    sessionName,
+                    localProfile,
+                    mode,
+                    out RaidLaunchContext launchContext))
             {
                 return SessionTransitionResult.InvalidRequest;
             }
@@ -883,8 +790,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
             RaidConnectionRole role = mode == GameMode.Host ? RaidConnectionRole.Host : RaidConnectionRole.Client;
-            var request = new RaidConnectionRequest(manifest.RaidId, role, manifest.SessionName);
-            _activeTicket = new RaidTransitionTicket(request, manifest, reservation, selectedBuild, SessionConnectionState.ConnectingRaid);
+            var request = new RaidConnectionRequest(launchContext.RaidCode, role);
+            _activeTicket = new RaidTransitionTicket(
+                request,
+                reservation,
+                selectedBuild,
+                SessionConnectionState.ConnectingRaid,
+                launchContext);
             TransitionTo(SessionConnectionState.ConnectingRaid);
             if (!await ShutdownActiveRunnersAsync())
             {
@@ -898,11 +810,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             bool started = await _raidLauncher.StartCoordinatedSessionAsync(
-                sessionName,
+                launchContext.RaidCode.SessionName,
                 mode,
                 selectedBuild,
                 _gameplaySceneName,
-                manifest,
+                launchContext,
                 reservation);
             if (!started)
             {
@@ -970,10 +882,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.LoadoutRollbackFailed;
         }
 
-        _activeTicket = null;
-        _raidAdmissionConfirmed = false;
-        _loadoutConfirmationPending = false;
-        _pendingTransitionFailure = originalFailure;
+        CompleteTownEntry(originalFailure);
         return originalFailure;
     }
 
@@ -1009,13 +918,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return result == StashOperationResult.Success;
     }
 
-    private bool TryBuildDevelopmentManifest(
+    private bool TryBuildDevelopmentLaunchContext(
         string sessionName,
         ProfileId localProfile,
         GameMode mode,
-        out RaidLaunchManifest manifest)
+        out RaidLaunchContext launchContext)
     {
-        manifest = default;
+        launchContext = null;
         if (string.IsNullOrWhiteSpace(sessionName))
         {
             return false;
@@ -1066,14 +975,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return false;
         }
 
-        manifest = new RaidLaunchManifest(
-            string.IsNullOrWhiteSpace(_developmentRaidId) ? $"development-{sessionName}" : _developmentRaidId,
-            sessionName,
-            string.IsNullOrWhiteSpace(_developmentAccessSecret) ? "development-secret" : _developmentAccessSecret,
+        if (!RaidCode.TryParse(sessionName, out RaidCode raidCode) &&
+            !RaidCode.TryParse(_developmentRaidCode, out raidCode))
+        {
+            return false;
+        }
+
+        return RaidLaunchContext.TryCreate(
+            raidCode,
             hostProfile,
             profiles,
-            Mathf.Max(1, _developmentLaunchSequence));
-        return manifest.IsValid;
+            localProfile,
+            Mathf.Max(1, _developmentLaunchSequence),
+            out launchContext);
     }
 
     private bool TryConfirmActiveReservation()
@@ -1194,9 +1108,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return;
             }
 
-            _activeTicket = null;
-            _raidAdmissionConfirmed = false;
-            _loadoutConfirmationPending = false;
+            CompleteTownEntry();
         }
         catch (Exception exception)
         {
@@ -1219,6 +1131,33 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         StateChanged?.Invoke(nextState);
         return true;
+    }
+
+    private CancellationToken BeginTransitionCancellation()
+    {
+        EndTransitionCancellation();
+        _activeTransitionCancellation = new CancellationTokenSource();
+        return _activeTransitionCancellation.Token;
+    }
+
+    private void EndTransitionCancellation()
+    {
+        _activeTransitionCancellation?.Dispose();
+        _activeTransitionCancellation = null;
+    }
+
+    private void CompleteTownEntry(SessionTransitionResult? pendingFailure = null)
+    {
+        // Runner-owned registries, input, HUD and camera bindings disappear with the old
+        // runner object. This is the persistent owner's single Raid-scoped cleanup boundary.
+        _activeTicket = null;
+        _acknowledgedLaunchSequence = 0;
+        _launchDispatchActive = false;
+        _raidAdmissionConfirmed = false;
+        _loadoutConfirmationPending = false;
+        _raidClosureReturnStarted = false;
+        _raidClosureHostShutdownAt = -1f;
+        _pendingTransitionFailure = pendingFailure;
     }
 
     private void UpdateTicketState(SessionConnectionState state)

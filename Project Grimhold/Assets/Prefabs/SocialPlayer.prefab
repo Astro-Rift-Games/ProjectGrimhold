@@ -355,7 +355,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b7f4e2953e24f76823dd9cd7a8445d9, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TownRaidQueuePresenter
+  m_EditorClassIdentifier: Assembly-CSharp::TownRaidPreparationPresenter
   _candidateSource: {fileID: 6856292445654665185}
   _interactionController: {fileID: 1101445917034815865}
 --- !u!114 &-4837222205145677922
