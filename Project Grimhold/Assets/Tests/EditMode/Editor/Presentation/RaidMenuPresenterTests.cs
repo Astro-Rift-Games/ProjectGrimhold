@@ -44,6 +44,9 @@ namespace Tests.EditMode.Presentation
             GameObject resumeObj = new GameObject("ResumeButton");
             resumeObj.transform.SetParent(menuRoot.transform);
             var resumeButton = resumeObj.AddComponent<Button>();
+            GameObject resumeLabelObj = new GameObject("ResumeButtonText");
+            resumeLabelObj.transform.SetParent(resumeObj.transform);
+            var resumeButtonText = resumeLabelObj.AddComponent<TMPro.TextMeshProUGUI>();
 
             GameObject abandonObj = new GameObject("AbandonButton");
             abandonObj.transform.SetParent(menuRoot.transform);
@@ -57,6 +60,7 @@ namespace Tests.EditMode.Presentation
             SetPrivateField(_view, "_statusText", statusText);
             SetPrivateField(_view, "_controlsText", controlsText);
             SetPrivateField(_view, "_resumeButton", resumeButton);
+            SetPrivateField(_view, "_resumeButtonText", resumeButtonText);
             SetPrivateField(_view, "_abandonButton", abandonButton);
             SetPrivateField(_view, "_abandonButtonText", abandonButtonText);
 
@@ -89,14 +93,25 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void View_PresentDefeatedState_SetsDefeatedTitleAndHidesResumeButton()
+        public void View_PresentDefeatedClientState_ShowsSpectateAndReturn()
         {
-            _view.PresentDefeatedState();
+            _view.PresentDefeatedState(canReturn: true, isSpectating: false);
 
             Assert.That(_view.TitleText.text, Is.EqualTo("Has sido Derrotado"));
-            Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.False);
+            Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.True);
+            Assert.That(_view.ResumeButtonText.text, Is.EqualTo("Observar"));
+            Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.True);
             Assert.That(_view.AbandonButton.interactable, Is.True);
             Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
+        }
+
+        [Test]
+        public void View_PresentDefeatedHostState_HidesReturn()
+        {
+            _view.PresentDefeatedState(canReturn: false, isSpectating: true);
+
+            Assert.That(_view.ResumeButtonText.text, Is.EqualTo("Continuar observando"));
+            Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.False);
         }
 
         [Test]

@@ -83,7 +83,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
-    private readonly HashSet<string> _departedProfiles = new();
+    private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _pendingHostMigrationReconnects = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
@@ -168,6 +168,96 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                                    _sceneSpawnStatus != SceneSpawnConfigurationStatus.Invalid;
     public bool HasCompletedInitialRaidBootstrap => _initialRaidBootstrapState == InitialRaidBootstrapState.Completed;
 
+    /// <summary>Returns the stable Host identity frozen for this runner's raid.</summary>
+    public bool TryGetCanonicalHostProfileId(out ProfileId hostProfileId)
+    {
+        if (_launchContext == null || !_launchContext.HostProfileId.IsValid)
+        {
+            hostProfileId = default;
+            return false;
+        }
+
+        hostProfileId = _launchContext.HostProfileId;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a connected RPC source to the exact participant PlayerObject and its canonical raid role.
+    /// PlayerRef is used only as runner-local routing; Host identity comes from the frozen launch context.
+    /// </summary>
+    internal bool TryResolveReturnRequester(
+        NetworkRaidParticipant participant,
+        PlayerRef source,
+        out bool isCanonicalHost,
+        out string rejectionReason)
+    {
+        isCanonicalHost = false;
+        rejectionReason = null;
+        if (_runner == null || !_runner.IsServer || participant == null || source.IsNone ||
+            participant.Runner != _runner || participant.Object == null)
+        {
+            rejectionReason = "Runner, authority, participant, or RPC source is invalid.";
+            return false;
+        }
+
+        NetworkObject requesterObject = _runner.GetPlayerObject(source);
+        if (requesterObject == null || requesterObject != participant.Object ||
+            !requesterObject.TryGetBehaviour(out NetworkRaidParticipant requester) || requester != participant)
+        {
+            rejectionReason = "RPC source does not resolve to the receiving participant PlayerObject.";
+            return false;
+        }
+
+        string profileId = participant.ProfileId.ToString();
+        string generationId = participant.RaidGenerationId.ToString();
+        if (_launchContext == null || !_launchContext.HostProfileId.IsValid ||
+            string.IsNullOrWhiteSpace(profileId) || string.IsNullOrWhiteSpace(generationId) ||
+            _matchController == null ||
+            !string.Equals(
+                generationId,
+                _matchController.RaidGenerationId.ToString(),
+                StringComparison.Ordinal))
+        {
+            rejectionReason = "Canonical raid identity is unavailable or inconsistent.";
+            return false;
+        }
+
+        isCanonicalHost = string.Equals(
+            profileId,
+            _launchContext.HostProfileId.Value,
+            StringComparison.Ordinal);
+        return true;
+    }
+
+    /// <summary>
+    /// Registers the one-shot departure evidence required before authorizing a defeated Client return.
+    /// </summary>
+    internal bool TryRegisterControlledReturn(
+        NetworkRaidParticipant participant,
+        out string rejectionReason)
+    {
+        rejectionReason = null;
+        if (participant == null || participant.Runner != _runner ||
+            participant.State != RaidParticipantState.Defeated || _matchController == null ||
+            (_matchController.Phase != NetworkMatchController.MatchPhase.InProgress &&
+             _matchController.Phase != NetworkMatchController.MatchPhase.Closing))
+        {
+            rejectionReason = "Participant is not a defeated member of an active raid.";
+            return false;
+        }
+
+        var key = new ControlledReturnKey(
+            participant.ProfileId.ToString(),
+            participant.RaidGenerationId.ToString());
+        if (!_controlledReturns.TryRegister(in key))
+        {
+            rejectionReason = "Controlled Return identity is invalid or already pending.";
+            return false;
+        }
+
+        return true;
+    }
+
     private void Awake()
     {
         // No global static instance registration or DontDestroyOnLoad here.
@@ -180,7 +270,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
         _admissionData.Clear();
-        _departedProfiles.Clear();
+        _controlledReturns.Clear();
         _admittedProfiles.Clear();
         _spawnedEnemies.Clear();
         _lootSpawnState.Clear();
@@ -245,7 +335,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
         _admissionData.Clear();
-        _departedProfiles.Clear();
+        _controlledReturns.Clear();
         _admittedProfiles.Clear();
         _pendingHostMigrationReconnects.Clear();
         _spawnedEnemies.Clear();
@@ -1061,7 +1151,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (_departedProfiles.Contains(joinData.ProfileId.Value.ToString()))
+        var admissionKey = new ControlledReturnKey(
+            joinData.ProfileId.Value,
+            _matchController.RaidGenerationId.ToString());
+        if (_controlledReturns.IsTerminal(in admissionKey))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejected departed profile '{joinData.ProfileId.Value}' from re-entering this raid.");
             return false;
@@ -1531,6 +1624,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedEnemies.Clear();
         _admittedPlayers.Clear();
         _admittedProfiles.Clear();
+        _controlledReturns.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -2108,50 +2202,80 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!runner.IsServer || runner != _runner)
             return;
 
-        _admittedPlayers.Remove(player);
-        _admissionData.Remove(player);
-        if (_admittedProfiles.Count > 0)
+        if (!_spawnedPlayers.TryGetValue(player, out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
         {
-            string profileToRemove = null;
-            foreach (var pair in _admittedProfiles)
-            {
-                if (pair.Value == player)
-                {
-                    profileToRemove = pair.Key;
-                    break;
-                }
-            }
-
-            if (profileToRemove != null)
-            {
-                _admittedProfiles.Remove(profileToRemove);
-            }
-        }
-
-        if (!_spawnedPlayers.Remove(player, out NetworkObject participantObject))
+            RemovePlayerRouting(player);
+            Debug.LogWarning(
+                $"[NetworkSpawnManager] Player {player} left without an authoritative participant mapping. " +
+                "The departure was not classified as a Controlled Return.",
+                this);
             return;
-
-        _spawnedAvatars.Remove(player, out NetworkObject avatarObject);
-        if (participantObject != null && participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
-        {
-            _departedProfiles.Add(participant.ProfileId.ToString());
-            participant.TryAbortForClosure();
-            if (participant.State != RaidParticipantState.Defeated && avatarObject != null)
-            {
-                runner.Despawn(avatarObject);
-            }
         }
-        else if (avatarObject != null)
+
+        string profileId = participant.ProfileId.ToString();
+        string generationId = participant.RaidGenerationId.ToString();
+        var departureKey = new ControlledReturnKey(profileId, generationId);
+        bool controlledReturn = participant.State == RaidParticipantState.Defeated &&
+            _controlledReturns.TryConsume(in departureKey);
+
+        _spawnedPlayers.Remove(player);
+        _spawnedAvatars.Remove(player, out NetworkObject avatarObject);
+        RemovePlayerRouting(player);
+
+        if (participant.State == RaidParticipantState.Defeated)
+        {
+            if (controlledReturn)
+            {
+                _controlledReturns.MarkTerminal(in departureKey);
+                Debug.Log(
+                    $"[RAID-SPECTATOR] Controlled Return consumed for ProfileId={profileId}, " +
+                    $"RaidGenerationId={generationId}. Participant and corpse remain authoritative.",
+                    participant);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[RAID-SPECTATOR] Defeated participant '{profileId}' disconnected without a " +
+                    "Controlled Return authorization. Preserving state for future recovery policy.",
+                    participant);
+            }
+
+            return;
+        }
+
+        _controlledReturns.MarkTerminal(in departureKey);
+        participant.TryAbortForClosure();
+        if (avatarObject != null)
         {
             runner.Despawn(avatarObject);
         }
 
-        if (participantObject != null)
-        {
-            runner.Despawn(participantObject);
-        }
+        runner.Despawn(participantObject);
 
         Debug.Log($"Despawned participant for player {player}.");
+    }
+
+    private void RemovePlayerRouting(PlayerRef player)
+    {
+        _admittedPlayers.Remove(player);
+        _admissionData.Remove(player);
+
+        string profileToRemove = null;
+        foreach (KeyValuePair<string, PlayerRef> pair in _admittedProfiles)
+        {
+            if (pair.Value == player)
+            {
+                profileToRemove = pair.Key;
+                break;
+            }
+        }
+
+        if (profileToRemove != null)
+        {
+            _admittedProfiles.Remove(profileToRemove);
+        }
     }
     public override void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
@@ -2167,7 +2291,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _admittedPlayers.Clear();
             _spawnedPlayers.Clear();
             _spawnedAvatars.Clear();
-            _departedProfiles.Clear();
+            _controlledReturns.Clear();
             _admittedProfiles.Clear();
             _spawnedEnemies.Clear();
             _lootSpawnState.Clear();

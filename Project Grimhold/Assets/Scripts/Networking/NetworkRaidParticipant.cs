@@ -182,7 +182,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
         if (HasInputAuthority)
         {
             Debug.Log(
-                $"[HOST-RETURN-MIGRATION] NetworkRaidParticipant.RequestReturn. " +
+                $"[RAID-SPECTATOR] NetworkRaidParticipant.RequestReturn. " +
                 $"State={State}, IsServer={Runner != null && Runner.IsServer}.",
                 this);
             RPC_RequestReturn();
@@ -207,7 +207,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    private void RPC_RequestReturn()
+    private void RPC_RequestReturn(RpcInfo info = default)
     {
         if (IsReturnAuthorized || State == RaidParticipantState.Raiding)
         {
@@ -217,6 +217,43 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
         if (State == RaidParticipantState.Extracted && !IsExtractionCommitConfirmed)
         {
             return;
+        }
+
+        if (State == RaidParticipantState.Defeated)
+        {
+            string rejectionReason = null;
+            NetworkSpawnManager spawnManager = Runner != null
+                ? Runner.GetComponent<NetworkSpawnManager>()
+                : null;
+            if (spawnManager == null ||
+                !spawnManager.TryResolveReturnRequester(
+                    this,
+                    info.Source,
+                    out bool requesterIsHost,
+                    out rejectionReason))
+            {
+                Debug.LogWarning(
+                    $"[RAID-SPECTATOR] Return rejected because requester identity could not be " +
+                    $"resolved. Reason={rejectionReason ?? "Missing NetworkSpawnManager"}.",
+                    this);
+                return;
+            }
+
+            if (requesterIsHost)
+            {
+                Debug.LogWarning(
+                    "[RAID-SPECTATOR] Host Return rejected while the defeated Host must sustain the raid.",
+                    this);
+                return;
+            }
+
+            if (!spawnManager.TryRegisterControlledReturn(this, out rejectionReason))
+            {
+                Debug.LogWarning(
+                    $"[RAID-SPECTATOR] Client Return rejected. Reason={rejectionReason}.",
+                    this);
+                return;
+            }
         }
 
         IsReturnAuthorized = true;

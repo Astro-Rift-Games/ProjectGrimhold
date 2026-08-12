@@ -4,16 +4,16 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Orchestrates the local in-raid pause and defeat menu overlay.
-/// Manages local gameplay input suppression, displays basic controls and defeat state,
-/// and requests individual participant results. Runner lifecycle remains owned by
-/// <see cref="SessionConnectionCoordinator"/>.
+/// Orchestrates local raid menu, defeated-player input blocking, and spectator presentation.
+/// Authoritative participant results remain owned by NetworkRaidParticipant and runner lifecycle
+/// remains owned by SessionConnectionCoordinator.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RaidMenuPresenter : MonoBehaviour
 {
-    [SerializeField]
-    private RaidMenuView _view;
+    private const float NoTargetRefreshSeconds = 0.5f;
+
+    [SerializeField] private RaidMenuView _view;
 
     private PlayerCharacter _character;
     private PlayerInputReader _inputReader;
@@ -21,6 +21,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private NetworkRunner _runner;
     private NetworkRaidParticipant _participant;
     private PlayerExtractionLootSaver _extractionLootSaver;
+    private LocalRaidSpectatorController _spectator;
 
     private IDisposable _inputSuppression;
     private bool _isBound;
@@ -29,16 +30,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _awaitingAbandonConfirmation;
     private bool _returnRequested;
     private bool _returnStarted;
+    private float _nextNoTargetRefreshAt;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionCommitConfirmed;
     private ExtractionLootSaveStatus _observedSaveStatus;
 
-    /// <summary>Indicates whether the presenter is bound and the menu overlay is open.</summary>
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
 
-    /// <summary>
-    /// Binds the presenter to local player components and runner instance.
-    /// </summary>
     public void Bind(
         PlayerCharacter character,
         PlayerInputReader inputReader,
@@ -46,7 +44,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         NetworkRunner runner)
     {
         Unbind();
-
         if (character == null || inputReader == null || runner == null || _view == null)
         {
             Debug.LogError($"{nameof(RaidMenuPresenter)} has missing binding dependencies or view.", this);
@@ -65,6 +62,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             Unbind();
             return;
         }
+
+        if (_participant != null)
+        {
+            _spectator = new LocalRaidSpectatorController(_runner, _participant);
+        }
+
         _isBound = true;
         _wasDefeatedObserved = _participant != null
             ? _participant.State == RaidParticipantState.Defeated
@@ -72,7 +75,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedParticipantState = _participant != null
             ? _participant.State
             : RaidParticipantState.Raiding;
-        _observedExtractionCommitConfirmed = _participant != null && _participant.IsExtractionCommitConfirmed;
+        _observedExtractionCommitConfirmed = _participant != null &&
+            _participant.IsExtractionCommitConfirmed;
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
@@ -80,23 +84,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (isActiveAndEnabled)
         {
             Subscribe();
-            if (HasPersistentResultScreen())
-            {
-                OpenMenu();
-            }
-            else
-            {
-                CloseMenu();
-            }
+            ApplyInitialPresentation();
         }
     }
 
-    /// <summary>
-    /// Unbinds all references, releases input suppression tokens, and hides UI.
-    /// </summary>
     public void Unbind()
     {
         Unsubscribe();
+        CleanupSpectatorPresentation();
+        _inventoryPresenter?.SetGameplayMutationsBlocked(false);
         CloseMenuInternal(forceReleaseSuppression: true);
         _character = null;
         _inputReader = null;
@@ -104,18 +100,19 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _runner = null;
         _participant = null;
         _extractionLootSaver = null;
+        _spectator = null;
         _isBound = false;
         _wasDefeatedObserved = false;
         _awaitingAbandonConfirmation = false;
         _returnRequested = false;
         _returnStarted = false;
+        _nextNoTargetRefreshAt = 0f;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionCommitConfirmed = false;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
         _view?.Clear();
     }
 
-    /// <summary>Opens the local menu and acquires gameplay input suppression.</summary>
     public void OpenMenu()
     {
         if (!_isBound || _view == null)
@@ -125,7 +122,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         if (UnityEngine.EventSystems.EventSystem.current == null)
         {
-            Debug.LogWarning($"{nameof(RaidMenuPresenter)} requires an active EventSystem in the scene to receive UI pointer events.", this);
+            Debug.LogWarning(
+                $"{nameof(RaidMenuPresenter)} requires an active EventSystem for UI pointer events.",
+                this);
         }
 
         EnsureInputSuppression();
@@ -135,17 +134,28 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
     }
 
-    /// <summary>Closes the local menu and releases input suppression if the player is alive.</summary>
     public void CloseMenu()
     {
         CloseMenuInternal(forceReleaseSuppression: false);
     }
 
-    /// <summary>Toggles the local menu state, prioritizing open inventory windows.</summary>
     public void ToggleMenu()
     {
         if (!_isBound)
         {
+            return;
+        }
+
+        if (IsLocalDefeated())
+        {
+            if (IsOpen)
+            {
+                CloseMenu();
+            }
+            else
+            {
+                OpenMenu();
+            }
             return;
         }
 
@@ -160,21 +170,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_inventoryPresenter != null && _inventoryPresenter.IsOpen)
+        if (_inventoryPresenter == null || !_inventoryPresenter.IsOpen)
         {
-            return;
+            OpenMenu();
         }
-
-        OpenMenu();
     }
 
-    /// <summary>
-    /// Compatibility entry point for callers that previously requested immediate runner shutdown.
-    /// It now only sends the authoritative abandonment request; return is observed separately.
-    /// </summary>
     public Task AbandonRaidAsync()
     {
-        _participant?.RequestAbandon();
+        if (!IsLocalDefeated())
+        {
+            _participant?.RequestAbandon();
+        }
         return Task.CompletedTask;
     }
 
@@ -184,21 +191,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             return;
         }
-
         Subscribe();
-        if (HasPersistentResultScreen())
-        {
-            OpenMenu();
-        }
-        else
-        {
-            CloseMenu();
-        }
+        ApplyInitialPresentation();
     }
 
     private void OnDisable()
     {
         Unsubscribe();
+        CleanupSpectatorPresentation();
+        _inventoryPresenter?.SetGameplayMutationsBlocked(false);
         CloseMenuInternal(forceReleaseSuppression: true);
     }
 
@@ -216,12 +217,27 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         ObserveCharacterState(_character.IsAlive);
         ObserveParticipantState();
+        UpdateSpectator();
+    }
+
+    private void ApplyInitialPresentation()
+    {
+        if (IsLocalDefeated())
+        {
+            EnterDefeatedPresentation();
+        }
+        else if (HasPersistentResultScreen())
+        {
+            OpenMenu();
+        }
+        else
+        {
+            CloseMenu();
+        }
     }
 
     private void ObserveCharacterState(bool isAlive)
     {
-        // The participant is the authoritative result source. Health remains a
-        // compatibility fallback for the direct-development path without a participant.
         if (_participant != null)
         {
             return;
@@ -230,8 +246,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (!isAlive && !_wasDefeatedObserved)
         {
             _wasDefeatedObserved = true;
-            _inventoryPresenter?.Close();
-            OpenMenu();
+            EnterDefeatedPresentation();
         }
     }
 
@@ -246,14 +261,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _inputReader.MenuToggleRequested += OnMenuToggleRequested;
         }
-
         if (_view != null)
         {
             _view.ResumeRequested += OnResumeRequested;
             _view.AbandonRequested += OnAbandonRequested;
             _view.CancelRaidRequested += OnCancelRaidRequested;
+            _view.PreviousTargetRequested += OnPreviousTargetRequested;
+            _view.NextTargetRequested += OnNextTargetRequested;
         }
-
         _isSubscribed = true;
     }
 
@@ -268,21 +283,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _inputReader.MenuToggleRequested -= OnMenuToggleRequested;
         }
-
         if (_view != null)
         {
             _view.ResumeRequested -= OnResumeRequested;
             _view.AbandonRequested -= OnAbandonRequested;
             _view.CancelRaidRequested -= OnCancelRaidRequested;
+            _view.PreviousTargetRequested -= OnPreviousTargetRequested;
+            _view.NextTargetRequested -= OnNextTargetRequested;
         }
-
         _isSubscribed = false;
     }
 
-    private void OnMenuToggleRequested()
-    {
-        ToggleMenu();
-    }
+    private void OnMenuToggleRequested() => ToggleMenu();
 
     private void OnResumeRequested()
     {
@@ -293,9 +305,10 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_wasDefeatedObserved)
+        if (IsLocalDefeated())
         {
-            RequestTerminalReturnOnce();
+            EnterSpectator();
+            CloseMenu();
             return;
         }
 
@@ -318,7 +331,17 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_wasDefeatedObserved || _participant.State == RaidParticipantState.Extracted)
+        if (_participant.State == RaidParticipantState.Defeated)
+        {
+            if (CanDefeatedParticipantReturn())
+            {
+                Debug.Log("[RAID-SPECTATOR] Client Return selected.", this);
+                RequestTerminalReturnOnce();
+            }
+            return;
+        }
+
+        if (_participant.State == RaidParticipantState.Extracted)
         {
             RequestTerminalReturnOnce();
             return;
@@ -334,13 +357,32 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _participant.RequestAbandon();
     }
 
+    private void OnPreviousTargetRequested()
+    {
+        if (_spectator != null && _spectator.SelectPrevious())
+        {
+            RefreshSpectatorView();
+        }
+    }
+
+    private void OnNextTargetRequested()
+    {
+        if (_spectator != null && _spectator.SelectNext())
+        {
+            RefreshSpectatorView();
+        }
+    }
+
     private void RequestTerminalReturnOnce()
     {
         if (_participant == null || _returnRequested)
         {
             return;
         }
-
+        if (_participant.State == RaidParticipantState.Defeated && !CanDefeatedParticipantReturn())
+        {
+            return;
+        }
         if (_participant.State == RaidParticipantState.Extracted &&
             !_participant.IsExtractionCommitConfirmed)
         {
@@ -371,35 +413,31 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                     : ExtractionLootSaveStatus.Pending);
             _view.PresentExtractedState(saveStatus);
         }
-        else if (_wasDefeatedObserved ||
-                 (_participant != null && _participant.State == RaidParticipantState.Defeated))
+        else if (IsLocalDefeated())
         {
-            _view.PresentDefeatedState();
+            _view.PresentDefeatedState(
+                CanDefeatedParticipantReturn(),
+                _spectator != null && _spectator.IsActive);
         }
         else
         {
             _view.PresentAliveState();
         }
 
-        NetworkMatchController matchController = _runner != null
-            ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
-            : null;
+        NetworkMatchController matchController = GetMatchController();
         bool canCancelRaid = _runner != null && _runner.IsServer && matchController != null &&
             matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
-            !_awaitingAbandonConfirmation && !_wasDefeatedObserved;
+            !_awaitingAbandonConfirmation && !IsLocalDefeated();
         _view.SetCancelRaidVisible(canCancelRaid);
     }
 
     private void OnCancelRaidRequested()
     {
-        NetworkMatchController matchController = _runner != null
-            ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
-            : null;
-        if (_runner == null || !_runner.IsServer || matchController == null)
+        NetworkMatchController matchController = GetMatchController();
+        if (_runner == null || !_runner.IsServer || matchController == null || IsLocalDefeated())
         {
             return;
         }
-
         matchController.TryCancelRaid();
     }
 
@@ -413,6 +451,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (_participant.IsReturnAuthorized && !_returnStarted)
         {
             _returnStarted = true;
+            CleanupSpectatorPresentation();
+            _inventoryPresenter?.SetGameplayMutationsBlocked(false);
+            CloseMenuInternal(forceReleaseSuppression: true);
             ReturnToTownAsync();
             return;
         }
@@ -432,8 +473,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
         {
             _wasDefeatedObserved = true;
-            _inventoryPresenter?.Close();
-            OpenMenu();
+            Debug.Log("[RAID-SPECTATOR] Local participant defeated.", this);
+            EnterDefeatedPresentation();
             return;
         }
 
@@ -451,15 +492,122 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
     }
 
+    private void EnterDefeatedPresentation()
+    {
+        _inventoryPresenter?.SetGameplayMutationsBlocked(true);
+        EnsureInputSuppression();
+        if (_participant != null && ShouldEnterSpectatorAutomatically())
+        {
+            EnterSpectator();
+            CloseMenu();
+        }
+        else
+        {
+            OpenMenu();
+        }
+    }
+
+    private void EnterSpectator()
+    {
+        if (_spectator == null)
+        {
+            return;
+        }
+        _spectator.Enter();
+        _nextNoTargetRefreshAt = Time.unscaledTime + NoTargetRefreshSeconds;
+        RefreshSpectatorView();
+    }
+
+    private void UpdateSpectator()
+    {
+        if (_spectator == null || !_spectator.IsActive || _returnStarted)
+        {
+            return;
+        }
+
+        NetworkMatchController matchController = GetMatchController();
+        if (matchController != null && matchController.Phase == NetworkMatchController.MatchPhase.Finished)
+        {
+            CleanupSpectatorPresentation();
+            _inventoryPresenter?.SetGameplayMutationsBlocked(false);
+            CloseMenuInternal(forceReleaseSuppression: true);
+            return;
+        }
+
+        if (_spectator.HasTarget)
+        {
+            if (_spectator.RefreshCurrentTarget())
+            {
+                RefreshSpectatorView();
+            }
+            return;
+        }
+
+        if (Time.unscaledTime >= _nextNoTargetRefreshAt)
+        {
+            _nextNoTargetRefreshAt = Time.unscaledTime + NoTargetRefreshSeconds;
+            _spectator.RefreshCurrentTarget();
+            RefreshSpectatorView();
+        }
+    }
+
+    private void RefreshSpectatorView()
+    {
+        if (_spectator == null || !_spectator.IsActive)
+        {
+            _view?.SetSpectatorBarVisible(false);
+            return;
+        }
+        _view?.PresentSpectatorState(_spectator.CurrentProfileId, _spectator.HasTarget);
+    }
+
+    private void CleanupSpectatorPresentation()
+    {
+        _spectator?.Cleanup();
+        _view?.SetSpectatorBarVisible(false);
+    }
+
+    private bool ShouldEnterSpectatorAutomatically()
+    {
+        return !TryResolveCanonicalLocalRole(out bool isHost) || isHost;
+    }
+
+    private bool CanDefeatedParticipantReturn()
+    {
+        return _participant != null && _participant.State == RaidParticipantState.Defeated &&
+            TryResolveCanonicalLocalRole(out bool isHost) && !isHost;
+    }
+
+    private bool TryResolveCanonicalLocalRole(out bool isHost)
+    {
+        isHost = false;
+        NetworkSpawnManager spawnManager = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        string profileId = _participant != null ? _participant.ProfileId.ToString() : null;
+        if (spawnManager == null || string.IsNullOrWhiteSpace(profileId) ||
+            !spawnManager.TryGetCanonicalHostProfileId(out ProfileId hostProfileId))
+        {
+            return false;
+        }
+
+        isHost = string.Equals(profileId, hostProfileId.Value, StringComparison.Ordinal);
+        return true;
+    }
+
+    private bool IsLocalDefeated() => _wasDefeatedObserved ||
+        (_participant != null && _participant.State == RaidParticipantState.Defeated);
+
+    private NetworkMatchController GetMatchController() => _runner != null
+        ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
+        : null;
+
     private async void ReturnToTownAsync()
     {
         try
         {
             if (SessionConnectionCoordinator.Instance != null)
             {
-                Debug.Log(
-                    "[HOST-RETURN-MIGRATION] RaidMenuPresenter observed return authorization and is delegating participant return.",
-                    this);
                 await SessionConnectionCoordinator.Instance.ReturnParticipantToTownAsync();
             }
         }
@@ -467,6 +615,10 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             Debug.LogException(exception, this);
             _returnStarted = false;
+            if (IsLocalDefeated())
+            {
+                EnterDefeatedPresentation();
+            }
         }
     }
 
@@ -487,23 +639,16 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private void CloseMenuInternal(bool forceReleaseSuppression)
     {
         _view?.SetMenuVisible(false);
-
         if (forceReleaseSuppression || !HasPersistentResultScreen())
         {
             ReleaseInputSuppression();
         }
         else
         {
-            // For a defeated player, ensure input suppression remains active
             EnsureInputSuppression();
         }
     }
 
-    private bool HasPersistentResultScreen()
-    {
-        return _wasDefeatedObserved ||
-               (_participant != null &&
-                (_participant.State == RaidParticipantState.Defeated ||
-                 _participant.State == RaidParticipantState.Extracted));
-    }
+    private bool HasPersistentResultScreen() => IsLocalDefeated() ||
+        (_participant != null && _participant.State == RaidParticipantState.Extracted);
 }

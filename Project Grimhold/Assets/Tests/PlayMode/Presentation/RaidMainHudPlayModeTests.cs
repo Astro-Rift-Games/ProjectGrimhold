@@ -207,6 +207,100 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
+        public IEnumerator DefeatedHostFailClosed_EntersSpectatorAndPreservesPlayerObjectAuthority()
+        {
+            yield return StartRunner();
+
+            NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(MeleePrefabGuid)),
+                true);
+            NetworkObject participantPrefab = _runner.Config.PrefabTable.Load(
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid)),
+                true);
+
+            NetworkObject localParticipantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("host-profile", PlayerClassId.Melee, "raid-generation"));
+            _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
+            _localPlayer = _runner.Spawn(
+                playerPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(localParticipantObject));
+            Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
+            _runner.SetPlayerObject(_runner.LocalPlayer, localParticipantObject);
+
+            NetworkObject proxyParticipantObject = _runner.Spawn(
+                participantPrefab,
+                new Vector3(3f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("client-profile", PlayerClassId.Melee, "raid-generation"));
+            _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
+            _proxyPlayer = _runner.Spawn(
+                playerPrefab,
+                new Vector3(3f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(proxyParticipantObject));
+            Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
+
+            RaidMenuPresenter menuPresenter =
+                _localPlayer.GetComponentInChildren<RaidMenuPresenter>(true);
+            RaidMenuView menuView = _localPlayer.GetComponentInChildren<RaidMenuView>(true);
+            RaidInventoryPresenter inventoryPresenter =
+                _localPlayer.GetComponentInChildren<RaidInventoryPresenter>(true);
+            PlayerCharacter localCharacter = _localPlayer.GetComponent<PlayerCharacter>();
+            PlayerLootReceiver localReceiver = _localPlayer.GetComponent<PlayerLootReceiver>();
+            GameObject localHud = menuView.GetComponentInParent<Canvas>(true).gameObject;
+
+            yield return WaitUntil(
+                () => localHud.activeSelf && !menuPresenter.IsOpen,
+                "Local raid menu did not bind before defeat.");
+
+            _defeatDriver.Target = localCharacter;
+            _defeatDriver.Receiver = localReceiver;
+            _defeatDriver.IsRequested = true;
+
+            yield return WaitUntil(
+                () => _localParticipant.State == RaidParticipantState.Defeated &&
+                    !_localParticipant.CurrentAvatarId.IsValid &&
+                    menuView.SpectatorBarRoot.activeSelf,
+                "Defeated local Host did not enter spectator presentation.");
+
+            Assert.That(menuPresenter.IsOpen, Is.False);
+            menuPresenter.OpenMenu();
+            yield return null;
+            Assert.That(menuPresenter.IsOpen, Is.True);
+            Assert.That(menuView.ResumeButtonText.text, Is.EqualTo("Continuar observando"));
+            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.False);
+            Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
+            Assert.That(menuView.SpectatorTargetText.text, Does.Contain("client-profile"));
+            Assert.That(_runner.GetPlayerObject(_runner.LocalPlayer), Is.SameAs(localParticipantObject));
+            Assert.That(_localParticipant.HasInputAuthority, Is.True);
+            Assert.That((bool)_localParticipant.IsReturnAuthorized, Is.False);
+            Assert.That(_proxyParticipant.State, Is.EqualTo(RaidParticipantState.Raiding));
+            Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
+            Assert.That(_proxyPlayer.InputAuthority.IsNone, Is.True);
+            Assert.That(inventoryPresenter.GameplayMutationsBlocked, Is.True);
+            Assert.That(inventoryPresenter.IsOpen, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator SingleRunnerExercisesBindingCooldownRecoveryAndDefeat()
         {
             yield return StartRunner();
@@ -224,8 +318,11 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("local-profile", PlayerClassId.Melee));
+                    .Initialize("local-profile", PlayerClassId.Melee, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
@@ -252,8 +349,11 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("remote-profile", PlayerClassId.Melee));
+                    .Initialize("remote-profile", PlayerClassId.Melee, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _proxyPlayer = _runner.Spawn(
                 playerPrefab,
                 new Vector3(3f, 0f, 0f),
@@ -392,22 +492,19 @@ namespace Tests.PlayMode.Presentation
             RaidMenuPresenter menuPresenter =
                 _localPlayer.GetComponentInChildren<RaidMenuPresenter>(true);
             RaidMenuView menuView = _localPlayer.GetComponentInChildren<RaidMenuView>(true);
-            Assert.That(menuPresenter.IsOpen, Is.True);
-            Assert.That(menuView.TitleText.text, Is.EqualTo("Has sido Derrotado"));
-            Assert.That(menuView.ResumeButton.gameObject.activeSelf, Is.False);
-
-            int localResultSequence = _localParticipant.ResultSequence;
-            menuView.AbandonButton.onClick.Invoke();
-            menuView.AbandonButton.onClick.Invoke();
             yield return WaitUntil(
-                () => _localParticipant.IsReturnAuthorized,
-                "The defeated participant return was not authorized.");
-            Assert.That(ReadFlag(menuPresenter, "_returnRequested"), Is.True);
-            yield return WaitUntil(
-                () => ReadFlag(menuPresenter, "_returnStarted"),
-                "The authorized return did not reach its one-shot coordinator guard.");
-            Assert.That(_localParticipant.ResultSequence, Is.EqualTo(localResultSequence));
-            Assert.That(_localPlayer.IsValid, Is.True, "Return authorization must not despawn the corpse.");
+                () => !menuPresenter.IsOpen && menuView.SpectatorBarRoot.activeSelf,
+                "The defeated Host did not enter spectator presentation automatically.");
+            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.False);
+            Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
+            Assert.That(_localParticipant.IsReturnAuthorized, Is.False);
+            Assert.That(_runner.GetPlayerObject(_runner.LocalPlayer), Is.SameAs(localParticipantObject));
+            Assert.That(_localParticipant.HasInputAuthority, Is.True);
+            Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
+            Assert.That(_proxyPlayer.InputAuthority.IsNone, Is.True);
+            Assert.That(menuView.SpectatorTargetText.text, Does.Contain("remote-profile"));
+            Assert.That(inventoryPresenter.GameplayMutationsBlocked, Is.True);
+            Assert.That(inventoryPresenter.IsOpen, Is.False);
 
             PlayerCharacter proxyCharacter = _proxyPlayer.GetComponent<PlayerCharacter>();
             _defeatDriver.Target = proxyCharacter;
@@ -418,6 +515,9 @@ namespace Tests.PlayMode.Presentation
                     _proxyParticipant.State == RaidParticipantState.Defeated &&
                     _proxyPlayer.InputAuthority.IsNone,
                 "Remote participant defeat did not complete.");
+            yield return WaitUntil(
+                () => menuView.SpectatorTargetText.text == "No hay jugadores para observar",
+                "Spectator did not clear the invalidated target when no raiding targets remained.");
             Assert.That(proxyHud.activeSelf, Is.False, "A remote defeated body must not own local HUD.");
 
             _runner.GetComponent<LocalInputContext>().Clear();

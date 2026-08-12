@@ -57,6 +57,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private bool _takeAllHadFailure;
     private string _takeAllLastFailureMessage;
     private LootContextActionContext _contextActionContext;
+    private bool _gameplayMutationsBlocked;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -65,6 +66,26 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private Collider2D[] _containerColliders = Array.Empty<Collider2D>();
 
     public bool IsOpen => _mode != ScreenMode.Closed;
+    public bool GameplayMutationsBlocked => _gameplayMutationsBlocked;
+
+    /// <summary>
+    /// Blocks every local inventory mutation entry point for a defeated participant.
+    /// The block is presentation-local and does not replace authoritative validation.
+    /// </summary>
+    public void SetGameplayMutationsBlocked(bool blocked)
+    {
+        if (_gameplayMutationsBlocked == blocked)
+        {
+            return;
+        }
+
+        _gameplayMutationsBlocked = blocked;
+        if (blocked)
+        {
+            CancelTakeAll();
+            Close();
+        }
+    }
 
     public void Bind(
         PlayerLootReceiver lootReceiver,
@@ -129,6 +150,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _playerValueRefreshPending = false;
         _playerValueFailureReported = false;
         _lastObservedInteractionSequence = 0;
+        _gameplayMutationsBlocked = false;
         _isBound = false;
         ClearBindingReferences();
     }
@@ -294,6 +316,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnInventoryToggleRequested()
     {
+        if (_gameplayMutationsBlocked)
+        {
+            Close();
+            return;
+        }
+
         if (_mode != ScreenMode.Closed)
         {
             Close();
@@ -326,7 +354,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OpenPersonalInventory()
     {
-        if (!_isBound)
+        if (!_isBound || _gameplayMutationsBlocked)
         {
             return;
         }
@@ -342,7 +370,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        if (!_isBound || interactionEvent.Sequence <= _lastObservedInteractionSequence)
+        if (!_isBound || _gameplayMutationsBlocked ||
+            interactionEvent.Sequence <= _lastObservedInteractionSequence)
         {
             return;
         }
@@ -359,6 +388,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void TryOpenConfirmedContainer(EntityId targetId)
     {
+        if (_gameplayMutationsBlocked)
+        {
+            return;
+        }
+
         HideContextMenu();
         var networkId = new NetworkId { Raw = unchecked((uint)targetId.Value) };
         if (!_runner.TryFindObject(networkId, out NetworkObject networkObject) || networkObject == null ||
@@ -404,7 +438,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        if (_mode != ScreenMode.ContainerLoot || _container == null ||
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_containerSelection.TrySelect(lootId, _containerPanelPresenter.OccupiedEntries))
         {
@@ -428,7 +462,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnPlayerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        if (_mode != ScreenMode.ContainerLoot || _container == null ||
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries))
         {
@@ -452,7 +486,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnPlayerSlotContextRequested(LootId lootId, Vector2 screenPosition)
     {
-        if (_mode != ScreenMode.Personal || _dropController == null ||
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || _dropController == null ||
             _dropController.HasRequestInFlight ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
@@ -481,7 +515,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnContextActionRequested(LootContextActionId actionId)
     {
-        if (_mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
             !TryGetEntry(
                 _playerPanelPresenter.OccupiedEntries,
                 _contextActionContext.Entry.LootId,
@@ -671,7 +705,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnTakeAllRequested()
     {
-        if (_mode != ScreenMode.ContainerLoot || _container == null ||
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController == null || _transferController.HasRequestInFlight ||
             _takeAllState.IsActive ||
             !_takeAllState.TryBegin(_containerPanelPresenter.OccupiedEntries))
@@ -691,6 +725,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void TryStartNextTakeAllTransfer()
     {
+        if (_gameplayMutationsBlocked)
+        {
+            CancelTakeAll();
+            return;
+        }
+
         while (_takeAllState.IsActive && !_takeAllState.IsAwaitingCompletion)
         {
             if (_mode != ScreenMode.ContainerLoot || _container == null ||
