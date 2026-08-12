@@ -146,15 +146,15 @@ avatar's Input Authority.
 After the local participant becomes `Defeated`, terminal HUD ownership remains with that
 `NetworkRaidParticipant`. The avatar can have no Input Authority and the participant can have no
 `CurrentAvatarId`, while the same local composition remains bound long enough to present the result
-and request return. A remote defeated participant never activates local HUD. This presentation rule
+and role-appropriate actions. A remote defeated participant never activates local HUD. This presentation rule
 does not restore movement, combat, interaction, loot or consumable input and does not make the body
-controllable again. The minimap retains its existing presentation behavior; camera ownership may be
-released because no spectator camera is part of this decision.
+controllable again. The minimap retains its existing presentation behavior. The spectator controller
+may retarget `LocalCameraController`, but never rebinds HUD or authority to the observed avatar.
 
 - **Input Suppression**: Opening the menu acquires a local gameplay input suppression token (`PlayerInputReader.AcquireGameplayInputSuppression`), preventing player movement and attack actions while navigating the menu overlay.
 - **Pause State (Living Player)**: Activated by pressing `Escape` / `Cancel` action (`MenuToggleRequested`). Displays basic control bindings and allows resuming gameplay or abandoning the raid.
-- **Defeat State (Defeated Player)**: The participant's authoritative `Defeated` state opens a persistent result screen, displays defeat text, hides Resume, and retains input suppression. Character health is only the direct-development fallback when no participant exists.
-- **Session Abandonment and Return**: A living player requests authoritative abandonment. A defeated player sends one `NetworkRaidParticipant.RequestReturn()` intent; State Authority sets `IsReturnAuthorized`, and the presenter then invokes `SessionConnectionCoordinator.ReturnToTownAsync()`. Views never shut down runners or load scenes directly.
+- **Defeat State (Defeated Player)**: The participant's authoritative `Defeated` state retains input suppression. A Client result offers `Observar` and `Volver al pueblo`; a Host enters spectator automatically and has no Return, Abandon or Cancel Raid action. Character health is only the direct-development fallback when no participant exists.
+- **Session Abandonment and Return**: A living player preserves the existing authoritative abandonment contract. A defeated Client sends one `NetworkRaidParticipant.RequestReturn()` intent; State Authority records the generation-scoped Controlled Return before setting `IsReturnAuthorized`. Views never shut down runners or load scenes directly.
 
 
 ## Alternatives not selected

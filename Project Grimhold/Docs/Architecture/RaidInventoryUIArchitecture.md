@@ -52,6 +52,12 @@ Close is idempotent, releases one suppression token, clears mode, target, collid
 
 Opening the screen acquires a small owner-specific suppression token. While any token exists, `ConsumeNetworkInput` returns `default(PlayerNetworkInput)` and discrete attack/interaction buffers are discarded. Gameplay and LocalUI action maps remain under their normal component lifecycle and are not toggled by suppression.
 
+`RaidInventoryPresenter` also owns a reversible local mutation block derived from the local
+participant's authoritative `Defeated` state. Entering `Defeated` cancels take-all, closes
+personal/container UI and rejects open, transfer, take-all, drop and consumable intentions.
+This starts on the Results presentation, before the player chooses spectator or Return;
+spectator state is not an inventory source of truth. Unbind and raid cleanup clear the block.
+
 When `RaidInventoryPresenter` is in container looting mode (`ScreenMode.ContainerLoot`), a new local interaction press (`InteractPressedLocally`) immediately calls `Close()`. `PlayerInputReader` evaluates `wasSuppressed` before publishing `InteractPressedLocally`, preventing the closing press from being added to pending network input even if suppression is released synchronously inside the callback.
 
 On final suppression release (transition from 1 to 0 active tokens), movement and aim are read directly from current continuous controls. Any discrete action (attack or interaction) held at the moment of release sets a rearm requirement (`_interactRequiresRelease`). Physical release of the key clears the requirement regardless of suppression state, and only a subsequent physical press edge can be transported to Fusion. The same press that closes the container cannot reopen or execute a new interaction. Chests and defeated persistent players and enemies share this exact local presentation logic through their common `NetworkLootContainer` and `NetworkLootContainerInteractable` composition.

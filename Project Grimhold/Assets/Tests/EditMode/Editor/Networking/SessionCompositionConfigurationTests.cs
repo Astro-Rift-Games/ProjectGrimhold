@@ -70,6 +70,26 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
+    public void RaidAvatar_HasSerializedDefeatAndSpectatorControls()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BaseRaidAvatarPath);
+        RaidMenuView view = prefab.GetComponentInChildren<RaidMenuView>(true);
+
+        Assert.That(view, Is.Not.Null);
+        Assert.That(view.CancelRaidButton, Is.Not.Null);
+        Assert.That(view.SpectatorBarRoot, Is.Not.Null);
+        Assert.That(view.SpectatorTargetText, Is.Not.Null);
+        Assert.That(view.PreviousTargetButton, Is.Not.Null);
+        Assert.That(view.NextTargetButton, Is.Not.Null);
+        Assert.That(view.SpectatorBarRoot.activeSelf, Is.False);
+
+        string presenterSource = File.ReadAllText(
+            "Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs");
+        Assert.That(presenterSource, Does.Not.Contain("Instantiate("));
+        Assert.That(presenterSource, Does.Not.Contain("AddComponent<"));
+    }
+
+    [Test]
     public void SocialPlayer_ContainsSocialCapabilitiesAndNoRaidCapabilities()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);

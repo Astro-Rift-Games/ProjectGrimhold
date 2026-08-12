@@ -44,16 +44,20 @@ may still fall back to avatar Input Authority.
 
 After `Defeated`, the avatar is no longer current or locally controllable, but the local
 participant retains Input Authority and therefore owns the terminal HUD composition. The
-HUD remains bound to display the result and issue one return request without restoring any
-gameplay input. Remote defeated bodies cannot own local HUD. Camera ownership may be
-released at defeat; no spectator camera is defined by this architecture. Presentation
+HUD remains bound without restoring gameplay input. `Spectating` is local presentation,
+never a `RaidParticipantState`. A defeated Client may observe or request Return; the
+canonical Host enters spectator automatically and cannot Return while sustaining the
+runner's State Authority. Remote defeated bodies cannot own local HUD. Presentation
 observes return authorization and delegates the local runner transition to
 `SessionConnectionCoordinator`. No UI component shuts down a runner or loads a scene.
 
 `Defeated` and `Extracted` use distinct result presentations. Defeat reports the fallen
-avatar and permits an explicit return. Extraction reports success, displays the pending
+avatar and exposes actions according to the canonical profile role. Extraction reports success, displays the pending
 stash commit and keeps return disabled until `IsExtractionCommitConfirmed` corresponds
 to the current `ResultSequence`.
+
+Return authorization and departure classification are specified in
+`Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md`.
 
 The avatar's Fusion `Spawned` callbacks run before `NetworkSpawnManager` can assign
 `CurrentAvatarId` after `runner.Spawn` returns. Camera and HUD binders therefore observe
