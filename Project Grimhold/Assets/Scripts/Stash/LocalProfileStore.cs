@@ -59,6 +59,78 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    public StashOperationResult TryCommitPurchase(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice)
+    {
+        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredPrice < 0)
+            return StashOperationResult.InvalidInventory;
+
+        var current = _repository.Snapshot;
+        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
+            return StashOperationResult.AlreadyApplied;
+
+        foreach (var applied in current.AppliedShopTransactionReceipts)
+            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
+
+        var next = current.Clone();
+        
+        if (next.Currency < declaredPrice)
+            return StashOperationResult.InvalidInventory;
+            
+        next.Currency -= declaredPrice;
+        
+        if (!TryMerge(next.Stash, new[] { new StashItem(lootId, amount) }))
+            return StashOperationResult.InvalidInventory;
+
+        next.AppliedShopTransactionReceipts.Add(receipt);
+        next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
+
+        while (next.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
+        {
+            var oldest = next.AppliedShopTransactionReceipts[0];
+            next.AppliedShopTransactionReceipts.RemoveAt(0);
+            if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
+                next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
+        }
+
+        return Commit(next);
+    }
+
+    public StashOperationResult TryCommitSale(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue)
+    {
+        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredSellValue < 0)
+            return StashOperationResult.InvalidInventory;
+
+        var current = _repository.Snapshot;
+        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
+            return StashOperationResult.AlreadyApplied;
+
+        foreach (var applied in current.AppliedShopTransactionReceipts)
+            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
+
+        var next = current.Clone();
+
+        if (!TryRemove(next.Stash, lootId, amount))
+            return StashOperationResult.InvalidInventory;
+
+        if (next.Currency > long.MaxValue - declaredSellValue)
+            return StashOperationResult.InvalidInventory;
+
+        next.Currency += declaredSellValue;
+
+        next.AppliedShopTransactionReceipts.Add(receipt);
+        next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
+
+        while (next.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
+        {
+            var oldest = next.AppliedShopTransactionReceipts[0];
+            next.AppliedShopTransactionReceipts.RemoveAt(0);
+            if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
+                next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
+        }
+
+        return Commit(next);
+    }
+
     public StashOperationResult TryConsumeLoot(LootId lootId, int amount)
     {
         if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;

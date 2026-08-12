@@ -17,6 +17,8 @@ public static class LocalProfileSaveCodec
         public ItemData[] loadout;
         public ReservationData pendingReservation;
         public ReceiptData[] appliedExtractionReceipts;
+        public long shopIdempotencyWatermark;
+        public ShopReceiptData[] appliedShopTransactionReceipts;
     }
 
     [Serializable]
@@ -41,6 +43,14 @@ public static class LocalProfileSaveCodec
         public int resultSequence;
     }
 
+    [Serializable]
+    private sealed class ShopReceiptData
+    {
+        public long timestamp;
+        public string transactionId;
+        public string profileId;
+    }
+
     public static string Encode(LocalProfileSnapshot snapshot)
     {
         var data = new SaveData
@@ -55,7 +65,9 @@ public static class LocalProfileSaveCodec
                 reservationId = snapshot.PendingReservation.ReservationId,
                 items = ToItems(snapshot.PendingReservation.Items)
             },
-            appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts)
+            appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
+            shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
+            appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts)
         };
         return JsonUtility.ToJson(data, true);
     }
@@ -173,6 +185,32 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
+        candidate.ShopIdempotencyWatermark = data.shopIdempotencyWatermark;
+
+        if (data.appliedShopTransactionReceipts != null)
+        {
+            var seen = new HashSet<ShopTransactionReceipt>();
+            foreach (ShopReceiptData receiptData in data.appliedShopTransactionReceipts)
+            {
+                if (Guid.TryParse(receiptData.transactionId, out Guid parsedGuid))
+                {
+                    var txId = new ShopTransactionId(receiptData.timestamp, parsedGuid);
+                    var receipt = new ShopTransactionReceipt(txId, expectedProfileId);
+                    
+                    if (receipt.IsValid && string.Equals(receiptData.profileId, expectedProfileId.Value, StringComparison.Ordinal) && seen.Add(receipt))
+                    {
+                        candidate.AppliedShopTransactionReceipts.Add(receipt);
+                    }
+                }
+            }
+        }
+
+        if (candidate.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
+        {
+            error = "Applied shop transaction receipt history exceeds its limit.";
+            return false;
+        }
+
         snapshot = candidate;
         status = LocalProfilePersistenceStatus.Ready;
         return true;
@@ -198,6 +236,21 @@ public static class LocalProfileSaveCodec
                 raidId = receipts[i].RaidId,
                 profileId = receipts[i].ProfileId.Value,
                 resultSequence = receipts[i].ResultSequence
+            };
+        }
+        return result;
+    }
+
+    private static ShopReceiptData[] ToShopReceipts(IReadOnlyList<ShopTransactionReceipt> receipts)
+    {
+        var result = new ShopReceiptData[receipts?.Count ?? 0];
+        for (int i = 0; i < result.Length; i++)
+        {
+            result[i] = new ShopReceiptData
+            {
+                timestamp = receipts[i].TransactionId.Timestamp,
+                transactionId = receipts[i].TransactionId.Value.ToString("N"),
+                profileId = receipts[i].ProfileId.Value
             };
         }
         return result;

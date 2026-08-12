@@ -10,6 +10,7 @@ public sealed class ApplicationStashContext : MonoBehaviour
     public IPlayerStashService StashService { get; private set; }
     public IPlayerLoadoutService LoadoutService { get; private set; }
     public IPlayerCurrencyService CurrencyService { get; private set; }
+    public IShopTransactionService ShopTransactionService { get; private set; }
     public LocalProfileStore Store { get; private set; }
     public LocalProfilePersistenceStatus PersistenceStatus => Store?.Status ?? LocalProfilePersistenceStatus.Unavailable;
     public string PersistenceError => Store?.LastError;
@@ -24,13 +25,15 @@ public sealed class ApplicationStashContext : MonoBehaviour
         LocalProfileStore store,
         IPlayerStashService stashService,
         IPlayerLoadoutService loadoutService,
-        IPlayerCurrencyService currencyService)
+        IPlayerCurrencyService currencyService,
+        IShopTransactionService shopTransactionService)
     {
         if (Store != null) Store.ProfileCommitted -= OnProfileCommitted;
         Store = store;
         StashService = stashService;
         LoadoutService = loadoutService;
         CurrencyService = currencyService;
+        ShopTransactionService = shopTransactionService;
         if (Store != null) Store.ProfileCommitted += OnProfileCommitted;
     }
 

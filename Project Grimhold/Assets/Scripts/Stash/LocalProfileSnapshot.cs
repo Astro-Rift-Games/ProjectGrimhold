@@ -9,6 +9,7 @@ public sealed class LocalProfileSnapshot
     public const int CurrentSchemaVersion = 1;
     public const int MaxLoadoutSlots = 16;
     public const int MaxAppliedExtractionReceipts = 256;
+    public const int MaxAppliedShopTransactionReceipts = 256;
     public const long InitialCurrency = 0L;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -18,6 +19,8 @@ public sealed class LocalProfileSnapshot
     public List<StashItem> Loadout { get; } = new();
     public PendingLoadoutReservation PendingReservation { get; set; }
     public List<ExtractionReceipt> AppliedExtractionReceipts { get; } = new();
+    public long ShopIdempotencyWatermark { get; set; } = 0;
+    public List<ShopTransactionReceipt> AppliedShopTransactionReceipts { get; } = new();
 
     public LocalProfileSnapshot Clone()
     {
@@ -26,12 +29,14 @@ public sealed class LocalProfileSnapshot
             SchemaVersion = SchemaVersion,
             ProfileId = ProfileId,
             Currency = Currency,
-            PendingReservation = PendingReservation?.Clone()
+            PendingReservation = PendingReservation?.Clone(),
+            ShopIdempotencyWatermark = ShopIdempotencyWatermark
         };
 
         clone.Stash.AddRange(Stash);
         clone.Loadout.AddRange(Loadout);
         clone.AppliedExtractionReceipts.AddRange(AppliedExtractionReceipts);
+        clone.AppliedShopTransactionReceipts.AddRange(AppliedShopTransactionReceipts);
         return clone;
     }
 }

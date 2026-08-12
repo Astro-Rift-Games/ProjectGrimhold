@@ -40,10 +40,12 @@ public static class ApplicationStashServiceBootstrapper
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
         var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
+        var shopTransactionService = contextObject.AddComponent<LocalShopTransactionService>();
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
-        context.Initialize(store, stashService, loadoutService, currencyService);
+        shopTransactionService.Initialize(store);
+        context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
 
         Object.DontDestroyOnLoad(contextObject);
 
