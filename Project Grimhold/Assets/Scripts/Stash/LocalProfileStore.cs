@@ -30,6 +30,26 @@ public sealed class LocalProfileStore
     public IReadOnlyList<StashItem> GetLoadout() =>
         _repository.Snapshot != null ? _repository.Snapshot.Loadout : Array.Empty<StashItem>();
     public PendingLoadoutReservation PendingReservation => _repository.Snapshot?.PendingReservation;
+    public long GetCurrency() =>
+        _repository.Snapshot != null ? _repository.Snapshot.Currency : LocalProfileSnapshot.InitialCurrency;
+
+    public StashOperationResult TryCreditCurrency(long amount)
+    {
+        if (amount <= 0) return StashOperationResult.InvalidInventory;
+        if (_repository.Snapshot.Currency > long.MaxValue - amount) return StashOperationResult.InvalidInventory;
+        var next = _repository.Snapshot.Clone();
+        next.Currency += amount;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryDebitCurrency(long amount)
+    {
+        if (amount <= 0) return StashOperationResult.InvalidInventory;
+        if (_repository.Snapshot.Currency < amount) return StashOperationResult.InvalidInventory;
+        var next = _repository.Snapshot.Clone();
+        next.Currency -= amount;
+        return Commit(next);
+    }
 
     public StashOperationResult TrySecureLoot(IReadOnlyList<StashItem> items)
     {

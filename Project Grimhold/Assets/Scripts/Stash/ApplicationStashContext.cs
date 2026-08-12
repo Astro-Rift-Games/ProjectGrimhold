@@ -9,6 +9,7 @@ public sealed class ApplicationStashContext : MonoBehaviour
 {
     public IPlayerStashService StashService { get; private set; }
     public IPlayerLoadoutService LoadoutService { get; private set; }
+    public IPlayerCurrencyService CurrencyService { get; private set; }
     public LocalProfileStore Store { get; private set; }
     public LocalProfilePersistenceStatus PersistenceStatus => Store?.Status ?? LocalProfilePersistenceStatus.Unavailable;
     public string PersistenceError => Store?.LastError;
@@ -19,12 +20,17 @@ public sealed class ApplicationStashContext : MonoBehaviour
     /// Injects the concrete implementation of the stash service.
     /// This should only be called during initialization by a bootstrapper.
     /// </summary>
-    public void Initialize(LocalProfileStore store, IPlayerStashService stashService, IPlayerLoadoutService loadoutService)
+    public void Initialize(
+        LocalProfileStore store,
+        IPlayerStashService stashService,
+        IPlayerLoadoutService loadoutService,
+        IPlayerCurrencyService currencyService)
     {
         if (Store != null) Store.ProfileCommitted -= OnProfileCommitted;
         Store = store;
         StashService = stashService;
         LoadoutService = loadoutService;
+        CurrencyService = currencyService;
         if (Store != null) Store.ProfileCommitted += OnProfileCommitted;
     }
 

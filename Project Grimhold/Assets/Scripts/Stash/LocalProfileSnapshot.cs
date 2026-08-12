@@ -9,9 +9,11 @@ public sealed class LocalProfileSnapshot
     public const int CurrentSchemaVersion = 1;
     public const int MaxLoadoutSlots = 16;
     public const int MaxAppliedExtractionReceipts = 256;
+    public const long InitialCurrency = 0L;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public ProfileId ProfileId { get; set; }
+    public long Currency { get; set; } = InitialCurrency;
     public List<StashItem> Stash { get; } = new();
     public List<StashItem> Loadout { get; } = new();
     public PendingLoadoutReservation PendingReservation { get; set; }
@@ -23,6 +25,7 @@ public sealed class LocalProfileSnapshot
         {
             SchemaVersion = SchemaVersion,
             ProfileId = ProfileId,
+            Currency = Currency,
             PendingReservation = PendingReservation?.Clone()
         };
 

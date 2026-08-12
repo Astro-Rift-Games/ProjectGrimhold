@@ -12,6 +12,7 @@ public static class LocalProfileSaveCodec
     {
         public int schemaVersion;
         public string profileId;
+        public long currency;
         public ItemData[] stash;
         public ItemData[] loadout;
         public ReservationData pendingReservation;
@@ -46,6 +47,7 @@ public static class LocalProfileSaveCodec
         {
             schemaVersion = snapshot.SchemaVersion,
             profileId = snapshot.ProfileId.Value,
+            currency = snapshot.Currency,
             stash = ToItems(snapshot.Stash),
             loadout = ToItems(snapshot.Loadout),
             pendingReservation = snapshot.PendingReservation == null ? null : new ReservationData
@@ -112,6 +114,16 @@ public static class LocalProfileSaveCodec
         {
             return false;
         }
+
+        // JsonUtility assigns 0L to absent long fields. This is safe while
+        // InitialCurrency == 0L. If InitialCurrency changes, this migration
+        // path must be made explicit (detect absent field and apply new default).
+        if (data.currency < 0)
+        {
+            error = "Profile currency is negative.";
+            return false;
+        }
+        candidate.Currency = data.currency;
 
         if (candidate.Loadout.Count > LocalProfileSnapshot.MaxLoadoutSlots)
         {

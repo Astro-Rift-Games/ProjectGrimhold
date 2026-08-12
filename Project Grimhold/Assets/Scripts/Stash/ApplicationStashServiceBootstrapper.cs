@@ -39,9 +39,11 @@ public static class ApplicationStashServiceBootstrapper
         var store = new LocalProfileStore(repository, profileId);
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
+        var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
         stashService.Initialize(store);
         loadoutService.Initialize(store);
-        context.Initialize(store, stashService, loadoutService);
+        currencyService.Initialize(store);
+        context.Initialize(store, stashService, loadoutService, currencyService);
 
         Object.DontDestroyOnLoad(contextObject);
 
