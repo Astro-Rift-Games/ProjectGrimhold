@@ -24,7 +24,7 @@ public class BaseTrap : NetworkBehaviour
             return;
         }
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             State = TrapState.Ready;
         }

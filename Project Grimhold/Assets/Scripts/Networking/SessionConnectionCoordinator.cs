@@ -232,11 +232,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                FusionSessionLauncher.IsSessionAvailabilityPending(shutdownReason);
     }
 
-    internal static bool ShouldUseHostMigrationDeparture(bool isServer, int activePlayerCount)
-    {
-        return isServer && activePlayerCount > 1;
-    }
-
     internal static bool ShouldRecoverRaidShutdown(
         bool operationActive,
         bool isQuitting,
@@ -637,20 +632,20 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// </summary>
     public Task<SessionTransitionResult> ReturnToTownAsync()
     {
-        return ReturnToTownInternalAsync(allowHostMigrationDeparture: false);
+        return ReturnToTownInternalAsync(isParticipantReturn: false);
     }
 
     /// <summary>
-    /// Returns one terminal participant to Town. A departing Host leaves migration ownership
-    /// to connected peers instead of converting the personal result into global raid closure.
+    /// Returns one terminal Client participant to Town. The operational Host is rejected
+    /// because Host Migration is reserved for unexpected peer loss.
     /// </summary>
     public Task<SessionTransitionResult> ReturnParticipantToTownAsync()
     {
-        return ReturnToTownInternalAsync(allowHostMigrationDeparture: true);
+        return ReturnToTownInternalAsync(isParticipantReturn: true);
     }
 
     private async Task<SessionTransitionResult> ReturnToTownInternalAsync(
-        bool allowHostMigrationDeparture)
+        bool isParticipantReturn)
     {
         if (_operationActive)
         {
@@ -667,6 +662,18 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.InvalidState;
         }
 
+        NetworkRunner activeRaidRunner = _raidLauncher != null
+            ? _raidLauncher.Runner
+            : null;
+        if (isParticipantReturn && activeRaidRunner != null && activeRaidRunner.IsServer)
+        {
+            Debug.LogWarning(
+                "[HM-MULTI] Operational Host participant return rejected. " +
+                "Host Migration requires unexpected Host peer loss.",
+                this);
+            return SessionTransitionResult.InvalidRequest;
+        }
+
         _operationActive = true;
         try
         {
@@ -676,24 +683,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             NetworkRunner raidRunner = _raidLauncher.Runner;
-            int activePlayerCount = CountActivePlayers(raidRunner);
-            bool useHostMigrationDeparture = allowHostMigrationDeparture &&
-                ShouldUseHostMigrationDeparture(
-                    raidRunner != null && raidRunner.IsServer,
-                    activePlayerCount);
             Debug.Log(
-                $"[HOST-RETURN-MIGRATION] Participant return requested. " +
-                $"IsServer={raidRunner != null && raidRunner.IsServer}, " +
-                $"ActivePlayers={activePlayerCount}, " +
-                $"Route={(useHostMigrationDeparture ? "HostMigrationDeparture" : "NormalReturn")}.",
+                $"[HM-MULTI] Ordinary Town return requested. " +
+                $"ParticipantReturn={isParticipantReturn}, " +
+                $"IsServer={raidRunner != null && raidRunner.IsServer}.",
                 this);
 
             TransitionTo(SessionConnectionState.ReturningTown);
             UpdateTicketState(SessionConnectionState.ReturningTown);
 
-            bool shutdownSucceeded = useHostMigrationDeparture
-                ? await _raidLauncher.ShutdownForHostMigrationDepartureAsync()
-                : await ShutdownActiveRunnersAsync();
+            bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
             if (!shutdownSucceeded)
             {
                 TransitionTo(SessionConnectionState.Failed);
@@ -1037,7 +1036,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private void OnRaidRunnerShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
         Debug.Log(
-            $"[HOST-RETURN-MIGRATION] Raid runner shutdown observed. " +
+            $"[HM-MULTI] Raid runner shutdown observed. " +
             $"Reason={shutdownReason}, State={State}, OperationActive={_operationActive}.",
             this);
 
@@ -1050,29 +1049,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             if (shutdownReason == ShutdownReason.HostMigration && State == SessionConnectionState.Raid)
             {
                 Debug.Log(
-                    "[HOST-RETURN-MIGRATION] Town recovery suppressed; Host Migration owns runner replacement.",
+                    "[HM-MULTI] Town recovery suppressed; Host Migration owns runner replacement.",
                     this);
             }
             return;
         }
 
         RecoverFromUnexpectedShutdown();
-    }
-
-    private static int CountActivePlayers(NetworkRunner runner)
-    {
-        if (runner == null || !runner.IsRunning)
-        {
-            return 0;
-        }
-
-        int count = 0;
-        foreach (PlayerRef _ in runner.ActivePlayers)
-        {
-            count++;
-        }
-
-        return count;
     }
 
     private async void RecoverFromUnexpectedShutdown()

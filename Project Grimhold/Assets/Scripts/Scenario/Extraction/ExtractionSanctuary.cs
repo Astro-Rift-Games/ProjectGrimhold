@@ -61,7 +61,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
             : null;
         _registeredId = Id;
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             OwnerIdValue = 0;
             RitualState = ExtractionRitualState.NotStarted;

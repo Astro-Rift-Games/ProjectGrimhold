@@ -7,7 +7,7 @@ using UnityEngine;
 /// without treating the avatar as the Fusion PlayerObject.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class RaidAvatarParticipantLink : NetworkBehaviour
+public sealed class RaidAvatarParticipantLink : NetworkBehaviour, IInputAuthorityGained
 {
     [Networked]
     public NetworkId ParticipantId { get; private set; }
@@ -34,6 +34,12 @@ public sealed class RaidAvatarParticipantLink : NetworkBehaviour
         return Runner != null && ParticipantId.IsValid &&
             Runner.TryFindObject(ParticipantId, out NetworkObject participantObject) &&
             participantObject != null && participantObject.TryGetBehaviour(out participant);
+    }
+
+    public void InputAuthorityGained()
+    {
+        Runner?.GetComponent<NetworkSpawnManager>()?
+            .NotifyHostMigrationAuthorityChanged();
     }
 
     internal void NotifyCorpseConversionCompleted()

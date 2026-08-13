@@ -65,7 +65,7 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
         ConfigureParticipantFilter();
         _configurationValid = ValidateConfiguration();
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             NetworkedIsAvailable = _startsAvailable;
         }

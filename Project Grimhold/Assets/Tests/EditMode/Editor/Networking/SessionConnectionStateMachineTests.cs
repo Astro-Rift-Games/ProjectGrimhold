@@ -283,20 +283,84 @@ public sealed class SessionConnectionStateMachineTests
         }
     }
 
-    [TestCase(false, 2, false)]
-    [TestCase(true, 1, false)]
-    [TestCase(true, 2, true)]
-    [TestCase(true, 4, true)]
-    public void ParticipantReturnPolicy_UsesMigrationOnlyForHostWithRemainingPeers(
+    [TestCase(GameMode.Host, true, 0, true)]
+    [TestCase(GameMode.Client, false, 1, true)]
+    [TestCase(GameMode.Host, false, 0, false)]
+    [TestCase(GameMode.Client, true, 0, false)]
+    [TestCase(GameMode.Shared, false, 0, false)]
+    public void HostMigrationRolePolicy_SeparatesHostRestoreFromClientAdoption(
+        GameMode gameMode,
         bool isServer,
-        int activePlayerCount,
+        int expectedRole,
+        bool expectedSuccess)
+    {
+        bool success = HostMigrationLifecycleController.TryResolveReplacementRole(
+            gameMode,
+            isServer,
+            out HostMigrationReplacementRole role);
+
+        Assert.That(success, Is.EqualTo(expectedSuccess));
+        if (!expectedSuccess)
+        {
+            return;
+        }
+
+        Assert.That(
+            (int)role,
+            Is.EqualTo(expectedRole));
+    }
+
+    [TestCase(RaidParticipantState.Raiding, false, false, false, true)]
+    [TestCase(RaidParticipantState.Defeated, false, false, false, true)]
+    [TestCase(RaidParticipantState.Extracted, false, false, false, false)]
+    [TestCase(RaidParticipantState.Aborted, false, false, false, false)]
+    [TestCase(RaidParticipantState.Defeated, true, false, false, false)]
+    [TestCase(RaidParticipantState.Raiding, false, true, false, false)]
+    [TestCase(RaidParticipantState.Raiding, false, false, true, false)]
+    public void HostMigrationEligibility_UsesDurableProfileAndTerminalSemantics(
+        RaidParticipantState state,
+        bool isReturnAuthorized,
+        bool terminalKnown,
+        bool isOldHost,
         bool expected)
     {
+        var profileId = new ProfileId("profile-survivor");
+        var oldHostProfileId = isOldHost
+            ? profileId
+            : new ProfileId("profile-old-host");
+
         Assert.That(
-            SessionConnectionCoordinator.ShouldUseHostMigrationDeparture(
-                isServer,
-                activePlayerCount),
+            NetworkSpawnManager.IsHostMigrationRecoveryEligible(
+                profileId,
+                oldHostProfileId,
+                state,
+                isReturnAuthorized,
+                terminalKnown),
             Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void HostMigrationSealing_InvalidatesRecoveredMappingMissingFromCurrentActivePlayers()
+    {
+        PlayerRef recoveredPlayer = PlayerRef.FromIndex(2);
+        var activePlayersBeforeDisconnect = new HashSet<PlayerRef>
+        {
+            recoveredPlayer
+        };
+        Assert.That(
+            NetworkSpawnManager.IsRecoveredMappingCurrent(
+                recoveredPlayer,
+                activePlayersBeforeDisconnect,
+                playerObjectMatches: true),
+            Is.True);
+
+        var activePlayersAtFinalInvariant = new HashSet<PlayerRef>();
+        Assert.That(
+            NetworkSpawnManager.IsRecoveredMappingCurrent(
+                recoveredPlayer,
+                activePlayersAtFinalInvariant,
+                playerObjectMatches: true),
+            Is.False);
     }
 
     [Test]

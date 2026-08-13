@@ -9,7 +9,7 @@ using UnityEngine;
 /// defeated body can remain in the raid after its owner returns to Town.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class NetworkRaidParticipant : NetworkBehaviour
+public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGained
 {
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
@@ -125,16 +125,22 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     /// </summary>
     internal bool TryAbortForClosure()
     {
-        if (!HasStateAuthority || State != RaidParticipantState.Raiding)
-        {
-            return false;
-        }
+        return TryTransitionToAborted(authorizeReturn: true);
+    }
 
-        State = RaidParticipantState.Aborted;
-        CurrentAvatarId = default;
-        ResultSequence++;
-        IsReturnAuthorized = true;
-        return true;
+    public void InputAuthorityGained()
+    {
+        Runner?.GetComponent<NetworkSpawnManager>()?
+            .NotifyHostMigrationAuthorityChanged();
+    }
+
+    /// <summary>
+    /// Terminalizes a raiding participant that did not recover a peer during Host Migration.
+    /// This is not a voluntary Return and therefore never publishes Return authorization.
+    /// </summary>
+    internal bool TryAbortForHostMigrationRecovery()
+    {
+        return TryTransitionToAborted(authorizeReturn: false);
     }
 
     /// <summary>
@@ -190,10 +196,29 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    private void RPC_RequestAbandon()
+    private void RPC_RequestAbandon(RpcInfo info = default)
     {
         if (State != RaidParticipantState.Raiding)
         {
+            return;
+        }
+
+        NetworkSpawnManager spawnManager = Runner != null
+            ? Runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        string rejectionReason = null;
+        if (spawnManager == null ||
+            !spawnManager.TryResolveReturnRequester(
+                this,
+                info.Source,
+                out bool requesterIsHost,
+                out rejectionReason) ||
+            requesterIsHost)
+        {
+            Debug.LogWarning(
+                $"[HM-MULTI] Abandon rejected for the operational Host or an invalid requester. " +
+                $"Reason={rejectionReason ?? "Operational Host cannot abandon during an active Raid"}.",
+                this);
             return;
         }
 
@@ -201,9 +226,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
         CurrentAvatarId = default;
         ResultSequence++;
         IsReturnAuthorized = true;
-        Debug.Log(
-            $"[HOST-RETURN-MIGRATION] Participant return authorized. State={State}.",
-            this);
+        Debug.Log($"[HM-MULTI] Client abandon authorized. State={State}.", this);
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -219,34 +242,34 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
             return;
         }
 
+        NetworkSpawnManager spawnManager = Runner != null
+            ? Runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        string rejectionReason = null;
+        if (spawnManager == null ||
+            !spawnManager.TryResolveReturnRequester(
+                this,
+                info.Source,
+                out bool requesterIsHost,
+                out rejectionReason))
+        {
+            Debug.LogWarning(
+                $"[HM-MULTI] Return rejected because requester identity could not be resolved. " +
+                $"Reason={rejectionReason ?? "Missing NetworkSpawnManager"}.",
+                this);
+            return;
+        }
+
+        if (requesterIsHost)
+        {
+            Debug.LogWarning(
+                "[HM-MULTI] Operational Host Return rejected while the Host must sustain the Raid.",
+                this);
+            return;
+        }
+
         if (State == RaidParticipantState.Defeated)
         {
-            string rejectionReason = null;
-            NetworkSpawnManager spawnManager = Runner != null
-                ? Runner.GetComponent<NetworkSpawnManager>()
-                : null;
-            if (spawnManager == null ||
-                !spawnManager.TryResolveReturnRequester(
-                    this,
-                    info.Source,
-                    out bool requesterIsHost,
-                    out rejectionReason))
-            {
-                Debug.LogWarning(
-                    $"[RAID-SPECTATOR] Return rejected because requester identity could not be " +
-                    $"resolved. Reason={rejectionReason ?? "Missing NetworkSpawnManager"}.",
-                    this);
-                return;
-            }
-
-            if (requesterIsHost)
-            {
-                Debug.LogWarning(
-                    "[RAID-SPECTATOR] Host Return rejected while the defeated Host must sustain the raid.",
-                    this);
-                return;
-            }
-
             if (!spawnManager.TryRegisterControlledReturn(this, out rejectionReason))
             {
                 Debug.LogWarning(
@@ -263,5 +286,19 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour
     {
         return State == RaidParticipantState.Raiding && avatar != null &&
             avatar.Id.IsValid && avatar.Id == CurrentAvatarId;
+    }
+
+    private bool TryTransitionToAborted(bool authorizeReturn)
+    {
+        if (!HasStateAuthority || State != RaidParticipantState.Raiding)
+        {
+            return false;
+        }
+
+        State = RaidParticipantState.Aborted;
+        CurrentAvatarId = default;
+        ResultSequence++;
+        IsReturnAuthorized = authorizeReturn;
+        return true;
     }
 }

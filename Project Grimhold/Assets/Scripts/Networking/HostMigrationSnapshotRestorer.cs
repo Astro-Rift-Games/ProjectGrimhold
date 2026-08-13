@@ -17,11 +17,9 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     private readonly Dictionary<NetworkId, NetworkObject> _restoredSceneObjects = new Dictionary<NetworkId, NetworkObject>();
     private readonly List<NetworkObject> _spawnedThisExecution = new List<NetworkObject>();
     private readonly HashSet<NetworkObject> _allRestoredObjects = new HashSet<NetworkObject>();
-    private readonly Dictionary<PlayerRef, NetworkObject> _restoredPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
-    private readonly Dictionary<PlayerRef, NetworkObject> _pendingReconnectPlayerObjects = new Dictionary<PlayerRef, NetworkObject>();
+    private readonly Dictionary<ProfileId, NetworkObject> _restoredParticipants = new Dictionary<ProfileId, NetworkObject>();
 
-    public IReadOnlyDictionary<PlayerRef, NetworkObject> GetRestoredPlayerObjects() => _restoredPlayerObjects;
-    public IReadOnlyDictionary<PlayerRef, NetworkObject> GetPendingReconnectPlayerObjects() => _pendingReconnectPlayerObjects;
+    public IReadOnlyDictionary<ProfileId, NetworkObject> GetRestoredParticipants() => _restoredParticipants;
 
     public bool IsRestoringObject(NetworkObject networkObject)
     {
@@ -39,7 +37,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
 
     public void HostMigrationResumeCallback(NetworkRunner runner)
     {
-        Debug.Log("[HOST-RETURN-MIGRATION] HostMigrationResumeCallback entered.", this);
+        Debug.Log("[HM-MULTI] Host snapshot resume callback entered.", this);
         if (runner == null || runner != _runner)
         {
             _hasExecuted = true;
@@ -80,15 +78,12 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         _restoredSceneObjects.Clear();
         _spawnedThisExecution.Clear();
         _allRestoredObjects.Clear();
-        _restoredPlayerObjects.Clear();
-        _pendingReconnectPlayerObjects.Clear();
+        _restoredParticipants.Clear();
 
-        Debug.Log("[HostMigrationSnapshotRestorer] Executing snapshot restoration...");
+        Debug.Log("[HM-MULTI] Executing authoritative snapshot restoration.", this);
         try
         {
-            LogDiagnosticsBeforeRestore(runner);
             RestoreDynamicObjects(runner);
-            LogDiagnosticsAfterRestore();
             RestoreSceneObjects(runner);
             ApplyEntityIdFixups();
 
@@ -101,10 +96,10 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 return;
             }
 
-            RestorePlayerAuthorities(runner);
+            BuildRestoredParticipantIndex();
 
-            Debug.Log("[HOST-RETURN-MIGRATION] Snapshot restoration finished successfully.");
-            _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredPlayerObjects(), GetPendingReconnectPlayerObjects());
+            Debug.Log("[HM-MULTI] Snapshot restoration finished successfully.", this);
+            _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredParticipants());
         }
         catch (Exception ex)
         {
@@ -127,18 +122,16 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             }
         }
         _spawnedThisExecution.Clear();
-        _spawnedThisExecution.Clear();
         _allRestoredObjects.Clear();
         _restoredDynamicObjects.Clear();
         _restoredSceneObjects.Clear();
-        _restoredPlayerObjects.Clear();
-        _pendingReconnectPlayerObjects.Clear();
+        _restoredParticipants.Clear();
     }
 
     private void ReportRestoreFailure()
     {
         Debug.LogWarning(
-            "[HOST-RETURN-MIGRATION] Snapshot restoration failed; lifecycle owner will clean up the replacement.");
+            "[HM-MULTI] Snapshot restoration failed; lifecycle owner will clean up the replacement.");
     }
 
     public bool TryGetRestoredDynamicObject(NetworkId previousId, out NetworkObject restoredObject)
@@ -155,51 +148,6 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             }
         }
         return false;
-    }
-
-    private int _diagnosticSnapshotDynamicCount = 0;
-
-    private void LogDiagnosticsBeforeRestore(NetworkRunner runner)
-    {
-        _diagnosticSnapshotDynamicCount = 0;
-        foreach (var no in runner.GetResumeSnapshotNetworkObjects())
-        {
-            if (no == null) continue;
-            bool isPlayer = no.TryGetBehaviour<PlayerCharacter>(out _);
-            Debug.Log($"[HM-DIAG] Snapshot dynamic #{_diagnosticSnapshotDynamicCount}: oldId={no.Id}, name={no.gameObject.name}, isPlayer={isPlayer}, inputAuthority={no.InputAuthority}");
-            _diagnosticSnapshotDynamicCount++;
-        }
-
-        foreach (var pair in runner.GetResumeSnapshotNetworkObjectPlayerObjects())
-        {
-            Debug.Log($"[HM-DIAG] Previous PlayerObject: PlayerRef={pair.Key} -> oldNetworkId={pair.Value}");
-        }
-
-        foreach (var player in runner.ActivePlayers)
-        {
-            bool hasPlayerObject = runner.TryGetPlayerObject(player, out NetworkObject existing);
-            Debug.Log($"[HM-DIAG] Before manual restore: PlayerRef={player}, hasPlayerObject={hasPlayerObject}, networkId={(hasPlayerObject && existing != null ? existing.Id.ToString() : "N/A")}");
-        }
-    }
-
-    private void LogDiagnosticsAfterRestore()
-    {
-        int playerObjectCount = 0;
-        foreach (var obj in _restoredDynamicObjects.Values)
-        {
-            if (obj != null && obj.TryGetBehaviour<PlayerCharacter>(out _))
-            {
-                playerObjectCount++;
-            }
-        }
-        
-        int previousPlayerMappingCount = 0;
-        foreach (var _ in _runner.GetResumeSnapshotNetworkObjectPlayerObjects())
-        {
-            previousPlayerMappingCount++;
-        }
-
-        Debug.Log($"[HM-DIAG] Restore Summary: snapshot count={_diagnosticSnapshotDynamicCount}, restored count={_restoredDynamicObjects.Count}, players in restored dynamic={playerObjectCount}, previous PlayerObject mapping count={previousPlayerMappingCount}");
     }
 
     private void RestoreDynamicObjects(NetworkRunner runner)
@@ -245,8 +193,6 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             _spawnedThisExecution.Add(newObject);
             _allRestoredObjects.Add(newObject);
 
-            bool isPlayerChar = newObject.TryGetBehaviour<PlayerCharacter>(out _);
-            Debug.Log($"[HM-DIAG] Restored dynamic: oldId={oldId} -> newId={newObject.Id}, name={newObject.gameObject.name}, isPlayer={isPlayerChar}");
         }
     }
 
@@ -414,67 +360,28 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
         return true;
     }
 
-    private void RestorePlayerAuthorities(NetworkRunner runner)
+    private void BuildRestoredParticipantIndex()
     {
-        var activePlayers = new HashSet<PlayerRef>(runner.ActivePlayers);
-        
-        foreach (var pair in runner.GetResumeSnapshotNetworkObjectPlayerObjects())
+        _restoredParticipants.Clear();
+        foreach (NetworkObject restoredObject in _restoredDynamicObjects.Values)
         {
-            PlayerRef playerRef = pair.Key;
-            NetworkId oldNetworkId = pair.Value;
-
-            if (activePlayers.Contains(playerRef))
+            if (restoredObject == null ||
+                !restoredObject.TryGetBehaviour(out NetworkRaidParticipant participant))
             {
-                if (_restoredDynamicObjects.TryGetValue(oldNetworkId, out NetworkObject newObject))
-                {
-                    newObject.AssignInputAuthority(playerRef);
-                    runner.SetPlayerObject(playerRef, newObject);
-
-                    if (newObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                        participant.TryResolveCurrentAvatar(out NetworkObject avatar) &&
-                        (participant.State == RaidParticipantState.Raiding ||
-                         participant.State == RaidParticipantState.Extracted))
-                    {
-                        avatar.AssignInputAuthority(playerRef);
-                    }
-
-                    Debug.Log($"[HM-DIAG-TEMP] Checking rebind: playerRef={playerRef}, runner.LocalPlayer={runner.LocalPlayer}, match={playerRef == runner.LocalPlayer}");
-
-                    if (playerRef == runner.LocalPlayer)
-                    {
-                        Debug.Log($"[HM-DIAG-TEMP] LocalCameraController.Instance is {(LocalCameraController.Instance == null ? "NULL" : "valid")}");
-
-                        if (newObject.TryGetBehaviour(out LocalPlayerCameraBinder cameraBinder))
-                        {
-                            cameraBinder.TryBindAsLocalPlayer();
-                        }
-
-                        if (newObject.TryGetBehaviour(out LocalPlayerHudBinder hudBinder))
-                        {
-                            hudBinder.TryBindAsLocalPlayer();
-                        }
-                    }
-
-                    _restoredPlayerObjects.Add(playerRef, newObject);
-                    Debug.Log($"[HostMigrationSnapshotRestorer] Restored authority for PlayerRef {playerRef} to new NetworkId {newObject.Id}.");
-                }
-                else
-                {
-                    throw new InvalidOperationException($"Cannot resolve old NetworkId {oldNetworkId} for PlayerRef {playerRef} in restored dynamic objects.");
-                }
+                continue;
             }
-            else
+
+            var profileId = new ProfileId(participant.ProfileId.ToString());
+            if (!profileId.IsValid || !_restoredParticipants.TryAdd(profileId, restoredObject))
             {
-                if (_restoredDynamicObjects.TryGetValue(oldNetworkId, out NetworkObject newObject))
-                {
-                    _pendingReconnectPlayerObjects.Add(playerRef, newObject);
-                    Debug.Log($"[HostMigrationSnapshotRestorer] PlayerRef {playerRef} is no longer active. Tracking as pending reconnect for NetworkId {newObject.Id}.");
-                }
-                else
-                {
-                    throw new InvalidOperationException($"Cannot resolve old NetworkId {oldNetworkId} for pending PlayerRef {playerRef} in restored dynamic objects.");
-                }
+                throw new InvalidOperationException(
+                    $"Restored participant has an invalid or duplicate ProfileId '{profileId}'.");
             }
+
+            Debug.Log(
+                $"[HM-MULTI] Restored participant indexed. ProfileId={profileId}, " +
+                $"OldPlayerRefDiagnostic={restoredObject.InputAuthority}, NetworkId={restoredObject.Id}.",
+                this);
         }
     }
 }

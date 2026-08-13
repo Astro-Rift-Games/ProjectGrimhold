@@ -569,29 +569,26 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private bool ShouldEnterSpectatorAutomatically()
     {
-        return !TryResolveCanonicalLocalRole(out bool isHost) || isHost;
+        return !TryResolveOperationalLocalRole(out bool isHost) || isHost;
     }
 
     private bool CanDefeatedParticipantReturn()
     {
         return _participant != null && _participant.State == RaidParticipantState.Defeated &&
-            TryResolveCanonicalLocalRole(out bool isHost) && !isHost;
+            TryResolveOperationalLocalRole(out bool isHost) && !isHost;
     }
 
-    private bool TryResolveCanonicalLocalRole(out bool isHost)
+    private bool TryResolveOperationalLocalRole(out bool isHost)
     {
-        isHost = false;
-        NetworkSpawnManager spawnManager = _runner != null
-            ? _runner.GetComponent<NetworkSpawnManager>()
-            : null;
-        string profileId = _participant != null ? _participant.ProfileId.ToString() : null;
-        if (spawnManager == null || string.IsNullOrWhiteSpace(profileId) ||
-            !spawnManager.TryGetCanonicalHostProfileId(out ProfileId hostProfileId))
+        if (_runner == null || !_runner.IsRunning)
         {
+            isHost = false;
             return false;
         }
 
-        isHost = string.Equals(profileId, hostProfileId.Value, StringComparison.Ordinal);
+        // The operational Host is runner-scoped and can change after Host Migration.
+        // The frozen launch-context Host ProfileId identifies only the historical Host.
+        isHost = _runner.IsServer;
         return true;
     }
 

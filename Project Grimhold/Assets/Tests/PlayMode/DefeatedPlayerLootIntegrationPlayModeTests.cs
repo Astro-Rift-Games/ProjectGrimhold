@@ -16,6 +16,7 @@ namespace Tests.PlayMode.Loot
     public sealed class DefeatedPlayerLootIntegrationPlayModeTests
     {
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
+        private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string ChestPrefabGuid = "2c19a78647c64b84a765ff0280706b7d";
         private const string EnemyMeleePrefabGuid = "5deca87613df0fa409d98702aec643d4";
         private static readonly LootId BoneLootId = new("bone");
@@ -105,6 +106,56 @@ namespace Tests.PlayMode.Loot
             Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.Zero);
             Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.EqualTo(1));
             AssertContainerEmptyState(view.ContainerPanel);
+        }
+
+        [UnityTest]
+        public IEnumerator DefeatedPlayer_CorpseAndLootSurviveParticipantDespawn()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+
+            NetworkObject participantPrefab = LoadPrefab(ParticipantPrefabGuid);
+            NetworkObject participantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        "unrecovered-defeated-profile",
+                        PlayerClassId.Melee,
+                        "hm-recovery-generation"));
+            NetworkRaidParticipant participant =
+                participantObject.GetComponent<NetworkRaidParticipant>();
+            RaidAvatarParticipantLink link =
+                _defeatedPlayerObject.GetComponent<RaidAvatarParticipantLink>();
+            Assert.That(participant.TrySetCurrentAvatar(_defeatedPlayerObject), Is.True);
+            link.SetRestoredParticipant(participantObject.Id);
+
+            yield return DefeatSource(new[] { new LootEntry(BoneLootId, 2) });
+            Assert.That(participant.State, Is.EqualTo(RaidParticipantState.Defeated));
+            NetworkId corpseId = _defeatedPlayerObject.Id;
+            EntityId corpseEntityId =
+                _defeatedPlayerObject.GetComponent<PlayerCharacter>().Id;
+
+            _runner.Despawn(participantObject);
+            yield return null;
+
+            Assert.That(
+                _runner.TryFindObject(corpseId, out NetworkObject corpse),
+                Is.True);
+            Assert.That(corpse, Is.SameAs(_defeatedPlayerObject));
+            NetworkLootContainer container = corpse.GetComponent<NetworkLootContainer>();
+            Assert.That(container, Is.Not.Null);
+            Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(container.GetLootAmount(BoneLootId), Is.EqualTo(2));
+            Assert.That(
+                _registry.TryGetInteractable(corpseEntityId, out IInteractable interactable),
+                Is.True);
+            Assert.That(
+                interactable,
+                Is.SameAs(corpse.GetComponent<NetworkLootContainerInteractable>()));
+            Assert.That(ResolveInteraction(corpseEntityId, out InteractionResult result), Is.True);
+            Assert.That(result.Success, Is.True);
         }
 
         [UnityTest]

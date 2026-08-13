@@ -418,20 +418,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     }
 
     /// <summary>
-    /// Shuts down this peer's Host runner as an individual participant departure.
-    /// Remaining peers own any resulting Host Migration; this method never closes the match.
-    /// </summary>
-    public async Task<bool> ShutdownForHostMigrationDepartureAsync()
-    {
-        NetworkRunner departingRunner = _runner;
-        Debug.Log(
-            $"[HOST-RETURN-MIGRATION] Host participant is leaving runner " +
-            $"'{departingRunner?.SessionInfo.Name}'. Remaining peers may migrate.",
-            this);
-        return await ShutdownAndDestroyRunnerAsync();
-    }
-
-    /// <summary>
     /// Marks the current Client runner as the source of an in-progress Host Migration.
     /// </summary>
     internal bool TryBeginHostMigration(NetworkRunner sourceRunner)
@@ -442,7 +428,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         _hostMigrationSourceRunner = sourceRunner;
-        Debug.Log("[HOST-RETURN-MIGRATION] Launcher marked the current raid runner as migrating.", this);
+        Debug.Log("[HM-MULTI] Launcher marked the current Raid runner as migrating.", this);
         return true;
     }
 
@@ -477,7 +463,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
         _hostMigrationSourceRunner = null;
 
-        Debug.Log("[HOST-RETURN-MIGRATION] Launcher adopted replacement runner and shutdown listener.", this);
+        Debug.Log("[HM-MULTI] Launcher adopted replacement runner and shutdown listener.", this);
         return true;
     }
 
@@ -492,7 +478,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         _hostMigrationSourceRunner = null;
-        Debug.LogError($"[HOST-RETURN-MIGRATION] HostMigration failed: {reason}", this);
+        Debug.LogError($"[HM-MULTI] Host Migration failed: {reason}", this);
         RunnerShutdownObserved?.Invoke(sourceRunner, ShutdownReason.Error);
     }
 
@@ -519,7 +505,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         Debug.Log(
-            $"[HOST-RETURN-MIGRATION] FusionSessionLauncher observed runner shutdown. " +
+            $"[HM-MULTI] FusionSessionLauncher observed runner shutdown. " +
             $"Reason={shutdownReason}.",
             this);
         ClearReferencesOnShutdown(runner);

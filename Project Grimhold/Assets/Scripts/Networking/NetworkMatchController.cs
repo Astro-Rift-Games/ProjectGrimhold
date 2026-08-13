@@ -175,6 +175,12 @@ public sealed class NetworkMatchController : NetworkBehaviour
         {
             NetworkSpawnManager activeSpawnManager = Runner.GetComponent<NetworkSpawnManager>();
             if (activeSpawnManager != null &&
+                activeSpawnManager.IsHostMigrationRecoveryInProgress)
+            {
+                return;
+            }
+
+            if (activeSpawnManager != null &&
                 (activeSpawnManager.HasAdmittedRaidParticipants || _hasObservedParticipant))
             {
                 _hasObservedParticipant |= activeSpawnManager.HasRaidingParticipants;
@@ -214,6 +220,21 @@ public sealed class NetworkMatchController : NetworkBehaviour
             spawnManager?.AbortRaidingParticipantsForClosure();
             BeginClosure(RaidClosureReason.BootstrapFailure);
         }
+    }
+
+    /// <summary>
+    /// Restores the non-networked participant-observation latch after a migration snapshot.
+    /// Natural completion remains suspended by the spawn manager until roster sealing ends.
+    /// </summary>
+    internal void RestoreHostMigrationParticipantObservation(bool snapshotHadRaidingParticipant)
+    {
+        if (!HasStateAuthority)
+        {
+            throw new InvalidOperationException(
+                "Only State Authority can restore Host Migration participant observation.");
+        }
+
+        _hasObservedParticipant |= snapshotHadRaidingParticipant;
     }
 
     private void BeginClosure(RaidClosureReason reason)

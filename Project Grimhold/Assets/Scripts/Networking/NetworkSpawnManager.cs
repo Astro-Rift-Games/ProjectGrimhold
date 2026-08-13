@@ -15,6 +15,15 @@ using Spawning;
 [DisallowMultipleComponent]
 public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 {
+    internal enum HostMigrationRecoveryWindowState
+    {
+        Inactive,
+        Open,
+        Sealing,
+        Closed,
+        Failed
+    }
+
     internal enum HostMigrationCompletionStatus
     {
         Success,
@@ -85,7 +94,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
-    private readonly Dictionary<PlayerRef, NetworkObject> _pendingHostMigrationReconnects = new();
+    private readonly Dictionary<ProfileId, PlayerRef> _earlyHostMigrationReconnects = new();
+    private readonly Dictionary<ProfileId, NetworkObject> _restoredHostMigrationParticipants = new();
+    private readonly HashSet<ProfileId> _hostMigrationEligibleProfiles = new();
+    private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
+    private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
@@ -112,9 +125,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private bool _resumedScenePipelineReady;
     private bool _snapshotRestoreReported;
     private bool _snapshotRestoreSucceeded;
-    private IReadOnlyDictionary<PlayerRef, NetworkObject> _restoredPlayersAwaitingRebind;
-    private IReadOnlyDictionary<PlayerRef, NetworkObject> _pendingReconnectsAwaitingRebind;
+    private IReadOnlyDictionary<ProfileId, NetworkObject> _restoredParticipantsAwaitingRebind;
     private TaskCompletionSource<HostMigrationCompletionResult> _hostMigrationCompletion;
+    private TaskCompletionSource<bool> _hostMigrationRosterChanged;
+    private HostMigrationRecoveryWindowState _hostMigrationRecoveryState;
+    private bool _hostMigrationSnapshotHadRaidingParticipant;
+
+    internal HostMigrationRecoveryWindowState HostMigrationRecoveryState =>
+        _hostMigrationRecoveryState;
+    internal bool IsHostMigrationRecoveryInProgress =>
+        _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open ||
+        _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Sealing;
 
     /// <summary>
     /// Exposes the linked coordinator.
@@ -168,30 +189,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                                    _sceneSpawnStatus != SceneSpawnConfigurationStatus.Invalid;
     public bool HasCompletedInitialRaidBootstrap => _initialRaidBootstrapState == InitialRaidBootstrapState.Completed;
 
-    /// <summary>Returns the stable Host identity frozen for this runner's raid.</summary>
-    public bool TryGetCanonicalHostProfileId(out ProfileId hostProfileId)
-    {
-        if (_launchContext == null || !_launchContext.HostProfileId.IsValid)
-        {
-            hostProfileId = default;
-            return false;
-        }
-
-        hostProfileId = _launchContext.HostProfileId;
-        return true;
-    }
-
     /// <summary>
-    /// Resolves a connected RPC source to the exact participant PlayerObject and its canonical raid role.
-    /// PlayerRef is used only as runner-local routing; Host identity comes from the frozen launch context.
+    /// Resolves a connected RPC source to the exact participant PlayerObject and its
+    /// operational Host role. After migration the operational Host may differ from the
+    /// historical Host stored in the frozen launch context.
     /// </summary>
     internal bool TryResolveReturnRequester(
         NetworkRaidParticipant participant,
         PlayerRef source,
-        out bool isCanonicalHost,
+        out bool isOperationalHost,
         out string rejectionReason)
     {
-        isCanonicalHost = false;
+        isOperationalHost = false;
         rejectionReason = null;
         if (_runner == null || !_runner.IsServer || participant == null || source.IsNone ||
             participant.Runner != _runner || participant.Object == null)
@@ -222,7 +231,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        isCanonicalHost = string.Equals(
+        isOperationalHost = source == _runner.LocalPlayer || string.Equals(
             profileId,
             _launchContext.HostProfileId.Value,
             StringComparison.Ordinal);
@@ -283,7 +292,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneSpawnPointConfiguration = null;
         _startupContext = default;
         _launchContext = null;
-        _pendingHostMigrationReconnects.Clear();
+        ClearHostMigrationRoster();
         _cleanupBuffer.Clear();
     }
 
@@ -337,7 +346,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
-        _pendingHostMigrationReconnects.Clear();
+        ClearHostMigrationRoster();
         _spawnedEnemies.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
@@ -357,12 +366,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _resumedScenePipelineReady = false;
         _snapshotRestoreReported = false;
         _snapshotRestoreSucceeded = false;
-        _restoredPlayersAwaitingRebind = null;
-        _pendingReconnectsAwaitingRebind = null;
+        _restoredParticipantsAwaitingRebind = null;
         _hostMigrationCompletion = startupContext.Mode == SessionStartupMode.HostMigrationResume
             ? new TaskCompletionSource<HostMigrationCompletionResult>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
             : null;
+        _hostMigrationRosterChanged = startupContext.Mode == SessionStartupMode.HostMigrationResume
+            ? CreateRosterSignal()
+            : null;
+        _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Inactive;
+        _hostMigrationSnapshotHadRaidingParticipant = false;
 
         Debug.Log($"[NetworkSpawnManager] Initialized for runner: {runner.name}");
         return true;
@@ -503,6 +516,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     {
         if (runner != _runner)
             return;
+
+        if (_startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            SignalRosterChanged();
+        }
 
         if (!runner.IsServer)
             return;
@@ -807,6 +826,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     internal async Task<HostMigrationCompletionResult> WaitForHostMigrationCompletionAsync(
         TimeSpan timeout)
     {
+        return await WaitForHostMigrationCompletionAsync(timeout, CancellationToken.None);
+    }
+
+    internal async Task<HostMigrationCompletionResult> WaitForHostMigrationCompletionAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
         TaskCompletionSource<HostMigrationCompletionResult> completion =
             _hostMigrationCompletion;
         if (completion == null)
@@ -827,34 +853,83 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return await completion.Task;
         }
 
-        var timeoutSignal = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        using (var timeoutCancellation = new CancellationTokenSource(timeout))
-        using (timeoutCancellation.Token.Register(
-                   state => ((TaskCompletionSource<bool>)state).TrySetResult(true),
-                   timeoutSignal))
+        long lifecycleDeadline = System.Diagnostics.Stopwatch.GetTimestamp() +
+            (long)(timeout.TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+        while (!completion.Task.IsCompleted)
         {
-            Task completedTask = await Task.WhenAny(
-                completion.Task,
-                timeoutSignal.Task);
-            if (completedTask == completion.Task)
-            {
-                return await completion.Task;
-            }
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        if (!completion.Task.IsCompleted)
-        {
-            completion.TrySetResult(CreateHostMigrationTimeoutResult());
+            if (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open)
+            {
+                TimeSpan remaining = GetRemaining(lifecycleDeadline);
+                TimeSpan recoveryWindow = remaining < TimeSpan.FromSeconds(30)
+                    ? remaining
+                    : TimeSpan.FromSeconds(30);
+                await RunHostMigrationRecoveryWindowAsync(
+                    recoveryWindow,
+                    lifecycleDeadline,
+                    cancellationToken);
+                continue;
+            }
+
+            TimeSpan wait = GetRemaining(lifecycleDeadline);
+            if (wait <= TimeSpan.Zero)
+            {
+                completion.TrySetResult(CreateHostMigrationTimeoutResult());
+                break;
+            }
+
+            Task rosterChanged = GetRosterChangedTask();
+            Task delay = Task.Delay(wait, cancellationToken);
+            await Task.WhenAny(completion.Task, rosterChanged, delay);
         }
 
         return await completion.Task;
     }
 
+    internal async Task WaitForHostMigrationRecoveryWindowOpenAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        if (_hostMigrationCompletion == null || _runner == null || !_runner.IsServer)
+        {
+            throw new InvalidOperationException(
+                "Only a replacement server can await the recovery window.");
+        }
+
+        long deadline = System.Diagnostics.Stopwatch.GetTimestamp() +
+            (long)(timeout.TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+        while (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Inactive)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TimeSpan remaining = GetRemaining(deadline);
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new TimeoutException(
+                    "Snapshot restore did not open the recovery window within the restore budget.");
+            }
+
+            Task changed = GetRosterChangedTask();
+            Task delay = Task.Delay(remaining, cancellationToken);
+            await Task.WhenAny(_hostMigrationCompletion.Task, changed, delay);
+        }
+
+        if (_hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Open &&
+            _hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Closed)
+        {
+            HostMigrationCompletionResult completion =
+                _hostMigrationCompletion.Task.IsCompleted
+                    ? await _hostMigrationCompletion.Task
+                    : default;
+            throw new InvalidOperationException(
+                $"Snapshot restore could not open recovery. State={_hostMigrationRecoveryState}. " +
+                completion.Details);
+        }
+    }
+
     public void ReportSnapshotRestoreResult(
         bool success,
-        IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null,
-        IReadOnlyDictionary<PlayerRef, NetworkObject> pendingReconnects = null)
+        IReadOnlyDictionary<ProfileId, NetworkObject> restoredParticipants = null)
     {
         if (_snapshotRestoreReported)
         {
@@ -864,23 +939,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _snapshotRestoreReported = true;
         _snapshotRestoreSucceeded = success;
-        _restoredPlayersAwaitingRebind = restoredPlayerObjects;
-        _pendingReconnectsAwaitingRebind = pendingReconnects;
+        _restoredParticipantsAwaitingRebind = restoredParticipants;
         Debug.Log(
-            $"[HOST-RETURN-MIGRATION] Snapshot restore reported. Success={success}.",
+            $"[HM-MULTI] Snapshot restore reported. Success={success}.",
             this);
-        TryAdvanceHostMigrationRestoreState(restoredPlayerObjects, pendingReconnects);
+        TryAdvanceHostMigrationRestoreState(restoredParticipants);
     }
 
     private void TryAdvanceHostMigrationRestoreState(
-        IReadOnlyDictionary<PlayerRef, NetworkObject> restoredPlayerObjects = null,
-        IReadOnlyDictionary<PlayerRef, NetworkObject> pendingReconnects = null)
+        IReadOnlyDictionary<ProfileId, NetworkObject> restoredParticipants = null)
     {
         if (_sceneLoadState == SceneLoadProcessingState.Failed || _sceneLoadState == SceneLoadProcessingState.HostMigrationRestoreFailed)
             return;
+        if (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Failed)
+            return;
 
-        restoredPlayerObjects ??= _restoredPlayersAwaitingRebind;
-        pendingReconnects ??= _pendingReconnectsAwaitingRebind;
+        restoredParticipants ??= _restoredParticipantsAwaitingRebind;
 
         if (_snapshotRestoreReported && !_snapshotRestoreSucceeded)
         {
@@ -890,7 +964,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             CompleteHostMigration(
                 HostMigrationCompletionStatus.Failure,
                 "Snapshot restoration reported failure.");
-            ClearPendingHostMigrationRebindData();
+            _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Failed;
+            SignalRosterChanged();
             return;
         }
 
@@ -910,40 +985,15 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             try
             {
                 _sceneLoadState = SceneLoadProcessingState.SnapshotRestoredAwaitingRuntimeRebind;
-                if (restoredPlayerObjects != null && restoredPlayerObjects.Count > 0)
-                {
-                    foreach (var kvp in restoredPlayerObjects)
-                    {
-                        _admittedPlayers.Add(kvp.Key);
-                        _spawnedPlayers[kvp.Key] = kvp.Value;
-                        if (kvp.Value != null &&
-                            kvp.Value.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                            participant.TryResolveCurrentAvatar(out NetworkObject avatar))
-                        {
-                            _spawnedAvatars[kvp.Key] = avatar;
-                        }
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[NetworkSpawnManager] Snapshot restore succeeded but no player mapping was provided or it was empty. No players were repopulated.");
-                }
-
-                if (pendingReconnects != null && pendingReconnects.Count > 0)
-                {
-                    foreach (var kvp in pendingReconnects)
-                    {
-                        _pendingHostMigrationReconnects[kvp.Key] = kvp.Value;
-                    }
-                    Debug.Log($"[NetworkSpawnManager] Tracking {pendingReconnects.Count} pending reconnects from Host Migration.");
-                }
-
-                _sceneLoadState = SceneLoadProcessingState.Completed;
-                _spawnsBlocked = false;
-                Debug.Log("[NetworkSpawnManager] Host Migration Restore succeeded. Players repopulated and spawns unblocked.");
-                CompleteHostMigration(
-                    HostMigrationCompletionStatus.Success,
-                    "Snapshot restore and runtime rebind completed.");
+                InitializeHostMigrationRoster(restoredParticipants);
+                _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Open;
+                DrainEarlyHostMigrationReconnects();
+                SignalRosterChanged();
+                Debug.Log(
+                    $"[HM-MULTI] Recovery window opened. " +
+                    $"Eligible={_hostMigrationEligibleProfiles.Count}, " +
+                    $"Recovered={_hostMigrationRecoveredProfiles.Count}.",
+                    this);
             }
             catch (Exception exception)
             {
@@ -953,10 +1003,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 CompleteHostMigration(
                     HostMigrationCompletionStatus.Failure,
                     $"Runtime rebind failed: {exception.Message}");
-            }
-            finally
-            {
-                ClearPendingHostMigrationRebindData();
+                _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Failed;
+                SignalRosterChanged();
             }
         }
         else
@@ -967,14 +1015,696 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             CompleteHostMigration(
                 HostMigrationCompletionStatus.Failure,
                 "Snapshot restoration reported failure.");
-            ClearPendingHostMigrationRebindData();
+            _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Failed;
+            SignalRosterChanged();
         }
     }
 
     private void ClearPendingHostMigrationRebindData()
     {
-        _restoredPlayersAwaitingRebind = null;
-        _pendingReconnectsAwaitingRebind = null;
+        _restoredParticipantsAwaitingRebind = null;
+    }
+
+    private void ClearHostMigrationRoster()
+    {
+        _earlyHostMigrationReconnects.Clear();
+        _restoredHostMigrationParticipants.Clear();
+        _hostMigrationEligibleProfiles.Clear();
+        _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationRecoveredProfiles.Clear();
+        _hostMigrationSnapshotHadRaidingParticipant = false;
+        _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Inactive;
+        _hostMigrationRosterChanged = CreateRosterSignal();
+        ClearPendingHostMigrationRebindData();
+    }
+
+    private async Task RunHostMigrationRecoveryWindowAsync(
+        TimeSpan recoveryWindow,
+        long lifecycleDeadline,
+        CancellationToken cancellationToken)
+    {
+        long recoveryDeadline = System.Diagnostics.Stopwatch.GetTimestamp() +
+            (long)(recoveryWindow.TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+
+        while (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (AreAllEligibleProfilesRecovered())
+            {
+                SealHostMigrationRoster();
+                return;
+            }
+
+            long effectiveDeadline = Math.Min(recoveryDeadline, lifecycleDeadline);
+            TimeSpan remaining = GetRemaining(effectiveDeadline);
+            if (remaining <= TimeSpan.Zero)
+            {
+                SealHostMigrationRoster();
+                return;
+            }
+
+            Task rosterChanged = GetRosterChangedTask();
+            Task delay = Task.Delay(remaining, cancellationToken);
+            await Task.WhenAny(rosterChanged, delay);
+        }
+    }
+
+    private void InitializeHostMigrationRoster(
+        IReadOnlyDictionary<ProfileId, NetworkObject> restoredParticipants)
+    {
+        if (_runner == null || !_runner.IsServer || _matchController == null ||
+            _launchContext == null || restoredParticipants == null)
+        {
+            throw new InvalidOperationException(
+                "Host Migration roster requires the replacement server, MatchController, launch context, and restored participants.");
+        }
+
+        string generationId = _matchController.RaidGenerationId.ToString();
+        if (string.IsNullOrWhiteSpace(generationId))
+        {
+            throw new InvalidOperationException("Restored RaidGenerationId is invalid.");
+        }
+
+        _restoredHostMigrationParticipants.Clear();
+        _hostMigrationEligibleProfiles.Clear();
+        _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationRecoveredProfiles.Clear();
+        _hostMigrationSnapshotHadRaidingParticipant = false;
+        var restoredAvatarIds = new HashSet<NetworkId>();
+
+        foreach (KeyValuePair<ProfileId, NetworkObject> pair in restoredParticipants)
+        {
+            ProfileId profileId = pair.Key;
+            NetworkObject participantObject = pair.Value;
+            if (!profileId.IsValid || participantObject == null ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                !string.Equals(
+                    participant.RaidGenerationId.ToString(),
+                    generationId,
+                    StringComparison.Ordinal) ||
+                !RaidSessionRules.ContainsProfile(_launchContext.ParticipantProfileIds, profileId) ||
+                !_restoredHostMigrationParticipants.TryAdd(profileId, participantObject))
+            {
+                throw new InvalidOperationException(
+                    $"Restored participant '{profileId}' is duplicated or inconsistent with the Raid generation.");
+            }
+
+            if (participant.State == RaidParticipantState.Raiding &&
+                (!participant.TryResolveCurrentAvatar(out NetworkObject restoredAvatar) ||
+                 restoredAvatar == null ||
+                 !restoredAvatarIds.Add(restoredAvatar.Id)))
+            {
+                throw new InvalidOperationException(
+                    $"Restored Raiding participant '{profileId}' has a missing or duplicated avatar.");
+            }
+
+            bool terminal = participant.IsReturnAuthorized ||
+                participant.State == RaidParticipantState.Extracted ||
+                participant.State == RaidParticipantState.Aborted;
+            _hostMigrationSnapshotHadRaidingParticipant |=
+                participant.State == RaidParticipantState.Raiding;
+
+            if (profileId == _launchContext.HostProfileId)
+            {
+                _hostMigrationUnresolvedProfiles.Add(profileId);
+                continue;
+            }
+
+            if (IsHostMigrationRecoveryEligible(
+                    profileId,
+                    _launchContext.HostProfileId,
+                    participant.State,
+                    participant.IsReturnAuthorized,
+                    terminalKnown: terminal))
+            {
+                _hostMigrationEligibleProfiles.Add(profileId);
+                _hostMigrationUnresolvedProfiles.Add(profileId);
+            }
+            else
+            {
+                _hostMigrationUnresolvedProfiles.Add(profileId);
+                _controlledReturns.MarkTerminal(
+                    new ControlledReturnKey(profileId.Value, generationId));
+            }
+        }
+    }
+
+    internal static bool IsHostMigrationRecoveryEligible(
+        ProfileId profileId,
+        ProfileId oldHostProfileId,
+        RaidParticipantState state,
+        bool isReturnAuthorized,
+        bool terminalKnown)
+    {
+        return profileId.IsValid && profileId != oldHostProfileId &&
+               !isReturnAuthorized && !terminalKnown &&
+               (state == RaidParticipantState.Raiding ||
+                state == RaidParticipantState.Defeated);
+    }
+
+    private bool AreAllEligibleProfilesRecovered()
+    {
+        foreach (ProfileId profileId in _hostMigrationEligibleProfiles)
+        {
+            if (!_hostMigrationRecoveredProfiles.ContainsKey(profileId))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void DrainEarlyHostMigrationReconnects()
+    {
+        if (_hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Open)
+        {
+            return;
+        }
+
+        var arrivals = new List<KeyValuePair<ProfileId, PlayerRef>>(
+            _earlyHostMigrationReconnects);
+        for (int index = 0; index < arrivals.Count; index++)
+        {
+            KeyValuePair<ProfileId, PlayerRef> arrival = arrivals[index];
+            if (!TryRebindHostMigrationProfile(arrival.Key, arrival.Value) &&
+                !_hostMigrationEligibleProfiles.Contains(arrival.Key))
+            {
+                _earlyHostMigrationReconnects.Remove(arrival.Key);
+                if (arrival.Value != _runner.LocalPlayer)
+                {
+                    _runner.Disconnect(arrival.Value);
+                }
+            }
+        }
+    }
+
+    private bool TryRebindHostMigrationProfile(ProfileId profileId, PlayerRef player)
+    {
+        if (_hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Open ||
+            !_hostMigrationEligibleProfiles.Contains(profileId) ||
+            !_hostMigrationUnresolvedProfiles.Contains(profileId) ||
+            !_restoredHostMigrationParticipants.TryGetValue(
+                profileId,
+                out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<ProfileId, PlayerRef> recovered in _hostMigrationRecoveredProfiles)
+        {
+            if (recovered.Value == player && recovered.Key != profileId)
+            {
+                return false;
+            }
+        }
+
+        participantObject.AssignInputAuthority(player);
+        _runner.SetPlayerObject(player, participantObject);
+        _admittedPlayers.Add(player);
+        _spawnedPlayers[player] = participantObject;
+        _admittedProfiles[profileId.Value] = player;
+
+        if (participant.State == RaidParticipantState.Raiding)
+        {
+            if (!participant.TryResolveCurrentAvatar(out NetworkObject avatar) || avatar == null)
+            {
+                throw new InvalidOperationException(
+                    $"Raiding participant '{profileId}' has no restored avatar.");
+            }
+
+            avatar.AssignInputAuthority(player);
+            _spawnedAvatars[player] = avatar;
+        }
+
+        _hostMigrationRecoveredProfiles[profileId] = player;
+        _hostMigrationUnresolvedProfiles.Remove(profileId);
+        _earlyHostMigrationReconnects.Remove(profileId);
+        TryBindRecoveredLocalPresentation(profileId, player, participant);
+        SignalRosterChanged();
+        Debug.Log(
+            $"[HM-MULTI] Participant rebound. ProfileId={profileId}, NewPlayerRef={player}, " +
+            $"State={participant.State}.",
+            this);
+        return true;
+    }
+
+    private void SealHostMigrationRoster()
+    {
+        if (_hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Open)
+        {
+            return;
+        }
+
+        _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Sealing;
+        try
+        {
+            ReconcileRecoveredProfilesWithActivePlayers();
+            FinalizeUnrecoveredHostMigrationProfiles();
+            if (!ValidateSealedHostMigrationRoster(out string failure))
+            {
+                throw new InvalidOperationException(failure);
+            }
+
+            _earlyHostMigrationReconnects.Clear();
+            _hostMigrationUnresolvedProfiles.Clear();
+            _sceneLoadState = SceneLoadProcessingState.Completed;
+            _spawnsBlocked = false;
+            _runner.SessionInfo.IsOpen = false;
+            _runner.SessionInfo.IsVisible = false;
+            _matchController.RestoreHostMigrationParticipantObservation(
+                _hostMigrationSnapshotHadRaidingParticipant);
+            _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Closed;
+            ClearPendingHostMigrationRebindData();
+            CompleteHostMigration(
+                HostMigrationCompletionStatus.Success,
+                "Snapshot restored, recovery roster sealed, and runtime mappings rebound.");
+            Debug.Log("[HM-MULTI] Recovery roster sealed successfully.", this);
+        }
+        catch (Exception exception)
+        {
+            _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Failed;
+            _spawnsBlocked = true;
+            Debug.LogException(exception, this);
+            CompleteHostMigration(
+                HostMigrationCompletionStatus.Failure,
+                $"Recovery roster sealing failed: {exception.Message}");
+        }
+        finally
+        {
+            SignalRosterChanged();
+        }
+    }
+
+    private void ReconcileRecoveredProfilesWithActivePlayers()
+    {
+        var activePlayers = new HashSet<PlayerRef>(_runner.ActivePlayers);
+        var recovered = new List<KeyValuePair<ProfileId, PlayerRef>>(
+            _hostMigrationRecoveredProfiles);
+        for (int index = 0; index < recovered.Count; index++)
+        {
+            ProfileId profileId = recovered[index].Key;
+            PlayerRef player = recovered[index].Value;
+            NetworkObject expected = _restoredHostMigrationParticipants[profileId];
+            if (!expected.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.IsReturnAuthorized ||
+                (participant.State != RaidParticipantState.Raiding &&
+                 participant.State != RaidParticipantState.Defeated))
+            {
+                RemoveRecoveredHostMigrationProfile(profileId, player, requeue: false);
+                _hostMigrationEligibleProfiles.Remove(profileId);
+                _hostMigrationUnresolvedProfiles.Add(profileId);
+                continue;
+            }
+
+            bool playerObjectMatches =
+                _runner.TryGetPlayerObject(player, out NetworkObject actual) &&
+                actual == expected;
+            if (!IsRecoveredMappingCurrent(
+                    player,
+                    activePlayers,
+                    playerObjectMatches))
+            {
+                RemoveRecoveredHostMigrationProfile(profileId, player, requeue: true);
+            }
+        }
+    }
+
+    internal static bool IsRecoveredMappingCurrent(
+        PlayerRef player,
+        ISet<PlayerRef> activePlayers,
+        bool playerObjectMatches)
+    {
+        return !player.IsNone && activePlayers != null &&
+               activePlayers.Contains(player) && playerObjectMatches;
+    }
+
+    private void FinalizeUnrecoveredHostMigrationProfiles()
+    {
+        var unresolved = new List<ProfileId>(_hostMigrationUnresolvedProfiles);
+        string generationId = _matchController.RaidGenerationId.ToString();
+        for (int index = 0; index < unresolved.Count; index++)
+        {
+            ProfileId profileId = unresolved[index];
+            if (!_restoredHostMigrationParticipants.TryGetValue(
+                    profileId,
+                    out NetworkObject participantObject) ||
+                participantObject == null ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+            {
+                throw new InvalidOperationException(
+                    $"Unrecovered participant '{profileId}' is missing during sealing.");
+            }
+
+            NetworkObject avatar = null;
+            participant.TryResolveCurrentAvatar(out avatar);
+            if (avatar == null && participant.State != RaidParticipantState.Defeated)
+            {
+                TryFindLinkedAvatarOrCorpse(participantObject.Id, out avatar);
+            }
+
+            NetworkObject defeatedCorpse = null;
+            if (participant.State == RaidParticipantState.Defeated &&
+                (!TryFindLinkedAvatarOrCorpse(participantObject.Id, out defeatedCorpse) ||
+                 defeatedCorpse == null ||
+                 !defeatedCorpse.HasStateAuthority ||
+                 defeatedCorpse.InputAuthority != PlayerRef.None ||
+                 defeatedCorpse.GetComponent<NetworkLootContainer>() == null))
+            {
+                throw new InvalidOperationException(
+                    $"Unrecovered Defeated profile '{profileId}' has no authoritative lootable corpse.");
+            }
+
+            if (participant.State == RaidParticipantState.Raiding &&
+                !participant.TryAbortForHostMigrationRecovery())
+            {
+                throw new InvalidOperationException(
+                    $"Unrecovered Raiding participant '{profileId}' could not transition to Aborted.");
+            }
+
+            participantObject.AssignInputAuthority(PlayerRef.None);
+            if (avatar != null)
+            {
+                avatar.AssignInputAuthority(PlayerRef.None);
+            }
+
+            _controlledReturns.MarkTerminal(
+                new ControlledReturnKey(profileId.Value, generationId));
+
+            if (participant.State != RaidParticipantState.Defeated && avatar != null)
+            {
+                _runner.Despawn(avatar);
+            }
+
+            _runner.Despawn(participantObject);
+            _restoredHostMigrationParticipants.Remove(profileId);
+            Debug.Log(
+                $"[HM-MULTI] Unrecovered participant finalized. ProfileId={profileId}, " +
+                $"State={participant.State}.",
+                this);
+        }
+    }
+
+    private bool ValidateSealedHostMigrationRoster(out string failure)
+    {
+        var activePlayers = new HashSet<PlayerRef>(_runner.ActivePlayers);
+        foreach (KeyValuePair<ProfileId, PlayerRef> recovered in _hostMigrationRecoveredProfiles)
+        {
+            if (!activePlayers.Contains(recovered.Value) ||
+                !_restoredHostMigrationParticipants.TryGetValue(
+                    recovered.Key,
+                    out NetworkObject participantObject) ||
+                participantObject == null ||
+                !_runner.TryGetPlayerObject(recovered.Value, out NetworkObject playerObject) ||
+                playerObject != participantObject ||
+                participantObject.InputAuthority != recovered.Value ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+            {
+                failure = $"Recovered profile '{recovered.Key}' has an invalid PlayerObject mapping.";
+                return false;
+            }
+
+            if (participant.IsReturnAuthorized ||
+                (participant.State != RaidParticipantState.Raiding &&
+                 participant.State != RaidParticipantState.Defeated))
+            {
+                failure = $"Recovered profile '{recovered.Key}' is terminal and cannot remain operational.";
+                return false;
+            }
+
+            if (participant.State == RaidParticipantState.Raiding &&
+                (!participant.TryResolveCurrentAvatar(out NetworkObject avatar) ||
+                 avatar == null || avatar.InputAuthority != recovered.Value))
+            {
+                failure = $"Recovered Raiding profile '{recovered.Key}' has invalid avatar authority.";
+                return false;
+            }
+
+            if (participant.State == RaidParticipantState.Defeated &&
+                (!TryFindLinkedAvatarOrCorpse(participantObject.Id, out NetworkObject corpse) ||
+                 corpse == null || !corpse.HasStateAuthority ||
+                 corpse.InputAuthority != PlayerRef.None ||
+                 corpse.GetComponent<NetworkLootContainer>() == null))
+            {
+                failure = $"Recovered Defeated profile '{recovered.Key}' has an invalid corpse or loot authority.";
+                return false;
+            }
+        }
+
+        foreach (KeyValuePair<ProfileId, NetworkObject> restored in
+                 _restoredHostMigrationParticipants)
+        {
+            if (restored.Value != null &&
+                restored.Value.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                participant.State == RaidParticipantState.Raiding &&
+                !_hostMigrationRecoveredProfiles.ContainsKey(restored.Key))
+            {
+                failure = $"Raiding profile '{restored.Key}' has no recovered peer.";
+                return false;
+            }
+        }
+
+        failure = null;
+        return true;
+    }
+
+    private void RemoveRecoveredHostMigrationProfile(
+        ProfileId profileId,
+        PlayerRef player,
+        bool requeue)
+    {
+        if (_restoredHostMigrationParticipants.TryGetValue(
+                profileId,
+                out NetworkObject participantObject) &&
+            participantObject != null)
+        {
+            if (participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                participant.TryResolveCurrentAvatar(out NetworkObject avatar) &&
+                avatar != null)
+            {
+                avatar.AssignInputAuthority(PlayerRef.None);
+            }
+
+            participantObject.AssignInputAuthority(PlayerRef.None);
+        }
+
+        if (!player.IsNone)
+        {
+            bool playerIsActive = false;
+            foreach (PlayerRef activePlayer in _runner.ActivePlayers)
+            {
+                if (activePlayer == player)
+                {
+                    playerIsActive = true;
+                    break;
+                }
+            }
+
+            if (playerIsActive &&
+                _runner.TryGetPlayerObject(player, out NetworkObject mappedObject) &&
+                mappedObject != null)
+            {
+                _runner.SetPlayerObject(player, null);
+            }
+
+            _admittedPlayers.Remove(player);
+            _spawnedPlayers.Remove(player);
+            _spawnedAvatars.Remove(player);
+            _admissionData.Remove(player);
+        }
+
+        _admittedProfiles.Remove(profileId.Value);
+        _hostMigrationRecoveredProfiles.Remove(profileId);
+        if (requeue && _hostMigrationEligibleProfiles.Contains(profileId))
+        {
+            _hostMigrationUnresolvedProfiles.Add(profileId);
+        }
+
+        SignalRosterChanged();
+    }
+
+    private void TryBindRecoveredLocalPresentation(
+        ProfileId profileId,
+        PlayerRef player,
+        NetworkRaidParticipant participant)
+    {
+        if (player != _runner.LocalPlayer || participant == null)
+        {
+            return;
+        }
+
+        NetworkObject presentationObject = null;
+        if (participant.State == RaidParticipantState.Raiding)
+        {
+            participant.TryResolveCurrentAvatar(out presentationObject);
+        }
+        else if (participant.State == RaidParticipantState.Defeated)
+        {
+            TryFindLinkedAvatarOrCorpse(participant.Object.Id, out presentationObject);
+        }
+
+        if (presentationObject == null)
+        {
+            return;
+        }
+
+        presentationObject.GetComponent<LocalPlayerCameraBinder>()?.TryBindAsLocalPlayer();
+        presentationObject.GetComponent<LocalPlayerHudBinder>()?.TryBindAsLocalPlayer();
+        Debug.Log($"[HM-MULTI] Local presentation rebound. ProfileId={profileId}.", this);
+    }
+
+    private bool TryFindLinkedAvatarOrCorpse(
+        NetworkId participantId,
+        out NetworkObject linkedObject)
+    {
+        linkedObject = null;
+        _cleanupBuffer.Clear();
+        _runner.GetAllNetworkObjects(_cleanupBuffer);
+        for (int index = 0; index < _cleanupBuffer.Count; index++)
+        {
+            NetworkObject candidate = _cleanupBuffer[index];
+            if (candidate != null &&
+                candidate.TryGetBehaviour(out RaidAvatarParticipantLink link) &&
+                link.ParticipantId == participantId)
+            {
+                linkedObject = candidate;
+                _cleanupBuffer.Clear();
+                return true;
+            }
+        }
+
+        _cleanupBuffer.Clear();
+        return false;
+    }
+
+    private static TimeSpan GetRemaining(long deadline)
+    {
+        long remainingTicks = deadline - System.Diagnostics.Stopwatch.GetTimestamp();
+        return remainingTicks <= 0
+            ? TimeSpan.Zero
+            : TimeSpan.FromSeconds(
+                (double)remainingTicks / System.Diagnostics.Stopwatch.Frequency);
+    }
+
+    /// <summary>
+    /// Waits for the replacement Client's replicated PlayerObject mapping without
+    /// participating in server snapshot restore or authoritative completion.
+    /// </summary>
+    internal async Task WaitForLocalHostMigrationRecoveryAsync(
+        ProfileId expectedProfileId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        if (_runner == null || _runner.IsServer || !expectedProfileId.IsValid)
+        {
+            throw new InvalidOperationException(
+                "Local Client recovery requires a running non-server replacement and a valid ProfileId.");
+        }
+
+        long deadline = System.Diagnostics.Stopwatch.GetTimestamp() +
+            (long)(timeout.TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+        while (!TryValidateAndBindLocalHostMigrationRecovery(
+                   expectedProfileId,
+                   out string failure))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TimeSpan remaining = GetRemaining(deadline);
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new TimeoutException(
+                    $"Replacement Client local recovery timed out. {failure}");
+            }
+
+            Task changed = GetRosterChangedTask();
+            Task timeoutTask = Task.Delay(remaining, cancellationToken);
+            await Task.WhenAny(changed, timeoutTask);
+        }
+    }
+
+    internal bool TryValidateAndBindLocalHostMigrationRecovery(
+        ProfileId expectedProfileId,
+        out string failure)
+    {
+        if (_runner == null || !_runner.IsRunning || _runner.IsServer ||
+            _runner.LocalPlayer.IsNone ||
+            !_runner.TryGetPlayerObject(
+                _runner.LocalPlayer,
+                out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+        {
+            failure = "Local PlayerObject/participant has not replicated yet.";
+            return false;
+        }
+
+        if (participant.ProfileId.ToString() != expectedProfileId.Value ||
+            participantObject.InputAuthority != _runner.LocalPlayer ||
+            _matchController == null ||
+            !string.Equals(
+                participant.RaidGenerationId.ToString(),
+                _matchController.RaidGenerationId.ToString(),
+                StringComparison.Ordinal))
+        {
+            failure = "Local ProfileId, generation, or participant authority is inconsistent.";
+            return false;
+        }
+
+        if (participant.State == RaidParticipantState.Raiding &&
+            (!participant.TryResolveCurrentAvatar(out NetworkObject avatar) ||
+             avatar == null || avatar.InputAuthority != _runner.LocalPlayer))
+        {
+            failure = "Local Raiding avatar authority has not replicated yet.";
+            return false;
+        }
+
+        if (participant.State != RaidParticipantState.Raiding &&
+            participant.State != RaidParticipantState.Defeated)
+        {
+            failure = $"Local participant is terminal ({participant.State}).";
+            return false;
+        }
+
+        TryBindRecoveredLocalPresentation(expectedProfileId, _runner.LocalPlayer, participant);
+        failure = null;
+        return true;
+    }
+
+    public override void OnObjectEnterAOI(
+        NetworkRunner runner,
+        NetworkObject networkObject,
+        PlayerRef player)
+    {
+        if (runner == _runner &&
+            _startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume &&
+            !runner.IsServer)
+        {
+            SignalRosterChanged();
+        }
+    }
+
+    private Task GetRosterChangedTask()
+    {
+        if (_hostMigrationRosterChanged == null ||
+            _hostMigrationRosterChanged.Task.IsCompleted)
+        {
+            _hostMigrationRosterChanged = CreateRosterSignal();
+        }
+
+        return _hostMigrationRosterChanged.Task;
+    }
+
+    private void SignalRosterChanged()
+    {
+        _hostMigrationRosterChanged?.TrySetResult(true);
+    }
+
+    private static TaskCompletionSource<bool> CreateRosterSignal()
+    {
+        return new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private void CompleteHostMigration(
@@ -992,14 +1722,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!completion.TrySetResult(result))
         {
             Debug.LogWarning(
-                $"[HOST-RETURN-MIGRATION] Ignored duplicate migration completion. " +
+                $"[HM-MULTI] Ignored duplicate migration completion. " +
                 $"Attempted={status}, Existing={completion.Task.Result.Status}.",
                 this);
             return;
         }
 
         Debug.Log(
-            $"[HOST-RETURN-MIGRATION] Runtime rebind completion={status}. {details}",
+            $"[HM-MULTI] Runtime rebind completion={status}. {details}",
             this);
     }
 
@@ -1038,13 +1768,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!runner.IsServer || runner != _runner)
             return;
 
-        bool isHostMigrationWindow = false;
-        if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        bool isHostMigrationResume =
+            _startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume;
+        if (isHostMigrationResume)
         {
-            if (_matchController != null && _matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
+            if (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Sealing ||
+                _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Closed ||
+                _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Failed ||
+                _launchContext == null ||
+                !TryValidateEarlyHostMigrationToken(
+                    token,
+                    out RaidAdmissionData migrationAdmission) ||
+                migrationAdmission.ProfileId == _launchContext.HostProfileId)
             {
-                isHostMigrationWindow = true;
+                Debug.LogWarning(
+                    "[HM-MULTI] Refusing reconnect outside the open recovery boundary or for an invalid profile.",
+                    this);
+                request.Refuse();
             }
+
+            return;
         }
 
         if (_launchContext != null && !TryValidateRaidAdmissionToken(token, out _))
@@ -1054,9 +1798,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        bool allowJoin = (_matchController != null &&
-                          _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers) ||
-                         isHostMigrationWindow;
+        bool allowJoin = _matchController != null &&
+                         _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers;
 
         if (!allowJoin)
         {
@@ -1071,11 +1814,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
         {
-            Debug.Log($"[HM-DIAG] OnPlayerJoined during HostMigrationResume: PlayerRef={player}");
+            Debug.Log($"[HM-MULTI] Replacement player joined: PlayerRef={player}.", this);
         }
 
         if (!runner.IsServer || runner != _runner)
         {
+            if (runner == _runner &&
+                _startupContext.IsValid &&
+                _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+            {
+                SignalRosterChanged();
+            }
+
+            return;
+        }
+
+        if (_startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            HandleHostMigrationPlayerJoined(runner, player);
             return;
         }
 
@@ -1136,6 +1893,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (player.IsNone)
             return false;
 
+        if (_startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            return false;
+        }
+
         if (_matchController == null)
             return false;
 
@@ -1170,19 +1933,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (_pendingHostMigrationReconnects.TryGetValue(player, out NetworkObject pendingObj))
-        {
-            _pendingHostMigrationReconnects.Remove(player);
-            _admittedPlayers.Add(player);
-            _spawnedPlayers[player] = pendingObj;
-
-            pendingObj.AssignInputAuthority(player);
-            runner.SetPlayerObject(player, pendingObj);
-
-            Debug.Log($"[NetworkSpawnManager] Player {player} readmitted from pending Host Migration reconnect. Reassigned authority to NetworkId {pendingObj.Id}.");
-            return true;
-        }
-
         bool admissionPhaseIsOpen = _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers;
         if (!admissionPhaseIsOpen)
             return false;
@@ -1197,24 +1947,120 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
-    public void NotifyPendingReconnectCharacterDefeated(NetworkObject obj)
+    private void HandleHostMigrationPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (obj == null) return;
-        
-        PlayerRef? keyToRemove = null;
-        foreach (var kvp in _pendingHostMigrationReconnects)
+        bool acceptingArrivals =
+            _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Inactive ||
+            _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open;
+        if (!acceptingArrivals)
         {
-            if (kvp.Value == obj)
+            if (player != runner.LocalPlayer)
             {
-                keyToRemove = kvp.Key;
-                break;
+                runner.Disconnect(player);
             }
+
+            return;
         }
 
-        if (keyToRemove.HasValue)
+        if (TryGetJoinData(runner, player, out PlayerJoinData resolvedJoinData) &&
+            _hostMigrationRecoveredProfiles.TryGetValue(
+                resolvedJoinData.ProfileId,
+                out PlayerRef recoveredPlayer))
         {
-            _pendingHostMigrationReconnects.Remove(keyToRemove.Value);
-            Debug.Log($"[NetworkSpawnManager] Pending reconnect character for PlayerRef {keyToRemove.Value} was defeated. Removed from pending list.");
+            if (recoveredPlayer == player)
+            {
+                SignalRosterChanged();
+                return;
+            }
+
+            if (player != runner.LocalPlayer)
+            {
+                runner.Disconnect(player);
+            }
+            else
+            {
+                FailHostMigrationRecovery(
+                    "Local replacement arrival conflicts with an already recovered ProfileId.");
+            }
+
+            return;
+        }
+
+        if (!TryGetJoinData(runner, player, out PlayerJoinData joinData) ||
+            !joinData.ProfileId.IsValid ||
+            _launchContext == null ||
+            joinData.ProfileId == _launchContext.HostProfileId ||
+            !RaidSessionRules.ContainsProfile(
+                _launchContext.ParticipantProfileIds,
+                joinData.ProfileId) ||
+            (_earlyHostMigrationReconnects.TryGetValue(
+                 joinData.ProfileId,
+                 out PlayerRef existingPlayer) && existingPlayer != player))
+        {
+            Debug.LogWarning(
+                $"[HM-MULTI] Rejected replacement arrival PlayerRef={player}.",
+                this);
+            if (player != runner.LocalPlayer)
+            {
+                runner.Disconnect(player);
+            }
+            else
+            {
+                FailHostMigrationRecovery(
+                    "Local replacement arrival has invalid recovery identity data.");
+            }
+
+            return;
+        }
+
+        _earlyHostMigrationReconnects[joinData.ProfileId] = player;
+        if (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open)
+        {
+            TryRebindHostMigrationProfile(joinData.ProfileId, player);
+        }
+
+        Debug.Log(
+            $"[HM-MULTI] Queued recovery arrival ProfileId={joinData.ProfileId.Value}, PlayerRef={player}, State={_hostMigrationRecoveryState}.",
+            this);
+        SignalRosterChanged();
+    }
+
+    private void FailHostMigrationRecovery(string details)
+    {
+        _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Failed;
+        _spawnsBlocked = true;
+        CompleteHostMigration(HostMigrationCompletionStatus.Failure, details);
+        SignalRosterChanged();
+    }
+
+    public void NotifyPendingReconnectCharacterDefeated(NetworkObject obj)
+    {
+        if (obj == null || !IsHostMigrationRecoveryInProgress ||
+            !obj.TryGetBehaviour(out RaidAvatarParticipantLink link) ||
+            !link.TryResolveParticipant(out NetworkRaidParticipant participant))
+        {
+            return;
+        }
+
+        ProfileId profileId = new ProfileId(participant.ProfileId.ToString());
+        if (_hostMigrationRecoveredProfiles.TryGetValue(
+                profileId,
+                out PlayerRef player))
+        {
+            _spawnedAvatars.Remove(player);
+        }
+
+        // Defeat changes the recovered shape from avatar gameplay authority to
+        // participant-only spectator authority while preserving the corpse object.
+        SignalRosterChanged();
+    }
+
+    internal void NotifyHostMigrationAuthorityChanged()
+    {
+        if (_startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        {
+            SignalRosterChanged();
         }
     }
 
@@ -1349,6 +2195,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                    out _);
     }
 
+    private bool TryValidateEarlyHostMigrationToken(
+        byte[] token,
+        out RaidAdmissionData admission)
+    {
+        return RaidAdmissionDataCodec.TryDecode(token, out admission) &&
+               admission.ProfileId.IsValid &&
+               IsRaidAdmissionValid(admission) &&
+               RaidSessionRules.ContainsProfile(
+                   _launchContext.ParticipantProfileIds,
+                   admission.ProfileId);
+    }
+
     private bool IsRaidAdmissionValid(in RaidAdmissionData admission)
     {
         return RaidAdmissionRules.IsAdmitted(_launchContext, admission);
@@ -1422,7 +2280,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     {
         if (_startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume)
         {
-            Debug.Log($"[HM-DIAG] SpawnPlayer during HostMigrationResume: PlayerRef={player}");
+            Debug.LogWarning(
+                $"[HM-MULTI] Fresh SpawnPlayer rejected during recovery. PlayerRef={player}.",
+                this);
         }
 
         if (!CanSpawnPlayer(runner, player))
@@ -2202,6 +3062,45 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!runner.IsServer || runner != _runner)
             return;
 
+        if (_startupContext.IsValid &&
+            _startupContext.Mode == SessionStartupMode.HostMigrationResume &&
+            (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open ||
+             _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Sealing) &&
+            TryResolveHostMigrationProfile(player, out ProfileId migrationProfileId))
+        {
+            bool terminal = false;
+            if (_restoredHostMigrationParticipants.TryGetValue(
+                    migrationProfileId,
+                    out NetworkObject restoredParticipant) &&
+                restoredParticipant != null &&
+                restoredParticipant.TryGetBehaviour(out NetworkRaidParticipant migrationParticipant))
+            {
+                var key = new ControlledReturnKey(
+                    migrationProfileId.Value,
+                    migrationParticipant.RaidGenerationId.ToString());
+                terminal |= migrationParticipant.IsReturnAuthorized ||
+                            migrationParticipant.State == RaidParticipantState.Extracted ||
+                            migrationParticipant.State == RaidParticipantState.Aborted ||
+                            _controlledReturns.IsTerminal(in key);
+            }
+
+            _earlyHostMigrationReconnects.Remove(migrationProfileId);
+            RemoveRecoveredHostMigrationProfile(
+                migrationProfileId,
+                player,
+                requeue: !terminal);
+            if (terminal)
+            {
+                _hostMigrationEligibleProfiles.Remove(migrationProfileId);
+                _hostMigrationUnresolvedProfiles.Add(migrationProfileId);
+            }
+
+            Debug.Log(
+                $"[HM-MULTI] PlayerLeft invalidated recovered profile '{migrationProfileId.Value}' during {_hostMigrationRecoveryState}.",
+                this);
+            return;
+        }
+
         if (!_spawnedPlayers.TryGetValue(player, out NetworkObject participantObject) ||
             participantObject == null ||
             !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
@@ -2255,6 +3154,32 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         runner.Despawn(participantObject);
 
         Debug.Log($"Despawned participant for player {player}.");
+    }
+
+    private bool TryResolveHostMigrationProfile(
+        PlayerRef player,
+        out ProfileId profileId)
+    {
+        foreach (KeyValuePair<ProfileId, PlayerRef> pair in _hostMigrationRecoveredProfiles)
+        {
+            if (pair.Value == player)
+            {
+                profileId = pair.Key;
+                return true;
+            }
+        }
+
+        foreach (KeyValuePair<ProfileId, PlayerRef> pair in _earlyHostMigrationReconnects)
+        {
+            if (pair.Value == player)
+            {
+                profileId = pair.Key;
+                return true;
+            }
+        }
+
+        profileId = default;
+        return false;
     }
 
     private void RemovePlayerRouting(PlayerRef player)
@@ -2313,7 +3238,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _snapshotRestoreSucceeded = false;
             ClearPendingHostMigrationRebindData();
             _hostMigrationCompletion = null;
-            _pendingHostMigrationReconnects.Clear();
+            ClearHostMigrationRoster();
             Debug.Log("[NetworkSpawnManager] Shutdown complete. Cleared all states and references.");
         }
     }
