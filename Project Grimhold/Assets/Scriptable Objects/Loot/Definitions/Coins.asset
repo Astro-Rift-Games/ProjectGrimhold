@@ -19,7 +19,7 @@ MonoBehaviour:
   _worldSprite: {fileID: 21300000, guid: 1d146328d2b503e49b51da00f2533826, type: 3}
   _category: 1
   _rarity: 0
-  _extractionValuePerUnit: 50
+  _extractionValuePerUnit: 1
   _sellValuePerUnit: 1
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}

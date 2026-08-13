@@ -142,7 +142,7 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         // Pass dependencies to the UI
         if (_view.ShopUI != null)
         {
-            _view.ShopUI.Initialize(merchantController, context);
+            _view.ShopUI.Initialize(merchantController, context, GetComponent<PlayerLootReceiver>());
             _view.ShopUI.OnCloseRequested.AddListener(ClosePanelFromUI);
         }
 

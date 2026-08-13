@@ -12,6 +12,45 @@ using System.Collections.Generic;
 [RequireComponent(typeof(NetworkObject))]
 public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterClientRpcSender
 {
+    private class PlayerLootReceiverHandler : IMerchantInventoryHandler
+    {
+        private readonly PlayerLootReceiver _receiver;
+        private readonly EntityId _merchantId;
+
+        public PlayerLootReceiverHandler(PlayerLootReceiver receiver, EntityId merchantId)
+        {
+            _receiver = receiver;
+            _merchantId = merchantId;
+        }
+
+        public bool ValidatePurchase(string lootId, int amount)
+        {
+            if (_receiver == null) return false;
+            var req = new LootTransferRequest(_merchantId, _receiver.Id, new LootId(lootId), amount, 0);
+            return _receiver.ValidateReceive(req) == LootTransferFailureReason.None;
+        }
+
+        public void CommitPurchase(string lootId, int amount)
+        {
+            if (_receiver == null) return;
+            var req = new LootTransferRequest(_merchantId, _receiver.Id, new LootId(lootId), amount, 0);
+            _receiver.CommitReceive(req);
+        }
+
+        public bool ValidateSale(string lootId, int amount)
+        {
+            if (_receiver == null) return false;
+            var req = new LootTransferRequest(_receiver.Id, _merchantId, new LootId(lootId), amount, 0);
+            return _receiver.ValidateExtraction(req) == LootTransferFailureReason.None;
+        }
+
+        public void CommitSale(string lootId, int amount)
+        {
+            if (_receiver == null) return;
+            var req = new LootTransferRequest(_receiver.Id, _merchantId, new LootId(lootId), amount, 0);
+            _receiver.CommitExtraction(req);
+        }
+    }
     [SerializeField] private LootDefinitionCatalog _catalog;
     [SerializeField] private List<MerchantStockItem> _stock;
 
@@ -82,10 +121,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
 
     public override void Spawned()
     {
-        if (HasStateAuthority)
-        {
-            _requestValidator = new MerchantRequestValidator(_stock);
-        }
+        _requestValidator = new MerchantRequestValidator(_stock);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -105,6 +141,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
 
     public void RequestSale(LootId lootId, int amount)
     {
+        Debug.Log($"[ShopTransaction] TownMerchantNetworkController.RequestSale: LootId={lootId.Value}, Amount={amount}");
         _localOrchestrator?.RequestSale(lootId, amount);
     }
 
@@ -120,38 +157,104 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
     }
 
     // --- RPCs ---
-    [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
+    [Rpc(RpcSources.All, RpcTargets.All, Channel = RpcChannel.Reliable)]
     private void Rpc_RequestPurchase(string lootId, int amount, int clientSequence, RpcInfo info = default)
     {
+        PlayerRef source = info.Source.IsNone ? Runner.LocalPlayer : info.Source;
+        Debug.Log($"[ShopTransaction] TownMerchantNetworkController.Rpc_RequestPurchase (Server): LootId={lootId}, Amount={amount}, Seq={clientSequence}, Source={source}");
+        
         if (_requestValidator == null) return;
-
-        if (_requestValidator.TryProcessPurchaseRequest(info.Source, clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+        
+        PlayerLootReceiver receiver = null;
+        if (Runner.TryGetPlayerObject(source, out var networkObject) && networkObject != null)
         {
-            Rpc_PurchaseResponse(info.Source, clientSequence, isApproved, txId.Timestamp, txId.Value);
+            receiver = networkObject.GetComponent<PlayerLootReceiver>();
+        }
+
+        if (receiver == null)
+        {
+            var receivers = FindObjectsByType<PlayerLootReceiver>(FindObjectsSortMode.None);
+            foreach (var r in receivers)
+            {
+                if (r.Object != null && r.Object.InputAuthority == source)
+                {
+                    receiver = r;
+                    break;
+                }
+            }
+        }
+
+        if (receiver != null && receiver.HasStateAuthority)
+        {
+            if (_requestValidator.TryProcessPurchaseRequest(source, new PlayerLootReceiverHandler(receiver, new EntityId((int)Object.Id.Raw)), clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+            {
+                Rpc_PurchaseResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
+            }
         }
     }
 
-    [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
+    [Rpc(RpcSources.All, RpcTargets.All, Channel = RpcChannel.Reliable)]
     private void Rpc_RequestSale(string lootId, int amount, int clientSequence, RpcInfo info = default)
     {
+        PlayerRef source = info.Source.IsNone ? Runner.LocalPlayer : info.Source;
+        Debug.Log($"[ShopTransaction] TownMerchantNetworkController.Rpc_RequestSale (Server): LootId={lootId}, Amount={amount}, Seq={clientSequence}, Source={source}");
+        
         if (_requestValidator == null) return;
-
-        if (_requestValidator.TryProcessSaleRequest(info.Source, clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+        
+        PlayerLootReceiver receiver = null;
+        if (Runner.TryGetPlayerObject(source, out var networkObject) && networkObject != null)
         {
-            Rpc_SaleResponse(info.Source, clientSequence, isApproved, txId.Timestamp, txId.Value);
+            receiver = networkObject.GetComponent<PlayerLootReceiver>();
+        }
+        else
+        {
+            Debug.Log($"[ShopTransaction] Server: Runner.TryGetPlayerObject failed or returned null for Source={source}");
+        }
+
+        if (receiver == null)
+        {
+            var receivers = FindObjectsByType<PlayerLootReceiver>(FindObjectsSortMode.None);
+            foreach (var r in receivers)
+            {
+                if (r.Object != null && r.Object.InputAuthority == source)
+                {
+                    Debug.Log($"[ShopTransaction] Server: Found receiver via FindObjectsByType fallback.");
+                    receiver = r;
+                    break;
+                }
+            }
+        }
+        
+        if (receiver == null)
+        {
+            Debug.LogError($"[ShopTransaction] Server: Receiver is still null! Request will fail.");
+        }
+
+        if (receiver != null && receiver.HasStateAuthority)
+        {
+            if (_requestValidator.TryProcessSaleRequest(source, new PlayerLootReceiverHandler(receiver, new EntityId((int)Object.Id.Raw)), clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+            {
+                Debug.Log($"[ShopTransaction] Server: TryProcessSaleRequest processed. isApproved={isApproved}, txId={txId.Timestamp}");
+                Rpc_SaleResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
+            }
+            else
+            {
+                Debug.Log($"[ShopTransaction] Server: TryProcessSaleRequest returned false.");
+            }
         }
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All, Channel = RpcChannel.Reliable)]
+    [Rpc(RpcSources.All, RpcTargets.All, Channel = RpcChannel.Reliable)]
     private void Rpc_PurchaseResponse([RpcTarget] PlayerRef target, int clientSequence, bool isApproved, long timestamp, Guid txGuid)
     {
         var txId = isApproved ? new ShopTransactionId(timestamp, txGuid) : default;
         _localOrchestrator?.OnPurchaseResponseReceived(clientSequence, isApproved, txId);
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All, Channel = RpcChannel.Reliable)]
+    [Rpc(RpcSources.All, RpcTargets.All, Channel = RpcChannel.Reliable)]
     private void Rpc_SaleResponse([RpcTarget] PlayerRef target, int clientSequence, bool isApproved, long timestamp, Guid txGuid)
     {
+        Debug.Log($"[ShopTransaction] TownMerchantNetworkController.Rpc_SaleResponse (Client): Seq={clientSequence}, isApproved={isApproved}");
         var txId = isApproved ? new ShopTransactionId(timestamp, txGuid) : default;
         _localOrchestrator?.OnSaleResponseReceived(clientSequence, isApproved, txId);
     }

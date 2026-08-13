@@ -1,8 +1,18 @@
 using Fusion;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
+
 
 public enum MerchantOperationType { Purchase, Sale }
+
+public interface IMerchantInventoryHandler
+{
+    bool ValidatePurchase(string lootId, int amount);
+    void CommitPurchase(string lootId, int amount);
+    bool ValidateSale(string lootId, int amount);
+    void CommitSale(string lootId, int amount);
+}
 
 public readonly struct ProcessedRequestRecord
 {
@@ -49,7 +59,8 @@ public sealed class MerchantRequestValidator
     /// Returns false if there is a sequence conflict (same sequence, different payload).
     /// </summary>
     public bool TryProcessPurchaseRequest(
-        PlayerRef player, 
+        PlayerRef player,
+        IMerchantInventoryHandler inventoryHandler,
         int clientSequence, 
         string lootId, 
         int amount, 
@@ -57,7 +68,7 @@ public sealed class MerchantRequestValidator
         out bool isApproved,
         out ShopTransactionId transactionId)
     {
-        return TryProcessRequest(player, clientSequence, lootId, amount, MerchantOperationType.Purchase, catalog, out isApproved, out transactionId);
+        return TryProcessRequest(player, inventoryHandler, clientSequence, lootId, amount, MerchantOperationType.Purchase, catalog, out isApproved, out transactionId);
     }
 
     /// <summary>
@@ -66,7 +77,8 @@ public sealed class MerchantRequestValidator
     /// Returns false if there is a sequence conflict (same sequence, different payload).
     /// </summary>
     public bool TryProcessSaleRequest(
-        PlayerRef player, 
+        PlayerRef player,
+        IMerchantInventoryHandler inventoryHandler,
         int clientSequence, 
         string lootId, 
         int amount, 
@@ -74,7 +86,7 @@ public sealed class MerchantRequestValidator
         out bool isApproved,
         out ShopTransactionId transactionId)
     {
-        return TryProcessRequest(player, clientSequence, lootId, amount, MerchantOperationType.Sale, catalog, out isApproved, out transactionId);
+        return TryProcessRequest(player, inventoryHandler, clientSequence, lootId, amount, MerchantOperationType.Sale, catalog, out isApproved, out transactionId);
     }
 
     public void OnPlayerLeft(PlayerRef player)
@@ -98,7 +110,8 @@ public sealed class MerchantRequestValidator
     }
 
     private bool TryProcessRequest(
-        PlayerRef player, 
+        PlayerRef player,
+        IMerchantInventoryHandler inventoryHandler,
         int clientSequence, 
         string lootId, 
         int amount, 
@@ -127,14 +140,31 @@ public sealed class MerchantRequestValidator
             return false;
         }
 
-        isApproved = amount > 0 && catalog != null && catalog.TryGet(lootId, out _);
+        isApproved = amount > 0 && catalog != null && inventoryHandler != null;
         
-        if (isApproved && type == MerchantOperationType.Purchase)
+        if (isApproved)
         {
-            if (!HasAvailableStock(player, lootId, amount))
+            if (type == MerchantOperationType.Purchase)
             {
-                isApproved = false;
+                if (!inventoryHandler.ValidatePurchase(lootId, amount) || !HasAvailableStock(player, lootId, amount))
+                {
+                    isApproved = false;
+                    Debug.Log($"[ShopTransaction] Validator: Purchase rejected. ValidatePurchase/Stock failed.");
+                }
             }
+            else // Sale
+            {
+                bool isValidSale = inventoryHandler.ValidateSale(lootId, amount);
+                Debug.Log($"[ShopTransaction] Validator: ValidateSale returned {isValidSale}");
+                if (!isValidSale)
+                {
+                    isApproved = false;
+                }
+            }
+        }
+        else
+        {
+            Debug.Log($"[ShopTransaction] Validator: Initial validation failed (Amount<=0 or null catalog/handler).");
         }
 
         if (isApproved)
@@ -143,7 +173,12 @@ public sealed class MerchantRequestValidator
             
             if (type == MerchantOperationType.Purchase)
             {
+                inventoryHandler.CommitPurchase(lootId, amount);
                 RecordPurchase(player, lootId, amount);
+            }
+            else
+            {
+                inventoryHandler.CommitSale(lootId, amount);
             }
         }
         else

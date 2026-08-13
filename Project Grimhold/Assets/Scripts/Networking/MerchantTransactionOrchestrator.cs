@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public interface IMasterClientRpcSender
 {
@@ -65,6 +66,7 @@ public sealed class MerchantTransactionOrchestrator
 
     public void RequestSale(LootId lootId, int amount)
     {
+        Debug.Log($"[ShopTransaction] MerchantTransactionOrchestrator.RequestSale: LootId={lootId.Value}, Amount={amount}");
         if (amount <= 0 || !_catalog.TryGet(lootId.Value, out _))
         {
             TransactionCompleted?.Invoke(MerchantTransactionResult.InvalidRequest);
@@ -110,6 +112,7 @@ public sealed class MerchantTransactionOrchestrator
 
     public void OnSaleResponseReceived(int clientSequence, bool isApproved, ShopTransactionId transactionId)
     {
+        Debug.Log($"[ShopTransaction] MerchantTransactionOrchestrator.OnSaleResponseReceived: Seq={clientSequence}, isApproved={isApproved}");
         if (!_pendingTransactions.Remove(clientSequence, out var pending) || pending.OperationType != MerchantOperationType.Sale)
         {
             // Duplicate or unknown response
@@ -125,7 +128,9 @@ public sealed class MerchantTransactionOrchestrator
         if (_catalog.TryGet(pending.LootId.Value, out var definition))
         {
             long sellValue = definition.SellValuePerUnit * pending.Amount;
+            Debug.Log($"[ShopTransaction] Local execution: SellValue={sellValue}");
             var result = _shopService.TryExecuteSale(_profileId, pending.LootId, pending.Amount, sellValue, transactionId);
+            Debug.Log($"[ShopTransaction] Local execution result: {result}");
             
             TransactionCompleted?.Invoke(MapResult(result, MerchantOperationType.Sale));
         }

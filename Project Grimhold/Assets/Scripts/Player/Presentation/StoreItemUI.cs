@@ -17,15 +17,28 @@ public sealed class StoreItemUI : MonoBehaviour
     [SerializeField] private TMP_Text _stockText;
     [SerializeField] private Button _actionButton;
     [SerializeField] private TMP_Text _actionButtonText;
+    
+    [Header("Selection")]
+    [SerializeField] private Button _selectButton;
+    [SerializeField] private GameObject _selectionHighlight;
 
     private string _currentLootId;
-    private Action<string> _onActionClicked;
+    private Action<string> _onFastActionClicked;
+    private Action<string, bool> _onSelected;
+    private bool _isMerchantStock;
 
     private void Awake()
     {
         if (_actionButton != null)
         {
-            _actionButton.onClick.AddListener(OnButtonClicked);
+            if (_actionButton != null)
+            {
+                _actionButton.onClick.AddListener(OnFastActionButtonClicked);
+            }
+            if (_selectButton != null)
+            {
+                _selectButton.onClick.AddListener(OnSelectButtonClicked);
+            }
         }
     }
 
@@ -33,32 +46,52 @@ public sealed class StoreItemUI : MonoBehaviour
     {
         if (_actionButton != null)
         {
-            _actionButton.onClick.RemoveListener(OnButtonClicked);
+            _actionButton.onClick.RemoveListener(OnFastActionButtonClicked);
+        }
+        if (_selectButton != null)
+        {
+            _selectButton.onClick.RemoveListener(OnSelectButtonClicked);
         }
     }
 
-    private void OnButtonClicked()
+    private void OnFastActionButtonClicked()
     {
-        _onActionClicked?.Invoke(_currentLootId);
+        _onFastActionClicked?.Invoke(_currentLootId);
+    }
+    
+    private void OnSelectButtonClicked()
+    {
+        _onSelected?.Invoke(_currentLootId, _isMerchantStock);
+    }
+    
+    public void SetSelected(bool isSelected)
+    {
+        if (_selectionHighlight != null)
+        {
+            _selectionHighlight.SetActive(isSelected);
+        }
     }
 
     /// <summary>
     /// Configures the UI element for purchasing an item from the merchant.
     /// </summary>
-    public void SetupForPurchase(LootDefinition item, int remainingStock, Action<string> onBuy)
+    public void SetupForPurchase(LootDefinition item, int remainingStock, Action<string> onFastBuy, Action<string, bool> onSelected)
     {
         _currentLootId = item.Id;
-        _onActionClicked = onBuy;
+        _isMerchantStock = true;
+        _onFastActionClicked = onFastBuy;
+        _onSelected = onSelected;
+        SetSelected(false);
 
         if (_iconImage != null) _iconImage.sprite = item.Icon;
         if (_nameText != null) _nameText.text = item.DisplayName;
         if (_descriptionText != null) _descriptionText.text = item.Description;
-        if (_priceText != null) _priceText.text = $"{item.ExtractionValuePerUnit} Oro";
+        if (_priceText != null) _priceText.text = item.ExtractionValuePerUnit.ToString();
 
         bool isUnlimited = remainingStock == -1;
         if (_stockText != null)
         {
-            _stockText.text = isUnlimited ? "Stock: Infinito" : $"Stock: {remainingStock}";
+            _stockText.text = isUnlimited ? "999" : remainingStock.ToString();
         }
 
         if (_actionButton != null)
@@ -76,19 +109,22 @@ public sealed class StoreItemUI : MonoBehaviour
     /// <summary>
     /// Configures the UI element for selling an item from the player's inventory.
     /// </summary>
-    public void SetupForSale(LootDefinition item, int quantityOwned, Action<string> onSell)
+    public void SetupForSale(LootDefinition item, int quantityOwned, Action<string> onFastSell, Action<string, bool> onSelected)
     {
         _currentLootId = item.Id;
-        _onActionClicked = onSell;
+        _isMerchantStock = false;
+        _onFastActionClicked = onFastSell;
+        _onSelected = onSelected;
+        SetSelected(false);
 
         if (_iconImage != null) _iconImage.sprite = item.Icon;
         if (_nameText != null) _nameText.text = item.DisplayName;
         if (_descriptionText != null) _descriptionText.text = item.Description;
-        if (_priceText != null) _priceText.text = $"{item.SellValuePerUnit} Oro";
+        if (_priceText != null) _priceText.text = item.SellValuePerUnit.ToString();
 
         if (_stockText != null)
         {
-            _stockText.text = $"Tienes: {quantityOwned}";
+            _stockText.text = quantityOwned.ToString();
         }
 
         if (_actionButton != null)

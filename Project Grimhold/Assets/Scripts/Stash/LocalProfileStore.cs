@@ -77,9 +77,6 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
             
         next.Currency -= declaredPrice;
-        
-        if (!TryMerge(next.Stash, new[] { new StashItem(lootId, amount) }))
-            return StashOperationResult.InvalidInventory;
 
         next.AppliedShopTransactionReceipts.Add(receipt);
         next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
@@ -108,9 +105,6 @@ public sealed class LocalProfileStore
             if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
 
         var next = current.Clone();
-
-        if (!TryRemove(next.Stash, lootId, amount))
-            return StashOperationResult.InvalidInventory;
 
         if (next.Currency > long.MaxValue - declaredSellValue)
             return StashOperationResult.InvalidInventory;

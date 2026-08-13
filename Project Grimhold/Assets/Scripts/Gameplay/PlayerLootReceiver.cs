@@ -238,21 +238,25 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         if (!HasStateAuthority)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: MissingAuthority. Id={Id.Value}, HasStateAuth={HasStateAuthority}");
             return LootTransferFailureReason.MissingAuthority;
         }
 
         if (IsExtractionLocked())
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: ContainerUnavailable (ExtractionLocked)");
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
         if (request.SourceId.Value == 0 || request.SourceId != Id)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: SourceNotFound. ReqSource={request.SourceId.Value}, MyId={Id.Value}");
             return LootTransferFailureReason.SourceNotFound;
         }
 
         if (request.DestinationId.Value == 0)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: DestinationNotFound. ReqDest={request.DestinationId.Value}");
             return LootTransferFailureReason.DestinationNotFound;
         }
 
@@ -289,10 +293,18 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
         NetworkDictionary<int, int> inventory = LootInventory;
         bool alreadyHeld = inventory.TryGet(definitionIndex, out int currentAmount);
-        return LootInventoryRules.ValidateExtraction(
+        
+        var ruleResult = LootInventoryRules.ValidateExtraction(
             alreadyHeld,
             currentAmount,
             request.RequestedAmount);
+            
+        if (ruleResult != LootTransferFailureReason.None)
+        {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: LootInventoryRules returned {ruleResult}. alreadyHeld={alreadyHeld}, currentAmount={currentAmount}, reqAmount={request.RequestedAmount}");
+        }
+        
+        return ruleResult;
     }
 
     /// <summary>
