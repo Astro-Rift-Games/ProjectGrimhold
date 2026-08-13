@@ -127,6 +127,19 @@ Follow the approved architecture documented in:
 Docs/Architecture/PlayerMovementArchitecture.md
 ```
 
+### Character visual directions
+
+Character sprite animation uses six discrete visual facing buckets:
+
+* N
+* NE
+* NW
+* S
+* SE
+* SW
+
+These buckets describe visual animation presentation only and do not restrict continuous 2D / 8-directional top-down gameplay movement simulation.
+
 When that document conflicts with an older implementation, report the conflict before changing architecture.
 
 ## Event-driven rules

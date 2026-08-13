@@ -9,7 +9,8 @@ Core product direction:
 - Genre: PvPvE extraction RPG.
 - Setting: serious medieval fantasy.
 - Visual style: top-down pixel art.
-- Character target: eight-directional animation.
+- Character animation target: six visual directions: N, NE, NW, S, SE, SW.
+- This describes discrete animation-facing buckets only; player movement remains continuous top-down movement and is not restricted to six directions.
 - Visual references: Tinkerlands and Enter the Gungeon.
 - Structural gameplay reference: Dark and Darker.
 - Planned differentiator: optional in-match events inspired by MU Online events such as Blood Castle and Devil Square.
