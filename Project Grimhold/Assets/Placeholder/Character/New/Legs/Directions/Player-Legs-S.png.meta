@@ -103,10 +103,10 @@ TextureImporter:
       name: Player-Legs-S_0
       rect:
         serializedVersion: 2
-        x: 42
-        y: 36
-        width: 12
-        height: 7
+        x: 0
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
