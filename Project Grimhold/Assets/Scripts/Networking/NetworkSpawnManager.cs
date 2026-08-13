@@ -1384,6 +1384,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     $"Unrecovered Raiding participant '{profileId}' could not transition to Aborted.");
             }
 
+            RaidParticipantState finalizedState = participant.State;
+
             participantObject.AssignInputAuthority(PlayerRef.None);
             if (avatar != null)
             {
@@ -1393,16 +1395,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _controlledReturns.MarkTerminal(
                 new ControlledReturnKey(profileId.Value, generationId));
 
-            if (participant.State != RaidParticipantState.Defeated && avatar != null)
+            if (finalizedState != RaidParticipantState.Defeated && avatar != null)
             {
                 _runner.Despawn(avatar);
             }
 
             _runner.Despawn(participantObject);
             _restoredHostMigrationParticipants.Remove(profileId);
+
             Debug.Log(
                 $"[HM-MULTI] Unrecovered participant finalized. ProfileId={profileId}, " +
-                $"State={participant.State}.",
+                $"State={finalizedState}.",
                 this);
         }
     }
