@@ -692,5 +692,36 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(pos, _attackRange);
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        Vector3 pos = transform.position;
+
+        // Obstacle avoidance cast visualization (Cyan)
+        Gizmos.color = Color.cyan;
+
+        Vector2 facing = _defaultFacingDirection.sqrMagnitude > 0.001f 
+            ? _defaultFacingDirection.normalized 
+            : Vector2.down;
+            
+        if (Application.isPlaying) 
+        {
+            facing = FacingDirection;
+            if (facing.sqrMagnitude < 0.001f)
+            {
+                facing = Vector2.down;
+            }
+        }
+
+        Vector3 forward = new Vector3(facing.x, facing.y, 0f);
+        Vector3 castEndPos = pos + forward * _avoidanceSettings.CastDistance;
+
+        Gizmos.DrawWireSphere(pos, _avoidanceSettings.CastRadius);
+        Gizmos.DrawWireSphere(castEndPos, _avoidanceSettings.CastRadius);
+
+        Vector3 rightOffset = Vector3.Cross(forward, Vector3.forward).normalized * _avoidanceSettings.CastRadius;
+        Gizmos.DrawLine(pos + rightOffset, castEndPos + rightOffset);
+        Gizmos.DrawLine(pos - rightOffset, castEndPos - rightOffset);
+    }
 #endif
 }

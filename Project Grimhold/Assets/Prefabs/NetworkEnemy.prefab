@@ -351,7 +351,7 @@ GameObject:
   - component: {fileID: 9200230494000326815}
   - component: {fileID: 535414226061721754}
   - component: {fileID: 3133108637029622038}
-  - component: {fileID: 4462333045026223586}
+  - component: {fileID: 8431511193320609997}
   - component: {fileID: 7201000000000000002}
   - component: {fileID: 3593981370069743005}
   - component: {fileID: 7201000000000000001}
@@ -421,7 +421,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 7201000000000000002}
-  _collider: {fileID: 4462333045026223586}
+  _collider: {fileID: 8431511193320609997}
   _collisionMask:
     serializedVersion: 2
     m_Bits: 64
@@ -450,6 +450,10 @@ MonoBehaviour:
   _obstacleLayer:
     serializedVersion: 2
     m_Bits: 64
+  _avoidanceSettings:
+    CastRadius: 0.8
+    CastDistance: 0.5
+    AvoidanceStrength: 0.85
   _scanInterval: 0.1
   _playerLayer:
     serializedVersion: 2
@@ -578,7 +582,7 @@ MonoBehaviour:
   _damageFeedbackPresenter: {fileID: 2761826599393764438}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}
   _colliders:
-  - {fileID: 4462333045026223586}
+  - {fileID: 0}
   - {fileID: 9000000000000000003}
 --- !u!114 &535414226061721754
 MonoBehaviour:
@@ -605,8 +609,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
   _colliderBufferSize: 64
---- !u!61 &4462333045026223586
-BoxCollider2D:
+--- !u!58 &8431511193320609997
+CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -640,17 +644,7 @@ BoxCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0.25}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0, y: 0}
-    oldSize: {x: 0, y: 0}
-    newSize: {x: 0, y: 0}
-    adaptiveTilingThreshold: 0
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 0.75, y: 0.5}
-  m_EdgeRadius: 0
+  m_Radius: 0.4
 --- !u!50 &7201000000000000002
 Rigidbody2D:
   serializedVersion: 5
