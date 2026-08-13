@@ -215,6 +215,7 @@ MonoBehaviour:
     RawGuidValue: 2c19a78647c64b84a765ff0280706b7d
   _breakablePrefab:
     RawGuidValue: 8b5a2dd483fd42b48fd1863cf21fc690
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
 --- !u!4 &43931934
 Transform:
   m_ObjectHideFlags: 0
