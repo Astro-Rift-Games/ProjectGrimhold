@@ -113,6 +113,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _visibilityOffset.y
       value: 0
       objectReference: {fileID: 0}
@@ -124,17 +128,37 @@ PrefabInstance:
       propertyPath: _activeAttackSource
       value: 
       objectReference: {fileID: 6249109546555964142}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _attackRange
+      value: 1.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _detectionRange
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _disengageRange
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _avoidanceSettings.CastRadius
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _avoidanceSettings.AvoidanceStrength
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Name
       value: NetworkEnemyMelee
       objectReference: {fileID: 0}
     - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x
-      value: 1.0054445
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.y
-      value: 0.99313927
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4462333045026223586, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Offset.y
@@ -167,6 +191,14 @@ PrefabInstance:
     - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _defeatProgressReward
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8431511193320609997, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Radius
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8431511193320609997, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: -0.1
       objectReference: {fileID: 0}
     - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x

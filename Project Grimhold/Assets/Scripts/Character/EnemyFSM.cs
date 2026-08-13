@@ -132,6 +132,7 @@ public sealed class EnemyFSM : NetworkBehaviour
     private void RegisterDefaultStates()
     {
         RegisterState(new EnemyIdleState());
+        RegisterState(new EnemyPatrolState());
         RegisterState(new EnemyChaseState());
         RegisterState(new EnemyAttackState());
         RegisterState(new EnemyDeadState());

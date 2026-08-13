@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5bc9949b26744e4e911903248773f294, type: 3}
-  m_Name: DartTrapConfig
+  m_Name: RangeEnemyAttackConfig
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttackConfig
-  _damage: 5
+  _damage: 10
   _damageType: 0
-  _cooldownSeconds: 0.125
+  _cooldownSeconds: 0.5
   _inputMode: 0
-  _projectileSpeed: 20
-  _lifetimeSeconds: 3
-  _maxRange: 5
-  _projectileSpawnOffset: 0.5
+  _projectileSpeed: 10
+  _lifetimeSeconds: 10
+  _maxRange: 10
+  _projectileSpawnOffset: 0.7
   _projectilePrefab:
-    RawGuidValue: 3ab712d5d6994c64aa4e888228750fc5
+    RawGuidValue: 686320b67645c8f48a77a264eec096c6
   _impactLayerMask:
     serializedVersion: 2
     m_Bits: 192

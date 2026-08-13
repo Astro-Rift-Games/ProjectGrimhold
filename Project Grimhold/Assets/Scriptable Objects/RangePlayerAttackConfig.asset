@@ -10,17 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5bc9949b26744e4e911903248773f294, type: 3}
-  m_Name: RangedAttackConfig
+  m_Name: RangePlayerAttackConfig
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttackConfig
   _damage: 10
   _damageType: 0
   _cooldownSeconds: 0.5
   _inputMode: 0
   _projectileSpeed: 10
-  _lifetimeSeconds: 5
+  _lifetimeSeconds: 10
   _maxRange: 10
+  _projectileSpawnOffset: 0.7
   _projectilePrefab:
-    RawGuidValue: b68349702bdcbb84f9aed456ed6b035c
+    RawGuidValue: cdc42ba57b303264fb49354983542d59
   _impactLayerMask:
     serializedVersion: 2
     m_Bits: 192

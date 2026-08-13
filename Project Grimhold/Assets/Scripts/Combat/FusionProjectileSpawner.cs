@@ -90,12 +90,19 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
 
         Debug.Log($"[CombatTrace] Projectile spawn requested. OwnerId: {request.OwnerId}, Origin: {request.Origin}, Direction: {request.Direction}", this);
 
+        Quaternion spawnRotation = Quaternion.identity;
+        if (request.Direction.sqrMagnitude > 0.0001f)
+        {
+            float angle = Mathf.Atan2(request.Direction.y, request.Direction.x) * Mathf.Rad2Deg;
+            spawnRotation = Quaternion.Euler(0, 0, angle);
+        }
+
         // 4. Invoke authoritative network spawn with inline pre-initialization
         NetworkSpawnStatus spawnStatus = Runner.TrySpawn(
             _config.ProjectilePrefab,
             out NetworkObject spawnedObject,
             request.Origin,
-            rotation: null,
+            rotation: spawnRotation,
             inputAuthority: null,
             onBeforeSpawned: (_, networkObject) =>
             {

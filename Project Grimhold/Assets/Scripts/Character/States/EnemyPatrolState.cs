@@ -1,20 +1,20 @@
 using UnityEngine;
 
 /// <summary>
-/// Enemy state active during target pursuit.
-/// Enables movement AI and monitors distance to target.
+/// Active state while the enemy is patrolling its configured waypoints.
 /// </summary>
-public sealed class EnemyChaseState : IEnemyState
+public sealed class EnemyPatrolState : IEnemyState
 {
-    public EnemyStateType Type => EnemyStateType.Chase;
+    public EnemyStateType Type => EnemyStateType.Patrol;
 
     public void Enter(EnemyFSM fsm)
     {
         if (fsm.MovementController != null)
         {
             fsm.MovementController.TrySetControlEnabled(true);
+            fsm.MovementController.IsPatrolActive = true;
         }
-
+        
         if (fsm.CombatController != null)
         {
             fsm.CombatController.TrySetAttackEnabled(false);
@@ -35,21 +35,21 @@ public sealed class EnemyChaseState : IEnemyState
             return;
         }
 
-        if (!fsm.MovementController.IsOnPursuit)
+        if (fsm.MovementController.IsOnPursuit)
         {
-            if (fsm.MovementController.HasPatrolRoute)
-            {
-                fsm.TransitionTo(EnemyStateType.Patrol);
-            }
-            else
-            {
-                fsm.TransitionTo(EnemyStateType.Idle);
-            }
+            fsm.TransitionTo(EnemyStateType.Chase);
             return;
         }
     }
 
     public void Exit(EnemyFSM fsm)
     {
+        if (fsm.MovementController != null)
+        {
+            fsm.MovementController.IsPatrolActive = false;
+        }
+        
+        // PatrolWaypointIndex is deliberately NOT reset here, so the enemy 
+        // resumes the patrol from where it left off.
     }
 }
