@@ -1,6 +1,7 @@
 using Fusion;
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Handles the network protocol for shop transactions.
@@ -12,11 +13,18 @@ using System;
 public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterClientRpcSender
 {
     [SerializeField] private LootDefinitionCatalog _catalog;
+    [SerializeField] private List<MerchantStockItem> _stock;
+
+    public IReadOnlyList<MerchantStockItem> Stock => _stock;
+    public LootDefinitionCatalog Catalog => _catalog;
 
     private MerchantRequestValidator _requestValidator;
     private MerchantTransactionOrchestrator _localOrchestrator;
     private IShopTransactionService _shopService;
     private ProfileId _localProfileId;
+    
+    // Local tracking to disable UI buttons
+    private Dictionary<string, int> _mySessionPurchases = new Dictionary<string, int>();
 
     public event Action<MerchantTransactionResult> LocalTransactionCompleted;
 
@@ -26,18 +34,57 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
         _localProfileId = profileId;
         _localOrchestrator = new MerchantTransactionOrchestrator(_shopService, _catalog, this, _localProfileId);
         _localOrchestrator.TransactionCompleted += OnLocalTransactionCompleted;
+        _localOrchestrator.LocalPurchaseSucceeded += RecordLocalPurchase;
     }
 
     private void OnLocalTransactionCompleted(MerchantTransactionResult result)
     {
+        // If a purchase was successful locally, increment our local counter so the UI knows
+        // to disable the button if we hit the limit.
+        if (result == MerchantTransactionResult.Success && _localOrchestrator != null)
+        {
+            // Removed obsolete comment
+        }
+        
         LocalTransactionCompleted?.Invoke(result);
+    }
+    
+    /// <summary>
+    /// Intended for the local UI to know if the player can still buy this item.
+    /// </summary>
+    public int GetRemainingStock(string lootId)
+    {
+        if (_stock == null) return 0;
+        foreach (var item in _stock)
+        {
+            if (item.Item != null && item.Item.Id == lootId)
+            {
+                if (item.MaxQuantity == -1) return -1; // Unlimited
+                int purchased = 0;
+                _mySessionPurchases.TryGetValue(lootId, out purchased);
+                return Mathf.Max(0, item.MaxQuantity - purchased);
+            }
+        }
+        return 0; // Not sold here
+    }
+    
+    /// <summary>
+    /// Local UI calls this upon success, or the orchestrator does it.
+    /// </summary>
+    public void RecordLocalPurchase(string lootId, int amount)
+    {
+        if (!_mySessionPurchases.ContainsKey(lootId))
+        {
+            _mySessionPurchases[lootId] = 0;
+        }
+        _mySessionPurchases[lootId] += amount;
     }
 
     public override void Spawned()
     {
         if (HasStateAuthority)
         {
-            _requestValidator = new MerchantRequestValidator();
+            _requestValidator = new MerchantRequestValidator(_stock);
         }
     }
 
@@ -46,6 +93,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
         if (_localOrchestrator != null)
         {
             _localOrchestrator.TransactionCompleted -= OnLocalTransactionCompleted;
+            _localOrchestrator.LocalPurchaseSucceeded -= RecordLocalPurchase;
             _localOrchestrator = null;
         }
     }

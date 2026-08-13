@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 23
+      value: 24
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[5]'
@@ -123,7 +123,7 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[22]'
       value: 
-      objectReference: {fileID: 4419447253773158415}
+      objectReference: {fileID: 5097516543619379417}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[23]'
       value: 
@@ -278,6 +278,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d6d4f5f32f6b849b26f9e9f50ec82c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
+--- !u!114 &5097516543619379417 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5864735626240604177, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34fbf51375c48ef4088c4d8a737b7404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
 --- !u!114 &7134448978467409073 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8421478658459878521, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

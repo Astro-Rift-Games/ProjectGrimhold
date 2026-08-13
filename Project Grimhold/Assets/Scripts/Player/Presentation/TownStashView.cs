@@ -19,26 +19,20 @@ public sealed class TownStashView : MonoBehaviour
             return null;
         }
 
-        var root = new GameObject(
-            "TownStashHud",
-            typeof(RectTransform),
-            typeof(Canvas),
-            typeof(CanvasScaler),
-            typeof(GraphicRaycaster),
-            typeof(TownStashView));
-        root.transform.SetParent(owner, false);
-        Canvas canvas = root.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 110;
+        GameObject instance = Instantiate(stashInventoryPrefab, owner, false);
+        instance.name = "StashInventory";
 
-        CanvasScaler scaler = root.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
+        TownStashView view = instance.AddComponent<TownStashView>();
+        view._stashInstance = instance;
 
-        TownStashView view = root.GetComponent<TownStashView>();
-        view._stashInstance = Instantiate(stashInventoryPrefab, root.transform, false);
-        view._stashInstance.name = "StashInventory";
+        Canvas canvas = instance.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            // Optionally enforce sorting order to ensure it's on top
+            canvas.sortingOrder = 110;
+        }
+
         view._stashInstance.SetActive(false);
         return view;
     }

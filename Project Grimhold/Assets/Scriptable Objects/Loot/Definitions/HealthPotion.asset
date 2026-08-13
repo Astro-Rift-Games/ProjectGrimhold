@@ -14,11 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: healthpotion
   _displayName: Health Potion
+  _description: Restores some health
   _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
   _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
   _category: 1
   _rarity: 0
   _extractionValuePerUnit: 5
-  _sellValuePerUnit: 5
+  _sellValuePerUnit: 10
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 11400000, guid: 4904523b8bebe1c4b895bf5a426ded6a, type: 2}

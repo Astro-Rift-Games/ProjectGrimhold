@@ -22,6 +22,7 @@ public sealed class MerchantTransactionOrchestrator
     private int _nextSequence = 1;
 
     public event Action<MerchantTransactionResult> TransactionCompleted;
+    public event Action<string, int> LocalPurchaseSucceeded;
 
     private readonly struct PendingTransaction
     {
@@ -94,6 +95,11 @@ public sealed class MerchantTransactionOrchestrator
             long price = definition.ExtractionValuePerUnit * pending.Amount;
             var result = _shopService.TryExecutePurchase(_profileId, pending.LootId, pending.Amount, price, transactionId);
             
+            if (result == StashOperationResult.Success)
+            {
+                LocalPurchaseSucceeded?.Invoke(pending.LootId.Value, pending.Amount);
+            }
+
             TransactionCompleted?.Invoke(MapResult(result, MerchantOperationType.Purchase));
         }
         else

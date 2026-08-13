@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: bone
   _displayName: Bone
+  _description: Just a bone
   _icon: {fileID: 21300000, guid: 94007cdcc8e193343a10dd8fb4fd30dc, type: 3}
   _worldSprite: {fileID: 21300000, guid: 94007cdcc8e193343a10dd8fb4fd30dc, type: 3}
   _category: 1
   _rarity: 0
   _extractionValuePerUnit: 10
-  _sellValuePerUnit: 10
+  _sellValuePerUnit: 5
   _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}

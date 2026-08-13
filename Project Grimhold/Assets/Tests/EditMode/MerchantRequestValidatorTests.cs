@@ -125,4 +125,37 @@ public class MerchantRequestValidatorTests
         Assert.IsFalse(approved);
         Assert.AreEqual(Guid.Empty, id.Value);
     }
+
+    [Test]
+    public void PurchaseExceedsMaxQuantity_RejectedByMaster()
+    {
+        var lootDef = UnityEngine.ScriptableObject.CreateInstance<LootDefinition>();
+        // We must set the ID via reflection because it's a private field in LootDefinition
+        typeof(LootDefinition).GetField("_id", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(lootDef, "healthpotion");
+        
+        var stock = new System.Collections.Generic.List<MerchantStockItem>
+        {
+            new MerchantStockItem { Item = lootDef, MaxQuantity = 2 }
+        };
+        
+        var validatorWithStock = new MerchantRequestValidator(
+            stock: stock,
+            timestampProvider: () => _fixedTimestamp,
+            guidProvider: () => Guid.NewGuid()
+        );
+        
+        var player = PlayerRef.FromEncoded(1);
+        
+        // Buy 1 -> Success
+        validatorWithStock.TryProcessPurchaseRequest(player, 1, "healthpotion", 1, _catalog, out bool approved1, out _);
+        Assert.IsTrue(approved1);
+        
+        // Buy 1 -> Success (Total 2)
+        validatorWithStock.TryProcessPurchaseRequest(player, 2, "healthpotion", 1, _catalog, out bool approved2, out _);
+        Assert.IsTrue(approved2);
+        
+        // Buy 1 -> Reject (Total 3 > Max 2)
+        validatorWithStock.TryProcessPurchaseRequest(player, 3, "healthpotion", 1, _catalog, out bool approved3, out _);
+        Assert.IsFalse(approved3);
+    }
 }

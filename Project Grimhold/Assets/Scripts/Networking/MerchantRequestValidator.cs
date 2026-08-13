@@ -29,13 +29,16 @@ public readonly struct ProcessedRequestRecord
 public sealed class MerchantRequestValidator
 {
     private readonly Dictionary<(PlayerRef, int), ProcessedRequestRecord> _processedRequests = new();
+    private readonly Dictionary<PlayerRef, Dictionary<string, int>> _playerPurchases = new();
     
     // For test stability, we allow overriding the time provider
     private readonly Func<long> _timestampProvider;
     private readonly Func<Guid> _guidProvider;
+    private readonly IReadOnlyList<MerchantStockItem> _stock;
 
-    public MerchantRequestValidator(Func<long> timestampProvider = null, Func<Guid> guidProvider = null)
+    public MerchantRequestValidator(IReadOnlyList<MerchantStockItem> stock = null, Func<long> timestampProvider = null, Func<Guid> guidProvider = null)
     {
+        _stock = stock;
         _timestampProvider = timestampProvider ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         _guidProvider = guidProvider ?? Guid.NewGuid;
     }
@@ -90,6 +93,8 @@ public sealed class MerchantRequestValidator
         {
             _processedRequests.Remove(key);
         }
+        
+        _playerPurchases.Remove(player);
     }
 
     private bool TryProcessRequest(
@@ -124,9 +129,22 @@ public sealed class MerchantRequestValidator
 
         isApproved = amount > 0 && catalog != null && catalog.TryGet(lootId, out _);
         
+        if (isApproved && type == MerchantOperationType.Purchase)
+        {
+            if (!HasAvailableStock(player, lootId, amount))
+            {
+                isApproved = false;
+            }
+        }
+
         if (isApproved)
         {
             transactionId = new ShopTransactionId(_timestampProvider(), _guidProvider());
+            
+            if (type == MerchantOperationType.Purchase)
+            {
+                RecordPurchase(player, lootId, amount);
+            }
         }
         else
         {
@@ -137,5 +155,44 @@ public sealed class MerchantRequestValidator
         _processedRequests[key] = newRecord;
 
         return true;
+    }
+
+    private bool HasAvailableStock(PlayerRef player, string lootId, int amount)
+    {
+        if (_stock == null) return true; // No stock config means unlimited (or we can assume 0. Let's say unlimited for backwards compat).
+        
+        foreach (var item in _stock)
+        {
+            if (item.Item != null && item.Item.Id == lootId)
+            {
+                if (item.MaxQuantity == -1) return true;
+                
+                int alreadyPurchased = 0;
+                if (_playerPurchases.TryGetValue(player, out var purchases))
+                {
+                    purchases.TryGetValue(lootId, out alreadyPurchased);
+                }
+                
+                return (alreadyPurchased + amount) <= item.MaxQuantity;
+            }
+        }
+        
+        return false; // Item not found in stock list for this merchant
+    }
+
+    private void RecordPurchase(PlayerRef player, string lootId, int amount)
+    {
+        if (!_playerPurchases.TryGetValue(player, out var purchases))
+        {
+            purchases = new Dictionary<string, int>();
+            _playerPurchases[player] = purchases;
+        }
+        
+        if (!purchases.ContainsKey(lootId))
+        {
+            purchases[lootId] = 0;
+        }
+        
+        purchases[lootId] += amount;
     }
 }

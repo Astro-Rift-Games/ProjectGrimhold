@@ -790,6 +790,7 @@ GameObject:
   - component: {fileID: 8421478658459878521}
   - component: {fileID: 2262447401525612929}
   - component: {fileID: 5489547608340585132}
+  - component: {fileID: 5864735626240604177}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -1178,6 +1179,7 @@ MonoBehaviour:
   - {fileID: 8421478658459878521}
   - {fileID: 2262447401525612929}
   - {fileID: 5489547608340585132}
+  - {fileID: 5864735626240604177}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -1475,6 +1477,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RaidAvatarParticipantLink
   _ParticipantId:
     Raw: 0
+--- !u!114 &5864735626240604177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34fbf51375c48ef4088c4d8a737b7404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
+  _merchantShopPrefab: {fileID: 2538062899881950617, guid: 30f0948df126b504c9887131ea504d2d, type: 3}
+  _interactionController: {fileID: 2425433471524800765}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: coins
   _displayName: Coins
+  _description: Useful for buying things
   _icon: {fileID: 21300000, guid: 1d146328d2b503e49b51da00f2533826, type: 3}
   _worldSprite: {fileID: 21300000, guid: 1d146328d2b503e49b51da00f2533826, type: 3}
   _category: 1
   _rarity: 0
   _extractionValuePerUnit: 50
-  _sellValuePerUnit: 50
+  _sellValuePerUnit: 1
   _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}

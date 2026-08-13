@@ -13,6 +13,9 @@ public sealed class LootDefinition : ScriptableObject
     [SerializeField]
     private string _displayName;
 
+    [SerializeField, TextArea]
+    private string _description;
+
     [SerializeField]
     private Sprite _icon;
 
@@ -41,6 +44,7 @@ public sealed class LootDefinition : ScriptableObject
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
+    public string Description => _description;
     public Sprite Icon => _icon;
     public Sprite WorldSprite => _worldSprite;
     public LootCategory Category => _category;
