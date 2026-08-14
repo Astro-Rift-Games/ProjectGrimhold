@@ -23,7 +23,7 @@ namespace Tests.EditMode.Presentation
 
             _instance = Object.Instantiate(prefab);
             _presenter = _instance.GetComponent<PlayerExtractionPresenter>();
-            _body = _instance.transform.Find("Body")?.gameObject;
+            _body = _instance.transform.Find("VisualRoot/Body")?.gameObject;
             _combatVisuals = _instance.transform.Find("CombatVisuals")?.gameObject;
 
             Assert.That(_presenter, Is.Not.Null);

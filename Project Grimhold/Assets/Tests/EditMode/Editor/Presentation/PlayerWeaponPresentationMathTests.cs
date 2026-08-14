@@ -14,64 +14,33 @@ namespace Tests.EditMode.Presentation
         private const string RangedPlayerPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
 
         [Test]
-        public void ResolveSafeFacing_NormalizesFiniteNonZeroDirection()
+        public void CalculateWeaponPivotPosition_UsesCanonicalFacingAndEllipticalOrbit()
         {
-            Vector2 result = PlayerWeaponPresentationMath.ResolveSafeFacing(
-                new Vector2(3f, 4f),
-                Vector2.down);
-
-            AssertVector(result, new Vector2(0.6f, 0.8f));
-        }
-
-        [TestCase(0f, 0f)]
-        [TestCase(float.NaN, 1f)]
-        [TestCase(float.PositiveInfinity, 1f)]
-        public void ResolveSafeFacing_InvalidDirectionRetainsPrevious(float x, float y)
-        {
-            Vector2 previous = new Vector2(-2f, 2f);
-
-            Vector2 result = PlayerWeaponPresentationMath.ResolveSafeFacing(
-                new Vector2(x, y),
-                previous);
-
-            AssertVector(result, previous.normalized);
-        }
-
-        [Test]
-        public void ResolveSafeFacing_InvalidInitialStateFallsBackToDown()
-        {
-            Vector2 result = PlayerWeaponPresentationMath.ResolveSafeFacing(
-                new Vector2(float.NaN, 0f),
-                Vector2.zero);
-
-            AssertVector(result, Vector2.down);
-        }
-
-        [Test]
-        public void CalculateHandPosition_UsesEllipticalOrbitPerAxis()
-        {
-            Vector2 result = PlayerWeaponPresentationMath.CalculateHandPosition(
+            Vector2 result = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
                 new Vector2(0.1f, -0.2f),
-                new Vector2(0.6f, 0.8f),
+                CharacterVisualDirectionResolver.CanonicalSouthEast,
                 new Vector2(0.5f, 0.25f),
-                Vector2.zero);
+                new Vector2(0.04f, 0.04f));
 
-            AssertVector(result, new Vector2(0.4f, 0f));
+            float expectedX = 0.1f + 0.70710678f * 0.5f + 0.04f;
+            float expectedY = -0.2f - 0.70710678f * 0.25f + 0.04f;
+
+            AssertVector(result, new Vector2(expectedX, expectedY));
         }
 
         [Test]
         public void AnchorMovedUp_ShiftsTheEntireOrbitUp()
         {
-            Vector2 facing = new Vector2(0.6f, 0.8f);
+            Vector2 canonicalFacing = CharacterVisualDirectionResolver.CanonicalNorthEast;
             Vector2 orbit = new Vector2(0.4f, 0.2f);
-            Vector2 lowerPose = PlayerWeaponPresentationMath.CalculateHandPosition(
+            Vector2 lowerPose = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
                 Vector2.zero,
-                facing,
+                canonicalFacing,
                 orbit,
                 Vector2.zero);
-            Vector2 upperPose = PlayerWeaponPresentationMath.CalculateHandPosition(
+            Vector2 upperPose = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
                 new Vector2(0f, 0.45f),
-                facing,
+                canonicalFacing,
                 orbit,
                 Vector2.zero);
 
@@ -88,7 +57,7 @@ namespace Tests.EditMode.Presentation
                 Transform body = new GameObject("Body").transform;
                 body.SetParent(root.transform, false);
                 body.position = new Vector3(3f, 2f, 0f);
-                Transform anchor = new GameObject("HandOrbitAnchor").transform;
+                Transform anchor = new GameObject("WeaponOrbitAnchor").transform;
                 anchor.SetParent(body, false);
 
                 Transform combatVisuals = new GameObject("CombatVisuals").transform;
@@ -109,70 +78,93 @@ namespace Tests.EditMode.Presentation
             }
         }
 
-        [TestCase(0f, 1f, 0.15f, 0.68f)]
-        [TestCase(0.70710678f, 0.70710678f, 0.362132f, 0.621421f)]
-        [TestCase(0.70710678f, -0.70710678f, 0.362132f, 0.338579f)]
-        [TestCase(0f, -1f, 0.15f, 0.28f)]
-        [TestCase(-0.70710678f, -0.70710678f, -0.062132f, 0.338579f)]
-        [TestCase(-0.70710678f, 0.70710678f, -0.062132f, 0.621421f)]
-        public void HandPosition_SupportsSixBodyDirections(
-            float facingX,
-            float facingY,
-            float expectedX,
-            float expectedY)
+        [Test]
+        public void PositionalStability_AimAnglesWithinSameBucket_HaveIdenticalPositionAndDifferentRotation()
         {
-            Vector2 result = PlayerWeaponPresentationMath.CalculateHandPosition(
-                new Vector2(0.1f, 0.5f),
-                new Vector2(facingX, facingY),
-                new Vector2(0.3f, 0.2f),
-                new Vector2(0.05f, -0.02f));
+            Vector2 anchor = new Vector2(0f, -0.18f);
+            Vector2 orbit = new Vector2(0.26f, 0.10f);
+            Vector2 stance = new Vector2(0.02f, 0.00f);
 
-            AssertVector(result, new Vector2(expectedX, expectedY));
+            // NorthEast angles: 20° and 40°
+            Vector2 facing20 = DirectionFromDegrees(20f);
+            Vector2 facing40 = DirectionFromDegrees(40f);
+
+            CharacterVisualDirection bucket20 = CharacterVisualDirectionResolver.Resolve(facing20);
+            CharacterVisualDirection bucket40 = CharacterVisualDirectionResolver.Resolve(facing40);
+            Assert.That(bucket20, Is.EqualTo(CharacterVisualDirection.NorthEast));
+            Assert.That(bucket40, Is.EqualTo(CharacterVisualDirection.NorthEast));
+
+            Vector2 canonicalNE = CharacterVisualDirectionResolver.GetCanonicalVector(bucket20);
+            Vector2 pos20 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(anchor, canonicalNE, orbit, stance);
+            Vector2 pos40 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(anchor, canonicalNE, orbit, stance);
+
+            AssertVector(pos20, pos40);
+
+            float angle20 = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing20);
+            float angle40 = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing40);
+            Assert.That(angle20, Is.EqualTo(20f).Within(Tolerance));
+            Assert.That(angle40, Is.EqualTo(40f).Within(Tolerance));
+            Assert.That(Mathf.Abs(angle40 - angle20), Is.GreaterThan(10f));
+
+            // SouthEast angles: -20° and -50°
+            Vector2 facingM20 = DirectionFromDegrees(-20f);
+            Vector2 facingM50 = DirectionFromDegrees(-50f);
+
+            CharacterVisualDirection bucketM20 = CharacterVisualDirectionResolver.Resolve(facingM20);
+            CharacterVisualDirection bucketM50 = CharacterVisualDirectionResolver.Resolve(facingM50);
+            Assert.That(bucketM20, Is.EqualTo(CharacterVisualDirection.SouthEast));
+            Assert.That(bucketM50, Is.EqualTo(CharacterVisualDirection.SouthEast));
+
+            Vector2 canonicalSE = CharacterVisualDirectionResolver.GetCanonicalVector(bucketM20);
+            Vector2 posM20 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(anchor, canonicalSE, orbit, stance);
+            Vector2 posM50 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(anchor, canonicalSE, orbit, stance);
+
+            AssertVector(posM20, posM50);
         }
 
-        [TestCase(0f)]
-        [TestCase(180f)]
-        public void IntermediateLateralAngles_RemainContinuous(float centerAngle)
+        [Test]
+        public void BoundaryTransition_CrossingSectorBoundary_ChangesBucketAndPivotPosition()
         {
-            Vector2 anchor = new Vector2(0f, 0.45f);
-            Vector2 orbit = new Vector2(0.3f, 0.18f);
-            Vector2 beforeFacing = DirectionFromDegrees(centerAngle - 1f);
-            Vector2 centerFacing = DirectionFromDegrees(centerAngle);
-            Vector2 afterFacing = DirectionFromDegrees(centerAngle + 1f);
+            Vector2 anchor = new Vector2(0f, -0.18f);
+            Vector2 neOrbit = new Vector2(0.26f, 0.10f);
+            Vector2 neStance = new Vector2(0.02f, 0.00f);
+            Vector2 nOrbit = new Vector2(0.25f, 0.08f);
+            Vector2 nStance = new Vector2(0.00f, 0.02f);
 
-            Vector2 before = PlayerWeaponPresentationMath.CalculateHandPosition(
-                anchor, beforeFacing, orbit, Vector2.zero);
-            Vector2 center = PlayerWeaponPresentationMath.CalculateHandPosition(
-                anchor, centerFacing, orbit, Vector2.zero);
-            Vector2 after = PlayerWeaponPresentationMath.CalculateHandPosition(
-                anchor, afterFacing, orbit, Vector2.zero);
+            // 67° (NorthEast) vs 68° (North)
+            Vector2 facing67 = DirectionFromDegrees(67f);
+            Vector2 facing68 = DirectionFromDegrees(68f);
 
-            Assert.That(Vector2.Distance(before, center), Is.LessThan(0.01f));
-            Assert.That(Vector2.Distance(center, after), Is.LessThan(0.01f));
+            CharacterVisualDirection bucket67 = CharacterVisualDirectionResolver.Resolve(facing67);
+            CharacterVisualDirection bucket68 = CharacterVisualDirectionResolver.Resolve(facing68);
 
-            Quaternion beforeRotation = Quaternion.Euler(
-                0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(beforeFacing));
-            Quaternion centerRotation = Quaternion.Euler(
-                0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(centerFacing));
-            Quaternion afterRotation = Quaternion.Euler(
-                0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(afterFacing));
-            Assert.That(
-                Quaternion.Angle(beforeRotation, centerRotation),
-                Is.EqualTo(1f).Within(AngleTolerance));
-            Assert.That(
-                Quaternion.Angle(centerRotation, afterRotation),
-                Is.EqualTo(1f).Within(AngleTolerance));
+            Assert.That(bucket67, Is.EqualTo(CharacterVisualDirection.NorthEast));
+            Assert.That(bucket68, Is.EqualTo(CharacterVisualDirection.North));
+
+            Vector2 pos67 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
+                anchor,
+                CharacterVisualDirectionResolver.GetCanonicalVector(bucket67),
+                neOrbit,
+                neStance);
+
+            Vector2 pos68 = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
+                anchor,
+                CharacterVisualDirectionResolver.GetCanonicalVector(bucket68),
+                nOrbit,
+                nStance);
+
+            Assert.That(Vector2.Distance(pos67, pos68), Is.GreaterThan(0.01f));
         }
 
         [Test]
         public void WeaponStanceOffset_ShiftsPoseWithoutReplacingAnchor()
         {
-            Vector2 anchor = new Vector2(0.2f, 0.45f);
+            Vector2 anchor = new Vector2(0.2f, -0.18f);
             Vector2 stanceOffset = new Vector2(-0.08f, 0.03f);
-            Vector2 withoutStance = PlayerWeaponPresentationMath.CalculateHandPosition(
-                anchor, Vector2.up, new Vector2(0.3f, 0.18f), Vector2.zero);
-            Vector2 withStance = PlayerWeaponPresentationMath.CalculateHandPosition(
-                anchor, Vector2.up, new Vector2(0.3f, 0.18f), stanceOffset);
+            Vector2 withoutStance = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
+                anchor, CharacterVisualDirectionResolver.CanonicalNorth, new Vector2(0.28f, 0.10f), Vector2.zero);
+            Vector2 withStance = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
+                anchor, CharacterVisualDirectionResolver.CanonicalNorth, new Vector2(0.28f, 0.10f), stanceOffset);
 
             AssertVector(withStance - withoutStance, stanceOffset);
         }
@@ -203,25 +195,6 @@ namespace Tests.EditMode.Presentation
                 Is.EqualTo(expected));
         }
 
-        [TestCase(0f, 1f, -10)]
-        [TestCase(0f, -1f, 10)]
-        [TestCase(1f, 0f, 10)]
-        [TestCase(-1f, 0f, 10)]
-        public void CalculateWeaponSortingOrder_PreservesFrontBackPolicy(
-            float x,
-            float y,
-            int expectedOrder)
-        {
-            int weaponOrder =
-                PlayerWeaponPresentationMath.CalculateWeaponSortingOrder(
-                    new Vector2(x, y),
-                    10,
-                    -10);
-
-            Assert.That(weaponOrder, Is.EqualTo(expectedOrder));
-            Assert.That(weaponOrder + 1, Is.EqualTo(expectedOrder + 1));
-        }
-
         [TestCase(0f)]
         [TestCase(37f)]
         [TestCase(-135f)]
@@ -244,7 +217,7 @@ namespace Tests.EditMode.Presentation
 
         [TestCase(false)]
         [TestCase(true)]
-        public void ParentReflection_DoesNotSeparateGripFromHandPivot(bool mirrored)
+        public void ParentReflection_DoesNotSeparateGripFromWeaponPivot(bool mirrored)
         {
             Vector2 gripPoint = new Vector2(-0.1f, 0.3f);
             Vector2 scale = new Vector2(1.2f, 0.8f);
@@ -264,10 +237,10 @@ namespace Tests.EditMode.Presentation
                 Quaternion.Euler(0f, 0f, weaponAngle),
                 scale);
 
-            Vector3 handPivotWorld = pivotMatrix.MultiplyPoint3x4(Vector3.zero);
+            Vector3 weaponPivotWorld = pivotMatrix.MultiplyPoint3x4(Vector3.zero);
             Vector3 gripWorld = weaponMatrix.MultiplyPoint3x4(gripPoint);
 
-            Assert.That(Vector3.Distance(handPivotWorld, gripWorld), Is.LessThan(Tolerance));
+            Assert.That(Vector3.Distance(weaponPivotWorld, gripWorld), Is.LessThan(Tolerance));
         }
 
         [Test]
@@ -302,37 +275,37 @@ namespace Tests.EditMode.Presentation
             Assert.That(attackPresenter.enabled, Is.False);
 
             SerializedObject serializedPresenter = new SerializedObject(basePresenter);
-            Transform handPivot = serializedPresenter.FindProperty("_handPivot")
+            Transform weaponPivot = serializedPresenter.FindProperty("_weaponPivot")
                 .objectReferenceValue as Transform;
-            Transform handOrbitAnchor = serializedPresenter.FindProperty("_handOrbitAnchor")
-                .objectReferenceValue as Transform;
-            Transform handVisual = serializedPresenter.FindProperty("_handVisual")
+            Transform weaponOrbitAnchor = serializedPresenter.FindProperty("_weaponOrbitAnchor")
                 .objectReferenceValue as Transform;
             Transform weaponVisual = serializedPresenter.FindProperty("_weaponVisual")
                 .objectReferenceValue as Transform;
-            SpriteRenderer handRenderer = serializedPresenter.FindProperty("_handSpriteRenderer")
-                .objectReferenceValue as SpriteRenderer;
             SpriteRenderer weaponRenderer = serializedPresenter.FindProperty("_weaponSpriteRenderer")
                 .objectReferenceValue as SpriteRenderer;
 
-            Assert.That(handPivot, Is.Not.Null);
-            Assert.That(handOrbitAnchor, Is.Not.Null);
-            Assert.That(handOrbitAnchor.name, Is.EqualTo("HandOrbitAnchor"));
-            Assert.That(handOrbitAnchor.parent.name, Is.EqualTo("Body"));
-            Assert.That(handOrbitAnchor.parent, Is.Not.SameAs(handPivot.parent));
-            Assert.That(handVisual, Is.Not.Null);
+            Assert.That(weaponPivot, Is.Not.Null);
+            Assert.That(weaponPivot.childCount, Is.EqualTo(1));
+            Assert.That(weaponOrbitAnchor, Is.Not.Null);
+            Assert.That(weaponOrbitAnchor.name, Is.EqualTo("WeaponOrbitAnchor"));
+            Assert.That(weaponOrbitAnchor.parent.name, Is.EqualTo("Body"));
+            Assert.That(weaponOrbitAnchor.parent, Is.Not.SameAs(weaponPivot.parent));
             Assert.That(weaponVisual, Is.Not.Null);
-            Assert.That(handRenderer, Is.Not.Null);
             Assert.That(weaponRenderer, Is.Not.Null);
-            Assert.That(handVisual.parent, Is.SameAs(handPivot));
-            Assert.That(weaponVisual.parent, Is.SameAs(handPivot));
-            Assert.That(handRenderer.transform, Is.SameAs(handVisual));
+            Assert.That(weaponVisual.parent, Is.SameAs(weaponPivot));
             Assert.That(weaponRenderer.transform, Is.SameAs(weaponVisual));
-            Assert.That(handRenderer.enabled, Is.True);
             Assert.That(weaponRenderer.enabled, Is.True);
-            Assert.That(handRenderer.sortingLayerID, Is.EqualTo(SortingLayer.NameToID("Characters")));
             Assert.That(weaponRenderer.sortingLayerID, Is.EqualTo(SortingLayer.NameToID("Characters")));
 
+            Assert.That(serializedPresenter.FindProperty("_directionPresets"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._south"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._southEast"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._northEast"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._north"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._northWest"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_directionPresets._southWest"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_handVisual"), Is.Null);
+            Assert.That(serializedPresenter.FindProperty("_handSpriteRenderer"), Is.Null);
             Assert.That(serializedPresenter.FindProperty("_bodyCenter"), Is.Null);
             Assert.That(serializedPresenter.FindProperty("_weaponStanceOffset"), Is.Not.Null);
 
@@ -360,30 +333,26 @@ namespace Tests.EditMode.Presentation
 
                 Transform body = new GameObject("Body").transform;
                 body.SetParent(root.transform, false);
-                Transform handOrbitAnchor = new GameObject("HandOrbitAnchor").transform;
-                handOrbitAnchor.SetParent(body, false);
-                handOrbitAnchor.localPosition = new Vector3(0f, 0.45f, 0f);
+                Transform weaponOrbitAnchor = new GameObject("WeaponOrbitAnchor").transform;
+                weaponOrbitAnchor.SetParent(body, false);
+                weaponOrbitAnchor.localPosition = new Vector3(0f, -0.18f, 0f);
                 Transform combatVisuals = new GameObject("CombatVisuals").transform;
                 combatVisuals.SetParent(root.transform, false);
-                Transform handPivot = new GameObject("HandPivot").transform;
-                handPivot.SetParent(combatVisuals, false);
-                Transform handVisual = new GameObject("HandVisual").transform;
-                handVisual.SetParent(handPivot, false);
-                SpriteRenderer handRenderer =
-                    handVisual.gameObject.AddComponent<SpriteRenderer>();
+                Transform weaponPivot = new GameObject("WeaponPivot").transform;
+                weaponPivot.SetParent(combatVisuals, false);
                 Transform weaponVisual = new GameObject("WeaponVisual").transform;
-                weaponVisual.SetParent(handPivot, false);
+                weaponVisual.SetParent(weaponPivot, false);
                 SpriteRenderer weaponRenderer =
                     weaponVisual.gameObject.AddComponent<SpriteRenderer>();
 
                 SerializedObject serializedPresenter = new SerializedObject(presenter);
                 serializedPresenter.FindProperty("_movementStateSource").objectReferenceValue = movement;
-                serializedPresenter.FindProperty("_handPivot").objectReferenceValue = handPivot;
-                serializedPresenter.FindProperty("_handOrbitAnchor").objectReferenceValue = handOrbitAnchor;
-                serializedPresenter.FindProperty("_handVisual").objectReferenceValue = handVisual;
-                serializedPresenter.FindProperty("_handSpriteRenderer").objectReferenceValue = handRenderer;
+                serializedPresenter.FindProperty("_weaponPivot").objectReferenceValue = weaponPivot;
+                serializedPresenter.FindProperty("_weaponOrbitAnchor").objectReferenceValue = weaponOrbitAnchor;
                 serializedPresenter.FindProperty("_weaponVisual").objectReferenceValue = weaponVisual;
                 serializedPresenter.FindProperty("_weaponSpriteRenderer").objectReferenceValue = weaponRenderer;
+                serializedPresenter.FindProperty("_directionPresets._south._orbit").vector2Value = new Vector2(0.28f, 0.10f);
+                serializedPresenter.FindProperty("_directionPresets._south._stanceOffset").vector2Value = new Vector2(0f, -0.04f);
                 serializedPresenter.ApplyModifiedPropertiesWithoutUndo();
 
                 root.SetActive(true);
@@ -396,12 +365,11 @@ namespace Tests.EditMode.Presentation
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(onEnable, Is.Not.Null);
                 Assert.DoesNotThrow(() => onEnable.Invoke(presenter, null));
-                Assert.That(handPivot.localPosition.x, Is.EqualTo(0f).Within(Tolerance));
-                Assert.That(handPivot.localPosition.y, Is.EqualTo(0.25f).Within(Tolerance));
-                Assert.That(Quaternion.Angle(handPivot.localRotation, Quaternion.Euler(0f, 0f, -90f)), Is.LessThan(Tolerance));
-                Assert.That(handPivot.localScale.y, Is.GreaterThan(0f));
+                Assert.That(weaponPivot.localPosition.x, Is.EqualTo(0f).Within(Tolerance));
+                Assert.That(weaponPivot.localPosition.y, Is.EqualTo(-0.32f).Within(Tolerance));
+                Assert.That(Quaternion.Angle(weaponPivot.localRotation, Quaternion.Euler(0f, 0f, -90f)), Is.LessThan(Tolerance));
+                Assert.That(weaponPivot.localScale.y, Is.GreaterThan(0f));
                 Assert.That(weaponRenderer.sortingOrder, Is.EqualTo(10));
-                Assert.That(handRenderer.sortingOrder, Is.EqualTo(11));
             }
             finally
             {

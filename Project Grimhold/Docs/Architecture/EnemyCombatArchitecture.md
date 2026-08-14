@@ -96,7 +96,7 @@ To eliminate code duplication between Player and Enemy entities, presentation an
 1. **`IMovementState`**: Exposes `FacingDirection`, `IsMoving`, and `IsControlEnabled`. Implemented by both `PlayerMovementNetworkController` and `EnemyMovementAIController`.
 2. **`ICombatController`**: Exposes `AttackPerformed` event and `IsAttackEnabled`. Implemented by both `PlayerCombatNetworkController` and `EnemyCombatAIController`.
 3. **`IAnimatorController`**: Exposes animation override methods (`ApplyTemporalFacingDirection`, `ClearTemporalFacingDirection`, `SetDefeated`). Implemented by `CharacterAnimatorView`.
-4. **`CharacterAnimatorView`**: Shared base animator view for players and enemies.
+4. **`CharacterAnimatorView`**: Shared base animator view for players and enemies. In `Update()`, it converts continuous `FacingDirection` into canonical 6-direction vectors via `CharacterVisualDirectionResolver` before setting `MoveX` and `MoveY`, ensuring that both player and enemy BlendTrees sample discrete 6-way directional frames.
 5. **`CombatPresenterBase`**: Shared base presenter for procedural attack animations (swings, arcs, weapon pivots).
 6. **`DefeatPresenterBase`**: Shared base presenter for procedural death transitions (rotation, alpha fadeout).
 

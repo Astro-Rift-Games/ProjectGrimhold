@@ -20,7 +20,7 @@ namespace Tests.EditMode.Combat
             }
         }
 
-        private const string RealConfigPath = "Assets/Scriptable Objects/RangedAttackConfig.asset";
+        private const string RealConfigPath = "Assets/Scriptable Objects/RangePlayerAttackConfig.asset";
 
         private static RangedAttackConfig CreateTemporaryValidConfig()
         {

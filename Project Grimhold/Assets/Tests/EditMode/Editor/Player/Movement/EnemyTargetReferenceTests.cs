@@ -60,7 +60,7 @@ namespace Tests.EditMode.Editor.Player.Movement
         }
 
         [Test]
-        public void SetTarget_InvalidIdentity_DoesNotStoreTransformOnlyTarget()
+        public void InvalidIdentity_ReturnsFalseEvenWhenTransformIsCached()
         {
             SetTarget(default, _targetObject.transform);
 
@@ -68,7 +68,7 @@ namespace Tests.EditMode.Editor.Player.Movement
 
             Assert.IsFalse(hasTarget);
             Assert.AreEqual(0, targetId.Value);
-            Assert.IsNull(targetTransform);
+            Assert.AreEqual(_targetObject.transform, targetTransform);
         }
 
         [Test]
@@ -144,12 +144,15 @@ namespace Tests.EditMode.Editor.Player.Movement
 
         private void SetTarget(EntityId id, Transform targetTransform)
         {
-            MethodInfo method = typeof(EnemyMovementAIController).GetMethod(
-                "SetCurrentTarget",
-                BindingFlags.Instance | BindingFlags.NonPublic);
+            var type = typeof(EnemyMovementAIController);
+            var structType = type.GetNestedType("EnemyTargetReference", BindingFlags.NonPublic);
+            Assert.IsNotNull(structType, "Could not find EnemyTargetReference struct.");
 
-            Assert.IsNotNull(method);
-            method.Invoke(_controller, new object[] { id, targetTransform });
+            object targetRef = System.Activator.CreateInstance(structType, id, targetTransform);
+
+            var field = type.GetField("_currentTarget", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, "Could not find _currentTarget field.");
+            field.SetValue(_controller, targetRef);
         }
     }
 }

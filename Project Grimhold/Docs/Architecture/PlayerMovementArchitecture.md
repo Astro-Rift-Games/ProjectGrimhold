@@ -810,20 +810,23 @@ La UI no debe escribir directamente el estado de movimiento de red salvo que exi
 
 ## 17. Presentación state-driven
 
-El movimiento continuo y la orientación se presentan observando el estado sincronizado de red en `LateUpdate`, libre de dependencias de red o input.
+El movimiento continuo y la orientación se presentan observando el estado sincronizado de red, libre de dependencias de red o input. `CharacterAnimatorView` actualiza los parámetros en `Update()` para alimentar al Animator con vectores canónicos discretos antes de la evaluación interna del grafo de animación.
 
 Flujo:
 
 ```text
 FacingDirection & IsMoving ([Networked])
-    → PlayerAnimatorView
-    → Animator (MoveX, MoveY, IsMoving)
+    → CharacterAnimatorView (Update)
+    → CharacterVisualDirectionResolver (SanitizeFacing & Resolve)
+    → Canonical vector (MoveX, MoveY) & IsMoving
+    → Animator evaluation
 ```
 
-El visualizador de animación (`PlayerAnimatorView`):
-- Lee `FacingDirection` de `PlayerMovementNetworkController` (usando `Vector2.down` como fallback visual si aún es cero).
+El visualizador de animación (`PlayerAnimatorView` / `CharacterAnimatorView`):
+- Sanitiza `FacingDirection` de `PlayerMovementNetworkController` (usando `Vector2.down` como fallback visual inicial y preservando el último facing válido ante entradas inválidas).
+- Resuelve la dirección a uno de los 6 buckets visuales canónicos (`S`, `SE`, `NE`, `N`, `NW`, `SW`).
+- Escribe el vector canónico correspondiente en `MoveX` y `MoveY`, posicionando el BlendTree exactamente sobre el nodo del sprite direccionado.
 - Lee `IsMoving` para controlar las transiciones entre caminar e idle.
-- Actualiza los parámetros flotantes y booleanos del Animator.
 
 No se sincronizan clips ni variables visuales directamente; la animación se deriva enteramente del estado simulado.
 

@@ -28,6 +28,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private bool _hashesInitialized;
     private Vector2? _temporalFacingDirection;
     private bool _isDefeated;
+    private Vector2 _safeFacing = Vector2.down;
 
     protected virtual void Awake()
     {
@@ -37,11 +38,12 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
 
     protected virtual void OnDisable()
     {
+        _safeFacing = Vector2.down;
         _temporalFacingDirection = null;
         _isDefeated = false;
     }
 
-    protected virtual void LateUpdate()
+    protected virtual void Update()
     {
         if (_movementState == null || _animator == null)
         {
@@ -53,32 +55,31 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
             InitializeHashes();
         }
 
-        Vector2 facing;
+        Vector2 rawFacing;
         bool isMoving;
 
         if (_isDefeated)
         {
-            facing = _movementState.FacingDirection;
+            rawFacing = _movementState.FacingDirection;
             isMoving = false;
         }
         else if (_temporalFacingDirection.HasValue)
         {
-            facing = _temporalFacingDirection.Value;
+            rawFacing = _temporalFacingDirection.Value;
             isMoving = false;
         }
         else
         {
-            facing = _movementState.FacingDirection;
+            rawFacing = _movementState.FacingDirection;
             isMoving = _movementState.IsMoving;
         }
 
-        if (facing.sqrMagnitude < 0.001f)
-        {
-            facing = Vector2.down;
-        }
+        _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(rawFacing, _safeFacing);
+        CharacterVisualDirection visualDirection = CharacterVisualDirectionResolver.Resolve(_safeFacing);
+        Vector2 canonicalFacing = CharacterVisualDirectionResolver.GetCanonicalVector(visualDirection);
 
-        _animator.SetFloat(_moveXHash, facing.x);
-        _animator.SetFloat(_moveYHash, facing.y);
+        _animator.SetFloat(_moveXHash, canonicalFacing.x);
+        _animator.SetFloat(_moveYHash, canonicalFacing.y);
         _animator.SetBool(_isMovingHash, isMoving);
     }
 

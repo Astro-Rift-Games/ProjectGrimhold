@@ -321,9 +321,9 @@ namespace Tests.EditMode.Combat
 
             Assert.That(prefab, Is.Not.Null, $"Missing character prefab at {prefabPath}.");
 
-            Transform body = prefab.transform.Find("Body");
+            Transform body = prefab.transform.Find("Body") ?? prefab.transform.Find("VisualRoot/Body");
             Transform damageHitboxTransform = prefab.transform.Find("DamageHitbox");
-            BoxCollider2D movementCollider = prefab.GetComponent<BoxCollider2D>();
+            Collider2D movementCollider = prefab.GetComponent<Collider2D>();
             Kinematic2DMovementMotor movementMotor = prefab.GetComponent<Kinematic2DMovementMotor>();
 
             Assert.That(body, Is.Not.Null);

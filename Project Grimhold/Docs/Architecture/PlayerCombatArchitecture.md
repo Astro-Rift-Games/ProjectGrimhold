@@ -247,83 +247,74 @@ destruction. See `Docs/Architecture/BreakableLootArchitecture.md`.
 
 The combat system coordinates gameplay state with the visual presentation layer through decoupled events and synchronized networked variables. This ensures visual changes have zero impact on the simulation's determinism.
 
-### Shared Player Hand and Modular Character Composition
+### Modular Character Composition and Procedural Weapon Presentation
 
 `NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and coordinates the modular visual
 hierarchy under `VisualRoot` alongside the procedural weapon presentation under
-`CombatVisuals/WeaponPivot/{HandVisual, WeaponSprite}`. Both `NetworkPlayerMelee.prefab`
+`CombatVisuals/WeaponPivot/WeaponSprite`. Both `NetworkPlayerMelee.prefab`
 and `NetworkPlayerRanged.prefab` inherit that same component and hierarchy. Variants may
 override only weapon-specific presentation data, such as the weapon sprite, stance offset,
 grip point, angular correction, and necessary weapon visual adjustments. They do not
-duplicate the presenter or the hand composition.
+duplicate the presenter.
 
 The character visual structure is modularized under `VisualRoot`:
 * **`VisualRoot`**: Houses the single common `Animator` and `PlayerAnimatorView` for the character.
-* **Modular Slots**: Contains independent `SpriteRenderer` components for `Legs`, `Body`, `Head`, `LeftHand`, and `RightHand`, sharing a uniform 96x96 canvas and local position origin `(0, 0, 0)`.
-* **Single Animator**: A single common `Animator` on `VisualRoot` acts as the ancestor for all modular slots. Future locomotion will coordinately animate the five `SpriteRenderer` components across the six visual directions. The previous monolithic animation clips (which bound to path `""`) are obsolete and will be replaced by modular clips in Stage 3.
-* **`HandOrbitAnchor`**: Located as a child under `Body` at local offset `(0, 0.45, 0)`. Modular animation clips must animate `SpriteRenderer.sprite` and must not animate `Body.transform.localPosition` to avoid displacing the weapon orbit origin.
+* **Modular Slots**: Contains independent `SpriteRenderer` components for `Legs`, `Body`, `Head`, `LeftHand`, and `RightHand`, sharing a uniform 96x96 canvas and local position origin `(0, 0, 0)`. `LeftHand` and `RightHand` are the sole visual hands of the character and are driven exclusively by the modular Animator clips.
+* **Single Animator**: A single common `Animator` on `VisualRoot` acts as the ancestor for all modular slots, driving coordinated animation clips across the six visual directions.
+* **`WeaponOrbitAnchor`**: Located as a child under `Body` at local offset `(0, -0.18, 0)`. It provides the torso anchor for the weapon orbit origin. Modular animation clips animate `SpriteRenderer.sprite` and must not animate `Body.transform.localPosition` to avoid displacing the weapon orbit origin.
 
 The inherited attack-driven `PlayerCombatPresenter` is disabled on the base
 composition, so neither weapon variant runs an attack swing or alters the visual
-Animator. Hand and weapon visuals remain enabled continuously during idle,
+Animator. Weapon visuals remain enabled continuously during idle,
 movement, and ordinary combat presentation rather than appearing only when an
 attack is executed.
 
-`PlayerWeaponPresenter` continues to own exclusively the procedural weapon presentation
-(`CombatVisuals/WeaponPivot/{HandVisual, WeaponSprite}`). It reads the existing finite,
+`PlayerWeaponPresenter` owns exclusively the procedural weapon presentation
+(`CombatVisuals/WeaponPivot/WeaponSprite`). It reads the existing finite,
 normalized `PlayerMovementNetworkController.FacingDirection` through `IMovementState`. It
 does not capture input, add networked state, or write back to movement or combat.
 Every peer, including proxies, derives the same local presentation pose from the
 replicated facing. Invalid or zero presentation samples retain the presenter's
-last safe direction, with `Vector2.down` as its initial fallback. Unity may enable
-the visual hierarchy while Fusion is still instantiating the prefab; during that
-pre-spawn window the presenter applies the fallback pose and does not read the
-networked property until its source `NetworkBehaviour.Object` is valid.
+last safe direction via `CharacterVisualDirectionResolver.SanitizeFacing`, with
+`Vector2.down` as its initial fallback. Unity may enable the visual hierarchy while Fusion
+is still instantiating the prefab; during that pre-spawn window the presenter applies the
+fallback pose and does not read the networked property until its source `NetworkBehaviour.Object` is valid.
 
-`HandOrbitAnchor` is presentation-only and is positioned manually over the
+`WeaponOrbitAnchor` is presentation-only and is positioned manually over the
 torso under `Body`. Because `VisualRoot/Body` and `CombatVisuals` are separate branches, the presenter
 converts the anchor world position into the local space of `WeaponPivot.parent` (`CombatVisuals`).
 It then composes the pose in this order:
 
 ```text
-base HandOrbitAnchor (under VisualRoot/Body)
+base WeaponOrbitAnchor (under VisualRoot/Body)
 -> conversion to WeaponPivot parent space (CombatVisuals)
--> shared elliptical hand orbit
+-> visual direction resolution via CharacterVisualDirectionResolver (S, SE, NE, N, NW, SW)
+-> discrete WeaponDirectionPreset lookup (Orbit, StanceOffset)
+-> discrete WeaponPivot position using bucket canonical facing vector
 -> variant weapon stance offset
--> continuous facing rotation and shared reflection
+-> continuous 360-degree facing rotation and left-hemisphere reflection
 -> weapon grip aligned to the weapon pivot
+-> bucket-driven sorting order (Front: S, SE, SW; Back: N, NE, NW)
 ```
 
 The body origin and sprite bounds are not presentation centers. Moving the
-anchor moves the complete orbit without introducing a second center. `HandVisual`
-and `WeaponSprite` remain children of `WeaponPivot`, so a left-hemisphere reflection
-applies to both as one composition. The weapon local position is derived from its
-configured grip point after weapon scale and angular correction, keeping that
-grip at the pivot through rotation and reflection.
+anchor moves the complete orbit without introducing a second center. Within any
+visual direction bucket, `WeaponPivot.localPosition` remains discrete and anchored
+to the character's hand position for that directional frame, while `WeaponPivot.localRotation`
+smoothly tracks the continuous 360° aim direction.
 
-Visual authoring keeps those responsibilities explicit. The hand sprite is
-imported with its pivot at the visual center, so the shared prefab normally uses
-a zero hand visual offset; `_handVisualOffset` remains an optional relative art
-correction rather than another orbit center. `_weaponGripPoint` is serialized in
+Visual authoring keeps those responsibilities explicit. `_weaponGripPoint` is serialized in
 the weapon sprite's local units and is overridden on the player variant when its
 weapon art changes. It identifies the point inside the visible handle that must
 coincide with `WeaponPivot`, so grip tuning remains prefab configuration instead of
-a code constant. Weapon stance offsets move the complete hand-and-weapon pose and
+a code constant. Weapon stance offsets move the complete weapon pose and
 must not be used to compensate for an incorrect internal grip.
 
-The continuous weapon pose does not depend on adding East or West body clips;
-the six discrete visual Animator directions (N, NE, NW, S, SE, SW) remain the visual
-facing buckets for character animation. Both weapon renderers stay on the existing
-`Characters` Sorting Layer and use the established front/back relative orders.
-The hand renderer (`HandVisual`) is always one relative order above the weapon renderer
-so the fingers cover the handle at their overlap.
-
-**Temporary Coexistence Limitation**: In the current structural stage (Stage 2),
-`VisualRoot/LeftHand` and `VisualRoot/RightHand` represent the base character's modular hands,
-while `HandVisual` represents the procedural weapon-grip hand on `WeaponPivot`. During
-armed combat states, both representations may coexist until a subsequent presentation stage
-coordinates dynamic modular hand hiding/swapping. This is a known temporary visual limitation
-and does not affect gameplay simulation or combat authority.
+The continuous weapon rotation does not require adding East or West body clips;
+the six discrete visual directions (N, NE, NW, S, SE, SW) resolved by `CharacterVisualDirectionResolver`
+serve as the common facing buckets for both character animation and weapon positioning.
+The weapon renderer stays on the existing `Characters` Sorting Layer and derives its front/back
+relative orders (`SortingOrderFront` / `SortingOrderBack`) directly from the resolved visual bucket.
 
 ### 1. Damage Feedback Visuals
 When a character takes damage (authoritatively confirmed by `Health` changes on State Authority):

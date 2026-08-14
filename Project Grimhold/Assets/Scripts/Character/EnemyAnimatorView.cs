@@ -26,9 +26,9 @@ public sealed class EnemyAnimatorView : CharacterAnimatorView
         }
     }
 
-    protected override void LateUpdate()
+    protected override void Update()
     {
-        base.LateUpdate();
+        base.Update();
 
         if (AnimatorInstance == null)
         {
