@@ -168,10 +168,13 @@ spawning, the spawner checks the current player-object mapping; after spawning, 
 `SocialPlayer` is a dedicated Fusion prefab. It retains movement, local input, visual
 animation, local camera binding, and social interaction. `SocialPlayerCharacter` supplies
 only entity identity and the always-available `ICharacter` contract required by interaction.
+`SocialPlayer` reuses the modular character presentation hierarchy (`VisualRoot`), the shared
+Animator Controller, and shared locomotion clips.
 
 The prefab intentionally excludes combat, attacks, health and damage, death and corpse
 generation, extraction, raid loot and inventory, raid HUD, visibility/minimap, and raid-only
-feedback. Town presentation may observe local state but may not mutate raid gameplay state.
+feedback (including weapon/combat presentation). Town presentation may observe local state 
+but may not mutate raid gameplay state.
 
 `Lobby-Town` contains the social spawn configuration and a `LocalCameraController`. It does
 not contain a launcher or automatic debug starter; lifecycle ownership remains in the

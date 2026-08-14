@@ -142,6 +142,48 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
+    public void SocialPlayer_ContainsModularLocomotionPresentation()
+    {
+        GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+        Assert.That(socialPrefab, Is.Not.Null);
+
+        Transform visualRoot = FindChild(socialPrefab.transform, "VisualRoot");
+        Assert.That(visualRoot, Is.Not.Null, "SocialPlayer missing VisualRoot");
+
+        Animator animator = visualRoot.GetComponent<Animator>();
+        Assert.That(animator, Is.Not.Null, "VisualRoot missing Animator");
+
+        GameObject networkPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        Animator networkAnimator = FindChild(networkPrefab.transform, "VisualRoot").GetComponent<Animator>();
+        Assert.That(animator.runtimeAnimatorController, Is.EqualTo(networkAnimator.runtimeAnimatorController), "SocialPlayer must use the same AnimatorController as NetworkPlayer");
+
+        PlayerAnimatorView animatorView = visualRoot.GetComponent<PlayerAnimatorView>();
+        Assert.That(animatorView, Is.Not.Null, "VisualRoot missing PlayerAnimatorView");
+        
+        string[] requiredSlots = { "Legs", "Body", "Head", "LeftHand", "RightHand" };
+        foreach (string slotName in requiredSlots)
+        {
+            Transform slot = FindChild(visualRoot, slotName);
+            Assert.That(slot, Is.Not.Null, $"VisualRoot missing {slotName} slot");
+            Assert.That(slot.parent, Is.EqualTo(visualRoot), $"{slotName} must be a direct child of VisualRoot");
+
+            SpriteRenderer renderer = slot.GetComponent<SpriteRenderer>();
+            Assert.That(renderer, Is.Not.Null, $"{slotName} missing SpriteRenderer");
+
+            Transform networkSlot = FindChild(networkPrefab.transform.Find("VisualRoot"), slotName);
+            SpriteRenderer networkRenderer = networkSlot.GetComponent<SpriteRenderer>();
+
+            Assert.That(renderer.sharedMaterial, Is.EqualTo(networkRenderer.sharedMaterial), $"{slotName} material mismatch");
+            Assert.That(renderer.sortingLayerID, Is.EqualTo(networkRenderer.sortingLayerID), $"{slotName} sortingLayerID mismatch");
+            Assert.That(renderer.sortingOrder, Is.EqualTo(networkRenderer.sortingOrder), $"{slotName} sortingOrder mismatch");
+            Assert.That(slot.gameObject.layer, Is.EqualTo(networkSlot.gameObject.layer), $"{slotName} layer mismatch");
+        }
+
+        Assert.That(FindChild(visualRoot, "HandOrbitAnchor"), Is.Null, "Obsolete HandOrbitAnchor found");
+        Assert.That(visualRoot.GetComponent<SpriteRenderer>(), Is.Null, "Obsolete monolithic SpriteRenderer found on VisualRoot");
+    }
+
+    [Test]
     public void TownRaidNpc_HasAuthoritativePreparationDirectoryAndInteractionComposition()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidNpcPath);
