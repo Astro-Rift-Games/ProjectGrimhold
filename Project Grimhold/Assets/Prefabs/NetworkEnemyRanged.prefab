@@ -140,6 +140,26 @@ PrefabInstance:
       propertyPath: _animatorViewSource
       value: 
       objectReference: {fileID: 4354761633905176261}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 6934558320154802809, guid: 8639715a893d4d547ad752c6ee86fd59, type: 3}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.b
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1066720069559603162, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5232659655046367733, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 5e578e861e608e243847578f620cc1f8, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
