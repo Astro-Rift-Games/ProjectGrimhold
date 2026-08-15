@@ -20,7 +20,7 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
 
         var receipt = new ShopTransactionReceipt(transactionId, profileId);
         
-        bool isLobby = gameObject.scene.name.Contains("Lobby");
+        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
         return _store.TryCommitPurchase(receipt, lootId, amount, declaredPrice, isLobby);
     }
 
@@ -30,7 +30,8 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
         if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
 
         var receipt = new ShopTransactionReceipt(transactionId, profileId);
-        return _store.TryCommitSale(receipt, lootId, amount, declaredSellValue);
+        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
+        return _store.TryCommitSale(receipt, lootId, amount, declaredSellValue, isLobby);
     }
 
     private bool IsProfile(ProfileId profileId)

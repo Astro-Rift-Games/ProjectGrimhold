@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 24
+      value: 25
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -155,6 +155,10 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[23]'
       value: 
+      objectReference: {fileID: 2190214083296075049}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[24]'
+      value: 
       objectReference: {fileID: 481970610349468446}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: m_Name
@@ -226,6 +230,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e25a49d1392f86418d76f4b467f348b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidAvatarParticipantLink
+--- !u!114 &2190214083296075049 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5661482956119050771, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34fbf51375c48ef4088c4d8a737b7404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
 --- !u!114 &2324498182927916898 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8121909954639136856, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -290,7 +305,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b0bf9c60ce64f6abf2ecff05513e9e1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerVisibilityBinder
 --- !u!114 &3682681716924389183 stripped
 MonoBehaviour:

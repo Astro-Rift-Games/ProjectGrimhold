@@ -102,7 +102,7 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public StashOperationResult TryCommitSale(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue)
+    public StashOperationResult TryCommitSale(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue, bool isLobby = true)
     {
         if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredSellValue < 0)
             return StashOperationResult.InvalidInventory;
@@ -120,13 +120,26 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
 
         next.Currency += declaredSellValue;
-        int availableInLoadout = FindAmount(next.Loadout, lootId);
-        if (availableInLoadout < amount)
-        {
-            return StashOperationResult.InvalidInventory;
-        }
         
-        TryRemove(next.Loadout, lootId, amount);
+        int availableInLoadout = FindAmount(next.Loadout, lootId);
+        if (isLobby)
+        {
+            if (availableInLoadout < amount)
+            {
+                return StashOperationResult.InvalidInventory;
+            }
+            TryRemove(next.Loadout, lootId, amount);
+        }
+        else
+        {
+            // In a raid, the item might be freshly looted and thus not in the persistent loadout yet.
+            // We only remove it if it was brought from the lobby.
+            if (availableInLoadout > 0)
+            {
+                int amountToRemove = System.Math.Min(availableInLoadout, amount);
+                TryRemove(next.Loadout, lootId, amountToRemove);
+            }
+        }
 
         next.AppliedShopTransactionReceipts.Add(receipt);
         next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
