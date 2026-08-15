@@ -280,6 +280,12 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
+        if (_config != null)
+        {
+            Gizmos.color = new Color(1f, 0.5f, 0f, 0.5f);
+            Gizmos.DrawWireSphere(transform.position, _config.AgentRadius);
+        }
+
         if (!_hasValidPath || _waypointCount == 0) return;
 
         // Draw the full path in cyan.

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: PathfindingGridConfig
   m_EditorClassIdentifier: Assembly-CSharp::PathfindingGridConfig
   _nodeSize: 0.5
-  _agentRadius: 0.35
+  _agentRadius: 0.5
   _obstacleLayer:
     serializedVersion: 2
     m_Bits: 64
-  _maxPathIterations: 8000
+  _maxPathIterations: 2000

@@ -47,6 +47,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [SerializeField] private float _attackRange = 1.5f;
 
     [Header("Obstacle Detection")]
+    [SerializeField] private bool _enableObstacleAvoidance = true;
     [SerializeField] private LayerMask _obstacleLayer;
 
     [SerializeField] private EnemyObstacleAvoidanceSettings _avoidanceSettings = new EnemyObstacleAvoidanceSettings
@@ -536,7 +537,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             }
         }
 
-        if (intendedDir.sqrMagnitude > ValidDirectionSqrThreshold && _characterBase != null)
+        if (_enableObstacleAvoidance && intendedDir.sqrMagnitude > ValidDirectionSqrThreshold && _characterBase != null)
         {
             return _obstacleAvoidance.Steer(
                 transform.position,

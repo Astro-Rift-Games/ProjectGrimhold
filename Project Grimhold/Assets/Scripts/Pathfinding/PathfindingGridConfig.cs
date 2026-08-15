@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// Shared configuration asset for <see cref="PathfindingGrid"/> and
