@@ -14,6 +14,11 @@ public enum StashOperationResult
     AlreadySecured,
 
     /// <summary>
+    /// The transaction has already been applied, preventing duplicates.
+    /// </summary>
+    AlreadyApplied,
+
+    /// <summary>
     /// The provided inventory snapshot was invalid or empty.
     /// </summary>
     InvalidInventory,

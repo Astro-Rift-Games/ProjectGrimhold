@@ -238,21 +238,25 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     {
         if (!HasStateAuthority)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: MissingAuthority. Id={Id.Value}, HasStateAuth={HasStateAuthority}");
             return LootTransferFailureReason.MissingAuthority;
         }
 
         if (IsExtractionLocked())
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: ContainerUnavailable (ExtractionLocked)");
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
         if (request.SourceId.Value == 0 || request.SourceId != Id)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: SourceNotFound. ReqSource={request.SourceId.Value}, MyId={Id.Value}");
             return LootTransferFailureReason.SourceNotFound;
         }
 
         if (request.DestinationId.Value == 0)
         {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: DestinationNotFound. ReqDest={request.DestinationId.Value}");
             return LootTransferFailureReason.DestinationNotFound;
         }
 
@@ -289,10 +293,18 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
         NetworkDictionary<int, int> inventory = LootInventory;
         bool alreadyHeld = inventory.TryGet(definitionIndex, out int currentAmount);
-        return LootInventoryRules.ValidateExtraction(
+        
+        var ruleResult = LootInventoryRules.ValidateExtraction(
             alreadyHeld,
             currentAmount,
             request.RequestedAmount);
+            
+        if (ruleResult != LootTransferFailureReason.None)
+        {
+            Debug.Log($"[ShopTransaction] ValidateExtraction failed: LootInventoryRules returned {ruleResult}. alreadyHeld={alreadyHeld}, currentAmount={currentAmount}, reqAmount={request.RequestedAmount}");
+        }
+        
+        return ruleResult;
     }
 
     /// <summary>
@@ -722,6 +734,55 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             LootChangeSequence++;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Forcibly clears and re-initializes the loadout. Intended for use in social hubs
+    /// where the local persistent loadout can change outside of network simulation.
+    /// </summary>
+    public bool TryForceSyncLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority)
+        {
+            error = "Loadout sync requires State Authority.";
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
+            return false;
+        }
+
+        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error))
+        {
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout validation failed: {error}");
+            return false;
+        }
+
+        // Explicitly remove all items instead of using Clear() which can be unreliable in some Fusion versions
+        var keysToRemove = new System.Collections.Generic.List<int>();
+        foreach (var kvp in LootInventory)
+        {
+            keysToRemove.Add(kvp.Key);
+        }
+        foreach (var key in keysToRemove)
+        {
+            LootInventory.Remove(key);
+        }
+
+        for (int index = 0; index < loadoutItems.Count; index++)
+        {
+            LootEntry entry = loadoutItems[index];
+            if (!_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
+            {
+                error = $"Loot catalog does not contain '{entry.LootId.Value}'.";
+                UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
+                return false;
+            }
+
+            LootInventory.Set(definitionIndex, entry.Amount);
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout set {entry.LootId.Value} amount {entry.Amount}");
+        }
+
+        LootChangeSequence++;
         return true;
     }
 

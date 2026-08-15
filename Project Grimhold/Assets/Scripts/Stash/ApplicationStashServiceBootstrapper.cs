@@ -38,11 +38,22 @@ public static class ApplicationStashServiceBootstrapper
         }
 
         var store = new LocalProfileStore(repository, profileId);
+        
+        if (store.PendingReservation != null)
+        {
+            Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
+            store.TryRollbackLoadoutReservation(store.PendingReservation.ReservationId);
+        }
+
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
+        var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
+        var shopTransactionService = contextObject.AddComponent<LocalShopTransactionService>();
         stashService.Initialize(store);
         loadoutService.Initialize(store);
-        context.Initialize(store, stashService, loadoutService);
+        currencyService.Initialize(store);
+        shopTransactionService.Initialize(store);
+        context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
 
         Object.DontDestroyOnLoad(contextObject);
 

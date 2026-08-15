@@ -3,20 +3,20 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Presents the local stash after a confirmed interaction with a Town stash NPC.
-/// Only Input Authority creates the Canvas and reads the local persistence context.
+/// Presents the local merchant shop after a confirmed interaction with a Town Merchant NPC.
+/// Only Input Authority creates the Canvas, initializes the network controller, and manages input.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerInteractionNetworkController))]
-public sealed class TownStashPresenter : NetworkBehaviour
+public sealed class TownMerchantPresenter : NetworkBehaviour
 {
     [SerializeField]
-    private GameObject _stashInventoryPrefab;
+    private GameObject _merchantShopPrefab;
 
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
 
-    private TownStashView _view;
+    private TownMerchantView _view;
     private NetworkObject _openNpc;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
@@ -70,12 +70,18 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
     private void Bind()
     {
-        if (!HasInputAuthority || _interactionController == null || _stashInventoryPrefab == null || _view != null)
+        if (!HasInputAuthority || _interactionController == null || _view != null)
         {
             return;
         }
+        
+        if (_merchantShopPrefab == null)
+        {
+            Debug.LogError("TownMerchantPresenter failed to bind because MerchantShopPrefab is not assigned in the Inspector.", this);
+            return;
+        }
 
-        _view = TownStashView.Create(transform, _stashInventoryPrefab);
+        _view = TownMerchantView.Create(transform, _merchantShopPrefab);
         if (_view == null)
         {
             return;
@@ -86,62 +92,77 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        Debug.Log($"[StashUI] OnInteractionResolved triggered. Success: {interactionEvent.Success}, TargetId: {interactionEvent.TargetId.Value}");
-
-        if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null ||
-            _view == null || _view.IsOpen)
+        if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
         {
-            Debug.Log($"[StashUI] Exiting early. Success={interactionEvent.Success}, TargetId.Value={interactionEvent.TargetId.Value}, RunnerIsNull={Runner == null}, ViewIsNull={_view == null}, ViewIsOpen={_view != null && _view.IsOpen}");
+            Debug.LogWarning($"[TownMerchantPresenter] Event ignored. Success: {interactionEvent.Success}, TargetId: {interactionEvent.TargetId.Value}, Runner: {Runner != null}", this);
+            return;
+        }
+        
+        if (_view == null)
+        {
+            Debug.LogError("TownMerchantPresenter cannot open UI because _view is null. Did you assign the MerchantShopPrefab in the inspector?");
+            return;
+        }
+        
+        if (_view.IsOpen)
+        {
+            Debug.LogWarning("[TownMerchantPresenter] Event ignored because the view is already open.", this);
             return;
         }
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null)
         {
-            Debug.Log($"[StashUI] NetworkObject with ID {networkId.Raw} not found.");
-            return;
-        }
-
-        if (!target.TryGetBehaviour(out TownStashNpcInteractable _))
-        {
-            Debug.Log($"[StashUI] Target {target.name} does not have a TownStashNpcInteractable.");
+            // Do not log an error. Other interactions (like looting) destroy the object,
+            // which legitimately causes it to not be found here.
             return;
         }
         
-        Debug.Log($"[StashUI] Target is valid and has TownStashNpcInteractable. Checking StashContext...");
+        if (!target.TryGetBehaviour(out TownMerchantNpcInteractable _))
+        {
+            return;
+        }
+        
+        if (!target.TryGetBehaviour(out TownMerchantNetworkController merchantController))
+        {
+            Debug.LogError("Merchant NPC is missing TownMerchantNetworkController.", target);
+            return;
+        }
 
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context == null)
+        if (context == null || context.ShopTransactionService == null || context.Store == null)
         {
-            Debug.LogWarning("[StashUI] Town stash is unavailable: ApplicationStashContext is null.", this);
-            return;
-        }
-        
-        if (context.Store == null)
-        {
-            Debug.LogWarning("[StashUI] Town stash is unavailable: context.Store is null.", this);
-            return;
-        }
-        
-        if (!context.Store.IsAvailable)
-        {
-            Debug.LogWarning("[StashUI] Town stash is unavailable: context.Store.IsAvailable is false.", this);
-            return;
-        }
-        
-        if (context.StashService == null)
-        {
-            Debug.LogWarning("[StashUI] Town stash is unavailable: context.StashService is null.", this);
-            return;
-        }
-        
-        if (context.LoadoutService == null)
-        {
-            Debug.LogWarning("[StashUI] Town stash is unavailable: context.LoadoutService is null.", this);
+            Debug.LogWarning("Merchant is unavailable because local stash context is not ready.", this);
             return;
         }
 
-        Debug.Log($"[StashUI] All checks passed. Opening view and acquiring input suppression.");
+        // Initialize the network controller with the local execution dependencies
+        merchantController.InitializeLocalClient(context.ShopTransactionService, context.Store.ProfileId);
+
+        // Only force sync the loadout in the social hub (Shared Mode).
+        // In a raid (Host/Client), the inventory is authoritative and must not be overridden.
+        if (Runner.Topology == Topologies.Shared)
+        {
+            var playerLootReceiver = GetComponent<PlayerLootReceiver>();
+            if (playerLootReceiver != null && context.Store != null)
+            {
+                var loadout = context.Store.GetLoadout();
+                var entries = new System.Collections.Generic.List<LootEntry>(loadout.Count);
+                foreach (var item in loadout)
+                {
+                    entries.Add(new LootEntry(item.LootId, item.Amount));
+                }
+                playerLootReceiver.TryForceSyncLoadout(entries, out _);
+            }
+        }
+
+        // Pass dependencies to the UI
+        if (_view.ShopUI != null)
+        {
+            _view.ShopUI.Initialize(merchantController, context, GetComponent<PlayerLootReceiver>());
+            _view.ShopUI.OnCloseRequested.AddListener(ClosePanelFromUI);
+        }
+
         _openNpc = target;
         _view.Open();
         AcquireInputSuppression();
@@ -197,9 +218,19 @@ public sealed class TownStashPresenter : NetworkBehaviour
             ClosePanel();
         }
     }
+    
+    private void ClosePanelFromUI()
+    {
+        ClosePanel();
+    }
 
     private void ClosePanel()
     {
+        if (_view != null && _view.ShopUI != null)
+        {
+            _view.ShopUI.OnCloseRequested.RemoveListener(ClosePanelFromUI);
+        }
+
         _view?.Close();
         _openNpc = null;
         ReleaseInputSuppression();

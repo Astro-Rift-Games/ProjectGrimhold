@@ -30,6 +30,8 @@ GameObject:
   - component: {fileID: 2815579535755130247}
   - component: {fileID: 7001849326501124311}
   - component: {fileID: -4837222205145677922}
+  - component: {fileID: 5930331051498512961}
+  - component: {fileID: 3426327737543358221}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -235,6 +237,8 @@ MonoBehaviour:
   - {fileID: 2815579535755130247}
   - {fileID: 7001849326501124311}
   - {fileID: -4837222205145677922}
+  - {fileID: 5930331051498512961}
+  - {fileID: 3426327737543358221}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9115544833474229447
 MonoBehaviour:
@@ -348,6 +352,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownStashPresenter
   _stashInventoryPrefab: {fileID: 5586755783176356032, guid: 021f9a522f4fa8247b4a03df5d020060, type: 3}
   _interactionController: {fileID: 1101445917034815865}
+--- !u!114 &5930331051498512961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34fbf51375c48ef4088c4d8a737b7404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
+  _merchantShopPrefab: {fileID: 2538062899881950617, guid: 30f0948df126b504c9887131ea504d2d, type: 3}
+  _interactionController: {fileID: 1101445917034815865}
+--- !u!114 &3426327737543358221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67b646a56656795418e114782133f0bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerLootReceiver
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+  _slotCapacity: 16
+  _LootChangeSequence: 0
 --- !u!1 &8396914955327986455
 GameObject:
   m_ObjectHideFlags: 0

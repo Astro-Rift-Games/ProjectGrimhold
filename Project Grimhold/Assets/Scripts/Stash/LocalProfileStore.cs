@@ -30,12 +30,115 @@ public sealed class LocalProfileStore
     public IReadOnlyList<StashItem> GetLoadout() =>
         _repository.Snapshot != null ? _repository.Snapshot.Loadout : Array.Empty<StashItem>();
     public PendingLoadoutReservation PendingReservation => _repository.Snapshot?.PendingReservation;
+    public long GetCurrency() =>
+        _repository.Snapshot != null ? _repository.Snapshot.Currency : LocalProfileSnapshot.InitialCurrency;
+
+    public StashOperationResult TryCreditCurrency(long amount)
+    {
+        if (amount <= 0) return StashOperationResult.InvalidInventory;
+        if (_repository.Snapshot.Currency > long.MaxValue - amount) return StashOperationResult.InvalidInventory;
+        var next = _repository.Snapshot.Clone();
+        next.Currency += amount;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryDebitCurrency(long amount)
+    {
+        if (amount <= 0) return StashOperationResult.InvalidInventory;
+        if (_repository.Snapshot.Currency < amount) return StashOperationResult.InvalidInventory;
+        var next = _repository.Snapshot.Clone();
+        next.Currency -= amount;
+        return Commit(next);
+    }
 
     public StashOperationResult TrySecureLoot(IReadOnlyList<StashItem> items)
     {
         if (!HasValidItems(items)) return StashOperationResult.InvalidInventory;
         var next = _repository.Snapshot.Clone();
         if (!TryMerge(next.Stash, items)) return StashOperationResult.InvalidInventory;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryCommitPurchase(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice, bool addToLoadout = false)
+    {
+        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredPrice < 0)
+            return StashOperationResult.InvalidInventory;
+
+        var current = _repository.Snapshot;
+        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
+            return StashOperationResult.AlreadyApplied;
+
+        foreach (var applied in current.AppliedShopTransactionReceipts)
+            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
+
+        var next = current.Clone();
+        
+        if (next.Currency < declaredPrice)
+            return StashOperationResult.InvalidInventory;
+            
+        next.Currency -= declaredPrice;
+
+        if (addToLoadout)
+        {
+            var purchasedItem = new[] { new StashItem(lootId, amount) };
+            if (next.Loadout.Count + CountNewSlots(next.Loadout, purchasedItem) > LocalProfileSnapshot.MaxLoadoutSlots)
+                return StashOperationResult.PersistenceFailed;
+
+            if (!TryMerge(next.Loadout, purchasedItem))
+                return StashOperationResult.PersistenceFailed;
+        }
+
+        next.AppliedShopTransactionReceipts.Add(receipt);
+        next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
+
+        while (next.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
+        {
+            var oldest = next.AppliedShopTransactionReceipts[0];
+            next.AppliedShopTransactionReceipts.RemoveAt(0);
+            if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
+                next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
+        }
+
+        return Commit(next);
+    }
+
+    public StashOperationResult TryCommitSale(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue)
+    {
+        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredSellValue < 0)
+            return StashOperationResult.InvalidInventory;
+
+        var current = _repository.Snapshot;
+        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
+            return StashOperationResult.AlreadyApplied;
+
+        foreach (var applied in current.AppliedShopTransactionReceipts)
+            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
+
+        var next = current.Clone();
+
+        if (next.Currency > long.MaxValue - declaredSellValue)
+            return StashOperationResult.InvalidInventory;
+
+        next.Currency += declaredSellValue;
+        int availableInLoadout = FindAmount(next.Loadout, lootId);
+        if (availableInLoadout < amount)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+        
+        TryRemove(next.Loadout, lootId, amount);
+
+        next.AppliedShopTransactionReceipts.Add(receipt);
+        next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
+
+        while (next.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
+        {
+            var oldest = next.AppliedShopTransactionReceipts[0];
+            next.AppliedShopTransactionReceipts.RemoveAt(0);
+            if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
+                next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
+        }
+
         return Commit(next);
     }
 
@@ -160,7 +263,28 @@ public sealed class LocalProfileStore
         foreach (ExtractionReceipt applied in _repository.Snapshot.AppliedExtractionReceipts)
             if (applied.Equals(receipt)) return StashOperationResult.AlreadySecured;
         var next = _repository.Snapshot.Clone();
-        if (!TryMerge(next.Stash, items)) return StashOperationResult.InvalidInventory;
+        
+        var loadoutOverflow = new List<StashItem>();
+        foreach (var item in items)
+        {
+            var singleItemArr = new[] { item };
+            if (next.Loadout.Count + CountNewSlots(next.Loadout, singleItemArr) <= LocalProfileSnapshot.MaxLoadoutSlots)
+            {
+                if (!TryMerge(next.Loadout, singleItemArr))
+                    loadoutOverflow.Add(item);
+            }
+            else
+            {
+                loadoutOverflow.Add(item);
+            }
+        }
+
+        if (loadoutOverflow.Count > 0)
+        {
+            if (!TryMerge(next.Stash, loadoutOverflow))
+                return StashOperationResult.InvalidInventory;
+        }
+
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);
