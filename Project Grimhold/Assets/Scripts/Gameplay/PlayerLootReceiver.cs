@@ -737,6 +737,55 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         return true;
     }
 
+    /// <summary>
+    /// Forcibly clears and re-initializes the loadout. Intended for use in social hubs
+    /// where the local persistent loadout can change outside of network simulation.
+    /// </summary>
+    public bool TryForceSyncLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority)
+        {
+            error = "Loadout sync requires State Authority.";
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
+            return false;
+        }
+
+        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error))
+        {
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout validation failed: {error}");
+            return false;
+        }
+
+        // Explicitly remove all items instead of using Clear() which can be unreliable in some Fusion versions
+        var keysToRemove = new System.Collections.Generic.List<int>();
+        foreach (var kvp in LootInventory)
+        {
+            keysToRemove.Add(kvp.Key);
+        }
+        foreach (var key in keysToRemove)
+        {
+            LootInventory.Remove(key);
+        }
+
+        for (int index = 0; index < loadoutItems.Count; index++)
+        {
+            LootEntry entry = loadoutItems[index];
+            if (!_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
+            {
+                error = $"Loot catalog does not contain '{entry.LootId.Value}'.";
+                UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
+                return false;
+            }
+
+            LootInventory.Set(definitionIndex, entry.Amount);
+            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout set {entry.LootId.Value} amount {entry.Amount}");
+        }
+
+        LootChangeSequence++;
+        return true;
+    }
+
     private bool TryMatchesInitialLoadout(
         NetworkDictionary<int, int> inventory,
         IReadOnlyList<LootEntry> expected)

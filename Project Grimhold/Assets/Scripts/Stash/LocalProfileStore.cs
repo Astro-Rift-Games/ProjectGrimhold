@@ -59,7 +59,7 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public StashOperationResult TryCommitPurchase(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice)
+    public StashOperationResult TryCommitPurchase(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice, bool addToLoadout = false)
     {
         if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredPrice < 0)
             return StashOperationResult.InvalidInventory;
@@ -77,6 +77,16 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
             
         next.Currency -= declaredPrice;
+
+        if (addToLoadout)
+        {
+            var purchasedItem = new[] { new StashItem(lootId, amount) };
+            if (next.Loadout.Count + CountNewSlots(next.Loadout, purchasedItem) > LocalProfileSnapshot.MaxLoadoutSlots)
+                return StashOperationResult.PersistenceFailed;
+
+            if (!TryMerge(next.Loadout, purchasedItem))
+                return StashOperationResult.PersistenceFailed;
+        }
 
         next.AppliedShopTransactionReceipts.Add(receipt);
         next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
@@ -110,6 +120,13 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
 
         next.Currency += declaredSellValue;
+        int availableInLoadout = FindAmount(next.Loadout, lootId);
+        if (availableInLoadout < amount)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+        
+        TryRemove(next.Loadout, lootId, amount);
 
         next.AppliedShopTransactionReceipts.Add(receipt);
         next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
@@ -246,7 +263,28 @@ public sealed class LocalProfileStore
         foreach (ExtractionReceipt applied in _repository.Snapshot.AppliedExtractionReceipts)
             if (applied.Equals(receipt)) return StashOperationResult.AlreadySecured;
         var next = _repository.Snapshot.Clone();
-        if (!TryMerge(next.Stash, items)) return StashOperationResult.InvalidInventory;
+        
+        var loadoutOverflow = new List<StashItem>();
+        foreach (var item in items)
+        {
+            var singleItemArr = new[] { item };
+            if (next.Loadout.Count + CountNewSlots(next.Loadout, singleItemArr) <= LocalProfileSnapshot.MaxLoadoutSlots)
+            {
+                if (!TryMerge(next.Loadout, singleItemArr))
+                    loadoutOverflow.Add(item);
+            }
+            else
+            {
+                loadoutOverflow.Add(item);
+            }
+        }
+
+        if (loadoutOverflow.Count > 0)
+        {
+            if (!TryMerge(next.Stash, loadoutOverflow))
+                return StashOperationResult.InvalidInventory;
+        }
+
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);

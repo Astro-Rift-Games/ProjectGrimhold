@@ -19,7 +19,9 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
         if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
 
         var receipt = new ShopTransactionReceipt(transactionId, profileId);
-        return _store.TryCommitPurchase(receipt, lootId, amount, declaredPrice);
+        
+        bool isLobby = gameObject.scene.name.Contains("Lobby");
+        return _store.TryCommitPurchase(receipt, lootId, amount, declaredPrice, isLobby);
     }
 
     public StashOperationResult TryExecuteSale(ProfileId profileId, LootId lootId, int amount, long declaredSellValue, ShopTransactionId transactionId)

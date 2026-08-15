@@ -26,6 +26,13 @@ public sealed class TownStashView : MonoBehaviour
         view._stashInstance = instance;
 
         Canvas canvas = instance.GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = instance.AddComponent<Canvas>();
+            instance.AddComponent<UnityEngine.UI.CanvasScaler>();
+            instance.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        }
+
         if (canvas != null)
         {
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;

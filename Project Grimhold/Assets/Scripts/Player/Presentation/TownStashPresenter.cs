@@ -86,27 +86,62 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
+        Debug.Log($"[StashUI] OnInteractionResolved triggered. Success: {interactionEvent.Success}, TargetId: {interactionEvent.TargetId.Value}");
+
         if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null ||
             _view == null || _view.IsOpen)
         {
+            Debug.Log($"[StashUI] Exiting early. Success={interactionEvent.Success}, TargetId.Value={interactionEvent.TargetId.Value}, RunnerIsNull={Runner == null}, ViewIsNull={_view == null}, ViewIsOpen={_view != null && _view.IsOpen}");
             return;
         }
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
-        if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
-            !target.TryGetBehaviour(out TownStashNpcInteractable _))
+        if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null)
         {
+            Debug.Log($"[StashUI] NetworkObject with ID {networkId.Raw} not found.");
             return;
         }
+
+        if (!target.TryGetBehaviour(out TownStashNpcInteractable _))
+        {
+            Debug.Log($"[StashUI] Target {target.name} does not have a TownStashNpcInteractable.");
+            return;
+        }
+        
+        Debug.Log($"[StashUI] Target is valid and has TownStashNpcInteractable. Checking StashContext...");
 
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context == null || context.Store == null || !context.Store.IsAvailable ||
-            context.StashService == null || context.LoadoutService == null)
+        if (context == null)
         {
-            Debug.LogWarning("Town stash is unavailable because local persistence is not ready.", this);
+            Debug.LogWarning("[StashUI] Town stash is unavailable: ApplicationStashContext is null.", this);
+            return;
+        }
+        
+        if (context.Store == null)
+        {
+            Debug.LogWarning("[StashUI] Town stash is unavailable: context.Store is null.", this);
+            return;
+        }
+        
+        if (!context.Store.IsAvailable)
+        {
+            Debug.LogWarning("[StashUI] Town stash is unavailable: context.Store.IsAvailable is false.", this);
+            return;
+        }
+        
+        if (context.StashService == null)
+        {
+            Debug.LogWarning("[StashUI] Town stash is unavailable: context.StashService is null.", this);
+            return;
+        }
+        
+        if (context.LoadoutService == null)
+        {
+            Debug.LogWarning("[StashUI] Town stash is unavailable: context.LoadoutService is null.", this);
             return;
         }
 
+        Debug.Log($"[StashUI] All checks passed. Opening view and acquiring input suppression.");
         _openNpc = target;
         _view.Open();
         AcquireInputSuppression();

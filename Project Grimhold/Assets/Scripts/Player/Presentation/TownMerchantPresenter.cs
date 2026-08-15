@@ -113,13 +113,13 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null)
         {
-            Debug.LogError($"Could not find NetworkObject with ID {networkId.Raw} for interaction.");
+            // Do not log an error. Other interactions (like looting) destroy the object,
+            // which legitimately causes it to not be found here.
             return;
         }
         
         if (!target.TryGetBehaviour(out TownMerchantNpcInteractable _))
         {
-            Debug.LogWarning($"[TownMerchantPresenter] Event ignored because the target NetworkObject ({target.name}) does not have a TownMerchantNpcInteractable.", this);
             return;
         }
         
@@ -138,6 +138,23 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
 
         // Initialize the network controller with the local execution dependencies
         merchantController.InitializeLocalClient(context.ShopTransactionService, context.Store.ProfileId);
+
+        // Only force sync the loadout in the social hub (Shared Mode).
+        // In a raid (Host/Client), the inventory is authoritative and must not be overridden.
+        if (Runner.Topology == Topologies.Shared)
+        {
+            var playerLootReceiver = GetComponent<PlayerLootReceiver>();
+            if (playerLootReceiver != null && context.Store != null)
+            {
+                var loadout = context.Store.GetLoadout();
+                var entries = new System.Collections.Generic.List<LootEntry>(loadout.Count);
+                foreach (var item in loadout)
+                {
+                    entries.Add(new LootEntry(item.LootId, item.Amount));
+                }
+                playerLootReceiver.TryForceSyncLoadout(entries, out _);
+            }
+        }
 
         // Pass dependencies to the UI
         if (_view.ShopUI != null)

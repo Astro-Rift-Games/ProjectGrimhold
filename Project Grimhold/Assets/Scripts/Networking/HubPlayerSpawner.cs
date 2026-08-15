@@ -114,6 +114,22 @@ public sealed class HubPlayerSpawner : NetworkRunnerCallbacksAdapter
         }
 
         runner.SetPlayerObject(player, playerObject);
+
+        if (playerObject.TryGetBehaviour(out PlayerLootReceiver receiver))
+        {
+            var context = Object.FindAnyObjectByType<ApplicationStashContext>();
+            if (context != null && context.Store != null)
+            {
+                var loadout = context.Store.GetLoadout();
+                var entries = new System.Collections.Generic.List<LootEntry>(loadout.Count);
+                foreach (var item in loadout)
+                {
+                    entries.Add(new LootEntry(item.LootId, item.Amount));
+                }
+                receiver.TryInitializeLoadout(entries, out _);
+            }
+        }
+
         _hasPendingLocalPlayer = false;
     }
 }
