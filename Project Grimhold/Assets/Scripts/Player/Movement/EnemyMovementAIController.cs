@@ -64,6 +64,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [SerializeField] private LayerMask _playerLayer;
 
     [Header("Dependencies")]
+    [SerializeField] private EnemyPathfindingNavigator _pathfindingNavigator;
     [SerializeField] private Kinematic2DMovementMotor _movementMotor;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -175,6 +176,8 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         CacheDependencies();
         _entityRegistry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         _dependenciesValid = ValidateDependencies();
+        
+        _pathfindingNavigator?.Initialize(Runner);
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
@@ -546,10 +549,6 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         return intendedDir;
     }
 
-    /// <summary>
-    /// Computes the normalized direction toward the current waypoint.
-    /// Advances the waypoint index if the current waypoint is reached.
-    /// </summary>
     private Vector2 ComputePatrolDirection()
     {
         if (!HasPatrolRoute)
@@ -563,15 +562,27 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             if (toWaypoint.sqrMagnitude < _waypointReachRadius * _waypointReachRadius)
             {
                 PatrolWaypointIndex = (PatrolWaypointIndex + 1) % _patrolRoute.Count;
+                _pathfindingNavigator?.InvalidatePath();
                 
                 // Recalculate direction towards the new waypoint immediately to avoid a 1-tick stop.
                 if (_patrolRoute.TryGetWaypoint(PatrolWaypointIndex, out Transform nextWaypoint))
                 {
                     toWaypoint = (Vector2)nextWaypoint.position - (Vector2)transform.position;
+                    if (_pathfindingNavigator != null)
+                    {
+                        return _pathfindingNavigator.GetDirectionToTarget(
+                            transform.position, nextWaypoint.position, Runner.Tick);
+                    }
                     return toWaypoint.normalized;
                 }
             }
             
+            if (_pathfindingNavigator != null)
+            {
+                return _pathfindingNavigator.GetDirectionToTarget(
+                    transform.position, waypoint.position, Runner.Tick);
+            }
+
             return toWaypoint.normalized;
         }
 
@@ -589,6 +600,12 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             return Vector2.zero;
         }
 
+        if (_pathfindingNavigator != null)
+        {
+            return _pathfindingNavigator.GetDirectionToTarget(
+                transform.position, target.position, Runner.Tick);
+        }
+
         return toTarget.normalized;
     }
 
@@ -604,6 +621,8 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     {
         _currentTarget = default;
         _pursuitLostTickCount = 0;
+
+        _pathfindingNavigator?.InvalidatePath();
 
         if (Object != null && Object.IsValid)
         {

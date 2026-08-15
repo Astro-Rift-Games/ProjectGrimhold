@@ -742,6 +742,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _initialRaidBootstrapState = InitialRaidBootstrapState.Running;
         try
         {
+            // Build the pathfinding grid before spawning any enemies so that
+            // EnemyPathfindingNavigator can request paths from the first tick.
+            // Only the server executes this method; clients never build the grid.
+            PathfindingGrid pathfindingGrid = UnityEngine.Object.FindFirstObjectByType<PathfindingGrid>();
+            if (pathfindingGrid != null && !pathfindingGrid.IsBuilt)
+            {
+                // SyncTransforms ensures CompositeCollider2D and TilemapCollider2D
+                // are fully generated before the OverlapBox walkability queries run.
+                Physics2D.SyncTransforms();
+                pathfindingGrid.Build();
+            }
+
             if (_sceneSpawnPointConfiguration?.SpawnGroups == null)
             {
                 _initialRaidBootstrapState = InitialRaidBootstrapState.Completed;
@@ -1272,6 +1284,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _hostMigrationUnresolvedProfiles.Clear();
             _sceneLoadState = SceneLoadProcessingState.Completed;
             _spawnsBlocked = false;
+
+            // Rebuild the pathfinding grid for the replacement host so that enemies
+            // can navigate immediately after migration. The grid is not networked state;
+            // it is reconstructed locally from scene geometry on the new host.
+            PathfindingGrid pathfindingGrid = UnityEngine.Object.FindFirstObjectByType<PathfindingGrid>();
+            if (pathfindingGrid != null && !pathfindingGrid.IsBuilt)
+            {
+                Physics2D.SyncTransforms();
+                pathfindingGrid.Build();
+            }
+
             _runner.SessionInfo.IsOpen = false;
             _runner.SessionInfo.IsVisible = false;
             _matchController.RestoreHostMigrationParticipantObservation(
