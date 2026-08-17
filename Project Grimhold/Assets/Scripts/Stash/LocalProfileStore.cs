@@ -269,35 +269,30 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    /// <summary>
+    /// Commits the exact authoritative raid inventory into the persistent Loadout.
+    ///
+    /// A valid raid admission consumes the pending reservation and leaves the
+    /// persistent Loadout empty. A new receipt therefore fails atomically when
+    /// that invariant is not true; extracted items are never redirected to Stash.
+    /// </summary>
     public StashOperationResult TryCommitExtraction(ExtractionReceipt receipt, IReadOnlyList<StashItem> items)
     {
         if (!receipt.IsValid || receipt.ProfileId != _profileId || !HasValidItems(items, allowEmpty: true))
             return StashOperationResult.InvalidInventory;
-        foreach (ExtractionReceipt applied in _repository.Snapshot.AppliedExtractionReceipts)
+
+        if (items.Count > LocalProfileSnapshot.MaxLoadoutSlots)
+            return StashOperationResult.PersistenceFailed;
+
+        LocalProfileSnapshot current = _repository.Snapshot;
+        foreach (ExtractionReceipt applied in current.AppliedExtractionReceipts)
             if (applied.Equals(receipt)) return StashOperationResult.AlreadySecured;
-        var next = _repository.Snapshot.Clone();
-        
-        var loadoutOverflow = new List<StashItem>();
-        foreach (var item in items)
-        {
-            var singleItemArr = new[] { item };
-            if (next.Loadout.Count + CountNewSlots(next.Loadout, singleItemArr) <= LocalProfileSnapshot.MaxLoadoutSlots)
-            {
-                if (!TryMerge(next.Loadout, singleItemArr))
-                    loadoutOverflow.Add(item);
-            }
-            else
-            {
-                loadoutOverflow.Add(item);
-            }
-        }
 
-        if (loadoutOverflow.Count > 0)
-        {
-            if (!TryMerge(next.Stash, loadoutOverflow))
-                return StashOperationResult.InvalidInventory;
-        }
+        if (current.Loadout.Count != 0)
+            return StashOperationResult.PersistenceFailed;
 
+        LocalProfileSnapshot next = current.Clone();
+        next.Loadout.AddRange(items);
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);

@@ -27,7 +27,7 @@ Authority. The avatar stays spawned as the synchronised lootable body. On confir
 abandon, the temporary avatar is despawned without any persistence operation.
 
 Extraction enters `Extracted`, but return remains unavailable until TASK-80 confirms the
-matching `ResultSequence` after its idempotent stash commit. `PlayerLootReceiver` derives
+matching `ResultSequence` after its idempotent Loadout commit. `PlayerLootReceiver` derives
 its mutation lock from the existing extraction state, so no second inventory-lock source
 is replicated. TASK-58 deliberately disables the previous loadout-saving listener because
 it cleared raid inventory before that ACK. TASK-80 retains the complete snapshot and
@@ -53,7 +53,7 @@ observes return authorization and delegates the local runner transition to
 
 `Defeated` and `Extracted` use distinct result presentations. Defeat reports the fallen
 avatar and exposes actions according to the canonical profile role. Extraction reports success, displays the pending
-stash commit and keeps return disabled until `IsExtractionCommitConfirmed` corresponds
+Loadout commit and keeps return disabled until `IsExtractionCommitConfirmed` corresponds
 to the current `ResultSequence`.
 
 Return authorization and departure classification are specified in

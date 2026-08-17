@@ -331,6 +331,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
+        // An operational Host cannot abandon its participant while sustaining
+        // the raid. Cancel Raid is the authoritative action for that role.
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        {
+            _awaitingAbandonConfirmation = false;
+            RefreshViewContent();
+            return;
+        }
+
         if (_participant.State == RaidParticipantState.Defeated)
         {
             if (CanDefeatedParticipantReturn())
@@ -421,7 +430,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         else
         {
-            _view.PresentAliveState();
+            bool canAbandon = !TryResolveOperationalLocalRole(out bool isHost) || !isHost;
+            _view.PresentAliveState(canAbandon);
         }
 
         NetworkMatchController matchController = GetMatchController();

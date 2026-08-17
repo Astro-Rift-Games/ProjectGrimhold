@@ -62,9 +62,14 @@ discards an unfinished reservation.
 ### Extraction boundary
 
 State Authority retains the raid result snapshot while Input Authority commits it to its
-application-level aggregate. An ACK is sent only after that in-memory commit succeeds, and
-the raid inventory is cleared only after the ACK. Transport duplicates cannot duplicate
-loot during the same application run because extraction receipts remain in the aggregate.
+application-level Loadout. A valid admission consumes the pending reservation and leaves
+that Loadout empty during the raid; extraction then restores the exact authoritative raid
+snapshot to it. Stash is not an automatic extraction destination. A new receipt is accepted
+only when the Loadout is empty and fits its capacity, so an unexpected pre-existing Loadout
+fails without changing either inventory. An ACK is sent only after that in-memory commit
+succeeds, and the raid inventory is cleared only after the ACK. Transport duplicates cannot
+duplicate loot during the same application run because extraction receipts remain in the
+aggregate.
 
 ## Risks and deferred durability
 

@@ -144,7 +144,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     }
 
     /// <summary>
-    /// Called by TASK-80 after an idempotent local stash commit has been acknowledged.
+    /// Called by TASK-80 after an idempotent local Loadout commit has been acknowledged.
     /// </summary>
     internal bool TryConfirmExtractionCommit(int resultSequence)
     {

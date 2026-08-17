@@ -93,6 +93,15 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void View_PresentAliveStateForOperationalHost_HidesAbandonAction()
+        {
+            _view.PresentAliveState(canAbandon: false);
+
+            Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.False);
+            Assert.That(_view.AbandonButton.interactable, Is.False);
+        }
+
+        [Test]
         public void View_PresentDefeatedClientState_ShowsSpectateAndReturn()
         {
             _view.PresentDefeatedState(canReturn: true, isSpectating: false);

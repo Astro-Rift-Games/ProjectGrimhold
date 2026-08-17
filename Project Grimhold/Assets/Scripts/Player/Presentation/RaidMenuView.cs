@@ -85,14 +85,14 @@ public sealed class RaidMenuView : MonoBehaviour
         }
     }
 
-    public void PresentAliveState()
+    public void PresentAliveState(bool canAbandon = true)
     {
         SetText(_titleText, "Menú de Incursión");
         SetText(_statusText, "La simulación continúa en tiempo real.");
         SetText(_controlsText, DefaultControlsText);
         SetButtonState(_resumeButton, true, true);
         SetText(_resumeButtonText, "Reanudar");
-        SetButtonState(_abandonButton, true, true);
+        SetButtonState(_abandonButton, canAbandon, canAbandon);
         SetText(_abandonButtonText, "Abandonar Incursión");
         SetCancelRaidVisible(false);
     }

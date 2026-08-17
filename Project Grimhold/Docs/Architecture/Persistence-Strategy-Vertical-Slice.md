@@ -33,7 +33,7 @@ Se propone introducir un backend ligero que reemplace el almacenamiento en memor
 
 * **Flujo de carga (Town)**: Unity autentica con Backend -> Backend devuelve Profile (Stash/Loadout) -> Unity inicializa su `LocalProfileStore` con estos datos.
 * **Flujo de guardado (Town)**: Unity envía transferencias (ej. mover de Stash a Loadout) vía HTTPS -> Backend valida disponibilidad y actualiza la base de datos -> Devuelve OK -> Unity actualiza UI.
-* **Flujo de extracción**: Fusion confirma extracción -> Genera `ExtractionReceipt` (State Authority) -> Unity envía el Receipt + Loot al Backend -> Backend verifica que el receipt no haya sido usado, añade el loot al Stash, y lo marca como consumido -> Unity limpia su inventario de raid temporal.
+* **Flujo de extracción**: Fusion confirma extracción -> Genera `ExtractionReceipt` (State Authority) -> Unity envía el Receipt + Loot al Backend -> Backend verifica que el receipt no haya sido usado, consolida exactamente el loot en el Loadout y lo marca como consumido -> Unity limpia su inventario de raid temporal. El Stash sólo cambia por una transferencia manual posterior en Town.
 
 ### Evaluación del Tech Stack
 

@@ -4,7 +4,7 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Local presentation state for the extraction-to-stash transaction.
+/// Local presentation state for the extraction-to-Loadout transaction.
 /// This is not replicated gameplay state; State Authority remains the source
 /// of truth for the participant result and inventory contents.
 /// </summary>
@@ -18,7 +18,7 @@ public enum ExtractionLootSaveStatus
 
 /// <summary>
 /// Coordinates the authoritative extraction result with the local player's
-/// process-local stash commit.
+/// process-local Loadout commit.
 ///
 /// State Authority retains the raid snapshot until Input Authority acknowledges
 /// an idempotent local commit. The raid inventory is therefore never cleared

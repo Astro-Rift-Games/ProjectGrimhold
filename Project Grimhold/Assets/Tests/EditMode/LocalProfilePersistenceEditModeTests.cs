@@ -98,14 +98,22 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var store = new LocalProfileStore(repository, profile);
+        var initial = repository.Snapshot.Clone();
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         int eventCount = 0;
         store.ProfileCommitted += _ => eventCount++;
         var receipt = new ExtractionReceipt("raid-1", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 3) };
 
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.Success));
+        CollectionAssert.AreEqual(items, store.GetLoadout());
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+
+        // The duplicate must be recognized before inspecting the current Loadout.
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.AlreadySecured));
-        Assert.That(store.GetStash()[0].Amount, Is.EqualTo(3));
+        CollectionAssert.AreEqual(items, store.GetLoadout());
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
         Assert.That(eventCount, Is.EqualTo(1));
     }
 
@@ -117,21 +125,28 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var store = new LocalProfileStore(repository, profile);
+        var initial = repository.Snapshot.Clone();
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         var receipt = new ExtractionReceipt("raid-failure", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 5) };
 
         files.FailWrites = true;
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.PersistenceFailed));
-        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(store.GetLoadout(), Is.Empty);
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
 
         files.FailWrites = false;
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryCommitExtraction(receipt, items), Is.EqualTo(StashOperationResult.AlreadySecured));
-        Assert.That(store.GetStash()[0], Is.EqualTo(items[0]));
+        CollectionAssert.AreEqual(items, store.GetLoadout());
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
     }
 
     [Test]
-    public void Store_EmptyExtractionCommitsReceiptWithoutCreatingStashEntries()
+    public void Store_EmptyExtractionCommitsReceiptWithoutCreatingInventoryEntries()
     {
         var files = new MemoryFileStore();
         var profile = new ProfileId("66666666666666666666666666666666");
@@ -142,7 +157,78 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>()), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>()), Is.EqualTo(StashOperationResult.AlreadySecured));
+        Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void Store_NewExtractionRejectsUnexpectedLoadoutWithoutChangingProfile()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("12121212121212121212121212121212");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var initial = repository.Snapshot.Clone();
+        initial.Loadout.Add(new StashItem(new LootId("coins"), 7));
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
+        var store = new LocalProfileStore(repository, profile);
+        var receipt = new ExtractionReceipt("raid-non-empty-loadout", profile, 1);
+
+        Assert.That(
+            store.TryCommitExtraction(receipt, new[] { new StashItem(new LootId("healthpotion"), 1) }),
+            Is.EqualTo(StashOperationResult.PersistenceFailed));
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("coins"), 7) }, store.GetLoadout());
+        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Store_ExtractionBeyondLoadoutCapacityFailsWithoutPartialCommit()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("13131313131313131313131313131313");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var items = new List<StashItem>();
+        for (int index = 0; index <= LocalProfileSnapshot.MaxLoadoutSlots; index++)
+        {
+            items.Add(new StashItem(new LootId($"extracted-{index}"), 1));
+        }
+
+        Assert.That(
+            store.TryCommitExtraction(new ExtractionReceipt("raid-over-capacity", profile, 1), items),
+            Is.EqualTo(StashOperationResult.PersistenceFailed));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Store_ExtractedLoadoutCanBeReservedForTheNextRaid()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("14141414141414141414141414141414");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var items = new[]
+        {
+            new StashItem(new LootId("coins"), 3),
+            new StashItem(new LootId("bone"), 2)
+        };
+        Assert.That(
+            store.TryCommitExtraction(new ExtractionReceipt("raid-next", profile, 1), items),
+            Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(
+            store.TryCreateLoadoutReservation("next-raid", out IReadOnlyList<StashItem> reserved),
+            Is.EqualTo(StashOperationResult.Success));
+        CollectionAssert.AreEqual(items, reserved);
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("next-raid"));
     }
 
     [Test]
