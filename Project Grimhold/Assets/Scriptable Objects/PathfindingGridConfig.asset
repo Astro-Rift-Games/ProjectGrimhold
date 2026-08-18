@@ -13,9 +13,7 @@ MonoBehaviour:
   m_Name: PathfindingGridConfig
   m_EditorClassIdentifier: Assembly-CSharp::PathfindingGridConfig
   _nodeSize: 0.5
-  _agentRadius: 0.35
-  _physicalColliderRadius: 0.4
-  _pathSmoothingSafetyMargin: 0.02
+  _agentRadius: 0.5
   _obstacleLayer:
     serializedVersion: 2
     m_Bits: 64

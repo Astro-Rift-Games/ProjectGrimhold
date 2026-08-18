@@ -100,7 +100,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
-    private readonly HashSet<int> _usedEnemySpawnPoints = new();
+    private readonly HashSet<Transform> _usedEnemySpawnPoints = new();
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
@@ -778,7 +778,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     case InitialSpawnGroupPolicy.SpawnKind.Enemies:
                         for (int index = 0; index < group.Amount; index++)
                         {
-                            if (!SpawnEnemy(_runner))
+                            if (!SpawnEnemy(_runner, group.Group))
                             {
                                 failure = $"Enemy bootstrap failed for group '{group.Group}'.";
                                 _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
@@ -2531,23 +2531,23 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return failureCount == 0;
     }
 
-    private bool SpawnEnemy(NetworkRunner runner)
+    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return false;
         }
-        if (!_spawnPointLookup.TryGetValue(SpawnGroupType.Enemies, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
+        if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
         {
-            Debug.LogError("Cannot spawn enemy: No spawn points found for Enemies.");
+            Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
             return false;
         }
 
         System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
         for (int i = 0; i < spawnPoints.Length; i++)
         {
-            if (!_usedEnemySpawnPoints.Contains(i))
+            if (!_usedEnemySpawnPoints.Contains(spawnPoints[i]))
             {
                 availableIndices.Add(i);
             }
@@ -2555,12 +2555,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (availableIndices.Count == 0)
         {
-            Debug.LogWarning("Cannot spawn enemy: No available spawn points remaining.");
+            Debug.LogWarning($"Cannot spawn enemy: No available spawn points remaining for {groupType}.");
             return false;
         }
 
         int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
-        _usedEnemySpawnPoints.Add(selectedIndex);
+        _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
 
         Transform spawnPoint = spawnPoints[selectedIndex];
         Vector3 position = spawnPoint.position;
