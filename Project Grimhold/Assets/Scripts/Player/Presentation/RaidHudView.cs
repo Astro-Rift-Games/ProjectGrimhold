@@ -21,9 +21,6 @@ public sealed class RaidHudView : MonoBehaviour
     private Image _healthFill;
 
     [SerializeField]
-    private TMP_Text _classText;
-
-    [SerializeField]
     private TMP_Text _attackText;
 
     [SerializeField]
@@ -55,9 +52,6 @@ public sealed class RaidHudView : MonoBehaviour
 
     /// <summary>Gets the health fill for presentation verification.</summary>
     public Image HealthFill => _healthFill;
-
-    /// <summary>Gets the selected-class label for presentation verification.</summary>
-    public TMP_Text ClassText => _classText;
 
     /// <summary>Gets the primary-attack label for presentation verification.</summary>
     public TMP_Text AttackText => _attackText;
@@ -97,13 +91,6 @@ public sealed class RaidHudView : MonoBehaviour
     {
         SetText(_healthText, $"Salud: {UnavailableValue} / {UnavailableValue}");
         SetFill(_healthFill, 0f);
-    }
-
-    /// <summary>Presents a display-ready selected class name.</summary>
-    public void PresentClass(string displayName)
-    {
-        string safeName = string.IsNullOrWhiteSpace(displayName) ? UnavailableValue : displayName;
-        SetText(_classText, $"Clase: {safeName}");
     }
 
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
@@ -226,7 +213,6 @@ public sealed class RaidHudView : MonoBehaviour
         }
     }
 
-    /// <summary>Restores all HUD placeholders, fills, and local indicators.</summary>
     public void Clear()
     {
         if (_mainHudRoot != null && !_mainHudRoot.activeSelf)
@@ -235,7 +221,6 @@ public sealed class RaidHudView : MonoBehaviour
         }
 
         ClearHealth();
-        PresentClass(UnavailableValue);
         ClearAttack();
         ClearInventory();
         PresentExtractionUnavailable();

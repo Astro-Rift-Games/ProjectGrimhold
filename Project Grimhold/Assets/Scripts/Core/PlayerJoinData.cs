@@ -4,24 +4,12 @@
 public readonly struct PlayerJoinData
 {
     /// <summary>
-    /// Identificador de la clase del jugador.
-    /// </summary>
-    public PlayerClassId ClassId { get; }
-
-    /// <summary>
     /// Identificador del perfil del jugador para la ejecución actual.
     /// </summary>
     public ProfileId ProfileId { get; }
 
-    public PlayerJoinData(PlayerClassId classId)
+    public PlayerJoinData(ProfileId profileId)
     {
-        ClassId = classId;
-        ProfileId = default;
-    }
-
-    public PlayerJoinData(PlayerClassId classId, ProfileId profileId)
-    {
-        ClassId = classId;
         ProfileId = profileId;
     }
 }

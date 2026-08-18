@@ -13,9 +13,6 @@ public sealed class DirectRaidDevelopmentStarter : MonoBehaviour
     [SerializeField]
     private string _sessionName = "Development-Raid";
 
-    [SerializeField]
-    private PlayerClassId _selectedBuild = PlayerClassId.Melee;
-
     private SessionConnectionCoordinator _coordinator;
 
     private void Awake()
@@ -30,8 +27,7 @@ public sealed class DirectRaidDevelopmentStarter : MonoBehaviour
         {
             await _coordinator.StartDirectRaidForDevelopmentAsync(
                 _sessionName,
-                GameMode.Host,
-                _selectedBuild);
+                GameMode.Host);
         }
         catch (Exception exception)
         {
@@ -46,8 +42,7 @@ public sealed class DirectRaidDevelopmentStarter : MonoBehaviour
         {
             await _coordinator.StartDirectRaidForDevelopmentAsync(
                 _sessionName,
-                GameMode.Client,
-                _selectedBuild);
+                GameMode.Client);
         }
         catch (Exception exception)
         {

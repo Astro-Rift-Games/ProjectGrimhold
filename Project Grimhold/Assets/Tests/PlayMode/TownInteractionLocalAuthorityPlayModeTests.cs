@@ -41,7 +41,6 @@ public sealed class TownInteractionLocalAuthorityPlayModeTests
         runnerObject.AddComponent<LocalInputContext>();
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         joinContext.Initialize(new PlayerJoinData(
-            PlayerClassId.Melee,
             new ProfileId("11111111111111111111111111111111")));
         var inputDriver = runnerObject.AddComponent<TownInteractionInputDriver>();
         _runner.AddCallbacks(inputDriver);

@@ -5,37 +5,27 @@ namespace Tests.EditMode.Player
     public class PlayerJoinDataCodecTests
     {
         [Test]
-        public void EncodeAndDecode_Melee_Succeeds()
+        public void EncodeAndDecode_Succeeds()
         {
-            var data = new PlayerJoinData(PlayerClassId.Melee);
+            var data = new PlayerJoinData(new ProfileId("valid-profile"));
             Assert.IsTrue(PlayerJoinDataCodec.TryEncode(data, out byte[] token));
             Assert.IsNotNull(token);
             Assert.IsTrue(PlayerJoinDataCodec.TryDecode(token, out PlayerJoinData decoded));
-            Assert.AreEqual(PlayerClassId.Melee, decoded.ClassId);
+            Assert.AreEqual("valid-profile", decoded.ProfileId.Value);
         }
 
         [Test]
-        public void EncodeAndDecode_Ranged_Succeeds()
+        public void TryEncode_RejectsInvalidProfile()
         {
-            var data = new PlayerJoinData(PlayerClassId.Ranged);
-            Assert.IsTrue(PlayerJoinDataCodec.TryEncode(data, out byte[] token));
-            Assert.IsNotNull(token);
-            Assert.IsTrue(PlayerJoinDataCodec.TryDecode(token, out PlayerJoinData decoded));
-            Assert.AreEqual(PlayerClassId.Ranged, decoded.ClassId);
-        }
-
-        [Test]
-        public void TryEncode_RejectsNone()
-        {
-            var data = new PlayerJoinData(PlayerClassId.None);
+            var data = new PlayerJoinData(new ProfileId(""));
             Assert.IsFalse(PlayerJoinDataCodec.TryEncode(data, out byte[] token));
             Assert.IsNull(token);
         }
 
         [Test]
-        public void TryEncode_RejectsUnknownClass()
+        public void TryEncode_RejectsOversizedProfile()
         {
-            var data = new PlayerJoinData((PlayerClassId)99);
+            var data = new PlayerJoinData(new ProfileId(new string('a', 65)));
             Assert.IsFalse(PlayerJoinDataCodec.TryEncode(data, out byte[] token));
             Assert.IsNull(token);
         }
@@ -44,48 +34,33 @@ namespace Tests.EditMode.Player
         public void TryDecode_RejectsNullToken()
         {
             Assert.IsFalse(PlayerJoinDataCodec.TryDecode(null, out PlayerJoinData data));
-            Assert.AreEqual(PlayerClassId.None, data.ClassId);
+            Assert.IsFalse(data.ProfileId.IsValid);
         }
 
         [Test]
         public void TryDecode_RejectsEmptyToken()
         {
             Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[0], out PlayerJoinData data));
-            Assert.AreEqual(PlayerClassId.None, data.ClassId);
+            Assert.IsFalse(data.ProfileId.IsValid);
         }
 
         [Test]
         public void TryDecode_RejectsIncorrectLength()
         {
             Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 1 }, out PlayerJoinData data));
-            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 1, 1, 1 }, out PlayerJoinData data2));
+            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 3, 1 }, out PlayerJoinData data2));
         }
 
         [Test]
         public void TryDecode_RejectsUnknownVersion()
         {
-            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 99, (byte)PlayerClassId.Melee }, out PlayerJoinData data));
+            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 99, 1, 97 }, out PlayerJoinData data));
         }
 
         [Test]
-        public void TryDecode_RejectsNone()
+        public void TryDecode_RejectsProfileLengthMismatch()
         {
-            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 1, (byte)PlayerClassId.None }, out PlayerJoinData data));
-        }
-
-        [Test]
-        public void TryDecode_RejectsUnknownClassValue()
-        {
-            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 1, 99 }, out PlayerJoinData data));
-        }
-
-        [Test]
-        public void IsSupported_AcceptsOnlyMeleeAndRanged()
-        {
-            Assert.IsTrue(PlayerJoinDataCodec.IsSupported(PlayerClassId.Melee));
-            Assert.IsTrue(PlayerJoinDataCodec.IsSupported(PlayerClassId.Ranged));
-            Assert.IsFalse(PlayerJoinDataCodec.IsSupported(PlayerClassId.None));
-            Assert.IsFalse(PlayerJoinDataCodec.IsSupported((PlayerClassId)99));
+            Assert.IsFalse(PlayerJoinDataCodec.TryDecode(new byte[] { 3, 2, 97 }, out PlayerJoinData data));
         }
     }
 }

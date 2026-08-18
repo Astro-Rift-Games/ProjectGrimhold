@@ -75,7 +75,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Failed
     }
 
-    private PlayerClassCatalog _playerClassCatalog;
+    private NetworkPrefabRef _raidPlayerPrefab;
     private NetworkPrefabRef _raidParticipantPrefab;
     private NetworkPrefabRef[] _enemyPrefabs;
 
@@ -302,7 +302,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     /// </summary>
     public bool InitializeForRunner(
         NetworkRunner runner,
-        PlayerClassCatalog catalog,
+        NetworkPrefabRef raidPlayerPrefab,
         NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefab,
         SessionStartupContext startupContext,
@@ -334,7 +334,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _runner = runner;
-        _playerClassCatalog = catalog;
+        _raidPlayerPrefab = raidPlayerPrefab;
         _raidParticipantPrefab = raidParticipantPrefab;
         _enemyPrefabs = enemyPrefab;
         _startupContext = startupContext;
@@ -2144,7 +2144,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         LocalPlayerJoinContext context = runner.GetComponent<LocalPlayerJoinContext>();
 
-        if (context == null || !PlayerJoinDataCodec.IsSupported(context.JoinData.ClassId) ||
+        if (context == null ||
             (_launchContext != null && (!context.HasRaidAdmission || !IsRaidAdmissionValid(context.RaidAdmission))))
         {
             joinData = default;
@@ -2245,7 +2245,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (runner.GetPlayerObject(player) != null)
             return false;
 
-        if (_playerClassCatalog == null)
+        if (!_raidPlayerPrefab.IsValid)
             return false;
 
         if (!_raidParticipantPrefab.IsValid)
@@ -2300,12 +2300,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!_playerClassCatalog.TryGetPrefab(joinData.ClassId, out NetworkPrefabRef prefab))
-        {
-            Debug.LogError($"Rejecting spawn for player {player}: Class {joinData.ClassId} not registered.");
-            return false;
-        }
-
         _admissionData.TryGetValue(player, out RaidAdmissionData admission);
         bool hasAdmission = _launchContext != null;
         bool loadoutInitialized = !hasAdmission;
@@ -2336,7 +2330,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 {
                     participant.Initialize(
                         joinData.ProfileId.Value,
-                        joinData.ClassId,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null);
                 }
@@ -2354,7 +2347,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         NetworkObject avatarObject = runner.Spawn(
-            prefab,
+            _raidPlayerPrefab,
             position,
             rotation,
             player,
@@ -2419,7 +2412,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedPlayers.Add(player, participantObject);
         _spawnedAvatars.Add(player, avatarObject);
 
-        Debug.Log($"Spawned participant and avatar for player {player} with class {joinData.ClassId}.");
+        Debug.Log($"Spawned participant and avatar for player {player} with profile {joinData.ProfileId.Value}.");
         return true;
     }
 

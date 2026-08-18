@@ -53,7 +53,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
-    private PlayerClassId _selectedBuild = PlayerClassId.None;
     private RaidTransitionTicket? _activeTicket;
     private int _acknowledgedLaunchSequence;
     private bool _launchDispatchActive;
@@ -85,8 +84,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         if (launchContext.LocalProfileId != localProfile ||
-            !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile) ||
-            !PlayerJoinDataCodec.IsSupported(_selectedBuild))
+            !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile))
         {
             return false;
         }
@@ -126,7 +124,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _activeTicket = new RaidTransitionTicket(
             request,
             reservation,
-            _selectedBuild,
             SessionConnectionState.Town,
             launchContext);
         return true;
@@ -392,14 +389,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// <summary>
     /// Connects the local profile to the Shared Mode Town from MainMenu or a failed state.
     /// </summary>
-    public async Task<SessionTransitionResult> ConnectToTownAsync(PlayerClassId selectedBuild)
+    public async Task<SessionTransitionResult> ConnectToTownAsync()
     {
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
         }
 
-        if (!PlayerJoinDataCodec.IsSupported(selectedBuild) || !IsSceneEnabled(_townSceneName))
+        if (!IsSceneEnabled(_townSceneName))
         {
             return SessionTransitionResult.InvalidRequest;
         }
@@ -415,7 +412,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
-        _selectedBuild = selectedBuild;
         try
         {
             if (!TransitionTo(SessionConnectionState.ConnectingTown))
@@ -434,7 +430,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            bool started = await _hubLauncher.StartHubSessionAsync(selectedBuild, _townSceneName);
+            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName);
             if (!started)
             {
                 TransitionTo(SessionConnectionState.Failed);
@@ -493,7 +489,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         if (!ticket.IsValid || ticket.LaunchContext.LocalProfileId != localProfile ||
-            !PlayerJoinDataCodec.IsSupported(ticket.SelectedBuild) ||
             !IsSceneEnabled(_gameplaySceneName))
         {
             return SessionTransitionResult.InvalidRequest;
@@ -508,7 +503,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _operationActive = true;
         CancellationToken cancellationToken = BeginTransitionCancellation();
-        _selectedBuild = ticket.SelectedBuild;
         _activeTicket = ticket.WithState(SessionConnectionState.PreparingRaid);
 
         try
@@ -544,7 +538,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 started = await _raidLauncher.StartCoordinatedSessionAsync(
                     ticket.Request.SessionName,
                     mode,
-                    _selectedBuild,
                     _gameplaySceneName,
                     ticket.LaunchContext,
                     ticket.LoadoutReservation,
@@ -652,7 +645,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.Busy;
         }
 
-        if (!PlayerJoinDataCodec.IsSupported(_selectedBuild) || !IsSceneEnabled(_townSceneName))
+        if (!IsSceneEnabled(_townSceneName))
         {
             return SessionTransitionResult.InvalidRequest;
         }
@@ -699,7 +692,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            bool started = await _hubLauncher.StartHubSessionAsync(_selectedBuild, _townSceneName);
+            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName);
             if (!started)
             {
                 TransitionTo(SessionConnectionState.Failed);
@@ -738,8 +731,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// </summary>
     public async Task<SessionTransitionResult> StartDirectRaidForDevelopmentAsync(
         string sessionName,
-        GameMode mode,
-        PlayerClassId selectedBuild)
+        GameMode mode)
     {
         if (_operationActive)
         {
@@ -747,8 +739,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         if ((mode != GameMode.Host && mode != GameMode.Client) ||
-            string.IsNullOrWhiteSpace(sessionName) ||
-            !PlayerJoinDataCodec.IsSupported(selectedBuild))
+            string.IsNullOrWhiteSpace(sessionName))
         {
             return SessionTransitionResult.InvalidRequest;
         }
@@ -759,7 +750,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
-        _selectedBuild = selectedBuild;
         try
         {
             ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
@@ -793,7 +783,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _activeTicket = new RaidTransitionTicket(
                 request,
                 reservation,
-                selectedBuild,
                 SessionConnectionState.ConnectingRaid,
                 launchContext);
             TransitionTo(SessionConnectionState.ConnectingRaid);
@@ -804,17 +793,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     TransitionTo(SessionConnectionState.Failed);
                     return SessionTransitionResult.LoadoutRollbackFailed;
                 }
+
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ShutdownFailed;
             }
 
+            CancellationToken cancellationToken = BeginTransitionCancellation();
             bool started = await _raidLauncher.StartCoordinatedSessionAsync(
-                launchContext.RaidCode.SessionName,
+                sessionName,
                 mode,
-                selectedBuild,
                 _gameplaySceneName,
                 launchContext,
-                reservation);
+                reservation,
+                cancellationToken);
             if (!started)
             {
                 if (!TryRollbackActiveReservation())
@@ -822,36 +813,66 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     TransitionTo(SessionConnectionState.Failed);
                     return SessionTransitionResult.LoadoutRollbackFailed;
                 }
+
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ConnectionFailed;
             }
 
             TransitionTo(SessionConnectionState.Raid);
+            UpdateTicketState(SessionConnectionState.Raid);
             _raidAdmissionConfirmed = true;
             _loadoutConfirmationPending = true;
             TryConfirmActiveReservation();
+            _raidClosureReturnStarted = false;
+            _raidClosureHostShutdownAt = -1f;
+            _pendingTransitionFailure = null;
             return SessionTransitionResult.Succeeded;
         }
-        catch (Exception exception)
+        catch (OperationCanceledException)
         {
-            Debug.LogException(exception, this);
-            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            if (this == null || _isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
+            if (!TryRollbackActiveReservation())
             {
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
+
+            TransitionTo(SessionConnectionState.Failed);
+            return SessionTransitionResult.ConnectionFailed;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            if (!TryRollbackActiveReservation())
+            {
+                TransitionTo(SessionConnectionState.Failed);
+                return SessionTransitionResult.LoadoutRollbackFailed;
+            }
+
             TransitionTo(SessionConnectionState.Failed);
             return SessionTransitionResult.ConnectionFailed;
         }
         finally
         {
+            EndTransitionCancellation();
             _operationActive = false;
         }
     }
 
     private async Task<SessionTransitionResult> RecoverTownAfterRaidFailureAsync(
-        SessionTransitionResult originalFailure)
+        SessionTransitionResult failure)
     {
+        if (!TryRollbackActiveReservation())
+        {
+            TransitionTo(SessionConnectionState.Failed);
+            return SessionTransitionResult.LoadoutRollbackFailed;
+        }
+
+        _pendingTransitionFailure = failure;
         TransitionTo(SessionConnectionState.ReturningTown);
         UpdateTicketState(SessionConnectionState.ReturningTown);
 
@@ -861,7 +882,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.RecoveryFailed;
         }
 
-        bool recovered = await _hubLauncher.StartHubSessionAsync(_selectedBuild, _townSceneName);
+        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName);
         if (!recovered)
         {
             TransitionTo(SessionConnectionState.Failed);
@@ -881,8 +902,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.LoadoutRollbackFailed;
         }
 
-        CompleteTownEntry(originalFailure);
-        return originalFailure;
+        CompleteTownEntry(failure);
+        return failure;
     }
 
     private async Task<SessionTransitionResult> CleanupFailedRaidAttemptAsync(
@@ -1060,7 +1081,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private async void RecoverFromUnexpectedShutdown()
     {
-        if (_operationActive || !PlayerJoinDataCodec.IsSupported(_selectedBuild))
+        if (_operationActive)
         {
             TransitionTo(SessionConnectionState.Failed);
             return;
@@ -1072,7 +1093,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             TransitionTo(SessionConnectionState.ReturningTown);
             UpdateTicketState(SessionConnectionState.ReturningTown);
             if (!await ShutdownActiveRunnersAsync() ||
-                !await _hubLauncher.StartHubSessionAsync(_selectedBuild, _townSceneName))
+                !await _hubLauncher.StartHubSessionAsync(_townSceneName))
             {
                 TransitionTo(SessionConnectionState.Failed);
                 return;

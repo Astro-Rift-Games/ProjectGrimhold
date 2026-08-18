@@ -170,7 +170,6 @@ namespace Tests.PlayMode.Presentation
                 RaidHudView view = instance.GetComponentInChildren<RaidHudView>(true);
                 view.Clear();
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: — / —"));
-                Assert.That(view.ClassText.text, Is.EqualTo("Clase: —"));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.Empty);
                 Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
@@ -182,7 +181,6 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.DefeatedRoot.activeSelf, Is.False);
 
                 view.PresentHealth(25f, 100f);
-                view.PresentClass("Caballero");
                 view.PresentAttack(false, 1.2f, 0.6f);
                 view.PresentInventory(3, 16);
                 view.PresentDefeated(true);
@@ -190,7 +188,6 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: 25 / 100"));
                 Assert.That(view.HealthFill.fillAmount, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(view.HealthFill.rectTransform.localScale.x, Is.EqualTo(0.25f).Within(0.0001f));
-                Assert.That(view.ClassText.text, Is.EqualTo("Clase: Caballero"));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.EqualTo("1.2"));
                 Assert.That(view.CooldownFill.fillAmount, Is.EqualTo(0.6f).Within(0.0001f));
@@ -224,7 +221,7 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("host-profile", PlayerClassId.Melee, "raid-generation"));
+                    .Initialize("host-profile", "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -245,7 +242,7 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("client-profile", PlayerClassId.Melee, "raid-generation"));
+                    .Initialize("client-profile", "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -318,7 +315,7 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("local-profile", PlayerClassId.Melee, "raid-generation"));
+                    .Initialize("local-profile", "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -349,7 +346,7 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("remote-profile", PlayerClassId.Melee, "raid-generation"));
+                    .Initialize("remote-profile", "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -385,16 +382,12 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_localParticipant.HasInputAuthority, Is.True);
             Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
             Assert.That(ReadPresenterFlag(presenter, "_isBound"), Is.True);
-            Assert.That(view.ClassText.text, Is.EqualTo("Clase: —"));
             Assert.That(view.HealthText.text, Is.Not.EqualTo("Salud: — / —"));
             Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: 0 / 16"));
             Assert.That(inventoryView.PlayerPanel.TotalValueText.text, Is.EqualTo("Valor: 0"));
             Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
 
-            _joinContext.Initialize(new PlayerJoinData(PlayerClassId.Melee));
-            yield return WaitUntil(
-                () => view.ClassText.text == "Clase: Caballero",
-                "The cached join context did not resolve the late class.");
+            _joinContext.Initialize(new PlayerJoinData(new ProfileId("local-profile")));
 
             PlayerCombatNetworkController combat =
                 _localPlayer.GetComponent<PlayerCombatNetworkController>();
@@ -466,10 +459,9 @@ namespace Tests.PlayMode.Presentation
             binder.enabled = false;
             yield return null;
             Assert.That(localHud.activeSelf, Is.False);
-            Assert.That(view.ClassText.text, Is.EqualTo("Clase: —"));
             binder.enabled = true;
             yield return WaitUntil(
-                () => localHud.activeSelf && view.ClassText.text == "Clase: Caballero",
+                () => localHud.activeSelf,
                 "The local HUD did not rebind after re-enable.");
             Assert.That(
                 CountReaderChangedListeners(_runner.GetComponent<LocalInputContext>()),
@@ -603,7 +595,6 @@ namespace Tests.PlayMode.Presentation
         {
             Assert.That(view.HealthText, Is.Not.Null);
             Assert.That(view.HealthFill, Is.Not.Null);
-            Assert.That(view.ClassText, Is.Not.Null);
             Assert.That(view.AttackText, Is.Not.Null);
             Assert.That(view.CooldownRoot, Is.Not.Null);
             Assert.That(view.CooldownIcon, Is.Not.Null);

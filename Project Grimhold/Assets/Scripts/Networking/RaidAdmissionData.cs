@@ -7,69 +7,32 @@ using System.Collections.Generic;
 /// </summary>
 public readonly struct RaidAdmissionData
 {
-    private readonly string _legacyRaidId;
-    private readonly string _legacyAccessSecret;
-
     public RaidCode RaidCode { get; }
-    public string RaidId => RaidCode.IsValid ? RaidCode.RaidId : _legacyRaidId;
-    public string AccessSecret => RaidCode.IsValid ? null : _legacyAccessSecret;
     public ProfileId ProfileId { get; }
-    public PlayerClassId SelectedBuild { get; }
     public string ReservationId { get; }
     private readonly LootEntry[] _reservedLoadout;
     public IReadOnlyList<LootEntry> ReservedLoadout => _reservedLoadout ?? Array.Empty<LootEntry>();
 
-    public bool IsValid => (RaidCode.IsValid ||
-                            (!string.IsNullOrWhiteSpace(_legacyRaidId) &&
-                             !string.IsNullOrWhiteSpace(_legacyAccessSecret))) &&
+    public bool IsValid => RaidCode.IsValid &&
                            !string.IsNullOrWhiteSpace(ReservationId) &&
                            ProfileId.IsValid &&
-                           PlayerJoinDataCodec.IsSupported(SelectedBuild) &&
                            RaidLoadoutRules.TryValidateShape(ReservedLoadout, out _);
 
     public RaidAdmissionData(
         RaidCode raidCode,
         ProfileId profileId,
-        PlayerClassId selectedBuild,
         string reservationId,
         IReadOnlyList<LootEntry> reservedLoadout)
     {
         RaidCode = raidCode;
-        _legacyRaidId = null;
-        _legacyAccessSecret = null;
         ProfileId = profileId;
-        SelectedBuild = selectedBuild;
         ReservationId = reservationId;
         _reservedLoadout = CopyLoadout(reservedLoadout);
-    }
-
-    [Obsolete("Use the RaidCode constructor that supplies a reservation and loadout.")]
-    public RaidAdmissionData(
-        string raidId,
-        string accessSecret,
-        ProfileId profileId,
-        PlayerClassId selectedBuild,
-        string reservationId,
-        IReadOnlyList<LootEntry> reservedLoadout)
-    {
-        RaidCode = default;
-        _legacyRaidId = raidId;
-        _legacyAccessSecret = accessSecret;
-        ProfileId = profileId;
-        SelectedBuild = selectedBuild;
-        ReservationId = reservationId;
-        _reservedLoadout = CopyLoadout(reservedLoadout);
-    }
-
-    [Obsolete("Use the RaidCode constructor that supplies a reservation and loadout.")]
-    public RaidAdmissionData(string raidId, string accessSecret, ProfileId profileId, PlayerClassId selectedBuild)
-        : this(raidId, accessSecret, profileId, selectedBuild, "legacy-development", Array.Empty<LootEntry>())
-    {
     }
 
     public PlayerJoinData ToPlayerJoinData()
     {
-        return new PlayerJoinData(SelectedBuild, ProfileId);
+        return new PlayerJoinData(ProfileId);
     }
 
     private static LootEntry[] CopyLoadout(IReadOnlyList<LootEntry> source)

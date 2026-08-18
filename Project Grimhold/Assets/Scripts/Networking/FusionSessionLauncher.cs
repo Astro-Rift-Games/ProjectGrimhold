@@ -14,7 +14,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     [Header("Spawning Configuration")]
     [SerializeField]
-    private PlayerClassCatalog _playerClassCatalog;
+    private NetworkPrefabRef _raidPlayerPrefab;
 
     [SerializeField]
     private NetworkPrefabRef _raidParticipantPrefab;
@@ -52,7 +52,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     public Task<bool> StartCoordinatedSessionAsync(
         string sessionName,
         GameMode mode,
-        PlayerClassId selectedClass,
         string gameplaySceneName,
         RaidLaunchContext launchContext,
         PendingLoadoutReservation loadoutReservation = null,
@@ -61,7 +60,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         return StartSessionInternalAsync(
             sessionName,
             mode,
-            selectedClass,
             SessionStartupContext.FreshSession,
             gameplaySceneName,
             launchContext,
@@ -72,7 +70,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private async Task<bool> StartSessionInternalAsync(
         string sessionName,
         GameMode mode,
-        PlayerClassId selectedClass,
         SessionStartupContext startupContext,
         string initialSceneName,
         RaidLaunchContext launchContext = null,
@@ -113,7 +110,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
-        var joinData = new PlayerJoinData(selectedClass, profileId);
+        var joinData = new PlayerJoinData(profileId);
         byte[] token;
         if (launchContext != null)
         {
@@ -132,7 +129,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             var admissionData = new RaidAdmissionData(
                 launchContext.RaidCode,
                 profileId,
-                selectedClass,
                 loadoutReservation.ReservationId,
                 reservedLoadout);
             if (!RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
@@ -143,7 +139,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
         else if (!PlayerJoinDataCodec.TryEncode(joinData, out token))
         {
-            throw new ArgumentException($"Invalid or unsupported selected class: {selectedClass}");
+            throw new ArgumentException($"Invalid or unsupported local profile id.");
         }
 
         if (_isStarting || _runner != null)
@@ -160,7 +156,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             if (!NetworkRunnerFactory.TryCreate(
                 mode,
                 startupContext,
-                _playerClassCatalog,
+                _raidPlayerPrefab,
                 _raidParticipantPrefab,
                 _enemyPrefabs,
                 in joinData,

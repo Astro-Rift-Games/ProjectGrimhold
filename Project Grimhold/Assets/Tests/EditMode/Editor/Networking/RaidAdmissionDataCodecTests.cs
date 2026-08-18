@@ -5,22 +5,19 @@ using Assert = NUnit.Framework.Assert;
 public sealed class RaidAdmissionDataCodecTests
 {
     [Test]
-    public void CanonicalCodeToken_RoundTripsWithoutRaidIdOrAccessSecret()
+    public void CanonicalCodeToken_RoundTrips()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile-code"),
-            PlayerClassId.Ranged,
             "reservation-code",
             new[] { new LootEntry(new LootId("coins"), 4) });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(3));
+        Assert.That(token[0], Is.EqualTo(4));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
-        Assert.That(decoded.RaidId, Is.EqualTo(code.RaidId));
-        Assert.That(decoded.AccessSecret, Is.Null);
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
         Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
     }
@@ -33,7 +30,6 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             first,
             new ProfileId("profile-code"),
-            PlayerClassId.Melee,
             "reservation-code",
             new List<LootEntry>());
 
@@ -45,20 +41,16 @@ public sealed class RaidAdmissionDataCodecTests
     [Test]
     public void RoundTrip_PreservesAllAdmissionFields()
     {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var source = new RaidAdmissionData(
-            "raid-a",
-            "secret-a",
+            code,
             new ProfileId("profile-a"),
-            PlayerClassId.Ranged,
             "reservation-a",
             new[] { new LootEntry(new LootId("coins"), 4) });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
-        Assert.That(decoded.RaidId, Is.EqualTo(source.RaidId));
-        Assert.That(decoded.AccessSecret, Is.EqualTo(source.AccessSecret));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
-        Assert.That(decoded.SelectedBuild, Is.EqualTo(source.SelectedBuild));
         Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
         Assert.That(decoded.ReservedLoadout, Is.EqualTo(source.ReservedLoadout));
     }
@@ -66,7 +58,8 @@ public sealed class RaidAdmissionDataCodecTests
     [Test]
     public void Decode_RejectsTamperedOrTrailingToken()
     {
-        var source = new RaidAdmissionData("raid", "secret", new ProfileId("profile"), PlayerClassId.Melee, "reservation", new List<LootEntry>());
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var source = new RaidAdmissionData(code, new ProfileId("profile"), "reservation", new List<LootEntry>());
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
 
         token[0]++;
@@ -81,11 +74,10 @@ public sealed class RaidAdmissionDataCodecTests
     [Test]
     public void RoundTrip_AllowsEmptyLoadout()
     {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var source = new RaidAdmissionData(
-            "raid-empty",
-            "secret-empty",
+            code,
             new ProfileId("profile-empty"),
-            PlayerClassId.Melee,
             "reservation-empty",
             new List<LootEntry>());
 
@@ -97,11 +89,10 @@ public sealed class RaidAdmissionDataCodecTests
     [Test]
     public void Encode_RejectsDuplicateOrOversizedQuantities()
     {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var duplicate = new RaidAdmissionData(
-            "raid",
-            "secret",
+            code,
             new ProfileId("profile"),
-            PlayerClassId.Melee,
             "reservation",
             new[]
             {
@@ -109,10 +100,8 @@ public sealed class RaidAdmissionDataCodecTests
                 new LootEntry(new LootId("coins"), 2)
             });
         var oversized = new RaidAdmissionData(
-            "raid",
-            "secret",
+            code,
             new ProfileId("profile"),
-            PlayerClassId.Melee,
             "reservation",
             new[] { new LootEntry(new LootId("coins"), 10000) });
 
@@ -121,26 +110,24 @@ public sealed class RaidAdmissionDataCodecTests
     }
 
     [Test]
-    public void Encode_RejectsMoreThanSixteenEntriesAndTokensOverProjectLimit()
+    public void Encode_RejectsMoreThanSixteenEntries()
     {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var entries = new List<LootEntry>();
         for (int index = 0; index < RaidLoadoutRules.MaximumEntries + 1; index++)
         {
             entries.Add(new LootEntry(new LootId($"loot-{index}"), 1));
         }
 
-        var tooMany = new RaidAdmissionData("raid", "secret", new ProfileId("profile"), PlayerClassId.Melee, "reservation", entries);
+        var tooMany = new RaidAdmissionData(code, new ProfileId("profile"), "reservation", entries);
         Assert.That(RaidAdmissionDataCodec.TryEncode(tooMany, out _), Is.False);
-
-        var longSecret = new string('x', RaidLoadoutRules.MaximumTokenBytes);
-        var tooLarge = new RaidAdmissionData("raid", longSecret, new ProfileId("profile"), PlayerClassId.Melee, "reservation", new List<LootEntry>());
-        Assert.That(RaidAdmissionDataCodec.TryEncode(tooLarge, out _), Is.False);
     }
 
     [Test]
     public void Decode_RejectsUnsupportedVersionAndTruncatedPayload()
     {
-        var source = new RaidAdmissionData("raid", "secret", new ProfileId("profile"), PlayerClassId.Melee, "reservation", new List<LootEntry>());
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var source = new RaidAdmissionData(code, new ProfileId("profile"), "reservation", new List<LootEntry>());
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
 
         token[0] = 1;

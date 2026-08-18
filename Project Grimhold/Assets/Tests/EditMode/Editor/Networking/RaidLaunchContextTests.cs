@@ -44,7 +44,6 @@ public sealed class RaidLaunchContextTests
         var ticket = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Host),
             reservation,
-            PlayerClassId.Melee,
             SessionConnectionState.Town,
             context);
 
@@ -66,7 +65,6 @@ public sealed class RaidLaunchContextTests
         var ticket = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Client),
             new PendingLoadoutReservation("reservation", new List<StashItem>()),
-            PlayerClassId.Melee,
             SessionConnectionState.Town,
             context);
 
@@ -82,7 +80,6 @@ public sealed class RaidLaunchContextTests
         var ticket = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Host),
             new PendingLoadoutReservation("reservation", new List<StashItem>()),
-            PlayerClassId.Melee,
             SessionConnectionState.Town,
             context);
 

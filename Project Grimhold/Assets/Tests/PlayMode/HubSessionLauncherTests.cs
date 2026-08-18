@@ -22,7 +22,7 @@ public class HubSessionLauncherTests
 
         bool startSuccess = false;
 
-        var task = launcher.StartHubSessionAsync(PlayerClassId.Melee);
+        var task = launcher.StartHubSessionAsync();
 
         // Convert async to coroutine
         while (!task.IsCompleted)

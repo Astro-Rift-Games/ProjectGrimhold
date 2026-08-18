@@ -35,7 +35,7 @@ public static class NetworkRunnerFactory
     public static bool TryCreate(
         GameMode mode,
         SessionStartupContext startupContext,
-        PlayerClassCatalog playerClassCatalog,
+        NetworkPrefabRef raidPlayerPrefab,
         NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
@@ -69,7 +69,7 @@ public static class NetworkRunnerFactory
         var spawnManager = runnerObject.AddComponent<NetworkSpawnManager>();
         if (!spawnManager.InitializeForRunner(
                 runner,
-                playerClassCatalog,
+                raidPlayerPrefab,
                 raidParticipantPrefab,
                 copiedEnemyPrefabs,
                 startupContext,
@@ -96,7 +96,6 @@ public static class NetworkRunnerFactory
                 admission = new RaidAdmissionData(
                     launchContext.RaidCode,
                     joinData.ProfileId,
-                    joinData.ClassId,
                     loadoutReservation.ReservationId,
                     reservedLoadout);
             }
@@ -121,7 +120,7 @@ public static class NetworkRunnerFactory
         var hostMigrationController = runnerObject.AddComponent<HostMigrationLifecycleController>();
         hostMigrationController.Initialize(
             runner,
-            playerClassCatalog,
+            raidPlayerPrefab,
             raidParticipantPrefab,
             copiedEnemyPrefabs,
             in joinData,

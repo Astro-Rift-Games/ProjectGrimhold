@@ -122,7 +122,6 @@ namespace Tests.PlayMode.Loot
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         "unrecovered-defeated-profile",
-                        PlayerClassId.Melee,
                         "hm-recovery-generation"));
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();

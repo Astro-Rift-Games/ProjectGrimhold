@@ -30,7 +30,7 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
-    public void CompletedTownEntry_ClearsRaidScopedStateAndPreservesSelectedBuild()
+    public void CompletedTownEntry_ClearsRaidScopedState()
     {
         var owner = new GameObject("Repeat lifecycle coordinator test");
         owner.AddComponent<HubSessionLauncher>();
@@ -42,13 +42,11 @@ public sealed class SessionConnectionStateMachineTests
         var ticket = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Host),
             new PendingLoadoutReservation("old-reservation", Array.Empty<StashItem>()),
-            PlayerClassId.Ranged,
             SessionConnectionState.Raid,
             context);
 
         try
         {
-            SetPrivateField(coordinator, "_selectedBuild", PlayerClassId.Ranged);
             SetPrivateField(coordinator, "_activeTicket", (RaidTransitionTicket?)ticket);
             SetPrivateField(coordinator, "_acknowledgedLaunchSequence", 7);
             SetPrivateField(coordinator, "_launchDispatchActive", true);
@@ -68,7 +66,6 @@ public sealed class SessionConnectionStateMachineTests
             Assert.That(ReadPrivateField<bool>(coordinator, "_raidClosureReturnStarted"), Is.False);
             Assert.That(ReadPrivateField<float>(coordinator, "_raidClosureHostShutdownAt"), Is.EqualTo(-1f));
             Assert.That(coordinator.TryConsumeLastTransitionFailure(out _), Is.False);
-            Assert.That(ReadPrivateField<PlayerClassId>(coordinator, "_selectedBuild"), Is.EqualTo(PlayerClassId.Ranged));
         }
         finally
         {
@@ -118,18 +115,16 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
-    public void RaidTicket_WithState_PreservesIdentityAndBuild()
+    public void RaidTicket_WithState_PreservesIdentity()
     {
         var request = new RaidConnectionRequest("raid-1", RaidConnectionRole.Client, "session-1");
         var ticket = new RaidTransitionTicket(
             request,
-            PlayerClassId.Ranged,
             SessionConnectionState.PreparingRaid);
 
         RaidTransitionTicket updated = ticket.WithState(SessionConnectionState.ConnectingRaid);
 
         Assert.That(updated.Request, Is.EqualTo(request));
-        Assert.That(updated.SelectedBuild, Is.EqualTo(PlayerClassId.Ranged));
         Assert.That(updated.State, Is.EqualTo(SessionConnectionState.ConnectingRaid));
     }
 
@@ -145,13 +140,11 @@ public sealed class SessionConnectionStateMachineTests
         var valid = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Host),
             reservation,
-            PlayerClassId.Melee,
             SessionConnectionState.Town,
             context);
         var mismatched = new RaidTransitionTicket(
             new RaidConnectionRequest("other-raid", RaidConnectionRole.Host, code.SessionName),
             reservation,
-            PlayerClassId.Melee,
             SessionConnectionState.Town,
             context);
 
@@ -182,7 +175,7 @@ public sealed class SessionConnectionStateMachineTests
         try
         {
             SessionTransitionResult result =
-                await coordinator.ConnectToTownAsync(PlayerClassId.Melee);
+                await coordinator.ConnectToTownAsync();
 
             Assert.That(result, Is.EqualTo(SessionTransitionResult.Busy));
             Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.MainMenu));
@@ -250,11 +243,10 @@ public sealed class SessionConnectionStateMachineTests
         var newRunnerObject = new GameObject("New Town join context");
         var profile = new ProfileId("22222222222222222222222222222222");
         RaidCode.TryParse("654321", out RaidCode code);
-        var joinData = new PlayerJoinData(PlayerClassId.Melee, profile);
+        var joinData = new PlayerJoinData(profile);
         var raidAdmission = new RaidAdmissionData(
             code,
             profile,
-            PlayerClassId.Melee,
             "old-reservation",
             Array.Empty<LootEntry>());
 
@@ -634,7 +626,7 @@ public sealed class SessionConnectionStateMachineTests
         Assert.That(
             spawnManager.InitializeForRunner(
                 runner,
-                null,
+                NetworkPrefabRef.Empty,
                 default,
                 Array.Empty<NetworkPrefabRef>(),
                 SessionStartupContext.HostMigrationResume,

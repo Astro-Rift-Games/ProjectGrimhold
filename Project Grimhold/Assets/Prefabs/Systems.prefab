@@ -80,7 +80,8 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::FusionSessionLauncher
   _sessionName: Project Grimhold
-  _playerClassCatalog: {fileID: 11400000, guid: 7d62cc447157aaa4c97bc7cdb8855836, type: 2}
+  _raidPlayerPrefab:
+    RawGuidValue: fea3a7b256f965a4eb9b965832939741
   _raidParticipantPrefab:
     RawGuidValue: c39d451563bae6e43934008a0dadc6d6
   _enemyPrefabs:

@@ -35,41 +35,7 @@ namespace Tests.EditMode.Presentation
             Object.DestroyImmediate(_instance);
         }
 
-        [TestCase(PlayerClassId.Melee, "Clase: Caballero")]
-        [TestCase(PlayerClassId.Ranged, "Clase: Mago")]
-        public void SupportedClassPresentsSelectedClass(PlayerClassId playerClass, string expected)
-        {
-            _presenter.SetPlayerClass(playerClass);
 
-            Assert.That(_view.ClassText.text, Is.EqualTo(expected));
-            Assert.That(ReadPresenterFlag("_classResolved"), Is.True);
-        }
-
-        [TestCase(PlayerClassId.None)]
-        [TestCase((PlayerClassId)255)]
-        public void InvalidClassRemainsUnavailableAndCanResolveLater(PlayerClassId invalidClass)
-        {
-            _presenter.SetPlayerClass(invalidClass);
-            Assert.That(_view.ClassText.text, Is.EqualTo("Clase: —"));
-            Assert.That(ReadPresenterFlag("_classResolved"), Is.False);
-
-            _presenter.SetPlayerClass(PlayerClassId.Ranged);
-
-            Assert.That(_view.ClassText.text, Is.EqualTo("Clase: Mago"));
-            Assert.That(ReadPresenterFlag("_classResolved"), Is.True);
-        }
-
-        [Test]
-        public void UnbindClearsClassFromPreviousBinding()
-        {
-            _presenter.SetPlayerClass(PlayerClassId.Melee);
-
-            _presenter.Unbind();
-
-            Assert.That(_view.ClassText.text, Is.EqualTo("Clase: —"));
-            Assert.That(ReadPresenterFlag("_classResolved"), Is.False);
-            Assert.That(ReadPresenterFlag("_isBound"), Is.False);
-        }
 
         [TestCase(0f, 1f, 0f)]
         [TestCase(-1f, 1f, 0f)]
@@ -106,17 +72,6 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.HealthFill.rectTransform.localScale.x, Is.Zero);
             Assert.That(_view.CooldownRoot.gameObject.activeSelf, Is.False);
             Assert.That(_view.DefeatedRoot.activeSelf, Is.False);
-        }
-
-        [Test]
-        public void RepeatingAnIdenticalValueDoesNotDirtyTheTextAgain()
-        {
-            _view.PresentClass("Caballero");
-            _view.ClassText.havePropertiesChanged = false;
-
-            _view.PresentClass("Caballero");
-
-            Assert.That(_view.ClassText.havePropertiesChanged, Is.False);
         }
 
         [TestCase(3.2f, "Extracción: 3,2 s")]

@@ -19,9 +19,6 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     public NetworkString<_32> RaidGenerationId { get; private set; }
 
     [Networked]
-    public PlayerClassId SelectedBuild { get; private set; }
-
-    [Networked]
     public NetworkString<_64> LoadoutReservationId { get; private set; }
 
     [Networked]
@@ -54,13 +51,11 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     /// </summary>
     internal void Initialize(
         string profileId,
-        PlayerClassId selectedBuild,
         string raidGenerationId = null,
         string loadoutReservationId = null)
     {
         ProfileId = profileId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
-        SelectedBuild = selectedBuild;
         LoadoutReservationId = loadoutReservationId ?? string.Empty;
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;

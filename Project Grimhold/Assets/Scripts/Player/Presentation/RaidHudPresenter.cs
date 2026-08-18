@@ -25,7 +25,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private float _cancellationFeedbackDuration = 1.25f;
 
     private bool _isBound;
-    private bool _classResolved;
 
     private bool _hasHealthState;
     private float _observedHealth;
@@ -97,22 +96,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     }
 
     /// <summary>
-    /// Supplies the locally selected class after the main HUD binding exists.
-    /// The first supported class resolves presentation for the current binding.
-    /// </summary>
-    public void SetPlayerClass(PlayerClassId playerClass)
-    {
-        if (!_isBound || _classResolved ||
-            !TryGetPlayerClassDisplayName(playerClass, out string displayName))
-        {
-            return;
-        }
-
-        _classResolved = true;
-        _view?.PresentClass(displayName);
-    }
-
-    /// <summary>
     /// Clears all local references, pending reads and visual state.
     /// </summary>
     public void Unbind()
@@ -125,7 +108,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _assignmentService = null;
         _entityRegistry = null;
         _isBound = false;
-        _classResolved = false;
         ResetObservedState();
         _view?.Clear();
     }
@@ -143,7 +125,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private void OnDisable()
     {
-        _classResolved = false;
         ResetObservedState();
         _view?.Clear();
     }
@@ -471,24 +452,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _hasProgressState = false;
         _observedQuotaComplete = false;
         _quotaCompletedFeedbackUntil = 0f;
-    }
-
-    private static bool TryGetPlayerClassDisplayName(
-        PlayerClassId playerClass,
-        out string displayName)
-    {
-        switch (playerClass)
-        {
-            case PlayerClassId.Melee:
-                displayName = "Caballero";
-                return true;
-            case PlayerClassId.Ranged:
-                displayName = "Mago";
-                return true;
-            default:
-                displayName = null;
-                return false;
-        }
     }
 
     private static float NormalizeCooldown(float durationSeconds, float remainingSeconds)

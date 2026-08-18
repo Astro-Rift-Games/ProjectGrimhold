@@ -64,7 +64,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private PlayerConsumableNetworkController _consumableController;
 
     private bool _isBound;
-    private bool _isPlayerClassResolved;
     private bool _missingJoinContextReported;
     private LocalInputContext _inputContext;
     private LocalPlayerJoinContext _joinContext;
@@ -128,11 +127,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             // CurrentAvatarId is assigned after runner.Spawn returns and can also
             // arrive after this avatar on a remote peer.
             BindLocalHud();
-        }
-
-        if (_isBound && !_isPlayerClassResolved && _joinContext != null)
-        {
-            TryResolvePlayerClass();
         }
     }
 
@@ -211,7 +205,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
 
-        TryResolvePlayerClass();
         OnInputReaderChanged(_inputContext.Reader);
     }
 
@@ -258,7 +251,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _menuPresenter.Unbind();
         }
         _isBound = false;
-        _isPlayerClassResolved = false;
         _missingJoinContextReported = false;
         ClearRunnerReferences();
         SetHudActive(false);
@@ -271,10 +263,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             return;
         }
 
-        if (!_isPlayerClassResolved && _joinContext == null)
+        if (_joinContext == null)
         {
             TryCacheJoinContext();
-            TryResolvePlayerClass();
         }
 
         _inventoryPresenter.Unbind();
@@ -321,23 +312,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 this);
             _missingJoinContextReported = true;
         }
-    }
-
-    private void TryResolvePlayerClass()
-    {
-        if (_isPlayerClassResolved || _joinContext == null || _raidHudPresenter == null)
-        {
-            return;
-        }
-
-        PlayerClassId playerClass = _joinContext.JoinData.ClassId;
-        if (!PlayerJoinDataCodec.IsSupported(playerClass))
-        {
-            return;
-        }
-
-        _raidHudPresenter.SetPlayerClass(playerClass);
-        _isPlayerClassResolved = true;
     }
 
     private void ClearRunnerReferences()

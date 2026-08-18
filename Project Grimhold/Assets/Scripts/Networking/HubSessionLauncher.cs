@@ -20,19 +20,19 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     public NetworkRunner Runner => _runner;
     public event Action<NetworkRunner, ShutdownReason> RunnerShutdownObserved;
 
-    public Task<bool> StartHubSessionAsync(PlayerClassId selectedClass)
+    public Task<bool> StartHubSessionAsync()
     {
-        return StartHubSessionAsync(selectedClass, "Lobby-Town");
+        return StartHubSessionAsync("Lobby-Town");
     }
 
-    public async Task<bool> StartHubSessionAsync(PlayerClassId selectedClass, string townSceneName)
+    public async Task<bool> StartHubSessionAsync(string townSceneName)
     {
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
-        var joinData = new PlayerJoinData(selectedClass, profileId);
+        var joinData = new PlayerJoinData(profileId);
         
         if (!PlayerJoinDataCodec.TryEncode(joinData, out byte[] token))
         {
-            throw new ArgumentException($"Invalid or unsupported selected class: {selectedClass}");
+            throw new ArgumentException($"Invalid or unsupported local profile id.");
         }
 
         int sceneBuildIndex = NetworkSceneBuildIndexResolver.Resolve(townSceneName);

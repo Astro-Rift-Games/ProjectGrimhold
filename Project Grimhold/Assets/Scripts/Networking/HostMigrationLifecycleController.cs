@@ -24,7 +24,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
     internal static readonly TimeSpan RestoreBudget = TimeSpan.FromSeconds(30);
 
     private NetworkRunner _associatedRunner;
-    private PlayerClassCatalog _playerClassCatalog;
+    private NetworkPrefabRef _raidPlayerPrefab;
     private NetworkPrefabRef _raidParticipantPrefab;
     private NetworkPrefabRef[] _enemyPrefabs;
     private PlayerJoinData _joinData;
@@ -36,7 +36,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
 
     public void Initialize(
         NetworkRunner runner,
-        PlayerClassCatalog playerClassCatalog,
+        NetworkPrefabRef raidPlayerPrefab,
         NetworkPrefabRef raidParticipantPrefab,
         NetworkPrefabRef[] enemyPrefabs,
         in PlayerJoinData joinData,
@@ -45,7 +45,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         FusionSessionLauncher runnerOwner)
     {
         _associatedRunner = runner;
-        _playerClassCatalog = playerClassCatalog;
+        _raidPlayerPrefab = raidPlayerPrefab;
         _raidParticipantPrefab = raidParticipantPrefab;
         _enemyPrefabs = enemyPrefabs;
         _joinData = joinData;
@@ -178,7 +178,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
             if (oldScene.isLoaded || !NetworkRunnerFactory.TryCreate(
                     token.GameMode,
                     SessionStartupContext.HostMigrationResume,
-                    _playerClassCatalog,
+                    _raidPlayerPrefab,
                     _raidParticipantPrefab,
                     _enemyPrefabs,
                     in _joinData,
