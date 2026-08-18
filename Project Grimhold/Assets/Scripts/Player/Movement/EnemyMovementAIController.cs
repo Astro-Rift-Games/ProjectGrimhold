@@ -34,6 +34,9 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [Header("Patrol")]
     private EnemyPatrolRoute _patrolRoute;
     [SerializeField, Min(0f)] private float _waypointReachRadius = 0.3f;
+    
+    [Tooltip("Time in seconds the enemy waits at a waypoint before moving to the next one.")]
+    [SerializeField, Min(0f)] private float _waypointWaitTime = 1f;
 
     [Header("Detection")]
     [SerializeField, Min(0f)] private float _detectionRange = 6f;
@@ -163,6 +166,11 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// </summary>
     [Networked] private Vector2 KnockbackVelocity { get; set; }
 
+    /// <summary>
+    /// Timer for waiting at a patrol waypoint before moving to the next one.
+    /// </summary>
+    [Networked] private TickTimer PatrolWaitTimer { get; set; }
+
     // ─────────────────────────────────────────────────────────────────────────
     // IMovementState — derived values (no extra Networked properties needed)
     // ─────────────────────────────────────────────────────────────────────────
@@ -218,6 +226,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             PatrolWaypointIndex = 0;
             KnockbackVelocity = Vector2.zero;
             AggroAlertTimer = default;
+            PatrolWaitTimer = default;
         }
     }
 
@@ -653,6 +662,11 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             return Vector2.zero;
         }
 
+        if (!PatrolWaitTimer.ExpiredOrNotRunning(Runner))
+        {
+            return Vector2.zero;
+        }
+
         if (_patrolRoute.TryGetWaypoint(PatrolWaypointIndex, out Transform waypoint))
         {
             Vector2 toWaypoint = (Vector2)waypoint.position - (Vector2)transform.position;
@@ -660,6 +674,12 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             {
                 PatrolWaypointIndex = (PatrolWaypointIndex + 1) % _patrolRoute.Count;
                 _pathfindingNavigator?.InvalidatePath();
+                
+                if (_waypointWaitTime > 0f)
+                {
+                    PatrolWaitTimer = TickTimer.CreateFromSeconds(Runner, _waypointWaitTime);
+                    return Vector2.zero;
+                }
                 
                 // Recalculate direction towards the new waypoint immediately to avoid a 1-tick stop.
                 if (_patrolRoute.TryGetWaypoint(PatrolWaypointIndex, out Transform nextWaypoint))
