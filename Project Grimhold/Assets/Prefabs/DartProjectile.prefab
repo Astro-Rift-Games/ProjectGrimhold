@@ -56,6 +56,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: -2584717478098627136, guid: 011329a72a6cba547bae395168b5527c, type: 3}
+    - target: {fileID: 7894491495876226970, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: _visibilityCollider
+      value: 
+      objectReference: {fileID: 2106166682444974742}
+    - target: {fileID: 7894491495876226970, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: '_renderers.Array.data[0]'
+      value: 
+      objectReference: {fileID: 7387369493935315469}
     - target: {fileID: 8538440101088891149, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -18.74277
@@ -101,3 +109,13 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+--- !u!58 &2106166682444974742 stripped
+CircleCollider2D:
+  m_CorrespondingSourceObject: {fileID: 5782526565361601562, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+  m_PrefabInstance: {fileID: 5549897325331482252}
+  m_PrefabAsset: {fileID: 0}
+--- !u!212 &7387369493935315469 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 3134513433825008769, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+  m_PrefabInstance: {fileID: 5549897325331482252}
+  m_PrefabAsset: {fileID: 0}

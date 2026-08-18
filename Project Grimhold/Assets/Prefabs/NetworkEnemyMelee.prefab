@@ -140,6 +140,10 @@ PrefabInstance:
       propertyPath: _disengageRange
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _aggroAlertDuration
+      value: 25
+      objectReference: {fileID: 0}
     - target: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Name
       value: NetworkEnemyMelee

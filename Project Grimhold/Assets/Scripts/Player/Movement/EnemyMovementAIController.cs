@@ -20,7 +20,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Kinematic2DMovementMotor))]
-public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
+public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState, IKnockbackMotor, IAggroReceiver
 {
     // ─────────────────────────────────────────────────────────────────────────
     // Serialized configuration
@@ -63,6 +63,14 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     [Tooltip("Layer mask used to find player colliders during OverlapCircle scans.")]
     [SerializeField] private LayerMask _playerLayer;
+
+    [Header("Knockback")]
+    [Tooltip("Friction applied to decay knockback velocity over time.")]
+    [SerializeField, Min(0f)] private float _knockbackFriction = 10f;
+
+    [Header("Aggro")]
+    [Tooltip("Duration in seconds the enemy pursues a player attacker without requiring LOS. Set to 0 to disable aggro bypass.")]
+    [SerializeField, Min(0f)] private float _aggroAlertDuration = 5f;
 
     [Header("Dependencies")]
     [SerializeField] private EnemyPathfindingNavigator _pathfindingNavigator;
@@ -141,6 +149,20 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// </summary>
     [Networked] private TickTimer ScanTimer { get; set; }
 
+    /// <summary>
+    /// Active while the enemy has an aggro alert from a player hit.
+    /// During this window, <see cref="EvaluateActiveTarget"/> bypasses the LOS requirement
+    /// so the enemy immediately pursues the attacker.
+    /// Resets to expired when LOS is naturally established or the timer expires.
+    /// </summary>
+    [Networked] private TickTimer AggroAlertTimer { get; set; }
+
+    /// <summary>
+    /// Current knockback velocity. Applied as displacement during ticks and decays via friction.
+    /// Only written by State Authority.
+    /// </summary>
+    [Networked] private Vector2 KnockbackVelocity { get; set; }
+
     // ─────────────────────────────────────────────────────────────────────────
     // IMovementState — derived values (no extra Networked properties needed)
     // ─────────────────────────────────────────────────────────────────────────
@@ -194,6 +216,8 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             IsAttacking = false;
             _pursuitLostTickCount = 0;
             PatrolWaypointIndex = 0;
+            KnockbackVelocity = Vector2.zero;
+            AggroAlertTimer = default;
         }
     }
 
@@ -248,6 +272,17 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             ? moveDirection * speed * Runner.DeltaTime
             : Vector2.zero;
 
+        // Apply decaying knockback velocity.
+        if (KnockbackVelocity.sqrMagnitude > 0.01f)
+        {
+            displacement += KnockbackVelocity * Runner.DeltaTime;
+            KnockbackVelocity = Vector2.Lerp(KnockbackVelocity, Vector2.zero, _knockbackFriction * Runner.DeltaTime);
+        }
+        else
+        {
+            KnockbackVelocity = Vector2.zero;
+        }
+
         Vector2 appliedDisplacement = _movementMotor.Move(displacement);
 
         if (appliedDisplacement.sqrMagnitude > ValidMovementSqrThreshold)
@@ -273,6 +308,50 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         IsControlEnabled = enabled;
         return true;
+    }
+
+    /// <summary>
+    /// Accumulates a knockback impulse to be applied in the current simulation tick.
+    /// Requires State Authority.
+    ///
+    /// The displacement is applied in <see cref="FixedUpdateNetwork"/> as
+    /// <c>-impactDirection * force * DeltaTime</c> and resolved against world colliders.
+    /// </summary>
+    public void ApplyKnockbackImpulse(Vector2 impactDirection, float force)
+    {
+        if (!HasStateAuthority || force <= 0f)
+        {
+            return;
+        }
+
+        // Add to velocity so it decays over time.
+        KnockbackVelocity += impactDirection.normalized * force;
+    }
+
+    /// <summary>
+    /// Signals this enemy that it was damaged by a player.
+    /// Forces immediate target acquisition and starts the aggro alert timer,
+    /// allowing pursuit without LOS for <see cref="_aggroAlertDuration"/> seconds.
+    ///
+    /// <para>Must be called on State Authority only.</para>
+    /// </summary>
+    public void ReceiveAggroAlert(EntityId attackerId, Transform attackerTransform)
+    {
+        if (!HasStateAuthority || _aggroAlertDuration <= 0f)
+        {
+            return;
+        }
+
+        if (attackerId.Value == 0 || attackerTransform == null)
+        {
+            return;
+        }
+
+        // Immediately acquire the player as the active target so EvaluateActiveTarget
+        // takes over next tick and uses the aggro-bypass path.
+        _currentTarget = new EnemyTargetReference(attackerId, attackerTransform);
+        _pursuitLostTickCount = 0;
+        AggroAlertTimer = TickTimer.CreateFromSeconds(Runner, _aggroAlertDuration);
     }
 
     /// <summary>
@@ -380,8 +459,10 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         Vector2 targetPos = targetTransform.position;
         float distance = Vector2.Distance(enemyPos, targetPos);
 
-        // Target moved beyond disengage range: drop immediately.
-        if (distance > _disengageRange)
+        bool aggroActive = _aggroAlertDuration > 0f && !AggroAlertTimer.ExpiredOrNotRunning(Runner);
+
+        // Target moved beyond disengage range: drop immediately, unless we have an active aggro alert.
+        if (!aggroActive && distance > _disengageRange)
         {
             ClearCurrentTarget();
             IsOnPursuit = false;
@@ -404,7 +485,22 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         if (hasLOS)
         {
+            // Natural LOS re-established. Only cancel the aggro alert if we are within normal
+            // disengage range, otherwise we'd drop the target on the very next tick.
+            if (distance <= _disengageRange)
+            {
+                AggroAlertTimer = default;
+            }
+            
             _pursuitLostTickCount = 0;
+            IsOnPursuit = true;
+            IsAttacking = false;
+            return;
+        }
+
+        if (aggroActive)
+        {
+            // Aggro alert active: pursue without LOS.
             IsOnPursuit = true;
             IsAttacking = false;
             return;

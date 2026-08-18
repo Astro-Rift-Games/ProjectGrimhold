@@ -212,6 +212,8 @@ MonoBehaviour:
   _renderers:
   - {fileID: 2611892531448910942}
   _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 4222689577850092183}
+  _useColliderBounds: 0
 --- !u!1 &2995710529447935909
 GameObject:
   m_ObjectHideFlags: 0

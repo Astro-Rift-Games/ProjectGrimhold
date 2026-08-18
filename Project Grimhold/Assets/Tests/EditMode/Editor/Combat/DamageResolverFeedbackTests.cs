@@ -13,22 +13,25 @@ namespace Tests.EditMode.Combat
         {
             var registryHolder = new GameObject("DamageRegistry");
             var resolverHolder = new GameObject("DamageResolver");
+            var attackerHolder = new GameObject("Attacker");
             try
             {
                 EntityRegistry registry = registryHolder.AddComponent<EntityRegistry>();
-                var sink = resolverHolder.AddComponent<ResolvedDamageSink>();
+                var sink = attackerHolder.AddComponent<ResolvedDamageSink>();
                 DamageResolver resolver = resolverHolder.AddComponent<DamageResolver>();
-                MethodInfo cacheFeedbackSinkMethod = typeof(DamageResolver).GetMethod(
-                    "CacheFeedbackSink",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.That(cacheFeedbackSinkMethod, Is.Not.Null);
-                cacheFeedbackSinkMethod.Invoke(resolver, null);
 
                 FieldInfo registryField = typeof(DamageResolver).GetField(
                     "_registry",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(registryField, Is.Not.Null);
                 registryField.SetValue(resolver, registry);
+
+                var attackerId = new EntityId(11);
+                var attackerDamageable = attackerHolder.AddComponent<TestAttackerDamageable>();
+                attackerDamageable.Id = attackerId;
+                Assert.That(
+                    registry.TryRegisterEntity(attackerId, attackerDamageable, Array.Empty<Collider2D>()),
+                    Is.True);
 
                 var targetId = new EntityId(22);
                 var damageable = new ExactDamageable(targetId, 7f);
@@ -54,6 +57,7 @@ namespace Tests.EditMode.Combat
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(attackerHolder);
                 UnityEngine.Object.DestroyImmediate(resolverHolder);
                 UnityEngine.Object.DestroyImmediate(registryHolder);
             }
@@ -82,6 +86,13 @@ namespace Tests.EditMode.Combat
                     false,
                     DamageFailureReason.None);
             }
+        }
+
+        private sealed class TestAttackerDamageable : MonoBehaviour, IDamageable
+        {
+            public EntityId Id { get; set; }
+            public bool CanReceiveDamage => true;
+            public DamageResult ApplyDamage(in DamageRequest request) => default;
         }
 
         private sealed class ResolvedDamageSink : MonoBehaviour, IResolvedDamageFeedbackSink

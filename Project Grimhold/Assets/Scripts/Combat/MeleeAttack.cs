@@ -198,7 +198,8 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                     _config.DamageType,
                     request.Direction,
                     target.HitPoint,
-                    request.SimulationTick
+                    request.SimulationTick,
+                    _config.KnockbackForce
                 );
 
                 // We do not depend on the Resolve result to decide if the attack was executed

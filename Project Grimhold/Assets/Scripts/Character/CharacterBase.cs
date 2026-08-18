@@ -9,7 +9,7 @@ using UnityEngine;
 /// Manages the health, lifecycle, and death of the networked entity.
 /// </summary>
 [DisallowMultipleComponent]
-public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable, IHealable
+public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable, IHealable, IKnockbackReceiver
 {
     [Header("Health Configuration")]
     [SerializeField, Min(0.1f)]
@@ -23,6 +23,13 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     private EntityRegistry _registry;
     private EntityId _registeredId;
     private bool _isRegistered;
+
+    /// <summary>
+    /// Cached knockback motor resolved in <see cref="Awake"/>.
+    /// May be null for characters whose movement controller does not implement
+    /// <see cref="IKnockbackMotor"/> (e.g., future non-moveable character types).
+    /// </summary>
+    private IKnockbackMotor _knockbackMotor;
 
     [Networked]
     public float Health { get; private set; }
@@ -53,6 +60,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     protected virtual void Awake()
     {
         _cachedColliders = GetComponentsInChildren<Collider2D>(true);
+        _knockbackMotor  = GetComponent<IKnockbackMotor>();
     }
 
     /// <summary>
@@ -186,6 +194,24 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             Health,
             HealFailureReason.None
         );
+    }
+
+    /// <summary>
+    /// Delivers a knockback impulse to the character's movement motor.
+    ///
+    /// Called by <see cref="DamageResolver"/> after a successful damage application.
+    /// Only effective when called on State Authority; the motor guards this requirement.
+    /// </summary>
+    /// <param name="impactDirection">Normalized direction of the incoming hit.</param>
+    /// <param name="force">Knockback force in world units per second.</param>
+    public void ReceiveKnockback(Vector2 impactDirection, float force)
+    {
+        if (_knockbackMotor == null || force <= 0f)
+        {
+            return;
+        }
+
+        _knockbackMotor.ApplyKnockbackImpulse(impactDirection, force);
     }
 
     /// <summary>

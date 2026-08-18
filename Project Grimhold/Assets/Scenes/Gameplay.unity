@@ -114575,13 +114575,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: DartTrap
       objectReference: {fileID: 0}
+    - target: {fileID: 4222689577850092183, guid: dc7542084a06d1e408981716b3615d54, type: 3}
+      propertyPath: m_Size.y
+      value: 6.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4222689577850092183, guid: dc7542084a06d1e408981716b3615d54, type: 3}
+      propertyPath: m_Offset.y
+      value: -3
+      objectReference: {fileID: 0}
     - target: {fileID: 8022292377301449384, guid: dc7542084a06d1e408981716b3615d54, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 2.26
+      value: 1.05
       objectReference: {fileID: 0}
     - target: {fileID: 8022292377301449384, guid: dc7542084a06d1e408981716b3615d54, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -7.04
+      value: -6.59
       objectReference: {fileID: 0}
     - target: {fileID: 8022292377301449384, guid: dc7542084a06d1e408981716b3615d54, type: 3}
       propertyPath: m_LocalPosition.z

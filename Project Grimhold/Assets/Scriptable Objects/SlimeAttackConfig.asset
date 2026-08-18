@@ -16,6 +16,7 @@ MonoBehaviour:
   _damageType: 0
   _cooldownSeconds: 0.5
   _inputMode: 0
+  _knockbackForce: 4
   _range: 0.1
   _radius: 5
   _maximumTargets: 5

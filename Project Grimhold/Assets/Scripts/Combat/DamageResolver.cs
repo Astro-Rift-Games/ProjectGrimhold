@@ -11,16 +11,13 @@ using UnityEngine;
 public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 {
     private EntityRegistry _registry;
-    private IResolvedDamageFeedbackSink _feedbackSink;
 
     private void Awake()
     {
-        CacheFeedbackSink();
     }
 
     public override void Spawned()
     {
-        CacheFeedbackSink();
         _registry = Runner.GetComponent<EntityRegistry>();
         if (_registry == null)
         {
@@ -88,6 +85,31 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
         // 4. Delegate damage application and handle authority validation within IDamageable
         DamageResult result = target.ApplyDamage(request);
+
+        // 5. Apply knockback to the target if the damage was successfully applied.
+        //    IKnockbackReceiver is implemented by CharacterBase, which delegates to
+        //    the movement motor. Breakables do not implement IKnockbackReceiver.
+        if (result.IsApplied &&
+            request.KnockbackForce > 0f &&
+            target is IKnockbackReceiver knockbackReceiver)
+        {
+            knockbackReceiver.ReceiveKnockback(request.Direction, request.KnockbackForce);
+        }
+
+        // 6. Alert enemy targets aggro'd by a player hit.
+        //    IAggroReceiver is implemented by EnemyMovementAIController (a sibling component).
+        //    Only player-sourced damage triggers the pursuit bypass; traps and
+        //    breakable objects do not because they are not registered as PlayerCharacter.
+        if (result.IsApplied &&
+            target is MonoBehaviour mb &&
+            mb.TryGetComponent(out IAggroReceiver aggroReceiver) &&
+            _registry != null &&
+            _registry.IsPlayerEntity(request.AttackerId) &&
+            _registry.TryGetTransform(request.AttackerId, out Transform attackerTransform))
+        {
+            aggroReceiver.ReceiveAggroAlert(request.AttackerId, attackerTransform);
+        }
+
         TryAwardFatalProgress(request, result);
         return CompleteResolution(request, result);
     }
@@ -120,12 +142,11 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
     private DamageResult CompleteResolution(in DamageRequest request, in DamageResult result)
     {
-        _feedbackSink?.RecordResolvedDamage(new DamageResolvedEvent(request, result));
-        return result;
-    }
+        if (_registry != null && _registry.TryGetFeedbackSink(request.AttackerId, out IResolvedDamageFeedbackSink sink))
+        {
+            sink.RecordResolvedDamage(new DamageResolvedEvent(request, result));
+        }
 
-    private void CacheFeedbackSink()
-    {
-        _feedbackSink = GetComponent<IResolvedDamageFeedbackSink>();
+        return result;
     }
 }

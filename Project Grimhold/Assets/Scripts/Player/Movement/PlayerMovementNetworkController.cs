@@ -11,7 +11,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Kinematic2DMovementMotor))]
 [DefaultExecutionOrder(-10)]
-public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovementState
+public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovementState, IKnockbackMotor
 {
     [SerializeField, Min(0f)]
     private float _moveSpeed = 5f;
@@ -22,6 +22,10 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private bool _dependenciesValid;
 
     private const float ValidMovementSqrThreshold = 0.000001f;
+
+    [Header("Knockback")]
+    [Tooltip("Friction applied to decay knockback velocity over time.")]
+    [SerializeField, Min(0f)] private float _knockbackFriction = 10f;
 
     [SerializeField]
     private Vector2 _defaultFacingDirection = Vector2.down;
@@ -34,6 +38,13 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     [Networked]
     public NetworkBool IsMoving { get; private set; }
+
+    /// <summary>
+    /// Current knockback velocity. Applied as displacement during ticks and decays via friction.
+    /// Only written by State Authority via <see cref="ApplyKnockbackImpulse"/>.
+    /// </summary>
+    [Networked]
+    private Vector2 KnockbackVelocity { get; set; }
 
     private CharacterBase _characterBase;
     private NetworkMatchController _matchController;
@@ -98,6 +109,17 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             ? moveDirection * _moveSpeed * Runner.DeltaTime
             : Vector2.zero;
 
+        // Apply decaying knockback velocity.
+        if (KnockbackVelocity.sqrMagnitude > 0.01f)
+        {
+            displacement += KnockbackVelocity * Runner.DeltaTime;
+            KnockbackVelocity = Vector2.Lerp(KnockbackVelocity, Vector2.zero, _knockbackFriction * Runner.DeltaTime);
+        }
+        else
+        {
+            KnockbackVelocity = Vector2.zero;
+        }
+
         Vector2 appliedDisplacement = _movementMotor.Move(displacement);
 
         if (appliedDisplacement.sqrMagnitude > ValidMovementSqrThreshold)
@@ -126,6 +148,24 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         IsControlEnabled = enabled;
         return true;
+    }
+
+    /// <summary>
+    /// Accumulates a knockback impulse to be applied in the current simulation tick.
+    /// Requires State Authority. Called by <see cref="CharacterBase"/> after receiving damage.
+    ///
+    /// The displacement is computed as <c>-impactDirection * force * DeltaTime</c>.
+    /// It is additive: multiple simultaneous hits stack within the same tick.
+    /// </summary>
+    public void ApplyKnockbackImpulse(Vector2 impactDirection, float force)
+    {
+        if (!HasStateAuthority || force <= 0f)
+        {
+            return;
+        }
+
+        // Add to velocity so it decays over time.
+        KnockbackVelocity += impactDirection.normalized * force;
     }
 
     private static bool IsDefaultInput(in PlayerNetworkInput input)
