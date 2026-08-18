@@ -248,8 +248,7 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
         _lastRepathTick          = currentTick;
         _lastKnownTargetPosition = targetPos;
 
-        int count = _solver.FindPath(_grid, currentPos, targetPos,
-            _config.AgentRadius, _waypointBuffer);
+        int count = _solver.FindPath(_grid, currentPos, targetPos, _waypointBuffer);
 
         if (count > 0)
         {

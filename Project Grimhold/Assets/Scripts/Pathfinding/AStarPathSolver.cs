@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -68,10 +68,6 @@ public sealed class AStarPathSolver
     /// <param name="grid">The walkability grid to search.</param>
     /// <param name="startWorld">Start position in world space.</param>
     /// <param name="endWorld">Goal position in world space.</param>
-    /// <param name="agentRadius">
-    /// Agent radius used during path smoothing (CircleCast). Must match the
-    /// value used when the grid was built.
-    /// </param>
     /// <param name="outputWaypoints">
     /// Caller-owned list that receives world-space waypoint positions.
     /// </param>
@@ -82,7 +78,6 @@ public sealed class AStarPathSolver
         PathfindingGrid grid,
         Vector2 startWorld,
         Vector2 endWorld,
-        float agentRadius,
         List<Vector2> outputWaypoints)
     {
         outputWaypoints.Clear();
@@ -139,7 +134,11 @@ public sealed class AStarPathSolver
             if (cx == ex && cy == ey)
             {
                 RetracePath(grid, sx, sy, ex, ey, outputWaypoints);
-                SmoothPath(outputWaypoints, agentRadius, endWorld);
+                // Replace the exact final position with the requested endWorld for sub-node precision
+                if (outputWaypoints.Count > 0)
+                {
+                    outputWaypoints[outputWaypoints.Count - 1] = endWorld;
+                }
                 return outputWaypoints.Count;
             }
 
@@ -268,77 +267,4 @@ public sealed class AStarPathSolver
         output.Reverse();
     }
 
-    /// <summary>
-    /// Applies line-of-sight smoothing using <c>Physics2D.CircleCast</c> to
-    /// remove intermediate waypoints that are directly reachable by the agent.
-    ///
-    /// CircleCast with the agent radius correctly accounts for the agent volume;
-    /// a plain Linecast would allow paths through gaps smaller than the agent.
-    ///
-    /// The final waypoint is replaced with the raw <paramref name="endWorld"/>
-    /// position for sub-node precision.
-    /// </summary>
-    private void SmoothPath(List<Vector2> waypoints, float agentRadius, Vector2 endWorld)
-    {
-        if (waypoints.Count <= 2)
-        {
-            if (waypoints.Count > 0)
-            {
-                waypoints[waypoints.Count - 1] = endWorld;
-            }
-            return;
-        }
-
-        int writeIndex = 0;
-        int current = 0;
-
-        while (current < waypoints.Count - 1)
-        {
-            // Find the furthest waypoint reachable from current via CircleCast.
-            int furthest = current + 1;
-            for (int lookahead = current + 2; lookahead < waypoints.Count; lookahead++)
-            {
-                if (HasDirectPath(waypoints[current], waypoints[lookahead], agentRadius))
-                {
-                    furthest = lookahead;
-                }
-            }
-
-            waypoints[writeIndex++] = waypoints[current];
-            current = furthest;
-        }
-
-        // Always include the last waypoint.
-        waypoints[writeIndex++] = endWorld;
-
-        // Trim excess entries without allocating a new list.
-        int excess = waypoints.Count - writeIndex;
-        for (int i = 0; i < excess; i++)
-        {
-            waypoints.RemoveAt(waypoints.Count - 1);
-        }
-    }
-
-    /// <summary>
-    /// Returns <see langword="true"/> when the agent volume can move from
-    /// <paramref name="from"/> to <paramref name="to"/> without intersecting any
-    /// obstacle collider.
-    /// </summary>
-    private bool HasDirectPath(Vector2 from, Vector2 to, float agentRadius)
-    {
-        Vector2 delta = to - from;
-        float distance = delta.magnitude;
-        if (distance < 0.001f) return true;
-
-        // CircleCast projects the agent circle along the segment to detect any
-        // collision that would block the agent body (not just the centre-line).
-        RaycastHit2D hit = Physics2D.CircleCast(
-            from,
-            agentRadius,
-            delta / distance,
-            distance,
-            _obstacleLayer);
-
-        return !hit.collider;
-    }
 }

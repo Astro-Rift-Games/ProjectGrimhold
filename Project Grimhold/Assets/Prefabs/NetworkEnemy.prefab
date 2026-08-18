@@ -443,14 +443,15 @@ MonoBehaviour:
   _patrolSpeed: 0.75
   _pursuitSpeedMultiplier: 2
   _defaultFacingDirection: {x: 0, y: -1}
-  _waypointReachRadius: 0.3
+  _waypointReachRadius: 0.5
   _detectionRange: 6
   _disengageRange: 10
   _pursuitLostGraceTicks: 10
   _attackRange: 8
+  _enableObstacleAvoidance: 1
   _obstacleLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 2048
   _avoidanceSettings:
     CastRadius: 0.8
     CastDistance: 0.5

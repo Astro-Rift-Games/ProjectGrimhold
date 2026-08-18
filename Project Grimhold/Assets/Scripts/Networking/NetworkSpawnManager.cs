@@ -100,6 +100,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
+    private readonly HashSet<int> _usedEnemySpawnPoints = new();
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
@@ -282,6 +283,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -348,6 +350,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedProfiles.Clear();
         ClearHostMigrationRoster();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -501,6 +504,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneSpawnPointConfiguration = null;
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
+        _usedEnemySpawnPoints.Clear();
 
         // Increment scene load generation to build a unique load identity
         _currentSceneLoadGeneration++;
@@ -2508,6 +2512,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedAvatars.Clear();
         _admissionData.Clear();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _admittedPlayers.Clear();
         _admittedProfiles.Clear();
         _controlledReturns.Clear();
@@ -2533,11 +2538,33 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return false;
         }
-        Transform spawnPoint = GetSpawnTransform(
-            SpawnGroupType.Enemies,
-            UnityEngine.Random.Range(0, int.MaxValue),
-            out Vector3 position,
-            out Quaternion rotation);
+        if (!_spawnPointLookup.TryGetValue(SpawnGroupType.Enemies, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError("Cannot spawn enemy: No spawn points found for Enemies.");
+            return false;
+        }
+
+        System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            if (!_usedEnemySpawnPoints.Contains(i))
+            {
+                availableIndices.Add(i);
+            }
+        }
+
+        if (availableIndices.Count == 0)
+        {
+            Debug.LogWarning("Cannot spawn enemy: No available spawn points remaining.");
+            return false;
+        }
+
+        int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
+        _usedEnemySpawnPoints.Add(selectedIndex);
+
+        Transform spawnPoint = spawnPoints[selectedIndex];
+        Vector3 position = spawnPoint.position;
+        Quaternion rotation = spawnPoint.rotation;
 
         EnemyPatrolRoute resolvedRoute = null;
         if (spawnPoint != null)
@@ -3271,6 +3298,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
             _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
             _lootSpawnState.Clear();
             _breakableSpawnState.Clear();
             _lootSessionSeed = 0;
