@@ -8,7 +8,9 @@ using UnityEngine;
 /// and delegating execution to the active attack strategy.
 ///
 /// This controller operates with any strategy implementing the
-/// <see cref="IAttack"/> contract, isolating gameplay simulation from visual presentation.
+/// <see cref="IAttack"/> contract, or with no strategy while the player is neutral.
+/// Authoritative strategy presence is replicated independently from the local implementation,
+/// isolating gameplay simulation from visual presentation.
 /// </summary>
 [DisallowMultipleComponent]
 // Movement writes the final-tick FacingDirection before combat consumes it.
@@ -43,6 +45,12 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
     [Networked]
     private TickTimer AttackCooldown { get; set; }
+
+    [Networked]
+    private NetworkBool HasActiveAttack { get; set; }
+
+    [Networked]
+    private float AttackCooldownDurationSeconds { get; set; }
 
     [Networked]
     public NetworkBool IsAttackEnabled { get; private set; }
@@ -103,6 +111,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
+            HasActiveAttack = _activeAttack != null;
+            AttackCooldown = TickTimer.None;
+            AttackCooldownDurationSeconds = 0f;
             IsAttackEnabled = _matchController == null ||
                               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         }
@@ -140,7 +151,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             PlayerInputButton.PrimaryAttack);
         bool attackPressed = false;
 
-        if (_activeAttack != null)
+        if (HasActiveAttack && _activeAttack != null)
         {
             if (_activeAttack.InputMode == AttackInputMode.Press)
             {
@@ -162,7 +173,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
-        if (!gameplayPhaseActive || !attackPressed)
+        if (!gameplayPhaseActive || !HasActiveAttack || _activeAttack == null || !attackPressed)
         {
             return;
         }
@@ -233,16 +244,15 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     {
         status = default;
         if (Runner == null || !Runner.IsRunning || !_dependenciesValid ||
-            _character == null || _activeAttack == null)
+            _character == null || !HasActiveAttack)
         {
             return false;
         }
 
-        float durationSeconds = _activeAttack.CooldownSeconds;
         float remainingSeconds = AttackCooldown.RemainingTime(Runner) ?? 0f;
         status = new PrimaryAttackStatus(
             GetPrimaryAttackFailureReason() == AttackFailureReason.None,
-            durationSeconds,
+            AttackCooldownDurationSeconds,
             remainingSeconds);
         return true;
     }
@@ -276,7 +286,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     /// </summary>
     private void TryExecuteAttack()
     {
-        if (_movementController == null)
+        if (!HasActiveAttack || _activeAttack == null || _movementController == null)
         {
             return;
         }
@@ -299,11 +309,13 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             (int)Runner.Tick
         );
 
-        AttackResult result = _activeAttack.Execute(in request);
+        IAttack executedAttack = _activeAttack;
+        AttackResult result = executedAttack.Execute(in request);
 
         if (result.WasExecuted)
         {
-            float cooldownSeconds = _activeAttack.CooldownSeconds;
+            float cooldownSeconds = executedAttack.CooldownSeconds;
+            AttackCooldownDurationSeconds = cooldownSeconds;
             if (cooldownSeconds > 0f)
             {
                 AttackCooldown = TickTimer.CreateFromSeconds(Runner, cooldownSeconds);
@@ -315,7 +327,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
             LastAttackOrigin = request.Origin;
             LastAttackDirection = request.Direction;
-            LastAttackTypeValue = (int)_activeAttack.Type;
+            LastAttackTypeValue = (int)executedAttack.Type;
             LastAttackTick = request.SimulationTick;
             
             // Increment sequence last to ensure correct replication of all related fields
@@ -326,7 +338,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private AttackFailureReason GetPrimaryAttackFailureReason()
     {
         if (Runner == null || !Runner.IsRunning || !_dependenciesValid ||
-            _character == null || _activeAttack == null)
+            _character == null)
         {
             return AttackFailureReason.MissingConfiguration;
         }
@@ -395,7 +407,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     }
 
     /// <summary>
-    /// Authortatively updates the active attack strategy. Requires State Authority.
+    /// Authoritatively assigns a validated active attack strategy without changing
+    /// an already running cooldown. Requires State Authority.
     /// </summary>
     public bool TrySetActiveAttack(MonoBehaviour attackSource)
     {
@@ -414,11 +427,29 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         {
             _activeAttackSource = attackSource;
             _activeAttack = newAttack;
+            HasActiveAttack = true;
             return true;
         }
 
         Debug.LogError($"{nameof(PlayerCombatNetworkController)}: The component {attackSource.name} does not implement {nameof(IAttack)}.", this);
         return false;
+    }
+
+    /// <summary>
+    /// Authoritatively removes the active attack strategy without cancelling an
+    /// already running cooldown. Requires State Authority.
+    /// </summary>
+    public bool TryClearActiveAttack()
+    {
+        if (!HasStateAuthority)
+        {
+            return false;
+        }
+
+        _activeAttackSource = null;
+        _activeAttack = null;
+        HasActiveAttack = false;
+        return true;
     }
 
     private void CacheDependencies()
@@ -433,19 +464,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             _character = GetComponent<ICharacter>() ?? GetComponentInParent<ICharacter>();
         }
 
-        if (_activeAttackSource != null)
-        {
-            _activeAttack = _activeAttackSource as IAttack;
-        }
-
-        if (_activeAttack == null)
-        {
-            _activeAttack = GetComponent<IAttack>() ?? GetComponentInChildren<IAttack>();
-            if (_activeAttack is MonoBehaviour attackMb)
-            {
-                _activeAttackSource = attackMb;
-            }
-        }
+        _activeAttack = _activeAttackSource as IAttack;
 
         if (_attackOrigin == null)
         {
@@ -472,12 +491,6 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return false;
         }
 
-        if (_activeAttack == null)
-        {
-            Debug.LogError($"{nameof(PlayerCombatNetworkController)} requires a component implementing {nameof(IAttack)}.", this);
-            return false;
-        }
-
         if (_movementController == null)
         {
             Debug.LogError($"{nameof(PlayerCombatNetworkController)} requires an assigned {nameof(PlayerMovementNetworkController)}.", this);
@@ -500,7 +513,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             _movementController = GetComponent<PlayerMovementNetworkController>();
         }
 
-        if (_activeAttackSource == null)
+        if (!Application.isPlaying && _activeAttackSource == null)
         {
             IAttack foundAttack = GetComponent<IAttack>() ?? GetComponentInChildren<IAttack>();
             if (foundAttack is MonoBehaviour attackMb)

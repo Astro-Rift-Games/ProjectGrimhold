@@ -557,8 +557,8 @@ namespace Tests.PlayMode.Presentation
 
         private static IEnumerator WaitUntil(Func<bool> predicate, string failureMessage)
         {
-            int framesRemaining = 180;
-            while (!predicate() && framesRemaining-- > 0)
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (!predicate() && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }

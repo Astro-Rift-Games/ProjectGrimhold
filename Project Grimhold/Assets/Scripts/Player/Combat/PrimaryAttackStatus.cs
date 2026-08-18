@@ -10,7 +10,8 @@ public readonly struct PrimaryAttackStatus
     public bool IsAvailable { get; }
 
     /// <summary>
-    /// Gets the configured total cooldown duration in seconds.
+    /// Gets the duration of the attack that started the observed cooldown.
+    /// This value does not necessarily describe the currently assigned local strategy.
     /// </summary>
     public float CooldownDurationSeconds { get; }
 

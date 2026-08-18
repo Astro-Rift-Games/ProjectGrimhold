@@ -32,9 +32,9 @@ FusionInputProvider (Transport)
    ▼
 PlayerCombatNetworkController (Network Boundary)
    │
-   ├── [AttackSequence, Cooldown Timer]
+   ├── [AttackSequence, Cooldown Timer, HasActiveAttack]
    ▼
-Active Strategy (IAttack: MeleeAttack / RangedAttack)
+Optional Active Strategy (IAttack: MeleeAttack / RangedAttack)
    │
    ▼ [Ranged Strategy]
 FusionProjectileSpawner (Network Spawner)
@@ -68,7 +68,31 @@ Serves as the network boundary for character combat:
 * Listens to player input commands (e.g., `PrimaryAttack` button and `AimWorldPosition`).
 * Synchronizes `AttackSequence` using a `[Networked]` state variable to ensure clients replicate visual presentation smoothly.
 * Handles combat cooldowns authoritatively via network tick timers (`TickTimer`).
-* Delegates the actual attack execution to the currently active strategy component (`IAttack`).
+* Represents strategy presence through the authoritative `[Networked]` `HasActiveAttack` state, independently from `IsAttackEnabled`.
+* Delegates execution to the local `IAttack` only when both authoritative presence and a valid local implementation exist.
+* Stores the duration associated with the attack that started the current cooldown so proxies can present it without resolving the concrete strategy.
+
+An absent strategy is a valid neutral gameplay state. Primary-attack input still advances
+the replicated button history but produces no execution, cooldown, sequence, rejection, or
+feedback. `TrySetActiveAttack` and `TryClearActiveAttack` are State-Authority-only operations.
+Neither operation changes a pending cooldown or its recorded duration, preventing strategy
+changes from bypassing recovery time. Runtime dependency caching never discovers a replacement
+strategy implicitly after an explicit clear.
+
+On a fresh State Authority spawn, strategy presence is initialized from the serialized source
+only after it resolves as `IAttack`; cooldown, cooldown duration, and attack enablement receive
+their explicit fresh baselines. A spawn restored by `HostMigrationRestoreUtility.IsRestoreSpawn`
+does not overwrite those networked snapshots. CB-01 does not replicate concrete strategy
+identity: a dynamically replaced strategy cannot yet be reconstructed after Host Migration.
+That responsibility belongs to the future Equipment system.
+
+`TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
+When presence is authoritative, the query does not require a local `IAttack`; it derives
+availability from `IsAttackEnabled`, `ICharacter.IsAlive`, and the replicated cooldown, and
+reports the replicated duration snapshot from the attack that started that timer. This allows
+proxies to present the same cooldown without knowing strategy identity. `RaidHudPresenter`
+clears its attack presentation whenever the query returns `false`, so a neutral player cannot
+retain a stale weapon cooldown in the HUD.
 
 ### 3. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
@@ -108,7 +132,7 @@ A fast-lookup database mapping physical colliders (`Collider2D`) to gameplay ent
 | Component | Status | Responsibility | Notes |
 | :--- | :--- | :--- | :--- |
 | **`PlayerInputReader`** | Fully Implemented | Captures local buttons/aim and packs into `PlayerNetworkInput`. | Relies on local Unity input wrappers. |
-| **`PlayerCombatNetworkController`** | Fully Implemented | Handles network input collection, TickTimer cooldowns, and strategies. | Requires inspector assignment of characters & strategies. |
+| **`PlayerCombatNetworkController`** | Fully Implemented | Handles network input, authoritative optional strategy presence, TickTimer cooldowns, and local strategies. | Structural dependencies remain required; an attack strategy is optional. |
 | **`MeleeAttack`** | Fully Implemented | Melee execution strategy, queries targets, resolves damage. | Fully data-driven by `MeleeAttackConfig`. |
 | **`Physics2DAttackTargetQuery`** | Fully Implemented | Circular target query with `Physics2D.OverlapCircle`. | Uses `_colliderBuffer` to avoid heap allocations. |
 | **`RangedAttack`** | Fully Implemented | Ranged execution strategy, spawns projectile via `IProjectileSpawner`. | Translates input to `ProjectileSpawnRequest`. |
@@ -154,7 +178,7 @@ Inherits from `AttackConfig`. Validated fields:
 
 1. **Input Collection**: `PlayerInputReader` latches primary attack input.
 2. **Transport**: `PlayerNetworkInput` transports buttons to `FixedUpdateNetwork` via Fusion.
-3. **Trigger**: `PlayerCombatNetworkController` processes input. On press/hold, it validates `AttackCooldown` (TickTimer) and character alive state.
+3. **Trigger**: `PlayerCombatNetworkController` processes input. Neutral players update button history and stop. An active player requires authoritative strategy presence, a local implementation, enabled combat, a living character, and an expired `AttackCooldown`.
 4. **Execution**: If authorized and ready, calls `MeleeAttack.Execute(in AttackRequest)`.
 5. **Direction**: Movement resolves the finite, normalized `PlayerMovementNetworkController.FacingDirection` from the final simulated player position before combat runs in the same tick.
 6. **Query Targets**: `MeleeAttack` delegates queries to `Physics2DAttackTargetQuery.FindTargets()`.
@@ -347,7 +371,7 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
   * **`PlayerCombatNetworkController`**:
     * `_characterSource` -> Reference to `PlayerCharacter` or character component.
     * `_attackOrigin` -> Transform indicating weapon output position.
-    * `_activeAttackSource` -> Assigned by each playable variant to its active strategy component.
+    * `_activeAttackSource` -> Optional initial local strategy source. Assigned by each current playable variant and empty on the neutral base prefab.
     * `_movementController` -> Reference to `PlayerMovementNetworkController`.
   * **Shared defeat and loot composition**: `PlayerCharacter`, `PlayerLootReceiver`, `PlayerCorpseGenerationController`, `NetworkLootContainer`, `NetworkLootContainerInteractable`, `InteractionPromptMetadata`, and the dedicated interaction trigger share the root `NetworkObject`.
   * The base `NetworkPlayer.prefab` contains shared dependencies but intentionally has no active `IAttack` strategy.
@@ -399,7 +423,8 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 ## Known Limitations and Technical Debt
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
-* **Component Casting**: Strategies (`MeleeAttack` and `RangedAttack`) rely on `MonoBehaviour` fields cast to interface references at runtime, which requires careful assignment in the Inspector. Missing component assignments on the prefab will lead to validation errors.
+* **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
+* **Dynamic Strategy Restore**: CB-01 replicates strategy presence but not concrete identity. Host Migration preserves the authoritative presence and cooldown snapshots, but a strategy assigned dynamically cannot be reconstructed until Equipment owns a persistent/networked identity contract.
 
 ---
 

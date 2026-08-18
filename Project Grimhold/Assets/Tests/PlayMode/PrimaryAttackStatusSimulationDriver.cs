@@ -12,6 +12,10 @@ public sealed class PrimaryAttackStatusSimulationDriver : SimulationBehaviour
         typeof(PlayerCombatNetworkController).GetProperty(
             "AttackCooldown",
             BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly PropertyInfo AttackCooldownDurationProperty =
+        typeof(PlayerCombatNetworkController).GetProperty(
+            "AttackCooldownDurationSeconds",
+            BindingFlags.Instance | BindingFlags.NonPublic);
 
     public PlayerCombatNetworkController Target { get; set; }
     public float RequestedCooldownSeconds { get; set; }
@@ -29,6 +33,7 @@ public sealed class PrimaryAttackStatusSimulationDriver : SimulationBehaviour
             ? TickTimer.CreateFromSeconds(Runner, RequestedCooldownSeconds)
             : TickTimer.None;
         AttackCooldownProperty.SetValue(Target, timer);
+        AttackCooldownDurationProperty.SetValue(Target, RequestedCooldownSeconds);
     }
 }
 #endif

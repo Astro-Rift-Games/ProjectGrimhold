@@ -28,7 +28,7 @@ namespace Tests.PlayMode.Loot
         public IEnumerator EmptyInventory_MakesTheCoLocatedContainerAvailableWithoutSpawningAnotherObject()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
@@ -59,7 +59,7 @@ namespace Tests.PlayMode.Loot
         public IEnumerator MultipleStacks_AreLoadedThenThePlayerInventoryIsClearedOnce()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
@@ -112,7 +112,7 @@ namespace Tests.PlayMode.Loot
         public IEnumerator ClearFailure_RollsBackTheUnavailableContainerAndPreservesInventory()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
@@ -208,11 +208,11 @@ namespace Tests.PlayMode.Loot
             }
         }
 
-        private static void ExpectBasePrefabCombatValidationError()
+        private static void ExpectBasePrefabExtractionProgressValidationError()
         {
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
-                "PlayerCombatNetworkController requires a component implementing IAttack.");
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
         }
     }
 }

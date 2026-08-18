@@ -277,7 +277,7 @@ namespace Tests.PlayMode.Loot
             Assert.That(capacityField, Is.Not.Null);
             capacityField.SetValue(receiver, 1);
 
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject grantDriverTarget = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(10f, 0f, 0f),
@@ -563,13 +563,13 @@ namespace Tests.PlayMode.Loot
             NetworkPrefabId playerId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             _playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
 
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             _defeatedPlayerObject = _runner.Spawn(
                 _playerPrefab,
                 Vector3.zero,
                 Quaternion.identity,
                 inputAuthority: null);
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             _looterObject = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(1f, 0f, 0f),
@@ -605,7 +605,7 @@ namespace Tests.PlayMode.Loot
         private IEnumerator GrantLooterLoot(LootEntry entry)
         {
             PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
-            ExpectBasePrefabCombatValidationError();
+            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject grantDriverTarget = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(10f, 0f, 0f),
@@ -899,11 +899,11 @@ namespace Tests.PlayMode.Loot
             return (int)field.GetValue(reader);
         }
 
-        private static void ExpectBasePrefabCombatValidationError()
+        private static void ExpectBasePrefabExtractionProgressValidationError()
         {
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
-                "PlayerCombatNetworkController requires a component implementing IAttack.");
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
         }
     }
 }

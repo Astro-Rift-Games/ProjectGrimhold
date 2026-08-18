@@ -147,7 +147,7 @@ namespace Tests.PlayMode.Presentation
 
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
-                "PlayerCombatNetworkController requires a component implementing IAttack.");
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _playerObject = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
