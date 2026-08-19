@@ -52,6 +52,9 @@ public sealed class NetworkProjectile : NetworkBehaviour
     [Networked]
     private int SpawnSimulationTick { get; set; }
 
+    [Networked]
+    private float KnockbackForce { get; set; }
+
     private ContactFilter2D _contactFilter;
     private readonly RaycastHit2D[] _hitBuffer = new RaycastHit2D[16];
     private IDamageResolver _damageResolver;
@@ -141,6 +144,7 @@ public sealed class NetworkProjectile : NetworkBehaviour
         ImpactLayerMaskValue = impactLayerMaskValue;
         ImpactConsumed = false;
         SpawnSimulationTick = request.SimulationTick;
+        KnockbackForce = request.KnockbackForce;
 
         Debug.Log($"[CombatTrace] Projectile initialized. OwnerId: {OwnerEntityIdValue}, Damage: {Damage}, Lifetime: {request.LifetimeSeconds}, Tick: {SpawnSimulationTick}", this);
     }
@@ -244,7 +248,8 @@ public sealed class NetworkProjectile : NetworkBehaviour
                         DamageType,
                         Direction,
                         selectedHit.point,
-                        Runner.Tick
+                        Runner.Tick,
+                        KnockbackForce
                     );
 
                     _damageResolver.Resolve(in damageRequest);

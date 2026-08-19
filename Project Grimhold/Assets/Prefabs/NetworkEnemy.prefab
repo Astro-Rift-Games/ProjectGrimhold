@@ -361,6 +361,7 @@ GameObject:
   - component: {fileID: -3796636682103364817}
   - component: {fileID: 7872507663536347850}
   - component: {fileID: 3762208006993684416}
+  - component: {fileID: 4177264610414068062}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -442,14 +443,15 @@ MonoBehaviour:
   _patrolSpeed: 0.75
   _pursuitSpeedMultiplier: 2
   _defaultFacingDirection: {x: 0, y: -1}
-  _waypointReachRadius: 0.3
+  _waypointReachRadius: 0.5
   _detectionRange: 6
   _disengageRange: 10
   _pursuitLostGraceTicks: 10
   _attackRange: 8
+  _enableObstacleAvoidance: 1
   _obstacleLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 2048
   _avoidanceSettings:
     CastRadius: 0.8
     CastDistance: 0.5
@@ -458,6 +460,7 @@ MonoBehaviour:
   _playerLayer:
     serializedVersion: 2
     m_Bits: 128
+  _pathfindingNavigator: {fileID: 4177264610414068062}
   _movementMotor: {fileID: 7201000000000000004}
   _IsControlEnabled:
     RawValue: 0
@@ -836,6 +839,24 @@ MonoBehaviour:
   - {fileID: 1066720069559603162}
   - {fileID: 4522316450052852347}
   _visibilityOffset: {x: 0, y: 1}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0
+--- !u!114 &4177264610414068062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f89e2c34f2e0d343a793dc08591f946, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPathfindingNavigator
+  _config: {fileID: 11400000, guid: 162f6f62423190c4a8df571ac4fd3aae, type: 2}
+  _repathIntervalSeconds: 0.5
+  _waypointReachRadius: 0.3
+  _targetMovedThreshold: 1.5
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

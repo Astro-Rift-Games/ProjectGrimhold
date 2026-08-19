@@ -118,7 +118,8 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
                 _config.ProjectileSpeed,
                 _config.LifetimeSeconds,
                 _config.MaxRange,
-                request.SimulationTick);
+                request.SimulationTick,
+                _config.KnockbackForce);
 
         ProjectileSpawnResult spawnResult =
             _projectileSpawner.Spawn(in spawnRequest);

@@ -63,6 +63,13 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     [SerializeField]
     private PlayerConsumableNetworkController _consumableController;
 
+    [Header("Camera Shake")]
+    [SerializeField]
+    private LocalPlayerCameraShakeBinder _cameraShakeBinder;
+
+    [SerializeField]
+    private CameraShakeConfig _cameraShakeConfig;
+
     private bool _isBound;
     private bool _missingJoinContextReported;
     private LocalInputContext _inputContext;
@@ -202,6 +209,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _entityRegistry);
         }
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
+
+        if (_cameraShakeBinder != null)
+        {
+            _cameraShakeBinder.Bind(_cameraShakeConfig, _entityRegistry);
+        }
+
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
 
@@ -233,6 +246,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_combatFeedbackPresenter != null)
         {
             _combatFeedbackPresenter.Unbind();
+        }
+
+        if (_cameraShakeBinder != null)
+        {
+            _cameraShakeBinder.Unbind();
         }
 
         if (_inputContext != null)

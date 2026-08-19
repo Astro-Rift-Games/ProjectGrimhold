@@ -1,7 +1,12 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Project Grimhold/Assets/Prefabs/UI/MerchantShopUI.prefab.meta
+guid: 1c667a7daaab44c4bae2ec325dbb9a51
+PrefabImporter:
+========
 guid: 36a333e88f16dee439216e83b2d925c2
 folderAsset: yes
 DefaultImporter:
+>>>>>>>> 7626544076055daab78c5698552e42b356a692c9:Project Grimhold/Assets/Animations/Enemies/Ranged.meta
   externalObjects: {}
   userData: 
   assetBundleName: 

@@ -320,6 +320,60 @@ public sealed class EntityRegistry : MonoBehaviour
     }
 
     /// <summary>
+    /// Attempts to resolve the root Transform of the registered entity.
+    /// Requires the entity's <see cref="IDamageable"/> implementation to be a
+    /// <see cref="UnityEngine.MonoBehaviour"/> (true for all <see cref="CharacterBase"/> subclasses).
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when the entity is registered and its Transform is accessible.
+    /// </returns>
+    public bool TryGetTransform(EntityId id, out Transform transform)
+    {
+        transform = null;
+
+        if (!_entities.TryGetValue(id, out IDamageable damageable))
+        {
+            return false;
+        }
+
+        if (damageable is MonoBehaviour mb)
+        {
+            transform = mb.transform;
+            return transform != null;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns whether the registered entity for the given ID is a <see cref="PlayerCharacter"/>.
+    /// Used by <see cref="DamageResolver"/> to restrict aggro alerts to player-sourced damage.
+    /// </summary>
+    public bool IsPlayerEntity(EntityId id)
+    {
+        return _entities.TryGetValue(id, out IDamageable damageable) &&
+               damageable is PlayerCharacter;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve a feedback sink for the registered entity.
+    /// Requires the entity's <see cref="IDamageable"/> implementation to be a
+    /// <see cref="UnityEngine.MonoBehaviour"/> to search for the component.
+    /// </summary>
+    public bool TryGetFeedbackSink(EntityId id, out IResolvedDamageFeedbackSink sink)
+    {
+        sink = null;
+        if (_entities.TryGetValue(id, out IDamageable damageable) &&
+            damageable is MonoBehaviour mb)
+        {
+            sink = mb.GetComponent<IResolvedDamageFeedbackSink>();
+            return sink != null;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Attempts to retrieve a character capability by its canonical entity identity.
     /// </summary>
     public bool TryGetCharacter(EntityId id, out ICharacter character)

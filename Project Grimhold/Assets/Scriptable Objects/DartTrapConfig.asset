@@ -16,6 +16,7 @@ MonoBehaviour:
   _damageType: 0
   _cooldownSeconds: 0.125
   _inputMode: 0
+  _knockbackForce: 2
   _projectileSpeed: 20
   _lifetimeSeconds: 3
   _maxRange: 5
@@ -24,4 +25,4 @@ MonoBehaviour:
     RawGuidValue: 3ab712d5d6994c64aa4e888228750fc5
   _impactLayerMask:
     serializedVersion: 2
-    m_Bits: 192
+    m_Bits: 128

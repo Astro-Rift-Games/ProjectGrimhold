@@ -100,6 +100,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
+    private readonly HashSet<Transform> _usedEnemySpawnPoints = new();
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
@@ -282,6 +283,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -348,6 +350,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedProfiles.Clear();
         ClearHostMigrationRoster();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -501,6 +504,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneSpawnPointConfiguration = null;
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
+        _usedEnemySpawnPoints.Clear();
 
         // Increment scene load generation to build a unique load identity
         _currentSceneLoadGeneration++;
@@ -742,6 +746,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _initialRaidBootstrapState = InitialRaidBootstrapState.Running;
         try
         {
+            // Build the pathfinding grid before spawning any enemies so that
+            // EnemyPathfindingNavigator can request paths from the first tick.
+            // Only the server executes this method; clients never build the grid.
+            PathfindingGrid pathfindingGrid = UnityEngine.Object.FindFirstObjectByType<PathfindingGrid>();
+            if (pathfindingGrid != null && !pathfindingGrid.IsBuilt)
+            {
+                // SyncTransforms ensures CompositeCollider2D and TilemapCollider2D
+                // are fully generated before the OverlapBox walkability queries run.
+                Physics2D.SyncTransforms();
+                pathfindingGrid.Build();
+            }
+
             if (_sceneSpawnPointConfiguration?.SpawnGroups == null)
             {
                 _initialRaidBootstrapState = InitialRaidBootstrapState.Completed;
@@ -762,7 +778,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     case InitialSpawnGroupPolicy.SpawnKind.Enemies:
                         for (int index = 0; index < group.Amount; index++)
                         {
-                            if (!SpawnEnemy(_runner))
+                            if (!SpawnEnemy(_runner, group.Group))
                             {
                                 failure = $"Enemy bootstrap failed for group '{group.Group}'.";
                                 _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
@@ -1272,6 +1288,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _hostMigrationUnresolvedProfiles.Clear();
             _sceneLoadState = SceneLoadProcessingState.Completed;
             _spawnsBlocked = false;
+
+            // Rebuild the pathfinding grid for the replacement host so that enemies
+            // can navigate immediately after migration. The grid is not networked state;
+            // it is reconstructed locally from scene geometry on the new host.
+            PathfindingGrid pathfindingGrid = UnityEngine.Object.FindFirstObjectByType<PathfindingGrid>();
+            if (pathfindingGrid != null && !pathfindingGrid.IsBuilt)
+            {
+                Physics2D.SyncTransforms();
+                pathfindingGrid.Build();
+            }
+
             _runner.SessionInfo.IsOpen = false;
             _runner.SessionInfo.IsVisible = false;
             _matchController.RestoreHostMigrationParticipantObservation(
@@ -2478,6 +2505,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedAvatars.Clear();
         _admissionData.Clear();
         _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
         _admittedPlayers.Clear();
         _admittedProfiles.Clear();
         _controlledReturns.Clear();
@@ -2496,18 +2524,40 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return failureCount == 0;
     }
 
-    private bool SpawnEnemy(NetworkRunner runner)
+    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return false;
         }
-        Transform spawnPoint = GetSpawnTransform(
-            SpawnGroupType.Enemies,
-            UnityEngine.Random.Range(0, int.MaxValue),
-            out Vector3 position,
-            out Quaternion rotation);
+        if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
+            return false;
+        }
+
+        System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            if (!_usedEnemySpawnPoints.Contains(spawnPoints[i]))
+            {
+                availableIndices.Add(i);
+            }
+        }
+
+        if (availableIndices.Count == 0)
+        {
+            Debug.LogWarning($"Cannot spawn enemy: No available spawn points remaining for {groupType}.");
+            return false;
+        }
+
+        int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
+        _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
+
+        Transform spawnPoint = spawnPoints[selectedIndex];
+        Vector3 position = spawnPoint.position;
+        Quaternion rotation = spawnPoint.rotation;
 
         EnemyPatrolRoute resolvedRoute = null;
         if (spawnPoint != null)
@@ -3241,6 +3291,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
             _spawnedEnemies.Clear();
+        _usedEnemySpawnPoints.Clear();
             _lootSpawnState.Clear();
             _breakableSpawnState.Clear();
             _lootSessionSeed = 0;

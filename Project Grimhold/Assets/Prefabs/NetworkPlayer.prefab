@@ -768,6 +768,7 @@ GameObject:
   - component: {fileID: 5489547608340585132}
   - component: {fileID: 9100000000000000900}
   - component: {fileID: 5661482956119050771}
+  - component: {fileID: 8194402055814673831}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -1162,6 +1163,7 @@ MonoBehaviour:
   - {fileID: 5489547608340585132}
   - {fileID: 9100000000000000900}
   - {fileID: 5661482956119050771}
+  - {fileID: 8194402055814673831}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -1249,6 +1251,8 @@ MonoBehaviour:
   _lootTransferController: {fileID: 8800000000000000003}
   _lootDropController: {fileID: 8800000000000000004}
   _consumableController: {fileID: 8421478658459878521}
+  _cameraShakeBinder: {fileID: 8194402055814673831}
+  _cameraShakeConfig: {fileID: 11400000, guid: f3e9d561a193c804b9e740145f971f66, type: 2}
 --- !u!114 &8800000000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1487,6 +1491,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
   _merchantShopPrefab: {fileID: 2538062899881950617, guid: 30f0948df126b504c9887131ea504d2d, type: 3}
   _interactionController: {fileID: 2425433471524800765}
+--- !u!114 &8194402055814673831
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1136057688af144bade586b95aa6989, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerCameraShakeBinder
+  _playerCharacter: {fileID: 729366679366126330}
+  _combatController: {fileID: 2769229401594790361}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
@@ -7526,7 +7544,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 1.0636079}
+  m_Offset: {x: 0, y: -0.125}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -7536,7 +7554,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1, y: 2.11}
+  m_Size: {x: 0.5, y: 1}
   m_EdgeRadius: 0
 --- !u!1 &9000000000000000600
 GameObject:

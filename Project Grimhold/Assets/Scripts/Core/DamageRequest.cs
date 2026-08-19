@@ -14,6 +14,12 @@ public readonly struct DamageRequest
     public Vector2 HitPoint { get; }
     public int SimulationTick { get; }
 
+    /// <summary>
+    /// Knockback force in world units per second applied to the target on impact.
+    /// A value of 0 produces no knockback. Clamped to [0, ∞).
+    /// </summary>
+    public float KnockbackForce { get; }
+
     public DamageRequest(
         EntityId attackerId,
         EntityId targetId,
@@ -21,14 +27,16 @@ public readonly struct DamageRequest
         DamageType damageType,
         Vector2 direction,
         Vector2 hitPoint,
-        int simulationTick)
+        int simulationTick,
+        float knockbackForce = 0f)
     {
-        AttackerId = attackerId;
-        TargetId = targetId;
-        Amount = amount;
-        DamageType = damageType;
-        Direction = direction.normalized;
-        HitPoint = hitPoint;
+        AttackerId     = attackerId;
+        TargetId       = targetId;
+        Amount         = amount;
+        DamageType     = damageType;
+        Direction      = direction.normalized;
+        HitPoint       = hitPoint;
         SimulationTick = simulationTick;
+        KnockbackForce = Mathf.Max(0f, knockbackForce);
     }
 }

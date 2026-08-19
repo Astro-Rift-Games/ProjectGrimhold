@@ -16,6 +16,7 @@ MonoBehaviour:
   _damageType: 0
   _cooldownSeconds: 0.5
   _inputMode: 0
+  _knockbackForce: 6
   _projectileSpeed: 10
   _lifetimeSeconds: 10
   _maxRange: 10

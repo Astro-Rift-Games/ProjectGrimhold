@@ -3,6 +3,10 @@ using UnityEngine;
 /// <summary>
 /// Controls the local camera to smoothly follow a player target in 2D space.
 /// This component belongs to the presentation layer and does not participate in network simulation.
+///
+/// When a <see cref="CameraShakeController"/> is present on the same GameObject,
+/// its <see cref="CameraShakeController.ShakeOffset"/> is applied on top of the
+/// smooth-follow desired position every frame.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class LocalCameraController : MonoBehaviour
@@ -27,6 +31,12 @@ public sealed class LocalCameraController : MonoBehaviour
 
     private Transform _target;
     private Vector3 _followVelocity;
+    private CameraShakeController _shakeController;
+
+    private void Awake()
+    {
+        _shakeController = GetComponent<CameraShakeController>();
+    }
 
     private void OnEnable()
     {
@@ -122,6 +132,18 @@ public sealed class LocalCameraController : MonoBehaviour
                 desiredPosition,
                 ref _followVelocity,
                 _smoothTime
+            );
+        }
+
+        // Apply shake offset on top of the smooth-follow result.
+        // Z is preserved from desiredPosition so the camera depth is unaffected.
+        if (_shakeController != null)
+        {
+            Vector3 shakeOffset = _shakeController.ShakeOffset;
+            transform.position = new Vector3(
+                transform.position.x + shakeOffset.x,
+                transform.position.y + shakeOffset.y,
+                transform.position.z
             );
         }
     }
