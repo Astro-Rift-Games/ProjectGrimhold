@@ -2,77 +2,371 @@
 
 ## Project overview
 
-* Unity 6 project written in C#.
-* Multiplayer 2D top-down extraction game.
-* Networking uses Photon Fusion 2.1 in Host/Client mode (except for the Town, which uses Shared Mode. See `Docs/Architecture/LobbyAndSessionTransitionArchitecture.md`).
-* Gameplay systems must support client prediction, state authority and resimulation.
-* Prefer simple, modular architecture over framework-heavy solutions.
-* Treat this file as repository-wide guidance.
-* Task-specific decisions belong in the corresponding document under `Docs/`.
+Project Grimhold is a Unity 6 C# multiplayer 2D top-down extraction RPG.
+
+The game uses Photon Fusion for networking. Raid gameplay uses Host/Client mode. The Town uses Shared Mode according to `Docs/Architecture/LobbyAndSessionTransitionArchitecture.md`.
+
+The project favors simple, modular and explicit architecture suitable for a small team. Avoid speculative systems, unnecessary abstractions and framework-heavy solutions.
+
+This file defines repository-wide development rules. System-specific technical decisions belong in `Docs/Architecture/`. Game Design decisions live in the connected Google Drive.
+
+---
+
+## Sources of truth
+
+Before planning, implementing, refactoring or reviewing a change, determine which sources are relevant and inspect them.
+
+Use this priority order:
+
+1. Current code, prefabs, scenes, assets, packages and configuration in the repository.
+2. Current relevant documents under `Docs/Architecture/`.
+3. This `AGENTS.md`.
+4. Current Game Design documents from the connected Google Drive.
+5. Manually uploaded copies, implementation plans, walkthroughs and previous conversations.
+
+Do not assume that documentation describes the current implementation.
+
+Do not assume that the current implementation represents the intended Game Design.
+
+When two sources conflict:
+
+1. Identify the conflict.
+2. Determine which responsibility each source owns.
+3. Report the conflict when it affects the requested change.
+4. Apply the smallest change that preserves a single source of truth.
+
+Do not silently maintain two competing implementations or contracts.
+
+---
+
+## Google Drive Game Design documentation
+
+The authoritative Game Design documentation is stored in the connected Google Drive.
+
+When a task depends on Game Design behavior, read the relevant current Google Drive document before making implementation decisions.
+
+Always consult the live Drive document. Do not rely on remembered, summarized, cached, exported or previously uploaded copies when the Drive version is available.
+
+### Primary documents
+
+#### 00 - Desarrollo Conceptual
+
+https://docs.google.com/document/d/1yFJvOddVa9ZuetCEgIxv-7tNW8iEp7pMmGHkrlZe2mE
+
+Defines the high-level game concept, fantasy, pillars, differentiators and MVP scope.
+
+Read when the task affects:
+
+* Overall product direction.
+* MVP scope.
+* Core extraction RPG identity.
+* High-level gameplay pillars.
+
+#### 01 - Game Flow Principal
+
+https://docs.google.com/document/d/1Ne9bqHwtzn5_rpFEfxxNBrII75TkYyszyqSFXyKS108
+
+Defines the high-level player flow and transitions between major game states.
+
+Read when the task affects:
+
+* Application flow.
+* Town → Raid transitions.
+* Session lifecycle.
+* Results flow.
+* Shared session flow.
+
+#### 02 - Estados del Juego
+
+https://docs.google.com/document/d/1j-1yZ6eiJacTdVl4EOya570zt1pvVNYtWvXHDo2orDk
+
+Defines responsibilities, allowed actions and transitions for each game state.
+
+Read when the task affects:
+
+* Town.
+* Party management.
+* Expedition preparation.
+* Connecting.
+* Dungeon.
+* Results.
+* State transitions.
+* Disconnect or abandonment behavior.
+
+#### 03 - Player Design
+
+https://docs.google.com/document/d/1ljByoFJq8stTH4Pifr1xZprH73Slwt840O4U1uD1zok
+
+Defines the common gameplay behavior of the player independently from character build.
+
+Read when the task affects:
+
+* Movement.
+* Sprint.
+* Orientation.
+* Camera.
+* Base combat behavior.
+* Player controller responsibilities.
+
+#### 04 - Character Build Design
+
+https://docs.google.com/document/d/1crJZ2OSi9erUwfTM_Qgk4tmembY6yAAPk5mj4kc8V-0
+
+Defines persistent character identity and the classless build model.
+
+Read when the task affects:
+
+* Character identity.
+* Attributes.
+* Build specialization.
+* Melee or Ranged identity.
+* Weapons.
+* Armor.
+* Skills.
+* Equipment requirements.
+* Character progression.
+* Build persistence.
+* Preparation before a Raid.
+
+Do not interpret Melee or Ranged as permanent player classes unless a newer authoritative design document explicitly changes this decision.
+
+#### 06 - Sistema de Extracción
+
+https://docs.google.com/document/d/1C8DBIByc1HbzUdABqkXR2syLOKYaBbankMMHdaH4jD4
+
+Defines the Game Design rules of Raid extraction.
+
+Read when the task affects:
+
+* Extraction progression.
+* Extraction assignment.
+* Rituals.
+* Extraction zones.
+* Successful extraction.
+* Individual extraction behavior.
+
+#### 07 - Sistema de Loot
+
+https://docs.google.com/document/d/1YUjTsTW_4_hdDUmxquHnOyWMy7zmQpp29N9ZeRpomF4
+
+Defines the Game Design lifecycle of Loot during a Raid.
+
+Read when the task affects:
+
+* Loot sources.
+* Pickups.
+* Containers.
+* Loot transfers.
+* Loot persistence.
+* Player corpses.
+* Extracted items.
+* Item loss after defeat or abandonment.
+
+### Cross-system changes
+
+Read every relevant document when a change crosses responsibilities.
+
+Examples:
+
+* Extracted inventory behavior:
+  `06 - Sistema de Extracción` + `07 - Sistema de Loot` + relevant Inventory architecture.
+
+* Character combat identity:
+  `03 - Player Design` + `04 - Character Build Design` + relevant combat architecture.
+
+* Town preparation and Raid entry:
+  `01 - Game Flow Principal` + `02 - Estados del Juego` + `04 - Character Build Design` + relevant session architecture.
+
+Do not read unrelated design documents by default.
+
+### Drive access failure
+
+If a relevant Google Drive document cannot be accessed, state that before making a definitive Game Design-dependent implementation decision.
+
+Do not silently replace the unavailable live document with an older uploaded copy.
+
+---
+
+## Architecture documentation
+
+Approved technical architecture lives under:
+
+```text
+Docs/Architecture/
+```
+
+Before modifying a system covered by an architecture document, read that document.
+
+Architecture documents define technical responsibilities such as:
+
+* Sources of truth.
+* Component boundaries.
+* Data ownership.
+* Network authority.
+* Persistence.
+* Dependency direction.
+* Simulation flow.
+* Presentation boundaries.
+* Runtime lifecycle.
+
+Game Design documents define intended behavior.
+
+Architecture documents define how that behavior is represented technically.
+
+Do not make Game Design documents responsible for technical decisions they explicitly leave outside their scope.
+
+When architecture documentation conflicts with current implementation, report the conflict before introducing another architecture.
+
+---
 
 ## Repository workflow
 
 Before modifying code:
 
-1. Inspect the relevant scripts, prefabs, package versions and existing documentation.
-2. Identify the current source of truth for each affected state.
-3. Determine whether the change affects local input, network simulation, presentation or persistent data.
-4. For architectural or multi-file changes, produce a plan before implementation.
-5. Keep changes limited to the requested outcome.
+1. Inspect the relevant current implementation.
+2. Inspect affected prefabs, scenes, assets and configuration when the task depends on them.
+3. Read relevant `Docs/Architecture/` documents.
+4. Read relevant current Google Drive Game Design documents when behavior depends on Game Design.
+5. Identify the current source of truth for each affected state.
+6. Determine whether the change affects local input, network simulation, presentation, persistence or configuration.
+7. For architectural or multi-file changes, produce a focused plan before implementation.
+8. Keep the change limited to the requested outcome.
 
-Do not make unrelated refactors while implementing a feature.
+Do not make unrelated refactors.
 
-Do not introduce a new pattern, abstraction, package or framework without a concrete need in the current task.
+Do not introduce patterns, abstractions, packages or frameworks without a concrete need in the current task.
 
 Do not create Git worktrees unless explicitly requested.
 
-Sub-agents may only be created when explicitly requested by the user. Do not infer permission to create them from task complexity, urgency or opportunities for parallel work.
+Sub-agents may only be created when explicitly requested.
+
+When the user specifies a branch, inspect that branch.
+
+Do not assume another branch represents the implementation being modified.
+
+Exact Unity, Photon Fusion and package versions must be verified from the repository rather than inferred from documentation or previous conversations. When project-wide dependency versions are needed, verify them against `New-Testing`.
+
+---
 
 ## Architecture principles
 
-* Prefer composition over inheritance.
-* Keep responsibilities narrow and explicit.
-* Depend on stable contracts only where a real variation point exists.
-* Do not create interfaces with a single implementation unless they isolate infrastructure, enable deterministic testing or represent an expected variation.
-* Keep Photon Fusion at the network boundary where practical.
-* Keep Unity presentation concerns outside gameplay simulation.
-* Keep input capture separate from input consumption.
-* Keep configuration separate from runtime state.
-* Avoid global mutable state.
-* Avoid static service locators.
-* Avoid static event buses.
-* Avoid singleton managers unless the repository already defines them as an approved architectural dependency.
-* Do not implement MVC as the general gameplay architecture.
-* MVP or Presenter components may be used for visual presentation.
-* Prefer explicit dependencies through serialized references, constructors for pure C# classes or initialization methods.
+Prefer:
+
+* Composition over inheritance.
+* Narrow responsibilities.
+* Explicit ownership.
+* Explicit dependencies.
+* Stable contracts.
+* Simple data flow.
+* Small focused components.
+
+Avoid:
+
+* Global mutable state.
+* Static service locators.
+* Static event buses.
+* Unnecessary singleton managers.
+* General-purpose framework abstractions.
+* MVC as the default gameplay architecture.
+* Interfaces that exist only to wrap a single implementation without a real boundary or variation point.
+
+Interfaces are justified when they:
+
+* Isolate infrastructure.
+* Enable deterministic testing.
+* Represent an actual or expected variation point.
+
+Use explicit dependencies through:
+
+* Serialized references for Unity components.
+* Constructors for pure C# objects.
+* Explicit initialization methods where appropriate.
+
+Keep configuration separate from runtime state.
+
+Keep Unity presentation separate from gameplay simulation.
+
+Keep Photon Fusion at the network boundary where practical.
+
+---
 
 ## Gameplay simulation
 
-* Networked gameplay simulation must be tick-driven.
-* Predicted gameplay logic must run from Fusion simulation callbacks such as `FixedUpdateNetwork`.
-* Gameplay state must not advance through ordinary C# events.
-* Events must not be the source of truth for player position, health, movement, combat or authoritative state.
-* Simulation code must tolerate Fusion resimulation.
-* Do not trigger irreversible side effects directly from predicted simulation.
-* Audio, particles, UI and animation events must be handled by presentation components after observing simulation state.
-* Avoid allocations, LINQ and unnecessary collection creation inside simulation loops.
-* Avoid `GetComponent`, scene searches and string lookups every tick.
-* Normalize or clamp client-provided input before applying it.
-* Never trust client input as authoritative game state.
+Networked gameplay simulation must be tick-driven.
 
-## Photon Fusion rules
+Predicted gameplay logic belongs in Fusion simulation callbacks such as:
 
-* Confirm the installed Fusion version before using an API.
-* Do not assume examples from Fusion 1 or older Fusion 2 versions remain valid.
-* Respect Input Authority and State Authority explicitly.
-* Only State Authority may perform authoritative state transitions unless the architecture documents another valid Fusion workflow.
-* Use `[Networked]` properties only for state that must participate in snapshots, prediction or synchronization.
-* Do not synchronize values that can be safely derived from existing networked state.
-* Do not use RPCs for continuous movement or state that belongs in regular Fusion simulation.
-* Do not publish ordinary gameplay events from predicted ticks without accounting for resimulation.
-* Proxies must consume replicated state and must not execute local player input.
+```csharp
+FixedUpdateNetwork()
+```
 
-Current local-input flow:
+Simulation code must tolerate resimulation.
+
+Gameplay state must not advance through ordinary C# events.
+
+Events must not be the source of truth for:
+
+* Position.
+* Movement.
+* Health.
+* Combat.
+* Authoritative gameplay state.
+
+Do not execute irreversible side effects directly from predicted simulation.
+
+Presentation systems may observe simulation state and produce:
+
+* Animation.
+* UI.
+* Audio.
+* VFX.
+* Camera feedback.
+
+Avoid inside recurring simulation:
+
+* LINQ.
+* Managed allocations.
+* Closures.
+* Scene searches.
+* Repeated `GetComponent`.
+* Repeated string lookups.
+* Repeated layer-name resolution.
+
+Normalize or clamp client-provided input at the simulation boundary.
+
+Never trust client input as authoritative game state.
+
+---
+
+## Photon Fusion
+
+Verify the installed Fusion version before using an API.
+
+Do not assume examples from Fusion 1 or another Fusion 2 version remain valid.
+
+Respect explicitly:
+
+* State Authority.
+* Input Authority.
+* Proxy behavior.
+* Prediction.
+* Resimulation.
+
+Only State Authority may perform authoritative state transitions unless an approved architecture document defines another valid workflow.
+
+Use `[Networked]` properties only for state that must participate in replication, snapshots or prediction.
+
+Do not synchronize data that can safely be derived from existing synchronized state.
+
+Do not use RPCs for continuous movement or state that belongs in regular simulation.
+
+Do not emit ordinary gameplay events from predicted ticks unless resimulation has been accounted for.
+
+Proxies consume replicated state and must not execute local player input.
+
+### Local input flow
+
+Current input flow:
 
 ```text
 PlayerInputReader
@@ -81,11 +375,13 @@ PlayerInputReader
 → NetworkBehaviour simulation
 ```
 
-Preserve this separation unless an approved architecture document explicitly replaces it.
+Preserve this separation unless an approved architecture document replaces it.
 
-## Movement architecture
+---
 
-Movement must maintain separate responsibilities for:
+## Movement
+
+Movement responsibilities must remain separated between:
 
 * Local device input.
 * Fusion input transport.
@@ -94,123 +390,140 @@ Movement must maintain separate responsibilities for:
 * Collision resolution.
 * Runtime movement state.
 * Configuration.
-* Visual presentation.
+* Presentation.
 
-The movement simulation must not reference:
+Movement simulation must not depend on:
 
-* `Animator`
-* `SpriteRenderer`
-* UI
-* Audio
-* Particle systems
-* Camera effects
+* `Animator`.
+* `SpriteRenderer`.
+* UI.
+* Audio.
+* Particle systems.
+* Camera effects.
 
-The presentation layer may read movement state but must not modify authoritative simulation state.
+Presentation may read movement state but must not modify authoritative simulation.
 
-Movement configuration should be data-driven where it provides value.
+Shared ScriptableObject assets may contain stable configuration but must not contain mutable per-player runtime state.
 
-ScriptableObject assets may store shared configuration, but must not store mutable per-player runtime state.
-
-Runtime movement state includes values such as:
+Runtime state includes values such as:
 
 * Current velocity.
-* Active movement restrictions.
+* Movement restrictions.
 * Temporary modifiers.
-* Current locomotion mode.
+* Locomotion mode.
 * Last valid movement direction.
 
-Do not place these values in shared ScriptableObject assets.
-
-Follow the approved architecture documented in:
+Follow:
 
 ```text
 Docs/Architecture/PlayerMovementArchitecture.md
 ```
 
-### Character visual directions
+when modifying player movement.
 
-Character sprite animation uses six discrete visual facing buckets:
+---
 
-* N
-* NE
-* NW
-* S
-* SE
-* SW
+## Character visual directions
 
-These buckets describe visual animation presentation only and do not restrict continuous 2D / 8-directional top-down gameplay movement simulation.
+Character gameplay movement remains continuous top-down movement.
 
-When that document conflicts with an older implementation, report the conflict before changing architecture.
+Visual character animation uses six facing buckets:
 
-## Event-driven rules
+```text
+N
+NE
+NW
+S
+SE
+SW
+```
 
-Event-driven communication is allowed for:
+These directions describe presentation only.
+
+Do not restrict gameplay movement to six directions.
+
+---
+
+## Event-driven communication
+
+Events are appropriate for:
 
 * Presentation updates.
 * UI reactions.
-* Audio feedback.
-* Visual effects.
+* Audio.
+* VFX.
 * Analytics.
-* Decoupled notifications that do not advance predicted simulation.
+* Notifications that do not advance predicted simulation.
 
-Event-driven communication must not replace direct simulation flow.
+Events must not replace direct simulation flow.
 
-Prefer typed event payloads.
+Prefer typed payloads.
 
-Event subscriptions must have an explicit lifecycle:
+Every subscription must have an explicit lifecycle.
 
-* Subscribe during initialization or enable.
-* Unsubscribe during disable, despawn or disposal.
-* Do not leave subscriptions attached after an object is despawned.
+Subscribe during initialization or enable.
 
-Do not create a general-purpose event bus until at least two concrete systems require the same communication mechanism.
+Unsubscribe during disable, despawn or disposal.
 
-## Data-driven rules
+Do not create a general-purpose event bus unless multiple concrete systems require the same mechanism and the architecture justifies it.
 
-Use ScriptableObject assets for stable shared configuration such as:
+---
 
-* Base movement values.
+## Data-driven configuration
+
+Use ScriptableObjects for stable shared configuration when appropriate, such as:
+
+* Movement configuration.
 * Collision configuration.
-* Ability definitions.
 * Item definitions.
+* Weapon definitions.
+* Ability definitions.
 * Enemy archetypes.
 * Static balance values.
 
-Do not use ScriptableObject assets as runtime databases for mutable player state.
+Do not use ScriptableObjects as mutable runtime player databases.
 
 Do not mutate shared configuration assets during gameplay.
 
-Separate:
+Keep these categories separate:
 
 ```text
 Static configuration
 Runtime local state
 Networked state
 Presentation state
+Persistent state
 ```
 
-Do not synchronize the entire configuration asset. Synchronize identifiers or runtime values only when required.
+Synchronize identifiers or required runtime values rather than entire configuration assets.
+
+---
 
 ## Unity conventions
 
-* Use one primary type per C# file.
-* File names must match their primary type.
-* Prefer `sealed` classes when inheritance is not an intended extension point.
+* One primary type per C# file.
+* File name matches the primary type.
+* Prefer `sealed` when inheritance is not an intended extension point.
 * Use private serialized fields instead of public mutable fields.
-* Serialized private fields use the `_camelCase` naming convention.
+* Serialized private fields use `_camelCase`.
 * Public members use `PascalCase`.
-* Local variables and parameters use `camelCase`.
-* Use early returns to reduce nesting.
-* Use `nameof` when referring to types or members in diagnostic messages.
-* Use `[RequireComponent]` only for dependencies that must exist on the same GameObject.
-* Use `[DisallowMultipleComponent]` for components that must have a single instance.
-* Cache component references during initialization.
-* Do not perform scene-wide searches during gameplay.
-* Editor-only dependency lookup is allowed inside `Reset` or `OnValidate` when safe.
-* Preserve the existing namespace strategy. Do not introduce a repository-wide namespace migration as part of an unrelated task.
-* Avoid `async void` except Unity message entry points that cannot return `Task`.
-* Coroutines and asynchronous operations must handle cancellation, object destruction and session shutdown when relevant.
-* Do not suppress warnings without documenting the reason.
+* Parameters and local variables use `camelCase`.
+* Prefer early returns over unnecessary nesting.
+* Use `nameof` for member and type names in diagnostics.
+* Cache recurring component references.
+* Avoid scene-wide searches during gameplay.
+* Preserve the existing namespace strategy.
+* Avoid `async void` except where Unity entry points require it.
+* Async operations and coroutines must account for cancellation, destruction and session shutdown when relevant.
+* Do not suppress warnings without documenting why.
+
+Use `[RequireComponent]` only when the dependency must exist on the same GameObject.
+
+Use `[DisallowMultipleComponent]` when multiple instances would be invalid.
+
+Editor-only dependency lookup is acceptable inside `Reset` or `OnValidate` when safe.
+
+---
 
 ## Generated files
 
@@ -222,129 +535,150 @@ This includes:
 PlayerInputActions.cs
 ```
 
-Input actions must be modified through:
+Input actions must be changed through:
 
 ```text
 PlayerInputActions.inputactions
 ```
 
-After changing the Input Actions asset, allow Unity Input System to regenerate its C# wrapper.
+Allow Unity Input System to regenerate the C# wrapper.
 
-Treat files containing headers such as `<auto-generated>` as read-only unless the task explicitly concerns the generator itself.
+Treat files marked as generated or containing `<auto-generated>` headers as read-only unless the task explicitly concerns their generator.
 
-## Scenes and prefabs
+---
 
-* Do not modify scenes or prefabs unless the task explicitly requires it.
-* Do not invent Inspector assignments that cannot be verified from serialized assets.
-* When code requires manual Inspector configuration, document it separately.
-* Do not claim that a scene, animation, visual effect or multiplayer flow was manually validated unless it was actually run and observed.
-* Do not replace prefab references with runtime searches to avoid Inspector configuration.
-* Preserve existing serialized field names unless a migration is included.
+## Scenes, prefabs and serialized assets
+
+Do not modify scenes or prefabs unless the requested change requires it.
+
+When a task depends on current serialized configuration, inspect the actual prefab or scene rather than inferring Inspector values.
+
+Do not invent Inspector assignments.
+
+Do not replace serialized dependencies with runtime searches merely to avoid Inspector configuration.
+
+Preserve serialized field names unless a migration is part of the task.
+
+Do not modify `.meta` GUIDs unnecessarily.
+
+Do not claim that a scene, animation, visual effect or multiplayer flow was manually validated unless it was actually run and observed.
+
+When manual Unity validation remains necessary, list it separately.
+
+---
 
 ## Performance
 
-For code executed every frame or simulation tick:
+Optimize recurring gameplay and simulation paths deliberately.
+
+For per-frame or per-tick code:
 
 * Avoid managed allocations.
 * Avoid LINQ.
 * Avoid closures.
 * Avoid repeated component lookup.
-* Avoid repeated layer-name resolution.
-* Avoid repeated string-based property lookup.
-* Reuse buffers for physics casts and overlap queries when practical.
-* Prefer non-allocating physics APIs for recurring queries.
-* Do not optimize code outside a relevant hot path without evidence.
+* Avoid repeated string operations.
+* Prefer reusable buffers for recurring physics queries.
+* Prefer non-allocating physics APIs when practical.
 
-Readability has priority over speculative micro-optimization outside hot paths.
+Outside hot paths, readability has priority over speculative micro-optimization.
+
+---
 
 ## Error handling
 
-* Validate mandatory dependencies during initialization.
-* Fail clearly when required configuration is missing.
-* Include the affected object as the Unity log context when available.
-* Do not silently fall back to behavior that can hide configuration errors.
-* Do not use exceptions for normal gameplay control flow.
-* Network startup and shutdown failures must leave the project in a valid state.
-* Avoid logging every frame or every simulation tick.
+Validate mandatory dependencies during initialization.
+
+Fail clearly when required configuration is missing.
+
+Use the affected Unity object as log context when available.
+
+Do not silently fall back to behavior that hides configuration errors.
+
+Do not use exceptions for normal gameplay flow.
+
+Network startup, shutdown and transition failures must leave the application in a valid state.
+
+Avoid logs every frame or simulation tick.
+
+---
 
 ## Testing and validation
 
-For pure C# gameplay logic:
+Prefer EditMode tests for deterministic pure C# gameplay logic.
 
-* Prefer EditMode unit tests.
-* Test deterministic calculations independently from MonoBehaviours.
-* Cover boundary cases and invalid input.
-* Avoid tests that depend on scene timing when the logic can be extracted and tested directly.
+Separate deterministic calculations from MonoBehaviours when that improves testability.
 
-For networked logic:
+For networked code, validate when applicable:
 
-* Validate authority requirements.
-* Validate missing-input behavior.
-* Validate disabled-control behavior.
-* Validate that predicted logic has no irreversible side effects.
-* Validate host and client paths separately when automation supports it.
+* Authority requirements.
+* Host and client paths.
+* Missing input.
+* Disabled controls.
+* Prediction.
+* Resimulation.
+* Irreversible side effects.
 
-After changing code:
+After modifying code:
 
 1. Review the complete diff.
-2. Check for compilation errors.
+2. Check compilation.
 3. Run relevant automated tests when available.
-4. Check for generated-file modifications.
+4. Check for unintended generated-file changes.
 5. Check for accidental scene, prefab or asset changes.
-6. Report which validations were actually executed.
-7. Report validations that still require manual work.
+6. Report what was actually validated.
+7. List validation that still requires Unity Editor or multiplayer testing.
 
-Never claim that tests passed unless they were executed.
+Never claim a test passed unless it was executed successfully.
 
-## Documentation
+Do not claim manual Play Mode or visual validation that was not performed.
 
-Architecture decisions that affect multiple systems must be documented under:
+---
+
+## Documentation changes
+
+Architecture decisions affecting multiple systems belong under:
 
 ```text
 Docs/Architecture/
 ```
 
-A feature-specific architecture document should include:
+Do not duplicate large architecture or Game Design specifications inside `AGENTS.md`.
 
-* Context.
-* Decision.
-* Alternatives considered.
-* Responsibilities.
-* Sources of truth.
-* Network authority.
-* Data ownership.
-* Event boundaries.
-* Risks.
-* Validation strategy.
+Reference their authoritative source instead.
 
-Do not copy large task-specific specifications into `AGENTS.md`.
+Update architecture documentation when implementation intentionally changes an architectural contract.
 
-Reference their document path instead.
+Do not update Game Design documentation merely to make it agree with an implementation unless the task explicitly changes Game Design.
+
+Comments and technical documentation are part of the implementation and must remain consistent with the code.
+
+---
 
 ## Dependency policy
 
 Do not add, remove or update Unity packages without explicit approval.
 
-Before adding a dependency:
+Before introducing a dependency:
 
-* Confirm that the existing project does not already solve the problem.
-* Explain the reason for the dependency.
+* Confirm the project does not already solve the problem.
+* Explain why the dependency is necessary.
 * Identify runtime and editor impact.
-* Identify licensing or platform implications when relevant.
+* Consider licensing and platform implications when relevant.
 
-Do not introduce:
+Do not introduce without explicit approval and concrete justification:
 
-* Dependency-injection frameworks.
+* Dependency injection frameworks.
 * ECS.
 * Reactive frameworks.
 * General-purpose event frameworks.
 * Alternative networking libraries.
 
-unless explicitly requested and justified by the task.
+---
 
 ## Change policy
 
-Keep commits and diffs focused.
+Keep diffs focused on the requested outcome.
 
 Write commit subjects and descriptions in English.
 
@@ -352,190 +686,134 @@ Do not:
 
 * Rename unrelated files.
 * Reformat unrelated code.
-* Move folders without necessity.
+* Move folders unnecessarily.
 * Change public APIs without identifying consumers.
 * Delete code solely because it appears unused without searching references.
 * Leave placeholder implementations.
-* Leave commented-out obsolete code.
+* Leave obsolete commented-out code.
 * Add speculative systems for future features.
-* modify `.meta` GUIDs unnecessarily.
 
-When existing code conflicts with the requested architecture:
+When replacing an existing behavior, remove the obsolete source of truth when safe rather than keeping parallel implementations.
 
-1. Identify the conflict.
-2. Explain its impact.
-3. Propose the smallest safe migration.
-4. Avoid maintaining two competing sources of truth.
+For migrations:
 
-## Definition of done
+1. Identify the existing contract.
+2. Identify its consumers.
+3. Define the target contract.
+4. Apply the smallest safe migration.
+5. Remove obsolete paths when no longer needed.
 
-A coding task is complete only when:
+---
 
-* The requested behavior is implemented.
-* The implementation follows the approved architecture.
-* Responsibilities remain separated.
-* Network authority is explicit.
-* Predicted simulation supports resimulation.
-* Relevant tests were added or updated where practical.
-* Existing relevant tests pass when executable.
-* No generated files were manually modified.
-* No unrelated files were changed.
-* The diff was reviewed.
-* Manual Unity or multiplayer validation steps are listed accurately.
-* Remaining limitations and unverified behavior are reported.
+## Task scope
+
+A task should produce one concrete and verifiable result.
+
+Do not expand a task into the complete design or implementation of adjacent systems.
+
+When reviewing an existing task, determine whether missing work:
+
+* belongs to the task;
+* should become an independent subtask;
+* or belongs to a later task.
+
+Do not consider a task incomplete because unrelated future decisions remain unresolved.
+
+Subtasks should:
+
+* Represent independently completable work.
+* Avoid duplicating each other.
+* Have explicit dependencies when necessary.
+
+Foundational tasks should establish only the decisions required by dependent work.
+
+Do not convert future design decisions into acceptance criteria for the current task.
+
+Keep scope realistic for the project team and MVP.
+
+---
+
+## Implementation plans
+
+Plans should describe the intended result and important architectural decisions without prescribing unnecessary implementation details.
+
+A plan must make clear:
+
+* What will change.
+* Which existing contracts are affected.
+* Which files or systems are expected to be involved.
+* What remains outside scope.
+* What conditions indicate completion.
+* What requires manual validation.
+
+Do not describe every trivial coding step.
+
+Do not instruct an implementation agent to perform validation it cannot actually perform.
+
+The implementation agent may independently resolve ordinary code-level decisions that remain consistent with:
+
+* Current repository architecture.
+* Relevant architecture documents.
+* Current Game Design.
+* The requested scope.
+
+Ask for confirmation when the task requires:
+
+* Changing an approved architecture.
+* Changing Game Design.
+* Adding dependencies.
+* Expanding scope materially.
+* Choosing between incompatible product-level behaviors not resolved by authoritative sources.
+
+---
 
 ## Code documentation
 
-Code must be understandable by developers who did not implement the system.
+Code should be understandable without comments that merely translate the implementation into prose.
 
-Prefer clear naming and small methods over comments that restate the implementation.
+Prefer:
 
-### Class documentation
+* Clear names.
+* Narrow responsibilities.
+* Small methods.
+* Explicit contracts.
 
-Add XML documentation to gameplay classes whose responsibility or interaction with the architecture is not immediately obvious.
+Use XML documentation for public or architecture-sensitive APIs when their contract is not obvious.
 
-Class documentation should explain:
+Documentation is particularly useful for:
 
-* The responsibility of the class.
-* Which architectural layer it belongs to.
-* Its main dependencies.
-* Which components consume its output.
-* Whether it owns state or only adapts another system.
-* Its role in the network authority model when applicable.
-* Whether it participates in prediction or resimulation.
-
-Example:
-
-```csharp
-/// <summary>
-/// Adapts Fusion player input into movement commands and executes the
-/// player movement simulation during network ticks.
-///
-/// This component is the network boundary of the movement system.
-/// It does not resolve collisions or update visual presentation.
-/// </summary>
-public sealed class NetworkPlayerMovementController : NetworkBehaviour
-{
-}
-```
-
-### Method documentation
-
-Add XML documentation to:
-
-* Public APIs.
-* Methods used by multiple systems.
 * Authority-sensitive methods.
+* Prediction or resimulation behavior.
 * Methods with non-obvious side effects.
-* Methods whose execution timing is important.
-* Methods involved in prediction, resimulation or state synchronization.
-* Extension points intended for future implementations.
+* Shared APIs.
+* Important execution-order requirements.
+* Architectural boundaries.
 
-Documentation should explain contracts, requirements and effects rather than repeat the method name.
+Inline comments should explain why a constraint or non-obvious decision exists.
 
-Example:
+Do not add comments that merely repeat what the code already says.
 
-```csharp
-/// <summary>
-/// Adds a movement restriction owned by State Authority.
-///
-/// Multiple restrictions may be active simultaneously. Removing one
-/// restriction does not enable movement while other restrictions remain.
-/// </summary>
-/// <param name="reason">
-/// Reason that prevents the player from controlling movement.
-/// </param>
-/// <returns>
-/// <see langword="true"/> when the restriction was applied;
-/// otherwise, <see langword="false"/> when this peer lacks authority.
-/// </returns>
-public bool TryAddMovementBlock(MovementBlockReason reason)
-{
-}
-```
+Do not leave outdated comments, obsolete TODOs or commented-out code.
 
-Private methods do not require XML documentation when their name, inputs and implementation make their purpose clear.
+When a workflow spans multiple components, document the complete relationship in the relevant architecture document rather than duplicating it across every class.
 
-Document private methods when they contain:
+---
 
-* Non-obvious algorithms.
-* Important ordering requirements.
-* Physics assumptions.
-* Network authority constraints.
-* Prediction or resimulation restrictions.
-* Performance-sensitive behavior.
-* Workarounds for Unity, Fusion or platform limitations.
+## Definition of done
 
-### Inline comments
+A coding task is complete when:
 
-Use inline comments to explain why a decision exists.
+* The requested behavior is implemented.
+* The implementation is consistent with current Game Design.
+* Relevant approved architecture is respected or intentionally updated.
+* Responsibilities remain clear.
+* Network authority is explicit where applicable.
+* Predicted code supports resimulation where applicable.
+* Relevant automated validation was executed when available.
+* The complete diff was reviewed.
+* No unrelated files were changed.
+* No generated files were manually edited.
+* Remaining manual Unity or multiplayer checks are explicitly listed.
+* Known limitations or unverified behavior are reported.
 
-Good comments include:
-
-* Why an operation must happen in `FixedUpdateNetwork`.
-* Why an event cannot be emitted during predicted simulation.
-* Why a value is derived instead of synchronized.
-* Why a physics query uses a reusable buffer.
-* Why a particular authority is required.
-* Why an apparently simpler implementation is unsafe.
-
-Example:
-
-```csharp
-// Clamp again inside the simulation boundary because network input is
-// client-provided and must not be trusted as an already valid direction.
-Vector2 direction = Vector2.ClampMagnitude(input.MoveDirection, 1f);
-```
-
-Do not add comments that only translate code into natural language.
-
-Avoid:
-
-```csharp
-// Set the velocity to zero.
-_velocity = Vector2.zero;
-
-// Check if movement is blocked.
-if (_movementBlockMask != 0)
-{
-}
-```
-
-### Architecture interaction
-
-When several components form a workflow, document the complete interaction in the corresponding architecture document rather than duplicating the same explanation across every class.
-
-Code documentation should reference the relevant document when additional context is necessary.
-
-Example:
-
-```csharp
-/// <remarks>
-/// See `Docs/Architecture/PlayerMovementArchitecture.md` for the complete
-/// input, simulation, collision and presentation flow.
-/// </remarks>
-```
-
-Architectural documents must describe:
-
-* The complete component flow.
-* Sources of truth.
-* Ownership of state.
-* Dependency direction.
-* Network authorities.
-* Event producers and consumers.
-* Data flow between simulation and presentation.
-
-### Comment maintenance
-
-Comments are part of the implementation and must be updated when behavior changes.
-
-Do not leave:
-
-* Outdated comments.
-* Commented-out code.
-* TODO comments without actionable context.
-* Comments that describe behavior no longer present.
-* Documentation that contradicts the implementation.
-
-A task is not complete when its code changes invalidate existing documentation.
+Do not declare work complete while known requirements inside the task's actual scope remain unresolved.
