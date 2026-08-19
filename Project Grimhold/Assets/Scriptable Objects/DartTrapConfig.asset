@@ -18,7 +18,7 @@ MonoBehaviour:
   _inputMode: 0
   _knockbackForce: 2
   _projectileSpeed: 20
-  _lifetimeSeconds: 3
+  _lifetimeSeconds: 10
   _maxRange: 5
   _projectileSpawnOffset: 0.5
   _projectilePrefab:

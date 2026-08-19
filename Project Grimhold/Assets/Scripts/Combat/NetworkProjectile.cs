@@ -50,10 +50,18 @@ public sealed class NetworkProjectile : NetworkBehaviour
     private NetworkBool ImpactConsumed { get; set; }
 
     [Networked]
+    private NetworkBool ImpactWasGeometryOnly { get; set; }
+
+    [Networked]
     private int SpawnSimulationTick { get; set; }
 
     [Networked]
     private float KnockbackForce { get; set; }
+
+    public bool IsImpactConsumed => ImpactConsumed;
+    public bool IsImpactGeometryOnly => ImpactWasGeometryOnly;
+
+    public event System.Action<Vector2, bool> ImpactResolved;
 
     private ContactFilter2D _contactFilter;
     private readonly RaycastHit2D[] _hitBuffer = new RaycastHit2D[16];
@@ -230,6 +238,7 @@ public sealed class NetworkProjectile : NetworkBehaviour
             if (!ImpactConsumed)
             {
                 ImpactConsumed = true;
+                ImpactWasGeometryOnly = selectedTargetId.Value == 0;
 
                 // Move projectile to exact collision point, respecting its volume
                 Vector2 impactPosition = currentPosition + Direction * selectedHit.distance;
@@ -278,6 +287,14 @@ public sealed class NetworkProjectile : NetworkBehaviour
     internal void SetRestoredOwnerEntityId(EntityId newOwnerId)
     {
         OwnerEntityIdValue = newOwnerId.Value;
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        if (hasState && ImpactConsumed)
+        {
+            ImpactResolved?.Invoke(transform.position, ImpactWasGeometryOnly);
+        }
     }
 
 #if UNITY_EDITOR

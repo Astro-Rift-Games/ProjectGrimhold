@@ -20,6 +20,78 @@ PrefabInstance:
       propertyPath: m_Name
       value: DartProjectile
       objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.b
+      value: 0.7803922
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.g
+      value: 0.83921576
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.r
+      value: 0.1254902
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.b
+      value: 0.8705883
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.g
+      value: 0.62352943
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.r
+      value: 0.13725491
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.b
+      value: 0.7803922
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.g
+      value: 0.83921576
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.r
+      value: 0.1254902
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.b
+      value: 0.7803922
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.g
+      value: 0.83921576
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.r
+      value: 0.1254902
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.b
+      value: 0.8705883
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.g
+      value: 0.62352943
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.r
+      value: 0.13725491
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.b
+      value: 0.8705883
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.g
+      value: 0.62352943
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.r
+      value: 0.13725491
+      objectReference: {fileID: 0}
     - target: {fileID: 2867869614531767180, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.7071068

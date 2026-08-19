@@ -15,8 +15,13 @@ public sealed class ConsumableDefinition : ScriptableObject
     [Tooltip("Sonido a reproducir de forma local cuando el consumo tiene éxito.")]
     private AudioClip _consumeSound;
 
+    [SerializeField]
+    [Tooltip("Prefab de ParticleSystem instanciado en la posición del jugador al consumir con éxito.")]
+    private ParticleSystem _consumeParticles;
+
     public ConsumableEffectBase Effect => _effect;
     public AudioClip ConsumeSound => _consumeSound;
+    public ParticleSystem ConsumeParticles => _consumeParticles;
 
     /// <summary>
     /// Valida que la definición tenga las dependencias necesarias.
