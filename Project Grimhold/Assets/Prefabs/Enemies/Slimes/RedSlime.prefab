@@ -196,6 +196,78 @@ PrefabInstance:
       propertyPath: _defeatProgressReward
       value: 10
       objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.b
+      value: 0.078431375
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.g
+      value: 0.15686275
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.r
+      value: 0.627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.minColor.b
+      value: 0.36862746
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.minColor.g
+      value: 0.20392159
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: InitialModule.startColor.minColor.r
+      value: 0.7607844
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.b
+      value: 0.078431375
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.g
+      value: 0.15686275
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.r
+      value: 0.627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.b
+      value: 0.078431375
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.g
+      value: 0.15686275
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.r
+      value: 0.627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.b
+      value: 0.36862746
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.g
+      value: 0.20392159
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.r
+      value: 0.7607844
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.b
+      value: 0.36862746
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.g
+      value: 0.20392159
+      objectReference: {fileID: 0}
+    - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.r
+      value: 0.7607844
+      objectReference: {fileID: 0}
     - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x
       value: 1.1078742
