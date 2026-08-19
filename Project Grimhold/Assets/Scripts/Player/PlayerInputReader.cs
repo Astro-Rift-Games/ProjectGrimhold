@@ -21,6 +21,8 @@ public sealed class PlayerInputReader : MonoBehaviour
     private float _aimPlaneZ;
 
     private PlayerInputActions _inputActions;
+    private InputAction _weaponSlot1Action;
+    private InputAction _weaponSlot2Action;
 
     private Vector2 _moveDirection;
     private Vector2 _aimWorldPosition;
@@ -62,6 +64,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         CacheDependencies();
 
         _inputActions = new PlayerInputActions();
+        _weaponSlot1Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot1", true);
+        _weaponSlot2Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot2", true);
     }
 
     private void OnEnable()
@@ -81,6 +85,7 @@ public sealed class PlayerInputReader : MonoBehaviour
 
         UpdateDiscreteButtonRearm();
         ReadPrimaryAttack();
+        ReadWeaponSelection();
     }
 
     private void OnDisable()
@@ -197,6 +202,16 @@ public sealed class PlayerInputReader : MonoBehaviour
             combinedButtons.Set(PlayerInputButton.Interact, true);
         }
 
+        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSlot1))
+        {
+            combinedButtons.Set(PlayerInputButton.WeaponSlot1, true);
+        }
+
+        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSlot2))
+        {
+            combinedButtons.Set(PlayerInputButton.WeaponSlot2, true);
+        }
+
         PlayerNetworkInput input = new PlayerNetworkInput
         {
             MoveDirection = _moveDirection,
@@ -205,6 +220,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         };
 
         _pendingButtons.Set(PlayerInputButton.Interact, false);
+        _pendingButtons.Set(PlayerInputButton.WeaponSlot1, false);
+        _pendingButtons.Set(PlayerInputButton.WeaponSlot2, false);
 
         return input;
     }
@@ -280,6 +297,26 @@ public sealed class PlayerInputReader : MonoBehaviour
             PlayerInputButton.PrimaryAttack,
             primaryAttackAction.IsPressed(),
             primaryAttackAction.WasPressedThisFrame());
+    }
+
+    private void ReadWeaponSelection()
+    {
+        if (IsGameplayInputSuppressed)
+        {
+            _pendingButtons.Set(PlayerInputButton.WeaponSlot1, false);
+            _pendingButtons.Set(PlayerInputButton.WeaponSlot2, false);
+            return;
+        }
+
+        if (_weaponSlot1Action.WasPressedThisFrame())
+        {
+            _pendingButtons.Set(PlayerInputButton.WeaponSlot1, true);
+        }
+
+        if (_weaponSlot2Action.WasPressedThisFrame())
+        {
+            _pendingButtons.Set(PlayerInputButton.WeaponSlot2, true);
+        }
     }
 
     private void AccumulateButton(

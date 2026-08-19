@@ -15,6 +15,8 @@ public static class LocalProfileSaveCodec
         public long currency;
         public ItemData[] stash;
         public ItemData[] loadout;
+        public string preparedWeaponSlot1;
+        public string preparedWeaponSlot2;
         public ReservationData pendingReservation;
         public ReceiptData[] appliedExtractionReceipts;
         public long shopIdempotencyWatermark;
@@ -33,6 +35,8 @@ public static class LocalProfileSaveCodec
     {
         public string reservationId;
         public ItemData[] items;
+        public string preparedWeaponSlot1;
+        public string preparedWeaponSlot2;
     }
 
     [Serializable]
@@ -60,10 +64,14 @@ public static class LocalProfileSaveCodec
             currency = snapshot.Currency,
             stash = ToItems(snapshot.Stash),
             loadout = ToItems(snapshot.Loadout),
+            preparedWeaponSlot1 = snapshot.PreparedWeapons.WeaponSlot1.Value,
+            preparedWeaponSlot2 = snapshot.PreparedWeapons.WeaponSlot2.Value,
             pendingReservation = snapshot.PendingReservation == null ? null : new ReservationData
             {
                 reservationId = snapshot.PendingReservation.ReservationId,
-                items = ToItems(snapshot.PendingReservation.Items)
+                items = ToItems(snapshot.PendingReservation.Items),
+                preparedWeaponSlot1 = snapshot.PendingReservation.PreparedWeapons.WeaponSlot1.Value,
+                preparedWeaponSlot2 = snapshot.PendingReservation.PreparedWeapons.WeaponSlot2.Value
             },
             appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
@@ -143,12 +151,27 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
+        candidate.PreparedWeapons = ReadPreparedWeapons(
+            data.preparedWeaponSlot1,
+            data.preparedWeaponSlot2);
+        if (!PreparedWeaponLoadout.TryValidate(
+                candidate.PreparedWeapons,
+                candidate.Loadout,
+                catalog,
+                requireWeapon: false,
+                out error))
+        {
+            return false;
+        }
+
         // JsonUtility materializes an empty nested DTO for a serialized null
         // reference. Treat that exact empty shape as "no reservation"; any
         // reservation carrying data still requires a valid identity.
         bool hasPendingReservationData = data.pendingReservation != null &&
             (!string.IsNullOrWhiteSpace(data.pendingReservation.reservationId) ||
-             (data.pendingReservation.items != null && data.pendingReservation.items.Length > 0));
+             (data.pendingReservation.items != null && data.pendingReservation.items.Length > 0) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot1) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot2));
         if (hasPendingReservationData)
         {
             if (string.IsNullOrWhiteSpace(data.pendingReservation.reservationId))
@@ -161,7 +184,22 @@ public static class LocalProfileSaveCodec
             {
                 return false;
             }
-            candidate.PendingReservation = new PendingLoadoutReservation(data.pendingReservation.reservationId, reservationItems);
+            PreparedWeaponLoadout reservedWeapons = ReadPreparedWeapons(
+                data.pendingReservation.preparedWeaponSlot1,
+                data.pendingReservation.preparedWeaponSlot2);
+            if (!PreparedWeaponLoadout.TryValidate(
+                    reservedWeapons,
+                    reservationItems,
+                    catalog,
+                    requireWeapon: true,
+                    out error))
+            {
+                return false;
+            }
+            candidate.PendingReservation = new PendingLoadoutReservation(
+                data.pendingReservation.reservationId,
+                reservationItems,
+                reservedWeapons);
         }
 
         if (data.appliedExtractionReceipts != null)
@@ -224,6 +262,13 @@ public static class LocalProfileSaveCodec
             result[i] = new ItemData { lootId = items[i].LootId.Value, amount = items[i].Amount };
         }
         return result;
+    }
+
+    private static PreparedWeaponLoadout ReadPreparedWeapons(string slot1, string slot2)
+    {
+        LootId first = string.IsNullOrWhiteSpace(slot1) ? default : new LootId(slot1);
+        LootId second = string.IsNullOrWhiteSpace(slot2) ? default : new LootId(slot2);
+        return new PreparedWeaponLoadout(first, second);
     }
 
     private static ReceiptData[] ToReceipts(IReadOnlyList<ExtractionReceipt> receipts)

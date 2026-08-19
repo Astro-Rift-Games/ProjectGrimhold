@@ -21,6 +21,26 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
 
     public IReadOnlyList<StashItem> GetLoadout(ProfileId profileId) => IsProfile(profileId) ? _store.GetLoadout() : Array.Empty<StashItem>();
 
+    public PreparedWeaponLoadout GetPreparedWeapons(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.GetPreparedWeapons() : default;
+
+    public StashOperationResult TryAssignPreparedWeapon(
+        ProfileId profileId,
+        WeaponSlot slot,
+        LootId lootId) => IsProfile(profileId)
+            ? _store.TryAssignPreparedWeapon(slot, lootId)
+            : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult TryClearPreparedWeapon(ProfileId profileId, WeaponSlot slot) =>
+        IsProfile(profileId)
+            ? _store.TryClearPreparedWeapon(slot)
+            : StashOperationResult.InvalidInventory;
+
+    public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) =>
+        IsProfile(profileId)
+            ? _store.TryPrepareExpeditionWeapons()
+            : ExpeditionPreparationResult.ProfileUnavailable;
+
     public StashOperationResult TryTransferToLoadout(ProfileId profileId, LootId lootId, int amount) =>
         IsProfile(profileId) ? _store.TryTransferToLoadout(lootId, amount) : StashOperationResult.InvalidInventory;
 
@@ -39,15 +59,15 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
     public StashOperationResult TryCreateLoadoutReservation(
         ProfileId profileId,
         string reservationId,
-        out IReadOnlyList<StashItem> items)
+        out PendingLoadoutReservation reservation)
     {
         if (!IsProfile(profileId))
         {
-            items = Array.Empty<StashItem>();
+            reservation = null;
             return StashOperationResult.InvalidInventory;
         }
 
-        return _store.TryCreateLoadoutReservation(reservationId, out items);
+        return _store.TryCreateLoadoutReservation(reservationId, out reservation);
     }
 
     public StashOperationResult TryConfirmLoadoutReservation(ProfileId profileId, string reservationId) =>

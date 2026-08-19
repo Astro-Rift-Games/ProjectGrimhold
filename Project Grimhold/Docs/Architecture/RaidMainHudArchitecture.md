@@ -19,7 +19,7 @@ Input Authority NetworkPlayer
 - `RaidHudPresenter` is a local `MonoBehaviour`. It caches gameplay references, reads them without side effects, performs section-level dirty checking, and owns no clock.
 - `RaidHudView` contains only uGUI/TMP references and explicit presentation or clearing operations.
 - `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. The presenter and view remain on `LocalGameplayHud`, outside the visual root they control.
-- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the equipped `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
+- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the active weapon's `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
 
 No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
@@ -31,7 +31,7 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Maximum health | `CharacterBase.MaxHealth` |
 | Defeat | `!CharacterBase.IsAlive` |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
-| Equipped weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
+| Active weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
 | Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
 | Loot value inside the inventory screen | `PlayerLootReceiver.TryCalculateTotalValue` |
 | Extraction | local `PlayerExtractionController.TryGetProgress` |
@@ -50,13 +50,13 @@ The State Authority check remains in the execution flow. It is deliberately abse
 
 The presenter obtains normalized cooldown fill from the reported duration and remaining time. Duration at or below zero, negative inputs, `NaN`, and infinity produce zero; otherwise the ratio is clamped to `[0, 1]`. The presenter never advances a local cooldown clock. The cooldown image uses uGUI radial fill and remains at its authored scale. An authoritative cooldown rejection pulses the local icon once; it does not modify the timer or show global text.
 
-## Equipped weapon resolution
+## Active weapon resolution
 
 The HUD receives the same `PlayerWeaponEquipmentNetworkController` already bound for the
-local avatar. It observes the replicated equipped catalog identity and resolves the local
-static `LootDefinition`; no class context, player variant, RPC or additional networked value
-is involved. An empty or unresolved identity clears the icon. A changed identity replaces
-the icon without changing combat or equipment state.
+local avatar. It observes the replicated active slot, resolves that slot's catalog identity and
+then the local static `LootDefinition`; no class context, player variant, RPC or HUD-specific
+networked value is involved. No active weapon or an unresolved identity clears the icon. A changed
+active slot replaces the icon without changing combat or equipment state.
 
 ## Inventory summary and value recovery
 

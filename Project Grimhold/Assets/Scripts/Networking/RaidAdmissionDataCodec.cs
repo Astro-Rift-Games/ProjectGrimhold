@@ -8,7 +8,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 4;
+    private const byte CanonicalVersion = 5;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -47,6 +47,9 @@ public static class RaidAdmissionDataCodec
 
                 writer.Write(entry.Amount);
             }
+
+            writer.Write((byte)data.WeaponSlot1EntryIndexPlusOne);
+            writer.Write((byte)data.WeaponSlot2EntryIndexPlusOne);
 
             writer.Flush();
             if (stream.Length > RaidLoadoutRules.MaximumTokenBytes)
@@ -111,12 +114,21 @@ public static class RaidAdmissionDataCodec
                 entries[index] = new LootEntry(new LootId(lootIdValue), amount);
             }
 
+            int weaponSlot1EntryIndexPlusOne = reader.ReadByte();
+            int weaponSlot2EntryIndexPlusOne = reader.ReadByte();
+
             if (stream.Position != stream.Length)
             {
                 return false;
             }
 
-            data = new RaidAdmissionData(raidCode, new ProfileId(profileId), reservationId, entries);
+            data = new RaidAdmissionData(
+                raidCode,
+                new ProfileId(profileId),
+                reservationId,
+                entries,
+                weaponSlot1EntryIndexPlusOne,
+                weaponSlot2EntryIndexPlusOne);
             return data.IsValid;
         }
         catch (ArgumentException)

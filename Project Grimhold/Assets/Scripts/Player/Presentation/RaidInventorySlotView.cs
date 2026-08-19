@@ -84,6 +84,29 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    public void PresentWeaponSlot(
+        WeaponSlot slot,
+        in RaidInventorySlotData data,
+        bool isActive,
+        bool canUnequip)
+    {
+        string slotLabel = slot == WeaponSlot.Slot1 ? "Weapon Slot 1" : "Weapon Slot 2";
+        if (!data.IsOccupied)
+        {
+            Clear();
+            if (_nameText != null) _nameText.text = $"{slotLabel}\nVacío";
+            if (_background != null) _background.color = _normalColor;
+            return;
+        }
+
+        Present(in data);
+        if (_nameText != null) _nameText.text = $"{slotLabel}\n{data.DisplayName}";
+        if (_amountText != null) _amountText.text = isActive ? "Activa · Desequipar" : "Desequipar";
+        SetInteraction(
+            canUnequip ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly,
+            isActive);
+    }
+
     public void Clear()
     {
         _lootId = default;
@@ -131,7 +154,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     private void OnClicked()
     {
-        if (_interactionMode == RaidLootSlotInteractionMode.Transfer && _isOccupied &&
+        if ((_interactionMode == RaidLootSlotInteractionMode.Transfer ||
+             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu) && _isOccupied &&
             _button != null && _button.interactable && _lootId.IsValid)
         {
             SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.SingleUnit);
@@ -150,7 +174,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
             return;
         }
 
-        if (_interactionMode == RaidLootSlotInteractionMode.ContextMenu)
+        if (_interactionMode == RaidLootSlotInteractionMode.ContextMenu ||
+            _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu)
         {
             ContextRequested?.Invoke(_lootId, eventData.position);
             return;

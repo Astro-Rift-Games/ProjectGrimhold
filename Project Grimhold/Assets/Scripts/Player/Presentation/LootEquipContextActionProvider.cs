@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// Exposes the single-slot weapon equip intention through the Raid inventory context menu.
+/// Exposes the next-free-slot weapon equip intention through the Raid inventory context menu.
 /// </summary>
 public sealed class LootEquipContextActionProvider : ILootContextActionProvider
 {
@@ -23,7 +23,7 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
             return;
         }
 
-        bool enabled = _controller != null && !_controller.HasEquippedWeapon &&
+        bool enabled = _controller != null && _controller.HasFreeSlot &&
             !_controller.HasRequestInFlight;
         actions.Add(new LootContextActionDescriptor(EquipId, "Equipar", enabled, this));
     }
@@ -33,7 +33,7 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
         in LootContextActionContext context)
     {
         return actionId == EquipId && IsValidWeapon(context) && _controller != null &&
-            !_controller.HasEquippedWeapon && !_controller.HasRequestInFlight &&
+            _controller.HasFreeSlot && !_controller.HasRequestInFlight &&
             _controller.TryRequestEquip(context.Entry.LootId);
     }
 

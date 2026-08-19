@@ -37,7 +37,11 @@ public static class ApplicationStashServiceBootstrapper
             return;
         }
 
-        var store = new LocalProfileStore(repository, profileId);
+        var store = new LocalProfileStore(
+            repository,
+            profileId,
+            configuration.LootCatalog,
+            configuration.RecoveryWeaponLootId);
         
         if (store.PendingReservation != null)
         {

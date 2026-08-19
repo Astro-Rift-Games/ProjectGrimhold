@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: RecoverySword
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: recovery_sword
+  _displayName: Espada de Recuperacion
+  _description: Arma base garantizada por el Pueblo. Sin especializacion ni valor
+    economico; existe solo para volver a iniciar una expedicion.
+  _icon: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
+  _worldSprite: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
+  _category: 5
+  _rarity: 0
+  _extractionValuePerUnit: 0
+  _sellValuePerUnit: 0
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 11400000, guid: 8c1e56b7d90a4f3384726ae1cf05b2d9, type: 2}

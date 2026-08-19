@@ -29,7 +29,10 @@ there is no second client roster.
    The authoritative controller changes to `Launching`, freezes membership and
    delivers one launch envelope. Create/Join/Ready do not reserve loadout data.
 5. Transition: each frozen member acknowledges the envelope; the coordinator
-   shuts down Town once and creates or joins the exact code-derived Raid session.
+   first creates its local Loadout reservation. That aggregate mutation requires
+   at least one valid prepared weapon and captures both quick-slot assignments with
+   the items. Only then does it shut down Town and create or join the exact
+   code-derived Raid session.
 
 Before Town shutdown, each member stores a `RaidLaunchContext` containing the
 code, frozen profile identities, Host profile and local profile. It contains no

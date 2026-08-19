@@ -24,6 +24,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested += OnTransferRequested;
             _stashUI.TakeAllRequested += OnTakeAllRequested;
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
+            _stashUI.PreparedWeaponAssignmentRequested += OnPreparedWeaponAssignmentRequested;
+            _stashUI.PreparedWeaponClearRequested += OnPreparedWeaponClearRequested;
         }
 
         _context = FindAnyObjectByType<ApplicationStashContext>();
@@ -47,6 +49,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested -= OnTransferRequested;
             _stashUI.TakeAllRequested -= OnTakeAllRequested;
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
+            _stashUI.PreparedWeaponAssignmentRequested -= OnPreparedWeaponAssignmentRequested;
+            _stashUI.PreparedWeaponClearRequested -= OnPreparedWeaponClearRequested;
         }
 
         if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
@@ -95,6 +99,29 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
+    private void OnPreparedWeaponAssignmentRequested(LootId lootId, WeaponSlot slot)
+    {
+        if (_loadoutService == null) return;
+        StashOperationResult result = _loadoutService.TryAssignPreparedWeapon(
+            _localProfileId,
+            slot,
+            lootId);
+        if (result != StashOperationResult.Success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared weapon assignment failed: {result}");
+        }
+    }
+
+    private void OnPreparedWeaponClearRequested(WeaponSlot slot)
+    {
+        if (_loadoutService == null) return;
+        StashOperationResult result = _loadoutService.TryClearPreparedWeapon(_localProfileId, slot);
+        if (result != StashOperationResult.Success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared weapon clear failed: {result}");
+        }
+    }
+
     private void OnProfileCommitted(ProfileId updatedProfileId)
     {
         if (updatedProfileId.Value == _localProfileId.Value)
@@ -120,6 +147,10 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             var loadoutItems = _loadoutService.GetLoadout(_localProfileId);
             _stashUI.DisplayLoadout(MapToPresentation(loadoutItems));
+            PreparedWeaponLoadout prepared = _loadoutService.GetPreparedWeapons(_localProfileId);
+            RaidInventorySlotData slot1 = MapPreparedWeapon(prepared.WeaponSlot1);
+            RaidInventorySlotData slot2 = MapPreparedWeapon(prepared.WeaponSlot2);
+            _stashUI.DisplayPreparedWeapons(in slot1, in slot2);
         }
     }
 
@@ -142,5 +173,20 @@ public class LobbyStashPresenter : MonoBehaviour
             }
         }
         return presentationData;
+    }
+
+    private RaidInventorySlotData MapPreparedWeapon(LootId lootId)
+    {
+        if (!lootId.IsValid)
+        {
+            return RaidInventorySlotData.Empty;
+        }
+
+        LootDefinition definition = null;
+        if (_lootCatalog != null)
+        {
+            _lootCatalog.TryGet(lootId.Value, out definition);
+        }
+        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition, null);
     }
 }

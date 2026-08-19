@@ -134,7 +134,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             }
 
             if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> clearedInventory) ||
-                clearedInventory.Count != 0 || _weaponEquipment.HasEquippedWeapon)
+                clearedInventory.Count != 0 || _weaponEquipment.HasAnyWeapon)
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, "Player inventory did not become empty after the exact clear.");
                 return false;

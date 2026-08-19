@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: LocalProfilePersistenceConfiguration
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _receiptCapacity: 256
+  _recoveryWeaponLootId: recovery_sword

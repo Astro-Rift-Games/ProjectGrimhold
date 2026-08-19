@@ -5195,6 +5195,7 @@ MonoBehaviour:
   _weaponOrbitAnchor: {fileID: 7300000000000000002}
   _weaponVisual: {fileID: 1771784473681192027}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}
+  _equipmentSource: {fileID: 0}
   _directionPresets:
     _south:
       _orbit: {x: 0.28, y: 0.1}
@@ -6391,7 +6392,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7ffe97bc77e45e94cbb7a6aec28a9e91, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DAttackTargetQuery
   _colliderBufferSize: 64
 --- !u!114 &8300000000000000002
@@ -6404,7 +6405,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2b2497378f8e8fc4f85bf69fb76bbcf0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttack
   _config: {fileID: 0}
   _targetQuerySource: {fileID: 8300000000000000001}
@@ -6419,7 +6420,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 659036344901ca64da118190533cd931, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttack
   _config: {fileID: 0}
   _projectileSpawnerSource: {fileID: 8300000000000000004}
@@ -6433,7 +6434,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94978841ce6b54e4d993548e1fcdb9cc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
   _config: {fileID: 0}
   _damageResolverSource: {fileID: 438361259854513489}
@@ -6447,7 +6448,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 905c39d8fe3949028d54280f40013be0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWeaponEquipmentNetworkController
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _lootReceiver: {fileID: 3651456422916611865}
@@ -6456,6 +6457,7 @@ MonoBehaviour:
   _meleeAttack: {fileID: 8300000000000000002}
   _rangedAttack: {fileID: 8300000000000000003}
   _projectileSpawner: {fileID: 8300000000000000004}
+  _EquipmentRevision: 0
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
@@ -7947,6 +7949,8 @@ MonoBehaviour:
   _transferFeedbackText: {fileID: 8800000000000000573}
   _takeAllButton: {fileID: 8800000000000000584}
   _contextMenu: {fileID: 9000000000000000605}
+  _weaponSlotsRoot: {fileID: 8800000000000000181}
+  _weaponSlotPrefab: {fileID: 1004, guid: 7efb1769da6543a79fa2e25d7af06c73, type: 3}
   _transferFeedbackDuration: 1.5
 --- !u!114 &8800000000000000107
 MonoBehaviour:
@@ -8977,10 +8981,10 @@ RectTransform:
   - {fileID: 9100000000000000301}
   m_Father: {fileID: 8800000000000000171}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 760, y: -290}
-  m_SizeDelta: {x: 1520, y: 580}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8800000000000000182
 CanvasRenderer:

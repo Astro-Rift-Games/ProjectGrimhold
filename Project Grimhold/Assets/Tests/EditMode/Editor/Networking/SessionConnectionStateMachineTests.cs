@@ -248,7 +248,8 @@ public sealed class SessionConnectionStateMachineTests
             code,
             profile,
             "old-reservation",
-            Array.Empty<LootEntry>());
+            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            weaponSlot1EntryIndexPlusOne: 1);
 
         try
         {

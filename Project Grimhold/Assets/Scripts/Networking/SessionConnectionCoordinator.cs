@@ -61,6 +61,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _raidClosureReturnStarted;
     private float _raidClosureHostShutdownAt = -1f;
     private SessionTransitionResult? _pendingTransitionFailure;
+    private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
 
     private const int MaximumCoordinatedClientAttempts = 5;
@@ -73,20 +74,23 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     /// <summary>
     /// Stores the canonical context observed from a complete replicated frozen preparation.
-    /// The method is idempotent for the same RaidCode and LaunchRevision.
+    /// The method is idempotent for the same RaidCode and LaunchRevision. A returned
+    /// <see cref="RaidLaunchPreparationResult.NotReady"/> is transient and may be retried; every
+    /// other failure is permanent for this launch revision and exposes a player-facing reason
+    /// through <see cref="TryConsumeLastLaunchRejection"/>.
     /// </summary>
-    public bool TryStoreRaidLaunchContext(RaidLaunchContext launchContext)
+    public RaidLaunchPreparationResult TryStoreRaidLaunchContext(RaidLaunchContext launchContext)
     {
         if (launchContext == null || State != SessionConnectionState.Town || _operationActive)
         {
-            return false;
+            return RaidLaunchPreparationResult.NotReady;
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         if (launchContext.LocalProfileId != localProfile ||
             !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile))
         {
-            return false;
+            return RaidLaunchPreparationResult.NotReady;
         }
 
         if (_activeTicket.HasValue)
@@ -94,28 +98,46 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return HasActiveLaunchTicket(
                 launchContext.RaidCode.Value,
                 launchContext.LaunchRevision,
-                localProfile);
+                localProfile)
+                ? RaidLaunchPreparationResult.Success
+                : RaidLaunchPreparationResult.NotReady;
         }
 
         ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
         if (stashContext == null || stashContext.LoadoutService == null)
         {
             Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Cannot reserve loadout without the application stash context.", this);
-            return false;
+            return RejectLaunchPreparation(
+                ExpeditionPreparationResult.ProfileUnavailable,
+                RaidLaunchPreparationResult.ConfigurationError);
+        }
+
+        // Normalizing the prepared Weapon Equipment happens before the reservation boundary, so
+        // the reservation keeps rejecting a genuinely invalid loadout as a domain invariant.
+        ExpeditionPreparationResult preparation =
+            stashContext.LoadoutService.TryPrepareExpeditionLoadout(localProfile);
+        if (preparation != ExpeditionPreparationResult.Success)
+        {
+            return RejectLaunchPreparation(
+                preparation,
+                preparation == ExpeditionPreparationResult.RecoveryWeaponUnavailable ||
+                preparation == ExpeditionPreparationResult.ProfileUnavailable
+                    ? RaidLaunchPreparationResult.ConfigurationError
+                    : RaidLaunchPreparationResult.Rejected);
         }
 
         string reservationId = Guid.NewGuid().ToString("N");
         StashOperationResult reservationResult = stashContext.LoadoutService.TryCreateLoadoutReservation(
             localProfile,
             reservationId,
-            out System.Collections.Generic.IReadOnlyList<StashItem> reservedItems);
+            out PendingLoadoutReservation reservation);
         if (reservationResult != StashOperationResult.Success)
         {
             Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Loadout reservation failed: {reservationResult}.", this);
-            return false;
+            return RejectLaunchPreparation(
+                ExpeditionPreparationResult.ReservationFailed,
+                RaidLaunchPreparationResult.Rejected);
         }
-
-        var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
 
         RaidConnectionRole role = launchContext.HostProfileId == localProfile
             ? RaidConnectionRole.Host
@@ -126,6 +148,28 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             reservation,
             SessionConnectionState.Town,
             launchContext);
+        return RaidLaunchPreparationResult.Success;
+    }
+
+    private RaidLaunchPreparationResult RejectLaunchPreparation(
+        ExpeditionPreparationResult reason,
+        RaidLaunchPreparationResult result)
+    {
+        _pendingLaunchRejection = reason;
+        return result;
+    }
+
+    /// <summary>Consumes the latest player-facing expedition preparation rejection once.</summary>
+    public bool TryConsumeLastLaunchRejection(out ExpeditionPreparationResult reason)
+    {
+        if (!_pendingLaunchRejection.HasValue)
+        {
+            reason = default;
+            return false;
+        }
+
+        reason = _pendingLaunchRejection.Value;
+        _pendingLaunchRejection = null;
         return true;
     }
 
@@ -772,12 +816,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             if (stashContext.LoadoutService.TryCreateLoadoutReservation(
                     localProfile,
                     reservationId,
-                    out IReadOnlyList<StashItem> reservedItems) != StashOperationResult.Success)
+                    out PendingLoadoutReservation reservation) != StashOperationResult.Success)
             {
                 return SessionTransitionResult.LoadoutReservationFailed;
             }
 
-            var reservation = new PendingLoadoutReservation(reservationId, reservedItems);
             RaidConnectionRole role = mode == GameMode.Host ? RaidConnectionRole.Host : RaidConnectionRole.Client;
             var request = new RaidConnectionRequest(launchContext.RaidCode, role);
             _activeTicket = new RaidTransitionTicket(

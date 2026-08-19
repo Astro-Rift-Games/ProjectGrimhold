@@ -58,10 +58,12 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private TownRaidPreparationDirectory _directory;
     private int _observedSnapshotRevision = -1;
     private int _acknowledgedLocalRevision;
+    private int _rejectedLocalRevision;
     private bool _cancelLaunchRequested;
     private bool _releaseDispatched;
     private bool _hostReleaseRequested;
     private float _releaseDeadline;
+    private float _acknowledgeDeadline;
     private NetworkId _initialDirectoryId;
     private RaidCode _initialRaidCode;
     private ProfileId _initialHostProfileId;
@@ -112,6 +114,16 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             }
         }
 
+        // A launch revision that never collects every ACK must not wait forever. The release
+        // deadline only covers the phase after PrepareCoordinatedRelease, so the ACK phase owns
+        // its own deadline inside the same coordinated preparation.
+        if (State == TownRaidPreparationState.Starting && !_releaseDispatched &&
+            _acknowledgeDeadline > 0f && Time.time >= _acknowledgeDeadline)
+        {
+            _cancelLaunchRequested = true;
+            _acknowledgeDeadline = 0f;
+        }
+
         if (State == TownRaidPreparationState.Starting && _releaseDispatched && !_hostReleaseRequested &&
             _releaseDeadline > 0f && Time.time >= _releaseDeadline)
         {
@@ -143,6 +155,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         if (HasStateAuthority && State == TownRaidPreparationState.Starting)
         {
             ResetReleaseRuntime();
+            ArmAcknowledgeDeadline();
             // Directory routing rebuilds in two ticks; release waits one additional tick.
             _authorityRebuildTicks = AuthorityReleaseRebuildDelayTicks;
         }
@@ -288,9 +301,15 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             Members.Set(index, member);
         }
 
+        ArmAcknowledgeDeadline();
         MarkSnapshotChanged();
         TryMaterializeLocalLaunchContext();
         return true;
+    }
+
+    private void ArmAcknowledgeDeadline()
+    {
+        _acknowledgeDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
     }
 
     public void AuthorityHandlePlayerLeft(ProfileId profileId)
@@ -375,6 +394,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     {
         TownRaidPreparationSnapshot snapshot = Snapshot;
         if (_acknowledgedLocalRevision == snapshot.LaunchRevision ||
+            _rejectedLocalRevision == snapshot.LaunchRevision ||
             !TryGetLocalProfile(out ProfileId localProfile) ||
             !TownRaidPreparationRules.TryCreateLaunchContext(snapshot, localProfile, out RaidLaunchContext context))
         {
@@ -382,14 +402,70 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
-        if (coordinator == null || !coordinator.TryStoreRaidLaunchContext(context) ||
+        if (coordinator == null)
+        {
+            return;
+        }
+
+        RaidLaunchPreparationResult preparation = coordinator.TryStoreRaidLaunchContext(context);
+        if (preparation == RaidLaunchPreparationResult.NotReady)
+        {
+            return;
+        }
+
+        if (preparation != RaidLaunchPreparationResult.Success ||
             !coordinator.HasActiveLaunchTicket(snapshot.RaidCode.Value, snapshot.LaunchRevision, localProfile))
         {
+            RejectLocalLaunch(snapshot.LaunchRevision);
             return;
         }
 
         _acknowledgedLocalRevision = snapshot.LaunchRevision;
         RPC_AcknowledgeLaunch(snapshot.LaunchRevision);
+    }
+
+    /// <summary>
+    /// Reports one permanent local preparation failure exactly once per launch revision, so a
+    /// rejected revision never re-runs preparation or re-logs on later snapshots. The peer never
+    /// decides the cohort outcome itself: the State Authority remains the only canceller.
+    /// </summary>
+    private void RejectLocalLaunch(int sequence)
+    {
+        if (sequence <= 0 || _rejectedLocalRevision == sequence)
+        {
+            return;
+        }
+
+        _rejectedLocalRevision = sequence;
+        SessionConnectionCoordinator.Instance?.CancelPendingRaidLaunch(RaidCodeValue.ToString(), sequence);
+        if (HasStateAuthority)
+        {
+            AuthorityHandleLaunchRejected(sequence);
+            return;
+        }
+
+        RPC_RejectLaunch(sequence);
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_RejectLaunch(int sequence, RpcInfo info = default)
+    {
+        if (!TryResolveSender(info.Source, out ProfileId profileId) || FindMember(profileId) < 0)
+        {
+            return;
+        }
+
+        AuthorityHandleLaunchRejected(sequence);
+    }
+
+    private void AuthorityHandleLaunchRejected(int sequence)
+    {
+        if (!HasStateAuthority || State != TownRaidPreparationState.Starting || sequence != LaunchRevision)
+        {
+            return;
+        }
+
+        _cancelLaunchRequested = true;
     }
 
     private void PrepareCoordinatedRelease(in TownRaidPreparationSnapshot snapshot)
@@ -407,6 +483,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         bool resumingRelease = ReleaseRevision == snapshot.LaunchRevision;
         ReleaseRevision = snapshot.LaunchRevision;
         _releaseDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
+        _acknowledgeDeadline = 0f;
 
         for (int index = 0; index < snapshot.Members.Count; index++)
         {
@@ -600,6 +677,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private void ResetLaunchRuntime()
     {
         _acknowledgedLocalRevision = 0;
+        _rejectedLocalRevision = 0;
         _authorityRebuildTicks = 0;
         ResetReleaseRuntime();
     }
@@ -613,5 +691,6 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _releaseDispatched = false;
         _hostReleaseRequested = false;
         _releaseDeadline = 0f;
+        _acknowledgeDeadline = 0f;
     }
 }

@@ -119,19 +119,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 throw new ArgumentException("A coordinated raid requires a reserved loadout.", nameof(loadoutReservation));
             }
 
-            var reservedLoadout = new System.Collections.Generic.List<LootEntry>(loadoutReservation.Items.Count);
-            for (int index = 0; index < loadoutReservation.Items.Count; index++)
-            {
-                StashItem item = loadoutReservation.Items[index];
-                reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
-            }
-
-            var admissionData = new RaidAdmissionData(
-                launchContext.RaidCode,
-                profileId,
-                loadoutReservation.ReservationId,
-                reservedLoadout);
             if (!RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
+                !RaidAdmissionData.TryCreate(
+                    launchContext.RaidCode,
+                    profileId,
+                    loadoutReservation,
+                    out RaidAdmissionData admissionData) ||
                 !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
@@ -353,8 +346,14 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
                 participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
                 avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
-                receiver.TryGetLootContent(out System.Collections.Generic.IReadOnlyList<LootEntry> actual) &&
-                MatchesLoadout(reservation.Items, actual))
+                avatarObject.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment) &&
+                PlayerExpeditionLootSnapshot.TryCapture(
+                    receiver,
+                    equipment,
+                    out PlayerExpeditionLootSnapshot ownership,
+                    out _) &&
+                MatchesLoadout(reservation.Items, ownership.Combined) &&
+                MatchesPreparedWeapons(reservation.PreparedWeapons, equipment))
             {
                 return true;
             }
@@ -394,6 +393,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         return true;
+    }
+
+    private static bool MatchesPreparedWeapons(
+        PreparedWeaponLoadout expected,
+        PlayerWeaponEquipmentNetworkController equipment)
+    {
+        LootId slot1 = equipment.TryGetSlotLoot(WeaponSlot.Slot1, out LootEntry first)
+            ? first.LootId
+            : default;
+        LootId slot2 = equipment.TryGetSlotLoot(WeaponSlot.Slot2, out LootEntry second)
+            ? second.LootId
+            : default;
+        return slot1 == expected.WeaponSlot1 && slot2 == expected.WeaponSlot2 &&
+            equipment.ActiveWeaponSlot == (expected.HasWeaponSlot1 ? WeaponSlot.Slot1 : WeaponSlot.Slot2);
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

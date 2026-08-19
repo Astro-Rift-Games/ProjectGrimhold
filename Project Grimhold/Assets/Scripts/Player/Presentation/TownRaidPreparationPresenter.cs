@@ -56,6 +56,14 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             _candidateSource != null && _candidateSource.HasCandidate,
             _candidateSource?.CurrentPromptText);
         RefreshPreparationPresentation(false);
+
+        // Consumed once, so a rejected launch revision reports to the player exactly one time.
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null &&
+            coordinator.TryConsumeLastLaunchRejection(out ExpeditionPreparationResult rejection))
+        {
+            _view.ShowPreparationRejected(rejection);
+        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)

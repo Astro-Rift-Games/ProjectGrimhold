@@ -86,18 +86,16 @@ public static class NetworkRunnerFactory
             RaidAdmissionData admission;
             if (loadoutReservation != null)
             {
-                var reservedLoadout = new System.Collections.Generic.List<LootEntry>(loadoutReservation.Items.Count);
-                for (int index = 0; index < loadoutReservation.Items.Count; index++)
+                if (!RaidAdmissionData.TryCreate(
+                        launchContext.RaidCode,
+                        joinData.ProfileId,
+                        loadoutReservation,
+                        out admission))
                 {
-                    StashItem item = loadoutReservation.Items[index];
-                    reservedLoadout.Add(new LootEntry(item.LootId, item.Amount));
+                    Debug.LogError("[NetworkRunnerFactory] Local reservation cannot produce valid raid admission data.");
+                    Object.Destroy(runnerObject);
+                    return false;
                 }
-
-                admission = new RaidAdmissionData(
-                    launchContext.RaidCode,
-                    joinData.ProfileId,
-                    loadoutReservation.ReservationId,
-                    reservedLoadout);
             }
             else if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
             {

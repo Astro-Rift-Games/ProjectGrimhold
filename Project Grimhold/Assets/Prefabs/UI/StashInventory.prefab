@@ -119,7 +119,7 @@ MonoBehaviour:
   _menuRoot: {fileID: 8642255257539311026}
   _buttonContainer: {fileID: 8642255257539311026}
   _buttonPrefab: {fileID: 1674954746178622722}
-  _canvasRoot: {fileID: 0}
+  _canvasRoot: {fileID: 6310942951655324734}
 --- !u!1 &706309351387323751
 GameObject:
   m_ObjectHideFlags: 0
@@ -1638,6 +1638,8 @@ MonoBehaviour:
   _itemSlotPrefab: {fileID: 1000, guid: 7efb1769da6543a79fa2e25d7af06c73, type: 3}
   _takeAllButton: {fileID: 1147226525359422594}
   _leaveAllButton: {fileID: 2031813359011600929}
+  _weaponSlotsRoot: {fileID: 3042300503355933925}
+  _contextMenu: {fileID: 3462766738388788232}
 --- !u!114 &7566694419370554141
 MonoBehaviour:
   m_ObjectHideFlags: 0

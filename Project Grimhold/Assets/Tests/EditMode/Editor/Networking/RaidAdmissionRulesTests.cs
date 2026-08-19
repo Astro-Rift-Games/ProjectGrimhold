@@ -13,9 +13,10 @@ public sealed class RaidAdmissionRulesTests
         var client = new ProfileId("client");
         RaidLaunchContext.TryCreate(code, host, new[] { host, client }, host, 1, out RaidLaunchContext context);
 
-        var valid = new RaidAdmissionData(code, client, "reservation", new List<LootEntry>());
-        var outsider = new RaidAdmissionData(code, new ProfileId("outsider"), "reservation", new List<LootEntry>());
-        var wrong = new RaidAdmissionData(wrongCode, client, "reservation", new List<LootEntry>());
+        var loadout = new[] { new LootEntry(new LootId("training_sword"), 1) };
+        var valid = new RaidAdmissionData(code, client, "reservation", loadout, 1);
+        var outsider = new RaidAdmissionData(code, new ProfileId("outsider"), "reservation", loadout, 1);
+        var wrong = new RaidAdmissionData(wrongCode, client, "reservation", loadout, 1);
 
         Assert.That(RaidAdmissionRules.IsAdmitted(context, valid), Is.True);
         Assert.That(RaidAdmissionRules.IsAdmitted(context, outsider), Is.False);

@@ -10,6 +10,8 @@ public sealed class LocalProfileStore
     private readonly object _sync = new();
     private readonly ILocalProfileRepository _repository;
     private readonly ProfileId _profileId;
+    private readonly LootDefinitionCatalog _lootCatalog;
+    private readonly LootId _recoveryWeaponLootId;
 
     public event Action<ProfileId> ProfileCommitted;
 
@@ -18,10 +20,16 @@ public sealed class LocalProfileStore
     public string LastError => _repository.LastError;
     public bool IsAvailable => Status == LocalProfilePersistenceStatus.Ready || Status == LocalProfilePersistenceStatus.RecoveredFromBackup;
 
-    public LocalProfileStore(ILocalProfileRepository repository, ProfileId profileId)
+    public LocalProfileStore(
+        ILocalProfileRepository repository,
+        ProfileId profileId,
+        LootDefinitionCatalog lootCatalog = null,
+        LootId recoveryWeaponLootId = default)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _profileId = profileId;
+        _lootCatalog = lootCatalog;
+        _recoveryWeaponLootId = recoveryWeaponLootId;
     }
 
     public IReadOnlyList<StashItem> GetStash() =>
@@ -29,6 +37,8 @@ public sealed class LocalProfileStore
 
     public IReadOnlyList<StashItem> GetLoadout() =>
         _repository.Snapshot != null ? _repository.Snapshot.Loadout : Array.Empty<StashItem>();
+    public PreparedWeaponLoadout GetPreparedWeapons() =>
+        _repository.Snapshot != null ? _repository.Snapshot.PreparedWeapons : default;
     public PendingLoadoutReservation PendingReservation => _repository.Snapshot?.PendingReservation;
     public long GetCurrency() =>
         _repository.Snapshot != null ? _repository.Snapshot.Currency : LocalProfileSnapshot.InitialCurrency;
@@ -129,6 +139,7 @@ public sealed class LocalProfileStore
                 return StashOperationResult.InvalidInventory;
             }
             TryRemove(next.Loadout, lootId, amount);
+            ReconcilePreparedWeapons(next);
         }
         else
         {
@@ -138,6 +149,7 @@ public sealed class LocalProfileStore
             {
                 int amountToRemove = System.Math.Min(availableInLoadout, amount);
                 TryRemove(next.Loadout, lootId, amountToRemove);
+                ReconcilePreparedWeapons(next);
             }
         }
 
@@ -186,6 +198,7 @@ public sealed class LocalProfileStore
         int actualAmount = Math.Min(amount, available);
         if (!TryRemove(next.Loadout, lootId, actualAmount) || !TryMerge(next.Stash, new[] { new StashItem(lootId, actualAmount) }))
             return StashOperationResult.InvalidInventory;
+        ReconcilePreparedWeapons(next);
         return Commit(next);
     }
 
@@ -209,6 +222,7 @@ public sealed class LocalProfileStore
         if (next.Loadout.Count == 0) return StashOperationResult.Success;
         if (!TryMerge(next.Stash, next.Loadout)) return StashOperationResult.InvalidInventory;
         next.Loadout.Clear();
+        next.PreparedWeapons = default;
         return Commit(next);
     }
 
@@ -225,9 +239,134 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public StashOperationResult TryCreateLoadoutReservation(string reservationId, out IReadOnlyList<StashItem> items)
+    public StashOperationResult TryAssignPreparedWeapon(WeaponSlot slot, LootId lootId)
     {
-        items = Array.Empty<StashItem>();
+        if ((slot != WeaponSlot.Slot1 && slot != WeaponSlot.Slot2) || !lootId.IsValid ||
+            _lootCatalog == null)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot next = _repository.Snapshot.Clone();
+        PreparedWeaponLoadout candidate = next.PreparedWeapons.With(slot, lootId);
+        if (!PreparedWeaponLoadout.TryValidate(
+                candidate,
+                next.Loadout,
+                _lootCatalog,
+                requireWeapon: false,
+                out _))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        next.PreparedWeapons = candidate;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryClearPreparedWeapon(WeaponSlot slot)
+    {
+        if (slot != WeaponSlot.Slot1 && slot != WeaponSlot.Slot2)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot next = _repository.Snapshot.Clone();
+        next.PreparedWeapons = next.PreparedWeapons.Without(slot);
+        return Commit(next);
+    }
+
+    /// <summary>
+    /// Normalizes the local Loadout and prepared Weapon Equipment so the aggregate holds exactly
+    /// one valid effective weapon in Weapon Slot 1 before a raid reservation is attempted.
+    /// The operation is atomic, deterministic and idempotent: a profile that is already prepared
+    /// commits nothing, so retrying a launch never grants or duplicates a recovery weapon.
+    /// </summary>
+    public ExpeditionPreparationResult TryPrepareExpeditionWeapons()
+    {
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (!IsAvailable || current == null || _lootCatalog == null)
+        {
+            return ExpeditionPreparationResult.ProfileUnavailable;
+        }
+
+        // A reservation already owns the prepared equipment; re-preparing would double-grant.
+        if (current.PendingReservation != null)
+        {
+            return ExpeditionPreparationResult.Success;
+        }
+
+        PreparedWeaponLoadout prepared = current.PreparedWeapons;
+
+        // A persisted assignment that no longer resolves to an owned, usable weapon is corruption.
+        // It fails explicitly instead of being overwritten or hidden behind a recovery grant.
+        if (prepared.HasAnyWeapon && !PreparedWeaponLoadout.TryValidate(
+                prepared,
+                current.Loadout,
+                _lootCatalog,
+                requireWeapon: false,
+                out _))
+        {
+            return ExpeditionPreparationResult.InvalidPreparedWeapon;
+        }
+
+        // The effective weapon is already prepared; ownership stays untouched.
+        if (prepared.HasWeaponSlot1)
+        {
+            return ExpeditionPreparationResult.Success;
+        }
+
+        // Only the optional slot is occupied: normalize the effective selection towards it.
+        // Both assignments are non-owning references, so no unit moves.
+        if (prepared.HasWeaponSlot2)
+        {
+            LocalProfileSnapshot normalized = current.Clone();
+            normalized.PreparedWeapons = new PreparedWeaponLoadout(prepared.WeaponSlot2, default);
+            return Commit(normalized) == StashOperationResult.Success
+                ? ExpeditionPreparationResult.Success
+                : ExpeditionPreparationResult.PersistenceFailed;
+        }
+
+        return TryPrepareRecoveryWeapon(current);
+    }
+
+    /// <summary>
+    /// Guarantees Town access to exactly one recovery weapon when no weapon is prepared. A unit
+    /// already owned is reused before a new one is granted, so the grant cannot accumulate.
+    /// </summary>
+    private ExpeditionPreparationResult TryPrepareRecoveryWeapon(LocalProfileSnapshot current)
+    {
+        if (!PreparedWeaponLoadout.IsUsableWeaponDefinition(_recoveryWeaponLootId, _lootCatalog))
+        {
+            return ExpeditionPreparationResult.RecoveryWeaponUnavailable;
+        }
+
+        LocalProfileSnapshot next = current.Clone();
+        if (FindAmount(next.Loadout, _recoveryWeaponLootId) <= 0)
+        {
+            if (next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
+            {
+                return ExpeditionPreparationResult.LoadoutFull;
+            }
+
+            // Prefer a unit the profile already owns before minting the guaranteed one.
+            TryRemove(next.Stash, _recoveryWeaponLootId, 1);
+            if (!TryMerge(next.Loadout, new[] { new StashItem(_recoveryWeaponLootId, 1) }))
+            {
+                return ExpeditionPreparationResult.LoadoutFull;
+            }
+        }
+
+        next.PreparedWeapons = new PreparedWeaponLoadout(_recoveryWeaponLootId, default);
+        return Commit(next) == StashOperationResult.Success
+            ? ExpeditionPreparationResult.Success
+            : ExpeditionPreparationResult.PersistenceFailed;
+    }
+
+    public StashOperationResult TryCreateLoadoutReservation(
+        string reservationId,
+        out PendingLoadoutReservation reservation)
+    {
+        reservation = null;
         if (string.IsNullOrWhiteSpace(reservationId) || !IsAvailable) return StashOperationResult.InvalidInventory;
         var current = _repository.Snapshot;
         if (current.PendingReservation != null)
@@ -235,15 +374,32 @@ public sealed class LocalProfileStore
             if (!string.Equals(current.PendingReservation.ReservationId, reservationId, StringComparison.Ordinal))
                 return StashOperationResult.InvalidInventory;
 
-            items = new List<StashItem>(current.PendingReservation.Items).AsReadOnly();
+            reservation = current.PendingReservation.Clone();
             return StashOperationResult.Success;
         }
+
+        if (!PreparedWeaponLoadout.TryValidate(
+                current.PreparedWeapons,
+                current.Loadout,
+                _lootCatalog,
+                requireWeapon: true,
+                out _))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
         var next = current.Clone();
-        items = new List<StashItem>(next.Loadout).AsReadOnly();
-        next.PendingReservation = new PendingLoadoutReservation(reservationId, next.Loadout);
+        next.PendingReservation = new PendingLoadoutReservation(
+            reservationId,
+            next.Loadout,
+            next.PreparedWeapons);
         next.Loadout.Clear();
+        next.PreparedWeapons = default;
         StashOperationResult result = Commit(next);
-        if (result != StashOperationResult.Success) items = Array.Empty<StashItem>();
+        if (result == StashOperationResult.Success)
+        {
+            reservation = _repository.Snapshot.PendingReservation.Clone();
+        }
         return result;
     }
 
@@ -265,6 +421,17 @@ public sealed class LocalProfileStore
         var next = current.Clone();
         if (next.Loadout.Count + CountNewSlots(next.Loadout, next.PendingReservation.Items) > LocalProfileSnapshot.MaxLoadoutSlots ||
             !TryMerge(next.Loadout, next.PendingReservation.Items)) return StashOperationResult.PersistenceFailed;
+        PreparedWeaponLoadout restoredWeapons = next.PendingReservation.PreparedWeapons;
+        if (!PreparedWeaponLoadout.TryValidate(
+                restoredWeapons,
+                next.Loadout,
+                _lootCatalog,
+                requireWeapon: true,
+                out _))
+        {
+            return StashOperationResult.PersistenceFailed;
+        }
+        next.PreparedWeapons = restoredWeapons;
         next.PendingReservation = null;
         return Commit(next);
     }
@@ -365,5 +532,43 @@ public sealed class LocalProfileStore
         int result = 0;
         foreach (StashItem item in incoming) if (FindIndex(destination, item.LootId) < 0) result++;
         return result;
+    }
+
+    private void ReconcilePreparedWeapons(LocalProfileSnapshot snapshot)
+    {
+        PreparedWeaponLoadout current = snapshot.PreparedWeapons;
+        if (!current.HasAnyWeapon)
+        {
+            return;
+        }
+
+        PreparedWeaponLoadout candidate = current;
+        if (current.HasWeaponSlot1 && FindAmount(snapshot.Loadout, current.WeaponSlot1) <= 0)
+        {
+            candidate = candidate.Without(WeaponSlot.Slot1);
+        }
+
+        if (current.HasWeaponSlot2 && FindAmount(snapshot.Loadout, current.WeaponSlot2) <= 0)
+        {
+            candidate = candidate.Without(WeaponSlot.Slot2);
+        }
+
+        if (candidate.HasWeaponSlot1 && candidate.WeaponSlot1 == candidate.WeaponSlot2 &&
+            FindAmount(snapshot.Loadout, candidate.WeaponSlot1) < 2)
+        {
+            candidate = candidate.Without(WeaponSlot.Slot2);
+        }
+
+        if (!PreparedWeaponLoadout.TryValidate(
+                candidate,
+                snapshot.Loadout,
+                _lootCatalog,
+                requireWeapon: false,
+                out _))
+        {
+            candidate = default;
+        }
+
+        snapshot.PreparedWeapons = candidate;
     }
 }

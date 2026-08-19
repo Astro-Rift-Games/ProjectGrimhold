@@ -84,15 +84,20 @@ only after it resolves as `IAttack`; cooldown, cooldown duration, and attack ena
 their explicit fresh baselines. A spawn restored by `HostMigrationRestoreUtility.IsRestoreSpawn`
 does not overwrite those networked snapshots.
 
-`PlayerWeaponEquipmentNetworkController` owns the Raid avatar's single equipped weapon. It
-replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty),
-accepts equip intentions from Input Authority, and validates and commits them on State Authority
-during `FixedUpdateNetwork`. A valid equip extracts exactly one unit through
-`PlayerLootReceiver`, resolves `LootDefinition -> WeaponDefinition -> AttackConfig`, configures
-the existing `MeleeAttack` or `RangedAttack` strategy, and assigns it through
-`TrySetActiveAttack`. On Host Migration restore, State Authority resolves the replicated index
-again and rebuilds the strategy without replaying the equip RPC. ScriptableObjects are never
-replicated.
+`PlayerWeaponEquipmentNetworkController` owns exactly two quick weapon slots and one active-slot
+selection for the Raid avatar. Each slot replicates only the deterministic
+`LootDefinitionCatalog` index plus one (`0` means empty); the active value may reference only an
+occupied slot. Equip intentions fill Slot 1 and then Slot 2, while unequip intentions identify one
+slot and return exactly one unit to `PlayerLootReceiver`. Input Authority expresses those discrete
+intentions and State Authority validates and commits them during `FixedUpdateNetwork`.
+
+Only the active slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig`, configures the
+shared `MeleeAttack` or `RangedAttack` executor, and assigns it through `TrySetActiveAttack`.
+Inserting an inactive weapon never reconfigures either executor. Slot-selection input travels in
+the normal `PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown.
+On Host Migration restore, State Authority resolves both replicated slot identities and the active
+slot again, rebuilding the strategy without replaying equipment requests. ScriptableObjects and
+presentation state are never replicated.
 
 `TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
 When presence is authoritative, the query does not require a local `IAttack`; it derives
@@ -304,7 +309,7 @@ attack is executed.
 `PlayerWeaponPresenter` owns exclusively the procedural weapon presentation
 (`CombatVisuals/WeaponPivot/WeaponSprite`). It reads the existing finite,
 normalized `PlayerMovementNetworkController.FacingDirection` through `IMovementState`. It
-resolves the replicated equipped catalog identity through
+resolves the replicated active slot and its catalog identity through
 `PlayerWeaponEquipmentNetworkController`, then follows `LootDefinition -> WeaponDefinition`
 to obtain the local static sprite and pose configuration. It does not capture input, add
 networked state, or write back to movement or combat.

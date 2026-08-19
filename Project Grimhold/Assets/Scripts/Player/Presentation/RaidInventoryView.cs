@@ -30,13 +30,22 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private RaidLootContextMenuView _contextMenu;
 
+    [SerializeField]
+    private RectTransform _weaponSlotsRoot;
+
+    [SerializeField]
+    private RaidInventorySlotView _weaponSlotPrefab;
+
     [SerializeField, Min(0f)]
     private float _transferFeedbackDuration = 1.5f;
 
     private float _transferFeedbackRemaining;
+    private RaidInventorySlotView _weaponSlot1View;
+    private RaidInventorySlotView _weaponSlot2View;
 
     /// <summary>Local-only intention emitted when the enabled take-all control is activated.</summary>
     public event Action TakeAllRequested;
+    public event Action<WeaponSlot> WeaponUnequipRequested;
 
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
     public RaidLootPanelView PlayerPanel => _playerPanel;
@@ -55,6 +64,7 @@ public sealed class RaidInventoryView : MonoBehaviour
         {
             _takeAllButton.onClick.AddListener(OnTakeAllClicked);
         }
+        EnsureWeaponSlotViews();
     }
 
     private void Update()
@@ -115,8 +125,80 @@ public sealed class RaidInventoryView : MonoBehaviour
         _playerPanel?.ClearContent();
         _containerPanel?.ClearContent();
         _contextMenu?.Hide();
+        _weaponSlot1View?.Clear();
+        _weaponSlot2View?.Clear();
         HideTransferFeedback();
     }
+
+    public void PresentWeaponSlots(
+        in RaidInventorySlotData slot1,
+        in RaidInventorySlotData slot2,
+        WeaponSlot activeSlot,
+        bool canUnequip)
+    {
+        if (!EnsureWeaponSlotViews())
+        {
+            return;
+        }
+
+        _weaponSlot1View.PresentWeaponSlot(
+            WeaponSlot.Slot1,
+            in slot1,
+            activeSlot == WeaponSlot.Slot1,
+            canUnequip);
+        _weaponSlot2View.PresentWeaponSlot(
+            WeaponSlot.Slot2,
+            in slot2,
+            activeSlot == WeaponSlot.Slot2,
+            canUnequip);
+    }
+
+    private bool EnsureWeaponSlotViews()
+    {
+        if (_weaponSlot1View != null && _weaponSlot2View != null)
+        {
+            return true;
+        }
+
+        if (_weaponSlotsRoot == null || _weaponSlotPrefab == null)
+        {
+            return false;
+        }
+
+        _weaponSlot1View = Instantiate(_weaponSlotPrefab, _weaponSlotsRoot);
+        _weaponSlot2View = Instantiate(_weaponSlotPrefab, _weaponSlotsRoot);
+        _weaponSlot1View.name = "WeaponSlot1";
+        _weaponSlot2View.name = "WeaponSlot2";
+        PositionWeaponSlot(_weaponSlot1View, -85f);
+        PositionWeaponSlot(_weaponSlot2View, 85f);
+        _weaponSlot1View.SelectionRequested += OnWeaponSlot1Selected;
+        _weaponSlot2View.SelectionRequested += OnWeaponSlot2Selected;
+        return true;
+    }
+
+    private static void PositionWeaponSlot(RaidInventorySlotView view, float x)
+    {
+        LayoutElement layoutElement = view.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = view.gameObject.AddComponent<LayoutElement>();
+        }
+        layoutElement.ignoreLayout = true;
+
+        if (view.transform is RectTransform rect)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(x, -48f);
+        }
+    }
+
+    private void OnWeaponSlot1Selected(LootId _, LootTransferQuantityMode __) =>
+        WeaponUnequipRequested?.Invoke(WeaponSlot.Slot1);
+
+    private void OnWeaponSlot2Selected(LootId _, LootTransferQuantityMode __) =>
+        WeaponUnequipRequested?.Invoke(WeaponSlot.Slot2);
 
     /// <summary>Shows a temporary, local-only reason for a rejected transfer request.</summary>
     public void ShowTransferFeedback(string message)

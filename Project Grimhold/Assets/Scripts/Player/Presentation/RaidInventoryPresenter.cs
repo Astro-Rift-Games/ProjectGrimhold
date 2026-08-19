@@ -54,6 +54,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private int _lastObservedInteractionSequence;
     private int _observedPlayerLootSequence;
     private int _observedContainerLootSequence;
+    private int _observedEquipmentRevision;
     private bool _playerValueRefreshPending;
     private bool _playerValueFailureReported;
     private bool _takeAllHadFailure;
@@ -142,6 +143,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             Subscribe();
             RefreshPlayerPanel();
+            RefreshEquipmentSlots();
             Close();
         }
     }
@@ -212,6 +214,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             RetryPlayerValue();
         }
 
+        if (_equipmentController != null &&
+            _equipmentController.ObservedEquipmentRevision != _observedEquipmentRevision)
+        {
+            RefreshEquipmentSlots();
+        }
+
         if (_mode != ScreenMode.ContainerLoot)
         {
             return;
@@ -250,6 +258,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _consumableController.ConsumeConfirmed += OnConsumeConfirmed;
         _consumableController.ConsumeRejected += OnConsumeRejected;
         _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
+        _view.WeaponUnequipRequested += OnWeaponUnequipRequested;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
         _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
@@ -316,6 +325,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         if (_view != null)
         {
+            _view.WeaponUnequipRequested -= OnWeaponUnequipRequested;
             _view.TakeAllRequested -= OnTakeAllRequested;
             if (_view.ContextMenu != null)
             {
@@ -376,6 +386,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         ClearContainerBinding();
         _mode = ScreenMode.Personal;
         RefreshPlayerPanel();
+        RefreshEquipmentSlots();
         EnsureInputSuppression();
         _view.SetContainerPanelVisible(false);
         _view.SetScreenVisible(true);
@@ -582,6 +593,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void OnEquipRequestResolved(WeaponEquipResult result)
     {
         RefreshPlayerPanel();
+        RefreshEquipmentSlots();
         if (_mode == ScreenMode.Personal)
         {
             if (result == WeaponEquipResult.Succeeded)
@@ -602,11 +614,58 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         return result switch
         {
             WeaponEquipResult.WeaponAlreadyEquipped => "Ya hay un arma equipada",
+            WeaponEquipResult.NoFreeWeaponSlot => "Los dos slots de arma están ocupados",
+            WeaponEquipResult.EmptyWeaponSlot => "El slot de arma está vacío",
+            WeaponEquipResult.InventoryFull => "El inventario está lleno",
             WeaponEquipResult.WeaponNotOwned => "El arma ya no está disponible",
             WeaponEquipResult.PlayerUnavailable => "No se puede equipar en este estado",
             WeaponEquipResult.InvalidWeapon => "La configuración del arma no es válida",
             _ => "No se pudo equipar el arma"
         };
+    }
+
+    private void OnWeaponUnequipRequested(WeaponSlot slot)
+    {
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal ||
+            _equipmentController == null || _equipmentController.HasRequestInFlight ||
+            !_equipmentController.TryRequestUnequip(slot))
+        {
+            _view.ShowTransferFeedback("No se pudo solicitar desequipar");
+            return;
+        }
+
+        _view.HideTransferFeedback();
+        RefreshEquipmentSlots();
+    }
+
+    private void RefreshEquipmentSlots()
+    {
+        if (_equipmentController == null || _view == null)
+        {
+            return;
+        }
+
+        _observedEquipmentRevision = _equipmentController.ObservedEquipmentRevision;
+        RaidInventorySlotData slot1 = CreateEquipmentSlotData(WeaponSlot.Slot1);
+        RaidInventorySlotData slot2 = CreateEquipmentSlotData(WeaponSlot.Slot2);
+        bool canUnequip = _mode == ScreenMode.Personal &&
+            !_gameplayMutationsBlocked && !_equipmentController.HasRequestInFlight;
+        _view.PresentWeaponSlots(
+            in slot1,
+            in slot2,
+            _equipmentController.ActiveWeaponSlot,
+            canUnequip);
+    }
+
+    private RaidInventorySlotData CreateEquipmentSlotData(WeaponSlot slot)
+    {
+        if (!_equipmentController.TryGetSlotLoot(slot, out LootEntry entry))
+        {
+            return RaidInventorySlotData.Empty;
+        }
+
+        _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition);
+        return RaidInventorySlotData.Create(entry, definition, null);
     }
 
     private void OnDropTransportRejected(LootTransferTransportRejectionReason reason)

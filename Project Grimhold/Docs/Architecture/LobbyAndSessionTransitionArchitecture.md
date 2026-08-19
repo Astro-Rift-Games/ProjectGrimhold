@@ -78,9 +78,12 @@ second gameplay source of truth.
 the code and are not independently supplied by the coded access path.
 
 `RaidTransitionTicket` captures the validated request, selected build, immutable
-`PendingLoadoutReservation` snapshot and current transition state. Admission is
-complete only when participant, avatar, `CurrentAvatarId` and exact receiver
-inventory are present. Before that boundary a failed launch rolls back; after it
+`PendingLoadoutReservation` snapshot (reserved items plus two prepared weapon references) and
+current transition state. The admission token encodes those slots as compact one-based references
+into `ReservedLoadout`, preserving its existing byte bound. State Authority initializes the
+receiver, moves exactly the referenced units into the two replicated Equipment slots, and selects
+Slot 1 when present. Admission is complete only when participant, avatar, `CurrentAvatarId` and
+exact aggregate `Inventory + Equipment` ownership are present. Before that boundary a failed launch rolls back; after it
 confirmation is retried without rollback. `SessionTransitionResult` distinguishes
 reservation, rollback and confirmation failures from connection failures. The
 direct development route uses the same manifest, reservation, codec and admission
@@ -95,6 +98,21 @@ Start freezes the cohort and the coordinator copies a runner-independent launch
 context before Town shutdown. Gameplay `WaitingForPlayers` is only the technical
 connecting phase; it has no Ready or player-facing Start UI. The existing bootstrap
 must wait for every frozen profile and then advance automatically to `InProgress`.
+
+### Launch acknowledgement and rejection
+
+Each peer materializes the frozen launch context locally and only then acknowledges the launch
+revision. `TryStoreRaidLaunchContext` returns `RaidLaunchPreparationResult` so the preparation can
+tell a transient `NotReady` retry apart from a permanent local rejection. A peer that cannot
+prepare never sends a false ACK and never waits silently: it reports the rejection exactly once
+per launch revision and the State Authority — still the only canceller — aborts that revision for
+the whole cohort. The rejection reason reaches the Town view through the coordinator's
+consume-once channel, so a rejected Start is visible to the player instead of appearing inert.
+
+The coordinated preparation owns two deadlines within the same lifecycle: the ACK phase deadline
+armed when the cohort freezes, and the existing release deadline armed by
+`PrepareCoordinatedRelease`. A launch revision therefore cannot wait for a missing ACK
+indefinitely, and a cancelled revision leaves Town usable for a new preparation.
 
 ### Raid runner lifecycle
 

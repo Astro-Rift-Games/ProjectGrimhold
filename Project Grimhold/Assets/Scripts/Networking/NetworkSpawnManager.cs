@@ -2391,7 +2391,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
                 if (hasAdmission)
                 {
-                    if (!obj.TryGetBehaviour(out PlayerLootReceiver lootReceiver))
+                    if (!obj.TryGetBehaviour(out PlayerLootReceiver lootReceiver) ||
+                        !obj.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment))
                     {
                         loadoutInitialized = false;
                         return;
@@ -2403,6 +2404,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     if (!loadoutInitialized)
                     {
                         Debug.LogError($"[NetworkSpawnManager] Failed to initialize loadout for player {player}: {loadoutError}.", obj);
+                        return;
+                    }
+
+                    loadoutInitialized = equipment.TryInitializePreparedWeapons(
+                        admission.ReservedLoadout,
+                        admission.WeaponSlot1EntryIndexPlusOne,
+                        admission.WeaponSlot2EntryIndexPlusOne,
+                        out string equipmentError);
+                    if (!loadoutInitialized)
+                    {
+                        Debug.LogError($"[NetworkSpawnManager] Failed to initialize Equipment for player {player}: {equipmentError}.", obj);
                     }
                 }
             });

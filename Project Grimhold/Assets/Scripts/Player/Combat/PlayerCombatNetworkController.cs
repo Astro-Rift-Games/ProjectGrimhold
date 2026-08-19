@@ -14,7 +14,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 // Movement writes the final-tick FacingDirection before combat consumes it.
-[DefaultExecutionOrder(-9)]
+[DefaultExecutionOrder(-7)]
 public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     ICombatController,
     IResolvedDamageFeedbackSink

@@ -8,10 +8,15 @@ public sealed class PendingLoadoutReservation
     public string ReservationId { get; }
     private readonly List<StashItem> _items;
     public IReadOnlyList<StashItem> Items => _items;
+    public PreparedWeaponLoadout PreparedWeapons { get; }
 
-    public PendingLoadoutReservation(string reservationId, IReadOnlyList<StashItem> items)
+    public PendingLoadoutReservation(
+        string reservationId,
+        IReadOnlyList<StashItem> items,
+        PreparedWeaponLoadout preparedWeapons = default)
     {
         ReservationId = reservationId;
+        PreparedWeapons = preparedWeapons;
         _items = new List<StashItem>();
         if (items != null)
         {
@@ -19,5 +24,5 @@ public sealed class PendingLoadoutReservation
         }
     }
 
-    public PendingLoadoutReservation Clone() => new(ReservationId, Items);
+    public PendingLoadoutReservation Clone() => new(ReservationId, Items, PreparedWeapons);
 }

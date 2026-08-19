@@ -13,6 +13,21 @@ public interface IPlayerLoadoutService
     /// </summary>
     IReadOnlyList<StashItem> GetLoadout(ProfileId profileId);
 
+    PreparedWeaponLoadout GetPreparedWeapons(ProfileId profileId);
+
+    StashOperationResult TryAssignPreparedWeapon(
+        ProfileId profileId,
+        WeaponSlot slot,
+        LootId lootId);
+
+    StashOperationResult TryClearPreparedWeapon(ProfileId profileId, WeaponSlot slot);
+
+    /// <summary>
+    /// Normalizes the Loadout and prepared Weapon Equipment so a raid reservation can succeed.
+    /// It must run before <see cref="TryCreateLoadoutReservation"/> and is safe to retry.
+    /// </summary>
+    ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId);
+
     /// <summary>
     /// Attempts to transfer a specific amount of an item from the Stash to the Loadout.
     /// </summary>
@@ -43,7 +58,7 @@ public interface IPlayerLoadoutService
     StashOperationResult TryCreateLoadoutReservation(
         ProfileId profileId,
         string reservationId,
-        out IReadOnlyList<StashItem> items);
+        out PendingLoadoutReservation reservation);
 
     /// <summary>Confirms that the reserved loadout was admitted to the raid.</summary>
     StashOperationResult TryConfirmLoadoutReservation(ProfileId profileId, string reservationId);

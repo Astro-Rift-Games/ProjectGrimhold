@@ -5,5 +5,6 @@ public enum RaidLootSlotInteractionMode
 {
     ReadOnly = 0,
     Transfer = 1,
-    ContextMenu = 2
+    ContextMenu = 2,
+    TransferWithContextMenu = 3
 }

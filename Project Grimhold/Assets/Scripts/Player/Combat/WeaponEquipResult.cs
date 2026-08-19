@@ -1,5 +1,5 @@
 /// <summary>
-/// Authoritative outcome of a request to equip one weapon from Raid inventory.
+/// Authoritative outcome of a Raid Inventory/Equipment request.
 /// </summary>
 public enum WeaponEquipResult
 {
@@ -10,5 +10,8 @@ public enum WeaponEquipResult
     InvalidWeapon = 4,
     WeaponAlreadyEquipped = 5,
     WeaponNotOwned = 6,
-    DependenciesUnavailable = 7
+    DependenciesUnavailable = 7,
+    NoFreeWeaponSlot = 8,
+    EmptyWeaponSlot = 9,
+    InventoryFull = 10
 }

@@ -17,6 +17,7 @@ public sealed class LocalProfileSnapshot
     public long Currency { get; set; } = InitialCurrency;
     public List<StashItem> Stash { get; } = new();
     public List<StashItem> Loadout { get; } = new();
+    public PreparedWeaponLoadout PreparedWeapons { get; set; }
     public PendingLoadoutReservation PendingReservation { get; set; }
     public List<ExtractionReceipt> AppliedExtractionReceipts { get; } = new();
     public long ShopIdempotencyWatermark { get; set; } = 0;
@@ -29,6 +30,7 @@ public sealed class LocalProfileSnapshot
             SchemaVersion = SchemaVersion,
             ProfileId = ProfileId,
             Currency = Currency,
+            PreparedWeapons = PreparedWeapons,
             PendingReservation = PendingReservation?.Clone(),
             ShopIdempotencyWatermark = ShopIdempotencyWatermark
         };

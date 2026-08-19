@@ -24,6 +24,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private Button _leaveButton;
     private bool _localReady;
     private Button _closeButton;
+    private string _rejectionNotice;
 
     public event Action<string> CreateRequested;
     public event Action<string> JoinRequested;
@@ -147,6 +148,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     {
         _promptRoot?.SetActive(false);
         _panelRoot?.SetActive(true);
+        _rejectionNotice = null;
         ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
         SetBusy(false);
     }
@@ -246,6 +248,32 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         ShowStatus($"No se pudo conectar a la raid: {result}.");
     }
 
+    /// <summary>
+    /// Reports why the local expedition preparation was rejected. The cohort dissolves a moment
+    /// later and repaints the panel, so the notice sticks until the player reopens it.
+    /// </summary>
+    public void ShowPreparationRejected(ExpeditionPreparationResult reason)
+    {
+        SetBusy(false);
+        _rejectionNotice = Describe(reason);
+        ShowStatus(_rejectionNotice);
+    }
+
+    private static string Describe(ExpeditionPreparationResult reason) => reason switch
+    {
+        ExpeditionPreparationResult.InvalidPreparedWeapon =>
+            "La preparación de arma no es válida. Revisá tus Weapon Slots en el Stash.",
+        ExpeditionPreparationResult.RecoveryWeaponUnavailable =>
+            "No tenés ningún arma preparada y el arma base de recuperación no está configurada.",
+        ExpeditionPreparationResult.LoadoutFull =>
+            "No hay espacio en el Loadout para preparar un arma.",
+        ExpeditionPreparationResult.ReservationFailed =>
+            "No se pudo reservar el loadout de la expedición.",
+        ExpeditionPreparationResult.ProfileUnavailable =>
+            "El perfil local no está disponible.",
+        _ => "No se pudo preparar la expedición."
+    };
+
     private void Build()
     {
         _promptRoot = CreatePanel("InteractionPrompt", transform, new Vector2(0f, 110f), new Vector2(430f, 64f));
@@ -316,10 +344,14 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     private void ShowStatus(string status)
     {
-        if (_statusText != null)
+        if (_statusText == null)
         {
-            _statusText.text = status;
+            return;
         }
+
+        _statusText.text = string.IsNullOrEmpty(_rejectionNotice) || status == _rejectionNotice
+            ? status
+            : $"{_rejectionNotice}\n{status}";
     }
 
     private static TMP_InputField CreateCodeInput(Transform parent)
