@@ -355,6 +355,26 @@ PrefabInstance:
       propertyPath: m_Name
       value: Systems
       objectReference: {fileID: 0}
+    - target: {fileID: 8121898311945185702, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+      propertyPath: _enemyPrefabs.Array.size
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 8121898311945185702, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+      propertyPath: '_enemyPrefabs.Array.data[2].RawGuidValue.Array.data[0]'
+      value: -7726310199076421658
+      objectReference: {fileID: 0}
+    - target: {fileID: 8121898311945185702, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+      propertyPath: '_enemyPrefabs.Array.data[2].RawGuidValue.Array.data[1]'
+      value: -5789165087271994997
+      objectReference: {fileID: 0}
+    - target: {fileID: 8121898311945185702, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+      propertyPath: '_enemyPrefabs.Array.data[3].RawGuidValue.Array.data[0]'
+      value: -854064664186627675
+      objectReference: {fileID: 0}
+    - target: {fileID: 8121898311945185702, guid: e959ab5106a5e0a47a47bba91f75d564, type: 3}
+      propertyPath: '_enemyPrefabs.Array.data[3].RawGuidValue.Array.data[1]'
+      value: 205616173367548955
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
