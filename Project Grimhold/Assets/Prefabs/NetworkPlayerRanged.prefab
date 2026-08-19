@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 26
+      value: 28
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[5]'
@@ -134,7 +134,15 @@ PrefabInstance:
       objectReference: {fileID: 7378550895965535599}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[25]'
-      value: 
+      value:
+      objectReference: {fileID: 7273941996849596617}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[26]'
+      value:
+      objectReference: {fileID: 7273941996849596621}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[27]'
+      value:
       objectReference: {fileID: 4419447253773158415}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: m_Name
@@ -175,6 +183,14 @@ PrefabInstance:
     - target: {fileID: 7400000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: _weaponAngleCorrection
       value: -135
+      objectReference: {fileID: 0}
+    - target: {fileID: 8300000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: _rangedAttack
+      value:
+      objectReference: {fileID: 0}
+    - target: {fileID: 8300000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: _projectileSpawner
+      value:
       objectReference: {fileID: 0}
     - target: {fileID: 8900000000000000353, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: m_Sprite
@@ -316,6 +332,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89ecf39554d337d40bf16888806e485b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConsumableNetworkController
+--- !u!114 &7273941996849596617 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8300000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ffe97bc77e45e94cbb7a6aec28a9e91, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Physics2DAttackTargetQuery
+--- !u!114 &7273941996849596621 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8300000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 905c39d8fe3949028d54280f40013be0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerWeaponEquipmentNetworkController
 --- !u!114 &7378550895965535599 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8194402055814673831, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

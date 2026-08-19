@@ -63,6 +63,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     [SerializeField]
     private PlayerConsumableNetworkController _consumableController;
 
+    [SerializeField]
+    private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
+
     [Header("Camera Shake")]
     [SerializeField]
     private LocalPlayerCameraShakeBinder _cameraShakeBinder;
@@ -158,6 +161,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _inventoryPresenter == null || _raidHudPresenter == null || _combatFeedbackPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null || _consumableController == null ||
+            _weaponEquipmentController == null ||
             _playerCharacter == null || _combatController == null || _extractionController == null)
         {
             Debug.LogError($"{nameof(LocalPlayerHudBinder)} has missing HUD dependencies.", this);
@@ -193,6 +197,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         _raidHudPresenter.Bind(
             _playerCharacter,
             _combatController,
+            _weaponEquipmentController,
             _lootReceiver,
             _extractionController,
             _extractionProgressController,
@@ -301,6 +306,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _lootTransferController,
                 _lootDropController,
                 _consumableController,
+                _weaponEquipmentController,
                 Runner,
                 transform);
 

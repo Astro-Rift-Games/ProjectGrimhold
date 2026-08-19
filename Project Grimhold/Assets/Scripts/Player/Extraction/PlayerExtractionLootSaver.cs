@@ -27,6 +27,7 @@ public enum ExtractionLootSaveStatus
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerExtractionController))]
 [RequireComponent(typeof(PlayerLootReceiver))]
+[RequireComponent(typeof(PlayerWeaponEquipmentNetworkController))]
 public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 {
     private const int MaxSnapshotEntries = PlayerLootReceiver.MaxLootTypes;
@@ -34,9 +35,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
     private PlayerExtractionController _extractionController;
     private PlayerLootReceiver _lootReceiver;
+    private PlayerWeaponEquipmentNetworkController _weaponEquipment;
     private RaidAvatarParticipantLink _participantLink;
     private NetworkRaidParticipant _participant;
     private IReadOnlyList<LootEntry> _pendingSnapshot;
+    private PlayerExpeditionLootSnapshot _pendingOwnershipSnapshot;
     private int[] _pendingCatalogIndices;
     private int[] _pendingAmounts;
     private int _pendingResultSequence;
@@ -54,6 +57,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     {
         _extractionController = GetComponent<PlayerExtractionController>();
         _lootReceiver = GetComponent<PlayerLootReceiver>();
+        _weaponEquipment = GetComponent<PlayerWeaponEquipmentNetworkController>();
         _participantLink = GetComponent<RaidAvatarParticipantLink>();
         LocalSaveStatus = ExtractionLootSaveStatus.None;
     }
@@ -117,6 +121,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         _participant = null;
         _pendingSnapshot = null;
+        _pendingOwnershipSnapshot = null;
         _pendingCatalogIndices = null;
         _pendingAmounts = null;
         RetryTimer = TickTimer.None;
@@ -156,14 +161,25 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
     private bool PreparePendingTransaction()
     {
+        string snapshotError = null;
         if (!TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
             _participant.IsExtractionCommitConfirmed ||
-            _lootReceiver == null ||
-            !_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> snapshot))
+            _lootReceiver == null || _weaponEquipment == null ||
+            !PlayerExpeditionLootSnapshot.TryCapture(
+                _lootReceiver,
+                _weaponEquipment,
+                out PlayerExpeditionLootSnapshot ownershipSnapshot,
+                out snapshotError))
         {
+            if (!string.IsNullOrEmpty(snapshotError))
+            {
+                Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: {snapshotError}", this);
+            }
             return false;
         }
+
+        IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Combined;
 
         LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
         if (catalog == null || snapshot.Count > MaxSnapshotEntries)
@@ -198,6 +214,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         _pendingSnapshot = snapshot;
+        _pendingOwnershipSnapshot = ownershipSnapshot;
         _pendingCatalogIndices = indices;
         _pendingAmounts = amounts;
         _pendingResultSequence = _participant.ResultSequence;
@@ -322,7 +339,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        if (!_lootReceiver.TryClearExactContent(_pendingSnapshot, out string clearError))
+        string clearError = null;
+        if (_pendingOwnershipSnapshot == null ||
+            !_pendingOwnershipSnapshot.TryClearExact(_lootReceiver, _weaponEquipment, out clearError))
         {
             Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Extraction inventory changed before ACK: {clearError}.", this);
             return;
@@ -335,6 +354,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         _pendingSnapshot = null;
+        _pendingOwnershipSnapshot = null;
         _pendingCatalogIndices = null;
         _pendingAmounts = null;
         RetryTimer = TickTimer.None;

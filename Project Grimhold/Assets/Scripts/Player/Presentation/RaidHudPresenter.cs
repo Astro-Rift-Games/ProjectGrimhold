@@ -14,6 +14,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private PlayerCharacter _character;
     private PlayerCombatNetworkController _combatController;
+    private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
     private PlayerLootReceiver _lootReceiver;
     private PlayerExtractionController _extractionController;
     private PlayerExtractionProgressController _extractionProgressController;
@@ -36,6 +37,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private float _observedCooldownDuration;
     private float _observedCooldownRemaining;
     private float _observedCooldownFill;
+    private Sprite _observedWeaponIcon;
 
     private int _observedLootSequence;
 
@@ -61,6 +63,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     public void Bind(
         PlayerCharacter character,
         PlayerCombatNetworkController combatController,
+        PlayerWeaponEquipmentNetworkController weaponEquipmentController,
         PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController,
         PlayerExtractionProgressController extractionProgressController,
@@ -71,6 +74,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
         _character = character;
         _combatController = combatController;
+        _weaponEquipmentController = weaponEquipmentController;
         _lootReceiver = lootReceiver;
         _extractionController = extractionController;
         _extractionProgressController = extractionProgressController;
@@ -92,7 +96,31 @@ public sealed class RaidHudPresenter : MonoBehaviour
         PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController)
     {
-        Bind(character, combatController, lootReceiver, extractionController, null, null, null);
+        Bind(character, combatController, null, lootReceiver, extractionController, null, null, null);
+    }
+
+    /// <summary>
+    /// Backwards-compatible binding overload for callers that already provide the
+    /// extended extraction and assignment sources but predate weapon presentation.
+    /// </summary>
+    public void Bind(
+        PlayerCharacter character,
+        PlayerCombatNetworkController combatController,
+        PlayerLootReceiver lootReceiver,
+        PlayerExtractionController extractionController,
+        PlayerExtractionProgressController extractionProgressController,
+        ExtractionSanctuaryAssignmentService assignmentService,
+        EntityRegistry entityRegistry)
+    {
+        Bind(
+            character,
+            combatController,
+            null,
+            lootReceiver,
+            extractionController,
+            extractionProgressController,
+            assignmentService,
+            entityRegistry);
     }
 
     /// <summary>
@@ -102,6 +130,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         _character = null;
         _combatController = null;
+        _weaponEquipmentController = null;
         _lootReceiver = null;
         _extractionController = null;
         _extractionProgressController = null;
@@ -195,6 +224,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
             if (_hasCombatState)
             {
                 _hasCombatState = false;
+                _observedWeaponIcon = null;
                 _view?.ClearAttack();
             }
             return;
@@ -204,11 +234,18 @@ public sealed class RaidHudPresenter : MonoBehaviour
         float remaining = SanitizeRemainingTime(status.CooldownRemainingSeconds);
         float fill = NormalizeCooldown(duration, remaining);
         float visibleRemaining = RoundVisibleRemaining(remaining);
+        Sprite weaponIcon = null;
+        if (_weaponEquipmentController != null &&
+            _weaponEquipmentController.TryGetEquippedDefinition(out LootDefinition equippedDefinition))
+        {
+            weaponIcon = equippedDefinition.Icon ?? equippedDefinition.WorldSprite;
+        }
         if (_hasCombatState &&
             _observedAttackAvailable == status.IsAvailable &&
             Mathf.Approximately(_observedCooldownDuration, duration) &&
             Mathf.Approximately(_observedCooldownRemaining, visibleRemaining) &&
-            Mathf.Approximately(_observedCooldownFill, fill))
+            Mathf.Approximately(_observedCooldownFill, fill) &&
+            _observedWeaponIcon == weaponIcon)
         {
             return;
         }
@@ -218,7 +255,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCooldownDuration = duration;
         _observedCooldownRemaining = visibleRemaining;
         _observedCooldownFill = fill;
-        _view?.PresentAttack(status.IsAvailable, visibleRemaining, fill);
+        _observedWeaponIcon = weaponIcon;
+        _view?.PresentAttack(status.IsAvailable, visibleRemaining, fill, weaponIcon);
     }
 
     private void RefreshInventoryIfNeeded()
@@ -445,6 +483,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCooldownDuration = 0f;
         _observedCooldownRemaining = 0f;
         _observedCooldownFill = 0f;
+        _observedWeaponIcon = null;
         _observedLootSequence = int.MinValue;
         _hasExtractionState = false;
         _observedExtractionState = ExtractionState.None;

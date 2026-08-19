@@ -58,6 +58,17 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
         return _isValid;
     }
 
+    /// <summary>
+    /// Applies an equipped weapon's ranged configuration to the existing strategy.
+    /// </summary>
+    public bool TryConfigure(RangedAttackConfig config)
+    {
+        _config = config;
+        CacheDependencies();
+        _isValid = ValidateDependencies();
+        return _isValid;
+    }
+
     private bool ValidateDependencies()
     {
         if (_config == null)

@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -21,6 +22,56 @@ namespace Tests.EditMode.Loot
             Assert.That(prefab.GetComponent<NetworkLootContainer>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>(), Is.Not.Null);
+        }
+
+        [Test]
+        public void ProductiveContainerTable_ContainsCataloguedSingleUnitWeapon()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LootContainer.prefab");
+
+            Assert.That(prefab, Is.Not.Null);
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            LootContainerContentTable table = prefab.GetComponent<LootContainerRandomContentConfig>().Table;
+            Assert.That(container, Is.Not.Null);
+            Assert.That(table, Is.Not.Null);
+
+            LootContainerContentTableEntry[] weaponEntries = table.Entries
+                .Where(entry => entry.Definition != null && entry.Definition.Category == LootCategory.Weapon)
+                .ToArray();
+
+            Assert.That(weaponEntries, Has.Length.EqualTo(1));
+            LootContainerContentTableEntry weaponEntry = weaponEntries[0];
+            LootDefinition weapon = weaponEntry.Definition;
+            Assert.That(weapon.TryValidate(out string validationError), Is.True, validationError);
+            Assert.That(weapon.Icon, Is.Not.Null);
+            Assert.That(weapon.DefaultPickupQuantity, Is.EqualTo(1));
+            Assert.That(weaponEntry.Weight, Is.GreaterThan(0));
+            Assert.That(weaponEntry.MinimumAmount, Is.EqualTo(1));
+            Assert.That(weaponEntry.MaximumAmount, Is.EqualTo(1));
+            Assert.That(container.LootCatalog.TryGet(weapon.Id, out LootDefinition cataloguedWeapon), Is.True);
+            Assert.That(cataloguedWeapon, Is.SameAs(weapon));
+            Assert.That(
+                LootContainerContentTableValidation.TryCreateSnapshot(
+                    table,
+                    container.LootCatalog,
+                    container.SlotCapacity,
+                    NetworkLootContainer.MaxLootTypes,
+                    out ValidatedLootContainerContentSnapshot snapshot,
+                    out string snapshotError),
+                Is.True,
+                snapshotError);
+            Assert.That(
+                Enumerable.Range(0, snapshot.EntryCount).Select(snapshot.GetEntry),
+                Has.Some.Matches<ValidatedLootContainerContentSnapshot.Entry>(entry =>
+                    entry.LootId == weapon.LootId && entry.MinimumAmount == 1 && entry.MaximumAmount == 1));
+
+            RaidInventorySlotData slotData = RaidInventorySlotData.Create(
+                new LootEntry(weapon.LootId, 1),
+                weapon,
+                null);
+            Assert.That(slotData.DisplayName, Is.EqualTo(weapon.DisplayName));
+            Assert.That(slotData.Icon, Is.SameAs(weapon.Icon));
+            Assert.That(slotData.Amount, Is.EqualTo(1));
         }
 
         [Test]
@@ -51,6 +102,8 @@ namespace Tests.EditMode.Loot
                 prefab.GetComponent<PlayerCorpseGenerationController>();
             NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
             NetworkLootContainerInteractable interactable = prefab.GetComponent<NetworkLootContainerInteractable>();
+            PlayerWeaponEquipmentNetworkController equipment =
+                prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
 
             Assert.That(networkObject, Is.Not.Null);
             Assert.That(character, Is.Not.Null);
@@ -58,6 +111,7 @@ namespace Tests.EditMode.Loot
             Assert.That(generationController, Is.Not.Null);
             Assert.That(container, Is.Not.Null);
             Assert.That(interactable, Is.Not.Null);
+            Assert.That(equipment, Is.Not.Null);
             Assert.That(character.gameObject, Is.SameAs(networkObject.gameObject));
             Assert.That(receiver.gameObject, Is.SameAs(networkObject.gameObject));
             Assert.That(generationController.gameObject, Is.SameAs(networkObject.gameObject));
@@ -90,6 +144,7 @@ namespace Tests.EditMode.Loot
             AssertNetworkBehaviourIsBaked(networkObject, generationController);
             AssertNetworkBehaviourIsBaked(networkObject, container);
             AssertNetworkBehaviourIsBaked(networkObject, interactable);
+            AssertNetworkBehaviourIsBaked(networkObject, equipment);
         }
 
         [Test]

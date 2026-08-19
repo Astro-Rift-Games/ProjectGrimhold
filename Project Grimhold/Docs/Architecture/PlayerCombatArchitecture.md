@@ -82,9 +82,17 @@ strategy implicitly after an explicit clear.
 On a fresh State Authority spawn, strategy presence is initialized from the serialized source
 only after it resolves as `IAttack`; cooldown, cooldown duration, and attack enablement receive
 their explicit fresh baselines. A spawn restored by `HostMigrationRestoreUtility.IsRestoreSpawn`
-does not overwrite those networked snapshots. CB-01 does not replicate concrete strategy
-identity: a dynamically replaced strategy cannot yet be reconstructed after Host Migration.
-That responsibility belongs to the future Equipment system.
+does not overwrite those networked snapshots.
+
+`PlayerWeaponEquipmentNetworkController` owns the Raid avatar's single equipped weapon. It
+replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty),
+accepts equip intentions from Input Authority, and validates and commits them on State Authority
+during `FixedUpdateNetwork`. A valid equip extracts exactly one unit through
+`PlayerLootReceiver`, resolves `LootDefinition -> WeaponDefinition -> AttackConfig`, configures
+the existing `MeleeAttack` or `RangedAttack` strategy, and assigns it through
+`TrySetActiveAttack`. On Host Migration restore, State Authority resolves the replicated index
+again and rebuilds the strategy without replaying the equip RPC. ScriptableObjects are never
+replicated.
 
 `TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
 When presence is authoritative, the query does not require a local `IAttack`; it derives
@@ -371,10 +379,10 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
   * **`PlayerCombatNetworkController`**:
     * `_characterSource` -> Reference to `PlayerCharacter` or character component.
     * `_attackOrigin` -> Transform indicating weapon output position.
-    * `_activeAttackSource` -> Optional initial local strategy source. Assigned by each current playable variant and empty on the neutral base prefab.
+    * `_activeAttackSource` -> Optional initial local strategy source. Empty on the productive neutral prefab; Equipment assigns it at runtime.
     * `_movementController` -> Reference to `PlayerMovementNetworkController`.
   * **Shared defeat and loot composition**: `PlayerCharacter`, `PlayerLootReceiver`, `PlayerCorpseGenerationController`, `NetworkLootContainer`, `NetworkLootContainerInteractable`, `InteractionPromptMetadata`, and the dedicated interaction trigger share the root `NetworkObject`.
-  * The base `NetworkPlayer.prefab` contains shared dependencies but intentionally has no active `IAttack` strategy.
+  * The base `NetworkPlayer.prefab` contains inactive/configuration-free `MeleeAttack` and `RangedAttack` strategies, their shared query/projectile dependencies, and `PlayerWeaponEquipmentNetworkController`. It intentionally has no active serialized strategy.
   * `NetworkPlayerMelee.prefab` adds `MeleeAttack` and assigns it as the active attack source.
   * `NetworkPlayerRanged.prefab` adds `RangedAttack`, assigns it as the active attack source, and composes its projectile-spawning dependencies.
 
@@ -424,7 +432,7 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
-* **Dynamic Strategy Restore**: CB-01 replicates strategy presence but not concrete identity. Host Migration preserves the authoritative presence and cooldown snapshots, but a strategy assigned dynamically cannot be reconstructed until Equipment owns a persistent/networked identity contract.
+* **Single Raid Slot Only**: Equipment currently owns exactly one weapon for the active Raid avatar. It has no unequip, replacement, quick swap, Town loadout, or cross-session equipment persistence.
 
 ---
 

@@ -41,7 +41,7 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
 
     private void Start()
     {
-        if (!_isValid)
+        if (!_isValid && _config != null)
         {
             _isValid = ValidateDependencies();
         }
@@ -56,6 +56,17 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
         _targetQuery = targetQuery;
         _damageResolver = damageResolver;
         _isValid = true;
+    }
+
+    /// <summary>
+    /// Applies an equipped weapon's melee configuration to the existing strategy.
+    /// </summary>
+    public bool TryConfigure(MeleeAttackConfig config)
+    {
+        _config = config;
+        CacheDependencies();
+        _isValid = ValidateDependencies();
+        return _isValid;
     }
 
     private void CacheDependencies()
@@ -228,8 +239,17 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
 
     private void OnDrawGizmosSelected()
     {
+        if (_config == null)
+        {
+            return;
+        }
+
         Gizmos.color = Color.cyan;
-        Gizmos.DrawSphere(GetComponentInParent<MeleeAttackGizmoDrawer>().AttackOrigin.position, _config.Radius);
+        MeleeAttackGizmoDrawer drawer = GetComponentInParent<MeleeAttackGizmoDrawer>();
+        if (drawer != null)
+        {
+            Gizmos.DrawSphere(drawer.AttackOrigin.position, _config.Radius);
+        }
     }
 #endif
 }

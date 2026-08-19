@@ -513,15 +513,6 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             _movementController = GetComponent<PlayerMovementNetworkController>();
         }
 
-        if (!Application.isPlaying && _activeAttackSource == null)
-        {
-            IAttack foundAttack = GetComponent<IAttack>() ?? GetComponentInChildren<IAttack>();
-            if (foundAttack is MonoBehaviour attackMb)
-            {
-                _activeAttackSource = attackMb;
-            }
-        }
-
         CacheDependencies();
     }
 #endif

@@ -33,6 +33,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly RaidLootTakeAllState _takeAllState = new();
     private readonly LootDropContextActionProvider _dropActionProvider = new();
     private readonly LootConsumeContextActionProvider _consumeActionProvider = new();
+    private readonly LootEquipContextActionProvider _equipActionProvider = new();
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
@@ -42,6 +43,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private PlayerLootTransferNetworkController _transferController;
     private PlayerLootDropNetworkController _dropController;
     private PlayerConsumableNetworkController _consumableController;
+    private PlayerWeaponEquipmentNetworkController _equipmentController;
     private NetworkRunner _runner;
     private Transform _localPlayerTransform;
     private EntityRegistry _registry;
@@ -94,13 +96,15 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PlayerLootTransferNetworkController transferController,
         PlayerLootDropNetworkController dropController,
         PlayerConsumableNetworkController consumableController,
+        PlayerWeaponEquipmentNetworkController equipmentController,
         NetworkRunner runner,
         Transform localPlayerTransform)
     {
         Unbind();
 
         if (lootReceiver == null || inputReader == null || interactionController == null ||
-            transferController == null || dropController == null || consumableController == null || runner == null ||
+            transferController == null || dropController == null || consumableController == null ||
+            equipmentController == null || runner == null ||
             localPlayerTransform == null ||
             _view == null || _view.PlayerPanel == null || _view.ContainerPanel == null ||
             _view.ContextMenu == null || _lootCatalog == null || _interactionConfig == null)
@@ -115,11 +119,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _transferController = transferController;
         _dropController = dropController;
         _consumableController = consumableController;
+        _equipmentController = equipmentController;
         _dropActionProvider.Bind(dropController);
         _consumeActionProvider.Bind(consumableController);
+        _equipActionProvider.Bind(equipmentController);
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_dropActionProvider);
         _contextActionProviders.Add(_consumeActionProvider);
+        _contextActionProviders.Add(_equipActionProvider);
         _runner = runner;
         _localPlayerTransform = localPlayerTransform;
         _registry = runner.GetComponent<EntityRegistry>();
@@ -242,6 +249,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _dropController.DropConfirmed += OnDropConfirmed;
         _consumableController.ConsumeConfirmed += OnConsumeConfirmed;
         _consumableController.ConsumeRejected += OnConsumeRejected;
+        _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
         _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
@@ -288,6 +296,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             _consumableController.ConsumeConfirmed -= OnConsumeConfirmed;
             _consumableController.ConsumeRejected -= OnConsumeRejected;
+        }
+
+        if (_equipmentController != null)
+        {
+            _equipmentController.EquipRequestResolved -= OnEquipRequestResolved;
         }
 
         if (_view != null && _view.PlayerPanel != null)
@@ -487,7 +500,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void OnPlayerSlotContextRequested(LootId lootId, Vector2 screenPosition)
     {
         if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || _dropController == null ||
-            _dropController.HasRequestInFlight ||
+            _dropController.HasRequestInFlight || _equipmentController == null ||
+            _equipmentController.HasRequestInFlight ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
             _lootCatalog == null || !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition))
@@ -543,7 +557,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         HideContextMenu();
         if (!executed)
         {
-            _view.ShowTransferFeedback("No se pudo solicitar el drop");
+            _view.ShowTransferFeedback("No se pudo solicitar la acción");
         }
 
         RefreshTransferInteraction();
@@ -563,6 +577,36 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         RefreshTransferInteraction();
+    }
+
+    private void OnEquipRequestResolved(WeaponEquipResult result)
+    {
+        RefreshPlayerPanel();
+        if (_mode == ScreenMode.Personal)
+        {
+            if (result == WeaponEquipResult.Succeeded)
+            {
+                _view.HideTransferFeedback();
+            }
+            else
+            {
+                _view.ShowTransferFeedback(GetEquipFailureMessage(result));
+            }
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private static string GetEquipFailureMessage(WeaponEquipResult result)
+    {
+        return result switch
+        {
+            WeaponEquipResult.WeaponAlreadyEquipped => "Ya hay un arma equipada",
+            WeaponEquipResult.WeaponNotOwned => "El arma ya no está disponible",
+            WeaponEquipResult.PlayerUnavailable => "No se puede equipar en este estado",
+            WeaponEquipResult.InvalidWeapon => "La configuración del arma no es válida",
+            _ => "No se pudo equipar el arma"
+        };
     }
 
     private void OnDropTransportRejected(LootTransferTransportRejectionReason reason)
@@ -901,7 +945,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
         RaidLootSlotInteractionMode interactionMode = _mode == ScreenMode.Personal &&
-            _dropController != null && !_dropController.HasRequestInFlight
+            _dropController != null && !_dropController.HasRequestInFlight &&
+            _equipmentController != null && !_equipmentController.HasRequestInFlight
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : transferInteractive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1003,7 +1048,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
         RaidLootSlotInteractionMode playerMode = _mode == ScreenMode.Personal &&
-            _dropController != null && !_dropController.HasRequestInFlight
+            _dropController != null && !_dropController.HasRequestInFlight &&
+            _equipmentController != null && !_equipmentController.HasRequestInFlight
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : interactive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1142,6 +1188,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _transferController = null;
         _dropController = null;
         _dropActionProvider.Bind(null);
+        _consumableController = null;
+        _consumeActionProvider.Bind(null);
+        _equipmentController = null;
+        _equipActionProvider.Bind(null);
         _contextActionProviders.Clear();
         _runner = null;
         _localPlayerTransform = null;

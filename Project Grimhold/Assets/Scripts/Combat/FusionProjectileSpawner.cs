@@ -53,6 +53,16 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
     }
 
     /// <summary>
+    /// Applies the projectile settings owned by the currently equipped ranged weapon.
+    /// </summary>
+    public bool TryConfigure(RangedAttackConfig config)
+    {
+        _config = config;
+        CacheDependencies();
+        return _config != null && _config.TryValidate(out _) && _damageResolver != null;
+    }
+
+    /// <summary>
     /// Attempts to spawn a projectile on the network authoritatively.
     /// Validates network authority, configuration, and dependencies before spawning.
     /// </summary>

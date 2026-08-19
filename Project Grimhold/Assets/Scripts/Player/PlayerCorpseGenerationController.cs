@@ -26,6 +26,9 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
     private PlayerLootReceiver _lootReceiver;
 
     [SerializeField]
+    private PlayerWeaponEquipmentNetworkController _weaponEquipment;
+
+    [SerializeField]
     private NetworkLootContainer _lootContainer;
 
     [Networked]
@@ -66,10 +69,11 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
         State = GenerationState.Processing;
         bool contentLoaded = false;
         IReadOnlyList<LootEntry> snapshot = null;
+        PlayerExpeditionLootSnapshot ownershipSnapshot = null;
         try
         {
             CacheDependencies();
-            if (_lootReceiver == null || _lootContainer == null || Runner == null ||
+            if (_lootReceiver == null || _weaponEquipment == null || _lootContainer == null || Runner == null ||
                 !Runner.IsSimulationUpdating)
             {
                 FailAndCompensate(contentLoaded, null, simulationTick, "Dependencies or runner are invalid.");
@@ -77,8 +81,18 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             }
 
             string snapshotError = null;
-            if (!_lootReceiver.TryGetLootContent(out snapshot) ||
-                !TryValidateSnapshot(snapshot, out snapshotError))
+            if (!PlayerExpeditionLootSnapshot.TryCapture(
+                    _lootReceiver,
+                    _weaponEquipment,
+                    out ownershipSnapshot,
+                    out snapshotError))
+            {
+                FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Cannot capture expedition loot. {snapshotError}");
+                return false;
+            }
+
+            snapshot = ownershipSnapshot.Combined;
+            if (!TryValidateSnapshot(snapshot, out snapshotError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Cannot capture a valid inventory snapshot. {snapshotError}");
                 return false;
@@ -99,7 +113,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
 
             string inventoryError = null;
             if (!_lootContainer.HasExactContent(snapshot) ||
-                !_lootReceiver.TryMatchesExactContent(snapshot, out inventoryError))
+                !ownershipSnapshot.MatchesCurrent(_lootReceiver, _weaponEquipment, out inventoryError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Snapshot verification failed. {inventoryError}");
                 return false;
@@ -113,13 +127,14 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             }
 #endif
 
-            if (!_lootReceiver.TryClearExactContent(snapshot, out string clearError))
+            if (!ownershipSnapshot.TryClearExact(_lootReceiver, _weaponEquipment, out string clearError))
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, $"Inventory changed before atomic clear. {clearError}");
                 return false;
             }
 
-            if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> clearedInventory) || clearedInventory.Count != 0)
+            if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> clearedInventory) ||
+                clearedInventory.Count != 0 || _weaponEquipment.HasEquippedWeapon)
             {
                 FailAndCompensate(contentLoaded, snapshot, simulationTick, "Player inventory did not become empty after the exact clear.");
                 return false;
@@ -191,6 +206,11 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
         if (_lootContainer == null)
         {
             _lootContainer = GetComponent<NetworkLootContainer>();
+        }
+
+        if (_weaponEquipment == null)
+        {
+            _weaponEquipment = GetComponent<PlayerWeaponEquipmentNetworkController>();
         }
     }
 

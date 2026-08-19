@@ -29,6 +29,13 @@ public sealed class RaidHudView : MonoBehaviour
     [SerializeField]
     private Image _cooldownIcon;
 
+    private Sprite _defaultCooldownIcon;
+
+    private void Awake()
+    {
+        _defaultCooldownIcon = _cooldownIcon != null ? _cooldownIcon.sprite : null;
+    }
+
     [SerializeField]
     private Image _cooldownFill;
 
@@ -94,9 +101,10 @@ public sealed class RaidHudView : MonoBehaviour
     }
 
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
-    public void PresentAttack(bool isAvailable, float remainingSeconds, float normalizedRemaining)
+    public void PresentAttack(bool isAvailable, float remainingSeconds, float normalizedRemaining, Sprite attackIcon = null)
     {
         SetText(_attackText, string.Empty);
+        SetCooldownIcon(attackIcon ?? _defaultCooldownIcon);
         if (_cooldownRoot != null && !_cooldownRoot.gameObject.activeSelf)
         {
             _cooldownRoot.gameObject.SetActive(true);
@@ -126,6 +134,19 @@ public sealed class RaidHudView : MonoBehaviour
         {
             _cooldownRoot.gameObject.SetActive(false);
         }
+
+        SetCooldownIcon(_defaultCooldownIcon);
+    }
+
+    private void SetCooldownIcon(Sprite icon)
+    {
+        if (_cooldownIcon == null)
+        {
+            return;
+        }
+
+        _cooldownIcon.sprite = icon;
+        _cooldownIcon.enabled = icon != null;
     }
 
     /// <summary>Presents occupied and available inventory slots.</summary>

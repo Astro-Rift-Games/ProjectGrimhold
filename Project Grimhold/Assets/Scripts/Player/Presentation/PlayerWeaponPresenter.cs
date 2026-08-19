@@ -31,6 +31,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     [SerializeField]
     private SpriteRenderer _weaponSpriteRenderer;
 
+    [SerializeField]
+    private PlayerWeaponEquipmentNetworkController _equipmentSource;
+
     [Header("Weapon Orbit Presets")]
     [SerializeField]
     private WeaponDirectionPresetTable _directionPresets;
@@ -47,6 +50,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private IMovementState _movementState;
     private NetworkBehaviour _movementNetworkBehaviour;
+    private LootDefinition _equippedDefinition;
     private Vector2 _safeFacing = Vector2.down;
     private Vector3 _weaponPivotBaseScale;
     private Vector3 _weaponVisualBaseScale;
@@ -69,7 +73,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             return;
         }
 
-        _weaponSpriteRenderer.enabled = true;
+        UpdateWeaponSprite();
         ApplyPose();
     }
 
@@ -80,12 +84,30 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private void LateUpdate()
     {
+        UpdateWeaponSprite();
         if (!_weaponSpriteRenderer.enabled)
         {
             return;
         }
 
         ApplyPose();
+    }
+
+    private void UpdateWeaponSprite()
+    {
+        _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+        LootDefinition definition = null;
+        _equipmentSource?.TryGetEquippedDefinition(out definition);
+        if (ReferenceEquals(_equippedDefinition, definition))
+        {
+            return;
+        }
+
+        _equippedDefinition = definition;
+        _weaponSpriteRenderer.sprite = definition != null
+            ? definition.WorldSprite ?? definition.Icon
+            : null;
+        _weaponSpriteRenderer.enabled = _weaponSpriteRenderer.sprite != null;
     }
 
     private void ApplyPose()

@@ -17,7 +17,7 @@ namespace Tests.EditMode.Combat
             "Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs";
 
         [Test]
-        public void BasePrefab_IsStructurallyCompleteAndHasNoAttackStrategy()
+        public void BasePrefab_IsNeutralAndContainsBothDynamicallyConfigurableStrategies()
         {
             GameObject prefab = LoadPrefab(BasePrefabPath);
             PlayerCombatNetworkController controller =
@@ -27,7 +27,14 @@ namespace Tests.EditMode.Combat
             AssertStructuralReferences(controller, BasePrefabPath);
             AssertNoMissingScripts(prefab, BasePrefabPath);
             Assert.That(ReadAttackSource(controller), Is.Null);
-            Assert.That(FindAttack(prefab), Is.Null);
+            Assert.That(prefab.GetComponents<MeleeAttack>(), Has.Length.EqualTo(1));
+            Assert.That(prefab.GetComponents<RangedAttack>(), Has.Length.EqualTo(1));
+            Assert.That(prefab.GetComponents<FusionProjectileSpawner>(), Has.Length.EqualTo(1));
+
+            PlayerWeaponEquipmentNetworkController equipment =
+                prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            Assert.That(equipment, Is.Not.Null);
+            AssertEquipmentReferences(equipment, prefab);
         }
 
         [TestCase(MeleePrefabPath, typeof(MeleeAttack))]
@@ -47,7 +54,7 @@ namespace Tests.EditMode.Combat
             Object attackSource = ReadAttackSource(controller);
             Assert.That(attackSource, Is.Not.Null, prefabPath);
             Assert.That(attackSource.GetType(), Is.EqualTo(expectedAttackType), prefabPath);
-            Assert.That(attackSource, Is.SameAs(FindAttack(prefab)), prefabPath);
+            Assert.That(attackSource, Is.SameAs(prefab.GetComponent(expectedAttackType)), prefabPath);
         }
 
         [Test]
@@ -110,19 +117,24 @@ namespace Tests.EditMode.Combat
             }
         }
 
-        private static MonoBehaviour FindAttack(GameObject prefab)
+        private static void AssertEquipmentReferences(
+            PlayerWeaponEquipmentNetworkController equipment,
+            GameObject prefab)
         {
-            MonoBehaviour[] behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(true);
-            for (int index = 0; index < behaviours.Length; index++)
-            {
-                if (behaviours[index] is IAttack)
-                {
-                    return behaviours[index];
-                }
-            }
-
-            return null;
+            var serializedEquipment = new SerializedObject(equipment);
+            Assert.That(serializedEquipment.FindProperty("_lootCatalog").objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedEquipment.FindProperty("_lootReceiver").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<PlayerLootReceiver>()));
+            Assert.That(serializedEquipment.FindProperty("_combatController").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<PlayerCombatNetworkController>()));
+            Assert.That(serializedEquipment.FindProperty("_meleeAttack").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<MeleeAttack>()));
+            Assert.That(serializedEquipment.FindProperty("_rangedAttack").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<RangedAttack>()));
+            Assert.That(serializedEquipment.FindProperty("_projectileSpawner").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<FusionProjectileSpawner>()));
         }
+
     }
 }
 #endif

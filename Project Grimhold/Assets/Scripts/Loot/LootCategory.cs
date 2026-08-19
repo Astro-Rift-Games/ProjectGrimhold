@@ -7,5 +7,6 @@ public enum LootCategory
     Valuable = 1,
     Material = 2,
     Quest = 3,
-    Miscellaneous = 4
+    Miscellaneous = 4,
+    Weapon = 5
 }

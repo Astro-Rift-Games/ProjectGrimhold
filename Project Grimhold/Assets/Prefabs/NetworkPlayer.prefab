@@ -5607,6 +5607,11 @@ GameObject:
   - component: {fileID: 8194402055814673831}
   - component: {fileID: 8917715298611850575}
   - component: {fileID: 8492586000137131872}
+  - component: {fileID: 8300000000000000001}
+  - component: {fileID: 8300000000000000002}
+  - component: {fileID: 8300000000000000003}
+  - component: {fileID: 8300000000000000004}
+  - component: {fileID: 8300000000000000005}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6004,6 +6009,9 @@ MonoBehaviour:
   - {fileID: 9100000000000000900}
   - {fileID: 5661482956119050771}
   - {fileID: 8194402055814673831}
+  - {fileID: 8300000000000000001}
+  - {fileID: 8300000000000000004}
+  - {fileID: 8300000000000000005}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -6091,6 +6099,7 @@ MonoBehaviour:
   _lootTransferController: {fileID: 8800000000000000003}
   _lootDropController: {fileID: 8800000000000000004}
   _consumableController: {fileID: 8421478658459878521}
+  _weaponEquipmentController: {fileID: 8300000000000000005}
   _cameraShakeBinder: {fileID: 8194402055814673831}
   _cameraShakeConfig: {fileID: 11400000, guid: f3e9d561a193c804b9e740145f971f66, type: 2}
 --- !u!114 &8800000000000000003
@@ -6146,6 +6155,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCorpseGenerationController
   _lootReceiver: {fileID: 3651456422916611865}
+  _weaponEquipment: {fileID: 8300000000000000005}
   _lootContainer: {fileID: 4100000000000000102}
 --- !u!114 &4100000000000000102
 MonoBehaviour:
@@ -6374,6 +6384,81 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ConsumableParticlePresenter
   _consumableController: {fileID: 8421478658459878521}
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+--- !u!114 &8300000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ffe97bc77e45e94cbb7a6aec28a9e91, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Physics2DAttackTargetQuery
+  _colliderBufferSize: 64
+--- !u!114 &8300000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b2497378f8e8fc4f85bf69fb76bbcf0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeAttack
+  _config: {fileID: 0}
+  _targetQuerySource: {fileID: 8300000000000000001}
+  _damageResolverSource: {fileID: 438361259854513489}
+--- !u!114 &8300000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 659036344901ca64da118190533cd931, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RangedAttack
+  _config: {fileID: 0}
+  _projectileSpawnerSource: {fileID: 8300000000000000004}
+--- !u!114 &8300000000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94978841ce6b54e4d993548e1fcdb9cc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FusionProjectileSpawner
+  _config: {fileID: 0}
+  _damageResolverSource: {fileID: 438361259854513489}
+--- !u!114 &8300000000000000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 905c39d8fe3949028d54280f40013be0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerWeaponEquipmentNetworkController
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+  _lootReceiver: {fileID: 3651456422916611865}
+  _characterSource: {fileID: 729366679366126330}
+  _combatController: {fileID: 2769229401594790361}
+  _meleeAttack: {fileID: 8300000000000000002}
+  _rangedAttack: {fileID: 8300000000000000003}
+  _projectileSpawner: {fileID: 8300000000000000004}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
@@ -7896,7 +7981,6 @@ MonoBehaviour:
   _mainHudRoot: {fileID: 8900000000000000300}
   _healthText: {fileID: 8900000000000000313}
   _healthFill: {fileID: 8900000000000000323}
-  _classText: {fileID: 8900000000000000333}
   _attackText: {fileID: 8900000000000000343}
   _cooldownRoot: {fileID: 8900000000000000401}
   _cooldownIcon: {fileID: 9100000000000000203}

@@ -16,7 +16,7 @@ PlayerLootReceiver
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
+The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes `Equipar` only for a valid Weapon definition and forwards only its `LootId` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount and configuration. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
 ## Slot projection and metadata
 

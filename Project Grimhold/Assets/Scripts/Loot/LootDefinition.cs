@@ -41,6 +41,10 @@ public sealed class LootDefinition : ScriptableObject
     [Tooltip("Opcional. Configuración del consumible si este loot puede ser consumido.")]
     private ConsumableDefinition _consumableDefinition;
 
+    [SerializeField]
+    [Tooltip("Opcional. Configuración funcional cuando este loot es un arma equipable.")]
+    private WeaponDefinition _weaponDefinition;
+
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
@@ -53,6 +57,7 @@ public sealed class LootDefinition : ScriptableObject
     public int SellValuePerUnit => _sellValuePerUnit;
     public int DefaultPickupQuantity => _defaultPickupQuantity;
     public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
+    public WeaponDefinition WeaponDefinition => _weaponDefinition;
 
     private void OnValidate()
     {
@@ -127,6 +132,26 @@ public sealed class LootDefinition : ScriptableObject
         if (_consumableDefinition != null && !_consumableDefinition.TryValidate(out string consumableError))
         {
             error = $"Loot definition '{_id}' has an invalid ConsumableDefinition: {consumableError}";
+            return false;
+        }
+
+        if (_category == LootCategory.Weapon)
+        {
+            if (_weaponDefinition == null)
+            {
+                error = $"Loot definition '{_id}' is a Weapon but has no WeaponDefinition.";
+                return false;
+            }
+
+            if (!_weaponDefinition.TryValidate(out string weaponError))
+            {
+                error = $"Loot definition '{_id}' has an invalid WeaponDefinition: {weaponError}";
+                return false;
+            }
+        }
+        else if (_weaponDefinition != null)
+        {
+            error = $"Loot definition '{_id}' has a WeaponDefinition but its category is {_category}.";
             return false;
         }
 
