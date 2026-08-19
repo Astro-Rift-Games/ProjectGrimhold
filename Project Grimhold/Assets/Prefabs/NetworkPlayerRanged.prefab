@@ -172,18 +172,6 @@ PrefabInstance:
       propertyPath: m_LocalPosition.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 7400000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
-      propertyPath: _weaponGripPoint.x
-      value: -0.25
-      objectReference: {fileID: 0}
-    - target: {fileID: 7400000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
-      propertyPath: _weaponGripPoint.y
-      value: 0.25
-      objectReference: {fileID: 0}
-    - target: {fileID: 7400000000000000001, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
-      propertyPath: _weaponAngleCorrection
-      value: -135
-      objectReference: {fileID: 0}
     - target: {fileID: 8300000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: _rangedAttack
       value:

@@ -2,9 +2,9 @@
 
 ## Context
 
-TASK-39 adds the always-available raid summary for the local player. TASK-29 connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, class-selection, or extraction state, and it introduces no replicated fields.
+TASK-39 adds the always-available raid summary for the local player. TASK-29 connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, equipment, or extraction state, and it introduces no replicated fields.
 
-The HUD is composed in `NetworkPlayer.prefab` under the existing `LocalGameplayHud` Canvas. `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` inherit that composition from the base prefab.
+The HUD is composed in the productive Raid avatar `NetworkPlayer.prefab` under the existing `LocalGameplayHud` Canvas.
 
 ## Decision and component flow
 
@@ -19,7 +19,7 @@ Input Authority NetworkPlayer
 - `RaidHudPresenter` is a local `MonoBehaviour`. It caches gameplay references, reads them without side effects, performs section-level dirty checking, and owns no clock.
 - `RaidHudView` contains only uGUI/TMP references and explicit presentation or clearing operations.
 - `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. The presenter and view remain on `LocalGameplayHud`, outside the visual root they control.
-- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. Each player variant supplies its existing weapon sprite as icon; a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
+- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the equipped `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
 
 No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
@@ -31,7 +31,7 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Maximum health | `CharacterBase.MaxHealth` |
 | Defeat | `!CharacterBase.IsAlive` |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
-| Selected class | runner-scoped `LocalPlayerJoinContext.JoinData.ClassId` |
+| Equipped weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
 | Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
 | Loot value inside the inventory screen | `PlayerLootReceiver.TryCalculateTotalValue` |
 | Extraction | local `PlayerExtractionController.TryGetProgress` |
@@ -50,17 +50,13 @@ The State Authority check remains in the execution flow. It is deliberately abse
 
 The presenter obtains normalized cooldown fill from the reported duration and remaining time. Duration at or below zero, negative inputs, `NaN`, and infinity produce zero; otherwise the ratio is clamped to `[0, 1]`. The presenter never advances a local cooldown clock. The cooldown image uses uGUI radial fill and remains at its authored scale. An authoritative cooldown rejection pulses the local icon once; it does not modify the timer or show global text.
 
-## Class resolution
+## Equipped weapon resolution
 
-During binding, `LocalPlayerHudBinder` caches its current runner and resolves `LocalPlayerJoinContext` through `runner.GetComponent`. It immediately reads `JoinData.ClassId`.
-
-- `Melee` is presented as `Caballero`.
-- `Ranged` is presented as `Mago`.
-- `None` and unknown values remain `Clase: —`.
-
-If the cached context initially contains `None`, the binder rereads only `JoinData.ClassId` during `Render` until a supported class appears, then stops. `RaidHudPresenter.SetPlayerClass` is idempotent and resolves only the first supported class in a binding.
-
-If the runner lacks the context component, the binder reports that configuration once and performs no per-frame search. A later existing lifecycle notification may retry caching. Unbind resets the cached runner, context, resolution flags, and displayed class so a new session cannot inherit the previous selection.
+The HUD receives the same `PlayerWeaponEquipmentNetworkController` already bound for the
+local avatar. It observes the replicated equipped catalog identity and resolves the local
+static `LootDefinition`; no class context, player variant, RPC or additional networked value
+is involved. An empty or unresolved identity clears the icon. A changed identity replaces
+the icon without changing combat or equipment state.
 
 ## Inventory summary and value recovery
 
@@ -166,13 +162,13 @@ may retarget `LocalCameraController`, but never rebinds HUD or authority to the 
 
 ## Validation strategy
 
-EditMode tests cover class mapping and late resolution through presenter behavior, clearing between bindings, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
+EditMode tests cover equipped-weapon icon resolution and clearing, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
 
-PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, unresolved participant links, local and remote ownership, late class resolution, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and local participant defeat without hiding the HUD after avatar authority is removed.
+PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, unresolved participant links, local and remote ownership, equipped-icon changes, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and local participant defeat without hiding the HUD after avatar authority is removed.
 
 Manual validation remains necessary for:
 
 - real Host/Client isolation and observed replication of health and cooldown;
 - complete session restart;
 - layout, anchors, contrast, radial fill, target resolutions, and coexistence with inventory and the interaction prompt;
-- defeat, loot collection/transfer, visible class labels, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.
+- defeat, loot collection/transfer, equipped weapon icons, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.

@@ -5214,9 +5214,6 @@ MonoBehaviour:
     _southWest:
       _orbit: {x: 0.28, y: 0.12}
       _stanceOffset: {x: -0.04, y: 0.04}
-  _weaponStanceOffset: {x: 0, y: 0}
-  _weaponGripPoint: {x: 0, y: 0}
-  _weaponAngleCorrection: 0
 --- !u!1 &4100000000000000105
 GameObject:
   m_ObjectHideFlags: 0

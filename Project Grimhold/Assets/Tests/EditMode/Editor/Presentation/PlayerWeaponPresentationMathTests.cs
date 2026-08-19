@@ -12,6 +12,8 @@ namespace Tests.EditMode.Presentation
         private const string BasePlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
         private const string MeleePlayerPrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
         private const string RangedPlayerPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
+        private const string TrainingSwordPath =
+            "Assets/Scriptable Objects/Loot/Definitions/TrainingSword.asset";
 
         [Test]
         public void CalculateWeaponPivotPosition_UsesCanonicalFacingAndEllipticalOrbit()
@@ -266,8 +268,8 @@ namespace Tests.EditMode.Presentation
             Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(meleePresenter), Is.SameAs(basePresenter));
             Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(rangedPresenter), Is.SameAs(basePresenter));
             Assert.That(basePresenter.gameObject.name, Is.EqualTo("CombatVisuals"));
-            AssertOnlyWeaponSpecificPresenterOverrides(meleePrefab);
-            AssertOnlyWeaponSpecificPresenterOverrides(rangedPrefab);
+            AssertNoPresenterOverrides(meleePrefab);
+            AssertNoPresenterOverrides(rangedPrefab);
 
             PlayerCombatPresenter attackPresenter =
                 basePrefab.GetComponentInChildren<PlayerCombatPresenter>(true);
@@ -307,11 +309,100 @@ namespace Tests.EditMode.Presentation
             Assert.That(serializedPresenter.FindProperty("_handVisual"), Is.Null);
             Assert.That(serializedPresenter.FindProperty("_handSpriteRenderer"), Is.Null);
             Assert.That(serializedPresenter.FindProperty("_bodyCenter"), Is.Null);
-            Assert.That(serializedPresenter.FindProperty("_weaponStanceOffset"), Is.Not.Null);
+            Assert.That(serializedPresenter.FindProperty("_weaponStanceOffset"), Is.Null);
+            Assert.That(serializedPresenter.FindProperty("_weaponGripPoint"), Is.Null);
+            Assert.That(serializedPresenter.FindProperty("_weaponAngleCorrection"), Is.Null);
 
             Animator bodyAnimator = basePrefab.GetComponentInChildren<Animator>(true);
             Assert.That(bodyAnimator, Is.Not.Null);
             Assert.That(bodyAnimator.enabled, Is.True);
+        }
+
+        [Test]
+        public void TrainingSword_ResolvesWeaponOwnedPresentation()
+        {
+            LootDefinition definition =
+                AssetDatabase.LoadAssetAtPath<LootDefinition>(TrainingSwordPath);
+
+            Assert.That(definition, Is.Not.Null);
+            Assert.That(definition.WorldSprite, Is.Not.Null);
+            Assert.That(definition.WeaponDefinition, Is.Not.Null);
+            AssertVector(
+                definition.WeaponDefinition.Presentation.StanceOffset,
+                Vector2.zero);
+            AssertVector(
+                definition.WeaponDefinition.Presentation.GripPoint,
+                new Vector2(-0.1875f, 0.1875f));
+            Assert.That(
+                definition.WeaponDefinition.Presentation.AngleCorrection,
+                Is.EqualTo(-135f).Within(AngleTolerance));
+        }
+
+        [Test]
+        public void ApplyEquippedDefinition_NoneClearsSpriteAndIdentityChangeReplacesPresentation()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BasePlayerPrefabPath);
+            GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            WeaponDefinition secondWeapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            LootDefinition secondLoot = ScriptableObject.CreateInstance<LootDefinition>();
+
+            try
+            {
+                PlayerWeaponPresenter presenter =
+                    instance.GetComponentInChildren<PlayerWeaponPresenter>(true);
+                SpriteRenderer renderer = new SerializedObject(presenter)
+                    .FindProperty("_weaponSpriteRenderer")
+                    .objectReferenceValue as SpriteRenderer;
+                LootDefinition trainingSword =
+                    AssetDatabase.LoadAssetAtPath<LootDefinition>(TrainingSwordPath);
+                ConfigurePresentation(
+                    secondWeapon,
+                    new Vector2(0.15f, -0.05f),
+                    new Vector2(0.3f, 0.1f),
+                    27f);
+                SerializedObject secondLootObject = new SerializedObject(secondLoot);
+                secondLootObject.FindProperty("_weaponDefinition").objectReferenceValue = secondWeapon;
+                secondLootObject.FindProperty("_worldSprite").objectReferenceValue = trainingSword.WorldSprite;
+                secondLootObject.ApplyModifiedPropertiesWithoutUndo();
+
+                InvokeApplyEquippedDefinition(presenter, trainingSword);
+                Assert.That(renderer.enabled, Is.True);
+                Assert.That(renderer.sprite, Is.SameAs(trainingSword.WorldSprite));
+                AssertVector(ReadAppliedPresentation(presenter).GripPoint, new Vector2(-0.1875f, 0.1875f));
+
+                InvokeApplyEquippedDefinition(presenter, secondLoot);
+                Assert.That(renderer.sprite, Is.SameAs(trainingSword.WorldSprite));
+                AssertVector(ReadAppliedPresentation(presenter).StanceOffset, new Vector2(0.15f, -0.05f));
+                AssertVector(ReadAppliedPresentation(presenter).GripPoint, new Vector2(0.3f, 0.1f));
+                Assert.That(ReadAppliedPresentation(presenter).AngleCorrection, Is.EqualTo(27f).Within(AngleTolerance));
+
+                InvokeApplyEquippedDefinition(presenter, null);
+                Assert.That(renderer.enabled, Is.False);
+                Assert.That(renderer.sprite, Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+                Object.DestroyImmediate(secondLoot);
+                Object.DestroyImmediate(secondWeapon);
+            }
+        }
+
+        [Test]
+        public void WeaponPresentationConfiguration_AddsNoFusionNetworkedState()
+        {
+            const BindingFlags flags = BindingFlags.Instance |
+                BindingFlags.Public | BindingFlags.NonPublic;
+
+            foreach (FieldInfo field in typeof(WeaponDefinition.PresentationConfig).GetFields(flags))
+            {
+                Assert.That(
+                    field.GetCustomAttribute<Fusion.NetworkedAttribute>(),
+                    Is.Null,
+                    field.Name);
+            }
+
+            Assert.That(typeof(PlayerWeaponPresenter).BaseType, Is.SameAs(typeof(MonoBehaviour)));
         }
 
         [Test]
@@ -389,7 +480,7 @@ namespace Tests.EditMode.Presentation
             return new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
         }
 
-        private static void AssertOnlyWeaponSpecificPresenterOverrides(GameObject variantPrefab)
+        private static void AssertNoPresenterOverrides(GameObject variantPrefab)
         {
             PropertyModification[] modifications =
                 PrefabUtility.GetPropertyModifications(variantPrefab);
@@ -401,19 +492,44 @@ namespace Tests.EditMode.Presentation
                     continue;
                 }
 
-                CollectionAssert.Contains(
-                    new[]
-                    {
-                        "_weaponStanceOffset.x",
-                        "_weaponStanceOffset.y",
-                        "_weaponGripPoint.x",
-                        "_weaponGripPoint.y",
-                        "_weaponAngleCorrection"
-                    },
-                    modification.propertyPath,
-                    $"{variantPrefab.name} overrides shared presenter field "
+                Assert.Fail(
+                    $"{variantPrefab.name} overrides neutral presenter field "
                     + $"'{modification.propertyPath}'.");
             }
+        }
+
+        private static void ConfigurePresentation(
+            WeaponDefinition weapon,
+            Vector2 stanceOffset,
+            Vector2 gripPoint,
+            float angleCorrection)
+        {
+            SerializedObject serializedWeapon = new SerializedObject(weapon);
+            serializedWeapon.FindProperty("_presentation._stanceOffset").vector2Value = stanceOffset;
+            serializedWeapon.FindProperty("_presentation._gripPoint").vector2Value = gripPoint;
+            serializedWeapon.FindProperty("_presentation._angleCorrection").floatValue = angleCorrection;
+            serializedWeapon.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void InvokeApplyEquippedDefinition(
+            PlayerWeaponPresenter presenter,
+            LootDefinition definition)
+        {
+            MethodInfo method = typeof(PlayerWeaponPresenter).GetMethod(
+                "ApplyEquippedDefinition",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(presenter, new object[] { definition });
+        }
+
+        private static WeaponDefinition.PresentationConfig ReadAppliedPresentation(
+            PlayerWeaponPresenter presenter)
+        {
+            FieldInfo field = typeof(PlayerWeaponPresenter).GetField(
+                "_equippedPresentation",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (WeaponDefinition.PresentationConfig)field.GetValue(presenter);
         }
     }
 }

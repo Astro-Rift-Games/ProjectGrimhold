@@ -10,7 +10,11 @@ public sealed class WeaponDefinition : ScriptableObject
     [SerializeField]
     private AttackConfig _primaryAttack;
 
+    [SerializeField]
+    private PresentationConfig _presentation;
+
     public AttackConfig PrimaryAttack => _primaryAttack;
+    public PresentationConfig Presentation => _presentation;
 
     public bool TryValidate(out string error)
     {
@@ -32,7 +36,47 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
+        if (!_presentation.TryValidate(out string presentationError))
+        {
+            error = $"Weapon definition '{name}' has invalid presentation: {presentationError}";
+            return false;
+        }
+
         error = null;
         return true;
+    }
+
+    [System.Serializable]
+    public struct PresentationConfig
+    {
+        [SerializeField]
+        private Vector2 _stanceOffset;
+
+        [SerializeField]
+        private Vector2 _gripPoint;
+
+        [SerializeField]
+        private float _angleCorrection;
+
+        public Vector2 StanceOffset => _stanceOffset;
+        public Vector2 GripPoint => _gripPoint;
+        public float AngleCorrection => _angleCorrection;
+
+        public bool TryValidate(out string error)
+        {
+            if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
+                !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
+                !IsFinite(_angleCorrection))
+            {
+                error = "stance offset, grip point and angle correction must be finite.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
+        private static bool IsFinite(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }

@@ -283,11 +283,11 @@ The combat system coordinates gameplay state with the visual presentation layer 
 
 `NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and coordinates the modular visual
 hierarchy under `VisualRoot` alongside the procedural weapon presentation under
-`CombatVisuals/WeaponPivot/WeaponSprite`. Both `NetworkPlayerMelee.prefab`
-and `NetworkPlayerRanged.prefab` inherit that same component and hierarchy. Variants may
-override only weapon-specific presentation data, such as the weapon sprite, stance offset,
-grip point, angular correction, and necessary weapon visual adjustments. They do not
-duplicate the presenter.
+`CombatVisuals/WeaponPivot/WeaponSprite`. `NetworkPlayer.prefab` is the productive Raid
+avatar; the legacy `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` remain only
+as historical references. Weapon-specific stance offset, grip point and angular correction
+belong to `WeaponDefinition.Presentation`, while the sprite remains sourced from the linked
+`LootDefinition`. Player prefabs do not select or override those values.
 
 The character visual structure is modularized under `VisualRoot`:
 * **`VisualRoot`**: Houses the single common `Animator` and `PlayerAnimatorView` for the character.
@@ -296,7 +296,7 @@ The character visual structure is modularized under `VisualRoot`:
 * **`WeaponOrbitAnchor`**: Located as a child under `Body` at local offset `(0, -0.18, 0)`. It provides the torso anchor for the weapon orbit origin. Modular animation clips animate `SpriteRenderer.sprite` and must not animate `Body.transform.localPosition` to avoid displacing the weapon orbit origin.
 
 The inherited attack-driven `PlayerCombatPresenter` is disabled on the base
-composition, so neither weapon variant runs an attack swing or alters the visual
+composition, so equipped weapons do not run an attack swing or alter the visual
 Animator. Weapon visuals remain enabled continuously during idle,
 movement, and ordinary combat presentation rather than appearing only when an
 attack is executed.
@@ -304,7 +304,10 @@ attack is executed.
 `PlayerWeaponPresenter` owns exclusively the procedural weapon presentation
 (`CombatVisuals/WeaponPivot/WeaponSprite`). It reads the existing finite,
 normalized `PlayerMovementNetworkController.FacingDirection` through `IMovementState`. It
-does not capture input, add networked state, or write back to movement or combat.
+resolves the replicated equipped catalog identity through
+`PlayerWeaponEquipmentNetworkController`, then follows `LootDefinition -> WeaponDefinition`
+to obtain the local static sprite and pose configuration. It does not capture input, add
+networked state, or write back to movement or combat.
 Every peer, including proxies, derives the same local presentation pose from the
 replicated facing. Invalid or zero presentation samples retain the presenter's
 last safe direction via `CharacterVisualDirectionResolver.SanitizeFacing`, with
@@ -323,7 +326,7 @@ base WeaponOrbitAnchor (under VisualRoot/Body)
 -> visual direction resolution via CharacterVisualDirectionResolver (S, SE, NE, N, NW, SW)
 -> discrete WeaponDirectionPreset lookup (Orbit, StanceOffset)
 -> discrete WeaponPivot position using bucket canonical facing vector
--> variant weapon stance offset
+-> equipped WeaponDefinition stance offset
 -> continuous 360-degree facing rotation and left-hemisphere reflection
 -> weapon grip aligned to the weapon pivot
 -> bucket-driven sorting order (Front: S, SE, SW; Back: N, NE, NW)
@@ -335,11 +338,11 @@ visual direction bucket, `WeaponPivot.localPosition` remains discrete and anchor
 to the character's hand position for that directional frame, while `WeaponPivot.localRotation`
 smoothly tracks the continuous 360° aim direction.
 
-Visual authoring keeps those responsibilities explicit. `_weaponGripPoint` is serialized in
-the weapon sprite's local units and is overridden on the player variant when its
-weapon art changes. It identifies the point inside the visible handle that must
-coincide with `WeaponPivot`, so grip tuning remains prefab configuration instead of
-a code constant. Weapon stance offsets move the complete weapon pose and
+Visual authoring keeps those responsibilities explicit. The presentation grip point is
+serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the
+point inside the visible handle that must coincide with `WeaponPivot`, so grip tuning
+remains per-weapon static configuration instead of a player-prefab override or code
+constant. Weapon stance offsets move the complete weapon pose and
 must not be used to compensate for an incorrect internal grip.
 
 The continuous weapon rotation does not require adding East or West body clips;
@@ -383,8 +386,7 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
     * `_movementController` -> Reference to `PlayerMovementNetworkController`.
   * **Shared defeat and loot composition**: `PlayerCharacter`, `PlayerLootReceiver`, `PlayerCorpseGenerationController`, `NetworkLootContainer`, `NetworkLootContainerInteractable`, `InteractionPromptMetadata`, and the dedicated interaction trigger share the root `NetworkObject`.
   * The base `NetworkPlayer.prefab` contains inactive/configuration-free `MeleeAttack` and `RangedAttack` strategies, their shared query/projectile dependencies, and `PlayerWeaponEquipmentNetworkController`. It intentionally has no active serialized strategy.
-  * `NetworkPlayerMelee.prefab` adds `MeleeAttack` and assigns it as the active attack source.
-  * `NetworkPlayerRanged.prefab` adds `RangedAttack`, assigns it as the active attack source, and composes its projectile-spawning dependencies.
+  * `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` are legacy variants kept for historical tests and reference only. Productive runtime composition does not select them from equipped weapon identity.
 
 ### 2. Projectile Prefab (e.g. `Arrow.prefab`)
 * Must contain:

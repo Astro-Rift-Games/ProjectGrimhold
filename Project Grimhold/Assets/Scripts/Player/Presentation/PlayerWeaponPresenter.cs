@@ -38,23 +38,15 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     [SerializeField]
     private WeaponDirectionPresetTable _directionPresets;
 
-    [SerializeField]
-    private Vector2 _weaponStanceOffset;
-
-    [Header("Grip and Orientation")]
-    [SerializeField]
-    private Vector2 _weaponGripPoint;
-
-    [SerializeField]
-    private float _weaponAngleCorrection;
-
     private IMovementState _movementState;
     private NetworkBehaviour _movementNetworkBehaviour;
     private LootDefinition _equippedDefinition;
+    private WeaponDefinition.PresentationConfig _equippedPresentation;
     private Vector2 _safeFacing = Vector2.down;
     private Vector3 _weaponPivotBaseScale;
     private Vector3 _weaponVisualBaseScale;
     private bool _hasCapturedBaseState;
+    private bool _hasAppliedEquipment;
 
     private void Awake()
     {
@@ -98,13 +90,25 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
         LootDefinition definition = null;
         _equipmentSource?.TryGetEquippedDefinition(out definition);
-        if (ReferenceEquals(_equippedDefinition, definition))
+        if (_hasAppliedEquipment && ReferenceEquals(_equippedDefinition, definition))
         {
             return;
         }
 
+        ApplyEquippedDefinition(definition);
+    }
+
+    private void ApplyEquippedDefinition(LootDefinition definition)
+    {
+        WeaponDefinition weaponDefinition = definition != null
+            ? definition.WeaponDefinition
+            : null;
         _equippedDefinition = definition;
-        _weaponSpriteRenderer.sprite = definition != null
+        _hasAppliedEquipment = true;
+        _equippedPresentation = weaponDefinition != null
+            ? weaponDefinition.Presentation
+            : default;
+        _weaponSpriteRenderer.sprite = weaponDefinition != null
             ? definition.WorldSprite ?? definition.Icon
             : null;
         _weaponSpriteRenderer.enabled = _weaponSpriteRenderer.sprite != null;
@@ -130,7 +134,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             PlayerWeaponPresentationMath.CalculateAnchorLocalPosition(
                 _weaponOrbitAnchor,
                 _weaponPivot.parent);
-        Vector2 finalStanceOffset = preset.StanceOffset + _weaponStanceOffset;
+        Vector2 finalStanceOffset = preset.StanceOffset + _equippedPresentation.StanceOffset;
         Vector2 weaponPivotPosition = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
             anchorLocalPosition,
             canonicalFacing,
@@ -152,14 +156,17 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         Vector2 weaponPosition =
             PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
-                _weaponGripPoint,
+                _equippedPresentation.GripPoint,
                 new Vector2(_weaponVisualBaseScale.x, _weaponVisualBaseScale.y),
-                _weaponAngleCorrection);
+                _equippedPresentation.AngleCorrection);
         _weaponVisual.localPosition = new Vector3(
             weaponPosition.x,
             weaponPosition.y,
             _weaponVisual.localPosition.z);
-        _weaponVisual.localRotation = Quaternion.Euler(0f, 0f, _weaponAngleCorrection);
+        _weaponVisual.localRotation = Quaternion.Euler(
+            0f,
+            0f,
+            _equippedPresentation.AngleCorrection);
         _weaponVisual.localScale = _weaponVisualBaseScale;
 
         int sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(
