@@ -60,7 +60,5 @@ public static class ApplicationStashServiceBootstrapper
         context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
 
         Object.DontDestroyOnLoad(contextObject);
-
-        Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Initialized process-local {ContextName} successfully.");
     }
 }

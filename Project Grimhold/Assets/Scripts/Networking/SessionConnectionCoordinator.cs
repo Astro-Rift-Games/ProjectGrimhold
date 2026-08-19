@@ -133,7 +133,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             out PendingLoadoutReservation reservation);
         if (reservationResult != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Loadout reservation failed: {reservationResult}.", this);
             return RejectLaunchPreparation(
                 ExpeditionPreparationResult.ReservationFailed,
                 RaidLaunchPreparationResult.Rejected);
