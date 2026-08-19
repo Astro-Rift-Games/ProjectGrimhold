@@ -20,6 +20,78 @@ PrefabInstance:
       propertyPath: m_Name
       value: BoneProjectile
       objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.b
+      value: 0.6666667
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.g
+      value: 0.8235295
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.r
+      value: 0.8941177
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.b
+      value: 0.54509807
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.g
+      value: 0.6901961
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: InitialModule.startColor.minColor.r
+      value: 0.7803922
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.b
+      value: 0.6666667
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.g
+      value: 0.8235295
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key0.r
+      value: 0.8941177
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.b
+      value: 0.6666667
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.g
+      value: 0.8235295
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.maxGradient.key1.r
+      value: 0.8941177
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.b
+      value: 0.54509807
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.g
+      value: 0.6901961
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key0.r
+      value: 0.7803922
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.b
+      value: 0.54509807
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.g
+      value: 0.6901961
+      objectReference: {fileID: 0}
+    - target: {fileID: 2668317439453636572, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
+      propertyPath: ColorModule.gradient.minGradient.key1.r
+      value: 0.7803922
+      objectReference: {fileID: 0}
     - target: {fileID: 3134513433825008769, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_Size.x
       value: 0.5
