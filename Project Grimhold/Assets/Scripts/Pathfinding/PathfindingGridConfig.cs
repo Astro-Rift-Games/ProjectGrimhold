@@ -28,6 +28,15 @@ public sealed class PathfindingGridConfig : ScriptableObject
     [SerializeField, Min(0f)]
     private float _agentRadius = 0.35f;
 
+    [Header("Path Smoothing")]
+    [Tooltip("El radio del CircleCollider2D físico del enemigo actual. Utilizado para validar atajos rectos.")]
+    [SerializeField, Min(0f)]
+    private float _physicalColliderRadius = 0.4f;
+
+    [Tooltip("Margen de seguridad extra añadido al radio del collider para evitar fricción por errores de precisión en esquinas (Recomendado: 0.02).")]
+    [SerializeField, Min(0f)]
+    private float _pathSmoothingSafetyMargin = 0.02f;
+
     [Header("Obstacle Detection")]
     [Tooltip("Layer mask used by OverlapBox during grid construction to classify nodes as obstacles. " +
              "Must match the obstacle layer used by EnemyMovementAIController.")]
@@ -56,4 +65,7 @@ public sealed class PathfindingGridConfig : ScriptableObject
 
     /// <summary>Maximum A* iterations before aborting a path search.</summary>
     public int MaxPathIterations => _maxPathIterations;
+
+    /// <summary>Radio final utilizado por el CircleCast de SmoothPath (cuando está activado).</summary>
+    public float PathSmoothingRadius => _physicalColliderRadius + _pathSmoothingSafetyMargin;
 }
