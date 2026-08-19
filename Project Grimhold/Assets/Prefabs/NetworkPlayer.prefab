@@ -4801,8 +4801,8 @@ ParticleSystemRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -316428783
+  m_SortingLayer: 3
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_RenderMode: 0
@@ -5606,6 +5606,7 @@ GameObject:
   - component: {fileID: 5661482956119050771}
   - component: {fileID: 8194402055814673831}
   - component: {fileID: 8917715298611850575}
+  - component: {fileID: 8492586000137131872}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6359,6 +6360,20 @@ MonoBehaviour:
   _characterBase: {fileID: 729366679366126330}
   _damageParticles: {fileID: 4160012335512890615}
   _healthEpsilon: 0.001
+--- !u!114 &8492586000137131872
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e25c7e2cb15baf240b9e27dcf9b1a9f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ConsumableParticlePresenter
+  _consumableController: {fileID: 8421478658459878521}
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

@@ -77,7 +77,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b2f8bd57375eb5941a068dc70c55a353, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FusionSessionLauncher
   _sessionName: Project Grimhold
   _playerClassCatalog: {fileID: 11400000, guid: 7d62cc447157aaa4c97bc7cdb8855836, type: 2}
@@ -86,6 +86,8 @@ MonoBehaviour:
   _enemyPrefabs:
   - RawGuidValue: 5deca87613df0fa409d98702aec643d4
   - RawGuidValue: 6f7ab2fe6d6193a4ea17a843ff58f94b
+  - RawGuidValue: a559f183b6c025f41bdca5fdd17eda02
+  - RawGuidValue: e67f9247cfa1c6948b390f8306c1a8af
   _matchControllerPrefab:
     RawGuidValue: b91f8c7e96a4d784a92c3bd1a88dfec8
 --- !u!114 &7366466056960329881
@@ -98,7 +100,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e7c724693e9565c44b27546ea8f0eb4b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HubSessionLauncher
   _socialPlayerPrefab:
     RawGuidValue: b58bec13d63beb74ca61349f7d983c36
@@ -112,13 +114,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7002582639387c643bdddf35689d292b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SessionConnectionCoordinator
   _hubLauncher: {fileID: 7366466056960329881}
   _raidLauncher: {fileID: 8121898311945185702}
   _townSceneName: Lobby-Town
   _gameplaySceneName: Gameplay
   _clientJoinRetryDelaySeconds: 0.5
+  _raidClosureHostGraceSeconds: 5
+  _developmentRaidCode: 900001
+  _developmentHostProfileId: 
+  _developmentAdmittedProfileIds: []
+  _developmentLaunchSequence: 1
 --- !u!114 &500828127470096320
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -129,7 +136,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e53a393b887a33a46aed89e814ebf79e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DirectRaidDevelopmentStarter
   _sessionName: Development-Raid
   _selectedBuild: 1
@@ -175,7 +182,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a32f66e916face4cad1f0f0b5f45101, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawning.NetworkSpawnSceneConfiguration
   _spawnPointPolicy: 0
   _spawnGroups: []

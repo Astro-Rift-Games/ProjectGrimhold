@@ -109,6 +109,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 3092695012236597051}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[10]'
+      value: 
+      objectReference: {fileID: 3092695012236597048}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[11]'
       value: 
       objectReference: {fileID: 3092695012236597049}
@@ -120,6 +124,10 @@ PrefabInstance:
       propertyPath: 'NetworkedBehaviours.Array.data[13]'
       value: 
       objectReference: {fileID: 7499254914025396063}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[14]'
+      value: 
+      objectReference: {fileID: 7499254914025396060}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[15]'
       value: 
@@ -278,6 +286,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89ecf39554d337d40bf16888806e485b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConsumableNetworkController
+--- !u!114 &3092695012236597048 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8800000000000000002, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1827f1e266714172a8a494d885355e06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerHudBinder
 --- !u!114 &3092695012236597049 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8800000000000000003, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -399,6 +418,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9929b2493b8d49562370e8135fe23909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionProgressDefeatSource
+--- !u!114 &7499254914025396060 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4100000000000000102, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d440413878da7c24783936e9793afbb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
 --- !u!114 &7499254914025396061 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4100000000000000103, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
