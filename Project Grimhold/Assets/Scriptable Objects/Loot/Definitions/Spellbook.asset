@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: Spellbook
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: spellbook
+  _displayName: Spellbook
+  _description: Placeholder ranged weapon whose silhouette is not blade aligned, used to validate generic weapon presentation.
+  _icon: {fileID: -8844135577414249669, guid: af101e7447dee2b478180f3daf3fe774, type: 3}
+  _worldSprite: {fileID: -8844135577414249669, guid: af101e7447dee2b478180f3daf3fe774, type: 3}
+  _category: 5
+  _rarity: 0
+  _extractionValuePerUnit: 0
+  _sellValuePerUnit: 0
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 11400000, guid: 33a8998fa9a04d6bb4788cd456ed88b1, type: 2}

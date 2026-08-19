@@ -410,6 +410,46 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 * **`MeleeAttackConfig`** asset: Saved as a scriptable object, referenced in the character's `MeleeAttack` component.
 * **`RangedAttackConfig`** asset: Saved as a scriptable object, referenced in `RangedAttack` and `FusionProjectileSpawner` components.
 
+### 5. Placeholder Weapon Content Set
+
+`Assets/Scriptable Objects/Loot/Definitions` ships six placeholder weapons used to validate
+Weapon Equipment, quick slots, switching, world presentation and the Raid HUD icon. They are
+content identities only: they add no attack type, no weapon subtype and no presenter branch.
+Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`, and every
+behavioural difference comes from the reused `AttackConfig` plus the static presentation triple.
+
+Sprites come from `Assets/Placeholder/RPG Items 16x16 Pack 1` at the project pixel-art
+convention (16 PPU, Point filter, no mipmaps, Tight mesh). Sword and staff cells use a
+BottomRight sprite pivot and their art points up-left, which the `-135` angle correction maps
+onto the presenter's `+X` forward axis. Spell-book cells use a Center pivot and an upright,
+non blade-aligned silhouette, so their angle correction is `0`.
+
+| Loot id | Sprite cell | Attack config | Stance offset | Grip point | Angle |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `recovery_sword` | `swords-16x16_0` | `PlayerMeleeAttackConfig` | `(0, 0)` | `(-0.1875, 0.1875)` | `-135` |
+| `longsword` | `swords-16x16_7` | `PlayerMeleeAttackConfig` | `(0, 0)` | `(-0.25, 0.1875)` | `-135` |
+| `greatsword` | `swords-16x16_15` | `PlayerMeleeAttackConfig` | `(0, -0.0625)` | `(-0.125, 0.125)` | `-135` |
+| `wand` | `staves-16x16_37` | `RangePlayerAttackConfig` | `(0, 0)` | `(-0.1875, 0.0625)` | `-135` |
+| `staff` | `staves-16x16_30` | `RangePlayerAttackConfig` | `(0, 0.0625)` | `(-0.1875, 0.125)` | `-135` |
+| `spellbook` | `spell-books-16x16_13` | `RangePlayerAttackConfig` | `(0, 0.125)` | `(0, -0.3125)` | `0` |
+
+Grip points are expressed in weapon-sprite local units as the offset from the sprite pivot to
+the point that must coincide with `WeaponPivot`. The greatsword grips near the end of its
+longer hilt instead of its visual center, the wand grips at the base of its short shaft so it
+stays at the hand, the staff grips low on the shaft so most of its length extends forward, and
+the spellbook grips below its lower edge so the tome is carried above the hand.
+
+The five equippable placeholders are reachable during development through
+`DefaultLootContainerContentTable`, the same route that already exposes Training Sword; loot
+containers and breakable objects roll them. `recovery_sword` stays out of loot distribution and
+out of the merchant stock, and keeps its single source: the Town recovery grant configured by
+`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
+
+`LootDefinitionCatalog` derives network indices by ordinal-sorting loot ids, not by serialized
+list order, so appending content shifts the indices of existing entries by design. This is safe
+because indices are recomputed identically on every peer from the same catalog and are only used
+for in-flight replication; local persistence stores `LootId` strings.
+
 ---
 
 ## Acceptance Criteria Matrix
