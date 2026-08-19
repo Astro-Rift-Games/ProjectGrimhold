@@ -156,9 +156,29 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: 5e578e861e608e243847578f620cc1f8, type: 2}
+    - target: {fileID: 7201000000000000004, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _collider
+      value: 
+      objectReference: {fileID: 8916101597558410055}
+    - target: {fileID: 7397229956843810021, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.25
+      objectReference: {fileID: 0}
     - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _defeatProgressReward
       value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Offset.y
+      value: 0.25
       objectReference: {fileID: 0}
     - target: {fileID: 9200230494000326815, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _animatorViewSource
@@ -318,3 +338,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9929b2493b8d49562370e8135fe23909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionProgressDefeatSource
+--- !u!58 &8916101597558410055 stripped
+CircleCollider2D:
+  m_CorrespondingSourceObject: {fileID: 8810308870645882975, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}

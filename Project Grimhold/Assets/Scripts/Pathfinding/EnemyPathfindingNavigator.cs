@@ -47,6 +47,11 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
     [SerializeField, Min(0.1f)]
     private float _targetMovedThreshold = 1.5f;
 
+    [Header("Path Smoothing")]
+    [Tooltip("If true, the agent will attempt to cut corners using path smoothing. If false, it strictly follows grid nodes.")]
+    [SerializeField]
+    private bool _enablePathSmoothing = false;
+
     // ── Runtime state (not networked; lives on State Authority only) ──────────
 
     private AStarPathSolver _solver;
@@ -248,7 +253,8 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
         _lastRepathTick          = currentTick;
         _lastKnownTargetPosition = targetPos;
 
-        int count = _solver.FindPath(_grid, currentPos, targetPos, _waypointBuffer);
+        int count = _solver.FindPath(_grid, currentPos, targetPos,
+            _enablePathSmoothing, _config.PathSmoothingRadius, _waypointBuffer);
 
         if (count > 0)
         {

@@ -142,7 +142,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _aggroAlertDuration
-      value: 25
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Name
@@ -180,6 +180,14 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: febb6626266da3e48a75971642ea8058, type: 2}
+    - target: {fileID: 7000909841665750595, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7000909841665750595, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: m_Size.y
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7397229956843810021, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_LocalPosition.y
       value: 1
@@ -187,10 +195,6 @@ PrefabInstance:
     - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _defeatProgressReward
       value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 8431511193320609997, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
-      propertyPath: m_Offset.y
-      value: -0.1
       objectReference: {fileID: 0}
     - target: {fileID: 9000000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Size.x

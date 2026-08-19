@@ -351,7 +351,7 @@ GameObject:
   - component: {fileID: 9200230494000326815}
   - component: {fileID: 535414226061721754}
   - component: {fileID: 3133108637029622038}
-  - component: {fileID: 8431511193320609997}
+  - component: {fileID: 8810308870645882975}
   - component: {fileID: 7201000000000000002}
   - component: {fileID: 3593981370069743005}
   - component: {fileID: 7201000000000000001}
@@ -422,7 +422,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 7201000000000000002}
-  _collider: {fileID: 8431511193320609997}
+  _collider: {fileID: 8810308870645882975}
   _collisionMask:
     serializedVersion: 2
     m_Bits: 64
@@ -444,11 +444,12 @@ MonoBehaviour:
   _pursuitSpeedMultiplier: 2
   _defaultFacingDirection: {x: 0, y: -1}
   _waypointReachRadius: 0.5
+  _waypointWaitTime: 1
   _detectionRange: 6
   _disengageRange: 10
   _pursuitLostGraceTicks: 10
   _attackRange: 8
-  _enableObstacleAvoidance: 1
+  _enableObstacleAvoidance: 0
   _obstacleLayer:
     serializedVersion: 2
     m_Bits: 2048
@@ -460,6 +461,8 @@ MonoBehaviour:
   _playerLayer:
     serializedVersion: 2
     m_Bits: 128
+  _knockbackFriction: 10
+  _aggroAlertDuration: 5
   _pathfindingNavigator: {fileID: 4177264610414068062}
   _movementMotor: {fileID: 7201000000000000004}
   _IsControlEnabled:
@@ -612,7 +615,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
   _colliderBufferSize: 64
---- !u!58 &8431511193320609997
+--- !u!58 &8810308870645882975
 CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -646,7 +649,7 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0.25}
+  m_Offset: {x: 0, y: 0}
   m_Radius: 0.4
 --- !u!50 &7201000000000000002
 Rigidbody2D:
@@ -857,6 +860,7 @@ MonoBehaviour:
   _repathIntervalSeconds: 0.5
   _waypointReachRadius: 0.3
   _targetMovedThreshold: 1.5
+  _enablePathSmoothing: 0
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
