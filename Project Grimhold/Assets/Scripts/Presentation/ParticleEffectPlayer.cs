@@ -32,15 +32,16 @@ public static class ParticleEffectPlayer
     /// </summary>
     /// <param name="prefab">Prefab de ParticleSystem a instanciar. Puede ser null.</param>
     /// <param name="position">Posición global donde emitir las partículas.</param>
+    /// <param name="rotation">Rotación de las partículas instanciadas. Por defecto es identity.</param>
     /// <returns>El GameObject instanciado, o null si el prefab era null.</returns>
-    public static GameObject InstantiateAndPlay(ParticleSystem prefab, Vector2 position)
+    public static GameObject InstantiateAndPlay(ParticleSystem prefab, Vector2 position, Quaternion? rotation = null)
     {
         if (prefab == null)
         {
             return null;
         }
 
-        ParticleSystem instance = Object.Instantiate(prefab, position, Quaternion.identity);
+        ParticleSystem instance = Object.Instantiate(prefab, position, rotation ?? Quaternion.identity);
         instance.Play();
         return instance.gameObject;
     }

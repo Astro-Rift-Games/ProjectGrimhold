@@ -47,6 +47,9 @@ TagManager:
   - name: Characters
     uniqueID: 3689672217
     locked: 0
+  - name: VFX
+    uniqueID: 3978538513
+    locked: 0
   m_RenderingLayers:
   - Default
   m_MigratedRenderPipelines: []
