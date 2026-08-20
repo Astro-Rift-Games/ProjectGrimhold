@@ -4,8 +4,9 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Owns exactly two authoritative Raid weapon slots and derives combat exclusively
-/// from the replicated active slot.
+/// Owns the six authoritative Raid Equipment slots — two weapon quick slots plus Helmet, Armor,
+/// Gloves and Boots — and derives combat exclusively from the replicated active weapon slot.
+/// Armor slots hold Equipment state only and never reach the combat strategies.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-9)]
@@ -27,6 +28,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
     [Networked] private int WeaponSlot1CatalogIndexPlusOne { get; set; }
     [Networked] private int WeaponSlot2CatalogIndexPlusOne { get; set; }
+    [Networked] private int HelmetCatalogIndexPlusOne { get; set; }
+    [Networked] private int ArmorCatalogIndexPlusOne { get; set; }
+    [Networked] private int GlovesCatalogIndexPlusOne { get; set; }
+    [Networked] private int BootsCatalogIndexPlusOne { get; set; }
     [Networked] private int ActiveWeaponSlotValue { get; set; }
     [Networked] private NetworkButtons PreviousButtons { get; set; }
     [Networked] public int EquipmentRevision { get; private set; }
@@ -36,14 +41,21 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     private bool _hasPendingAuthorityRequest;
     private EquipmentRequestKind _pendingRequestKind;
     private int _pendingCatalogIndex;
-    private WeaponSlot _pendingSlot;
+    private EquipmentSlot _pendingSlot;
     private int _pendingRequestSequence;
     private int _nextRequestSequence;
     private int _appliedSlot1 = int.MinValue;
     private int _appliedSlot2 = int.MinValue;
     private int _appliedActiveSlot = int.MinValue;
     private bool _initializedBeforeSpawn;
-    private readonly Queue<WeaponEquipResult> _pendingPresentationResults = new();
+    private readonly Queue<EquipmentOperationResult> _pendingPresentationResults = new();
+
+    /// <summary>Every Equipment slot in a stable presentation order.</summary>
+    public static readonly EquipmentSlot[] AllSlots =
+    {
+        EquipmentSlot.WeaponSlot1, EquipmentSlot.WeaponSlot2, EquipmentSlot.Helmet,
+        EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots
+    };
 
     /// <summary>
     /// Replicated state may only be read once Fusion has spawned the object. Presentation
@@ -55,22 +67,45 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     public bool HasEquippedWeapon => HasAnyWeapon;
     public bool HasAnyWeapon => IsEquipmentReadable &&
         (WeaponSlot1CatalogIndexPlusOne > 0 || WeaponSlot2CatalogIndexPlusOne > 0);
-    public bool HasFreeSlot => IsEquipmentReadable &&
-        (WeaponSlot1CatalogIndexPlusOne == 0 || WeaponSlot2CatalogIndexPlusOne == 0);
-    public WeaponSlot ActiveWeaponSlot => IsEquipmentReadable && IsValidSlotValue(ActiveWeaponSlotValue)
-        ? (WeaponSlot)ActiveWeaponSlotValue
-        : WeaponSlot.None;
+
+    /// <summary>True while any of the six Equipment slots still owns a unit.</summary>
+    public bool HasAnyEquipment
+    {
+        get
+        {
+            if (!IsEquipmentReadable)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < AllSlots.Length; index++)
+            {
+                if (GetCatalogIndexPlusOne(AllSlots[index]) > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public WeaponSlot ActiveWeaponSlot =>
+        IsEquipmentReadable && ActiveWeaponSlotValue >= (int)WeaponSlot.None &&
+        ActiveWeaponSlotValue <= (int)WeaponSlot.Slot2
+            ? (WeaponSlot)ActiveWeaponSlotValue
+            : WeaponSlot.None;
     public int ObservedEquipmentRevision => IsEquipmentReadable ? EquipmentRevision : 0;
     public bool HasRequestInFlight { get; private set; }
 
-    public event Action<WeaponEquipResult> EquipRequestResolved;
+    public event Action<EquipmentOperationResult> EquipRequestResolved;
 
     private void Awake() => CacheDependencies();
 
     public override void Spawned()
     {
         CacheDependencies();
-        if (!ValidateDependencies())
+        if (!ValidateEquipmentDependencies() || !ValidateWeaponDependencies())
         {
             return;
         }
@@ -78,8 +113,11 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         _matchController = Runner.GetComponent<NetworkMatchController>();
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this) && !_initializedBeforeSpawn)
         {
-            WeaponSlot1CatalogIndexPlusOne = 0;
-            WeaponSlot2CatalogIndexPlusOne = 0;
+            for (int index = 0; index < AllSlots.Length; index++)
+            {
+                SetCatalogIndexPlusOne(AllSlots[index], 0);
+            }
+
             ActiveWeaponSlotValue = (int)WeaponSlot.None;
             _combatController.TryClearActiveAttack();
         }
@@ -97,7 +135,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return;
         }
 
-        if (HasReplicatedEquipmentChanged())
+        if (HasReplicatedWeaponStateChanged())
         {
             ApplyReplicatedActiveWeapon();
         }
@@ -110,11 +148,11 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         EquipmentRequestKind requestKind = _pendingRequestKind;
         int catalogIndex = _pendingCatalogIndex;
-        WeaponSlot slot = _pendingSlot;
+        EquipmentSlot slot = _pendingSlot;
         int requestSequence = _pendingRequestSequence;
         _hasPendingAuthorityRequest = false;
 
-        WeaponEquipResult result = requestKind == EquipmentRequestKind.Equip
+        EquipmentOperationResult result = requestKind == EquipmentRequestKind.Equip
             ? TryEquipAuthority(catalogIndex)
             : TryUnequipAuthority(slot);
         RPC_ConfirmRequest(requestSequence, (int)result);
@@ -135,20 +173,28 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         _hasPendingAuthorityRequest = false;
     }
 
+    /// <summary>
+    /// Reports whether the destination slot this loot would target is currently free.
+    /// Mirrors the authoritative slot resolution so the UI does not offer impossible intentions.
+    /// </summary>
+    public bool CanEquip(LootId lootId) =>
+        TryResolveTargetSlot(lootId, out _, out _) != EquipmentSlot.None;
+
     public bool TryRequestEquip(LootId lootId)
     {
-        if (!HasInputAuthority || HasRequestInFlight || !HasFreeSlot ||
-            _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
+        if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight ||
+            TryResolveTargetSlot(lootId, out int catalogIndex, out _) == EquipmentSlot.None)
         {
             return false;
         }
 
-        return TrySendRequest(EquipmentRequestKind.Equip, catalogIndex, WeaponSlot.None);
+        return TrySendRequest(EquipmentRequestKind.Equip, catalogIndex, EquipmentSlot.None);
     }
 
-    public bool TryRequestUnequip(WeaponSlot slot)
+    public bool TryRequestUnequip(EquipmentSlot slot)
     {
-        if (!HasInputAuthority || HasRequestInFlight || !IsWeaponSlot(slot) || !IsSlotOccupied(slot))
+        if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight ||
+            !EquipmentSlotRules.IsEquipmentSlot(slot) || !IsSlotOccupied(slot))
         {
             return false;
         }
@@ -156,14 +202,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return TrySendRequest(EquipmentRequestKind.Unequip, -1, slot);
     }
 
-    public bool IsSlotOccupied(WeaponSlot slot) => GetCatalogIndexPlusOne(slot) > 0;
+    public bool TryRequestUnequip(WeaponSlot slot) =>
+        TryRequestUnequip(EquipmentSlotRules.FromWeaponSlot(slot));
 
-    public bool TryGetSlotLoot(WeaponSlot slot, out LootEntry entry)
+    public bool IsSlotOccupied(EquipmentSlot slot) => GetCatalogIndexPlusOne(slot) > 0;
+
+    public bool IsSlotOccupied(WeaponSlot slot) =>
+        IsSlotOccupied(EquipmentSlotRules.FromWeaponSlot(slot));
+
+    public bool TryGetSlotLoot(EquipmentSlot slot, out LootEntry entry)
     {
         entry = default;
-        int catalogIndex = GetCatalogIndexPlusOne(slot) - 1;
-        if (catalogIndex < 0 || _lootCatalog == null ||
-            !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition))
+        if (!TryGetSlotDefinition(slot, out LootDefinition definition))
         {
             return false;
         }
@@ -172,13 +222,19 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return true;
     }
 
-    public bool TryGetSlotDefinition(WeaponSlot slot, out LootDefinition definition)
+    public bool TryGetSlotLoot(WeaponSlot slot, out LootEntry entry) =>
+        TryGetSlotLoot(EquipmentSlotRules.FromWeaponSlot(slot), out entry);
+
+    public bool TryGetSlotDefinition(EquipmentSlot slot, out LootDefinition definition)
     {
         definition = null;
         int catalogIndex = GetCatalogIndexPlusOne(slot) - 1;
         return catalogIndex >= 0 && _lootCatalog != null &&
             _lootCatalog.TryGetByIndex(catalogIndex, out definition) && definition != null;
     }
+
+    public bool TryGetSlotDefinition(WeaponSlot slot, out LootDefinition definition) =>
+        TryGetSlotDefinition(EquipmentSlotRules.FromWeaponSlot(slot), out definition);
 
     /// <summary>Compatibility query whose result is always the active weapon.</summary>
     public bool TryGetEquippedLoot(out LootEntry entry) => TryGetSlotLoot(ActiveWeaponSlot, out entry);
@@ -198,7 +254,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         out string error)
     {
         error = null;
-        if (!HasStateAuthority || reservedLoadout == null || _lootReceiver == null)
+        if (!HasStateAuthority || reservedLoadout == null || _lootReceiver == null || _lootCatalog == null)
         {
             error = "Prepared weapon initialization requires State Authority and loadout dependencies.";
             return false;
@@ -250,24 +306,41 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Verifies every Equipment slot against the expected expedition ownership snapshot.
+    /// Parameters are named per slot so callers cannot mismatch positional entries.
+    /// </summary>
     public bool TryMatchesExactEquipment(
-        LootEntry? expectedSlot1,
-        LootEntry? expectedSlot2,
+        LootEntry? expectedWeaponSlot1,
+        LootEntry? expectedWeaponSlot2,
+        LootEntry? expectedHelmet,
+        LootEntry? expectedArmor,
+        LootEntry? expectedGloves,
+        LootEntry? expectedBoots,
         out string error)
     {
         error = null;
-        if (MatchesSlot(WeaponSlot.Slot1, expectedSlot1) && MatchesSlot(WeaponSlot.Slot2, expectedSlot2))
+        if (MatchesSlot(EquipmentSlot.WeaponSlot1, expectedWeaponSlot1) &&
+            MatchesSlot(EquipmentSlot.WeaponSlot2, expectedWeaponSlot2) &&
+            MatchesSlot(EquipmentSlot.Helmet, expectedHelmet) &&
+            MatchesSlot(EquipmentSlot.Armor, expectedArmor) &&
+            MatchesSlot(EquipmentSlot.Gloves, expectedGloves) &&
+            MatchesSlot(EquipmentSlot.Boots, expectedBoots))
         {
             return true;
         }
 
-        error = "Weapon Equipment no longer matches the expected snapshot.";
+        error = "Equipment no longer matches the expected snapshot.";
         return false;
     }
 
     public bool TryClearExactEquipment(
-        LootEntry? expectedSlot1,
-        LootEntry? expectedSlot2,
+        LootEntry? expectedWeaponSlot1,
+        LootEntry? expectedWeaponSlot2,
+        LootEntry? expectedHelmet,
+        LootEntry? expectedArmor,
+        LootEntry? expectedGloves,
+        LootEntry? expectedBoots,
         out string error)
     {
         if (!HasStateAuthority)
@@ -276,13 +349,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return false;
         }
 
-        if (!TryMatchesExactEquipment(expectedSlot1, expectedSlot2, out error))
+        if (!TryMatchesExactEquipment(
+                expectedWeaponSlot1, expectedWeaponSlot2, expectedHelmet,
+                expectedArmor, expectedGloves, expectedBoots, out error))
         {
             return false;
         }
 
-        WeaponSlot1CatalogIndexPlusOne = 0;
-        WeaponSlot2CatalogIndexPlusOne = 0;
+        for (int index = 0; index < AllSlots.Length; index++)
+        {
+            SetCatalogIndexPlusOne(AllSlots[index], 0);
+        }
+
         ActiveWeaponSlotValue = (int)WeaponSlot.None;
         EquipmentRevision++;
         ApplyReplicatedActiveWeapon();
@@ -305,13 +383,15 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         if (_hasPendingAuthorityRequest || !IsValidRequestKind(requestKind))
         {
-            RPC_ConfirmRequest(requestSequence, (int)WeaponEquipResult.InvalidRequest);
+            RPC_ConfirmRequest(requestSequence, (int)EquipmentOperationResult.InvalidRequest);
             return default;
         }
 
         _pendingRequestKind = (EquipmentRequestKind)requestKind;
         _pendingCatalogIndex = catalogIndex;
-        _pendingSlot = IsValidSlotValue(slotValue) ? (WeaponSlot)slotValue : WeaponSlot.None;
+        _pendingSlot = EquipmentSlotRules.IsValidSlotValue(slotValue)
+            ? (EquipmentSlot)slotValue
+            : EquipmentSlot.None;
         _pendingRequestSequence = requestSequence;
         _hasPendingAuthorityRequest = true;
         return default;
@@ -326,10 +406,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
 
         HasRequestInFlight = false;
-        _pendingPresentationResults.Enqueue((WeaponEquipResult)resultValue);
+        _pendingPresentationResults.Enqueue((EquipmentOperationResult)resultValue);
     }
 
-    private bool TrySendRequest(EquipmentRequestKind kind, int catalogIndex, WeaponSlot slot)
+    private bool TrySendRequest(EquipmentRequestKind kind, int catalogIndex, EquipmentSlot slot)
     {
         int requestSequence = ++_nextRequestSequence;
         RpcInvokeInfo invokeInfo = RPC_RequestEquipment(
@@ -346,65 +426,85 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return true;
     }
 
-    private WeaponEquipResult TryEquipAuthority(int catalogIndex)
+    private EquipmentOperationResult TryEquipAuthority(int catalogIndex)
     {
-        if (!ValidateDependencies()) return WeaponEquipResult.DependenciesUnavailable;
-        if (!CanMutateEquipment()) return WeaponEquipResult.PlayerUnavailable;
-        WeaponSlot freeSlot = WeaponSlot1CatalogIndexPlusOne == 0
-            ? WeaponSlot.Slot1
-            : WeaponSlot2CatalogIndexPlusOne == 0 ? WeaponSlot.Slot2 : WeaponSlot.None;
-        if (freeSlot == WeaponSlot.None) return WeaponEquipResult.NoFreeWeaponSlot;
+        if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
+        if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
 
-        if (!TryResolveValidWeapon(catalogIndex, out LootDefinition definition, out AttackConfig attackConfig))
+        if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null ||
+            !EquipmentSlotRules.IsEquippableCategory(definition.Category))
         {
-            return WeaponEquipResult.InvalidWeapon;
+            return EquipmentOperationResult.InvalidEquipment;
         }
 
-        bool becomesActive = ActiveWeaponSlot == WeaponSlot.None;
-        if (becomesActive && !TryConfigureStrategy(attackConfig, out _))
+        EquipmentSlot targetSlot = ResolveFreeTargetSlot(definition.Category);
+        if (targetSlot == EquipmentSlot.None)
         {
-            return WeaponEquipResult.InvalidWeapon;
+            return definition.Category == LootCategory.Weapon
+                ? EquipmentOperationResult.NoFreeWeaponSlot
+                : EquipmentOperationResult.SlotOccupied;
+        }
+
+        // Only weapons reach the combat strategies. Armor never depends on them, so their
+        // dependencies are validated exclusively on this branch.
+        bool becomesActive = false;
+        if (EquipmentSlotRules.IsWeaponSlot(targetSlot))
+        {
+            if (!ValidateWeaponDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
+            if (!TryResolveValidWeapon(catalogIndex, out _, out AttackConfig attackConfig))
+            {
+                return EquipmentOperationResult.InvalidEquipment;
+            }
+
+            becomesActive = ActiveWeaponSlot == WeaponSlot.None;
+            if (becomesActive && !TryConfigureStrategy(attackConfig, out _))
+            {
+                return EquipmentOperationResult.InvalidEquipment;
+            }
         }
 
         LootTransferRequest extraction = CreateInventoryTransfer(definition.LootId);
         if (_lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None)
         {
-            return WeaponEquipResult.WeaponNotOwned;
+            return EquipmentOperationResult.ItemNotOwned;
         }
 
         _lootReceiver.CommitExtraction(extraction);
-        SetCatalogIndexPlusOne(freeSlot, catalogIndex + 1);
+        SetCatalogIndexPlusOne(targetSlot, catalogIndex + 1);
+        EquipmentRevision++;
         if (becomesActive)
         {
-            ActiveWeaponSlotValue = (int)freeSlot;
+            ActiveWeaponSlotValue = (int)EquipmentSlotRules.ToWeaponSlot(targetSlot);
             ApplyReplicatedActiveWeapon();
         }
         else
         {
             CaptureAppliedState();
         }
-        EquipmentRevision++;
 
-        return WeaponEquipResult.Succeeded;
+        return EquipmentOperationResult.Succeeded;
     }
 
-    private WeaponEquipResult TryUnequipAuthority(WeaponSlot slot)
+    private EquipmentOperationResult TryUnequipAuthority(EquipmentSlot slot)
     {
-        if (!ValidateDependencies()) return WeaponEquipResult.DependenciesUnavailable;
-        if (!CanMutateEquipment()) return WeaponEquipResult.PlayerUnavailable;
-        if (!TryGetSlotLoot(slot, out LootEntry equipped)) return WeaponEquipResult.EmptyWeaponSlot;
+        if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
+        if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        if (!EquipmentSlotRules.IsEquipmentSlot(slot)) return EquipmentOperationResult.InvalidRequest;
+        if (!TryGetSlotLoot(slot, out LootEntry equipped)) return EquipmentOperationResult.EmptySlot;
 
         LootTransferRequest receive = CreateInventoryTransfer(equipped.LootId);
         if (_lootReceiver.ValidateReceive(receive) != LootTransferFailureReason.None)
         {
-            return WeaponEquipResult.InventoryFull;
+            return EquipmentOperationResult.InventoryFull;
         }
 
         _lootReceiver.CommitReceive(receive);
         SetCatalogIndexPlusOne(slot, 0);
-        if (ActiveWeaponSlot == slot)
+        EquipmentRevision++;
+        if (EquipmentSlotRules.IsWeaponSlot(slot) &&
+            ActiveWeaponSlot == EquipmentSlotRules.ToWeaponSlot(slot))
         {
-            WeaponSlot other = slot == WeaponSlot.Slot1 ? WeaponSlot.Slot2 : WeaponSlot.Slot1;
+            WeaponSlot other = slot == EquipmentSlot.WeaponSlot1 ? WeaponSlot.Slot2 : WeaponSlot.Slot1;
             ActiveWeaponSlotValue = IsSlotOccupied(other) ? (int)other : (int)WeaponSlot.None;
             ApplyReplicatedActiveWeapon();
         }
@@ -412,9 +512,38 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         {
             CaptureAppliedState();
         }
-        EquipmentRevision++;
 
-        return WeaponEquipResult.Succeeded;
+        return EquipmentOperationResult.Succeeded;
+    }
+
+    /// <summary>
+    /// Resolves the slot this loot would occupy, or <see cref="EquipmentSlot.None"/> when the
+    /// category is not equippable or its destination is already taken.
+    /// </summary>
+    private EquipmentSlot ResolveFreeTargetSlot(LootCategory category)
+    {
+        if (category == LootCategory.Weapon)
+        {
+            return !IsSlotOccupied(EquipmentSlot.WeaponSlot1)
+                ? EquipmentSlot.WeaponSlot1
+                : !IsSlotOccupied(EquipmentSlot.WeaponSlot2) ? EquipmentSlot.WeaponSlot2 : EquipmentSlot.None;
+        }
+
+        EquipmentSlot fixedSlot = EquipmentSlotRules.ResolveFixedSlot(category);
+        return fixedSlot != EquipmentSlot.None && !IsSlotOccupied(fixedSlot)
+            ? fixedSlot
+            : EquipmentSlot.None;
+    }
+
+    private EquipmentSlot TryResolveTargetSlot(LootId lootId, out int catalogIndex, out LootDefinition definition)
+    {
+        definition = null;
+        catalogIndex = -1;
+        return IsEquipmentReadable && _lootCatalog != null &&
+            _lootCatalog.TryGetIndex(lootId, out catalogIndex) &&
+            _lootCatalog.TryGetByIndex(catalogIndex, out definition) && definition != null
+            ? ResolveFreeTargetSlot(definition.Category)
+            : EquipmentSlot.None;
     }
 
     private void ProcessWeaponSelectionInput()
@@ -460,7 +589,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return;
         }
 
-        int catalogIndex = GetCatalogIndexPlusOne(activeSlot) - 1;
+        int catalogIndex = GetCatalogIndexPlusOne(EquipmentSlotRules.FromWeaponSlot(activeSlot)) - 1;
         if (!TryResolveValidWeapon(catalogIndex, out _, out AttackConfig attackConfig) ||
             !TryConfigureStrategy(attackConfig, out MonoBehaviour attackSource))
         {
@@ -588,28 +717,43 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     private bool CanMutateEquipment() => _character != null && _character.IsAlive &&
         (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress);
 
-    private bool MatchesSlot(WeaponSlot slot, LootEntry? expected)
+    private bool MatchesSlot(EquipmentSlot slot, LootEntry? expected)
     {
         bool hasCurrent = TryGetSlotLoot(slot, out LootEntry current);
         return expected.HasValue ? hasCurrent && current == expected.Value : !hasCurrent;
     }
 
-    private int GetCatalogIndexPlusOne(WeaponSlot slot) => IsEquipmentReadable
+    private int GetCatalogIndexPlusOne(EquipmentSlot slot) => IsEquipmentReadable
         ? slot switch
         {
-            WeaponSlot.Slot1 => WeaponSlot1CatalogIndexPlusOne,
-            WeaponSlot.Slot2 => WeaponSlot2CatalogIndexPlusOne,
+            EquipmentSlot.WeaponSlot1 => WeaponSlot1CatalogIndexPlusOne,
+            EquipmentSlot.WeaponSlot2 => WeaponSlot2CatalogIndexPlusOne,
+            EquipmentSlot.Helmet => HelmetCatalogIndexPlusOne,
+            EquipmentSlot.Armor => ArmorCatalogIndexPlusOne,
+            EquipmentSlot.Gloves => GlovesCatalogIndexPlusOne,
+            EquipmentSlot.Boots => BootsCatalogIndexPlusOne,
             _ => 0
         }
         : 0;
 
-    private void SetCatalogIndexPlusOne(WeaponSlot slot, int value)
+    private void SetCatalogIndexPlusOne(EquipmentSlot slot, int value)
     {
-        if (slot == WeaponSlot.Slot1) WeaponSlot1CatalogIndexPlusOne = value;
-        else if (slot == WeaponSlot.Slot2) WeaponSlot2CatalogIndexPlusOne = value;
+        switch (slot)
+        {
+            case EquipmentSlot.WeaponSlot1: WeaponSlot1CatalogIndexPlusOne = value; break;
+            case EquipmentSlot.WeaponSlot2: WeaponSlot2CatalogIndexPlusOne = value; break;
+            case EquipmentSlot.Helmet: HelmetCatalogIndexPlusOne = value; break;
+            case EquipmentSlot.Armor: ArmorCatalogIndexPlusOne = value; break;
+            case EquipmentSlot.Gloves: GlovesCatalogIndexPlusOne = value; break;
+            case EquipmentSlot.Boots: BootsCatalogIndexPlusOne = value; break;
+        }
     }
 
-    private bool HasReplicatedEquipmentChanged() =>
+    /// <summary>
+    /// Observes only the weapon state that can rebuild the combat strategy. Armor slots are
+    /// deliberately excluded so equipping a piece never reconfigures the active attack.
+    /// </summary>
+    private bool HasReplicatedWeaponStateChanged() =>
         _appliedSlot1 != WeaponSlot1CatalogIndexPlusOne ||
         _appliedSlot2 != WeaponSlot2CatalogIndexPlusOne ||
         _appliedActiveSlot != ActiveWeaponSlotValue;
@@ -627,27 +771,36 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         _character ??= GetComponent<ICharacter>();
     }
 
-    private bool ValidateDependencies()
+    /// <summary>Dependencies every Equipment operation needs, weapons and armor alike.</summary>
+    private bool ValidateEquipmentDependencies()
     {
-        if (_lootCatalog != null && _lootReceiver != null && _character != null &&
-            _combatController != null && _meleeAttack != null && _rangedAttack != null &&
+        if (_lootCatalog != null && _lootReceiver != null && _character != null)
+        {
+            return true;
+        }
+
+        Debug.LogError($"{nameof(PlayerWeaponEquipmentNetworkController)} has missing Equipment dependencies.", this);
+        return false;
+    }
+
+    /// <summary>
+    /// Dependencies needed only to resolve, activate or rebuild a weapon. Equipping armor must
+    /// never fail because a combat strategy is unassigned.
+    /// </summary>
+    private bool ValidateWeaponDependencies()
+    {
+        if (_combatController != null && _meleeAttack != null && _rangedAttack != null &&
             _projectileSpawner != null)
         {
             return true;
         }
 
-        Debug.LogError($"{nameof(PlayerWeaponEquipmentNetworkController)} has missing dependencies.", this);
+        Debug.LogError($"{nameof(PlayerWeaponEquipmentNetworkController)} has missing weapon dependencies.", this);
         return false;
     }
 
-    private static bool IsWeaponSlot(WeaponSlot slot) =>
-        slot == WeaponSlot.Slot1 || slot == WeaponSlot.Slot2;
-
-    private static bool IsValidSlotValue(int value) =>
-        value >= (int)WeaponSlot.None && value <= (int)WeaponSlot.Slot2;
-
     // The RPC transports the kind as int while the enum is byte-backed, so Enum.IsDefined would
-    // reject the boxed value outright. The range check mirrors IsValidSlotValue.
+    // reject the boxed value outright. The range check mirrors EquipmentSlotRules.IsValidSlotValue.
     private static bool IsValidRequestKind(int value) =>
         value == (int)EquipmentRequestKind.Equip || value == (int)EquipmentRequestKind.Unequip;
 

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: PlaceholderArmor
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: placeholder_armor
+  _displayName: Placeholder Armor
+  _description: Placeholder armor piece for the Armor slot.
+  _icon: {fileID: -239046266809176683, guid: 03e381ec7f7a1ae479b66ccc68d3739c, type: 3}
+  _worldSprite: {fileID: -239046266809176683, guid: 03e381ec7f7a1ae479b66ccc68d3739c, type: 3}
+  _category: 7
+  _rarity: 0
+  _extractionValuePerUnit: 10
+  _sellValuePerUnit: 5
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 0}

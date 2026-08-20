@@ -15,8 +15,9 @@ public sealed class RaidLootPanelView : MonoBehaviour
     [SerializeField]
     private RectTransform _slotContainer;
 
+    [Tooltip("Every slot this panel can ever show, authored in the prefab. Nothing is created at runtime.")]
     [SerializeField]
-    private RaidInventorySlotView _slotPrefab;
+    private RaidInventorySlotView[] _authoredSlots = Array.Empty<RaidInventorySlotView>();
 
     [SerializeField]
     private TMP_Text _totalValueText;
@@ -42,9 +43,12 @@ public sealed class RaidLootPanelView : MonoBehaviour
     [SerializeField, Min(1f)]
     private float _capacityPulseScale = 1.03f;
 
+    /// <summary>The authored slots currently shown, always a prefix of <c>_authoredSlots</c>.</summary>
     private readonly List<RaidInventorySlotView> _slots = new();
     private float _capacityPulseRemaining;
     private Vector3 _basePanelScale = Vector3.one;
+    private bool _hasBoundAuthoredSlots;
+    private bool _hasReportedSlotShortage;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, Vector2> ContextRequested;
@@ -94,32 +98,80 @@ public sealed class RaidLootPanelView : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows the first <paramref name="slotCount"/> authored slots and hides the rest. The pool is
+    /// authored in the prefab, so a request larger than the pool fails instead of creating a slot.
+    /// </summary>
     public bool EnsureSlotCount(int slotCount)
     {
-        if (slotCount <= 0 || _slotContainer == null || _slotPrefab == null)
+        if (slotCount <= 0 || !BindAuthoredSlots())
         {
             return false;
         }
 
-        while (_slots.Count < slotCount)
+        if (slotCount > _authoredSlots.Length)
         {
-            RaidInventorySlotView slot = Instantiate(_slotPrefab, _slotContainer);
-            slot.SelectionRequested += OnSlotSelectionRequested;
-            slot.ContextRequested += OnSlotContextRequested;
-            slot.Clear();
-            _slots.Add(slot);
+            if (!_hasReportedSlotShortage)
+            {
+                _hasReportedSlotShortage = true;
+                Debug.LogError(
+                    $"{name} needs {slotCount} slots but only {_authoredSlots.Length} are authored in the prefab.",
+                    this);
+            }
+
+            return false;
         }
 
-        while (_slots.Count > slotCount)
+        _slots.Clear();
+        for (int index = 0; index < _authoredSlots.Length; index++)
         {
-            int last = _slots.Count - 1;
-            RaidInventorySlotView slot = _slots[last];
-            slot.SelectionRequested -= OnSlotSelectionRequested;
-            slot.ContextRequested -= OnSlotContextRequested;
-            _slots.RemoveAt(last);
-            Destroy(slot.gameObject);
+            RaidInventorySlotView slot = _authoredSlots[index];
+            bool used = index < slotCount;
+            if (slot.gameObject.activeSelf != used)
+            {
+                slot.gameObject.SetActive(used);
+            }
+
+            if (used)
+            {
+                _slots.Add(slot);
+            }
         }
 
+        return true;
+    }
+
+    /// <summary>Subscribes the authored slots exactly once.</summary>
+    private bool BindAuthoredSlots()
+    {
+        if (_hasBoundAuthoredSlots)
+        {
+            return true;
+        }
+
+        if (_authoredSlots == null || _authoredSlots.Length == 0)
+        {
+            Debug.LogError($"{name} has no authored slots assigned.", this);
+            return false;
+        }
+
+        for (int index = 0; index < _authoredSlots.Length; index++)
+        {
+            if (_authoredSlots[index] == null)
+            {
+                Debug.LogError($"{name} has an unassigned authored slot at index {index}.", this);
+                return false;
+            }
+        }
+
+        for (int index = 0; index < _authoredSlots.Length; index++)
+        {
+            _authoredSlots[index].SelectionRequested += OnSlotSelectionRequested;
+            _authoredSlots[index].ContextRequested += OnSlotContextRequested;
+            _authoredSlots[index].Clear();
+        }
+
+        _hasBoundAuthoredSlots = true;
         return true;
     }
 
@@ -251,12 +303,17 @@ public sealed class RaidLootPanelView : MonoBehaviour
     private void OnDestroy()
     {
         HideCapacityRejection();
-        for (int i = 0; i < _slots.Count; i++)
+        if (_authoredSlots == null)
         {
-            if (_slots[i] != null)
+            return;
+        }
+
+        for (int i = 0; i < _authoredSlots.Length; i++)
+        {
+            if (_authoredSlots[i] != null)
             {
-                _slots[i].SelectionRequested -= OnSlotSelectionRequested;
-                _slots[i].ContextRequested -= OnSlotContextRequested;
+                _authoredSlots[i].SelectionRequested -= OnSlotSelectionRequested;
+                _authoredSlots[i].ContextRequested -= OnSlotContextRequested;
             }
         }
     }

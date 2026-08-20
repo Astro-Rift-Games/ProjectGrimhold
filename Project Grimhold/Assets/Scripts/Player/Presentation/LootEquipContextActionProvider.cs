@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// Exposes the next-free-slot weapon equip intention through the Raid inventory context menu.
+/// Exposes the equip intention through the Raid inventory context menu for every equippable
+/// category. Weapons target the next free quick slot; armor targets its fixed slot.
 /// </summary>
 public sealed class LootEquipContextActionProvider : ILootContextActionProvider
 {
@@ -18,13 +19,13 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
         in LootContextActionContext context,
         List<LootContextActionDescriptor> actions)
     {
-        if (!IsValidWeapon(context) || actions == null)
+        if (!IsValidEquipment(context) || actions == null)
         {
             return;
         }
 
-        bool enabled = _controller != null && _controller.HasFreeSlot &&
-            !_controller.HasRequestInFlight;
+        bool enabled = _controller != null && !_controller.HasRequestInFlight &&
+            _controller.CanEquip(context.Entry.LootId);
         actions.Add(new LootContextActionDescriptor(EquipId, "Equipar", enabled, this));
     }
 
@@ -32,15 +33,24 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
         LootContextActionId actionId,
         in LootContextActionContext context)
     {
-        return actionId == EquipId && IsValidWeapon(context) && _controller != null &&
-            _controller.HasFreeSlot && !_controller.HasRequestInFlight &&
+        return actionId == EquipId && IsValidEquipment(context) && _controller != null &&
+            !_controller.HasRequestInFlight &&
             _controller.TryRequestEquip(context.Entry.LootId);
     }
 
-    private static bool IsValidWeapon(in LootContextActionContext context)
+    /// <summary>
+    /// Loot only classifies the unit; whether the category is equippable is an Equipment rule.
+    /// Weapons additionally need a usable <see cref="WeaponDefinition"/> to reach combat.
+    /// </summary>
+    private static bool IsValidEquipment(in LootContextActionContext context)
     {
-        return context.IsValid && context.Definition.Category == LootCategory.Weapon &&
-            context.Definition.WeaponDefinition != null &&
-            context.Definition.WeaponDefinition.TryValidate(out _);
+        if (!context.IsValid || !EquipmentSlotRules.IsEquippableCategory(context.Definition.Category))
+        {
+            return false;
+        }
+
+        return context.Definition.Category != LootCategory.Weapon ||
+            (context.Definition.WeaponDefinition != null &&
+                context.Definition.WeaponDefinition.TryValidate(out _));
     }
 }

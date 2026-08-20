@@ -168,6 +168,14 @@ MonoBehaviour:
     MaxQuantity: 5
   - Item: {fileID: 11400000, guid: b61e8bc9f2bfa7b4a83ed98b979edb77, type: 2}
     MaxQuantity: 3
+  - Item: {fileID: 11400000, guid: a1b2c3d400014e7f9a0b0c0d0e0f1001, type: 2}
+    MaxQuantity: 5
+  - Item: {fileID: 11400000, guid: a1b2c3d400024e7f9a0b0c0d0e0f1002, type: 2}
+    MaxQuantity: 5
+  - Item: {fileID: 11400000, guid: a1b2c3d400034e7f9a0b0c0d0e0f1003, type: 2}
+    MaxQuantity: 5
+  - Item: {fileID: 11400000, guid: a1b2c3d400044e7f9a0b0c0d0e0f1004, type: 2}
+    MaxQuantity: 5
 --- !u!114 &7900664587950221347
 MonoBehaviour:
   m_ObjectHideFlags: 0

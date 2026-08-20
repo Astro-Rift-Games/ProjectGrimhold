@@ -84,19 +84,31 @@ only after it resolves as `IAttack`; cooldown, cooldown duration, and attack ena
 their explicit fresh baselines. A spawn restored by `HostMigrationRestoreUtility.IsRestoreSpawn`
 does not overwrite those networked snapshots.
 
-`PlayerWeaponEquipmentNetworkController` owns exactly two quick weapon slots and one active-slot
-selection for the Raid avatar. Each slot replicates only the deterministic
-`LootDefinitionCatalog` index plus one (`0` means empty); the active value may reference only an
-occupied slot. Equip intentions fill Slot 1 and then Slot 2, while unequip intentions identify one
-slot and return exactly one unit to `PlayerLootReceiver`. Input Authority expresses those discrete
-intentions and State Authority validates and commits them during `FixedUpdateNetwork`.
+`PlayerWeaponEquipmentNetworkController` is the single authoritative source of the Raid avatar's
+Equipment. It owns exactly six slots — the two quick weapon slots plus `Helmet`, `Armor`, `Gloves`
+and `Boots` — and one active-slot selection that may only reference an occupied weapon slot. Each
+slot replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty).
+Equip intentions fill Slot 1 and then Slot 2 for weapons and the single matching slot for armor,
+while unequip intentions identify one slot and return exactly one unit to `PlayerLootReceiver`.
+Input Authority expresses those discrete intentions and State Authority validates and commits them
+during `FixedUpdateNetwork`. A rejected operation mutates neither Inventory nor Equipment.
 
-Only the active slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig`, configures the
-shared `MeleeAttack` or `RangedAttack` executor, and assigns it through `TrySetActiveAttack`.
-Inserting an inactive weapon never reconfigures either executor. Slot-selection input travels in
-the normal `PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown.
-On Host Migration restore, State Authority resolves both replicated slot identities and the active
-slot again, rebuilding the strategy without replaying equipment requests. ScriptableObjects and
+Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` only classifies the
+unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
+Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
+
+Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig`,
+configures the shared `MeleeAttack` or `RangedAttack` executor, and assigns it through
+`TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
+armor slots never reach combat at all: they neither validate the combat dependencies nor
+participate in `HasReplicatedWeaponStateChanged`, so equipping or removing a piece cannot rebuild
+the strategy or disturb the authoritative cooldown. Slot-selection input travels in the normal
+`PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown. Any mutation
+of any of the six slots advances `EquipmentRevision`, which is what presentation observes.
+
+On Host Migration restore, State Authority resolves the replicated slot identities and the active
+slot again, rebuilding the strategy without replaying equipment requests. The armor slots need no
+dedicated restore logic — they are ordinary `[Networked]` properties. ScriptableObjects and
 presentation state are never replicated.
 
 `TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
@@ -479,7 +491,9 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
-* **Single Raid Slot Only**: Equipment currently owns exactly one weapon for the active Raid avatar. It has no unequip, replacement, quick swap, Town loadout, or cross-session equipment persistence.
+* **Armor Is Equipment State Only**: `Helmet`, `Armor`, `Gloves` and `Boots` currently carry slot identity and compatibility and nothing else. There is no defence, attribute, requirement, rarity, affix or any other gameplay effect attached to them.
+* **Town armor preparation is not implemented by this task**: `PreparedWeaponLoadout` and `TryInitializePreparedWeapons` remain weapon-only, so armor can only enter Equipment during a Raid. Character Build remains the source of truth that armor is meant to be changeable in Town as well; wiring that persistence is separate work.
+* **No armor presentation**: equipped armor has no world or avatar visual. Only the active weapon is presented, through `PlayerWeaponPresenter`.
 
 ---
 

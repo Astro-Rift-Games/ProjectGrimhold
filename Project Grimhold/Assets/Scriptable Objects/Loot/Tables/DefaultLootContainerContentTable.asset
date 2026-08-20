@@ -49,6 +49,22 @@ MonoBehaviour:
     _weight: 1
     _minimumAmount: 1
     _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a1b2c3d400014e7f9a0b0c0d0e0f1001, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a1b2c3d400024e7f9a0b0c0d0e0f1002, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a1b2c3d400034e7f9a0b0c0d0e0f1003, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a1b2c3d400044e7f9a0b0c0d0e0f1004, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
   _minimumDistinctStacks: 1
   _maximumDistinctStacks: 3
   _allowEmpty: 0

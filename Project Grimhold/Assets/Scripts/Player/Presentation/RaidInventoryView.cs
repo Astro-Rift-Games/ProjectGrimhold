@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -30,22 +31,40 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private RaidLootContextMenuView _contextMenu;
 
+    [Header("Equipment slots (authored in the prefab, never created at runtime)")]
     [SerializeField]
-    private RectTransform _weaponSlotsRoot;
+    private RaidInventorySlotView _weaponSlot1View;
 
     [SerializeField]
-    private RaidInventorySlotView _weaponSlotPrefab;
+    private RaidInventorySlotView _weaponSlot2View;
+
+    [SerializeField]
+    private RaidInventorySlotView _helmetView;
+
+    [SerializeField]
+    private RaidInventorySlotView _armorView;
+
+    [SerializeField]
+    private RaidInventorySlotView _glovesView;
+
+    [SerializeField]
+    private RaidInventorySlotView _bootsView;
 
     [SerializeField, Min(0f)]
     private float _transferFeedbackDuration = 1.5f;
 
     private float _transferFeedbackRemaining;
-    private RaidInventorySlotView _weaponSlot1View;
-    private RaidInventorySlotView _weaponSlot2View;
+
+    /// <summary>
+    /// The six serialized views in <see cref="PlayerWeaponEquipmentNetworkController.AllSlots"/>
+    /// order. Built once from the named fields so the Inspector mapping cannot be mis-ordered.
+    /// </summary>
+    private RaidInventorySlotView[] _equipmentSlotViews;
+    private bool _hasReportedMissingEquipmentViews;
 
     /// <summary>Local-only intention emitted when the enabled take-all control is activated.</summary>
     public event Action TakeAllRequested;
-    public event Action<WeaponSlot> WeaponUnequipRequested;
+    public event Action<EquipmentSlot> EquipmentUnequipRequested;
 
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
     public RaidLootPanelView PlayerPanel => _playerPanel;
@@ -64,7 +83,7 @@ public sealed class RaidInventoryView : MonoBehaviour
         {
             _takeAllButton.onClick.AddListener(OnTakeAllClicked);
         }
-        EnsureWeaponSlotViews();
+        EnsureEquipmentSlotViews();
     }
 
     private void Update()
@@ -125,80 +144,102 @@ public sealed class RaidInventoryView : MonoBehaviour
         _playerPanel?.ClearContent();
         _containerPanel?.ClearContent();
         _contextMenu?.Hide();
-        _weaponSlot1View?.Clear();
-        _weaponSlot2View?.Clear();
+        if (EnsureEquipmentSlotViews())
+        {
+            for (int index = 0; index < _equipmentSlotViews.Length; index++)
+            {
+                _equipmentSlotViews[index]?.Clear();
+            }
+        }
         HideTransferFeedback();
     }
 
-    public void PresentWeaponSlots(
-        in RaidInventorySlotData slot1,
-        in RaidInventorySlotData slot2,
+    /// <summary>
+    /// Projects the six Equipment slots. Only the two weapon slots carry an active state;
+    /// the armor slots show occupancy and offer the unequip intention.
+    /// </summary>
+    public void PresentEquipmentSlots(
+        IReadOnlyList<RaidInventorySlotData> slotData,
         WeaponSlot activeSlot,
         bool canUnequip)
     {
-        if (!EnsureWeaponSlotViews())
+        if (slotData == null || !EnsureEquipmentSlotViews())
         {
             return;
         }
 
-        _weaponSlot1View.PresentWeaponSlot(
-            WeaponSlot.Slot1,
-            in slot1,
-            activeSlot == WeaponSlot.Slot1,
-            canUnequip);
-        _weaponSlot2View.PresentWeaponSlot(
-            WeaponSlot.Slot2,
-            in slot2,
-            activeSlot == WeaponSlot.Slot2,
-            canUnequip);
+        EquipmentSlot[] slots = PlayerWeaponEquipmentNetworkController.AllSlots;
+        int count = Mathf.Min(slots.Length, slotData.Count);
+        for (int index = 0; index < count; index++)
+        {
+            RaidInventorySlotView view = _equipmentSlotViews[index];
+            if (view == null)
+            {
+                continue;
+            }
+
+            EquipmentSlot slot = slots[index];
+            RaidInventorySlotData data = slotData[index];
+            view.PresentEquipmentSlot(
+                slot,
+                in data,
+                EquipmentSlotRules.ToWeaponSlot(slot) == activeSlot && activeSlot != WeaponSlot.None,
+                canUnequip);
+        }
     }
 
-    private bool EnsureWeaponSlotViews()
+    /// <summary>
+    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its six
+    /// slots are authored in the prefab so the layout stays fully editable in the Inspector.
+    /// </summary>
+    private bool EnsureEquipmentSlotViews()
     {
-        if (_weaponSlot1View != null && _weaponSlot2View != null)
+        if (_equipmentSlotViews != null)
         {
             return true;
         }
 
-        if (_weaponSlotsRoot == null || _weaponSlotPrefab == null)
+        var views = new[]
         {
+            _weaponSlot1View, _weaponSlot2View, _helmetView,
+            _armorView, _glovesView, _bootsView
+        };
+
+        EquipmentSlot[] slots = PlayerWeaponEquipmentNetworkController.AllSlots;
+        if (views.Length != slots.Length)
+        {
+            Debug.LogError($"{nameof(RaidInventoryView)} exposes {views.Length} equipment views for {slots.Length} slots.", this);
             return false;
         }
 
-        _weaponSlot1View = Instantiate(_weaponSlotPrefab, _weaponSlotsRoot);
-        _weaponSlot2View = Instantiate(_weaponSlotPrefab, _weaponSlotsRoot);
-        _weaponSlot1View.name = "WeaponSlot1";
-        _weaponSlot2View.name = "WeaponSlot2";
-        PositionWeaponSlot(_weaponSlot1View, -85f);
-        PositionWeaponSlot(_weaponSlot2View, 85f);
-        _weaponSlot1View.SelectionRequested += OnWeaponSlot1Selected;
-        _weaponSlot2View.SelectionRequested += OnWeaponSlot2Selected;
+        for (int index = 0; index < views.Length; index++)
+        {
+            if (views[index] == null)
+            {
+                ReportMissingEquipmentViews(slots[index]);
+                continue;
+            }
+
+            EquipmentSlot slot = slots[index];
+            views[index].SelectionRequested += (_, __) => EquipmentUnequipRequested?.Invoke(slot);
+        }
+
+        _equipmentSlotViews = views;
         return true;
     }
 
-    private static void PositionWeaponSlot(RaidInventorySlotView view, float x)
+    private void ReportMissingEquipmentViews(EquipmentSlot slot)
     {
-        LayoutElement layoutElement = view.GetComponent<LayoutElement>();
-        if (layoutElement == null)
+        if (_hasReportedMissingEquipmentViews)
         {
-            layoutElement = view.gameObject.AddComponent<LayoutElement>();
+            return;
         }
-        layoutElement.ignoreLayout = true;
 
-        if (view.transform is RectTransform rect)
-        {
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(x, -48f);
-        }
+        _hasReportedMissingEquipmentViews = true;
+        Debug.LogError(
+            $"{nameof(RaidInventoryView)} has no serialized view for {slot}. Assign every Equipment slot view on the prefab.",
+            this);
     }
-
-    private void OnWeaponSlot1Selected(LootId _, LootTransferQuantityMode __) =>
-        WeaponUnequipRequested?.Invoke(WeaponSlot.Slot1);
-
-    private void OnWeaponSlot2Selected(LootId _, LootTransferQuantityMode __) =>
-        WeaponUnequipRequested?.Invoke(WeaponSlot.Slot2);
 
     /// <summary>Shows a temporary, local-only reason for a rejected transfer request.</summary>
     public void ShowTransferFeedback(string message)

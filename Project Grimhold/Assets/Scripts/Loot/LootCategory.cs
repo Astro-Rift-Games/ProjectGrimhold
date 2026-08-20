@@ -8,5 +8,9 @@ public enum LootCategory
     Material = 2,
     Quest = 3,
     Miscellaneous = 4,
-    Weapon = 5
+    Weapon = 5,
+    Helmet = 6,
+    Armor = 7,
+    Gloves = 8,
+    Boots = 9
 }

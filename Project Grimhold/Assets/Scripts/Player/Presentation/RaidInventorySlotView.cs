@@ -88,9 +88,16 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         WeaponSlot slot,
         in RaidInventorySlotData data,
         bool isActive,
+        bool canUnequip) =>
+        PresentEquipmentSlot(EquipmentSlotRules.FromWeaponSlot(slot), in data, isActive, canUnequip);
+
+    public void PresentEquipmentSlot(
+        EquipmentSlot slot,
+        in RaidInventorySlotData data,
+        bool isActive,
         bool canUnequip)
     {
-        string slotLabel = slot == WeaponSlot.Slot1 ? "Weapon Slot 1" : "Weapon Slot 2";
+        string slotLabel = ResolveSlotLabel(slot);
         if (!data.IsOccupied)
         {
             Clear();
@@ -106,6 +113,17 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
             canUnequip ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly,
             isActive);
     }
+
+    private static string ResolveSlotLabel(EquipmentSlot slot) => slot switch
+    {
+        EquipmentSlot.WeaponSlot1 => "Weapon Slot 1",
+        EquipmentSlot.WeaponSlot2 => "Weapon Slot 2",
+        EquipmentSlot.Helmet => "Casco",
+        EquipmentSlot.Armor => "Armadura",
+        EquipmentSlot.Gloves => "Guantes",
+        EquipmentSlot.Boots => "Botas",
+        _ => "Equipment"
+    };
 
     public void Clear()
     {
