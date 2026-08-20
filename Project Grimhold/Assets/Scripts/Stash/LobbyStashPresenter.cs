@@ -14,6 +14,7 @@ public class LobbyStashPresenter : MonoBehaviour
     private IPlayerLoadoutService _loadoutService;
     private ApplicationStashContext _context;
     private ProfileId _localProfileId;
+    private readonly List<RaidInventorySlotData> _preparedProjection = new();
 
     private void OnEnable()
     {
@@ -24,8 +25,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested += OnTransferRequested;
             _stashUI.TakeAllRequested += OnTakeAllRequested;
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
-            _stashUI.PreparedWeaponAssignmentRequested += OnPreparedWeaponAssignmentRequested;
-            _stashUI.PreparedWeaponClearRequested += OnPreparedWeaponClearRequested;
+            _stashUI.PreparedEquipmentAssignmentRequested += OnPreparedEquipmentAssignmentRequested;
+            _stashUI.PreparedEquipmentClearRequested += OnPreparedEquipmentClearRequested;
         }
 
         _context = FindAnyObjectByType<ApplicationStashContext>();
@@ -49,8 +50,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested -= OnTransferRequested;
             _stashUI.TakeAllRequested -= OnTakeAllRequested;
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
-            _stashUI.PreparedWeaponAssignmentRequested -= OnPreparedWeaponAssignmentRequested;
-            _stashUI.PreparedWeaponClearRequested -= OnPreparedWeaponClearRequested;
+            _stashUI.PreparedEquipmentAssignmentRequested -= OnPreparedEquipmentAssignmentRequested;
+            _stashUI.PreparedEquipmentClearRequested -= OnPreparedEquipmentClearRequested;
         }
 
         if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
@@ -99,26 +100,26 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private void OnPreparedWeaponAssignmentRequested(LootId lootId, WeaponSlot slot)
+    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
     {
         if (_loadoutService == null) return;
-        StashOperationResult result = _loadoutService.TryAssignPreparedWeapon(
+        StashOperationResult result = _loadoutService.TryAssignPreparedEquipment(
             _localProfileId,
             slot,
             lootId);
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared weapon assignment failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment assignment failed: {result}");
         }
     }
 
-    private void OnPreparedWeaponClearRequested(WeaponSlot slot)
+    private void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
     {
         if (_loadoutService == null) return;
-        StashOperationResult result = _loadoutService.TryClearPreparedWeapon(_localProfileId, slot);
+        StashOperationResult result = _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared weapon clear failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment clear failed: {result}");
         }
     }
 
@@ -147,10 +148,15 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             var loadoutItems = _loadoutService.GetLoadout(_localProfileId);
             _stashUI.DisplayLoadout(MapToPresentation(loadoutItems));
-            PreparedWeaponLoadout prepared = _loadoutService.GetPreparedWeapons(_localProfileId);
-            RaidInventorySlotData slot1 = MapPreparedWeapon(prepared.WeaponSlot1);
-            RaidInventorySlotData slot2 = MapPreparedWeapon(prepared.WeaponSlot2);
-            _stashUI.DisplayPreparedWeapons(in slot1, in slot2);
+            PreparedEquipmentLoadout prepared = _loadoutService.GetPreparedEquipment(_localProfileId);
+            EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+            _preparedProjection.Clear();
+            for (int index = 0; index < slots.Length; index++)
+            {
+                _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index])));
+            }
+
+            _stashUI.DisplayPreparedEquipment(_preparedProjection);
         }
     }
 
@@ -168,14 +174,14 @@ public class LobbyStashPresenter : MonoBehaviour
                 }
                 
                 LootEntry entry = new LootEntry(item.LootId, item.Amount);
-                var slotData = RaidInventorySlotData.Create(entry, definition, null);
+                var slotData = RaidInventorySlotData.Create(entry, definition, ResolvePlaceholderIcon());
                 presentationData.Add(slotData);
             }
         }
         return presentationData;
     }
 
-    private RaidInventorySlotData MapPreparedWeapon(LootId lootId)
+    private RaidInventorySlotData MapPreparedUnit(LootId lootId)
     {
         if (!lootId.IsValid)
         {
@@ -187,6 +193,9 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _lootCatalog.TryGet(lootId.Value, out definition);
         }
-        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition, null);
+        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition, ResolvePlaceholderIcon());
     }
+
+    /// <summary>The fallback icon authored on the panels, used when a definition has no icon.</summary>
+    private Sprite ResolvePlaceholderIcon() => _stashUI != null ? _stashUI.PlaceholderIcon : null;
 }

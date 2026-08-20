@@ -75,40 +75,41 @@ public sealed class TownStashPresenter : NetworkBehaviour
             return;
         }
 
-        _view = TownStashView.Create(transform, _stashInventoryPrefab);
+        GameObject instance = Instantiate(_stashInventoryPrefab, transform, false);
+        instance.name = "StashInventory";
+
+        _view = instance.GetComponent<TownStashView>();
         if (_view == null)
         {
+            Debug.LogError(
+                $"The stash prefab has no {nameof(TownStashView)}. Author it on the prefab root.",
+                this);
+            Destroy(instance);
             return;
         }
 
+        _view.Close();
         _interactionController.InteractionResolved += OnInteractionResolved;
     }
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        Debug.Log($"[StashUI] OnInteractionResolved triggered. Success: {interactionEvent.Success}, TargetId: {interactionEvent.TargetId.Value}");
-
         if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null ||
             _view == null || _view.IsOpen)
         {
-            Debug.Log($"[StashUI] Exiting early. Success={interactionEvent.Success}, TargetId.Value={interactionEvent.TargetId.Value}, RunnerIsNull={Runner == null}, ViewIsNull={_view == null}, ViewIsOpen={_view != null && _view.IsOpen}");
             return;
         }
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null)
         {
-            Debug.Log($"[StashUI] NetworkObject with ID {networkId.Raw} not found.");
             return;
         }
 
         if (!target.TryGetBehaviour(out TownStashNpcInteractable _))
         {
-            Debug.Log($"[StashUI] Target {target.name} does not have a TownStashNpcInteractable.");
             return;
         }
-        
-        Debug.Log($"[StashUI] Target is valid and has TownStashNpcInteractable. Checking StashContext...");
 
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
         if (context == null)
@@ -141,7 +142,6 @@ public sealed class TownStashPresenter : NetworkBehaviour
             return;
         }
 
-        Debug.Log($"[StashUI] All checks passed. Opening view and acquiring input suppression.");
         _openNpc = target;
         _view.Open();
         AcquireInputSuppression();

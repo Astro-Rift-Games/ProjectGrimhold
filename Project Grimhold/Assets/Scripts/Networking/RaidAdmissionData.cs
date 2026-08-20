@@ -11,18 +11,34 @@ public readonly struct RaidAdmissionData
     public ProfileId ProfileId { get; }
     public string ReservationId { get; }
     private readonly LootEntry[] _reservedLoadout;
+
+    /// <summary>
+    /// One reserved-loadout reference per Equipment slot, in <see cref="EquipmentSlotRules.AllSlots"/>
+    /// order. Zero means the slot is empty; any other value is the entry index plus one.
+    /// </summary>
+    private readonly int[] _entryIndicesPlusOne;
+
     public IReadOnlyList<LootEntry> ReservedLoadout => _reservedLoadout ?? Array.Empty<LootEntry>();
-    public int WeaponSlot1EntryIndexPlusOne { get; }
-    public int WeaponSlot2EntryIndexPlusOne { get; }
+    public IReadOnlyList<int> EntryIndicesPlusOne =>
+        _entryIndicesPlusOne ?? EmptyIndices;
+
+    public int WeaponSlot1EntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSlot1);
+    public int WeaponSlot2EntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSlot2);
+    public int HelmetEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Helmet);
+    public int ArmorEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Armor);
+    public int GlovesEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Gloves);
+    public int BootsEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Boots);
+
+    private static readonly int[] EmptyIndices = new int[EquipmentSlotCount];
+    private static int EquipmentSlotCount => EquipmentSlotRules.AllSlots.Length;
 
     public bool IsValid => RaidCode.IsValid &&
                            !string.IsNullOrWhiteSpace(ReservationId) &&
                            ProfileId.IsValid &&
                            RaidLoadoutRules.TryValidateShape(ReservedLoadout, out _) &&
-                           RaidLoadoutRules.TryValidatePreparedWeaponReferences(
+                           RaidLoadoutRules.TryValidatePreparedEquipmentReferences(
                                ReservedLoadout,
-                               WeaponSlot1EntryIndexPlusOne,
-                               WeaponSlot2EntryIndexPlusOne,
+                               EntryIndicesPlusOne,
                                requireWeapon: true,
                                out _);
 
@@ -31,15 +47,29 @@ public readonly struct RaidAdmissionData
         ProfileId profileId,
         string reservationId,
         IReadOnlyList<LootEntry> reservedLoadout,
-        int weaponSlot1EntryIndexPlusOne = 0,
-        int weaponSlot2EntryIndexPlusOne = 0)
+        IReadOnlyList<int> entryIndicesPlusOne = null)
     {
         RaidCode = raidCode;
         ProfileId = profileId;
         ReservationId = reservationId;
         _reservedLoadout = CopyLoadout(reservedLoadout);
-        WeaponSlot1EntryIndexPlusOne = weaponSlot1EntryIndexPlusOne;
-        WeaponSlot2EntryIndexPlusOne = weaponSlot2EntryIndexPlusOne;
+        _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
+    }
+
+    /// <summary>Resolves the reserved-loadout reference of one Equipment slot.</summary>
+    public int GetEntryIndexPlusOne(EquipmentSlot slot)
+    {
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        IReadOnlyList<int> indices = EntryIndicesPlusOne;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            if (slots[index] == slot)
+            {
+                return index < indices.Count ? indices[index] : 0;
+            }
+        }
+
+        return 0;
     }
 
     public static bool TryCreate(
@@ -60,15 +90,16 @@ public readonly struct RaidAdmissionData
             entries.Add(new LootEntry(reservation.Items[index].LootId, reservation.Items[index].Amount));
         }
 
-        int slot1 = FindEntryIndexPlusOne(entries, reservation.PreparedWeapons.WeaponSlot1);
-        int slot2 = FindEntryIndexPlusOne(entries, reservation.PreparedWeapons.WeaponSlot2);
-        data = new RaidAdmissionData(
-            raidCode,
-            profileId,
-            reservation.ReservationId,
-            entries,
-            slot1,
-            slot2);
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        var indices = new int[slots.Length];
+        for (int index = 0; index < slots.Length; index++)
+        {
+            indices[index] = FindEntryIndexPlusOne(
+                entries,
+                reservation.PreparedEquipment.Get(slots[index]));
+        }
+
+        data = new RaidAdmissionData(raidCode, profileId, reservation.ReservationId, entries, indices);
         return data.IsValid;
     }
 
@@ -86,6 +117,24 @@ public readonly struct RaidAdmissionData
 
         var copy = new LootEntry[source.Count];
         for (int index = 0; index < source.Count; index++)
+        {
+            copy[index] = source[index];
+        }
+
+        return copy;
+    }
+
+    /// <summary>Normalizes the references to exactly one entry per Equipment slot.</summary>
+    private static int[] CopyIndices(IReadOnlyList<int> source)
+    {
+        var copy = new int[EquipmentSlotRules.AllSlots.Length];
+        if (source == null)
+        {
+            return copy;
+        }
+
+        int count = Math.Min(copy.Length, source.Count);
+        for (int index = 0; index < count; index++)
         {
             copy[index] = source[index];
         }
@@ -198,34 +247,78 @@ public static class RaidLoadoutRules
         return true;
     }
 
-    public static bool TryValidatePreparedWeaponReferences(
+    /// <summary>
+    /// Validates the Equipment references of an admission against the reserved loadout. Indices
+    /// arrive in <see cref="EquipmentSlotRules.AllSlots"/> order; an entry referenced by several
+    /// slots requires one reserved unit per reference. Slot compatibility is not decided here:
+    /// State Authority resolves it against the catalog when it equips the spawned player.
+    /// </summary>
+    public static bool TryValidatePreparedEquipmentReferences(
         IReadOnlyList<LootEntry> entries,
-        int slot1EntryIndexPlusOne,
-        int slot2EntryIndexPlusOne,
+        IReadOnlyList<int> entryIndicesPlusOne,
         bool requireWeapon,
         out string error)
     {
         error = null;
-        if (entries == null || slot1EntryIndexPlusOne < 0 || slot2EntryIndexPlusOne < 0 ||
-            slot1EntryIndexPlusOne > entries.Count || slot2EntryIndexPlusOne > entries.Count)
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        if (entries == null || entryIndicesPlusOne == null || entryIndicesPlusOne.Count != slots.Length)
         {
-            error = "Prepared weapon reference is outside the reserved loadout.";
+            error = "Prepared equipment references are missing.";
             return false;
         }
 
-        if (requireWeapon && slot1EntryIndexPlusOne == 0 && slot2EntryIndexPlusOne == 0)
+        bool hasWeapon = false;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            int reference = entryIndicesPlusOne[index];
+            if (reference < 0 || reference > entries.Count)
+            {
+                error = "Prepared equipment reference is outside the reserved loadout.";
+                return false;
+            }
+
+            if (reference > 0 && EquipmentSlotRules.IsWeaponSlot(slots[index]))
+            {
+                hasWeapon = true;
+            }
+        }
+
+        if (requireWeapon && !hasWeapon)
         {
             error = "At least one prepared weapon reference is required.";
             return false;
         }
 
-        if (slot1EntryIndexPlusOne > 0 && slot1EntryIndexPlusOne == slot2EntryIndexPlusOne &&
-            entries[slot1EntryIndexPlusOne - 1].Amount < 2)
+        for (int index = 0; index < slots.Length; index++)
         {
-            error = "Both prepared slots reference one unit.";
-            return false;
+            int reference = entryIndicesPlusOne[index];
+            if (reference <= 0)
+            {
+                continue;
+            }
+
+            int references = CountReferences(entryIndicesPlusOne, reference);
+            if (entries[reference - 1].Amount < references)
+            {
+                error = "Prepared slots reference more units than the reserved loadout owns.";
+                return false;
+            }
         }
 
         return true;
+    }
+
+    private static int CountReferences(IReadOnlyList<int> entryIndicesPlusOne, int reference)
+    {
+        int count = 0;
+        for (int index = 0; index < entryIndicesPlusOne.Count; index++)
+        {
+            if (entryIndicesPlusOne[index] == reference)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 }

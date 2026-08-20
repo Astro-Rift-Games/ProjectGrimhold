@@ -353,7 +353,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     out PlayerExpeditionLootSnapshot ownership,
                     out _) &&
                 MatchesLoadout(reservation.Items, ownership.Combined) &&
-                MatchesPreparedWeapons(reservation.PreparedWeapons, equipment))
+                MatchesPreparedEquipment(reservation.PreparedEquipment, equipment))
             {
                 return true;
             }
@@ -395,18 +395,25 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         return true;
     }
 
-    private static bool MatchesPreparedWeapons(
-        PreparedWeaponLoadout expected,
+    /// <summary>Confirms that every replicated Equipment slot matches the reserved preparation.</summary>
+    private static bool MatchesPreparedEquipment(
+        PreparedEquipmentLoadout expected,
         PlayerWeaponEquipmentNetworkController equipment)
     {
-        LootId slot1 = equipment.TryGetSlotLoot(WeaponSlot.Slot1, out LootEntry first)
-            ? first.LootId
-            : default;
-        LootId slot2 = equipment.TryGetSlotLoot(WeaponSlot.Slot2, out LootEntry second)
-            ? second.LootId
-            : default;
-        return slot1 == expected.WeaponSlot1 && slot2 == expected.WeaponSlot2 &&
-            equipment.ActiveWeaponSlot == (expected.HasWeaponSlot1 ? WeaponSlot.Slot1 : WeaponSlot.Slot2);
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            LootId actual = equipment.TryGetSlotLoot(slots[index], out LootEntry entry)
+                ? entry.LootId
+                : default;
+            if (actual != expected.Get(slots[index]))
+            {
+                return false;
+            }
+        }
+
+        return equipment.ActiveWeaponSlot ==
+            (expected.HasWeaponSlot1 ? WeaponSlot.Slot1 : WeaponSlot.Slot2);
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

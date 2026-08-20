@@ -5,7 +5,7 @@ using Assert = NUnit.Framework.Assert;
 public sealed class RaidAdmissionDataCodecTests
 {
     [Test]
-    public void TryCreate_UsesCompactPreparedWeaponReferences()
+    public void TryCreate_UsesCompactPreparedEquipmentReferences()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         LootId sword = new("training_sword");
@@ -16,7 +16,7 @@ public sealed class RaidAdmissionDataCodecTests
                 new StashItem(new LootId("coins"), 4),
                 new StashItem(sword, 2)
             },
-            new PreparedWeaponLoadout(sword, sword));
+            new PreparedEquipmentLoadout(sword, sword));
 
         Assert.That(
             RaidAdmissionData.TryCreate(code, new ProfileId("profile-prepared"), reservation, out RaidAdmissionData data),
@@ -35,10 +35,10 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile-code"),
             "reservation-code",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(5));
+        Assert.That(token[0], Is.EqualTo(6));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
@@ -55,7 +55,7 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile-code"),
             "reservation-code",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
@@ -75,8 +75,7 @@ public sealed class RaidAdmissionDataCodecTests
                 new LootEntry(new LootId("training_sword"), 2),
                 new LootEntry(new LootId("coins"), 4)
             },
-            weaponSlot1EntryIndexPlusOne: 1,
-            weaponSlot2EntryIndexPlusOne: 1);
+            new[] { 1, 1, 0, 0, 0, 0 });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
@@ -96,7 +95,7 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile"),
             "reservation",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
 
         token[0]++;
@@ -134,13 +133,13 @@ public sealed class RaidAdmissionDataCodecTests
                 new LootEntry(new LootId("coins"), 1),
                 new LootEntry(new LootId("coins"), 2)
             },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
         var oversized = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
             "reservation",
             new[] { new LootEntry(new LootId("coins"), 10000) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(duplicate, out _), Is.False);
         Assert.That(RaidAdmissionDataCodec.TryEncode(oversized, out _), Is.False);
@@ -155,8 +154,7 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile"),
             "reservation",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1,
-            weaponSlot2EntryIndexPlusOne: 1);
+            new[] { 1, 1, 0, 0, 0, 0 });
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(invalid, out _), Is.False);
     }
@@ -176,7 +174,7 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile"),
             "reservation",
             entries,
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(tooMany, out _), Is.False);
     }
 
@@ -189,7 +187,7 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile"),
             "reservation",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
 
         token[0] = 1;

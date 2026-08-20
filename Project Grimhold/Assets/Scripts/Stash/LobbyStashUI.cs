@@ -2,127 +2,318 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
-/// The View component of the MVP pattern for the Lobby Stash and Loadout.
-/// Displays stash and loadout items visually and emits interaction events.
+/// The View component of the MVP pattern for the Stash and Loadout screen.
+/// It reuses the same <see cref="RaidLootPanelView"/> panels and <see cref="RaidInventorySlotView"/>
+/// slots as the Raid inventory. Every panel, slot and Equipment view is authored in the prefab:
+/// this view only binds and drives them and never creates UI at runtime.
 /// </summary>
-public class LobbyStashUI : MonoBehaviour
+[DisallowMultipleComponent]
+public sealed class LobbyStashUI : MonoBehaviour
 {
     private static readonly LootContextActionId MoveAllId = new("town.loadout.move-all");
-    private static readonly LootContextActionId AssignSlot1Id = new("town.weapon.assign-slot-1");
-    private static readonly LootContextActionId AssignSlot2Id = new("town.weapon.assign-slot-2");
 
-    [SerializeField] private RectTransform _contentPanel; // The stash panel
-    [SerializeField] private RectTransform _loadoutPanel; // The player's active loadout panel
-    [SerializeField] private GameObject _itemSlotPrefab; // Prefab with RaidInventorySlotView
+    /// <summary>One contextual equip action per Equipment slot, in slot order.</summary>
+    private static readonly LootContextActionId[] EquipActionIds =
+    {
+        new("town.equipment.equip-weapon-slot-1"),
+        new("town.equipment.equip-weapon-slot-2"),
+        new("town.equipment.equip-helmet"),
+        new("town.equipment.equip-armor"),
+        new("town.equipment.equip-gloves"),
+        new("town.equipment.equip-boots")
+    };
+
+    [SerializeField] private RaidLootPanelView _stashPanel;
+    [SerializeField] private RaidLootPanelView _loadoutPanel;
 
     [SerializeField] private Button _takeAllButton;
     [SerializeField] private Button _leaveAllButton;
-    [SerializeField] private RectTransform _weaponSlotsRoot;
+
+    [Header("Equipment slots (authored in the prefab, never created at runtime)")]
+    [SerializeField] private RaidInventorySlotView _weaponSlot1View;
+    [SerializeField] private RaidInventorySlotView _weaponSlot2View;
+    [SerializeField] private RaidInventorySlotView _helmetView;
+    [SerializeField] private RaidInventorySlotView _armorView;
+    [SerializeField] private RaidInventorySlotView _glovesView;
+    [SerializeField] private RaidInventorySlotView _bootsView;
+
     [SerializeField] private RaidLootContextMenuView _contextMenu;
 
-    private RaidInventorySlotView _weaponSlot1View;
-    private RaidInventorySlotView _weaponSlot2View;
-    private LootId _contextLootId;
+    private readonly List<RaidInventorySlotData> _stashProjection = new();
+    private readonly List<RaidInventorySlotData> _loadoutProjection = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
+    private RaidInventorySlotView[] _equipmentSlotViews;
+    private LootId _contextLootId;
+    private bool _hasReportedStashOverflow;
+    private bool _hasReportedLoadoutOverflow;
 
     public event Action<LootId, bool, LootTransferQuantityMode> TransferRequested; // LootId, isFromStash, quantityMode
     public event Action TakeAllRequested;
     public event Action LeaveAllRequested;
-    public event Action<LootId, WeaponSlot> PreparedWeaponAssignmentRequested;
-    public event Action<WeaponSlot> PreparedWeaponClearRequested;
+
+    /// <summary>Local intention to occupy one Equipment slot with an owned unit.</summary>
+    public event Action<LootId, EquipmentSlot> PreparedEquipmentAssignmentRequested;
+
+    /// <summary>Local intention to release one Equipment slot.</summary>
+    public event Action<EquipmentSlot> PreparedEquipmentClearRequested;
+
+    /// <summary>The shared fallback icon authored on the stash panel, for unresolved definitions.</summary>
+    public Sprite PlaceholderIcon => _stashPanel != null ? _stashPanel.PlaceholderIcon : null;
 
     private void Awake()
     {
-        if (_takeAllButton != null) _takeAllButton.onClick.AddListener(() => TakeAllRequested?.Invoke());
-        if (_leaveAllButton != null) _leaveAllButton.onClick.AddListener(() => LeaveAllRequested?.Invoke());
+        if (_takeAllButton != null) _takeAllButton.onClick.AddListener(OnTakeAllClicked);
+        if (_leaveAllButton != null) _leaveAllButton.onClick.AddListener(OnLeaveAllClicked);
         if (_contextMenu != null) _contextMenu.ActionRequested += OnContextActionRequested;
-        EnsureWeaponSlots();
+
+        if (_stashPanel != null)
+        {
+            _stashPanel.SelectionRequested += OnStashSelectionRequested;
+            _stashPanel.ContextRequested += OnPanelContextRequested;
+        }
+        else
+        {
+            ReportMissingView(nameof(_stashPanel));
+        }
+
+        if (_loadoutPanel != null)
+        {
+            _loadoutPanel.SelectionRequested += OnLoadoutSelectionRequested;
+            _loadoutPanel.ContextRequested += OnPanelContextRequested;
+        }
+        else
+        {
+            ReportMissingView(nameof(_loadoutPanel));
+        }
+
+        BindEquipmentSlotViews();
     }
 
     private void OnDestroy()
     {
-        if (_takeAllButton != null) _takeAllButton.onClick.RemoveAllListeners();
-        if (_leaveAllButton != null) _leaveAllButton.onClick.RemoveAllListeners();
+        if (_takeAllButton != null) _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
+        if (_leaveAllButton != null) _leaveAllButton.onClick.RemoveListener(OnLeaveAllClicked);
         if (_contextMenu != null) _contextMenu.ActionRequested -= OnContextActionRequested;
-    }
 
-    public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items)
-    {
-        PopulatePanel(_contentPanel, items, true);
-    }
-
-    public void DisplayLoadout(IReadOnlyList<RaidInventorySlotData> items)
-    {
-        PopulatePanel(_loadoutPanel, items, false);
-    }
-
-    public void DisplayPreparedWeapons(
-        in RaidInventorySlotData slot1,
-        in RaidInventorySlotData slot2)
-    {
-        if (!EnsureWeaponSlots()) return;
-        _weaponSlot1View.PresentWeaponSlot(WeaponSlot.Slot1, in slot1, false, slot1.IsOccupied);
-        _weaponSlot2View.PresentWeaponSlot(WeaponSlot.Slot2, in slot2, false, slot2.IsOccupied);
-    }
-
-    private void PopulatePanel(RectTransform panel, IReadOnlyList<RaidInventorySlotData> items, bool isStash)
-    {
-        if (panel == null) return;
-
-        // Clear existing slots
-        foreach (Transform child in panel)
+        if (_stashPanel != null)
         {
-            var slotView = child.GetComponent<RaidInventorySlotView>();
-            if (slotView != null)
-            {
-                slotView.SelectionRequested -= (lootId, mode) => OnSlotSelected(lootId, isStash, mode);
-            }
-            Destroy(child.gameObject);
+            _stashPanel.SelectionRequested -= OnStashSelectionRequested;
+            _stashPanel.ContextRequested -= OnPanelContextRequested;
         }
 
-        if (items == null || items.Count == 0)
+        if (_loadoutPanel != null)
+        {
+            _loadoutPanel.SelectionRequested -= OnLoadoutSelectionRequested;
+            _loadoutPanel.ContextRequested -= OnPanelContextRequested;
+        }
+
+        if (_equipmentSlotViews == null)
         {
             return;
         }
 
-        // Instantiate a slot for each item
-        foreach (var item in items)
+        for (int index = 0; index < _equipmentSlotViews.Length; index++)
         {
-            var slotObj = Instantiate(_itemSlotPrefab, panel);
-            var slotView = slotObj.GetComponent<RaidInventorySlotView>();
-            if (slotView != null)
+            if (_equipmentSlotViews[index] != null)
             {
-                slotView.Present(in item);
-                slotView.SetInteraction(
-                    isStash
-                        ? RaidLootSlotInteractionMode.Transfer
-                        : RaidLootSlotInteractionMode.TransferWithContextMenu,
-                    false);
-                slotView.SelectionRequested += (lootId, mode) => OnSlotSelected(lootId, isStash, mode);
-                if (!isStash)
-                {
-                    slotView.ContextRequested += OnLoadoutContextRequested;
-                }
+                _equipmentSlotViews[index].SelectionRequested -= OnEquipmentSlotSelected;
             }
         }
     }
 
-    private void OnSlotSelected(LootId lootId, bool isFromStash, LootTransferQuantityMode mode)
+    public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items) =>
+        PresentPanel(
+            _stashPanel,
+            items,
+            _stashProjection,
+            RaidLootSlotInteractionMode.TransferWithContextMenu,
+            ref _hasReportedStashOverflow);
+
+    public void DisplayLoadout(IReadOnlyList<RaidInventorySlotData> items) =>
+        PresentPanel(
+            _loadoutPanel,
+            items,
+            _loadoutProjection,
+            RaidLootSlotInteractionMode.TransferWithContextMenu,
+            ref _hasReportedLoadoutOverflow);
+
+    /// <summary>
+    /// Projects the six Equipment slots. Every occupied slot offers the release intention; only the
+    /// weapon slots may become the effective weapon, which the Town does not preview.
+    /// </summary>
+    public void DisplayPreparedEquipment(IReadOnlyList<RaidInventorySlotData> slotData)
     {
-        TransferRequested?.Invoke(lootId, isFromStash, mode);
+        if (slotData == null || _equipmentSlotViews == null)
+        {
+            return;
+        }
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        int count = Mathf.Min(slots.Length, slotData.Count);
+        for (int index = 0; index < count; index++)
+        {
+            RaidInventorySlotView view = _equipmentSlotViews[index];
+            if (view == null)
+            {
+                continue;
+            }
+
+            RaidInventorySlotData data = slotData[index];
+            view.PresentEquipmentSlot(slots[index], in data, false, data.IsOccupied);
+        }
     }
 
-    private void OnLoadoutContextRequested(LootId lootId, Vector2 screenPosition)
+    /// <summary>
+    /// Shows the authored pool of <paramref name="panel"/> completely, filling it with the received
+    /// stacks in order and empty slots afterwards. Content beyond the authored pool cannot be shown,
+    /// so it is reported once and the panel signals that it is full.
+    /// </summary>
+    private void PresentPanel(
+        RaidLootPanelView panel,
+        IReadOnlyList<RaidInventorySlotData> items,
+        List<RaidInventorySlotData> projection,
+        RaidLootSlotInteractionMode interactionMode,
+        ref bool hasReportedOverflow)
     {
-        if (_contextMenu == null || !lootId.IsValid) return;
+        if (panel == null)
+        {
+            return;
+        }
+
+        int capacity = panel.AuthoredSlotCount;
+        if (!panel.EnsureSlotCount(capacity))
+        {
+            return;
+        }
+
+        int received = items?.Count ?? 0;
+        bool overflows = received > capacity;
+        if (overflows && !hasReportedOverflow)
+        {
+            hasReportedOverflow = true;
+            Debug.LogError(
+                $"{panel.name} holds {received} stacks but only {capacity} slots are authored in the prefab.",
+                panel);
+        }
+
+        int visible = overflows ? capacity : received;
+        projection.Clear();
+        for (int index = 0; index < visible; index++)
+        {
+            projection.Add(items[index]);
+        }
+
+        while (projection.Count < capacity)
+        {
+            projection.Add(RaidInventorySlotData.Empty);
+        }
+
+        panel.Present(projection, null, visible == 0, interactionMode, default);
+        if (overflows)
+        {
+            panel.ShowCapacityRejection();
+        }
+    }
+
+    /// <summary>
+    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its six
+    /// slots are authored in the prefab so the layout stays fully editable in the Inspector.
+    /// </summary>
+    private void BindEquipmentSlotViews()
+    {
+        var views = new[]
+        {
+            _weaponSlot1View, _weaponSlot2View, _helmetView,
+            _armorView, _glovesView, _bootsView
+        };
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        if (views.Length != slots.Length)
+        {
+            Debug.LogError(
+                $"{nameof(LobbyStashUI)} exposes {views.Length} equipment views for {slots.Length} slots.",
+                this);
+            return;
+        }
+
+        for (int index = 0; index < views.Length; index++)
+        {
+            if (views[index] == null)
+            {
+                ReportMissingView($"{slots[index]} view");
+                continue;
+            }
+
+            views[index].SelectionRequested += OnEquipmentSlotSelected;
+        }
+
+        _equipmentSlotViews = views;
+    }
+
+    /// <summary>Releases the Equipment slot whose authored view emitted the intention.</summary>
+    private void OnEquipmentSlotSelected(LootId lootId, LootTransferQuantityMode mode)
+    {
+        if (_equipmentSlotViews == null)
+        {
+            return;
+        }
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int index = 0; index < _equipmentSlotViews.Length; index++)
+        {
+            RaidInventorySlotView view = _equipmentSlotViews[index];
+            if (view != null && view.LootId == lootId && view.IsOccupied)
+            {
+                PreparedEquipmentClearRequested?.Invoke(slots[index]);
+                return;
+            }
+        }
+    }
+
+    private void OnTakeAllClicked() => TakeAllRequested?.Invoke();
+
+    private void OnLeaveAllClicked() => LeaveAllRequested?.Invoke();
+
+    private void OnStashSelectionRequested(LootId lootId, LootTransferQuantityMode mode) =>
+        TransferRequested?.Invoke(lootId, true, mode);
+
+    private void OnLoadoutSelectionRequested(LootId lootId, LootTransferQuantityMode mode) =>
+        TransferRequested?.Invoke(lootId, false, mode);
+
+    /// <summary>
+    /// Opens the contextual menu for one owned stack. Both panels offer the same equip intentions,
+    /// so a unit can be equipped from the Stash or from the Loadout; only the Loadout offers the
+    /// bulk move back to the Stash.
+    /// </summary>
+    private void OnPanelContextRequested(LootId lootId, Vector2 screenPosition)
+    {
+        if (_contextMenu == null || !lootId.IsValid)
+        {
+            return;
+        }
+
         _contextLootId = lootId;
         _contextActions.Clear();
         _contextActions.Add(new LootContextActionDescriptor(MoveAllId, "Mover todo al Stash", true, null));
-        _contextActions.Add(new LootContextActionDescriptor(AssignSlot1Id, "Asignar Weapon Slot 1", true, null));
-        _contextActions.Add(new LootContextActionDescriptor(AssignSlot2Id, "Asignar Weapon Slot 2", true, null));
+
+        LootCategory category = ResolveCategory(lootId);
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            if (!EquipmentSlotRules.IsCompatible(category, slots[index]))
+            {
+                continue;
+            }
+
+            _contextActions.Add(new LootContextActionDescriptor(
+                EquipActionIds[index],
+                $"Equipar en {ResolveSlotLabel(slots[index])}",
+                true,
+                null));
+        }
+
         _contextMenu.Show(_contextActions, screenPosition);
     }
 
@@ -133,53 +324,61 @@ public class LobbyStashUI : MonoBehaviour
         if (actionId == MoveAllId)
         {
             TransferRequested?.Invoke(_contextLootId, false, LootTransferQuantityMode.FullStack);
+            _contextLootId = default;
+            return;
         }
-        else if (actionId == AssignSlot1Id)
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int index = 0; index < EquipActionIds.Length && index < slots.Length; index++)
         {
-            PreparedWeaponAssignmentRequested?.Invoke(_contextLootId, WeaponSlot.Slot1);
+            if (actionId == EquipActionIds[index])
+            {
+                PreparedEquipmentAssignmentRequested?.Invoke(_contextLootId, slots[index]);
+                break;
+            }
         }
-        else if (actionId == AssignSlot2Id)
-        {
-            PreparedWeaponAssignmentRequested?.Invoke(_contextLootId, WeaponSlot.Slot2);
-        }
+
         _contextLootId = default;
     }
 
-    private bool EnsureWeaponSlots()
+    /// <summary>
+    /// Reads the catalog classification already projected into the visible panels, so the menu can
+    /// offer only the slots that may receive this unit without depending on the catalog itself.
+    /// </summary>
+    private LootCategory ResolveCategory(LootId lootId)
     {
-        if (_weaponSlot1View != null && _weaponSlot2View != null) return true;
-        if (_weaponSlotsRoot == null || _itemSlotPrefab == null) return false;
-        _weaponSlot1View = Instantiate(_itemSlotPrefab, _weaponSlotsRoot)
-            .GetComponent<RaidInventorySlotView>();
-        _weaponSlot2View = Instantiate(_itemSlotPrefab, _weaponSlotsRoot)
-            .GetComponent<RaidInventorySlotView>();
-        if (_weaponSlot1View == null || _weaponSlot2View == null) return false;
-        _weaponSlot1View.name = "PreparedWeaponSlot1";
-        _weaponSlot2View.name = "PreparedWeaponSlot2";
-        PositionWeaponSlot(_weaponSlot1View, -85f);
-        PositionWeaponSlot(_weaponSlot2View, 85f);
-        _weaponSlot1View.SelectionRequested += (_, _) =>
-            PreparedWeaponClearRequested?.Invoke(WeaponSlot.Slot1);
-        _weaponSlot2View.SelectionRequested += (_, _) =>
-            PreparedWeaponClearRequested?.Invoke(WeaponSlot.Slot2);
-        return true;
+        for (int index = 0; index < _loadoutProjection.Count; index++)
+        {
+            if (_loadoutProjection[index].IsOccupied && _loadoutProjection[index].LootId == lootId)
+            {
+                return _loadoutProjection[index].Category;
+            }
+        }
+
+        for (int index = 0; index < _stashProjection.Count; index++)
+        {
+            if (_stashProjection[index].IsOccupied && _stashProjection[index].LootId == lootId)
+            {
+                return _stashProjection[index].Category;
+            }
+        }
+
+        return LootCategory.None;
     }
 
-    private static void PositionWeaponSlot(RaidInventorySlotView view, float x)
+    private static string ResolveSlotLabel(EquipmentSlot slot) => slot switch
     {
-        LayoutElement layoutElement = view.GetComponent<LayoutElement>();
-        if (layoutElement == null)
-        {
-            layoutElement = view.gameObject.AddComponent<LayoutElement>();
-        }
-        layoutElement.ignoreLayout = true;
+        EquipmentSlot.WeaponSlot1 => "Weapon Slot 1",
+        EquipmentSlot.WeaponSlot2 => "Weapon Slot 2",
+        EquipmentSlot.Helmet => "Casco",
+        EquipmentSlot.Armor => "Armadura",
+        EquipmentSlot.Gloves => "Guantes",
+        EquipmentSlot.Boots => "Botas",
+        _ => "Equipment"
+    };
 
-        if (view.transform is RectTransform rect)
-        {
-            rect.anchorMin = new Vector2(0.5f, 1f);
-            rect.anchorMax = new Vector2(0.5f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = new Vector2(x, -48f);
-        }
-    }
+    private void ReportMissingView(string fieldName) =>
+        Debug.LogError(
+            $"{nameof(LobbyStashUI)} has no serialized {fieldName}. Assign it on the stash prefab.",
+            this);
 }

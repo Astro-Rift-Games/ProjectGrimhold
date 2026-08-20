@@ -21,24 +21,24 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
 
     public IReadOnlyList<StashItem> GetLoadout(ProfileId profileId) => IsProfile(profileId) ? _store.GetLoadout() : Array.Empty<StashItem>();
 
-    public PreparedWeaponLoadout GetPreparedWeapons(ProfileId profileId) =>
-        IsProfile(profileId) ? _store.GetPreparedWeapons() : default;
+    public PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.GetPreparedEquipment() : default;
 
-    public StashOperationResult TryAssignPreparedWeapon(
+    public StashOperationResult TryAssignPreparedEquipment(
         ProfileId profileId,
-        WeaponSlot slot,
+        EquipmentSlot slot,
         LootId lootId) => IsProfile(profileId)
-            ? _store.TryAssignPreparedWeapon(slot, lootId)
+            ? _store.TryAssignPreparedEquipment(slot, lootId)
             : StashOperationResult.InvalidInventory;
 
-    public StashOperationResult TryClearPreparedWeapon(ProfileId profileId, WeaponSlot slot) =>
+    public StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot) =>
         IsProfile(profileId)
-            ? _store.TryClearPreparedWeapon(slot)
+            ? _store.TryClearPreparedEquipment(slot)
             : StashOperationResult.InvalidInventory;
 
     public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) =>
         IsProfile(profileId)
-            ? _store.TryPrepareExpeditionWeapons()
+            ? _store.TryPrepareExpeditionEquipment()
             : ExpeditionPreparationResult.ProfileUnavailable;
 
     public StashOperationResult TryTransferToLoadout(ProfileId profileId, LootId lootId, int amount) =>

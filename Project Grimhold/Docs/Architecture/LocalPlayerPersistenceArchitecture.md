@@ -12,7 +12,7 @@ further. Loading an older local save must not prevent a multiplayer raid from st
 The application owns one profile aggregate identified by `ProfileId` for the lifetime of
 the current process. `ApplicationStashServiceBootstrapper` creates a single
 `ApplicationStashContext` with `InMemoryLocalProfileRepository` before the first scene.
-The context is marked `DontDestroyOnLoad`, so stash, loadout, prepared weapon assignments,
+The context is marked `DontDestroyOnLoad`, so stash, loadout, prepared Equipment assignments,
 pending loadout reservation and extraction receipts survive Town-Raid-Town transitions.
 
 The aggregate starts empty on every application launch and is discarded when the process
@@ -41,11 +41,16 @@ revisited or replaced when durable persistence receives an approved design.
 
 ## Domain and authority boundaries
 
-Stash and loadout transfers, prepared weapon assignments, loadout reservations and extraction
-receipt application are complete aggregate commits. Prepared Weapon Slot 1 and Slot 2 are
-non-owning `LootId` references into the current Loadout: they never create units, each reference
-must resolve to a valid Weapon, and using one identity twice requires at least two owned units.
-Loadout removals reconcile the assignments in the same commit. Duplicate extraction receipts remain idempotent within the
+Stash and loadout transfers, prepared Equipment assignments, loadout reservations and extraction
+receipt application are complete aggregate commits. `PreparedEquipmentLoadout` covers the six
+slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves and Boots. Every
+assignment is a non-owning `LootId` reference into the current Loadout: it never creates units,
+`EquipmentSlotRules` decides which slot an identity may occupy, weapon slots additionally require
+a usable Weapon definition, and one identity used by several slots requires one owned unit per
+reference. Equipping an identity that still lives in the Stash pulls exactly the missing units
+into the Loadout inside the same commit, because the Loadout is what the reservation transfers; a
+rejected assignment moves nothing. Releasing a slot leaves its unit in the Loadout. Loadout
+removals reconcile the assignments in the same commit, releasing the last slots first. Duplicate extraction receipts remain idempotent within the
 current application process. Closing the application resets both the loot and the receipt
 history, as intended by the temporary lifetime policy.
 
@@ -55,8 +60,9 @@ own the local stash or loadout. A raid Host never reads another client's local a
 
 ### Expedition preparation boundary
 
-`TryPrepareExpeditionWeapons` runs immediately before the reservation boundary and is the only
-place that may normalize the local Loadout and prepared Weapon Equipment. It is atomic,
+`TryPrepareExpeditionEquipment` runs immediately before the reservation boundary and is the only
+place that may normalize the local Loadout and prepared Equipment. Only the weapon guarantee is
+normalized: prepared armor is optional, is never granted and is never rewritten. It is atomic,
 deterministic and idempotent, so retrying a launch never grants or duplicates anything:
 
 * A valid weapon in Weapon Slot 1 is left untouched and commits nothing.
@@ -75,12 +81,12 @@ Raid never grants a recovery weapon. Preparation is inert while a reservation is
 ### Loadout reservation boundary
 
 `TryCreateLoadoutReservation` requires at least one valid prepared weapon and atomically moves
-the complete local Loadout plus both prepared assignments into `PendingLoadoutReservation`
+the complete local Loadout plus its six prepared assignments into `PendingLoadoutReservation`
 before the Town queue ACK. The active Town Loadout and its assignments are then empty and cannot
 ambiguously reference units already reserved for Raid. The requirement stays enforced here as a
 domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a
 different id is rejected while pending. Pre-admission failure restores items and assignments in
-one rollback. After participant, avatar and exact `Inventory + Weapon Slot 1 + Weapon Slot 2`
+one rollback. After participant, avatar and exact `Inventory + the six Equipment slots`
 ownership are observed, confirmation consumes the reservation.
 All of these guarantees apply while the application remains open; an application close
 discards an unfinished reservation.

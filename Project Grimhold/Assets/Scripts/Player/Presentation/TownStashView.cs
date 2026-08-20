@@ -1,61 +1,29 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
-/// Local Canvas that hosts the existing persistent stash prefab in Town.
-/// It owns presentation lifetime only and does not contain stash state.
+/// Local screen lifetime for the persistent stash prefab used in Town and in the Lobby.
+/// The whole screen, including its Canvas, is authored in the prefab; this component owns
+/// presentation lifetime only, creates nothing at runtime and contains no stash state.
 /// </summary>
 [DisallowMultipleComponent]
+[RequireComponent(typeof(Canvas))]
 public sealed class TownStashView : MonoBehaviour
 {
-    private GameObject _stashInstance;
-
-    public bool IsOpen => _stashInstance != null && _stashInstance.activeSelf;
-
-    public static TownStashView Create(Transform owner, GameObject stashInventoryPrefab)
-    {
-        if (owner == null || stashInventoryPrefab == null)
-        {
-            return null;
-        }
-
-        GameObject instance = Instantiate(stashInventoryPrefab, owner, false);
-        instance.name = "StashInventory";
-
-        TownStashView view = instance.AddComponent<TownStashView>();
-        view._stashInstance = instance;
-
-        Canvas canvas = instance.GetComponent<Canvas>();
-        if (canvas == null)
-        {
-            canvas = instance.AddComponent<Canvas>();
-            instance.AddComponent<UnityEngine.UI.CanvasScaler>();
-            instance.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-        }
-
-        if (canvas != null)
-        {
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            // Optionally enforce sorting order to ensure it's on top
-            canvas.sortingOrder = 110;
-        }
-
-        view._stashInstance.SetActive(false);
-        return view;
-    }
+    public bool IsOpen => gameObject.activeSelf;
 
     public void Open()
     {
-        _stashInstance?.SetActive(true);
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
     }
 
     public void Close()
     {
-        _stashInstance?.SetActive(false);
-    }
-
-    private void OnDestroy()
-    {
-        _stashInstance = null;
+        if (gameObject.activeSelf)
+        {
+            gameObject.SetActive(false);
+        }
     }
 }

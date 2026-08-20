@@ -197,7 +197,7 @@ namespace Tests.EditMode.Loot
             Assert.That(configuration, Is.Not.Null);
             Assert.That(configuration.RecoveryWeaponLootId.Value, Is.EqualTo(RecoverySword));
             Assert.That(
-                PreparedWeaponLoadout.IsUsableWeaponDefinition(
+                PreparedEquipmentLoadout.IsUsableWeaponDefinition(
                     configuration.RecoveryWeaponLootId,
                     configuration.LootCatalog),
                 Is.True);

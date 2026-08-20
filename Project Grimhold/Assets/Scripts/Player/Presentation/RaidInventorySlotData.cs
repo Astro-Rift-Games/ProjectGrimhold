@@ -13,13 +13,17 @@ public readonly struct RaidInventorySlotData
     public int Amount { get; }
     public bool UsesFallback { get; }
 
+    /// <summary>Catalog classification of the unit, or None when its definition is unresolved.</summary>
+    public LootCategory Category { get; }
+
     private RaidInventorySlotData(
         bool isOccupied,
         LootId lootId,
         Sprite icon,
         string displayName,
         int amount,
-        bool usesFallback)
+        bool usesFallback,
+        LootCategory category)
     {
         IsOccupied = isOccupied;
         LootId = lootId;
@@ -27,6 +31,7 @@ public readonly struct RaidInventorySlotData
         DisplayName = displayName;
         Amount = amount;
         UsesFallback = usesFallback;
+        Category = category;
     }
 
     public static RaidInventorySlotData Empty => default;
@@ -55,6 +60,7 @@ public readonly struct RaidInventorySlotData
             icon,
             displayName,
             entry.Amount,
-            definitionMissing || definition.Icon == null);
+            definitionMissing || definition.Icon == null,
+            definitionMissing ? LootCategory.None : definition.Category);
     }
 }

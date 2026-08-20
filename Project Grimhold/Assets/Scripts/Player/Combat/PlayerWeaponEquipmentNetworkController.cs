@@ -50,12 +50,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     private bool _initializedBeforeSpawn;
     private readonly Queue<EquipmentOperationResult> _pendingPresentationResults = new();
 
-    /// <summary>Every Equipment slot in a stable presentation order.</summary>
-    public static readonly EquipmentSlot[] AllSlots =
-    {
-        EquipmentSlot.WeaponSlot1, EquipmentSlot.WeaponSlot2, EquipmentSlot.Helmet,
-        EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots
-    };
+    /// <summary>Every Equipment slot in a stable presentation order, owned by the slot rules.</summary>
+    public static EquipmentSlot[] AllSlots => EquipmentSlotRules.AllSlots;
 
     /// <summary>
     /// Replicated state may only be read once Fusion has spawned the object. Presentation
@@ -247,41 +243,62 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     /// Initializes both slots from compact references into an already initialized admission inventory.
     /// Validation completes before either Inventory or Equipment is mutated.
     /// </summary>
-    public bool TryInitializePreparedWeapons(
+    public bool TryInitializePreparedEquipment(
         IReadOnlyList<LootEntry> reservedLoadout,
-        int weaponSlot1EntryIndexPlusOne,
-        int weaponSlot2EntryIndexPlusOne,
+        IReadOnlyList<int> entryIndicesPlusOne,
         out string error)
     {
         error = null;
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         if (!HasStateAuthority || reservedLoadout == null || _lootReceiver == null || _lootCatalog == null)
         {
-            error = "Prepared weapon initialization requires State Authority and loadout dependencies.";
+            error = "Prepared equipment initialization requires State Authority and loadout dependencies.";
             return false;
         }
 
-        if (!TryResolveAdmissionSlot(reservedLoadout, weaponSlot1EntryIndexPlusOne, out int slot1Catalog, out error) ||
-            !TryResolveAdmissionSlot(reservedLoadout, weaponSlot2EntryIndexPlusOne, out int slot2Catalog, out error))
+        if (entryIndicesPlusOne == null || entryIndicesPlusOne.Count != slots.Length)
         {
+            error = "Prepared equipment references are missing.";
             return false;
         }
 
+        var catalogIndices = new int[slots.Length];
+        for (int index = 0; index < slots.Length; index++)
+        {
+            if (!TryResolveAdmissionSlot(
+                    reservedLoadout,
+                    entryIndicesPlusOne[index],
+                    slots[index],
+                    out catalogIndices[index],
+                    out error))
+            {
+                return false;
+            }
+        }
+
+        int slot1Catalog = catalogIndices[0];
+        int slot2Catalog = catalogIndices[1];
         if (slot1Catalog == 0 && slot2Catalog == 0)
         {
             error = "Raid admission requires at least one prepared weapon.";
             return false;
         }
 
-        if (weaponSlot1EntryIndexPlusOne > 0 && weaponSlot1EntryIndexPlusOne == weaponSlot2EntryIndexPlusOne &&
-            reservedLoadout[weaponSlot1EntryIndexPlusOne - 1].Amount < 2)
+        if (!RaidLoadoutRules.TryValidatePreparedEquipmentReferences(
+                reservedLoadout,
+                entryIndicesPlusOne,
+                requireWeapon: true,
+                out error))
         {
-            error = "Both weapon slots reference one unit from the reserved loadout.";
             return false;
         }
 
-        if (!TryValidateInventoryUnit(slot1Catalog, out error) || !TryValidateInventoryUnit(slot2Catalog, out error))
+        for (int index = 0; index < catalogIndices.Length; index++)
         {
-            return false;
+            if (!TryValidateInventoryUnit(catalogIndices[index], out error))
+            {
+                return false;
+            }
         }
 
         int activeCatalog = slot1Catalog > 0 ? slot1Catalog : slot2Catalog;
@@ -292,14 +309,19 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return false;
         }
 
-        if (!CommitInventoryExtraction(slot1Catalog, out error) ||
-            !CommitInventoryExtraction(slot2Catalog, out error))
+        for (int index = 0; index < catalogIndices.Length; index++)
         {
-            throw new InvalidOperationException(error ?? "Validated prepared equipment could not be committed.");
+            if (!CommitInventoryExtraction(catalogIndices[index], out error))
+            {
+                throw new InvalidOperationException(error ?? "Validated prepared equipment could not be committed.");
+            }
         }
 
-        WeaponSlot1CatalogIndexPlusOne = slot1Catalog;
-        WeaponSlot2CatalogIndexPlusOne = slot2Catalog;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            SetCatalogIndexPlusOne(slots[index], catalogIndices[index]);
+        }
+
         ActiveWeaponSlotValue = slot1Catalog > 0 ? (int)WeaponSlot.Slot1 : (int)WeaponSlot.Slot2;
         EquipmentRevision++;
         _initializedBeforeSpawn = true;
@@ -607,9 +629,14 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Resolves one admission reference into a catalog index, rechecking that the referenced unit
+    /// may occupy <paramref name="slot"/>. Weapon slots additionally require a usable weapon.
+    /// </summary>
     private bool TryResolveAdmissionSlot(
         IReadOnlyList<LootEntry> reservedLoadout,
         int entryIndexPlusOne,
+        EquipmentSlot slot,
         out int catalogIndexPlusOne,
         out string error)
     {
@@ -619,13 +646,20 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         int entryIndex = entryIndexPlusOne - 1;
         if (entryIndex < 0 || entryIndex >= reservedLoadout.Count)
         {
-            error = "Prepared weapon reference is outside the reserved loadout.";
+            error = "Prepared equipment reference is outside the reserved loadout.";
             return false;
         }
 
         LootEntry entry = reservedLoadout[entryIndex];
         if (!_lootCatalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
-            !TryResolveValidWeapon(catalogIndex, out _, out _))
+            !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) ||
+            !EquipmentSlotRules.IsCompatible(definition.Category, slot))
+        {
+            error = $"Prepared '{entry.LootId.Value}' cannot occupy {slot}.";
+            return false;
+        }
+
+        if (EquipmentSlotRules.IsWeaponSlot(slot) && !TryResolveValidWeapon(catalogIndex, out _, out _))
         {
             error = $"Prepared weapon '{entry.LootId.Value}' is invalid.";
             return false;

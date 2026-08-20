@@ -78,11 +78,13 @@ second gameplay source of truth.
 the code and are not independently supplied by the coded access path.
 
 `RaidTransitionTicket` captures the validated request, selected build, immutable
-`PendingLoadoutReservation` snapshot (reserved items plus two prepared weapon references) and
-current transition state. The admission token encodes those slots as compact one-based references
-into `ReservedLoadout`, preserving its existing byte bound. State Authority initializes the
-receiver, moves exactly the referenced units into the two replicated Equipment slots, and selects
-Slot 1 when present. Admission is complete only when participant, avatar, `CurrentAvatarId` and
+`PendingLoadoutReservation` snapshot (reserved items plus the six prepared Equipment references)
+and current transition state. The admission token encodes those slots as compact one-based
+references into `ReservedLoadout`, in `EquipmentSlotRules.AllSlots` order, preserving its existing
+byte bound. State Authority initializes the receiver, rechecks slot compatibility against the
+catalog, moves exactly the referenced units into the six replicated Equipment slots, and selects
+Weapon Slot 1 when present. A reference that no longer resolves to a piece compatible with its
+slot rejects the admission instead of silently dropping the piece. Admission is complete only when participant, avatar, `CurrentAvatarId` and
 exact aggregate `Inventory + Equipment` ownership are present. Before that boundary a failed launch rolls back; after it
 confirmation is retried without rollback. `SessionTransitionResult` distinguishes
 reservation, rollback and confirmation failures from connection failures. The

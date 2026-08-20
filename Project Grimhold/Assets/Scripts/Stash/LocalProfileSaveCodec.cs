@@ -17,6 +17,10 @@ public static class LocalProfileSaveCodec
         public ItemData[] loadout;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
+        public string preparedHelmet;
+        public string preparedArmor;
+        public string preparedGloves;
+        public string preparedBoots;
         public ReservationData pendingReservation;
         public ReceiptData[] appliedExtractionReceipts;
         public long shopIdempotencyWatermark;
@@ -37,6 +41,10 @@ public static class LocalProfileSaveCodec
         public ItemData[] items;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
+        public string preparedHelmet;
+        public string preparedArmor;
+        public string preparedGloves;
+        public string preparedBoots;
     }
 
     [Serializable]
@@ -64,14 +72,22 @@ public static class LocalProfileSaveCodec
             currency = snapshot.Currency,
             stash = ToItems(snapshot.Stash),
             loadout = ToItems(snapshot.Loadout),
-            preparedWeaponSlot1 = snapshot.PreparedWeapons.WeaponSlot1.Value,
-            preparedWeaponSlot2 = snapshot.PreparedWeapons.WeaponSlot2.Value,
+            preparedWeaponSlot1 = snapshot.PreparedEquipment.WeaponSlot1.Value,
+            preparedWeaponSlot2 = snapshot.PreparedEquipment.WeaponSlot2.Value,
+            preparedHelmet = snapshot.PreparedEquipment.Helmet.Value,
+            preparedArmor = snapshot.PreparedEquipment.Armor.Value,
+            preparedGloves = snapshot.PreparedEquipment.Gloves.Value,
+            preparedBoots = snapshot.PreparedEquipment.Boots.Value,
             pendingReservation = snapshot.PendingReservation == null ? null : new ReservationData
             {
                 reservationId = snapshot.PendingReservation.ReservationId,
                 items = ToItems(snapshot.PendingReservation.Items),
-                preparedWeaponSlot1 = snapshot.PendingReservation.PreparedWeapons.WeaponSlot1.Value,
-                preparedWeaponSlot2 = snapshot.PendingReservation.PreparedWeapons.WeaponSlot2.Value
+                preparedWeaponSlot1 = snapshot.PendingReservation.PreparedEquipment.WeaponSlot1.Value,
+                preparedWeaponSlot2 = snapshot.PendingReservation.PreparedEquipment.WeaponSlot2.Value,
+                preparedHelmet = snapshot.PendingReservation.PreparedEquipment.Helmet.Value,
+                preparedArmor = snapshot.PendingReservation.PreparedEquipment.Armor.Value,
+                preparedGloves = snapshot.PendingReservation.PreparedEquipment.Gloves.Value,
+                preparedBoots = snapshot.PendingReservation.PreparedEquipment.Boots.Value
             },
             appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
@@ -151,11 +167,15 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        candidate.PreparedWeapons = ReadPreparedWeapons(
+        candidate.PreparedEquipment = ReadPreparedEquipment(
             data.preparedWeaponSlot1,
-            data.preparedWeaponSlot2);
-        if (!PreparedWeaponLoadout.TryValidate(
-                candidate.PreparedWeapons,
+            data.preparedWeaponSlot2,
+            data.preparedHelmet,
+            data.preparedArmor,
+            data.preparedGloves,
+            data.preparedBoots);
+        if (!PreparedEquipmentLoadout.TryValidate(
+                candidate.PreparedEquipment,
                 candidate.Loadout,
                 catalog,
                 requireWeapon: false,
@@ -171,7 +191,11 @@ public static class LocalProfileSaveCodec
             (!string.IsNullOrWhiteSpace(data.pendingReservation.reservationId) ||
              (data.pendingReservation.items != null && data.pendingReservation.items.Length > 0) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot1) ||
-             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot2));
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot2) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedHelmet) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedArmor) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedGloves) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedBoots));
         if (hasPendingReservationData)
         {
             if (string.IsNullOrWhiteSpace(data.pendingReservation.reservationId))
@@ -184,11 +208,15 @@ public static class LocalProfileSaveCodec
             {
                 return false;
             }
-            PreparedWeaponLoadout reservedWeapons = ReadPreparedWeapons(
+            PreparedEquipmentLoadout reservedEquipment = ReadPreparedEquipment(
                 data.pendingReservation.preparedWeaponSlot1,
-                data.pendingReservation.preparedWeaponSlot2);
-            if (!PreparedWeaponLoadout.TryValidate(
-                    reservedWeapons,
+                data.pendingReservation.preparedWeaponSlot2,
+                data.pendingReservation.preparedHelmet,
+                data.pendingReservation.preparedArmor,
+                data.pendingReservation.preparedGloves,
+                data.pendingReservation.preparedBoots);
+            if (!PreparedEquipmentLoadout.TryValidate(
+                    reservedEquipment,
                     reservationItems,
                     catalog,
                     requireWeapon: true,
@@ -199,7 +227,7 @@ public static class LocalProfileSaveCodec
             candidate.PendingReservation = new PendingLoadoutReservation(
                 data.pendingReservation.reservationId,
                 reservationItems,
-                reservedWeapons);
+                reservedEquipment);
         }
 
         if (data.appliedExtractionReceipts != null)
@@ -264,12 +292,26 @@ public static class LocalProfileSaveCodec
         return result;
     }
 
-    private static PreparedWeaponLoadout ReadPreparedWeapons(string slot1, string slot2)
-    {
-        LootId first = string.IsNullOrWhiteSpace(slot1) ? default : new LootId(slot1);
-        LootId second = string.IsNullOrWhiteSpace(slot2) ? default : new LootId(slot2);
-        return new PreparedWeaponLoadout(first, second);
-    }
+    /// <summary>
+    /// Reads the six Equipment assignments. The four armor fields are additive: a profile saved
+    /// before they existed decodes them as empty and keeps its weapons.
+    /// </summary>
+    private static PreparedEquipmentLoadout ReadPreparedEquipment(
+        string weaponSlot1,
+        string weaponSlot2,
+        string helmet,
+        string armor,
+        string gloves,
+        string boots) => new(
+            ReadLootId(weaponSlot1),
+            ReadLootId(weaponSlot2),
+            ReadLootId(helmet),
+            ReadLootId(armor),
+            ReadLootId(gloves),
+            ReadLootId(boots));
+
+    private static LootId ReadLootId(string value) =>
+        string.IsNullOrWhiteSpace(value) ? default : new LootId(value);
 
     private static ReceiptData[] ToReceipts(IReadOnlyList<ExtractionReceipt> receipts)
     {

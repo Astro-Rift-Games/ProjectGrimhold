@@ -30,7 +30,7 @@ there is no second client roster.
    delivers one launch envelope. Create/Join/Ready do not reserve loadout data.
 5. Transition: each frozen member acknowledges the envelope; the coordinator
    first creates its local Loadout reservation. That aggregate mutation requires
-   at least one valid prepared weapon and captures both quick-slot assignments with
+   at least one valid prepared weapon and captures the six Equipment assignments with
    the items. Only then does it shut down Town and create or join the exact
    code-derived Raid session.
 

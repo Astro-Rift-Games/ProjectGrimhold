@@ -492,7 +492,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
 * **Armor Is Equipment State Only**: `Helmet`, `Armor`, `Gloves` and `Boots` currently carry slot identity and compatibility and nothing else. There is no defence, attribute, requirement, rarity, affix or any other gameplay effect attached to them.
-* **Town armor preparation is not implemented by this task**: `PreparedWeaponLoadout` and `TryInitializePreparedWeapons` remain weapon-only, so armor can only enter Equipment during a Raid. Character Build remains the source of truth that armor is meant to be changeable in Town as well; wiring that persistence is separate work.
+* **Town preparation covers the six slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry Helmet, Armor, Gloves and Boots alongside the two weapon slots, so armor prepared in Town enters Equipment at spawn exactly like a weapon. Only a weapon is required to launch (`04 - Character Build Design` §15.1); armor is optional and is never granted by the recovery guarantee.
 * **No armor presentation**: equipped armor has no world or avatar visual. Only the active weapon is presented, through `PlayerWeaponPresenter`.
 
 ---

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -8,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 5;
+    private const byte CanonicalVersion = 6;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -48,8 +49,11 @@ public static class RaidAdmissionDataCodec
                 writer.Write(entry.Amount);
             }
 
-            writer.Write((byte)data.WeaponSlot1EntryIndexPlusOne);
-            writer.Write((byte)data.WeaponSlot2EntryIndexPlusOne);
+            IReadOnlyList<int> indices = data.EntryIndicesPlusOne;
+            for (int index = 0; index < indices.Count; index++)
+            {
+                writer.Write((byte)indices[index]);
+            }
 
             writer.Flush();
             if (stream.Length > RaidLoadoutRules.MaximumTokenBytes)
@@ -114,8 +118,11 @@ public static class RaidAdmissionDataCodec
                 entries[index] = new LootEntry(new LootId(lootIdValue), amount);
             }
 
-            int weaponSlot1EntryIndexPlusOne = reader.ReadByte();
-            int weaponSlot2EntryIndexPlusOne = reader.ReadByte();
+            var indices = new int[EquipmentSlotRules.AllSlots.Length];
+            for (int index = 0; index < indices.Length; index++)
+            {
+                indices[index] = reader.ReadByte();
+            }
 
             if (stream.Position != stream.Length)
             {
@@ -127,8 +134,7 @@ public static class RaidAdmissionDataCodec
                 new ProfileId(profileId),
                 reservationId,
                 entries,
-                weaponSlot1EntryIndexPlusOne,
-                weaponSlot2EntryIndexPlusOne);
+                indices);
             return data.IsValid;
         }
         catch (ArgumentException)

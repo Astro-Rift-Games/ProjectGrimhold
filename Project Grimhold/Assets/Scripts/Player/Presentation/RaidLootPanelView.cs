@@ -56,6 +56,9 @@ public sealed class RaidLootPanelView : MonoBehaviour
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
 
+    /// <summary>The complete slot pool authored in the prefab, shown or hidden but never created.</summary>
+    public int AuthoredSlotCount => _authoredSlots?.Length ?? 0;
+
     /// <summary>Gets the panel-local capacity feedback label.</summary>
     public TMP_Text CapacityFeedbackText => _capacityFeedbackText;
 

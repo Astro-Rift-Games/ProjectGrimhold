@@ -94,6 +94,42 @@ On final suppression release (transition from 1 to 0 active tokens), movement an
 
 Player despawn, runner shutdown, scene unload, or reader replacement therefore cannot leave local gameplay input suppressed. A later session creates a new runner context and receives a fresh player inventory.
 
+## Stash screen composition
+
+The Town and Lobby Stash screen (`Assets/Prefabs/UI/StashInventory.prefab`) reuses these same
+views instead of owning a parallel inventory implementation. `LobbyStashUI` drives two
+`RaidLootPanelView` panels — the stash and the loadout — plus the six Equipment
+`RaidInventorySlotView`s of its equipment panel, and it creates nothing at runtime. The panels,
+both 16-slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
+authored in the prefab itself.
+
+Both screens were seeded once by a temporary Editor tool that has been removed. The prefabs are
+now the only source of truth for layout and are maintained by hand in the Inspector, so a
+regenerating tool can no longer overwrite manual layout work or renumber the authored slots.
+Adding a slot to a pool means adding the slot instance in the prefab and appending it to the
+panel's `_authoredSlots`; the code only shows, hides and drives what the prefab already contains.
+
+`LobbyStashPresenter` remains the only owner of the profile services and of the stash, loadout and
+prepared-weapon intentions. The view pads each received stack list with empty entries up to its
+authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both pools hold 16
+slots, matching `LocalProfileSnapshot.MaxLoadoutSlots`. The stash has no service-side capacity, so
+content beyond the authored pool is reported once as an integration error and the panel shows its
+existing `Lleno` feedback; scrolling or pagination for a stash larger than its pool is not part of
+this contract.
+
+The Stash equipment panel authors the same six slots as the Raid screen and drives them with the
+same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
+right click on any owned stack — in the Stash or in the Loadout — opens the contextual menu, which
+offers only the slots `EquipmentSlotRules` reports as compatible with that unit's category. The
+view resolves the category from the `RaidInventorySlotData` already projected into the panels, so
+it needs no catalog of its own. A left click on an occupied Equipment slot emits the release
+intention for that exact slot. The view emits typed `EquipmentSlot` intentions only;
+`LobbyStashPresenter` forwards them to `IPlayerLoadoutService`, which owns every rule about
+ownership, compatibility and the Stash-to-Loadout pull described in
+`Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
+`TownStashPresenter` instantiates the authored prefab, resolves its `TownStashView` and only shows
+or hides it; it never adds components or configures the Canvas at runtime.
+
 ## Validation strategy
 
 Pure tests cover projection order/capacity, slot fallback data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.

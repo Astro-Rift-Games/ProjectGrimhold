@@ -13,14 +13,14 @@ public interface IPlayerLoadoutService
     /// </summary>
     IReadOnlyList<StashItem> GetLoadout(ProfileId profileId);
 
-    PreparedWeaponLoadout GetPreparedWeapons(ProfileId profileId);
+    PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId);
 
-    StashOperationResult TryAssignPreparedWeapon(
+    StashOperationResult TryAssignPreparedEquipment(
         ProfileId profileId,
-        WeaponSlot slot,
+        EquipmentSlot slot,
         LootId lootId);
 
-    StashOperationResult TryClearPreparedWeapon(ProfileId profileId, WeaponSlot slot);
+    StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot);
 
     /// <summary>
     /// Normalizes the Loadout and prepared Weapon Equipment so a raid reservation can succeed.

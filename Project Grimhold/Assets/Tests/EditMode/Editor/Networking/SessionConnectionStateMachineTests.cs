@@ -249,7 +249,7 @@ public sealed class SessionConnectionStateMachineTests
             profile,
             "old-reservation",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            weaponSlot1EntryIndexPlusOne: 1);
+            new[] { 1, 0, 0, 0, 0, 0 });
 
         try
         {

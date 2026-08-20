@@ -4,6 +4,13 @@
 /// </summary>
 public static class EquipmentSlotRules
 {
+    /// <summary>Every Equipment slot in a stable presentation and projection order.</summary>
+    public static readonly EquipmentSlot[] AllSlots =
+    {
+        EquipmentSlot.WeaponSlot1, EquipmentSlot.WeaponSlot2, EquipmentSlot.Helmet,
+        EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots
+    };
+
     public static bool IsWeaponSlot(EquipmentSlot slot) =>
         slot == EquipmentSlot.WeaponSlot1 || slot == EquipmentSlot.WeaponSlot2;
 
