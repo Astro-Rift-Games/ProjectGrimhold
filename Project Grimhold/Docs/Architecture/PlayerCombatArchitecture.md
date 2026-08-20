@@ -493,7 +493,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
 * **Armor Is Equipment State Only**: `Helmet`, `Armor`, `Gloves` and `Boots` currently carry slot identity and compatibility and nothing else. There is no defence, attribute, requirement, rarity, affix or any other gameplay effect attached to them.
 * **Town preparation covers the six slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry Helmet, Armor, Gloves and Boots alongside the two weapon slots, so armor prepared in Town enters Equipment at spawn exactly like a weapon. Only a weapon is required to launch (`04 - Character Build Design` §15.1); armor is optional and is never granted by the recovery guarantee.
-* **No armor presentation**: equipped armor has no world or avatar visual. Only the active weapon is presented, through `PlayerWeaponPresenter`.
+* **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
 
 ---
 

@@ -45,6 +45,10 @@ public sealed class LootDefinition : ScriptableObject
     [Tooltip("Opcional. Configuración funcional cuando este loot es un arma equipable.")]
     private WeaponDefinition _weaponDefinition;
 
+    [SerializeField]
+    [Tooltip("Opcional. Configuración visual cuando este loot es una armadura o equipo visualizable.")]
+    private EquipmentVisualDefinition _equipmentVisualDefinition;
+
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
@@ -58,6 +62,7 @@ public sealed class LootDefinition : ScriptableObject
     public int DefaultPickupQuantity => _defaultPickupQuantity;
     public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
     public WeaponDefinition WeaponDefinition => _weaponDefinition;
+    public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
 
     private void OnValidate()
     {
@@ -152,6 +157,12 @@ public sealed class LootDefinition : ScriptableObject
         else if (_weaponDefinition != null)
         {
             error = $"Loot definition '{_id}' has a WeaponDefinition but its category is {_category}.";
+            return false;
+        }
+
+        if (_equipmentVisualDefinition != null && !_equipmentVisualDefinition.TryValidate(out string equipError))
+        {
+            error = $"Loot definition '{_id}' has an invalid EquipmentVisualDefinition: {equipError}";
             return false;
         }
 
