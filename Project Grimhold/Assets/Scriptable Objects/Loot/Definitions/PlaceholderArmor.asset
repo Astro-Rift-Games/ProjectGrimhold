@@ -26,5 +26,5 @@ MonoBehaviour:
   _weaponDefinition: {fileID: 0}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 1
-    _tint: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+    _tint: {r: 0.8018868, g: 0, b: 0, a: 1}
     _spriteMappings: []
