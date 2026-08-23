@@ -1,0 +1,327 @@
+<<<<<<< Updated upstream
+fileFormatVersion: 2
+=======
+﻿fileFormatVersion: 2
+>>>>>>> Stashed changes
+guid: 8639715a893d4d547ad752c6ee86fd59
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 6934558320154802809
+    second: Skeleton-Ranged-Idle-S-Sheet_0
+  - first:
+      213: -2533642181048335231
+    second: Skeleton-Ranged-Idle-S-Sheet_1
+  - first:
+      213: -698156051881396954
+    second: Skeleton-Ranged-Idle-S-Sheet_2
+  - first:
+      213: -3614279966930251337
+    second: Skeleton-Ranged-Idle-S-Sheet_3
+  - first:
+      213: -1013025917464414933
+    second: Skeleton-Ranged-Idle-S-Sheet_4
+  - first:
+      213: -3696263999997152150
+    second: Skeleton-Ranged-Idle-S-Sheet_5
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+<<<<<<< Updated upstream
+    textureCompression: 1
+=======
+    textureCompression: 0
+>>>>>>> Stashed changes
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_0
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 0
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 40
+        y: 36
+        width: 16
+        height: 24
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97a7e032d008c3060800000000000000
+      internalID: 6934558320154802809
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_1
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 96
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 136
+        y: 36
+        width: 16
+        height: 23
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1840ba23cd1b6dcd0800000000000000
+      internalID: -2533642181048335231
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_2
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 192
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 232
+        y: 36
+        width: 16
+        height: 23
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 625f1d115c6af46f0800000000000000
+      internalID: -698156051881396954
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_3
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 288
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 328
+        y: 36
+        width: 16
+        height: 23
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7b1df44f48f77ddc0800000000000000
+      internalID: -3614279966930251337
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_4
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 384
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 424
+        y: 36
+        width: 16
+        height: 24
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b25f4499b4201f1f0800000000000000
+      internalID: -1013025917464414933
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Skeleton-Ranged-Idle-S-Sheet_5
+      rect:
+        serializedVersion: 2
+<<<<<<< Updated upstream
+        x: 480
+        y: 0
+        width: 96
+        height: 96
+=======
+        x: 520
+        y: 36
+        width: 16
+        height: 24
+>>>>>>> Stashed changes
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a64fa14c97b34bcc0800000000000000
+      internalID: -3696263999997152150
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Skeleton-Ranged-Idle-S-Sheet_0: 6934558320154802809
+      Skeleton-Ranged-Idle-S-Sheet_1: -2533642181048335231
+      Skeleton-Ranged-Idle-S-Sheet_2: -698156051881396954
+      Skeleton-Ranged-Idle-S-Sheet_3: -3614279966930251337
+      Skeleton-Ranged-Idle-S-Sheet_4: -1013025917464414933
+      Skeleton-Ranged-Idle-S-Sheet_5: -3696263999997152150
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
