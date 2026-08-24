@@ -5311,8 +5311,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 6727737383359403759}
+  m_Children: []
   m_Father: {fileID: 2520259848855165086}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2199920047182287500
@@ -5377,34 +5376,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWeaponPresenter
   _movementStateSource: {fileID: 7201000000000000005}
   _weaponPivot: {fileID: 6727737383359403759}
-  _weaponOrbitAnchor: {fileID: 7300000000000000002}
+  _weaponOrbitAnchor: {fileID: 2222222222222222222}
   _weaponVisual: {fileID: 1771784473681192027}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}
   _equipmentSource: {fileID: 0}
   _directionPresets:
     _south:
       _orbit: {x: 0.28, y: 0.1}
-      _stanceOffset: {x: -0.12, y: 0}
+      _stanceOffset: {x: 0, y: -0.04}
       _swingSign: -1
     _southEast:
-      _orbit: {x: 0.28, y: 0.12}
-      _stanceOffset: {x: -0.08, y: -0.08}
+      _orbit: {x: 0, y: 0}
+      _stanceOffset: {x: 0, y: 0}
       _swingSign: 1
     _northEast:
       _orbit: {x: 0.26, y: 0.1}
-      _stanceOffset: {x: 0.08, y: -0.08}
+      _stanceOffset: {x: 0.02, y: 0}
       _swingSign: 1
     _north:
       _orbit: {x: 0.25, y: 0.08}
-      _stanceOffset: {x: 0.12, y: 0}
+      _stanceOffset: {x: 0, y: 0.02}
       _swingSign: 1
     _northWest:
       _orbit: {x: 0.26, y: 0.1}
-      _stanceOffset: {x: 0.08, y: 0.08}
+      _stanceOffset: {x: -0.02, y: 0}
       _swingSign: -1
     _southWest:
       _orbit: {x: 0.28, y: 0.12}
-      _stanceOffset: {x: -0.08, y: 0.08}
+      _stanceOffset: {x: -0.04, y: 0.04}
       _swingSign: -1
 --- !u!1 &2480520241415459435
 GameObject:
@@ -5551,7 +5550,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
   m_SortingLayer: 2
-  m_SortingOrder: 4
+  m_SortingOrder: 31
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -6909,7 +6908,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6727737383359403759}
   m_Layer: 7
-  m_Name: WeaponPivot
+  m_Name: WeaponSwingPivot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6929,7 +6928,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1771784473681192027}
-  m_Father: {fileID: 3964075307184218784}
+  m_Father: {fileID: 2222222222222222222}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6285776745168213652
 GameObject:
@@ -7091,6 +7090,7 @@ Transform:
   - {fileID: 7397229956843810031}
   - {fileID: 7397229956843810041}
   - {fileID: 7397229956843810051}
+  - {fileID: 2222222222222222222}
   m_Father: {fileID: 2520259848855165086}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7572879158521877428
@@ -7515,7 +7515,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
   m_SortingLayer: 2
-  m_SortingOrder: 3
+  m_SortingOrder: 30
   m_MaskInteraction: 0
   m_Sprite: {fileID: 3973724298883886523, guid: cff245ece0bc2be4eb70ca6f19b7cd6a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -19332,3 +19332,35 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1001, guid: 7efb1769da6543a79fa2e25d7af06c73, type: 3}
   m_PrefabInstance: {fileID: 9212524192135642366}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1111111111111111111
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2222222222222222222}
+  m_Layer: 7
+  m_Name: RightHandGrip
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2222222222222222222
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1111111111111111111}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6727737383359403759}
+  m_Father: {fileID: 7397229956843810001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

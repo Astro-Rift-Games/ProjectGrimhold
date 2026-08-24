@@ -12,7 +12,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
 {
-    private const int SortingOrderFront = 10;
+    private const int SortingOrderFront = 20;
     private const int SortingOrderBack = -10;
 
     [Header("References")]
@@ -41,12 +41,6 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     [Header("Swing Configuration")]
     [SerializeField]
     private float _swingDuration = 0.15f;
-
-    [SerializeField]
-    private float _swingStartAngle = 60f;
-
-    [SerializeField]
-    private float _swingFollowThroughAngle = -30f;
 
     private PlayerCombatNetworkController _combatController;
     private float _swingTimer;
@@ -187,12 +181,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             PlayerWeaponPresentationMath.CalculateAnchorLocalPosition(
                 _weaponOrbitAnchor,
                 _weaponPivot.parent);
-        Vector2 finalStanceOffset = preset.StanceOffset + _equippedPresentation.StanceOffset;
-        Vector2 weaponPivotPosition = PlayerWeaponPresentationMath.CalculateWeaponPivotPosition(
-            anchorLocalPosition,
-            canonicalFacing,
-            preset.Orbit,
-            finalStanceOffset);
+        Vector2 weaponPivotPosition = anchorLocalPosition;
         float facingAngle =
             PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(_safeFacing);
         bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(_safeFacing);
@@ -202,17 +191,23 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         {
             float t = 1f - Mathf.Clamp01(_swingTimer / Mathf.Max(0.001f, _swingDuration));
             float currentArc;
+            float swingArc = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null
+                ? _equippedDefinition.WeaponDefinition.Presentation.SwingArc
+                : _equippedPresentation.SwingArc;
+            float startAngle = swingArc * (2f / 3f);
+            float followThroughAngle = -swingArc * (1f / 3f);
+
             // Barrido principal: 0 a 0.7f (Start -> FollowThrough)
             // Recovery: 0.7f a 1.0f (FollowThrough -> 0)
             if (t < 0.7f)
             {
                 float sweepT = t / 0.7f;
-                currentArc = Mathf.Lerp(_swingStartAngle, _swingFollowThroughAngle, sweepT);
+                currentArc = Mathf.Lerp(startAngle, followThroughAngle, sweepT);
             }
             else
             {
                 float recoveryT = (t - 0.7f) / 0.3f;
-                currentArc = Mathf.Lerp(_swingFollowThroughAngle, 0f, recoveryT);
+                currentArc = Mathf.Lerp(followThroughAngle, 0f, recoveryT);
             }
             
             swingOffset = currentArc * preset.SwingSign;
