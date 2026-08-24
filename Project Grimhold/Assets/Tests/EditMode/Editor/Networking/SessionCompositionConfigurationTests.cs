@@ -59,14 +59,46 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(participantPrefab, Is.Not.Null);
         NetworkObject participantObject = participantPrefab.GetComponent<NetworkObject>();
         NetworkRaidParticipant participant = participantPrefab.GetComponent<NetworkRaidParticipant>();
+        PlayerExpeditionExperienceLedger[] ledgers =
+            participantPrefab.GetComponents<PlayerExpeditionExperienceLedger>();
         Assert.That(participantObject, Is.Not.Null);
         Assert.That(participant, Is.Not.Null);
+        Assert.That(ledgers, Has.Length.EqualTo(1));
         Assert.That(participantPrefab.GetComponent<PlayerCharacter>(), Is.Null);
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(participant));
+        Assert.That(participantObject.NetworkedBehaviours, Does.Contain(ledgers[0]));
+
+        GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+        Assert.That(socialPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null);
 
         AssertRaidAvatarComposition(BaseRaidAvatarPath);
         AssertRaidAvatarComposition(MeleeRaidAvatarPath);
         AssertRaidAvatarComposition(RangedRaidAvatarPath);
+    }
+
+    [Test]
+    public void ExpeditionExperienceLedger_ExistsOnlyOnRaidParticipantPrefab()
+    {
+        string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" });
+        int ledgerCount = 0;
+
+        for (int index = 0; index < prefabGuids.Length; index++)
+        {
+            string prefabPath = AssetDatabase.GUIDToAssetPath(prefabGuids[index]);
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            PlayerExpeditionExperienceLedger[] ledgers =
+                prefab.GetComponentsInChildren<PlayerExpeditionExperienceLedger>(true);
+
+            if (ledgers.Length == 0)
+            {
+                continue;
+            }
+
+            Assert.That(prefabPath, Is.EqualTo(RaidParticipantPath));
+            ledgerCount += ledgers.Length;
+        }
+
+        Assert.That(ledgerCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -439,6 +471,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(participantLink, Is.Not.Null, prefabPath);
         Assert.That(visibilityBinder, Is.Not.Null, prefabPath);
         Assert.That(avatarPrefab.GetComponent<PlayerLoadoutInjector>(), Is.Null, prefabPath);
+        Assert.That(avatarPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null, prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(participantLink), prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(visibilityBinder), prefabPath);
         Transform visibilityMesh = FindChild(avatarPrefab.transform, "VisibilityMesh");

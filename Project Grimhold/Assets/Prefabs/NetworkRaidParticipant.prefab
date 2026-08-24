@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 765713518842218867}
   - component: {fileID: 2568880284868340658}
   - component: {fileID: 4242367586246355310}
+  - component: {fileID: 770129000000000001}
   m_Layer: 0
   m_Name: NetworkRaidParticipant
   m_TagString: Untagged
@@ -52,6 +53,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 4242367586246355310}
+  - {fileID: 770129000000000001}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &4242367586246355310
 MonoBehaviour:
@@ -78,3 +80,19 @@ MonoBehaviour:
     RawValue: 0
   _IsReturnAuthorized:
     RawValue: 0
+--- !u!114 &770129000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5004213290188446567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6dc586796d748bea21a1f627147a465, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExpeditionExperienceLedger
+  _KillExperience: 0
+  _AssistExperience: 0
+  _ExplorationExperience: 0
+  _ExtractedLootExperience: 0

@@ -11,6 +11,11 @@ Each participant also replicates the `RaidGenerationId` assigned by
 `NetworkMatchController`; it is an identity marker only and does not duplicate
 inventory, extraction or lifecycle state.
 
+The PlayerObject co-locates one `PlayerExpeditionExperienceLedger` that owns the
+participant's provisional Expedition Experience independently from the avatar. Its
+authority, lifecycle, producer-idempotency boundary and future consolidation boundary are
+defined in `Docs/Architecture/ProgressionArchitecture.md`.
+
 State Authority alone transitions `Raiding` to `Defeated`, `Extracted` or `Aborted`.
 The transition state is not another health, extraction or inventory source of truth:
 it records the authoritative outcome after those existing systems have completed.
@@ -72,6 +77,10 @@ Snapshot restoration remaps both directions of the participant/avatar relationsh
 reassigning PlayerObject and avatar input authority. A defeated participant has no current
 avatar, so its restored body remains without player control.
 
+The co-located Expedition Experience ledger contains only replicated accumulators, so
+`CopyStateFrom` restores it with the participant and requires no NetworkId remap or
+restore-time initialization.
+
 ## Follow-up dependencies
 
 TASK-79 initializes the admitted avatar loadout. TASK-80 calls
@@ -81,7 +90,8 @@ task may change PlayerObject identity or create a parallel participant coordinat
 ## Unity prefab composition
 
 `Assets/Prefabs/NetworkRaidParticipant.prefab` is the registered Fusion participant prefab
-and contains only its `NetworkObject` and `NetworkRaidParticipant` network behaviour.
+and contains its `NetworkObject`, `NetworkRaidParticipant` and exactly one
+`PlayerExpeditionExperienceLedger` network behaviour.
 `FusionSessionLauncher._raidParticipantPrefab` on `Assets/Prefabs/Systems.prefab` references
 that asset. `RaidAvatarParticipantLink` lives on the base `NetworkPlayer` prefab and is
 therefore inherited by both catalog avatars (`NetworkPlayerMelee` and
