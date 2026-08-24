@@ -62,10 +62,15 @@ public sealed class WeaponDefinition : ScriptableObject
         [Tooltip("The total angle distance the weapon covers during a melee swing.")]
         private float _swingArc;
 
+            [SerializeField]
+            [Tooltip("The duration in seconds of the procedural swing animation.")]
+            private float _swingDuration;
+
         public Vector2 StanceOffset => _stanceOffset;
         public Vector2 GripPoint => _gripPoint;
         public float AngleCorrection => _angleCorrection;
         public float SwingArc => _swingArc == 0f ? 90f : _swingArc;
+            public float SwingDuration => _swingDuration == 0f ? 0.15f : _swingDuration;
 
         public bool TryValidate(out string error)
         {

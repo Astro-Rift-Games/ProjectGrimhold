@@ -40,7 +40,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     [Header("Swing Configuration")]
     [SerializeField]
-    private float _swingDuration = 0.15f;
+    
 
     private PlayerCombatNetworkController _combatController;
     private float _swingTimer;
@@ -101,7 +101,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (evt.AttackType == AttackType.Melee)
         {
             _isSwinging = true;
-            _swingTimer = Mathf.Max(0.001f, _swingDuration);
+            float duration = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null ? _equippedDefinition.WeaponDefinition.Presentation.SwingDuration : _equippedPresentation.SwingDuration;
+            _swingTimer = Mathf.Max(0.001f, duration);
             _swingFacingDirection = evt.Direction;
         }
     }
@@ -189,7 +190,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         float swingOffset = 0f;
         if (_isSwinging)
         {
-            float t = 1f - Mathf.Clamp01(_swingTimer / Mathf.Max(0.001f, _swingDuration));
+            float duration = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null ? _equippedDefinition.WeaponDefinition.Presentation.SwingDuration : _equippedPresentation.SwingDuration;
+            float t = 1f - Mathf.Clamp01(_swingTimer / Mathf.Max(0.001f, duration));
             float currentArc;
             float swingArc = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null
                 ? _equippedDefinition.WeaponDefinition.Presentation.SwingArc
@@ -211,6 +213,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             }
             
             swingOffset = currentArc * preset.SwingSign;
+        }
+        else
+        {
+            swingOffset = preset.StanceAngle;
         }
 
         _weaponPivot.localPosition = new Vector3(
@@ -316,6 +322,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         [SerializeField] private Vector2 _orbit;
         [SerializeField] private Vector2 _stanceOffset;
         [SerializeField] private float _swingSign;
+        [SerializeField] private float _stanceAngle;
 
         public Vector2 Orbit
         {
@@ -329,17 +336,19 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             set => _stanceOffset = value;
         }
 
+        public float StanceAngle { get => _stanceAngle; set => _stanceAngle = value; }
         public float SwingSign
         {
             get => _swingSign;
             set => _swingSign = value;
         }
 
-        public WeaponDirectionPreset(Vector2 orbit, Vector2 stanceOffset, float swingSign)
+        public WeaponDirectionPreset(Vector2 orbit, Vector2 stanceOffset, float swingSign, float stanceAngle)
         {
             _orbit = orbit;
             _stanceOffset = stanceOffset;
             _swingSign = swingSign;
+            _stanceAngle = stanceAngle;
         }
     }
 
