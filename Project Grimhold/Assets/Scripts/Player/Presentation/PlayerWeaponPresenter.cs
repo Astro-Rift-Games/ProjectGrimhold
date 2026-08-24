@@ -38,6 +38,21 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     [SerializeField]
     private WeaponDirectionPresetTable _directionPresets;
 
+    [Header("Swing Configuration")]
+    [SerializeField]
+    private float _swingDuration = 0.15f;
+
+    [SerializeField]
+    private float _swingStartAngle = 60f;
+
+    [SerializeField]
+    private float _swingFollowThroughAngle = -30f;
+
+    private PlayerCombatNetworkController _combatController;
+    private float _swingTimer;
+    private bool _isSwinging;
+    private Vector2 _swingFacingDirection;
+
     private IMovementState _movementState;
     private NetworkBehaviour _movementNetworkBehaviour;
     private LootDefinition _equippedDefinition;
@@ -65,17 +80,49 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             return;
         }
 
+        if (_combatController != null)
+        {
+            _combatController.AttackPerformed -= OnAttackPerformed;
+            _combatController.AttackPerformed += OnAttackPerformed;
+        }
+
         UpdateWeaponSprite();
         ApplyPose();
     }
 
     private void OnDisable()
     {
+        if (_combatController != null)
+        {
+            _combatController.AttackPerformed -= OnAttackPerformed;
+        }
+        
+        _isSwinging = false;
+        _swingTimer = 0f;
         _safeFacing = Vector2.down;
+    }
+
+    private void OnAttackPerformed(AttackPerformedEvent evt)
+    {
+        if (evt.AttackType == AttackType.Melee)
+        {
+            _isSwinging = true;
+            _swingTimer = Mathf.Max(0.001f, _swingDuration);
+            _swingFacingDirection = evt.Direction;
+        }
     }
 
     private void LateUpdate()
     {
+        if (_isSwinging)
+        {
+            _swingTimer -= Time.deltaTime;
+            if (_swingTimer <= 0f)
+            {
+                _isSwinging = false;
+            }
+        }
+
         UpdateWeaponSprite();
         if (!_weaponSpriteRenderer.enabled)
         {
@@ -119,6 +166,12 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         Vector2 facing = CanReadMovementState()
             ? _movementState.FacingDirection
             : _safeFacing;
+
+        if (_isSwinging)
+        {
+            facing = _swingFacingDirection;
+        }
+
         _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(
             facing,
             _safeFacing);
@@ -144,11 +197,32 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(_safeFacing);
         bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(_safeFacing);
 
+        float swingOffset = 0f;
+        if (_isSwinging)
+        {
+            float t = 1f - Mathf.Clamp01(_swingTimer / Mathf.Max(0.001f, _swingDuration));
+            float currentArc;
+            // Barrido principal: 0 a 0.7f (Start -> FollowThrough)
+            // Recovery: 0.7f a 1.0f (FollowThrough -> 0)
+            if (t < 0.7f)
+            {
+                float sweepT = t / 0.7f;
+                currentArc = Mathf.Lerp(_swingStartAngle, _swingFollowThroughAngle, sweepT);
+            }
+            else
+            {
+                float recoveryT = (t - 0.7f) / 0.3f;
+                currentArc = Mathf.Lerp(_swingFollowThroughAngle, 0f, recoveryT);
+            }
+            
+            swingOffset = currentArc * preset.SwingSign;
+        }
+
         _weaponPivot.localPosition = new Vector3(
             weaponPivotPosition.x,
             weaponPivotPosition.y,
             _weaponPivot.localPosition.z);
-        _weaponPivot.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
+        _weaponPivot.localRotation = Quaternion.Euler(0f, 0f, facingAngle + swingOffset);
         _weaponPivot.localScale = new Vector3(
             _weaponPivotBaseScale.x,
             Mathf.Abs(_weaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
@@ -185,6 +259,11 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _movementState = _movementStateSource as IMovementState;
         _movementNetworkBehaviour = _movementStateSource as NetworkBehaviour;
+
+        if (_combatController == null)
+        {
+            _combatController = GetComponentInParent<PlayerCombatNetworkController>();
+        }
     }
 
     private bool CanReadMovementState()
@@ -241,6 +320,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     {
         [SerializeField] private Vector2 _orbit;
         [SerializeField] private Vector2 _stanceOffset;
+        [SerializeField] private float _swingSign;
 
         public Vector2 Orbit
         {
@@ -254,10 +334,17 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             set => _stanceOffset = value;
         }
 
-        public WeaponDirectionPreset(Vector2 orbit, Vector2 stanceOffset)
+        public float SwingSign
+        {
+            get => _swingSign;
+            set => _swingSign = value;
+        }
+
+        public WeaponDirectionPreset(Vector2 orbit, Vector2 stanceOffset, float swingSign)
         {
             _orbit = orbit;
             _stanceOffset = stanceOffset;
+            _swingSign = swingSign;
         }
     }
 
