@@ -7107,6 +7107,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimatorView
   _animator: {fileID: 5232659655046367733}
   _movementControllerSource: {fileID: 729366679366126330}
+  _referenceMovementSpeed: 4
 --- !u!95 &5232659655046367733
 Animator:
   serializedVersion: 7
