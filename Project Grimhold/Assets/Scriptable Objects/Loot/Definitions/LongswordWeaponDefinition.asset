@@ -15,5 +15,6 @@ MonoBehaviour:
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
   _presentation:
     _stanceOffset: {x: 0, y: 0}
-    _gripPoint: {x: -0.25, y: 0.1875}
+    _gripPoint: {x: 0, y: 0}
     _angleCorrection: -135
+    _swingArc: 50

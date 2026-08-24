@@ -58,15 +58,20 @@ public sealed class WeaponDefinition : ScriptableObject
         [SerializeField]
         private float _angleCorrection;
 
+        [SerializeField]
+        [Tooltip("The total angle distance the weapon covers during a melee swing.")]
+        private float _swingArc;
+
         public Vector2 StanceOffset => _stanceOffset;
         public Vector2 GripPoint => _gripPoint;
         public float AngleCorrection => _angleCorrection;
+        public float SwingArc => _swingArc == 0f ? 90f : _swingArc;
 
         public bool TryValidate(out string error)
         {
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
-                !IsFinite(_angleCorrection))
+                !IsFinite(_angleCorrection) || !IsFinite(_swingArc))
             {
                 error = "stance offset, grip point and angle correction must be finite.";
                 return false;
