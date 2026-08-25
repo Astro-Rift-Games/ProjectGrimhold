@@ -181,7 +181,14 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
             return ConsumableResult.Rejected(ConsumableFailureReason.InsufficientAmount);
         }
 
-        _lootReceiver.CommitExtraction(extractionRequest);
+        if (!_lootReceiver.TryResolveRaidLootOriginTransfer(
+                extractionRequest,
+                out RaidLootOriginTransfer originTransfer))
+        {
+            throw new InvalidOperationException("Validated consumable provenance could not be resolved.");
+        }
+
+        _lootReceiver.CommitRaidLootExtraction(extractionRequest, originTransfer);
 
         return ConsumableResult.Ok();
     }

@@ -17,9 +17,10 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void MaxLootTypes_MatchesNetworkDictionaryCapacityContract()
+        public void RaidDistinctLootCapacity_IsExplicitlySixteen()
         {
-            Assert.That(PlayerLootReceiver.MaxLootTypes, Is.EqualTo(64));
+            Assert.That(PlayerLootReceiver.MaxDistinctLootTypes, Is.EqualTo(16));
+            Assert.That(PlayerLootReceiver.MaxCatalogEntries, Is.EqualTo(64));
         }
 
         [Test]

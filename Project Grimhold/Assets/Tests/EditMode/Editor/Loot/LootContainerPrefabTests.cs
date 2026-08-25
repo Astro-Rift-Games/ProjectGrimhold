@@ -10,6 +10,39 @@ namespace Tests.EditMode.Loot
 {
     public sealed class LootContainerPrefabTests
     {
+        [TestCase("Assets/Prefabs/LootContainer.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab")]
+        public void ProductiveRaidContainerCapacity_IsAtMostSixteen(string prefabPath)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            ContainerRaidLootOriginState origins = prefab.GetComponent<ContainerRaidLootOriginState>();
+            NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+            Assert.That(container, Is.Not.Null, prefabPath);
+            Assert.That(origins, Is.Not.Null, prefabPath);
+            Assert.That(networkObject, Is.Not.Null, prefabPath);
+            Assert.That(container.SlotCapacity, Is.InRange(1, NetworkLootContainer.MaxDistinctLootTypes), prefabPath);
+            AssertNetworkBehaviourIsBaked(networkObject, origins);
+        }
+
+        [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
+        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
+        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
+        [TestCase("Assets/Prefabs/SocialPlayer.prefab")]
+        public void ProductivePlayerReceiverCapacity_IsAtMostSixteen(string prefabPath)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            PlayerLootReceiver receiver = prefab.GetComponent<PlayerLootReceiver>();
+            Assert.That(receiver, Is.Not.Null, prefabPath);
+            Assert.That(receiver.SlotCapacity, Is.InRange(1, PlayerLootReceiver.MaxDistinctLootTypes), prefabPath);
+        }
+
         [Test]
         public void ContainerPrefab_HasRequiredProductionComponentsAndLayer()
         {
@@ -20,6 +53,7 @@ namespace Tests.EditMode.Loot
             Assert.That(prefab.GetComponent<NetworkObject>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkTransform>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainer>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<ContainerRaidLootOriginState>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>(), Is.Not.Null);
         }
@@ -55,7 +89,7 @@ namespace Tests.EditMode.Loot
                     table,
                     container.LootCatalog,
                     container.SlotCapacity,
-                    NetworkLootContainer.MaxLootTypes,
+                    NetworkLootContainer.MaxDistinctLootTypes,
                     out ValidatedLootContainerContentSnapshot snapshot,
                     out string snapshotError),
                 Is.True,
@@ -104,6 +138,8 @@ namespace Tests.EditMode.Loot
             NetworkLootContainerInteractable interactable = prefab.GetComponent<NetworkLootContainerInteractable>();
             PlayerWeaponEquipmentNetworkController equipment =
                 prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            PlayerRaidLootOriginState playerOrigins = prefab.GetComponent<PlayerRaidLootOriginState>();
+            ContainerRaidLootOriginState corpseOrigins = prefab.GetComponent<ContainerRaidLootOriginState>();
 
             Assert.That(networkObject, Is.Not.Null);
             Assert.That(character, Is.Not.Null);
@@ -112,6 +148,8 @@ namespace Tests.EditMode.Loot
             Assert.That(container, Is.Not.Null);
             Assert.That(interactable, Is.Not.Null);
             Assert.That(equipment, Is.Not.Null);
+            Assert.That(playerOrigins, Is.Not.Null);
+            Assert.That(corpseOrigins, Is.Not.Null);
             Assert.That(character.gameObject, Is.SameAs(networkObject.gameObject));
             Assert.That(receiver.gameObject, Is.SameAs(networkObject.gameObject));
             Assert.That(generationController.gameObject, Is.SameAs(networkObject.gameObject));
@@ -145,6 +183,8 @@ namespace Tests.EditMode.Loot
             AssertNetworkBehaviourIsBaked(networkObject, container);
             AssertNetworkBehaviourIsBaked(networkObject, interactable);
             AssertNetworkBehaviourIsBaked(networkObject, equipment);
+            AssertNetworkBehaviourIsBaked(networkObject, playerOrigins);
+            AssertNetworkBehaviourIsBaked(networkObject, corpseOrigins);
         }
 
         [Test]

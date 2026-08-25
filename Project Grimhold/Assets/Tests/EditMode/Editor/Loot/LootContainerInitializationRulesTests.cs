@@ -41,7 +41,7 @@ namespace Tests.EditMode.Loot
                 (IReadOnlyList<LootContainerInitialEntry>)null,
                 _catalog,
                 4,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> entries,
                 out string error);
 
@@ -64,7 +64,7 @@ namespace Tests.EditMode.Loot
                 },
                 _catalog,
                 4,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> entries,
                 out string error);
 
@@ -89,14 +89,14 @@ namespace Tests.EditMode.Loot
                 },
                 _catalog,
                 4,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> duplicateOutput,
                 out _);
             bool amountValid = LootContainerInitializationRules.TryBuild(
                 new[] { new LootContainerInitialEntry(coin, 0) },
                 _catalog,
                 4,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> amountOutput,
                 out _);
 
@@ -121,7 +121,7 @@ namespace Tests.EditMode.Loot
                 },
                 _catalog,
                 1,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> entries,
                 out _);
 
@@ -139,14 +139,14 @@ namespace Tests.EditMode.Loot
                 new[] { new LootEntry(coin.LootId, int.MaxValue) },
                 _catalog,
                 1,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> entries,
                 out string error);
             bool invalid = LootContainerInitializationRules.TryBuild(
                 new[] { new LootEntry(coin.LootId, 0) },
                 _catalog,
                 1,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> invalidEntries,
                 out _);
 

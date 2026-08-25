@@ -111,6 +111,59 @@ namespace Tests.EditMode.Loot
             Assert.That(methods[0].Name, Is.EqualTo(nameof(ILootFirstAcquisitionSource.ResolveFirstAcquisition)));
         }
 
+        [Test]
+        public void Execute_RaidAwareEndpointsUseOnlyJointCommits()
+        {
+            var calls = new List<string>();
+            var source = new RaidSource(calls, true);
+            var destination = new RaidDestination(calls, true);
+
+            LootTransferResult result = LootTransferTransaction.Execute(source, destination, ValidRequest());
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                "ValidateExtraction",
+                "ValidateReceive",
+                "ResolveRaidOrigin",
+                "ValidateRaidOriginReceive",
+                "CommitRaidExtraction",
+                "CommitRaidReceive"
+            }));
+        }
+
+        [Test]
+        public void Execute_MixedRaidAwarenessRejectsBeforeMutation()
+        {
+            var calls = new List<string>();
+            var source = new RaidSource(calls, true);
+            var destination = new RaidDestination(calls, false);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                LootTransferTransaction.Execute(source, destination, ValidRequest()));
+            Assert.That(calls, Does.Not.Contain("CommitRaidExtraction"));
+            Assert.That(calls, Does.Not.Contain("CommitRaidReceive"));
+        }
+
+        [Test]
+        public void Execute_InactiveRaidCompositionPreservesLegacyTownCommits()
+        {
+            var calls = new List<string>();
+            var source = new RaidSource(calls, false);
+            var destination = new RaidDestination(calls, false);
+
+            LootTransferResult result = LootTransferTransaction.Execute(source, destination, ValidRequest());
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                "ValidateExtraction",
+                "ValidateReceive",
+                "LegacyCommitExtraction",
+                "LegacyCommitReceive"
+            }));
+        }
+
         private static LootTransferRequest ValidRequest() => new(
             new EntityId(1),
             new EntityId(2),
@@ -188,6 +241,75 @@ namespace Tests.EditMode.Loot
             }
 
             public void CommitExtraction(in LootTransferRequest request) => _calls.Add("CommitExtraction");
+        }
+
+        private sealed class RaidSource : ILootExtractor, IRaidLootOriginSource
+        {
+            private readonly List<string> _calls;
+
+            public RaidSource(List<string> calls, bool isAware)
+            {
+                _calls = calls;
+                IsRaidLootOriginAware = isAware;
+            }
+
+            public EntityId Id => new(1);
+            public bool IsRaidLootOriginAware { get; }
+
+            public LootTransferFailureReason ValidateExtraction(in LootTransferRequest request)
+            {
+                _calls.Add("ValidateExtraction");
+                return LootTransferFailureReason.None;
+            }
+
+            public void CommitExtraction(in LootTransferRequest request) => _calls.Add("LegacyCommitExtraction");
+
+            public bool TryResolveRaidLootOriginTransfer(
+                in LootTransferRequest request,
+                out RaidLootOriginTransfer transfer)
+            {
+                _calls.Add("ResolveRaidOrigin");
+                transfer = RaidLootOriginTransfer.Dungeon(request.RequestedAmount);
+                return true;
+            }
+
+            public void CommitRaidLootExtraction(
+                in LootTransferRequest request,
+                RaidLootOriginTransfer transfer) => _calls.Add("CommitRaidExtraction");
+        }
+
+        private sealed class RaidDestination : ILootReceiver, IRaidLootOriginReceiver
+        {
+            private readonly List<string> _calls;
+
+            public RaidDestination(List<string> calls, bool isAware)
+            {
+                _calls = calls;
+                IsRaidLootOriginAware = isAware;
+            }
+
+            public EntityId Id => new(2);
+            public bool IsRaidLootOriginAware { get; }
+
+            public LootTransferFailureReason ValidateReceive(in LootTransferRequest request)
+            {
+                _calls.Add("ValidateReceive");
+                return LootTransferFailureReason.None;
+            }
+
+            public void CommitReceive(in LootTransferRequest request) => _calls.Add("LegacyCommitReceive");
+
+            public LootTransferFailureReason ValidateRaidLootOriginReceive(
+                in LootTransferRequest request,
+                RaidLootOriginTransfer transfer)
+            {
+                _calls.Add("ValidateRaidOriginReceive");
+                return LootTransferFailureReason.None;
+            }
+
+            public void CommitRaidLootReceive(
+                in LootTransferRequest request,
+                RaidLootOriginTransfer transfer) => _calls.Add("CommitRaidReceive");
         }
     }
 }

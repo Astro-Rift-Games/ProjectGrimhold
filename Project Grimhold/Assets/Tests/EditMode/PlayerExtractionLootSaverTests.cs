@@ -4,13 +4,20 @@ using NUnit.Framework;
 public sealed class PlayerExtractionLootSaverTests
 {
     [Test]
+    public void SnapshotCapacity_CoversInventoryAndAllSixEquipmentSlots()
+    {
+        Assert.That(PlayerExtractionLootSaver.MaximumSnapshotEntries, Is.EqualTo(22));
+    }
+
+    [Test]
     public void PayloadShape_AllowsEmptySnapshot()
     {
         Assert.That(
             PlayerExtractionLootSaver.ValidatePayloadShape(
                 new int[0],
                 new int[0],
-                PlayerLootReceiver.MaxLootTypes,
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
                 _ => true),
             Is.True);
     }
@@ -22,7 +29,8 @@ public sealed class PlayerExtractionLootSaverTests
             PlayerExtractionLootSaver.ValidatePayloadShape(
                 new[] { 1 },
                 new int[0],
-                PlayerLootReceiver.MaxLootTypes,
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
                 _ => true),
             Is.False);
 
@@ -30,7 +38,8 @@ public sealed class PlayerExtractionLootSaverTests
             PlayerExtractionLootSaver.ValidatePayloadShape(
                 new[] { 1, 1 },
                 new[] { 2, 3 },
-                PlayerLootReceiver.MaxLootTypes,
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
                 _ => true),
             Is.False);
     }
@@ -42,7 +51,8 @@ public sealed class PlayerExtractionLootSaverTests
             PlayerExtractionLootSaver.ValidatePayloadShape(
                 new[] { 4 },
                 new[] { 1 },
-                PlayerLootReceiver.MaxLootTypes,
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
                 index => index == 2),
             Is.False);
 
@@ -50,9 +60,23 @@ public sealed class PlayerExtractionLootSaverTests
             PlayerExtractionLootSaver.ValidatePayloadShape(
                 new[] { 2 },
                 new[] { 0 },
-                PlayerLootReceiver.MaxLootTypes,
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
                 _ => true),
             Is.False);
+    }
+
+    [Test]
+    public void PayloadShape_AllowsCatalogIndexBeyondDistinctEntryCapacity()
+    {
+        Assert.That(
+            PlayerExtractionLootSaver.ValidatePayloadShape(
+                new[] { PlayerLootReceiver.MaxCatalogEntries - 1 },
+                new[] { 1 },
+                PlayerLootReceiver.MaxDistinctLootTypes,
+                PlayerLootReceiver.MaxCatalogEntries,
+                _ => true),
+            Is.True);
     }
 }
 #endif

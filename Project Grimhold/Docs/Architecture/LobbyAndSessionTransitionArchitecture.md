@@ -2,7 +2,7 @@
 
 ## Context
 
-TASK-57 replaces the previous lobby transition design. The normal application flow is:
+The current lobby and session transition architecture replaces the previous transition design. The normal application flow is:
 
 ```text
 MainMenu -> Town -> Raid -> Town
@@ -228,7 +228,7 @@ No event advances network simulation. Launcher shutdown notifications report inf
 lifecycle only, and `StateChanged` is local presentation feedback. Movement, combat, health,
 extraction, and other gameplay state continue to advance through Fusion simulation and their
 existing authority rules. No RPC, `[Networked]` property, event bus, or parallel coordinator
-is introduced by TASK-57.
+is introduced by this transition flow.
 
 ## Alternatives considered
 

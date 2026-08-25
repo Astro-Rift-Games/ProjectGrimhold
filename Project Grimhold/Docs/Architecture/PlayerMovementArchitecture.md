@@ -1,6 +1,6 @@
 # Player Movement Architecture
 
-## TASK-38 facing update
+## Facing update
 
 `PlayerNetworkInput.AimWorldPosition` is resolved in `FixedUpdateNetwork` only after
 `Kinematic2DMovementMotor` has applied the current tick displacement. The final player
@@ -20,7 +20,7 @@ state observed by proxies.
 
 A payload is treated as default/suppressed only when move and aim positions are zero
 and `Buttons.Bits` is zero. Consequently an idle player without buttons cannot
-distinguish suppression from aiming at global `(0, 0)`; TASK-38 intentionally preserves
+distinguish suppression from aiming at global `(0, 0)`; the input contract intentionally preserves
 facing in that ambiguous case without adding another input field.
 
 ## 1. Propósito

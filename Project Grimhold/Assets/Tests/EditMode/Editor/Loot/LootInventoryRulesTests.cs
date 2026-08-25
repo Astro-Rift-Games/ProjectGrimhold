@@ -6,14 +6,15 @@ namespace Tests.EditMode.Loot
     {
         [TestCase(1, true)]
         [TestCase(16, true)]
-        [TestCase(64, true)]
+        [TestCase(17, false)]
+        [TestCase(64, false)]
         [TestCase(0, false)]
         [TestCase(-1, false)]
         [TestCase(65, false)]
         public void SlotCapacity_MustFitTechnicalRepresentation(int slotCapacity, bool expected)
         {
             Assert.That(
-                LootInventoryRules.IsValidSlotCapacity(slotCapacity, PlayerLootReceiver.MaxLootTypes),
+                LootInventoryRules.IsValidSlotCapacity(slotCapacity, PlayerLootReceiver.MaxDistinctLootTypes),
                 Is.EqualTo(expected));
         }
 

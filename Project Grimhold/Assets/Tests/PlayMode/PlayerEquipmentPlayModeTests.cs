@@ -113,6 +113,38 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator CopyStateFrom_PreservesRaidParticipantIdsAndEquipmentOrigins()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+
+            PlayerRaidLootOriginState source =
+                _receiver.GetComponent<PlayerRaidLootOriginState>();
+            NetworkObject restoredObject = Spawn(PlayerPrefabGuid, PlayerRef.None);
+            PlayerRaidLootOriginState restored =
+                restoredObject.GetComponent<PlayerRaidLootOriginState>();
+
+            Assert.That(source, Is.Not.Null);
+            Assert.That(restored, Is.Not.Null);
+            restored.CopyStateFrom(source);
+
+            Assert.That(
+                source.TryGetInventoryEntries(_catalog, out IReadOnlyList<RaidLootOriginEntry> expected),
+                Is.True);
+            Assert.That(
+                restored.TryGetInventoryEntries(_catalog, out IReadOnlyList<RaidLootOriginEntry> actual),
+                Is.True);
+            Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(
+                source.TryGetEquipmentOrigin(EquipmentSlot.WeaponSlot1, out RaidLootOrigin expectedOrigin),
+                Is.True);
+            Assert.That(
+                restored.TryGetEquipmentOrigin(EquipmentSlot.WeaponSlot1, out RaidLootOrigin actualOrigin),
+                Is.True);
+            Assert.That(actualOrigin, Is.EqualTo(expectedOrigin));
+        }
+
+        [UnityTest]
         public IEnumerator ArmorPiece_OnlyReachesItsOwnSlotAndLeavesTheOthersEmpty()
         {
             yield return StartRaidPlayer();

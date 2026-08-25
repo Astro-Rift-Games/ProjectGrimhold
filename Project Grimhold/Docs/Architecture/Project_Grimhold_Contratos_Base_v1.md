@@ -57,7 +57,7 @@ All entity capabilities derive from `IEntity` when their operation is associated
 
 Registration does not grant network authority. The authoritative caller must still validate State Authority before changing gameplay state.
 
-### Individual extraction progress contracts (US-13)
+### Individual extraction progress contracts
 
 - `ExtractionProgressContribution` is immutable and contains source type, valid source `EntityId`, `long` amount and authoritative `SimulationTick`. Tick is metadata, not deduplication.
 - `ExtractionProgressSnapshot` contains current individual progress, configured quota, percentage, quota completion and pending assignment. It is distinct from `ExtractionCountdownSnapshot`, the renamed zone-timer projection.

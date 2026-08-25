@@ -4,6 +4,8 @@
 /// </summary>
 public static class EquipmentSlotRules
 {
+    public const int SlotCount = 6;
+
     /// <summary>Every Equipment slot in a stable presentation and projection order.</summary>
     public static readonly EquipmentSlot[] AllSlots =
     {

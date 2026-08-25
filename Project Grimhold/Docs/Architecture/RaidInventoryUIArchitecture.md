@@ -2,7 +2,7 @@
 
 ## Context and decision
 
-TASK-32 replaces the provisional textual loot summary with a local uGUI slot screen. TASK-34 composes the player inventory and an inspected `NetworkLootContainer` in the same local screen. TASK-50 adds symmetric single-unit and full-stack mouse intentions in both transfer directions. TASK-51 adds a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. TASK-52 adds a provider-driven contextual menu to the personal inventory and an authoritative world-drop transaction, documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
+The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. It supports symmetric single-unit and full-stack mouse intentions in both transfer directions, plus a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
 The personal Raid inventory also projects the six replicated Equipment slots: the two quick weapon
 slots plus `Helmet`, `Armor`, `Gloves` and `Boots`. All six views reuse the same existing serialized

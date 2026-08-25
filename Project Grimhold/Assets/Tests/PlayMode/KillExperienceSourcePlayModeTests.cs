@@ -167,6 +167,30 @@ namespace Tests.PlayMode.Progression
             Assert.That(granted.IsAvailable, Is.True);
         }
 
+        [UnityTest]
+        public IEnumerator ParticipantCopyStateFromPreservesStableRaidParticipantIdWithoutReassignment()
+        {
+            yield return StartRunnerAndSpawnParticipants();
+            NetworkObject restoredObject = _runner.Spawn(
+                LoadPrefab(ParticipantPrefabGuid),
+                Vector3.up * 4f,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        "replacement-profile",
+                        CreateParticipantId(16),
+                        "replacement-generation"));
+            NetworkRaidParticipant restored =
+                restoredObject.GetComponent<NetworkRaidParticipant>();
+
+            restored.CopyStateFrom(_firstParticipant);
+
+            Assert.That(restored.RaidParticipantId, Is.EqualTo(_firstParticipant.RaidParticipantId));
+            Assert.That(restored.ProfileId, Is.EqualTo(_firstParticipant.ProfileId));
+            Assert.That(restored.RaidParticipantId.Value, Is.EqualTo(1));
+        }
+
         private IEnumerator StartRunnerAndSpawnParticipants()
         {
             var runnerObject = new GameObject("KillExperienceSourceTestRunner");
@@ -205,6 +229,7 @@ namespace Tests.PlayMode.Progression
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         profileId,
+                        CreateParticipantId(position.x < 0f ? 1 : 2),
                         "task-130-generation"));
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
@@ -219,6 +244,12 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             return (participant, avatar);
+        }
+
+        private static RaidParticipantId CreateParticipantId(int value)
+        {
+            RaidParticipantId.TryCreate(value, out RaidParticipantId participantId);
+            return participantId;
         }
 
         private NetworkObject SpawnEnemy(string prefabGuid, Vector3 position)

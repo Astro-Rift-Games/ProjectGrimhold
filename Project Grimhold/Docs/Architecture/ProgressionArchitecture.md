@@ -6,7 +6,7 @@
 Expedition Experience, consolidation, levels and persistent Experience. This document
 defines only their technical boundaries.
 
-Persistent Level and Experience remain outside the Raid simulation. TASK-129 introduces
+Persistent Level and Experience remain outside the Raid simulation. The Raid ledger owns
 only provisional Expedition Experience. It does not apply `CharacterProgressionRules`,
 write a profile, consolidate a result or present Results UI.
 
@@ -47,8 +47,8 @@ responsible for consolidation.
 
 The ledger receives only a reward that its authoritative producer has already recognized
 as valid. It does not maintain a universal reward identifier or a replicated journal.
-TASK-130 through TASK-133 own the exact one-shot state appropriate to their respective
-Kill, Assist, chest and extracted-Loot domains.
+Each Kill, Assist, chest and extracted-Loot producer owns the exact one-shot state
+appropriate to its domain.
 
 Each producer must use authoritative, deterministic state that survives resimulation and,
 when required, Host Migration. `PlayerRef`, a remappable `NetworkId`, `SimulationTick`, a
@@ -67,7 +67,7 @@ The producer integration order is:
 
 No producer may place an `await`, intermediate RPC or irreversible effect between ledger
 acceptance and its one-shot transition. This is a direct simulation relationship, not a
-generic transaction service or coordinator. Each producer task must validate its own
+generic transaction service or coordinator. Each producer integration must validate its own
 resimulation and Host Migration behavior.
 
 ## Kill Experience producer
@@ -87,7 +87,7 @@ retry, RPC, generic transaction service or coordinator.
 
 Fusion snapshots and `CopyStateFrom` preserve `IsGranted` with the defeated target. Fresh
 State Authority spawns initialize it to false; Host Migration restore spawns do not overwrite
-the copied value and require no reference fixup. TASK-130 currently integrates creatures only.
+the copied value and require no reference fixup. The current Kill Experience producer integrates creatures only.
 Player Kill Experience remains blocked until an external authoritative affiliation contract can
 distinguish allies from enemies; no runtime role or connection identity substitutes for it.
 
@@ -116,12 +116,19 @@ and the Progress result cannot undo or repeat accepted Experience.
 
 ## Extracted Loot boundary
 
-`ExtractedLootExperience` exists in the breakdown and starts at zero, but TASK-129 exposes
+`ExtractedLootExperience` exists in the breakdown and starts at zero, but the ledger exposes
 no write path for it. The normal Dungeon API rejects the `ExtractedLoot` category.
 
-TASK-133 must inspect the real extraction, eligibility and persistence flow before defining
-how a successful extraction resolves Loot Experience atomically and idempotently. TASK-129
-does not prescribe an order relative to `TryMarkExtracted`.
+Raid loot provenance preserves quantified `Dungeon` and `Player(RaidParticipantId)` buckets through
+transfers, Equipment, world drops, corpses, snapshots, Host Migration and the pending extraction
+boundary. The authority assigns the stable Raid-scoped ID from the frozen admission cohort while
+`NetworkRaidParticipant` retains the independent logical `ProfileId`. Provenance therefore accepts
+the repository's full ProfileId domain without storing, hashing, truncating or normalizing it.
+
+This provenance boundary does not calculate, credit or consume `ExtractedLootExperience`, and it does
+not choose an order relative to `TryMarkExtracted`. Provenance is Raid-scoped and never enters
+stash/backend persistence; the extracted-Loot Experience integration must define the synchronous ledger and one-shot
+consumption point while the preserved extraction snapshot is still authoritative.
 
 ## Host Migration and reconnection
 
@@ -130,5 +137,5 @@ The ledger is a NetworkBehaviour on the participant NetworkObject. Fusion snapsh
 ledger has no restore-time initialization and no NetworkId reference requiring remapping.
 
 Ordinary mid-Raid reconnection is not currently implemented outside the dedicated Host
-Migration recovery path. A future networking task must rebind `ProfileId` to the same
-participation and ledger; TASK-129 does not add that workflow.
+Migration recovery path. Future reconnection support must rebind `ProfileId` to the same
+participation and ledger; the current ledger contract does not add that workflow.

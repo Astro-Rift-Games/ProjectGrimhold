@@ -273,6 +273,7 @@ namespace Tests.PlayMode.Progression
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         profileId,
+                        CreateParticipantId(position.x < 0f ? 1 : 2),
                         "task-132-generation"));
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
@@ -287,6 +288,12 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             return (participant, avatar);
+        }
+
+        private static RaidParticipantId CreateParticipantId(int value)
+        {
+            RaidParticipantId.TryCreate(value, out RaidParticipantId participantId);
+            return participantId;
         }
 
         private NetworkObject SpawnAvatarWithoutParticipant(Vector3 position)

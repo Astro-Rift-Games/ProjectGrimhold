@@ -2,7 +2,7 @@
 
 ## Context
 
-TASK-39 adds the always-available raid summary for the local player. TASK-29 connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, equipment, or extraction state, and it introduces no replicated fields.
+The main HUD provides an always-available Raid summary for the local player and connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, equipment, or extraction state, and it introduces no replicated fields.
 
 The HUD is composed in the productive Raid avatar `NetworkPlayer.prefab` under the existing `LocalGameplayHud` Canvas.
 
@@ -78,13 +78,13 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 
 ## Extraction presentation
 
-`LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionCountdownSnapshot`, so joining during an active countdown or after completion does not emit a false transition. This countdown contract was renamed from `ExtractionProgressSnapshot` in US-13 so the latter can exclusively describe individual quota progress. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
+`LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionCountdownSnapshot`, so joining during an active countdown or after completion does not emit a false transition. This countdown contract was renamed from `ExtractionProgressSnapshot` when individual quota progress was introduced, so the latter can exclusively describe that progress. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
 
-TASK-56 adds no team progress projection. `ExtractionProgressSnapshot` is presented as the local individual quota text, while assignment and ritual text are derived from the runner-scoped assignment service, registry and Sanctuary snapshot. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
+The HUD adds no team progress projection. `ExtractionProgressSnapshot` is presented as the local individual quota text, while assignment and ritual text are derived from the runner-scoped assignment service, registry and Sanctuary snapshot. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
 
 The extraction HUD section never writes player state, calls an extraction command, or uses a parallel local countdown. The local HUD remains available after `Extracted`; authoritative interaction, damage and loot protocols continue to enforce the existing terminal restrictions.
 
-TASK-56 extends the binding with nullable presentation sources for individual progress,
+The extraction binding includes nullable presentation sources for individual progress,
 Sanctuary assignment and the runner registry. `LocalPlayerHudBinder` resolves the assignment
 service and registry once per binding, but their absence is section-local and cannot disable
 the health, combat, inventory, interaction or menu HUD. `RaidHudPresenter.Bind` accepts all
@@ -105,7 +105,7 @@ the co-located `ExtractionZone` contributes only interaction geometry and contai
 or fallback logic. The presenter preserves the renderer's authored alpha and only changes RGB
 for state presentation.
 
-TASK-68 adds the local minimap as a separate `RaidMinimapPresenter`/`RaidMinimapView` section
+The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
 bound by `LocalPlayerHudBinder`; `RaidHudPresenter` retains responsibility only for textual HUD
 content. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
 `Floor`, `Walls` and `Obstacles` Tilemaps of `Dungeon_Graybox.prefab`, including its world pivot,

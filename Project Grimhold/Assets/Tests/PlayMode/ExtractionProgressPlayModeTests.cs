@@ -15,6 +15,10 @@ namespace Tests.PlayMode.Extraction
 {
     public sealed class ExtractionProgressPlayModeTests
     {
+        private static readonly ProfileId TestProfileId =
+            new("33333333333333333333333333333333");
+        private static readonly RaidParticipantId TestParticipantId = CreateTestParticipantId();
+
         private const string PlayerGuid = "982f360e5acbdd344a8a75bbc0af94ec";
         private const string EnemyMeleeGuid = "5deca87613df0fa409d98702aec643d4";
         private const string EnemyRangedGuid = "6f7ab2fe6d6193a4ea17a843ff58f94b";
@@ -333,7 +337,7 @@ namespace Tests.PlayMode.Extraction
                 emptyInteractable.Interact(new InteractionRequest(playerId, emptyContainer.Id, runner.Tick));
                 var deposit = new LootTransferRequest(playerId, emptyContainer.Id, new LootId("bone"), 2, runner.Tick);
                 Assert.That(emptyContainer.ValidateReceive(deposit), Is.EqualTo(LootTransferFailureReason.None));
-                emptyContainer.CommitReceive(deposit);
+                CommitPlayerOrigin(emptyContainer, deposit);
                 emptyInteractable.Interact(new InteractionRequest(playerId, emptyContainer.Id, runner.Tick));
             });
             Assert.That(progress.CurrentProgress, Is.EqualTo(5));
@@ -346,7 +350,7 @@ namespace Tests.PlayMode.Extraction
                 EntityId playerId = player.GetComponent<PlayerCharacter>().Id;
                 var creditedDeposit = new LootTransferRequest(playerId, naturalContainer.Id, new LootId("bone"), 6, runner.Tick);
                 Assert.That(naturalContainer.ValidateReceive(creditedDeposit), Is.EqualTo(LootTransferFailureReason.None));
-                naturalContainer.CommitReceive(creditedDeposit);
+                CommitPlayerOrigin(naturalContainer, creditedDeposit);
 
                 var request = new LootTransferRequest(naturalContainer.Id, playerId, new LootId("bone"), 3, runner.Tick);
                 LootTransferResult rejected = LootTransferTransaction.Execute(
@@ -365,6 +369,28 @@ namespace Tests.PlayMode.Extraction
             Assert.That(firstAcquisition.EligibleAmount, Is.EqualTo(3));
             Assert.That(secondAcquisition.EligibleAmount, Is.EqualTo(1));
             Assert.That(naturalContainer.GetLootAmount(new LootId("bone")), Is.EqualTo(4));
+        }
+
+        private static void CommitPlayerOrigin(
+            NetworkLootContainer container,
+            in LootTransferRequest request)
+        {
+            Assert.That(
+                RaidLootOriginTransfer.TryCreatePlayer(
+                    TestParticipantId,
+                    request.RequestedAmount,
+                    out RaidLootOriginTransfer transfer),
+                Is.True);
+            Assert.That(
+                container.ValidateRaidLootOriginReceive(request, transfer),
+                Is.EqualTo(LootTransferFailureReason.None));
+            container.CommitRaidLootReceive(request, transfer);
+        }
+
+        private static RaidParticipantId CreateTestParticipantId()
+        {
+            RaidParticipantId.TryCreate(1, out RaidParticipantId participantId);
+            return participantId;
         }
 
         [UnityTest]

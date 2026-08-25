@@ -4,14 +4,14 @@
 
 Loot movement uses `LootEntry` as its only runtime stack and `LootId` as its domain identity. `LootDefinitionCatalog` assigns deterministic indices by ordinal ID order. Fusion transports and replicates catalog indices and quantities; every peer resolves static names, icons, rarity and value locally.
 
-TASK-33 adds a reusable synchronized source and an authoritative transfer adapter. TASK-34 composes that source with a separate `IInteractable` adapter and local presentation for selective looting. TASK-50 adds single-unit and full-stack intentions in both directions. TASK-51 composes ordered full-stack withdrawals locally without adding a bulk RPC, transaction or networked batch state.
+The architecture composes a reusable synchronized source with an authoritative transfer adapter, a separate `IInteractable` adapter and local presentation for selective looting. It supports single-unit and full-stack intentions in both directions, plus ordered full-stack withdrawals performed locally without adding a bulk RPC, transaction or networked batch state.
 
 ## Components and responsibilities
 
 - `NetworkLootContainer` owns replicated container contents, initialization, runtime availability, change sequence and the registry mapping for its loot capabilities and colliders. It implements `ILootExtractor`, `ILootQuantityReader`, `ILootContentReader` and `ILootSlotCapacityReader`, but not `ILootReceiver` or `IInteractable`.
 - `NetworkLootContainerInteractable` shares the container root and `NetworkObject`, derives the same `EntityId`, and owns only its independently registered `IInteractable` capability. It never registers colliders or changes loot state.
 - `PlayerLootReceiver` remains the only temporary player inventory. Its validators own expected gameplay rejection; its commits apply a previously validated request.
-- `LootTransferTransaction` performs `ValidateExtraction -> ValidateReceive -> CommitExtraction -> CommitReceive` synchronously. It performs no entity resolution, catalog lookup, range calculation or presentation.
+- `LootTransferTransaction` performs source validation, destination validation and synchronous commits. When both endpoints compose Raid provenance it also resolves the logical origin payload, prevalidates the destination and invokes joint quantity-plus-provenance commits. It performs no entity resolution, catalog lookup, range calculation or presentation.
 - `PlayerLootTransferNetworkController` is the Fusion integration boundary on the player object. Input Authority sends an intention containing a quantity mode; State Authority derives requester, destination, exact quantity, range and tick, then executes the transaction.
 - `EntityRegistry` remains runner-scoped. A grouped loot-source registration atomically publishes extractor, quantity reader and associated colliders. Independent interactable registration composes with that source in either lifecycle order and removes only the expected owner.
 - `LootContainerTransferDebugHarness` is separate development tooling. It is not attached to production player prefabs or scenes.
@@ -35,7 +35,7 @@ Generated chests use `LootContainerContentTable` as stable configuration. `Netwo
 
 ## Prevalidation and commit invariant
 
-Expected failures, including missing authority, invalid loot or amount, insufficient quantity, capacity, overflow, unavailable containers, and extracted players (`PlayerUnavailable`), are returned by endpoint validators. After both validators return `None`, the two commits must apply the exact request.
+Expected failures, including missing authority, invalid loot or amount, insufficient quantity, capacity, overflow, unavailable containers, and extracted players (`PlayerUnavailable`), are returned by endpoint validators. A Raid-aware endpoint also validates its origin payload before mutation. After every applicable validator returns `None`, the two endpoints must apply the exact request; each Raid-aware endpoint exposes one joint commit so callers cannot commit quantity while omitting provenance.
 
 Commits do not return rejections and do not silently skip mutation. Defensive structural checks diagnose an impossible integration state with a contextual error and exception. Because each commit verifies its structural contract before changing its own collection and the transaction runs synchronously without yielding or callbacks, a violated contract stops execution instead of allowing the destination commit to continue after an omitted extraction.
 
@@ -125,11 +125,11 @@ the same process, and the final visual transition and pose.
 
 Automated coverage targets initialization rules, registry atomicity, transaction order, queue/idempotency semantics and prefab composition. Host/Client placement, range, capacity, competition, availability, feedback and session cleanup still require the manual development harness flow.
 
-## US-13 first acquisition and container opening
+## First acquisition and container opening
 
 `NetworkLootContainerInteractable` owns the networked one-shot first-open Progress state because it is the authoritative interaction boundary. On the first valid interaction it captures whether the container currently has loot and then marks the Progress open as resolved before contributing. A non-empty chest may contribute its configured Progress reward once globally; an empty first open permanently consumes that opportunity. Later interactions still open the UI. Enemy and player corpse interactables have a zero first-open Progress reward.
 
-TASK-132 adds an independent configurable first-open Exploration Experience reward with its
+An independent configurable first-open Exploration Experience reward has its
 own replicated resolved flag and stable owner `ProfileId`. Every base-valid interaction may
 evaluate this XP branch even after the Progress one-shot has resolved. The first current Raid
 participant with a valid avatar claims ownership before its co-located ledger is resolved.
@@ -144,10 +144,33 @@ State Authority spawns clear the XP owner and flag; Host Migration restore spawn
 copied state without a parallel persistence or remapping path because ownership uses the
 participant's stable `NetworkString<_32>` `ProfileId` rather than a `NetworkId`.
 
-`NetworkLootContainer` additionally owns a replicated eligible quantity per catalog index. Natural initial chest and enemy content begins fully eligible; exact content loaded from a defeated player and player deposits add no eligibility. A stack may mix both classes. Eligibility is always positive when stored, never exceeds total quantity and never exists without the total stack. `CommitExtraction` is the single origin commit and atomically consumes eligible units first, changes total and eligible quantities, removes empty entries and advances `LootChangeSequence`.
+`NetworkLootContainer` additionally owns a replicated first-acquisition-eligible quantity per catalog index. Natural initial chest and enemy content begins fully eligible; exact content loaded from a defeated player and player deposits add no eligibility. A stack may mix both classes. Eligibility is always positive when stored, never exceeds total quantity and never exists without the total stack.
 
 The unchanged `LootTransferRequest` carries no provenance. After source validation, `LootTransferTransaction` performs the side-effect-free `ILootFirstAcquisitionSource` query, validates `0 <= EligibleAmount <= RequestedAmount`, validates reception, then executes the existing mandatory extraction and reception commits. A successful result exposes a separate immutable `LootFirstAcquisitionResult`; every rejection exposes zero. Out-of-range provenance is an integration violation. There is no second provenance commit, yield, callback or general transaction rollback. Existing provisional initialization, corpse-loading, pickup-spawn and drop-publication flows compensate total and eligibility together when they already support compensation.
 
-`PlayerLootTransferNetworkController` contributes only after both commits when the destination is its own `PlayerLootReceiver` and the eligible amount is positive. Deposits, other destinations, rejected transfers and credited-only units contribute zero. The definition's authoritative `ExtractionValuePerUnit` is multiplied by eligible units using `long`; the individual receiver performs final quota saturation. `PlayerLootReceiver` stores no provenance.
+`PlayerLootTransferNetworkController` contributes only after both commits when the destination is its own `PlayerLootReceiver` and the eligible amount is positive. Deposits, other destinations, rejected transfers and credited-only units contribute zero. The definition's authoritative `ExtractionValuePerUnit` is multiplied by eligible units using `long`; the individual receiver performs final quota saturation. `PlayerLootReceiver` stores no first-acquisition eligibility. Raid ownership provenance is a separate contract described below.
 
 Economy is independent: `ExtractionValuePerUnit` measures quota contribution and `SellValuePerUnit` measures money. Inventory total-value calculations and economic presentation use only the sell value.
+
+## Raid loot origin
+
+Raid ownership provenance is quantified per `LootId` as `Dungeon` or `Player(RaidParticipantId)` and exists only for the current Raid. `LootEntry`, `LootTransferRequest`, first-acquisition eligibility, economic value and persistent stash/loadout contracts remain unchanged. Natural chests, enemies, breakables and pickups initialize Dungeon provenance; admitted loadout units initialize Player provenance from the participant's authority-assigned Raid identity.
+
+`RaidParticipantId` is a Raid-scoped value in `1..16`; zero is invalid and reserved as the physical Dungeon origin. State Authority derives it deterministically from ordinal `ProfileId` order in the immutable frozen admission cohort, writes it once to `NetworkRaidParticipant`, and thereafter restores that value through Fusion state. Host Migration reconnect resolves the participant by its separately replicated `ProfileId`, then reuses the restored `RaidParticipantId`; it never reassigns it from `PlayerRef`, `NetworkId` or arrival order. Ordinary mid-Raid reconnect remains outside the current session contract, but deterministic re-resolution against the same frozen cohort returns the same ID. This adds no roster or process-local identity source and does not narrow the repository-wide `ProfileId` domain.
+
+Buckets store catalog index, the logical `RaidParticipantId` itself in five bits, and positive quantity. There is no endpoint-local identity table: Dungeon is `0` and Player origins are their stable values `1..16`. Payloads therefore carry logical Raid identities directly, sort Dungeon first and then by participant value, and remain independent of holder, endpoint layout, `ProfileId`, `PlayerRef`, `NetworkId` and process-local caches. Fusion snapshots and `CopyStateFrom` copy bucket identities and quantities without reconstruction or fixup.
+
+`PlayerRaidLootOriginState` belongs only to Raid `NetworkPlayer` and covers its Inventory buckets plus six Equipment origin references. `ContainerRaidLootOriginState` belongs to `LootContainer`, `NetworkEnemy`, and the co-located defeated-player container. `NetworkLootPickup` owns a full seventeen-origin representation for its single stack. World drops resolve and copy exactly the extracted buckets while retaining first-acquisition eligibility zero. Equipment moves one resolved unit between Inventory and its target slot. Corpse conversion and exact clear validate, load, compensate and clear quantity and provenance together.
+
+The catalog index remains six bits and supports up to 64 catalog definitions, but Raid `PlayerLootReceiver` and `NetworkLootContainer` endpoints now have an explicit maximum of 16 simultaneously distinct Loot types. This is a deliberate Raid-scoped capacity decision, not an accidental consequence of provenance: serialized `_slotCapacity`, runtime validation and `[Capacity]` dictionaries all accept `1..16`; `17` is rejected before mutation. Current productive prefabs were audited and every shared receiver/container configuration was already `16` or lower, including `SocialPlayer`, so no serialized endpoint was silently reduced. The logical provenance capacity remains complete: `16 LootIds * (Dungeon + 16 Players) = 272` quantities per Inventory/container, seventeen for one pickup, and six Equipment references.
+
+Fusion 2.1.1.2177 measurements use the same baked-gameplay-behaviour metric as the approved baselines and exclude Fusion's invariant 21-word `NetworkTransform`/TRSP contribution:
+
+| Prefab | Baseline | Final direct packed ID | Delta | Gate |
+| --- | ---: | ---: | ---: | ---: |
+| `NetworkPlayer` | 1289 | 1064 | -225 | <= 1611 |
+| `LootContainer` | 820 | 547 | -273 | <= 1025 |
+| `NetworkEnemy` | 844 | 571 | -273 | <= 1055 |
+| `NetworkLootPickup` | 6 | 22 | +16 | <= 192 |
+
+The approved comparison retained full logical capacity. Direct `RaidParticipantId` records weave to 817 words for Inventory/container, 825 for Player including six Equipment references, and 35 for Pickup. A local table plus packed indices weighs 383, 384 and 32 words. Encoding the logical ID directly in the packed origin field is smallest at 367, 368 and 16 words and is the selected representation. `RaidLootOriginWordCountTests` provides reproducible verification of the baked budgets. The previous `RaidProfileIdKey` and `NetworkString<_32>` candidates were removed after this contract was validated.

@@ -4928,6 +4928,38 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &1111111111111111111
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2222222222222222222}
+  m_Layer: 7
+  m_Name: RightHandGrip
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2222222222222222222
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1111111111111111111}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6727737383359403759}
+  m_Father: {fileID: 7397229956843810001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1221760144332657486
 GameObject:
   m_ObjectHideFlags: 0
@@ -5385,26 +5417,33 @@ MonoBehaviour:
       _orbit: {x: 0.28, y: 0.1}
       _stanceOffset: {x: 0, y: -0.04}
       _swingSign: -1
+      _stanceAngle: 0
     _southEast:
       _orbit: {x: 0, y: 0}
       _stanceOffset: {x: 0, y: 0}
       _swingSign: 1
+      _stanceAngle: 0
     _northEast:
       _orbit: {x: 0.26, y: 0.1}
       _stanceOffset: {x: 0.02, y: 0}
       _swingSign: 1
+      _stanceAngle: 0
     _north:
       _orbit: {x: 0.25, y: 0.08}
       _stanceOffset: {x: 0, y: 0.02}
       _swingSign: 1
+      _stanceAngle: 0
     _northWest:
       _orbit: {x: 0.26, y: 0.1}
       _stanceOffset: {x: -0.02, y: 0}
       _swingSign: -1
+      _stanceAngle: 0
     _southWest:
       _orbit: {x: 0.28, y: 0.12}
       _stanceOffset: {x: -0.04, y: 0.04}
       _swingSign: -1
+      _stanceAngle: 0
+  _combatController: {fileID: 2769229401594790361}
 --- !u!1 &2480520241415459435
 GameObject:
   m_ObjectHideFlags: 0
@@ -6050,6 +6089,8 @@ GameObject:
   - component: {fileID: 8300000000000000003}
   - component: {fileID: 8300000000000000004}
   - component: {fileID: 8300000000000000005}
+  - component: {fileID: 176522636574861152}
+  - component: {fileID: 7062006960257999095}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6450,6 +6491,8 @@ MonoBehaviour:
   - {fileID: 8300000000000000001}
   - {fileID: 8300000000000000004}
   - {fileID: 8300000000000000005}
+  - {fileID: 176522636574861152}
+  - {fileID: 7062006960257999095}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -6905,6 +6948,30 @@ MonoBehaviour:
   _rangedAttack: {fileID: 8300000000000000003}
   _projectileSpawner: {fileID: 8300000000000000004}
   _EquipmentRevision: 0
+--- !u!114 &176522636574861152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88d5777905fdbb741bc88f811399a131, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerRaidLootOriginState
+--- !u!114 &7062006960257999095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
@@ -7160,10 +7227,6 @@ MonoBehaviour:
   _leftGloveVisual: {fileID: 7406105074040529449}
   _rightGloveVisual: {fileID: 2008647062728199361}
   _bootsVisual: {fileID: 1188225742804442066}
-  _helmetTint: {r: 0.7, g: 0.7, b: 0.9, a: 1}
-  _armorTint: {r: 0.8, g: 0.8, b: 0.8, a: 1}
-  _glovesTint: {r: 0.6, g: 0.5, b: 0.4, a: 1}
-  _bootsTint: {r: 0.4, g: 0.3, b: 0.2, a: 1}
 --- !u!1 &7397229956843810010
 GameObject:
   m_ObjectHideFlags: 0
@@ -19340,35 +19403,3 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1001, guid: 7efb1769da6543a79fa2e25d7af06c73, type: 3}
   m_PrefabInstance: {fileID: 9212524192135642366}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1111111111111111111
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2222222222222222222}
-  m_Layer: 7
-  m_Name: RightHandGrip
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2222222222222222222
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1111111111111111111}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 6727737383359403759}
-  m_Father: {fileID: 7397229956843810001}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
