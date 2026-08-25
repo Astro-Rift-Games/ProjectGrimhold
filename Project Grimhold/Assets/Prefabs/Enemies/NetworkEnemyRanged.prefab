@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 11
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -111,6 +111,10 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[10]'
       value: 
+      objectReference: {fileID: 8275184075383188249}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[11]'
+      value:
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _renderers.Array.size
@@ -166,6 +170,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _defeatProgressReward
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 8300000000000000001, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _killExperience
       value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -410,6 +418,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9929b2493b8d49562370e8135fe23909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExtractionProgressDefeatSource
+--- !u!114 &8275184075383188249 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8300000000000000001, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8943053b70db424aace9870732ea79d2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::KillExperienceSource
 --- !u!58 &8916101597558410055 stripped
 CircleCollider2D:
   m_CorrespondingSourceObject: {fileID: 8810308870645882975, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

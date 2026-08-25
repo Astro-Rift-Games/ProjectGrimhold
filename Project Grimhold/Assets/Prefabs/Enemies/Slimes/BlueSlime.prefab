@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 11
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -111,6 +111,10 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[10]'
       value: 
+      objectReference: {fileID: 946294757865678531}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[11]'
+      value:
       objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Enabled
@@ -198,6 +202,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _defeatProgressReward
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8300000000000000001, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _killExperience
       value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 8951037927164024647, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -301,6 +309,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 8975162442718285891}
   m_SourcePrefab: {fileID: 100100000, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+--- !u!114 &946294757865678531 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8300000000000000001, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8943053b70db424aace9870732ea79d2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::KillExperienceSource
 --- !u!114 &1391234145807776776 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7872507663536347850, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

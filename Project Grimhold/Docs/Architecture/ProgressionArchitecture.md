@@ -70,6 +70,27 @@ acceptance and its one-shot transition. This is a direct simulation relationship
 generic transaction service or coordinator. Each producer task must validate its own
 resimulation and Host Migration behavior.
 
+## Kill Experience producer
+
+Each eligible PvE target owns one `KillExperienceSource`, registered in the runner-scoped
+`EntityRegistry` under the target's canonical `EntityId`. Its serialized non-negative `long`
+is independent from Extraction Progress configuration. The source replicates only `IsGranted`;
+availability is derived from a positive configured value and that one-shot flag being false.
+
+After an authoritative applied fatal result, `DamageResolver` resolves the Last Hit attacker as
+a current Raid avatar, follows `RaidAvatarParticipantLink` to its stable
+`NetworkRaidParticipant`, and passes the co-located ledger directly to the source. The source
+uses the required synchronous ledger-before-consumption order: it revalidates availability,
+requests `Kill` application, preserves availability on rejection, and sets `IsGranted` only
+after ledger acceptance in the same State Authority execution. There is no pending state,
+retry, RPC, generic transaction service or coordinator.
+
+Fusion snapshots and `CopyStateFrom` preserve `IsGranted` with the defeated target. Fresh
+State Authority spawns initialize it to false; Host Migration restore spawns do not overwrite
+the copied value and require no reference fixup. TASK-130 currently integrates creatures only.
+Player Kill Experience remains blocked until an external authoritative affiliation contract can
+distinguish allies from enemies; no runtime role or connection identity substitutes for it.
+
 ## Extracted Loot boundary
 
 `ExtractedLootExperience` exists in the breakdown and starts at zero, but TASK-129 exposes

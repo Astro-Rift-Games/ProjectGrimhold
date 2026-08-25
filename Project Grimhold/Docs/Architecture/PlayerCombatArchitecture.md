@@ -150,6 +150,16 @@ A fast-lookup database mapping physical colliders (`Collider2D`) to gameplay ent
 * Enables precise owner filtering by checking `BelongsToOwner(Collider2D)`, ensuring a projectile never collides with its shooter or any of its child-objects, while allowing impacts against other players/enemies.
 * Keeps explicit damage-collider registration separate from general collider identity. Damage queries use the explicit set when present and retain all-collider fallback behavior for legacy or non-character damageables.
 
+### 7. Fatal PvE Kill Experience
+
+An authoritative `DamageResult` with both `IsApplied` and `IsFatal` identifies the unique Last
+Hit used by the PvE Kill Experience producer. `DamageResolver` resolves the target's independent
+`IKillExperienceSource` and the attacker's current stable Raid participation, then invokes the
+source synchronously. The source requests ledger application before setting its replicated
+one-shot flag, so rejected rewards remain available and accepted deaths cannot reward twice.
+This direct relationship introduces no gameplay event, RPC, transaction service or coordinator.
+PvP remains blocked until networking provides an authoritative ally/enemy affiliation contract.
+
 ---
 
 ## Implementation Status

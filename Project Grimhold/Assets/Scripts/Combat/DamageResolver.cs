@@ -111,7 +111,33 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         }
 
         TryAwardFatalProgress(request, result);
+        TryAwardFatalKillExperience(request, result);
         return CompleteResolution(request, result);
+    }
+
+    private void TryAwardFatalKillExperience(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null ||
+            !_registry.TryGetKillExperienceSource(request.TargetId, out IKillExperienceSource source) ||
+            !source.IsAvailable ||
+            !_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) ||
+            attacker is not PlayerCharacter player)
+        {
+            return;
+        }
+
+        RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+        if (participantLink == null ||
+            !participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+            !participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) ||
+            currentAvatar != player.Object)
+        {
+            return;
+        }
+
+        PlayerExpeditionExperienceLedger ledger =
+            participant.GetComponent<PlayerExpeditionExperienceLedger>();
+        source.TryGrantTo(ledger);
     }
 
     private void TryAwardFatalProgress(in DamageRequest request, in DamageResult result)

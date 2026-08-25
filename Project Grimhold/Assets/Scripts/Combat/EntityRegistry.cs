@@ -19,6 +19,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
@@ -40,6 +41,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressReceivers.Clear();
         _extractionProgressReaders.Clear();
         _extractionProgressDefeatSources.Clear();
+        _killExperienceSources.Clear();
         _extractionSanctuaries.Clear();
         _colliders.Clear();
         _damageColliderRegistrations.Clear();
@@ -477,6 +479,24 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressDefeatSources.TryGetValue(id, out source);
     }
 
+    /// <summary>Registers an independently configured one-shot Kill Experience source.</summary>
+    public bool TryRegisterKillExperienceSource(EntityId id, IKillExperienceSource source)
+    {
+        return TryRegisterIndependentCapability(id, source, _killExperienceSources);
+    }
+
+    /// <summary>Removes only the expected Kill Experience source instance.</summary>
+    public bool TryUnregisterKillExperienceSource(EntityId id, IKillExperienceSource expectedSource)
+    {
+        return TryUnregisterIndependentCapability(id, expectedSource, _killExperienceSources);
+    }
+
+    /// <summary>Attempts to resolve a Kill Experience source by canonical identity.</summary>
+    public bool TryGetKillExperienceSource(EntityId id, out IKillExperienceSource source)
+    {
+        return _killExperienceSources.TryGetValue(id, out source);
+    }
+
     /// <summary>Registers a sanctuary capability independently from other capabilities.</summary>
     public bool TryRegisterExtractionSanctuary(EntityId id, IExtractionSanctuary sanctuary)
     {
@@ -708,6 +728,7 @@ public sealed class EntityRegistry : MonoBehaviour
             _extractionProgressReceivers.ContainsKey(id) ||
             _extractionProgressReaders.ContainsKey(id) ||
             _extractionProgressDefeatSources.ContainsKey(id) ||
+            _killExperienceSources.ContainsKey(id) ||
             _extractionSanctuaries.ContainsKey(id);
     }
 
