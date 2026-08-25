@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
 {
+    private static readonly RaidParticipantId TestParticipantId = CreateTestParticipantId();
+
     private IReadOnlyList<LootEntry> _entries;
 
     public PlayerCharacter Target { get; set; }
@@ -42,7 +44,20 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
                     entry.LootId,
                     entry.Amount,
                     Runner.Tick);
-                if (Receiver.ValidateReceive(receive) == LootTransferFailureReason.None)
+                if (Receiver.ValidateReceive(receive) != LootTransferFailureReason.None)
+                {
+                    continue;
+                }
+
+                if (Receiver.IsRaidLootOriginAware)
+                {
+                    RaidLootOriginTransfer.TryCreatePlayer(TestParticipantId, entry.Amount, out RaidLootOriginTransfer transfer);
+                    if (Receiver.ValidateRaidLootOriginReceive(receive, transfer) == LootTransferFailureReason.None)
+                    {
+                        Receiver.CommitRaidLootReceive(receive, transfer);
+                    }
+                }
+                else
                 {
                     Receiver.CommitReceive(receive);
                 }
@@ -62,6 +77,12 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         {
             SecondResult = Target.ApplyDamage(damage);
         }
+    }
+
+    private static RaidParticipantId CreateTestParticipantId()
+    {
+        RaidParticipantId.TryCreate(2, out RaidParticipantId participantId);
+        return participantId;
     }
 }
 #endif

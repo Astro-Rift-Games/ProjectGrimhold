@@ -2347,6 +2347,15 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        if (!RaidParticipantIdAssignment.TryResolve(
+                _launchContext.ParticipantProfileIds,
+                joinData.ProfileId,
+                out RaidParticipantId raidParticipantId))
+        {
+            Debug.LogError($"Rejecting spawn for profile '{joinData.ProfileId.Value}': stable RaidParticipantId is unavailable.");
+            return false;
+        }
+
         NetworkObject participantObject = runner.Spawn(
             _raidParticipantPrefab,
             position,
@@ -2357,6 +2366,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 {
                     participant.Initialize(
                         joinData.ProfileId.Value,
+                        raidParticipantId,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null);
                 }
@@ -2398,8 +2408,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         return;
                     }
 
-                    loadoutInitialized = lootReceiver.TryInitializeLoadout(
+                    loadoutInitialized = lootReceiver.TryInitializeRaidLoadout(
                         admission.ReservedLoadout,
+                        raidParticipantId,
                         out string loadoutError);
                     if (!loadoutInitialized)
                     {
@@ -2849,7 +2860,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             randomConfig.Table,
             container.LootCatalog,
             container.SlotCapacity,
-            NetworkLootContainer.MaxLootTypes,
+            NetworkLootContainer.MaxDistinctLootTypes,
             out snapshot,
             out error);
     }
@@ -3104,7 +3115,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             breakable.LootTable,
             breakable.LootCatalog,
             breakable.DropCapacity,
-            NetworkLootContainer.MaxLootTypes,
+            NetworkLootContainer.MaxDistinctLootTypes,
             out snapshot,
             out error);
     }

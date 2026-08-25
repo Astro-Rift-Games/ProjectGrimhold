@@ -30,7 +30,8 @@ public enum ExtractionLootSaveStatus
 [RequireComponent(typeof(PlayerWeaponEquipmentNetworkController))]
 public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 {
-    private const int MaxSnapshotEntries = PlayerLootReceiver.MaxLootTypes;
+    internal const int MaximumSnapshotEntries =
+        PlayerLootReceiver.MaxDistinctLootTypes + EquipmentSlotRules.SlotCount;
     private const float RetryIntervalSeconds = 1f;
 
     private PlayerExtractionController _extractionController;
@@ -182,7 +183,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Combined;
 
         LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
-        if (catalog == null || snapshot.Count > MaxSnapshotEntries)
+        if (catalog == null || snapshot.Count > MaximumSnapshotEntries)
         {
             Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Extraction snapshot cannot be resolved.", this);
             return false;
@@ -194,7 +195,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         {
             LootEntry entry = snapshot[i];
             if (!entry.IsValid || !catalog.TryGetIndex(entry.LootId, out int index) ||
-                index < 0 || index >= MaxSnapshotEntries)
+                index < 0 || index >= PlayerLootReceiver.MaxCatalogEntries)
             {
                 Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Invalid extraction snapshot entry.", this);
                 return false;
@@ -364,7 +365,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     {
         if (catalogIndices == null || amounts == null ||
             catalogIndices.Length != amounts.Length ||
-            catalogIndices.Length > MaxSnapshotEntries ||
+            catalogIndices.Length > MaximumSnapshotEntries ||
             _lootReceiver.LootCatalog == null)
         {
             return false;
@@ -378,7 +379,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         return ValidatePayloadShape(
             catalogIndices,
             amounts,
-            MaxSnapshotEntries,
+            MaximumSnapshotEntries,
+            PlayerLootReceiver.MaxCatalogEntries,
             index => _lootReceiver.LootCatalog.TryGetByIndex(index, out _));
     }
 
@@ -389,18 +391,19 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         int[] catalogIndices,
         int[] amounts,
         int maximumEntries,
+        int maximumCatalogEntries,
         Func<int, bool> isKnownIndex)
     {
         if (catalogIndices == null || amounts == null ||
             catalogIndices.Length != amounts.Length ||
-            catalogIndices.Length > maximumEntries || isKnownIndex == null)
+            catalogIndices.Length > maximumEntries || maximumCatalogEntries <= 0 || isKnownIndex == null)
         {
             return false;
         }
 
         for (int i = 0; i < catalogIndices.Length; i++)
         {
-            if (catalogIndices[i] < 0 || catalogIndices[i] >= maximumEntries ||
+            if (catalogIndices[i] < 0 || catalogIndices[i] >= maximumCatalogEntries ||
                 amounts[i] <= 0 || !isKnownIndex(catalogIndices[i]))
             {
                 return false;

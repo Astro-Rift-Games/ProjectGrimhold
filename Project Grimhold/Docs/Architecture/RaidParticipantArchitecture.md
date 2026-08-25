@@ -31,11 +31,11 @@ before `RaidAvatarParticipantLink` records `Defeated` and removes the avatar Inp
 Authority. The avatar stays spawned as the synchronised lootable body. On confirmed
 abandon, the temporary avatar is despawned without any persistence operation.
 
-Extraction enters `Extracted`, but return remains unavailable until TASK-80 confirms the
+Extraction enters `Extracted`, but return remains unavailable until `PlayerExtractionLootSaver` confirms the
 matching `ResultSequence` after its idempotent Loadout commit. `PlayerLootReceiver` derives
 its mutation lock from the existing extraction state, so no second inventory-lock source
-is replicated. TASK-58 deliberately disables the previous loadout-saving listener because
-it cleared raid inventory before that ACK. TASK-80 retains the complete snapshot and
+is replicated. The previous loadout-saving listener remains disabled because it cleared Raid
+inventory before that ACK. `PlayerExtractionLootSaver` retains the complete snapshot and
 resends it from State Authority until the local commit is acknowledged; duplicate receipts
 are accepted idempotently and a local persistence failure requires an explicit retry.
 
@@ -83,9 +83,9 @@ restore-time initialization.
 
 ## Follow-up dependencies
 
-TASK-79 initializes the admitted avatar loadout. TASK-80 calls
-`TryConfirmExtractionCommit(ResultSequence)` only after its local persistence ACK. Neither
-task may change PlayerObject identity or create a parallel participant coordinator.
+The admission flow initializes the admitted avatar loadout. `PlayerExtractionLootSaver` calls
+`TryConfirmExtractionCommit(ResultSequence)` only after its local persistence ACK. These
+responsibilities may not change PlayerObject identity or create a parallel participant coordinator.
 
 ## Unity prefab composition
 

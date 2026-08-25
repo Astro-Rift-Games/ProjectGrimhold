@@ -37,6 +37,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     [Networked] public int EquipmentRevision { get; private set; }
 
     private ICharacter _character;
+    private PlayerRaidLootOriginState _raidOriginState;
     private NetworkMatchController _matchController;
     private bool _hasPendingAuthorityRequest;
     private EquipmentRequestKind _pendingRequestKind;
@@ -221,6 +222,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     public bool TryGetSlotLoot(WeaponSlot slot, out LootEntry entry) =>
         TryGetSlotLoot(EquipmentSlotRules.FromWeaponSlot(slot), out entry);
 
+    public bool TryGetSlotRaidOrigin(EquipmentSlot slot, out RaidLootOrigin origin)
+    {
+        origin = default;
+        return IsSlotOccupied(slot) && _raidOriginState != null &&
+            _raidOriginState.TryGetEquipmentOrigin(slot, out origin);
+    }
+
     public bool TryGetSlotDefinition(EquipmentSlot slot, out LootDefinition definition)
     {
         definition = null;
@@ -295,7 +303,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         for (int index = 0; index < catalogIndices.Length; index++)
         {
-            if (!TryValidateInventoryUnit(catalogIndices[index], out error))
+            if (!TryValidateInventoryUnit(catalogIndices[index], out _, out error))
             {
                 return false;
             }
@@ -311,9 +319,16 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         for (int index = 0; index < catalogIndices.Length; index++)
         {
-            if (!CommitInventoryExtraction(catalogIndices[index], out error))
+            if (!TryCommitInventoryExtraction(
+                    catalogIndices[index], out RaidLootOriginTransfer originTransfer, out error))
             {
                 throw new InvalidOperationException(error ?? "Validated prepared equipment could not be committed.");
+            }
+
+            if (catalogIndices[index] != 0 &&
+                !_raidOriginState.TrySetEquipmentOrigin(slots[index], originTransfer.Buckets[0].Origin))
+            {
+                throw new InvalidOperationException("Validated prepared Equipment provenance could not be committed.");
             }
         }
 
@@ -386,6 +401,70 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         ActiveWeaponSlotValue = (int)WeaponSlot.None;
         EquipmentRevision++;
         ApplyReplicatedActiveWeapon();
+        return true;
+    }
+
+    public bool TryMatchesExactEquipmentOrigins(
+        RaidLootOrigin? expectedWeaponSlot1,
+        RaidLootOrigin? expectedWeaponSlot2,
+        RaidLootOrigin? expectedHelmet,
+        RaidLootOrigin? expectedArmor,
+        RaidLootOrigin? expectedGloves,
+        RaidLootOrigin? expectedBoots,
+        out string error)
+    {
+        error = null;
+        if (MatchesSlotOrigin(EquipmentSlot.WeaponSlot1, expectedWeaponSlot1) &&
+            MatchesSlotOrigin(EquipmentSlot.WeaponSlot2, expectedWeaponSlot2) &&
+            MatchesSlotOrigin(EquipmentSlot.Helmet, expectedHelmet) &&
+            MatchesSlotOrigin(EquipmentSlot.Armor, expectedArmor) &&
+            MatchesSlotOrigin(EquipmentSlot.Gloves, expectedGloves) &&
+            MatchesSlotOrigin(EquipmentSlot.Boots, expectedBoots))
+        {
+            return true;
+        }
+
+        error = "Equipment provenance no longer matches the expected snapshot.";
+        return false;
+    }
+
+    public bool TryClearExactEquipmentOrigins(
+        RaidLootOrigin? expectedWeaponSlot1,
+        RaidLootOrigin? expectedWeaponSlot2,
+        RaidLootOrigin? expectedHelmet,
+        RaidLootOrigin? expectedArmor,
+        RaidLootOrigin? expectedGloves,
+        RaidLootOrigin? expectedBoots,
+        out string error)
+    {
+        error = null;
+        if (!HasStateAuthority)
+        {
+            error = "Equipment provenance can only be cleared by State Authority.";
+            return false;
+        }
+
+        if (!TryMatchesExactEquipmentOrigins(
+                expectedWeaponSlot1, expectedWeaponSlot2, expectedHelmet,
+                expectedArmor, expectedGloves, expectedBoots, out error))
+        {
+            return false;
+        }
+
+        RaidLootOrigin?[] expected =
+        {
+            expectedWeaponSlot1, expectedWeaponSlot2, expectedHelmet,
+            expectedArmor, expectedGloves, expectedBoots
+        };
+        for (int index = 0; index < AllSlots.Length; index++)
+        {
+            if (expected[index].HasValue &&
+                !_raidOriginState.TryClearEquipmentOrigin(AllSlots[index], expected[index].Value))
+            {
+                throw new InvalidOperationException("Validated Equipment provenance could not be cleared.");
+            }
+        }
+
         return true;
     }
 
@@ -486,12 +565,17 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
 
         LootTransferRequest extraction = CreateInventoryTransfer(definition.LootId);
-        if (_lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None)
+        if (_lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None ||
+            !_lootReceiver.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer originTransfer))
         {
             return EquipmentOperationResult.ItemNotOwned;
         }
 
-        _lootReceiver.CommitExtraction(extraction);
+        _lootReceiver.CommitRaidLootExtraction(extraction, originTransfer);
+        if (!_raidOriginState.TrySetEquipmentOrigin(targetSlot, originTransfer.Buckets[0].Origin))
+        {
+            throw new InvalidOperationException("Validated Equipment provenance could not be committed.");
+        }
         SetCatalogIndexPlusOne(targetSlot, catalogIndex + 1);
         EquipmentRevision++;
         if (becomesActive)
@@ -515,12 +599,19 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         if (!TryGetSlotLoot(slot, out LootEntry equipped)) return EquipmentOperationResult.EmptySlot;
 
         LootTransferRequest receive = CreateInventoryTransfer(equipped.LootId);
-        if (_lootReceiver.ValidateReceive(receive) != LootTransferFailureReason.None)
+        if (!TryGetSlotRaidOrigin(slot, out RaidLootOrigin origin) ||
+            !RaidLootOriginTransfer.TryCreate(origin, 1, out RaidLootOriginTransfer originTransfer) ||
+            _lootReceiver.ValidateReceive(receive) != LootTransferFailureReason.None ||
+            _lootReceiver.ValidateRaidLootOriginReceive(receive, originTransfer) != LootTransferFailureReason.None)
         {
             return EquipmentOperationResult.InventoryFull;
         }
 
-        _lootReceiver.CommitReceive(receive);
+        _lootReceiver.CommitRaidLootReceive(receive, originTransfer);
+        if (!_raidOriginState.TryClearEquipmentOrigin(slot, origin))
+        {
+            throw new InvalidOperationException("Validated Equipment provenance could not be cleared.");
+        }
         SetCatalogIndexPlusOne(slot, 0);
         EquipmentRevision++;
         if (EquipmentSlotRules.IsWeaponSlot(slot) &&
@@ -669,8 +760,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return true;
     }
 
-    private bool TryValidateInventoryUnit(int catalogIndexPlusOne, out string error)
+    private bool TryValidateInventoryUnit(
+        int catalogIndexPlusOne,
+        out RaidLootOriginTransfer originTransfer,
+        out string error)
     {
+        originTransfer = RaidLootOriginTransfer.Empty;
         error = null;
         if (catalogIndexPlusOne == 0) return true;
         if (!_lootCatalog.TryGetByIndex(catalogIndexPlusOne - 1, out LootDefinition definition))
@@ -680,7 +775,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
 
         LootTransferRequest request = CreateInventoryTransfer(definition.LootId);
-        if (_lootReceiver.ValidateExtraction(request) == LootTransferFailureReason.None)
+        if (_lootReceiver.ValidateExtraction(request) == LootTransferFailureReason.None &&
+            _lootReceiver.TryResolveRaidLootOriginTransfer(request, out originTransfer))
         {
             return true;
         }
@@ -689,19 +785,24 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return false;
     }
 
-    private bool CommitInventoryExtraction(int catalogIndexPlusOne, out string error)
+    private bool TryCommitInventoryExtraction(
+        int catalogIndexPlusOne,
+        out RaidLootOriginTransfer originTransfer,
+        out string error)
     {
+        originTransfer = RaidLootOriginTransfer.Empty;
         error = null;
         if (catalogIndexPlusOne == 0) return true;
         _lootCatalog.TryGetByIndex(catalogIndexPlusOne - 1, out LootDefinition definition);
         LootTransferRequest request = CreateInventoryTransfer(definition.LootId);
-        if (_lootReceiver.ValidateExtraction(request) != LootTransferFailureReason.None)
+        if (_lootReceiver.ValidateExtraction(request) != LootTransferFailureReason.None ||
+            !_lootReceiver.TryResolveRaidLootOriginTransfer(request, out originTransfer))
         {
-            error = "Prepared weapon ownership changed during initialization.";
+            error = "Prepared Equipment ownership changed during initialization.";
             return false;
         }
 
-        _lootReceiver.CommitExtraction(request);
+        _lootReceiver.CommitRaidLootExtraction(request, originTransfer);
         return true;
     }
 
@@ -757,6 +858,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         return expected.HasValue ? hasCurrent && current == expected.Value : !hasCurrent;
     }
 
+    private bool MatchesSlotOrigin(EquipmentSlot slot, RaidLootOrigin? expected)
+    {
+        bool hasCurrent = TryGetSlotRaidOrigin(slot, out RaidLootOrigin current);
+        return expected.HasValue ? hasCurrent && current == expected.Value : !hasCurrent;
+    }
+
     private int GetCatalogIndexPlusOne(EquipmentSlot slot) => IsEquipmentReadable
         ? slot switch
         {
@@ -803,12 +910,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     {
         _character = _characterSource as ICharacter;
         _character ??= GetComponent<ICharacter>();
+        _raidOriginState ??= GetComponent<PlayerRaidLootOriginState>();
     }
 
     /// <summary>Dependencies every Equipment operation needs, weapons and armor alike.</summary>
     private bool ValidateEquipmentDependencies()
     {
-        if (_lootCatalog != null && _lootReceiver != null && _character != null)
+        if (_lootCatalog != null && _lootReceiver != null && _character != null && _raidOriginState != null)
         {
             return true;
         }

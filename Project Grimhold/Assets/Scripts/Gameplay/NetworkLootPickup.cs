@@ -49,6 +49,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     public int FirstAcquisitionEligibleAmount { get; private set; }
 
+    [Networked]
+    private RaidLootPickupCompactOriginState RaidOriginState { get; set; }
+
     public bool IsAvailable => IsInitialized && IsPublished && !IsConsumed;
 
     public new EntityId Id => new EntityId(unchecked((int)Object.Id.Raw));
@@ -60,6 +63,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     private LootEntry _spawnContentOverride;
     private bool _hasSpawnContentOverride;
     private int _spawnEligibleAmountOverride;
+    private RaidLootOriginTransfer _spawnOriginOverride;
     private LootDefinition _resolvedLootDefinition;
 
     /// <summary>Static loot definition resolved locally from replicated catalog identity.</summary>
@@ -125,6 +129,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _resolvedLootDefinition = null;
         _spawnContentOverride = default;
         _hasSpawnContentOverride = false;
+        _spawnOriginOverride = null;
         _spawnStartsPublished = true;
     }
 
@@ -138,7 +143,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         NetworkObject expectedObject,
         in LootEntry entry)
     {
-        return TrySetSpawnContentOverride(runner, expectedObject, entry, true, entry.Amount);
+        return TrySetSpawnContentOverride(
+            runner, expectedObject, entry, true, entry.Amount, RaidLootOriginTransfer.Dungeon(entry.Amount));
     }
 
     /// <summary>
@@ -152,11 +158,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         bool initiallyPublished)
     {
         return TrySetSpawnContentOverride(
-            runner,
-            expectedObject,
-            entry,
-            initiallyPublished,
-            entry.Amount);
+            runner, expectedObject, entry, initiallyPublished, entry.Amount,
+            RaidLootOriginTransfer.Dungeon(entry.Amount));
     }
 
     internal bool TrySetSpawnContentOverride(
@@ -166,13 +169,28 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         bool initiallyPublished,
         int firstAcquisitionEligibleAmount)
     {
+        return TrySetSpawnContentOverride(
+            runner, expectedObject, entry, initiallyPublished, firstAcquisitionEligibleAmount,
+            RaidLootOriginTransfer.Dungeon(entry.Amount));
+    }
+
+    internal bool TrySetSpawnContentOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        in LootEntry entry,
+        bool initiallyPublished,
+        int firstAcquisitionEligibleAmount,
+        RaidLootOriginTransfer originTransfer)
+    {
         if (_hasSpawnContentOverride || runner == null || !runner.IsServer ||
             expectedObject == null || expectedObject.gameObject != gameObject ||
             expectedObject.GetComponent<NetworkLootPickup>() != this ||
             !entry.IsValid || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(entry.LootId, out _) ||
             firstAcquisitionEligibleAmount < 0 ||
-            firstAcquisitionEligibleAmount > entry.Amount)
+            firstAcquisitionEligibleAmount > entry.Amount || originTransfer == null ||
+            !originTransfer.TryGetTotal(out int originTotal) || originTotal != entry.Amount ||
+            originTransfer.Count > RaidLootOriginPackedBuffer.OriginsPerLoot)
         {
             return false;
         }
@@ -181,6 +199,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _hasSpawnContentOverride = true;
         _spawnStartsPublished = initiallyPublished;
         _spawnEligibleAmountOverride = firstAcquisitionEligibleAmount;
+        _spawnOriginOverride = originTransfer;
         return true;
     }
 
@@ -191,7 +210,9 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     {
         return HasStateAuthority && runner == Runner && expectedObject == Object &&
             IsInitialized && !IsPublished && !IsConsumed && _resolvedLootDefinition != null &&
-            FirstAcquisitionEligibleAmount == 0;
+            FirstAcquisitionEligibleAmount == 0 &&
+            TryResolveRaidOriginTransfer(out RaidLootOriginTransfer origins) &&
+            origins.TryGetTotal(out int originTotal) && originTotal == SynchronizedAmount;
     }
 
     /// <summary>
@@ -261,9 +282,24 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             return ToInteractionResult(LootTransferResult.Rejected(failureReason), false);
         }
 
+        if (receiver is not IRaidLootOriginReceiver originReceiver ||
+            !originReceiver.IsRaidLootOriginAware ||
+            !TryResolveRaidOriginTransfer(out RaidLootOriginTransfer originTransfer))
+        {
+            IsConsumed = false;
+            throw new System.InvalidOperationException("Raid pickup provenance composition is unavailable.");
+        }
+
+        failureReason = originReceiver.ValidateRaidLootOriginReceive(transferRequest, originTransfer);
+        if (failureReason != LootTransferFailureReason.None)
+        {
+            IsConsumed = false;
+            return ToInteractionResult(LootTransferResult.Rejected(failureReason), false);
+        }
+
         // Commit cannot reject after successful prevalidation while State Authority
         // retains control. Any inability to apply is an integration contract violation.
-        receiver.CommitReceive(transferRequest);
+        originReceiver.CommitRaidLootReceive(transferRequest, originTransfer);
         int eligibleAmount = FirstAcquisitionEligibleAmount;
         if (eligibleAmount > 0 && _resolvedLootDefinition.ExtractionValuePerUnit > 0 &&
             _registry.TryGetExtractionProgressReceiver(
@@ -315,7 +351,29 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             : entry.Amount;
         IsConsumed = false;
         IsPublished = _hasSpawnContentOverride ? _spawnStartsPublished : true;
+        RaidLootOriginTransfer originTransfer = _hasSpawnContentOverride
+            ? _spawnOriginOverride
+            : RaidLootOriginTransfer.Dungeon(entry.Amount);
+        if (!TryWriteRaidOriginTransfer(originTransfer, entry.Amount))
+        {
+            Debug.LogError($"{nameof(NetworkLootPickup)} could not initialize Raid provenance for '{name}'.", this);
+            IsInitialized = false;
+            return;
+        }
         IsInitialized = true;
+    }
+
+    internal bool TryResolveRaidOriginTransfer(out RaidLootOriginTransfer transfer)
+        => RaidLootPickupOriginStateCodec.TryDecode(RaidOriginState, SynchronizedAmount, out transfer);
+
+    private bool TryWriteRaidOriginTransfer(RaidLootOriginTransfer transfer, int expectedAmount)
+    {
+        if (!RaidLootPickupOriginStateCodec.TryEncode(transfer, expectedAmount, out var state))
+        {
+            return false;
+        }
+        RaidOriginState = state;
+        return true;
     }
 
     private void RefreshResolvedLoot()

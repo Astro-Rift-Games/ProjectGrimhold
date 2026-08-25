@@ -14,6 +14,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
 
+    [Networked]
+    public RaidParticipantId RaidParticipantId { get; private set; }
+
     /// <summary>Identifies the runner-scoped raid generation that owns this participant.</summary>
     [Networked]
     public NetworkString<_32> RaidGenerationId { get; private set; }
@@ -51,10 +54,17 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     /// </summary>
     internal void Initialize(
         string profileId,
+        RaidParticipantId raidParticipantId,
         string raidGenerationId = null,
         string loadoutReservationId = null)
     {
+        if (!raidParticipantId.IsValid)
+        {
+            throw new System.ArgumentException("Raid participant identity must be valid.", nameof(raidParticipantId));
+        }
+
         ProfileId = profileId;
+        RaidParticipantId = raidParticipantId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
         LoadoutReservationId = loadoutReservationId ?? string.Empty;
         State = RaidParticipantState.Raiding;

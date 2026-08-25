@@ -15,7 +15,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     ILootFirstAcquisitionSource,
     ILootQuantityReader,
     ILootContentReader,
-    ILootSlotCapacityReader
+    ILootSlotCapacityReader,
+    IRaidLootOriginSource,
+    IRaidLootOriginReceiver
 {
     private enum InitialContentOverrideState
     {
@@ -24,12 +26,13 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         Rejected
     }
 
-    public const int MaxLootTypes = 64;
+    public const int MaxCatalogEntries = RaidLootOriginPackedBuffer.MaximumCatalogEntries;
+    public const int MaxDistinctLootTypes = RaidLootOriginPackedBuffer.MaximumStacks;
 
     [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
-    [SerializeField, Range(1, MaxLootTypes)]
+    [SerializeField, Range(1, MaxDistinctLootTypes)]
     private int _slotCapacity = 16;
 
     [SerializeField]
@@ -38,10 +41,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     [SerializeField]
     private LootContainerInitialEntry[] _initialContent = Array.Empty<LootContainerInitialEntry>();
 
-    [Networked, Capacity(MaxLootTypes)]
+    [Networked, Capacity(MaxDistinctLootTypes)]
     private NetworkDictionary<int, int> LootInventory => default;
 
-    [Networked, Capacity(MaxLootTypes)]
+    [Networked, Capacity(MaxDistinctLootTypes)]
     private NetworkDictionary<int, int> FirstAcquisitionEligibleInventory => default;
 
     [Networked]
@@ -54,6 +57,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public int LootChangeSequence { get; private set; }
 
     private Collider2D[] _cachedColliders;
+    private ContainerRaidLootOriginState _raidOriginState;
 
     [SerializeField]
     private Collider2D[] _interactionColliders;
@@ -75,9 +79,11 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public bool StartsAvailable => _startsAvailable;
     public int OccupiedSlotCount => LootInventory.Count;
     public bool IsEmpty => LootInventory.Count == 0;
+    public bool IsRaidLootOriginAware => _raidOriginState != null;
 
     private void Awake()
     {
+        _raidOriginState = GetComponent<ContainerRaidLootOriginState>();
         _cachedColliders = _interactionColliders != null && _interactionColliders.Length > 0
             ? _interactionColliders
             : GetComponentsInChildren<Collider2D>(true);
@@ -106,7 +112,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     _initialContentOverride,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxLootTypes,
+                    MaxDistinctLootTypes,
                     out resolvedEntries,
                     out error);
             }
@@ -116,7 +122,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     _initialContent,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxLootTypes,
+                    MaxDistinctLootTypes,
                     out resolvedEntries,
                     out error);
             }
@@ -130,6 +136,13 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
             NetworkDictionary<int, int> inventory = LootInventory;
             NetworkDictionary<int, int> eligibleInventory = FirstAcquisitionEligibleInventory;
+            if (_raidOriginState == null)
+            {
+                Debug.LogError(
+                    $"{nameof(NetworkLootContainer)}: Missing {nameof(ContainerRaidLootOriginState)} on '{name}'.",
+                    this);
+                return;
+            }
             inventory.Clear();
             eligibleInventory.Clear();
             try
@@ -139,6 +152,16 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     KeyValuePair<int, int> entry = resolvedEntries[i];
                     inventory.Set(entry.Key, entry.Value);
                     eligibleInventory.Set(entry.Key, entry.Value);
+                }
+
+                if (!_raidOriginState.TryInitializeDungeon(resolvedEntries, out string originError))
+                {
+                    inventory.Clear();
+                    eligibleInventory.Clear();
+                    Debug.LogError(
+                        $"{nameof(NetworkLootContainer)}: Natural Raid provenance initialization failed for '{name}'. {originError}",
+                        this);
+                    return;
                 }
             }
             catch (Exception exception)
@@ -325,6 +348,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent first-acquisition state for '{name}'.", this);
             return LootTransferFailureReason.ContainerUnavailable;
         }
+        if (_raidOriginState == null || !hasStack ||
+            !_raidOriginState.HasExactTotal(index, currentAmount))
+        {
+            Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent Raid origin state for '{name}'.", this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
 
         return LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
     }
@@ -375,8 +404,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.InvalidAmount;
         }
 
-        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxLootTypes) ||
-            index < 0 || index >= MaxLootTypes)
+        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxDistinctLootTypes) ||
+            index < 0 || index >= MaxCatalogEntries)
         {
             return LootTransferFailureReason.ContainerUnavailable;
         }
@@ -386,6 +415,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         if (!TryValidateEligibility(index, currentAmount, alreadyHeld))
         {
             Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent first-acquisition state for '{name}'.", this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+        if (_raidOriginState == null || alreadyHeld &&
+            !_raidOriginState.HasExactTotal(index, currentAmount))
+        {
+            Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent Raid origin state for '{name}'.", this);
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
@@ -417,6 +452,17 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     /// </summary>
     public void CommitReceive(in LootTransferRequest request)
     {
+        if (_raidOriginState != null)
+        {
+            FailReceiveCommitContract();
+            return;
+        }
+
+        CommitReceiveQuantity(request);
+    }
+
+    private void CommitReceiveQuantity(in LootTransferRequest request)
+    {
         EnsureReceiveCommitContract(request, out int index, out int currentAmount);
         LootInventory.Set(
             index,
@@ -425,6 +471,17 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     }
 
     public void CommitExtraction(in LootTransferRequest request)
+    {
+        if (_raidOriginState != null)
+        {
+            FailExtractionCommitContract();
+            return;
+        }
+
+        CommitExtractionQuantity(request);
+    }
+
+    private void CommitExtractionQuantity(in LootTransferRequest request)
     {
         EnsureCommitContract(request, out int index, out int currentAmount);
 
@@ -490,6 +547,69 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         return new LootFirstAcquisitionResult(eligibleAmount);
     }
 
+    public bool TryResolveRaidLootOriginTransfer(
+        in LootTransferRequest request,
+        out RaidLootOriginTransfer transfer)
+    {
+        transfer = null;
+        return _raidOriginState != null && request.SourceId == Id && _lootCatalog != null &&
+            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
+            _raidOriginState.TryResolveTransfer(catalogIndex, request.RequestedAmount, out transfer);
+    }
+
+    public LootTransferFailureReason ValidateRaidLootOriginReceive(
+        in LootTransferRequest request,
+        RaidLootOriginTransfer transfer)
+    {
+        if (!HasStateAuthority)
+        {
+            return LootTransferFailureReason.MissingAuthority;
+        }
+
+        return _raidOriginState != null && request.DestinationId == Id && _lootCatalog != null &&
+            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
+            transfer != null && transfer.TryGetTotal(out int total) && total == request.RequestedAmount &&
+            _raidOriginState.CanReceive(catalogIndex, transfer)
+                ? LootTransferFailureReason.None
+                : LootTransferFailureReason.ContainerUnavailable;
+    }
+
+    public void CommitRaidLootExtraction(
+        in LootTransferRequest request,
+        RaidLootOriginTransfer transfer)
+    {
+        if (_raidOriginState == null || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+        {
+            FailExtractionCommitContract();
+            return;
+        }
+
+        CommitExtractionQuantity(request);
+        _raidOriginState.CommitExtraction(catalogIndex, transfer);
+    }
+
+    public void CommitRaidLootReceive(
+        in LootTransferRequest request,
+        RaidLootOriginTransfer transfer)
+    {
+        if (_raidOriginState == null || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+        {
+            FailReceiveCommitContract();
+            return;
+        }
+
+        CommitReceiveQuantity(request);
+        _raidOriginState.CommitReceive(catalogIndex, transfer);
+    }
+
+    internal bool TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> entries)
+    {
+        entries = Array.Empty<RaidLootOriginEntry>();
+        return _raidOriginState != null && _raidOriginState.TryGetEntries(_lootCatalog, out entries);
+    }
+
     public int GetLootAmount(LootId lootId)
     {
         return _lootCatalog != null &&
@@ -536,7 +656,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     /// Loads one complete validated snapshot into an initialized, unavailable and empty
     /// container. This is an internal lifecycle operation, not a loot-transfer route.
     /// </summary>
-    internal bool TryLoadExactContent(IReadOnlyList<LootEntry> entries, out string error)
+    internal bool TryLoadExactContent(
+        IReadOnlyList<LootEntry> entries,
+        IReadOnlyList<RaidLootOriginEntry> origins,
+        out string error)
     {
         error = null;
         if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating)
@@ -545,7 +668,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
-        if (!IsInitialized || IsAvailable || !_isRegistered ||
+        if (!IsInitialized || IsAvailable || !_isRegistered || _raidOriginState == null ||
             LootInventory.Count != 0 || FirstAcquisitionEligibleInventory.Count != 0)
         {
             error = "Container must be initialized, registered, unavailable, and empty.";
@@ -556,18 +679,38 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 entries,
                 _lootCatalog,
                 _slotCapacity,
-                MaxLootTypes,
+                MaxDistinctLootTypes,
                 out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
                 out error))
         {
             return false;
         }
 
-        NetworkDictionary<int, int> inventory = LootInventory;
-        for (int index = 0; index < resolvedEntries.Count; index++)
+        if (!TryValidateExactOriginTotals(resolvedEntries, origins, out error))
         {
-            KeyValuePair<int, int> entry = resolvedEntries[index];
-            inventory.Set(entry.Key, entry.Value);
+            return false;
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        try
+        {
+            for (int index = 0; index < resolvedEntries.Count; index++)
+            {
+                KeyValuePair<int, int> entry = resolvedEntries[index];
+                inventory.Set(entry.Key, entry.Value);
+            }
+
+            if (!_raidOriginState.TryLoadExact(origins, _lootCatalog, out error))
+            {
+                inventory.Clear();
+                return false;
+            }
+        }
+        catch (Exception exception)
+        {
+            inventory.Clear();
+            error = $"Exact content could not be committed before provenance. {exception.Message}";
+            return false;
         }
 
         if (resolvedEntries.Count > 0)
@@ -578,11 +721,77 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         return true;
     }
 
+    private bool TryValidateExactOriginTotals(
+        IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
+        IReadOnlyList<RaidLootOriginEntry> origins,
+        out string error)
+    {
+        error = null;
+        if (origins == null)
+        {
+            error = "Exact provenance is required.";
+            return false;
+        }
+
+        var expectedTotals = new Dictionary<int, int>(resolvedEntries.Count);
+        for (int index = 0; index < resolvedEntries.Count; index++)
+        {
+            KeyValuePair<int, int> entry = resolvedEntries[index];
+            expectedTotals.Add(entry.Key, entry.Value);
+        }
+
+        var actualTotals = new Dictionary<int, int>(resolvedEntries.Count);
+        var distinctOrigins = new HashSet<(int CatalogIndex, RaidLootOrigin Origin)>();
+        try
+        {
+            for (int index = 0; index < origins.Count; index++)
+            {
+                RaidLootOriginEntry originEntry = origins[index];
+                if (!originEntry.IsValid ||
+                    !_lootCatalog.TryGetIndex(originEntry.LootId, out int catalogIndex) ||
+                    !expectedTotals.ContainsKey(catalogIndex) ||
+                    !distinctOrigins.Add((catalogIndex, originEntry.Origin)))
+                {
+                    error = "Exact provenance contains an invalid, duplicate, or unexpected bucket.";
+                    return false;
+                }
+
+                actualTotals.TryGetValue(catalogIndex, out int current);
+                actualTotals[catalogIndex] = checked(current + originEntry.Amount);
+            }
+        }
+        catch (OverflowException)
+        {
+            error = "Exact provenance quantity overflowed.";
+            return false;
+        }
+
+        if (actualTotals.Count != expectedTotals.Count)
+        {
+            error = "Exact provenance does not cover every Loot entry.";
+            return false;
+        }
+
+        foreach (KeyValuePair<int, int> expected in expectedTotals)
+        {
+            if (!actualTotals.TryGetValue(expected.Key, out int actual) || actual != expected.Value)
+            {
+                error = "Exact provenance quantities do not match Loot quantities.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// Removes a previously loaded snapshot before the container becomes available.
     /// The method refuses to clear a different or partially changed inventory.
     /// </summary>
-    internal bool TryClearExactContent(IReadOnlyList<LootEntry> expected, out string error)
+    internal bool TryClearExactContent(
+        IReadOnlyList<LootEntry> expected,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
+        out string error)
     {
         error = null;
         if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating || IsAvailable)
@@ -591,7 +800,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
-        if (!HasExactContent(expected))
+        if (!HasExactContent(expected, expectedOrigins))
         {
             error = "Container content differs from the expected snapshot.";
             return false;
@@ -602,16 +811,25 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return true;
         }
 
+        if (_raidOriginState == null ||
+            !_raidOriginState.TryClearExact(expectedOrigins, _lootCatalog, out error))
+        {
+            return false;
+        }
+
         LootInventory.Clear();
         FirstAcquisitionEligibleInventory.Clear();
         LootChangeSequence++;
         return true;
     }
 
-    internal bool HasExactContent(IReadOnlyList<LootEntry> expected)
+    internal bool HasExactContent(
+        IReadOnlyList<LootEntry> expected,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins)
     {
         if (expected == null || !TryValidateEligibilityState() ||
             FirstAcquisitionEligibleInventory.Count != 0 ||
+            _raidOriginState == null || !_raidOriginState.HasExactEntries(expectedOrigins, _lootCatalog) ||
             !TryGetLootContent(out IReadOnlyList<LootEntry> actual) ||
             actual.Count != expected.Count)
         {
@@ -709,7 +927,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             request.SourceId.Value == 0 || request.DestinationId != Id ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out index) ||
-            index < 0 || index >= MaxLootTypes)
+            index < 0 || index >= MaxCatalogEntries)
         {
             FailReceiveCommitContract();
         }
@@ -734,7 +952,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        _slotCapacity = Mathf.Clamp(_slotCapacity, 1, MaxLootTypes);
+        _slotCapacity = Mathf.Clamp(_slotCapacity, 1, MaxDistinctLootTypes);
     }
 #endif
 }

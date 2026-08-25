@@ -72,7 +72,7 @@ after destruction.
 - PlayMode validates partial damage, fatal damage, repeated hits, collider and renderer removal, and unique pickup generation.
 - Manual Host/Client validation must confirm replicated destruction, identical pickups, collection, and late joining.
 
-## US-13 pickup provenance
+## Pickup first-acquisition provenance
 
 Every `NetworkLootPickup` replicates both total quantity and first-acquisition eligible quantity. Existing manually configured pickups and pickups spawned from natural or breakable content initialize eligibility equal to their quantity. A pickup provisionally spawned by `PlayerLootDropNetworkController` receives explicit eligibility zero and cannot be published otherwise. No separate pickup type is introduced.
 

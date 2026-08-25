@@ -2,7 +2,7 @@
 
 ## Context
 
-Each Host/Client raid owns one Fusion `NetworkRunner`. `TASK-60` closes that
+Each Host/Client Raid owns one Fusion `NetworkRunner`. The Raid lifecycle closes that
 generation without touching Town, profile, stash or loadout state. `RaidId` from
 the launch manifest is the generation identity; direct development sessions create
 one equivalent local identifier.
@@ -51,7 +51,7 @@ Host abandonment remains a participant result: if another participant is still
 - `SessionConnectionCoordinator`: observes `Finished`; Clients return immediately,
   while the Host waits for the configured five-second grace before its normal
   shutdown path.
-- `TASK-80`: the only source of extraction commit confirmation. A pending commit
+- `PlayerExtractionLootSaver`: the only source of extraction commit confirmation. A pending commit
   prevents cleanup and is never silently discarded.
 
 Runner scope is the isolation boundary: cleanup cannot affect another raid because
@@ -62,7 +62,7 @@ while the phase is `InProgress`; a closing generation is not resumed.
 
 Cleanup attempts every object and records failures. A partial cleanup publishes a
 diagnostic failure and keeps the session closed. Persistence failures remain in the
-pending barrier until TASK-80 retries or confirms the transaction.
+pending barrier until `PlayerExtractionLootSaver` retries or confirms the transaction.
 
 Validation must distinguish compilation, EditMode, PlayMode and manual Host/Client
 evidence. Two consecutive raids must not retain objects, seeds, registry entries or

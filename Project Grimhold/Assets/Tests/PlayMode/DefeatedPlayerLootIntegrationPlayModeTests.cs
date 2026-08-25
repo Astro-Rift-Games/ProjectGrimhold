@@ -122,6 +122,7 @@ namespace Tests.PlayMode.Loot
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         "unrecovered-defeated-profile",
+                        CreateParticipantId(1),
                         "hm-recovery-generation"));
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
@@ -148,6 +149,13 @@ namespace Tests.PlayMode.Loot
             Assert.That((bool)container.IsAvailable, Is.True);
             Assert.That(container.GetLootAmount(BoneLootId), Is.EqualTo(2));
             Assert.That(
+                container.TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> origins),
+                Is.True);
+            Assert.That(origins.Count, Is.EqualTo(1));
+            Assert.That(origins[0].Origin.IsPlayer, Is.True);
+            Assert.That(origins[0].Origin.PlayerParticipantId.Value, Is.EqualTo(2),
+                "Corpse provenance must retain the original owner, not the defeated holder.");
+            Assert.That(
                 _registry.TryGetInteractable(corpseEntityId, out IInteractable interactable),
                 Is.True);
             Assert.That(
@@ -155,6 +163,12 @@ namespace Tests.PlayMode.Loot
                 Is.SameAs(corpse.GetComponent<NetworkLootContainerInteractable>()));
             Assert.That(ResolveInteraction(corpseEntityId, out InteractionResult result), Is.True);
             Assert.That(result.Success, Is.True);
+        }
+
+        private static RaidParticipantId CreateParticipantId(int value)
+        {
+            RaidParticipantId.TryCreate(value, out RaidParticipantId participantId);
+            return participantId;
         }
 
         [UnityTest]

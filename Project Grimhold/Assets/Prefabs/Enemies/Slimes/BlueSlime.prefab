@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 12
+      value: 13
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -114,6 +114,10 @@ PrefabInstance:
       objectReference: {fileID: 946294757865678531}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[11]'
+      value:
+      objectReference: {fileID: 4854276181518498371}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[12]'
       value:
       objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -428,6 +432,17 @@ MonoBehaviour:
   _attackOrigin: {fileID: 3622679648598810352}
   _config: {fileID: 11400000, guid: 9e9a3c2ba91ae4c4695953134d59af28, type: 2}
   _movementControllerSource: {fileID: 5054560393642584851}
+--- !u!114 &4854276181518498371 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4419076183045921921, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
 --- !u!114 &5054560393642584851 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4047341824300862929, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

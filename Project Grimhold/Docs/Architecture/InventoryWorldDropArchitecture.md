@@ -2,13 +2,13 @@
 
 ## Context and decision
 
-TASK-52 allows an Input Authority player to drop loot from the personal raid
+The world-drop flow allows an Input Authority player to drop loot from the personal Raid
 inventory. The local UI selects an occupied stack and requests an intention;
 State Authority remains the only peer that resolves the current quantity,
 removes inventory content and publishes a world pickup.
 
 The personal inventory uses a contextual action menu. Container looting keeps
-the TASK-50 transfer controls unchanged, and read-only state accepts no slot
+the existing transfer controls unchanged, and read-only state accepts no slot
 action:
 
 ```text
@@ -30,7 +30,7 @@ not execute gameplay. The presenter routes the identifier back to the owning
 provider with the captured context. This keeps future consume or equip rules
 outside the view and outside the drop controller.
 
-TASK-52 registers one `LootDropContextActionProvider` with two actions, always
+The inventory registers one `LootDropContextActionProvider` with two actions, always
 in this order for valid loot:
 
 1. `Soltar`, mapped to `LootTransferQuantityMode.SingleUnit`.
@@ -67,7 +67,7 @@ The authoritative transaction is deliberately ordered:
 2. Resolve quantity and a collision-free position.
 3. Spawn an unpublished `NetworkLootPickup` with the intended content.
 4. Verify its network identity, content and quantity.
-5. Validate and commit extraction through `PlayerLootReceiver`.
+5. Validate and jointly commit quantity plus Raid provenance through `PlayerLootReceiver`.
 6. Publish the pickup.
 
 An unpublished pickup disables renderers and colliders and does not register
@@ -117,8 +117,8 @@ Manual Host/Client validation remains required for replicated publication,
 authoritative quantities under latency, competing pickup collection, wall and
 corner placement, and closing the inventory while a request is in flight.
 
-## US-13 credited world drops
+## Credited world drops
 
-All content held by `PlayerLootReceiver` is already credited and therefore carries no provenance state in the player inventory. During a world drop the provisional `NetworkLootPickup` is initialized with eligible quantity zero. Validation requires that zero before publication; failed spawn, verification, extraction or publication despawns the provisional object, so total quantity and provenance cannot be published inconsistently. A later pickup may restore inventory quantity but contributes no extraction progress.
+All content held by `PlayerLootReceiver` is already credited for first acquisition and therefore carries no first-acquisition-eligible quantity. Raid ownership provenance is preserved independently. Before spawning a drop, State Authority resolves the exact requested origin buckets in Dungeon-then-`RaidParticipantId` order. The provisional `NetworkLootPickup` stores those logical IDs and quantities directly, is initialized with eligible quantity zero, and remains unpublished until the source jointly commits quantity and provenance. Recollection copies the same logical origins into the destination Inventory.
 
-This preserves the existing single authoritative extraction and provisional-publication protocol. US-13 adds no general rollback to `LootTransferTransaction` and no provenance commit beyond the source's existing `CommitExtraction`.
+Failed spawn, verification, extraction or publication despawns the provisional object, so quantity, ownership provenance and eligibility cannot be published inconsistently. World drops do not grant first-acquisition progress and do not reinterpret Player origins as Dungeon.

@@ -311,6 +311,18 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         }
 
         var entry = new LootEntry(definition.LootId, requestedAmount);
+        var originPlanningRequest = new LootTransferRequest(
+            _lootReceiver.Id,
+            _lootReceiver.Id,
+            definition.LootId,
+            requestedAmount,
+            tick);
+        if (!_lootReceiver.TryResolveRaidLootOriginTransfer(
+                originPlanningRequest,
+                out RaidLootOriginTransfer originTransfer))
+        {
+            return Rejected(identity, tick, LootDropFailureReason.PlayerUnavailable);
+        }
         bool overrideApplied = false;
         NetworkLootPickup callbackPickup = null;
         NetworkSpawnStatus spawnStatus = Runner.TrySpawn(
@@ -330,7 +342,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
                         instance,
                         entry,
                         false,
-                        0);
+                        0,
+                        originTransfer);
             });
 
         bool validSpawn = spawnStatus == NetworkSpawnStatus.Spawned &&
@@ -358,7 +371,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, ToDropFailure(extractionFailure));
         }
 
-        _lootReceiver.CommitExtraction(extraction);
+        _lootReceiver.CommitRaidLootExtraction(extraction, originTransfer);
         callbackPickup.CommitDropPublication(Runner, pickupObject);
         return new LootDropConfirmation(
             identity.RequestSequence,

@@ -188,7 +188,7 @@ namespace Tests.EditMode.Loot
                 table,
                 _catalog,
                 16,
-                NetworkLootContainer.MaxLootTypes,
+                NetworkLootContainer.MaxDistinctLootTypes,
                 out snapshot,
                 out error);
         }

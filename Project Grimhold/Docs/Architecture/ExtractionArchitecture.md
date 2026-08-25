@@ -2,7 +2,7 @@
 
 ## Context and status
 
-TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-29 projects that confirmed state into the local HUD and replicated player visuals. The core does not despawn the player, create rewards, persist loot, close the session, or depend on UI, animation, audio or VFX.
+The authoritative extraction core owns zones, the player extraction process and terminal gameplay restrictions. The local HUD and replicated player visuals project only its confirmed state. The core does not despawn the player, create rewards, persist loot, close the session, or depend on UI, animation, audio or VFX.
 
 ## Sources of truth
 
@@ -19,6 +19,7 @@ TASK-26, TASK-27 and TASK-28 implement the authoritative extraction core. TASK-2
 | Sanctuary reservation | `ExtractionSanctuary` | Primitive networked owner ID |
 | Ritual lifecycle | `ExtractionSanctuary` | `[Networked] ExtractionRitualState` and `TickTimer` |
 | Ritual timing | `ExtractionConfig` | Immutable `RitualDurationSeconds` |
+| Pending extracted ownership | `NetworkPlayer` Raid loot states | Inventory, Equipment and Raid provenance retained until persistence ACK |
 
 `EntityRegistry` is runner-scoped and stores zone and participant capabilities independently from character, damage, interaction, collider and loot capabilities. Every peer registers its local instances. Registration grants discovery only; it never grants authority to mutate gameplay. Conflicts are rejected and unregistration removes only the expected instance.
 
@@ -67,13 +68,13 @@ Cancellation writes `None`, invalidates `ActiveZoneId` and clears the timer. An 
 Completion writes `Extracted` first, preserves the completing zone identity, clears the timer and applies movement and attack restrictions through `TrySetControlEnabled(false)` and `TrySetAttackEnabled(false)`. These calls are reapplied idempotently while terminal. Player movement and combat retain only their existing enabled, vitality, cooldown and input rules; they do not depend on extraction types.
 
 `TryGetProgress(out ExtractionCountdownSnapshot)` is side-effect free. The contract was renamed from
-`ExtractionProgressSnapshot` during US-13 to distinguish the zone countdown from the individual quota snapshot:
+`ExtractionProgressSnapshot` when individual quota progress was introduced, to distinguish the zone countdown from the individual quota snapshot:
 
 - `None`: valid, zero time and zero progress.
 - `InProgress`: valid only when runner, configuration, running timer and remaining time are available; no value is invented otherwise.
 - `Extracted`: valid, zero remaining time, progress one, and the completing zone identity preserved.
 
-Duration, remaining time and percentage are derived and are not networked. TASK-29 must consume this query and must not run a parallel local clock.
+Duration, remaining time and percentage are derived and are not networked. Presentation must consume this query and must not run a parallel local clock.
 
 ## Terminal gameplay restrictions
 
@@ -83,13 +84,13 @@ Interaction, loot transfer and world drop revalidate extraction inside their aut
 
 Enemy AI has no extraction dependency. `EnemyMovementAIController` owns one atomic target reference whose canonical identity is `EntityId` and whose `Transform` is only a cache. Acquisition and maintenance resolve `ICharacter` and `IDamageable` for that identity and require `IsAlive && CanReceiveDamage`. Invalidating an expected identity clears identity, transform, pursuit and attack flags together, allowing the existing FSM to leave `Chase` or `Attack`. `EnemyCombatAIController` repeats the same registry-backed validation before committing an attack and immediately before executing pending damage. Existing projectiles continue simulation, but impact resolution rejects an unavailable damage target.
 
-## TASK-29 presentation boundary
+## Extraction presentation boundary
 
 `RaidHudPresenter` is bound only to the Input Authority player's `PlayerExtractionController`. It reads `TryGetProgress` during presentation updates and renders the confirmed local countdown, a one-shot cancellation message, or the terminal `Extracted` label. It does not start, cancel or complete extraction and does not maintain a gameplay timer. The cancellation message uses an unscaled presentation-only duration.
 
 `PlayerExtractionPresenter` observes the replicated `ExtractionState` on every peer. When the state is `Extracted`, it hides only the serialized `Body` and `CombatVisuals` roots. The NetworkObject, colliders, camera, HUD, interaction and authoritative gameplay components remain active. Disabling the presenter restores its serialized visual state; re-enabling it reapplies the terminal visual from the current confirmed state.
 
-The extraction zone keeps its existing pozo visual and availability tint. TASK-29 does not add world-space UI, audio, particles, a second extraction clock or another networked state source.
+The extraction zone keeps its existing pozo visual and availability tint. This presentation boundary does not add world-space UI, audio, particles, a second extraction clock or another networked state source.
 
 ## Lifecycle and validation
 
@@ -97,15 +98,23 @@ Zones clear overlap buffers' logical sets, occupant state and saturation diagnos
 
 Automated coverage should include configuration and geometry boundaries, progress semantics, registry composition/conflicts, atomic enemy target invalidation, owner-protocol rejection, exact entry versus tolerant continuation, saturation behavior, authority, terminality and lifecycle. Fusion availability, timing, overlapping zones, independent players, despawn and clean-session behavior require runner tests plus the documented Host/Client manual checklist when no automated multi-runner harness proves them.
 
-## US-13 individual quota progress
+## Extraction ownership snapshot
+
+`PlayerExpeditionLootSnapshot` captures Inventory, each of the six Equipment slots, their persistent aggregate by `LootId`, Inventory origin buckets, each Equipment origin and the aggregate origin buckets. It validates duplicate buckets, positive quantities, overflow and exact per-LootId equality before exposing a snapshot. The persistent RPC and Loadout commit continue to carry only catalog indices and quantities; Raid provenance never enters stash or backend storage.
+
+When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The process-local snapshot is only a verified projection. A valid aggregate may contain up to 22 distinct entries: sixteen Inventory types plus six Equipment slots, while every catalog index remains valid in the independent `0..63` range.
+
+On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities. After ACK, exact-clear validates both quantity and provenance, clears Inventory and Equipment ownership, and only then confirms the extraction commit. The provenance boundary neither calculates nor credits `ExtractedLootExperience`.
+
+## Individual quota progress
 
 The MVP has individual progress only: the game supports solo expeditions and has no team progress, shared quota, team assignment or team contribution. `PlayerExtractionProgressController` on each player owns replicated `CurrentProgress` and `AssignmentRequested`; the positive quota remains immutable local configuration in `ExtractionConfig` and is not replicated. State Authority is the only writer. Contributions are accepted only during the matching authoritative simulation tick while the player is alive and not `Extracted`, use `long` arithmetic, and saturate at the configured quota. Reaching the quota changes `AssignmentRequested` once and it remains true for that player for the rest of the expedition. A new network player instance starts at zero with no pending assignment.
 
-`ExtractionProgressSnapshot` is the immutable quota projection: current progress, quota, percentage, completion and pending assignment. The pre-US-13 zone countdown contract was renamed to `ExtractionCountdownSnapshot`; this public rename prevents two unrelated meanings from sharing the same type name.
+`ExtractionProgressSnapshot` is the immutable quota projection: current progress, quota, percentage, completion and pending assignment. The earlier zone countdown contract was renamed to `ExtractionCountdownSnapshot`; this public rename prevents two unrelated meanings from sharing the same type name.
 
 `EntityRegistry` stores `IExtractionProgressReceiver` and `IExtractionProgressDefeatSource` in independent runner-scoped maps keyed by `EntityId`. These capabilities do not participate in collider registration or `TryRegisterEntity`. Producers call the receiver directly under State Authority; there is no global coordinator, gameplay event, RPC or event bus. `SimulationTick` is authoritative metadata and context validation, never a deduplication key. Multiple legitimate contributions may share one tick. One-shot behavior belongs to each producer: fatal `DamageResult`, first-open network state, provenance consumption during extraction, or pickup reservation/consumption.
 
-## TASK-54 individual sanctuary assignment
+## Individual sanctuary assignment
 
 The pre-ritual flow is `quota -> request -> assignment -> reservation`. When State Authority first completes a player's quota, `PlayerExtractionProgressController` writes the final progress, sets the historical `AssignmentRequested` flag, and invokes the runner-local `ExtractionSanctuaryAssignmentService` during the same simulation tick. Failure to assign never rolls back progress or the request and is not retried automatically on later ticks.
 
@@ -117,7 +126,7 @@ The assignment service is created on the `NetworkRunner` before `StartGame` and 
 
 During resimulation, the same inputs and free set select the same candidate. An existing reservation is returned idempotently before mutable eligibility is reconsidered, and `ExtractionSanctuary.TryReserve` performs the only final mutation while repeating the State Authority check. Destroying the runner clears the service seed, identities, buffers, and diagnostics. Sanctuary despawn removes both registrations, so a new session starts from newly spawned owner values of zero.
 
-## TASK-55 authoritative individual ritual
+## Authoritative individual ritual
 
 Each `ExtractionSanctuary` composes one `ExtractionZone` on the same root `NetworkObject` and therefore shares one canonical `EntityId`. The Sanctuary is the single extraction interactable: it owns reservation, ritual state, ritual timer and the interaction that starts the ritual. The co-located Zone is only the Sanctuary's physical interaction/extraction area; after the ritual completes it validates geometry, availability and occupancy for the final countdown, but it is never a second interactable or destination. The registry keeps `IExtractionSanctuary`, `IInteractable`, collider identity and `IExtractionZone` as distinct capabilities under that shared identity; no player-side assignment or second zone identity is synchronized.
 
@@ -131,11 +140,11 @@ Simulation order is authoritative gameplay and damage, Sanctuary ritual at order
 
 The Zone rejects attempts to disable itself after the co-located registered Sanctuary reaches `Completed`. Availability alone is not extraction authorization: `PlayerExtractionController` resolves the Sanctuary with the same zone ID and requires the participant to be its owner with a completed ritual both when starting and continuing.
 
-`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. TASK-56 consumes this projection for HUD and world presentation, while TASK-68 consumes it for the local private minimap marker.
+`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. The HUD and world presentation consume this projection, as does the local private minimap marker.
 
-## TASK-56 presentation boundary
+## Ritual presentation boundary
 
-TASK-56 is a partial presentation delivery. The local HUD consumes the nullable
+The ritual presentation is intentionally partial. The local HUD consumes the nullable
 `PlayerExtractionProgressController`, runner-scoped `ExtractionSanctuaryAssignmentService`,
 runner-scoped `EntityRegistry`, `IExtractionSanctuary`, `ExtractionProgressSnapshot`,
 `ExtractionRitualSnapshot` and the existing `ExtractionCountdownSnapshot`. Each source is
@@ -163,10 +172,10 @@ the alpha authored on each renderer; state changes modify RGB only and never alt
 transparency. Presentation components
 write no simulation state and add no replicated properties, RPCs or gameplay timers.
 
-TASK-68 adds only the local minimap presentation described below. Spatial audio remains outside
+The local minimap presentation is described below. Spatial audio remains outside
 the extraction presentation boundary.
 
-## TASK-68 local minimap presentation
+## Local minimap presentation
 
 `RaidMinimapPresenter` is an independent presentation section bound by `LocalPlayerHudBinder`
 to the current Input Authority `NetworkObject`, `Transform`, `PlayerExtractionController`,

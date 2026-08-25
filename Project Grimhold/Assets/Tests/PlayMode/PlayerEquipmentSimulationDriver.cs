@@ -8,6 +8,8 @@ using Fusion;
 /// </summary>
 public sealed class PlayerEquipmentSimulationDriver : SimulationBehaviour
 {
+    private static readonly RaidParticipantId TestParticipantId = CreateTestParticipantId();
+
     private enum RequestedOperation
     {
         None,
@@ -47,11 +49,38 @@ public sealed class PlayerEquipmentSimulationDriver : SimulationBehaviour
         RequestedOperation operation = _operation;
         _operation = RequestedOperation.None;
 
-        LastResult = operation == RequestedOperation.InitializeLoadout
-            ? _receiver.TryInitializeLoadout(_items, out string error)
-            : _receiver.TryForceSyncLoadout(_items, out error);
+        LastResult = _receiver.IsRaidLootOriginAware
+            ? TrySyncRaidLoadout(_receiver, _items, out string error)
+            : operation == RequestedOperation.InitializeLoadout
+                ? _receiver.TryInitializeLoadout(_items, out error)
+                : _receiver.TryForceSyncLoadout(_items, out error);
         LastError = error;
         CompletionSequence++;
+    }
+
+    private static bool TrySyncRaidLoadout(
+        PlayerLootReceiver receiver,
+        IReadOnlyList<LootEntry> items,
+        out string error)
+    {
+        error = null;
+        if (receiver.TryGetLootContent(out IReadOnlyList<LootEntry> current) && current.Count > 0)
+        {
+            if (!receiver.TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> origins) ||
+                !receiver.TryClearExactRaidContent(current, origins, out error))
+            {
+                error ??= "The Raid inventory test setup could not clear its exact provenance.";
+                return false;
+            }
+        }
+
+        return receiver.TryInitializeRaidLoadout(items, TestParticipantId, out error);
+    }
+
+    private static RaidParticipantId CreateTestParticipantId()
+    {
+        RaidParticipantId.TryCreate(1, out RaidParticipantId participantId);
+        return participantId;
     }
 }
 #endif

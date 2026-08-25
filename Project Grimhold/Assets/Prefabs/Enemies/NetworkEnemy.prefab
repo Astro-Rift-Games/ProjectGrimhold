@@ -5200,6 +5200,7 @@ GameObject:
   - component: {fileID: 3762208006993684416}
   - component: {fileID: 4177264610414068062}
   - component: {fileID: 2604764590180358513}
+  - component: {fileID: 4419076183045921921}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5546,6 +5547,7 @@ MonoBehaviour:
   - {fileID: -3796636682103364817}
   - {fileID: 7872507663536347850}
   - {fileID: 8300000000000000001}
+  - {fileID: 4419076183045921921}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -5738,6 +5740,18 @@ MonoBehaviour:
   _characterBase: {fileID: 4980760815071069997}
   _damageParticles: {fileID: 8951037927164024647}
   _healthEpsilon: 0.001
+--- !u!114 &4419076183045921921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

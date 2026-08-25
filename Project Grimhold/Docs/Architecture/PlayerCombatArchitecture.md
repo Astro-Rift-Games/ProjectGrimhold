@@ -1,6 +1,6 @@
 # Player Combat Architecture
 
-## TASK-38 shared aim direction
+## Shared aim direction
 
 `PlayerMovementNetworkController` resolves `AimWorldPosition` after the player's
 kinematic displacement and writes the synchronized `FacingDirection`. It runs before
@@ -234,7 +234,7 @@ Inherits from `AttackConfig`. Validated fields:
 
 A fresh attack press rejected specifically by `CooldownActive` uses the same sequenced local channel to pulse the bottom cooldown icon. For `Hold` configurations the rejection is still emitted only on the physical press edge. Feedback never calls an attack, applies damage or changes the cooldown.
 
-## US-13 fatal defeat contribution
+## Fatal defeat contribution
 
 `ExtractionProgressDefeatSource` is a separate co-located network component that owns only configured defeat reward, entity identity and runner-scoped registration. Player, base enemy and enemy variants serialize their own rewards. Characters, attacks, projectiles and traps contain no quota logic.
 
