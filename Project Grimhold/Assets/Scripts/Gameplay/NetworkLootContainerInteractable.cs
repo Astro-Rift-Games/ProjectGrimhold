@@ -1,3 +1,4 @@
+using System;
 using Fusion;
 using UnityEngine;
 
@@ -13,6 +14,9 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
     [SerializeField, Min(0)]
     private int _firstOpenProgressReward;
 
+    [SerializeField, Min(0)]
+    private long _firstOpenExperienceReward;
+
     private NetworkLootContainer _container;
     private EntityRegistry _registry;
     private EntityId _registeredId;
@@ -23,7 +27,14 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
     [Networked]
     public NetworkBool FirstOpenResolved { get; private set; }
 
+    [Networked]
+    public NetworkBool FirstOpenExperienceResolved { get; private set; }
+
+    [Networked]
+    public NetworkString<_32> FirstOpenExperienceOwnerProfileId { get; private set; }
+
     public int FirstOpenProgressReward => _firstOpenProgressReward;
+    public long FirstOpenExperienceReward => _firstOpenExperienceReward;
 
     public new EntityId Id => Object != null
         ? new EntityId(unchecked((int)Object.Id.Raw))
@@ -63,6 +74,8 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             FirstOpenResolved = false;
+            FirstOpenExperienceResolved = false;
+            FirstOpenExperienceOwnerProfileId = default;
         }
     }
 
@@ -96,6 +109,8 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
+        TryResolveFirstOpenExperience(request.InteractorId);
+
         if (!FirstOpenResolved)
         {
             bool containedLoot = !_container.IsEmpty;
@@ -117,12 +132,67 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
         return InteractionResult.Succeeded(isConsumed: false);
     }
 
+    private void TryResolveFirstOpenExperience(EntityId interactorId)
+    {
+        if (_firstOpenExperienceReward <= 0 || FirstOpenExperienceResolved || _registry == null ||
+            !_registry.TryGetDamageable(interactorId, out IDamageable damageable) ||
+            damageable is not PlayerCharacter player)
+        {
+            return;
+        }
+
+        RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+        if (participantLink == null ||
+            !participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+            participant.State != RaidParticipantState.Raiding ||
+            !participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) ||
+            currentAvatar != player.Object)
+        {
+            return;
+        }
+
+        string participantProfileId = participant.ProfileId.ToString();
+        if (string.IsNullOrWhiteSpace(participantProfileId))
+        {
+            return;
+        }
+
+        string ownerProfileId = FirstOpenExperienceOwnerProfileId.ToString();
+        if (string.IsNullOrWhiteSpace(ownerProfileId))
+        {
+            FirstOpenExperienceOwnerProfileId = participant.ProfileId;
+        }
+        else if (!string.Equals(ownerProfileId, participantProfileId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        PlayerExpeditionExperienceLedger ledger =
+            participant.GetComponent<PlayerExpeditionExperienceLedger>();
+        if (ledger == null ||
+            !ledger.TryRegisterNormalReward(
+                ExpeditionExperienceCategory.Exploration,
+                _firstOpenExperienceReward,
+                out _))
+        {
+            return;
+        }
+
+        FirstOpenExperienceResolved = true;
+    }
+
     public bool TryValidate(out string error)
     {
         error = null;
         if (_firstOpenProgressReward < 0)
         {
             error = "First-open progress reward must be non-negative.";
+            return false;
+        }
+
+        if (_firstOpenExperienceReward < 0)
+        {
+            error = "First-open Experience reward must be non-negative.";
             return false;
         }
 
@@ -154,6 +224,11 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
     private void OnValidate()
     {
         _firstOpenProgressReward = Mathf.Max(0, _firstOpenProgressReward);
+        if (_firstOpenExperienceReward < 0)
+        {
+            _firstOpenExperienceReward = 0;
+        }
+
         if (!Application.isPlaying)
         {
             _container = GetComponent<NetworkLootContainer>();

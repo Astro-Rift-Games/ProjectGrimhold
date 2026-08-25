@@ -127,7 +127,22 @@ Automated coverage targets initialization rules, registry atomicity, transaction
 
 ## US-13 first acquisition and container opening
 
-`NetworkLootContainerInteractable` owns the networked one-shot first-open state because it is the authoritative interaction boundary. On the first valid interaction it captures whether the container currently has loot and then marks the open as resolved before contributing. A non-empty chest may contribute its configured reward once globally; an empty first open permanently consumes the opportunity. Later interactions still open the UI. Enemy and player corpse interactables have a zero first-open reward.
+`NetworkLootContainerInteractable` owns the networked one-shot first-open Progress state because it is the authoritative interaction boundary. On the first valid interaction it captures whether the container currently has loot and then marks the Progress open as resolved before contributing. A non-empty chest may contribute its configured Progress reward once globally; an empty first open permanently consumes that opportunity. Later interactions still open the UI. Enemy and player corpse interactables have a zero first-open Progress reward.
+
+TASK-132 adds an independent configurable first-open Exploration Experience reward with its
+own replicated resolved flag and stable owner `ProfileId`. Every base-valid interaction may
+evaluate this XP branch even after the Progress one-shot has resolved. The first current Raid
+participant with a valid avatar claims ownership before its co-located ledger is resolved.
+Missing ledger or rejection leaves that owner and reward pending exclusively for later retry
+by the same participant; acceptance marks the XP one-shot resolved immediately. XP does not
+depend on current contents, so an empty chest may grant it. XP resolution and rejection never
+change the interaction result or existing Progress branch, and content transfer never changes
+the owner or either one-shot. Player and enemy corpse interactables configure zero XP.
+
+Fusion snapshots and `CopyStateFrom` preserve the XP owner and both resolved flags. Fresh
+State Authority spawns clear the XP owner and flag; Host Migration restore spawns retain the
+copied state without a parallel persistence or remapping path because ownership uses the
+participant's stable `NetworkString<_32>` `ProfileId` rather than a `NetworkId`.
 
 `NetworkLootContainer` additionally owns a replicated eligible quantity per catalog index. Natural initial chest and enemy content begins fully eligible; exact content loaded from a defeated player and player deposits add no eligibility. A stack may mix both classes. Eligibility is always positive when stored, never exceeds total quantity and never exists without the total stack. `CommitExtraction` is the single origin commit and atomically consumes eligible units first, changes total and eligible quantities, removes empty entries and advances `LootChangeSequence`.
 
