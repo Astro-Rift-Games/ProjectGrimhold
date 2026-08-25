@@ -47,6 +47,10 @@ When a task depends on Game Design behavior, read the relevant current Google Dr
 
 Always consult the live Drive document. Do not rely on remembered, summarized, cached, exported or previously uploaded copies when the Drive version is available.
 
+The catalog below is a routing aid, not an exhaustive whitelist. Game Design documentation evolves independently from this file. Before concluding that no Game Design document owns a behavior, search the connected Drive for newer or additional relevant documents. If a current authoritative document exists but is not yet listed here, consult it and resolve ownership by responsibility rather than falling back to an older listed document merely because this catalog is stale.
+
+Document numbering does not define source priority between Game Design documents. When several documents are relevant, use the document that explicitly owns each behavior and read all documents required by the cross-system change.
+
 ### Primary documents
 
 #### 00 - Desarrollo Conceptual
@@ -117,18 +121,45 @@ Defines persistent character identity and the classless build model.
 Read when the task affects:
 
 * Character identity.
-* Attributes.
-* Build specialization.
+* Attribute set and conceptual responsibilities.
+* Attribute allocation and redistribution as build decisions.
+* Build specialization and hybridization.
 * Melee or Ranged identity.
-* Weapons.
-* Armor.
 * Skills.
-* Equipment requirements.
-* Character progression.
+* Build-side consequences of character progression.
 * Build persistence.
 * Preparation before a Raid.
 
 Do not interpret Melee or Ranged as permanent player classes unless a newer authoritative design document explicitly changes this decision.
+
+For XP generation, XP consolidation, level requirements, level-up processing or the progression curve, read `05 - Progresión Persistente, Experiencia y Niveles` rather than treating Character Build Design as the owner of those rules.
+
+For concrete attribute formulas, limits and derived statistics, read `08 - Estadísticas Derivadas y Fórmulas de Atributos`.
+
+For visual character identity, modularity and the composition of body/hands/equipment, read `GD-11 — Dirección Visual Modular del Personaje sin Clases`.
+
+For specific equipment slots, main hand/off hand structure, weapon sets or equipment structural compatibilities, read `GD-12 — Estructura de Equipamiento del Personaje`.
+
+#### 05 - Progresión Persistente, Experiencia y Niveles
+
+https://docs.google.com/document/d/1_3QJsqyCRtFLGMwinsht3Y7sxE-qfGSeJ9J39xaSbb8
+
+Defines the Game Design rules for Experience and Levels, including the distinction between provisional Expedition XP and consolidated persistent XP.
+
+Read when the task affects:
+
+* Character Level or Experience.
+* Initial or maximum level.
+* Expedition XP generation and individual reward ownership.
+* Kill, Assist, exploration, extracted Loot or Mission XP.
+* XP consolidation after extraction, defeat, abandonment or disconnect.
+* Progression shown in Results.
+* Level requirements and the progression curve.
+* Multiple level-ups from one reward.
+* Experience overflow between levels and behavior at maximum level.
+* Integrity rules that prevent duplicate XP rewards or duplicate consolidation.
+
+The numerical curve and reward values are balance configuration unless the document explicitly defines a structural rule. Do not turn a provisional balance value into a hard-coded domain invariant without a separate technical reason.
 
 #### 06 - Sistema de Extracción
 
@@ -162,6 +193,64 @@ Read when the task affects:
 * Extracted items.
 * Item loss after defeat or abandonment.
 
+#### 08 - Estadísticas Derivadas y Fórmulas de Atributos
+
+https://docs.google.com/document/d/1xCm3FrqVYX8NvZr3uFTJm_ELA0GB3JH-O2OLlcN5AXk
+
+Defines how the attributes established by Character Build Design become concrete gameplay statistics and establishes the initial formulas, limits and numerical rules used for implementation and playtesting.
+
+Read when the task affects:
+
+* Derived statistics from character attributes.
+* Maximum Health from Vitality.
+* Maximum Stamina from Resistance.
+* Luck and additional-loot probability.
+* Strength, Dexterity or Intelligence values exposed to consuming systems.
+* Initial, minimum or maximum attribute values.
+* Total attribute-point pools and points gained per level.
+* Attribute redistribution limits.
+* Numerical rounding rules for character statistics.
+* Current Health or Stamina behavior when their maximum changes.
+* Separation between character statistics and properties owned by equipment.
+
+This document does not own XP generation or the level progression curve. It also does not define concrete equipment requirements, weapon scaling grades or equipment scaling formulas.
+
+#### GD-11 — Dirección Visual Modular del Personaje sin Clases
+
+https://docs.google.com/document/d/166_nPvqQnEg3qYTBMSa83vY7u5TRgZbXm5SqMynJim0
+
+Defines the visual representation and modularity of characters.
+
+Read when the task affects:
+
+* Visual character identity.
+* Visual modularity.
+* Visible equipment.
+* Composition of body, hands and equipment.
+* Visual families.
+* Visual reading of a build.
+* General visual direction of the character.
+
+#### GD-12 — Estructura de Equipamiento del Personaje
+
+https://docs.google.com/document/d/1JzL5635VDiFJYzSiWpgzIcMQ4pYfvSPflELYf_iEEQs
+
+Defines the structural equipment model of the character.
+
+Read when the task affects:
+
+* Equipment slots.
+* Weapon Sets.
+* Main Hand / Off Hand mechanics.
+* One-handed and two-handed weapons.
+* Dual Wield.
+* Shields.
+* Armor categories.
+* Accessories.
+* Quick Slots.
+* Structural compatibilities and restrictions.
+* Equipping, unequipping and displacement of already-equipped items when an equip operation requires it.
+
 ### Cross-system changes
 
 Read every relevant document when a change crosses responsibilities.
@@ -176,6 +265,18 @@ Examples:
 
 * Town preparation and Raid entry:
   `01 - Game Flow Principal` + `02 - Estados del Juego` + `04 - Character Build Design` + relevant session architecture.
+
+* Persistent Level and XP behavior:
+  `04 - Character Build Design` for build consequences + `05 - Progresión Persistente, Experiencia y Niveles` for XP and Level rules + relevant persistence architecture when storage is involved.
+
+* Attribute and derived-stat implementation:
+  `04 - Character Build Design` for attribute responsibilities + `08 - Estadísticas Derivadas y Fórmulas de Atributos` for formulas and numerical rules + the architecture of the consuming gameplay system.
+
+* Visual equipment representation:
+  `GD-12 — Estructura de Equipamiento del Personaje` for the slots and rules + `GD-11 — Dirección Visual Modular del Personaje sin Clases` for the visual composition + relevant presentation architecture.
+
+* XP produced by Raid outcomes or extracted Loot:
+  `05 - Progresión Persistente, Experiencia y Niveles` + `06 - Sistema de Extracción` + `07 - Sistema de Loot` + relevant persistence or Results architecture when applicable.
 
 Do not read unrelated design documents by default.
 

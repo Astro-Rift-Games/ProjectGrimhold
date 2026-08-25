@@ -91,6 +91,29 @@ the copied value and require no reference fixup. TASK-130 currently integrates c
 Player Kill Experience remains blocked until an external authoritative affiliation contract can
 distinguish allies from enemies; no runtime role or connection identity substitutes for it.
 
+## First-open Exploration Experience producer
+
+`NetworkLootContainerInteractable` owns a serialized non-negative first-open Experience
+reward and two replicated pieces of producer state: the resolved one-shot and its stable
+owner `ProfileId`. These are independent from the existing `FirstOpenResolved` state and
+first-open Extraction Progress reward. Container contents affect only the existing Progress
+path; an empty eligible chest may still grant Exploration Experience.
+
+On every otherwise valid authoritative interaction while the Experience reward remains
+unresolved, the interactable resolves the `InteractorId` as a current Raid avatar, follows
+its `RaidAvatarParticipantLink`, and validates the co-located participant. The first valid
+participant claims ownership before ledger resolution. An absent ledger or ledger rejection
+keeps both that owner and the one-shot pending; another participant cannot replace the owner,
+while a later interaction by the owner may retry. Ledger acceptance is followed immediately
+by `FirstOpenExperienceResolved` in the same execution.
+
+The owner uses the participant's replicated `NetworkString<_32>` `ProfileId`, not a
+remappable `NetworkId`, `PlayerRef` or avatar identity. Fusion snapshots and `CopyStateFrom`
+preserve the owner and resolved state with the container. Fresh State Authority spawns clear
+both fields, while Host Migration restore spawns do not overwrite copied values. XP success,
+rejection or ineligibility never gates the existing interaction or Extraction Progress path,
+and the Progress result cannot undo or repeat accepted Experience.
+
 ## Extracted Loot boundary
 
 `ExtractedLootExperience` exists in the breakdown and starts at zero, but TASK-129 exposes

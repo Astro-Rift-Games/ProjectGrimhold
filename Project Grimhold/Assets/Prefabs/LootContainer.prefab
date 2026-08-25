@@ -143,8 +143,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainerInteractable
   _firstOpenProgressReward: 5
+  _firstOpenExperienceReward: 5
   _FirstOpenResolved:
     RawValue: 0
+  _FirstOpenExperienceResolved:
+    RawValue: 0
+  _FirstOpenExperienceOwnerProfileId:
+    _length: 0
+    _data:
+      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 --- !u!114 &3300000000000000007
 MonoBehaviour:
   m_ObjectHideFlags: 0
