@@ -1,5 +1,6 @@
-﻿// src/app.js
+// src/app.js
 const express = require('express');
+const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth.routes');
 const characterRoutes = require('./routes/character.routes');
 const errorHandler = require('./middleware/errorHandler');
@@ -15,7 +16,13 @@ app.use('/character', characterRoutes);
 
 // Health check endpoint.
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  const mongoState = mongoose.connection.readyState;
+  // 1 = connected
+  if (mongoState === 1) {
+    res.json({ status: 'ok', mongo: 'connected' });
+  } else {
+    res.status(503).json({ status: 'degraded', mongo: 'disconnected', mongoState });
+  }
 });
 
 // Centralized error handling middleware. Must be registered last.
