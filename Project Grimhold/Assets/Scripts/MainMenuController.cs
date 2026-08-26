@@ -30,6 +30,13 @@ public sealed class MainMenuController : MonoBehaviour
     [SerializeField]
     private TextMeshProUGUI _statusText;
 
+    [Header("Login")]
+    [SerializeField]
+    private LoginPanelView _loginPanel;
+
+    [SerializeField]
+    private LoginFlowController _loginFlowController;
+
     private void OnEnable()
     {
         createRoomButton.onClick.AddListener(CreateRoom);
@@ -50,13 +57,60 @@ public sealed class MainMenuController : MonoBehaviour
             createButtonLabel.text = "Enter Town";
         }
 
-        RefreshConnectionButtons();
+        // "Enter Town" is locked until the login flow completes successfully.
+        createRoomButton.interactable = false;
+
+        if (_loginPanel != null)
+        {
+            _loginPanel.gameObject.SetActive(true);
+            _loginPanel.SetStatus(string.Empty);
+            _loginPanel.AddLoginListener(OnLoginButtonClicked);
+        }
+        else
+        {
+            // No login panel assigned: allow access for Editor development workflows.
+            Debug.LogWarning($"[{nameof(MainMenuController)}] No LoginPanelView assigned. Enter Town enabled without authentication.");
+            createRoomButton.interactable = true;
+        }
     }
 
     private void OnDisable()
     {
         createRoomButton.onClick.RemoveListener(CreateRoom);
         joinRoomButton.onClick.RemoveListener(JoinRoom);
+
+        if (_loginPanel != null)
+        {
+            _loginPanel.RemoveLoginListener(OnLoginButtonClicked);
+        }
+    }
+
+    private async void OnLoginButtonClicked()
+    {
+        if (_loginFlowController == null)
+        {
+            Debug.LogError($"[{nameof(MainMenuController)}] LoginFlowController not assigned.");
+            return;
+        }
+
+        _loginPanel.SetInteractable(false);
+        _loginPanel.SetStatus("Logging in...");
+
+        LoginFlowResult result = await _loginFlowController.ExecuteAsync(
+            _loginPanel.Username,
+            _loginPanel.Password);
+
+        if (result.IsSuccess)
+        {
+            _loginPanel.SetStatus("Login successful.");
+            _loginPanel.gameObject.SetActive(false);
+            createRoomButton.interactable = true;
+        }
+        else
+        {
+            _loginPanel.SetStatus(result.ErrorMessage);
+            _loginPanel.SetInteractable(true);
+        }
     }
 
     private void RefreshConnectionButtons()
@@ -157,5 +211,4 @@ public sealed class MainMenuController : MonoBehaviour
             }
         }
     }
-
 }
