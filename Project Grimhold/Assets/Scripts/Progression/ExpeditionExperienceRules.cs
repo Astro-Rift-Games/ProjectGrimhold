@@ -125,7 +125,7 @@ public static class ExpeditionExperienceRules
         return true;
     }
 
-    private static bool TryCalculateTotal(
+    internal static bool TryCalculateTotal(
         in ExpeditionExperienceSnapshot snapshot,
         out long total)
     {
