@@ -61,10 +61,18 @@ no second provisional total is stored.
 
 The transition accepts an immutable previous resolution and rejects replacement once completed.
 This deterministic one-shot rule does not store state by itself. `PlayerExpeditionExperienceLedger`
-continues to own only provisional Raid Experience and does not resolve or apply it. TASK-110 owns
-the authoritative mapping from Raid context to a definitive Progression outcome and the storage of
-the resulting resolution for that participation. Applying consolidated Experience to persistent
-Level and Experience remains a separate responsibility.
+continues to own only provisional Raid Experience and does not resolve or apply it.
+
+`ConsolidatedExperienceApplicationRules` is the separate pure C# transition that applies one
+completed resolution to persistent Level and Experience. Its immutable application value has only
+pending and applied states; an applied value retains the complete `ExperienceApplicationResult`.
+Repeated application rejects before reevaluating the resolution or progression state. A completed
+zero-Experience resolution is still consumed and produces a no-op result, while positive Experience
+delegates level processing to `CharacterProgressionRules`.
+
+The pure application domain does not identify a Raid participation, store state or write a profile.
+TASK-110 owns the authoritative mapping from Raid context to a definitive Progression outcome and
+must preserve that resolution together with its single application state for the same participation.
 
 ## Producer idempotency
 

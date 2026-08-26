@@ -14,19 +14,13 @@ public static class CharacterProgressionRules
         out ExperienceApplicationResult result)
     {
         result = default;
-        if (curve == null || awardedExperience <= 0 || currentExperience < 0 ||
-            currentLevel < ExperienceCurve.InitialLevel || currentLevel > curve.MaximumLevel)
+        if (awardedExperience <= 0 || !IsValidState(curve, currentLevel, currentExperience))
         {
             return false;
         }
 
         if (currentLevel == curve.MaximumLevel)
         {
-            if (currentExperience != 0)
-            {
-                return false;
-            }
-
             result = new ExperienceApplicationResult(
                 currentLevel,
                 currentExperience,
@@ -34,12 +28,6 @@ public static class CharacterProgressionRules
                 currentExperience,
                 0);
             return true;
-        }
-
-        if (!curve.TryGetRequiredExperience(currentLevel, out long currentRequirement) ||
-            currentExperience >= currentRequirement)
-        {
-            return false;
         }
 
         int resultingLevel = currentLevel;
@@ -78,5 +66,25 @@ public static class CharacterProgressionRules
             resultingExperience,
             resultingLevel - currentLevel);
         return true;
+    }
+
+    internal static bool IsValidState(
+        ExperienceCurve curve,
+        int currentLevel,
+        long currentExperience)
+    {
+        if (curve == null || currentExperience < 0 ||
+            currentLevel < ExperienceCurve.InitialLevel || currentLevel > curve.MaximumLevel)
+        {
+            return false;
+        }
+
+        if (currentLevel == curve.MaximumLevel)
+        {
+            return currentExperience == 0;
+        }
+
+        return curve.TryGetRequiredExperience(currentLevel, out long currentRequirement) &&
+               currentExperience < currentRequirement;
     }
 }
