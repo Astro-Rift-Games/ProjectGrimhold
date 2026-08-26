@@ -96,7 +96,7 @@ public sealed class MainMenuController : MonoBehaviour
         _loginPanel.SetInteractable(false);
         _loginPanel.SetStatus("Logging in...");
 
-        LoginFlowResult result = await _loginFlowController.ExecuteAsync(
+        LoginFlowResult result = await _loginFlowController.ExecuteLoginAsync(
             _loginPanel.Username,
             _loginPanel.Password);
 

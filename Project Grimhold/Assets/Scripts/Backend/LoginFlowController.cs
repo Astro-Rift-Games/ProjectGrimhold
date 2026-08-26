@@ -7,7 +7,10 @@ public enum LoginFlowStatus
     Success,
     AuthFailed,
     CharacterFailed,
-    NetworkError
+    NetworkError,
+    NeedsCharacterCreation,
+    RegistrationFailed,
+    CharacterCreationFailed
 }
 
 public readonly struct LoginFlowResult
@@ -36,6 +39,8 @@ public sealed class LoginFlowController : MonoBehaviour
     [SerializeField] private BackendConfiguration _config;
     [SerializeField] private ApplicationAuthContext _authContext;
 
+    private string _pendingToken;
+
     private void Awake()
     {
         if (_config == null)
@@ -55,12 +60,9 @@ public sealed class LoginFlowController : MonoBehaviour
         }
     }
 
-    public async Task<LoginFlowResult> ExecuteAsync(string username, string password)
+    public async Task<LoginFlowResult> ExecuteLoginAsync(string username, string password)
     {
-        // Clear any previous identity before attempting a new login.
-        // This guarantees no stale CharacterId survives a failed attempt.
-        LocalProfileProvider.ClearRemoteCharacterId();
-        _authContext?.Clear();
+        ClearState();
 
         // Step 1: Authenticate
         var (loginOk, loginResult, loginError) = await AuthenticationClient.PostLoginAsync(_config, username, password);
@@ -75,19 +77,76 @@ public sealed class LoginFlowController : MonoBehaviour
                 message);
         }
 
-        var token = loginResult.token;
+        return await CompleteAuthenticationAndInjectIdentity(loginResult.token);
+    }
 
+    public async Task<LoginFlowResult> ExecuteRegisterAsync(string username, string password)
+    {
+        ClearState();
+
+        var (registerOk, loginResult, registerError) = await AuthenticationClient.PostRegisterAsync(_config, username, password);
+        if (!registerOk)
+        {
+            var isNetwork = registerError.error == "NETWORK_ERROR";
+            if (isNetwork)
+            {
+                return LoginFlowResult.Failure(LoginFlowStatus.NetworkError, "Cannot reach the server. Check your connection.");
+            }
+
+            var message = registerError.error == "USERNAME_TAKEN"
+                ? "Username is already taken."
+                : "Failed to register account.";
+            return LoginFlowResult.Failure(LoginFlowStatus.RegistrationFailed, message);
+        }
+
+        return await CompleteAuthenticationAndInjectIdentity(loginResult.token);
+    }
+
+    public async Task<LoginFlowResult> CreateCharacterAsync(string name)
+    {
+        if (string.IsNullOrEmpty(_pendingToken))
+        {
+            return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "No authentication token available.");
+        }
+
+        var (ok, data, err) = await CharacterClient.PostCreateCharacterAsync(_config, _pendingToken, name);
+        if (!ok)
+        {
+            return LoginFlowResult.Failure(LoginFlowStatus.CharacterCreationFailed, err.message ?? "Failed to create character.");
+        }
+
+        var result = await CompleteAuthenticationAndInjectIdentity(_pendingToken);
+        if (result.IsSuccess)
+        {
+            _pendingToken = null;
+        }
+        return result;
+    }
+
+    private void ClearState()
+    {
+        _pendingToken = null;
+        LocalProfileProvider.ClearRemoteCharacterId();
+        _authContext?.Clear();
+    }
+
+    private async Task<LoginFlowResult> CompleteAuthenticationAndInjectIdentity(string token)
+    {
         // Step 2: Fetch character identity
         var (charOk, charData, charError) = await CharacterClient.GetCharacterAsync(_config, token);
         if (!charOk)
         {
+            if (charError.error == "CHARACTER_NOT_FOUND")
+            {
+                _pendingToken = token;
+                return LoginFlowResult.Failure(LoginFlowStatus.NeedsCharacterCreation, "Account has no character.");
+            }
             return LoginFlowResult.Failure(LoginFlowStatus.CharacterFailed,
                 "Login succeeded but character data could not be loaded.");
         }
 
         // Step 3: Fetch profile snapshot
         var (profileOk, profileData, _) = await CharacterClient.GetProfileAsync(_config, token);
-        // Profile fetch failure is non-fatal; we proceed with an empty profile snapshot.
         if (!profileOk)
         {
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
