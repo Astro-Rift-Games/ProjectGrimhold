@@ -2,11 +2,11 @@ using UnityEngine;
 
 /// <summary>
 /// Creates one process-local stash context that survives scene and NetworkRunner transitions.
-/// Its gameplay data is intentionally discarded when the application closes.
+/// Durable profile state will be supplied and confirmed by the authenticated backend flow.
 ///
 /// Initialization is split into two phases:
 /// 1. BeforeSceneLoad creates the DontDestroyOnLoad GameObject.
-/// 2. InitializeWithProfile is called by LoginFlowController after a successful login.
+/// 2. InitializeWithProfile is called after login supplies the backend CharacterId.
 /// </summary>
 public static class ApplicationStashServiceBootstrapper
 {
@@ -105,12 +105,6 @@ public static class ApplicationStashServiceBootstrapper
             profileId,
             _configuration.LootCatalog,
             _configuration.RecoveryWeaponLootId);
-
-        if (store.PendingReservation != null)
-        {
-            Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
-            store.TryRollbackLoadoutReservation(store.PendingReservation.ReservationId);
-        }
 
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();

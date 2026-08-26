@@ -9,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 6;
+    private const byte CanonicalVersion = 7;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -36,6 +36,10 @@ public static class RaidAdmissionDataCodec
             {
                 return false;
             }
+
+            writer.Write(data.Level);
+            writer.Write(data.CurrentExperience);
+            writer.Write(data.LastAppliedProgressionResultSequence);
 
             writer.Write((byte)data.ReservedLoadout.Count);
             for (int index = 0; index < data.ReservedLoadout.Count; index++)
@@ -100,6 +104,10 @@ public static class RaidAdmissionDataCodec
                 return false;
             }
 
+            int level = reader.ReadInt32();
+            long currentExperience = reader.ReadInt64();
+            int lastAppliedProgressionResultSequence = reader.ReadInt32();
+
             int entryCount = reader.ReadByte();
             if (entryCount > RaidLoadoutRules.MaximumEntries)
             {
@@ -134,7 +142,10 @@ public static class RaidAdmissionDataCodec
                 new ProfileId(profileId),
                 reservationId,
                 entries,
-                indices);
+                indices,
+                level,
+                currentExperience,
+                lastAppliedProgressionResultSequence);
             return data.IsValid;
         }
         catch (ArgumentException)

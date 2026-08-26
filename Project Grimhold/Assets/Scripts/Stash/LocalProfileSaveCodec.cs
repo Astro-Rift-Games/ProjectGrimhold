@@ -13,6 +13,11 @@ public static class LocalProfileSaveCodec
         public int schemaVersion;
         public string profileId;
         public long currency;
+        public int level;
+        public long currentExperience;
+        public int lastAppliedProgressionResultSequence;
+        public ProgressionReceiptData lastProgressionReceipt;
+        public ProgressionReceiptData[] appliedProgressionReceipts;
         public ItemData[] stash;
         public ItemData[] loadout;
         public string preparedWeaponSlot1;
@@ -63,6 +68,16 @@ public static class LocalProfileSaveCodec
         public string profileId;
     }
 
+    [Serializable]
+    private sealed class ProgressionReceiptData
+    {
+        public string raidId;
+        public string profileId;
+        public int resultSequence;
+        public long consolidatedExperience;
+        public int resultingLevel;
+    }
+
     public static string Encode(LocalProfileSnapshot snapshot)
     {
         var data = new SaveData
@@ -70,6 +85,13 @@ public static class LocalProfileSaveCodec
             schemaVersion = snapshot.SchemaVersion,
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
+            level = snapshot.Level,
+            currentExperience = snapshot.CurrentExperience,
+            lastAppliedProgressionResultSequence = snapshot.LastAppliedProgressionResultSequence,
+            lastProgressionReceipt = snapshot.LastProgressionReceipt.HasValue
+                ? ToProgressionReceipt(snapshot.LastProgressionReceipt.Value)
+                : null,
+            appliedProgressionReceipts = ToProgressionReceipts(snapshot.AppliedProgressionReceipts),
             stash = ToItems(snapshot.Stash),
             loadout = ToItems(snapshot.Loadout),
             preparedWeaponSlot1 = snapshot.PreparedEquipment.WeaponSlot1.Value,
@@ -131,10 +153,16 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        if (data.schemaVersion != LocalProfileSnapshot.CurrentSchemaVersion)
+        if (data.schemaVersion > LocalProfileSnapshot.CurrentSchemaVersion)
         {
             status = LocalProfilePersistenceStatus.UnsupportedVersion;
             error = $"Unsupported profile schema version {data.schemaVersion}.";
+            return false;
+        }
+
+        if (data.schemaVersion < 1)
+        {
+            error = $"Invalid profile schema version {data.schemaVersion}.";
             return false;
         }
 
@@ -144,7 +172,11 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        var candidate = new LocalProfileSnapshot { ProfileId = expectedProfileId };
+        var candidate = new LocalProfileSnapshot
+        {
+            SchemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
+            ProfileId = expectedProfileId
+        };
         if (!TryReadItems(data.stash, catalog, candidate.Stash, "stash", out error) ||
             !TryReadItems(data.loadout, catalog, candidate.Loadout, "loadout", out error))
         {
@@ -160,6 +192,18 @@ public static class LocalProfileSaveCodec
             return false;
         }
         candidate.Currency = data.currency;
+
+        if (data.schemaVersion == 1)
+        {
+            candidate.Level = ExperienceCurve.InitialLevel;
+            candidate.CurrentExperience = 0;
+            candidate.LastAppliedProgressionResultSequence = 0;
+            candidate.LastProgressionReceipt = null;
+        }
+        else if (!TryReadProgression(data, expectedProfileId, candidate, out error))
+        {
+            return false;
+        }
 
         if (candidate.Loadout.Count > LocalProfileSnapshot.MaxLoadoutSlots)
         {
@@ -282,6 +326,124 @@ public static class LocalProfileSaveCodec
         return true;
     }
 
+    private static bool TryReadProgression(
+        SaveData data,
+        ProfileId expectedProfileId,
+        LocalProfileSnapshot candidate,
+        out string error)
+    {
+        error = null;
+        ExperienceCurve curve = ProgressionBalanceDefaults.InitialExperienceCurve;
+        if (!CharacterProgressionRules.IsValidState(
+                curve,
+                data.level,
+                data.currentExperience) ||
+            data.lastAppliedProgressionResultSequence < 0)
+        {
+            error = "Profile progression state is invalid.";
+            return false;
+        }
+
+        candidate.Level = data.level;
+        candidate.CurrentExperience = data.currentExperience;
+        candidate.LastAppliedProgressionResultSequence =
+            data.lastAppliedProgressionResultSequence;
+
+        if (data.lastAppliedProgressionResultSequence == 0)
+        {
+            if (HasProgressionReceiptData(data.lastProgressionReceipt))
+            {
+                error = "A zero progression watermark cannot have a last receipt.";
+                return false;
+            }
+
+            candidate.LastProgressionReceipt = null;
+        }
+        else
+        {
+            if (!TryReadProgressionReceipt(
+                    data.lastProgressionReceipt,
+                    expectedProfileId,
+                    out ProgressionReceipt lastReceipt) ||
+                lastReceipt.ResultSequence != data.lastAppliedProgressionResultSequence)
+            {
+                error = "Last receipt does not match the durable progression watermark.";
+                return false;
+            }
+
+            candidate.LastProgressionReceipt = lastReceipt;
+        }
+
+        int previousSequence = 0;
+        if (data.appliedProgressionReceipts != null)
+        {
+            foreach (ProgressionReceiptData receiptData in data.appliedProgressionReceipts)
+            {
+                if (!TryReadProgressionReceipt(
+                        receiptData,
+                        expectedProfileId,
+                        out ProgressionReceipt receipt) ||
+                    receipt.ResultSequence <= previousSequence ||
+                    receipt.ResultSequence > data.lastAppliedProgressionResultSequence)
+                {
+                    error = "Applied progression receipts contain invalid or unordered data.";
+                    return false;
+                }
+
+                candidate.AppliedProgressionReceipts.Add(receipt);
+                previousSequence = receipt.ResultSequence;
+            }
+        }
+
+        if (candidate.AppliedProgressionReceipts.Count >
+            LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+        {
+            error = "Applied progression receipt history exceeds its limit.";
+            return false;
+        }
+
+        if (candidate.LastProgressionReceipt.HasValue &&
+            (candidate.AppliedProgressionReceipts.Count == 0 ||
+             !candidate.AppliedProgressionReceipts[
+                 candidate.AppliedProgressionReceipts.Count - 1].Equals(
+                     candidate.LastProgressionReceipt.Value)))
+        {
+            error = "Applied progression history does not end with the last receipt.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasProgressionReceiptData(ProgressionReceiptData data) =>
+        data != null &&
+        (!string.IsNullOrWhiteSpace(data.raidId) ||
+         !string.IsNullOrWhiteSpace(data.profileId) ||
+         data.resultSequence != 0 ||
+         data.consolidatedExperience != 0 ||
+         data.resultingLevel != 0);
+
+    private static bool TryReadProgressionReceipt(
+        ProgressionReceiptData data,
+        ProfileId expectedProfileId,
+        out ProgressionReceipt receipt)
+    {
+        receipt = default;
+        if (data == null ||
+            !string.Equals(data.profileId, expectedProfileId.Value, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        receipt = new ProgressionReceipt(
+            data.raidId,
+            expectedProfileId,
+            data.resultSequence,
+            data.consolidatedExperience,
+            data.resultingLevel);
+        return receipt.IsValid;
+    }
+
     private static ItemData[] ToItems(IReadOnlyList<StashItem> items)
     {
         var result = new ItemData[items?.Count ?? 0];
@@ -340,6 +502,28 @@ public static class LocalProfileSaveCodec
                 profileId = receipts[i].ProfileId.Value
             };
         }
+        return result;
+    }
+
+    private static ProgressionReceiptData ToProgressionReceipt(
+        in ProgressionReceipt receipt) => new()
+    {
+        raidId = receipt.RaidId,
+        profileId = receipt.ProfileId.Value,
+        resultSequence = receipt.ResultSequence,
+        consolidatedExperience = receipt.ConsolidatedExperience,
+        resultingLevel = receipt.ResultingLevel
+    };
+
+    private static ProgressionReceiptData[] ToProgressionReceipts(
+        IReadOnlyList<ProgressionReceipt> receipts)
+    {
+        var result = new ProgressionReceiptData[receipts?.Count ?? 0];
+        for (int index = 0; index < result.Length; index++)
+        {
+            result[index] = ToProgressionReceipt(receipts[index]);
+        }
+
         return result;
     }
 

@@ -102,7 +102,7 @@ Automated coverage should include configuration and geometry boundaries, progres
 
 `PlayerExpeditionLootSnapshot` captures Inventory, each of the six Equipment slots, their persistent aggregate by `LootId`, Inventory origin buckets, each Equipment origin and the aggregate origin buckets. It validates duplicate buckets, positive quantities, overflow and exact per-LootId equality before exposing a snapshot. The persistent RPC and Loadout commit continue to carry only catalog indices and quantities; Raid provenance never enters stash or backend storage.
 
-When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The process-local snapshot is only a verified projection. A valid aggregate may contain up to 22 distinct entries: sixteen Inventory types plus six Equipment slots, while every catalog index remains valid in the independent `0..63` range.
+When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The local durable snapshot is only a verified projection. A valid aggregate may contain up to 22 distinct entries: sixteen Inventory types plus six Equipment slots, while every catalog index remains valid in the independent `0..63` range.
 
 On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
 
@@ -116,9 +116,10 @@ The authoritative phases are `AwaitingExperiencePreparation -> AwaitingPersisten
 ExtractedLootPending -> ProgressionPending -> Complete`. A valid ACK exact-clears ownership and
 enters `ExtractedLootPending`. Ledger success, the same sequence already resolved, or a valid zero
 award advances; a real failure remains retryable and cannot freeze Progression. After
-`ProgressionPending`, retries execute only TASK-110. Resolver `Success` or `AlreadyCommitted` alone
-completes the transaction and permits Return. Fusion restoration resumes the stored phase and
-candidate without recalculation.
+`ProgressionPending`, retries execute only TASK-110. Resolver `Success` or `AlreadyCommitted`
+completes the authoritative Raid calculation; Input Authority must then durably commit and ACK
+the matching progression receipt before Return is permitted. Fusion restoration resumes the
+stored phase, candidate, resolver result and ACK without recalculation.
 
 ## Individual quota progress
 

@@ -119,11 +119,18 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 throw new ArgumentException("A coordinated raid requires a reserved loadout.", nameof(loadoutReservation));
             }
 
-            if (!RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
+            ApplicationStashContext profileContext =
+                FindAnyObjectByType<ApplicationStashContext>();
+            if (profileContext?.Store == null ||
+                profileContext.Store.ProfileId != profileId ||
+                !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
                 !RaidAdmissionData.TryCreate(
                     launchContext.RaidCode,
                     profileId,
                     loadoutReservation,
+                    profileContext.Store.GetLevel(),
+                    profileContext.Store.GetCurrentExperience(),
+                    profileContext.Store.GetLastAppliedProgressionResultSequence(),
                     out RaidAdmissionData admissionData) ||
                 !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {

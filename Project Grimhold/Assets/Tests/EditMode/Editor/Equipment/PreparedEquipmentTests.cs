@@ -189,6 +189,9 @@ namespace Tests.EditMode.Equipment
                     code,
                     new ProfileId("45454545454545454545454545454545"),
                     reservation,
+                    ExperienceCurve.InitialLevel,
+                    0,
+                    0,
                     out RaidAdmissionData admission),
                 Is.True);
             Assert.That(admission.HelmetEntryIndexPlusOne, Is.GreaterThan(0));

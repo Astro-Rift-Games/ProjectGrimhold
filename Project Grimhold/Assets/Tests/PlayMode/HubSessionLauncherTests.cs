@@ -8,6 +8,18 @@ using System.Reflection;
 
 public class HubSessionLauncherTests
 {
+    [SetUp]
+    public void SetUp()
+    {
+        LocalProfileProvider.SetRemoteCharacterId(new ProfileId("hub-session-test-character"));
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        LocalProfileProvider.ClearRemoteCharacterId();
+    }
+
     [UnityTest]
     public IEnumerator Test_StartAndShutdownHubSession_DoesNotThrow()
     {
@@ -22,6 +34,9 @@ public class HubSessionLauncherTests
 
         bool startSuccess = false;
 
+        LogAssert.Expect(
+            UnityEngine.LogType.Error,
+            "[TownProgressionPresenter] The local persistent profile context is unavailable.");
         var task = launcher.StartHubSessionAsync();
 
         // Convert async to coroutine

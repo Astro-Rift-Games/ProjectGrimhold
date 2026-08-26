@@ -11,6 +11,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGained
 {
+    private const float ProgressionCommitRetryIntervalSeconds = 1f;
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
 
@@ -48,13 +49,26 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
 
+    [Networked]
+    public NetworkBool IsProgressionCommitConfirmed { get; private set; }
+
     public bool IsExtractionCommitConfirmed =>
         ExtractionExperiencePhase >= ExtractionExperienceTransactionPhase.ExtractedLootPending;
 
     public bool IsExtractionProgressionComplete =>
         ExtractionExperiencePhase == ExtractionExperienceTransactionPhase.Complete;
 
+    public bool IsProgressionCommitPending =>
+        RequiresProgressionCommitAcknowledgement() &&
+        !IsProgressionCommitConfirmed;
+
     private PlayerExpeditionProgressionResolver _progressionResolver;
+    private ApplicationStashContext _localStashContext;
+    private int _localProgressionResultSequence;
+    private float _nextProgressionCommitRetryAt;
+
+    public bool HasLocalProgressionCommitResult { get; private set; }
+    public ProgressionCommitResult LocalProgressionCommitResult { get; private set; }
 
     /// <summary>
     /// Resolves the current avatar without changing simulation state.
@@ -75,11 +89,19 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         int baselineLevel,
         long baselineExperience,
         string raidGenerationId = null,
-        string loadoutReservationId = null)
+        string loadoutReservationId = null,
+        int baselineResultSequence = 0)
     {
         if (!raidParticipantId.IsValid)
         {
             throw new System.ArgumentException("Raid participant identity must be valid.", nameof(raidParticipantId));
+        }
+
+        if (baselineResultSequence < 0 || baselineResultSequence == int.MaxValue)
+        {
+            throw new System.ArgumentOutOfRangeException(
+                nameof(baselineResultSequence),
+                "The progression watermark must allow exactly one following result.");
         }
 
         _progressionResolver ??= GetComponent<PlayerExpeditionProgressionResolver>();
@@ -97,12 +119,14 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         LoadoutReservationId = loadoutReservationId ?? string.Empty;
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;
-        ResultSequence = 0;
+        ResultSequence = baselineResultSequence;
         ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.None;
         ExtractedLootCandidateEligibleValue = 0;
         ExtractedLootCandidateExperience = 0;
         FinalizationCause = ExpeditionProgressionFinalizationCause.None;
         IsReturnAuthorized = false;
+        IsProgressionCommitConfirmed = false;
+        HasLocalProgressionCommitResult = false;
     }
 
     private void Awake()
@@ -138,6 +162,174 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             _progressionResolver.TryFinalize(
                 ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed);
         }
+    }
+
+    public override void Render()
+    {
+        if (!HasInputAuthority || IsProgressionCommitConfirmed ||
+            _progressionResolver == null || ResultSequence <= 0 ||
+            FinalizationCause ==
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed ||
+            !_progressionResolver.TryGetResolution(out ExpeditionExperienceResolution resolution) ||
+            !_progressionResolver.TryGetApplication(out ConsolidatedExperienceApplication application))
+        {
+            return;
+        }
+
+        if (_localProgressionResultSequence != ResultSequence)
+        {
+            _localProgressionResultSequence = ResultSequence;
+            HasLocalProgressionCommitResult = false;
+            _nextProgressionCommitRetryAt = 0f;
+        }
+
+        if (HasLocalProgressionCommitResult &&
+            !ShouldRetryProgressionCommit(LocalProgressionCommitResult))
+        {
+            if (ShouldAcknowledgeProgressionCommit(LocalProgressionCommitResult))
+            {
+                TrySendProgressionCommitAcknowledgement(resolution, application);
+            }
+            return;
+        }
+
+        if (Time.unscaledTime < _nextProgressionCommitRetryAt)
+        {
+            return;
+        }
+
+        _nextProgressionCommitRetryAt =
+            Time.unscaledTime + ProgressionCommitRetryIntervalSeconds;
+        TryCommitProgressionLocally(resolution, application);
+    }
+
+    private void TryCommitProgressionLocally(
+        in ExpeditionExperienceResolution resolution,
+        in ConsolidatedExperienceApplication application)
+    {
+        if (_localStashContext == null)
+        {
+            _localStashContext = FindAnyObjectByType<ApplicationStashContext>();
+        }
+        ProfileId participantProfile;
+        try
+        {
+            participantProfile = new ProfileId(ProfileId.ToString());
+        }
+        catch (System.ArgumentException)
+        {
+            SetLocalProgressionResult(ProgressionCommitResult.Invalid);
+            return;
+        }
+
+        if (_localStashContext?.Store == null)
+        {
+            SetLocalProgressionResult(ProgressionCommitResult.PersistenceFailed);
+            return;
+        }
+
+        if (_localStashContext.Store.ProfileId != participantProfile)
+        {
+            SetLocalProgressionResult(ProgressionCommitResult.Invalid);
+            return;
+        }
+
+        var receipt = new ProgressionReceipt(
+            RaidGenerationId.ToString(),
+            participantProfile,
+            ResultSequence,
+            resolution.ConsolidatedExperience,
+            application.Result.ResultingLevel);
+        ProgressionCommitResult result =
+            _localStashContext.Store.TryCommitProgression(receipt, resolution);
+        SetLocalProgressionResult(result);
+        if (ShouldAcknowledgeProgressionCommit(result))
+        {
+            TrySendProgressionCommitAcknowledgement(resolution, application);
+        }
+    }
+
+    private void SetLocalProgressionResult(ProgressionCommitResult result)
+    {
+        bool changed = !HasLocalProgressionCommitResult ||
+            LocalProgressionCommitResult != result;
+        HasLocalProgressionCommitResult = true;
+        LocalProgressionCommitResult = result;
+        if (changed && result != ProgressionCommitResult.Success &&
+            result != ProgressionCommitResult.AlreadyApplied)
+        {
+            Debug.LogError(
+                $"[{nameof(NetworkRaidParticipant)}] Local progression commit ended with {result}. " +
+                $"ProfileId={ProfileId}; RaidGenerationId={RaidGenerationId}; " +
+                $"ResultSequence={ResultSequence}.",
+                this);
+        }
+    }
+
+    private void TrySendProgressionCommitAcknowledgement(
+        in ExpeditionExperienceResolution resolution,
+        in ConsolidatedExperienceApplication application)
+    {
+        if (Time.unscaledTime < _nextProgressionCommitRetryAt)
+        {
+            return;
+        }
+
+        _nextProgressionCommitRetryAt =
+            Time.unscaledTime + ProgressionCommitRetryIntervalSeconds;
+        RPC_AcknowledgeProgressionCommit(
+            ProfileId.ToString(),
+            RaidGenerationId.ToString(),
+            ResultSequence,
+            resolution.ConsolidatedExperience,
+            application.Result.ResultingLevel);
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_AcknowledgeProgressionCommit(
+        string profileId,
+        string raidGenerationId,
+        int resultSequence,
+        long consolidatedExperience,
+        int resultingLevel)
+    {
+        TryConfirmProgressionCommit(
+            profileId,
+            raidGenerationId,
+            resultSequence,
+            consolidatedExperience,
+            resultingLevel);
+    }
+
+    internal bool TryConfirmProgressionCommit(
+        string profileId,
+        string raidGenerationId,
+        int resultSequence,
+        long consolidatedExperience,
+        int resultingLevel)
+    {
+        if (!HasStateAuthority || IsProgressionCommitConfirmed ||
+            FinalizationCause ==
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed ||
+            !string.Equals(profileId, ProfileId.ToString(), System.StringComparison.Ordinal) ||
+            !string.Equals(raidGenerationId, RaidGenerationId.ToString(), System.StringComparison.Ordinal) ||
+            resultSequence != ResultSequence ||
+            _progressionResolver == null ||
+            !_progressionResolver.TryGetResolution(out ExpeditionExperienceResolution resolution) ||
+            !_progressionResolver.TryGetApplication(out ConsolidatedExperienceApplication application) ||
+            resolution.ConsolidatedExperience != consolidatedExperience ||
+            application.Result.ResultingLevel != resultingLevel)
+        {
+            return false;
+        }
+
+        IsProgressionCommitConfirmed = true;
+        if (FinalizationCause ==
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed)
+        {
+            IsReturnAuthorized = true;
+        }
+        return true;
     }
 
     /// <summary>
@@ -413,7 +605,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        if (State == RaidParticipantState.Extracted && !IsExtractionProgressionComplete)
+        if ((State == RaidParticipantState.Extracted && !IsExtractionProgressionComplete) ||
+            (RequiresProgressionCommitAcknowledgement() &&
+             !IsProgressionCommitConfirmed))
         {
             return;
         }
@@ -498,13 +692,19 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
+        if (_progressionResolver.Committed)
+        {
+            return;
+        }
+
         PlayerExpeditionProgressionFinalizationResult result =
             _progressionResolver.TryFinalize(
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
         if (result.IsCompleted)
         {
-            IsReturnAuthorized = true;
-            Debug.Log($"[HM-MULTI] Client abandon authorized. State={State}.", this);
+            Debug.Log(
+                $"[HM-MULTI] Client abandon progression resolved; durable local commit remains pending. State={State}.",
+                this);
         }
     }
 
@@ -524,4 +724,20 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         IsReturnAuthorized = authorizeReturn;
         return true;
     }
+
+    private bool RequiresProgressionCommitAcknowledgement() =>
+        State == RaidParticipantState.Extracted ||
+        State == RaidParticipantState.Defeated ||
+        (State == RaidParticipantState.Aborted &&
+         FinalizationCause ==
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
+
+    internal static bool ShouldAcknowledgeProgressionCommit(
+        ProgressionCommitResult result) =>
+        result == ProgressionCommitResult.Success ||
+        result == ProgressionCommitResult.AlreadyApplied;
+
+    internal static bool ShouldRetryProgressionCommit(
+        ProgressionCommitResult result) =>
+        result == ProgressionCommitResult.PersistenceFailed;
 }

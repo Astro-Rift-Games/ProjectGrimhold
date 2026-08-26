@@ -36,6 +36,23 @@ namespace Tests.PlayMode.Progression
         }
 
         [UnityTest]
+        [Category("TASK143")]
+        public IEnumerator AdmissionWatermark_InitializesParticipantResultSequence()
+        {
+            yield return StartRunner();
+
+            NetworkObject participantObject = SpawnParticipant(10, 2, 20, 12);
+            NetworkRaidParticipant participant =
+                participantObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionProgressionResolver resolver =
+                participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
+
+            Assert.That(participant.ResultSequence, Is.EqualTo(12));
+            Assert.That(resolver.BaselineLevel, Is.EqualTo(2));
+            Assert.That(resolver.BaselineExperience, Is.EqualTo(20));
+        }
+
+        [UnityTest]
         public IEnumerator DefinitiveCauses_CommitExactlyOnceWithTheirConfiguredRetention()
         {
             yield return StartRunner();
@@ -207,7 +224,8 @@ namespace Tests.PlayMode.Progression
         private NetworkObject SpawnParticipant(
             int participantId,
             int baselineLevel,
-            long baselineExperience)
+            long baselineExperience,
+            int baselineResultSequence = 0)
         {
             NetworkPrefabId prefabId =
                 _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid));
@@ -223,7 +241,8 @@ namespace Tests.PlayMode.Progression
                         CreateParticipantId(participantId),
                         baselineLevel,
                         baselineExperience,
-                        "task-110-generation"));
+                        "task-110-generation",
+                        baselineResultSequence: baselineResultSequence));
         }
 
         private IEnumerator Register(

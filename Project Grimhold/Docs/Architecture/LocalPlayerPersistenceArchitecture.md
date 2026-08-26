@@ -2,27 +2,24 @@
 
 ## Context
 
-Project Grimhold currently needs stash and loadout state to survive scene changes and
-`NetworkRunner` replacement during one Town-Raid-Town cycle. Durable progression across
-application restarts is intentionally deferred until the persistence system is developed
-further. Loading an older local save must not prevent a multiplayer raid from starting.
+Project Grimhold currently keeps the character aggregate alive across scenes and
+`NetworkRunner` replacement during one application process. The backend owns character identity
+and is the target source of truth for durable metagame state. The temporary Unity composition must
+not let legacy local files block authentication or stand in for backend durability.
 
 ## Decision
 
-The application owns one profile aggregate identified by `ProfileId` for the lifetime of
-the current process. `ApplicationStashServiceBootstrapper` creates a single
-`ApplicationStashContext` with `InMemoryLocalProfileRepository` before the first scene.
-The context is marked `DontDestroyOnLoad`, so stash, loadout, prepared Equipment assignments,
-pending loadout reservation and extraction receipts survive Town-Raid-Town transitions.
+The application owns one process-local profile aggregate identified by the backend `CharacterId`,
+represented locally as `ProfileId`. `LocalProfileProvider` remains invalid before authentication
+and never generates or restores a productive identity through `PlayerPrefs`. A successful login
+injects the remote `CharacterId` before initializing profile services.
 
-The aggregate starts empty on every application launch and is discarded when the process
-closes. The active composition does not read or write `Application.persistentDataPath`.
-Existing `grimhold-profile.json` files and the previous `PlayerPrefs` identity are ignored.
-Since US-23, `LocalProfileProvider` no longer generates a random `ProfileId` per process.
-Instead, it receives the authoritative `CharacterId` injected by the backend after a successful login.
-This value is stable across runner and scene transitions. Multiple standalone processes logged in
-with different accounts will have distinct `ProfileId`s and remain distinct Town queue members.
-Logging into multiple clients with the *same* account is currently outside the scope of local persistence design but is handled by the backend's session rules.
+`ApplicationStashServiceBootstrapper` creates one `ApplicationStashContext` before the first scene
+but defers store initialization until a valid remote identity is available. It then composes an
+`InMemoryLocalProfileRepository`. The context remains `DontDestroyOnLoad`; stash, loadout, prepared
+Equipment assignments, pending reservations, extraction receipts and progression state survive
+Town-Raid-Town transitions while the application remains open. They are discarded on application
+shutdown until the backend integration hydrates and commits this aggregate remotely.
 
 ```text
 IPlayerStashService / IPlayerLoadoutService
@@ -31,19 +28,48 @@ IPlayerStashService / IPlayerLoadoutService
                 -> InMemoryLocalProfileRepository
 ```
 
-`LocalProfileStore` remains the transactional domain boundary. It validates mutations,
-serializes operations and publishes one profile-commit notification after the in-memory
-snapshot accepts a complete aggregate. The repository validates each replacement and
-keeps its own snapshot for the remainder of the process.
+`LocalProfileStore` remains the transactional application boundary. It builds a candidate
+snapshot, asks the repository to accept it, and publishes the observable replacement and
+`ProfileCommitted` only after the complete in-process transaction succeeds. It never mutates the
+current snapshot before acceptance.
 
-The versioned codec, filesystem repository and atomic file store remain isolated behind
-`ILocalProfileRepository`, but they are not part of the runtime composition. They may be
-revisited or replaced when durable persistence receives an approved design.
+`LocalProfileRepository`, `LocalProfileFileStore` and `LocalProfileSaveCodec` remain isolated,
+test-covered legacy infrastructure. They are not part of the runtime composition and files such
+as `grimhold-profile.json` are ignored. They must not become a fallback when authentication or a
+backend operation fails.
+
+### Backend persistence integration boundary
+
+Backend persistence is asynchronous and must remain outside the synchronous
+`ILocalProfileRepository` contract. The authenticated integration must use the token held by
+`ApplicationAuthContext` to load the complete character snapshot before Town enables dependent
+flows, submit mutations or receipts to the backend, and publish server-confirmed state back into
+the application context. Network errors, cancellation, revision conflicts and retries are explicit
+outcomes; none may create a local identity or silently accept a local file as authoritative.
+
+The exact HTTP DTOs and endpoints belong to the backend contract and are not invented here.
+Until that contract is integrated, `ProfileCommitted` means only that the process-local aggregate
+accepted a transaction. It must not be interpreted as durable backend acknowledgement.
+
+### Progression transaction
+
+`LastAppliedProgressionResultSequence` is the aggregate's at-most-once mechanism. A new
+`ProgressionReceipt` is accepted only at `watermark + 1`; the exact receipt at the current
+watermark is `AlreadyApplied`, a different payload at that sequence is `Conflict`, an older
+sequence is `Stale`, and a sequence gap is invalid. The bounded receipt list is audit history
+only and may be pruned without weakening rejection of an old result.
+
+Level, current Experience, watermark, `LastProgressionReceipt` and receipt history are one
+candidate mutation. Watermark zero requires no last receipt. A positive watermark requires
+the last receipt to exist, match that sequence and belong to the snapshot ProfileId.
+`LocalProfileStore` reuses `ConsolidatedExperienceApplicationRules`; it does not duplicate the
+curve. A zero-XP resolution still advances the watermark. Only `Success` publishes a
+commit event; `AlreadyApplied` performs no second write or notification.
 
 ## Domain and authority boundaries
 
 Stash and loadout transfers, prepared Equipment assignments, loadout reservations and extraction
-receipt application are complete aggregate commits. `PreparedEquipmentLoadout` covers the six
+receipt application are complete aggregate transactions. `PreparedEquipmentLoadout` covers the six
 slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves and Boots. Every
 assignment is a non-owning `LootId` reference into the current Loadout: it never creates units,
 `EquipmentSlotRules` decides which slot an identity may occupy, weapon slots additionally require
@@ -51,9 +77,9 @@ a usable Weapon definition, and one identity used by several slots requires one 
 reference. Equipping an identity that still lives in the Stash pulls exactly the missing units
 into the Loadout inside the same commit, because the Loadout is what the reservation transfers; a
 rejected assignment moves nothing. Releasing a slot leaves its unit in the Loadout. Loadout
-removals reconcile the assignments in the same commit, releasing the last slots first. Duplicate extraction receipts remain idempotent within the
-current application process. Closing the application resets both the loot and the receipt
-history, as intended by the temporary lifetime policy.
+removals reconcile the assignments in the same transaction, releasing the last slots first.
+Extraction receipts and the rest of the aggregate remain available only for the current
+application process until backend persistence is connected.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.
@@ -88,9 +114,9 @@ ambiguously reference units already reserved for Raid. The requirement stays enf
 domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a
 different id is rejected while pending. Pre-admission failure restores items and assignments in
 one rollback. After participant, avatar and exact `Inventory + the six Equipment slots`
-ownership are observed, confirmation consumes the reservation.
-All of these guarantees apply while the application remains open; an application close
-discards an unfinished reservation.
+ownership are observed, confirmation consumes the reservation. Closing the application currently
+discards an unfinished reservation; backend persistence must define recovery for remotely stored
+reservations.
 
 ### Extraction boundary
 
@@ -99,25 +125,25 @@ application-level Loadout. A valid admission consumes the pending reservation an
 that Loadout empty during the raid; extraction then restores the exact authoritative raid
 snapshot to it. Stash is not an automatic extraction destination. A new receipt is accepted
 only when the Loadout is empty and fits its capacity, so an unexpected pre-existing Loadout
-fails without changing either inventory. An ACK is sent only after that in-memory commit
-succeeds, and the raid inventory is cleared only after the ACK. Transport duplicates cannot
-duplicate loot during the same application run because extraction receipts remain in the
-aggregate.
+fails without changing either inventory. An ACK is sent only after the current aggregate accepts
+the transaction, and the raid inventory is cleared only after the ACK. Transport duplicates cannot
+duplicate loot during the current process because extraction receipts remain in the aggregate.
+Cross-process idempotency requires backend receipt persistence before this can be considered a
+durable guarantee.
 
-## Risks and deferred durability
+## Temporary limitations and failure policy
 
-- Closing or crashing the application discards stash, loadout and secured extraction loot.
-- Reopening the application permits the same raid receipt to be applied again because no
-  receipt history survives the process boundary.
-- The dormant file implementation is not evidence that restart persistence is supported.
-- Durable storage requires a separate decision covering migration, corruption recovery,
-  identity, save compatibility and multiplayer acknowledgement semantics.
+- Closing or crashing the application discards the process-local aggregate.
+- Legacy JSON and `PlayerPrefs` state are ignored and never block login.
+- A backend load failure must remain visible and must not be replaced by a generated identity or
+  legacy local profile.
+- Durable progression and extraction acknowledgement require backend-confirmed, idempotent
+  operations. In-memory success is temporary gameplay evidence only.
 
 ## Validation strategy
 
-EditMode tests verify that one in-memory repository retains committed state while a new
-repository starts empty, and that profile boundaries are enforced. Existing codec and
-filesystem-repository tests remain as isolated coverage for the dormant implementation.
-Store tests continue to cover transactions, reservations, extraction idempotency and
-failure behavior. Manual validation must cover a complete Town-Raid-Town cycle in one run
-and confirm that a full application restart begins with an empty stash and loadout.
+EditMode tests verify the process-local lifetime, profile boundaries, progression watermark
+semantics and existing aggregate transactions. Codec and filesystem tests remain isolated coverage
+for inactive legacy infrastructure. Manual validation covers login with legacy files present and a
+complete Town-Raid-Town cycle in one run. Backend integration must add restart hydration, network
+failure/retry, revision-conflict, receipt-idempotency and real Host/Client validation.

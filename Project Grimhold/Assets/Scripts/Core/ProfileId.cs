@@ -1,8 +1,7 @@
 using System;
 
 /// <summary>
-/// Identifier for one player's profile within the currently supported lifetime boundary.
-/// The active runtime composition assigns a new value per application process.
+/// Stable backend CharacterId used to identify one locally persisted player profile.
 /// </summary>
 public readonly struct ProfileId : IEquatable<ProfileId>
 {

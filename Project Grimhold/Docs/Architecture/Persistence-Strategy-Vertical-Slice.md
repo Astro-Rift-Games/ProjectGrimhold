@@ -5,13 +5,13 @@
 Actualmente, el ciclo de juego (Town-Raid-Town) maneja la información de la siguiente manera:
 
 * **Stash y Loadout**: Se almacenan en un `LocalProfileStore` que utiliza un `InMemoryLocalProfileRepository`. Este agregado sobrevive a los cambios de escena y al reemplazo del `NetworkRunner` porque su contexto (`ApplicationStashContext`) está marcado como `DontDestroyOnLoad`.
-* **Perfil / Progresión**: No existe una progresión duradera. El `ProfileId` es generado localmente (`LocalProfileProvider`) y es único por cada ejecución del proceso de la aplicación.
+* **Perfil / Progresión**: La progresión existe en el agregado de dominio, pero todavía no posee durabilidad backend. El `ProfileId` productivo es el `CharacterId` remoto entregado después de autenticar.
 * **Configuración o datos persistentes existentes**: Cualquier archivo local como `grimhold-profile.json` o datos en `PlayerPrefs` actualmente se ignoran de manera intencional en favor de la memoria temporal.
-* **Identidad del jugador**: Está ligada al proceso actual de la aplicación. Photon Fusion utiliza `PlayerRef` como identidad de sesión, pero esto no representa una identidad de persistencia de gameplay.
+* **Identidad del jugador**: El backend mantiene la identidad estable del personaje. Photon Fusion utiliza `PlayerRef` como identidad de sesión, pero esto no representa una identidad de persistencia de gameplay.
 * **Estado de una expedición**: Es completamente temporal y autoritativo bajo Photon Fusion. La salud, inventario recolectado, y progreso de extracción viven en la simulación.
 * **Dependencia de Photon Fusion**: Fusion maneja la autoridad de la partida (State Authority), la detección de zonas de extracción (`ExtractionZone`), y el proceso de extracción en sí (`PlayerExtractionController`), pero *no* es dueño del stash o loadout local.
 * **Supervivencia al destruir `NetworkRunner`**: El inventario asegurado (Stash, Loadout, y Recibos de Extracción) sobrevive porque vive en la capa de aplicación de Unity, fuera del ciclo de vida del Runner de Fusion.
-* **Limitaciones actuales**: Al cerrar o crashear la aplicación, se pierde todo el stash, loadout y loot asegurado. Reabrir la aplicación genera un nuevo `ProfileId`. No hay forma de validar contra trampas si el cliente modifica la memoria, ya que no hay validación externa.
+* **Limitaciones actuales**: Al cerrar o crashear la aplicación, se pierde el estado de gameplay que todavía vive únicamente en memoria. Reabrir exige una nueva autenticación y recupera el mismo `CharacterId`, pero todavía no hidrata ese agregado desde el backend. No hay forma de validar contra trampas si el cliente modifica la memoria, ya que no hay validación externa de esas mutaciones.
 
 ## 2. Problema a resolver
 
@@ -21,13 +21,13 @@ El sistema en memoria fue diseñado exclusivamente para probar el flujo de las m
 
 Se propone introducir un backend ligero que reemplace el almacenamiento en memoria temporal, actuando como la fuente de verdad del perfil del jugador.
 
-* **Alcance de los datos persistentes**: Se persistirá exclusivamente la identidad del jugador, el contenido del Stash y el Loadout equipado.
+* **Alcance de los datos persistentes**: El backend deberá persistir el agregado aprobado del personaje, incluyendo Stash, Loadout y progresión consolidada, sin convertir el estado temporal de Raid en estado de metajuego.
 * **Estado temporal (no persistente)**: La posición del jugador, estado de salud, inventario en partida (antes de extraer), estado de enemigos y tiempos de extracción seguirán siendo puramente estado de la sesión de Fusion.
-* **Identidad persistente**: Se implementará un mecanismo de autenticación básico (por ejemplo, Device ID o un login simple) para proveer un identificador de perfil estable a Unity en lugar de generarlo localmente.
-* **Fuente de verdad**: El Backend será la única fuente de verdad para el Stash y Loadout. Photon Fusion seguirá siendo la fuente de verdad de la simulación durante el Raid.
-* **Responsabilidad de Unity**: Autenticarse contra el backend, mantener el estado sincronizado en el cliente para presentación (UI), enviar intenciones de modificación de Loadout, y reportar la extracción completada.
+* **Identidad persistente**: El login existente entrega el `CharacterId` remoto que Unity adopta como `ProfileId`; no existe fallback productivo mediante GUID local o `PlayerPrefs`.
+* **Fuente de verdad**: El Backend será la única fuente de verdad del agregado persistente del personaje. Photon Fusion seguirá siendo la fuente de verdad de la simulación durante el Raid.
+* **Responsabilidad de Unity**: Autenticarse contra el backend, mantener una representación local del estado confirmado para presentación (UI), enviar intenciones de mutación y reportar los resultados autoritativos de la expedición.
 * **Responsabilidad de Photon Fusion**: Simular la expedición, validar colisiones, mecánicas de daño, e indicar algorítmicamente cuándo un jugador ha extraído exitosamente (generando el `ExtractionReceipt`).
-* **Responsabilidad del Backend**: Validar la identidad, proveer el perfil inicial al conectarse, validar transferencias entre Stash/Loadout, y validar/procesar los recibos de extracción para añadir loot al perfil.
+* **Responsabilidad del Backend**: Validar la identidad, proveer el perfil inicial al conectarse, validar mutaciones del agregado y procesar idempotentemente los recibos de extracción y progresión.
 
 ### Flujos generales
 
@@ -50,7 +50,7 @@ MongoDB, siendo una base de datos orientada a documentos, se alinea perfectament
 
 **Fuera de alcance:**
 * Validación server-side estricta de cada paso del raid (Anti-cheat avanzado). Por ahora, el backend confiará en los recibos generados por el cliente (Host/Client mode).
-* Sistemas de progresión complejos, XP o árboles de habilidades.
+* Árboles de habilidades y sistemas de progresión adicionales a Nivel y XP consolidados.
 * Economía entre jugadores, trading o subastas.
 * Sistema de clanes, amigos o matchmaking basado en rangos (MMR).
 * Host Migrations complejas con recuperación de loot a nivel backend (se apoyará en el sistema actual de Fusion).

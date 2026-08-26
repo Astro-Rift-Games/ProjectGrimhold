@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using Assert = NUnit.Framework.Assert;
 
+[Category("TASK143")]
 public sealed class RaidAdmissionDataCodecTests
 {
     [Test]
@@ -19,7 +20,14 @@ public sealed class RaidAdmissionDataCodecTests
             new PreparedEquipmentLoadout(sword, sword));
 
         Assert.That(
-            RaidAdmissionData.TryCreate(code, new ProfileId("profile-prepared"), reservation, out RaidAdmissionData data),
+            RaidAdmissionData.TryCreate(
+                code,
+                new ProfileId("profile-prepared"),
+                reservation,
+                ExperienceCurve.InitialLevel,
+                0,
+                0,
+                out RaidAdmissionData data),
             Is.True);
         Assert.That(data.WeaponSlot1EntryIndexPlusOne, Is.EqualTo(2));
         Assert.That(data.WeaponSlot2EntryIndexPlusOne, Is.EqualTo(2));
@@ -35,13 +43,21 @@ public sealed class RaidAdmissionDataCodecTests
             new ProfileId("profile-code"),
             "reservation-code",
             new[] { new LootEntry(new LootId("training_sword"), 1) },
-            new[] { 1, 0, 0, 0, 0, 0 });
+            new[] { 1, 0, 0, 0, 0, 0 },
+            level: 2,
+            currentExperience: 20,
+            lastAppliedProgressionResultSequence: 12);
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(6));
+        Assert.That(token[0], Is.EqualTo(7));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
+        Assert.That(decoded.Level, Is.EqualTo(source.Level));
+        Assert.That(decoded.CurrentExperience, Is.EqualTo(source.CurrentExperience));
+        Assert.That(
+            decoded.LastAppliedProgressionResultSequence,
+            Is.EqualTo(source.LastAppliedProgressionResultSequence));
         Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
     }
 
@@ -60,6 +76,31 @@ public sealed class RaidAdmissionDataCodecTests
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.Not.EqualTo(second));
+    }
+
+    [Test]
+    public void Encode_RejectsInvalidProgressionBaselineOrWatermark()
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        LootEntry[] loadout = { new(new LootId("training_sword"), 1) };
+        int[] equipment = { 1, 0, 0, 0, 0, 0 };
+        var invalidBaseline = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-invalid-baseline"),
+            "reservation",
+            loadout,
+            equipment,
+            level: 0);
+        var invalidWatermark = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-invalid-watermark"),
+            "reservation",
+            loadout,
+            equipment,
+            lastAppliedProgressionResultSequence: int.MaxValue);
+
+        Assert.That(RaidAdmissionDataCodec.TryEncode(invalidBaseline, out _), Is.False);
+        Assert.That(RaidAdmissionDataCodec.TryEncode(invalidWatermark, out _), Is.False);
     }
 
     [Test]

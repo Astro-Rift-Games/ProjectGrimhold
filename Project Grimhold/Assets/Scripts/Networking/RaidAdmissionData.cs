@@ -10,6 +10,9 @@ public readonly struct RaidAdmissionData
     public RaidCode RaidCode { get; }
     public ProfileId ProfileId { get; }
     public string ReservationId { get; }
+    public int Level { get; }
+    public long CurrentExperience { get; }
+    public int LastAppliedProgressionResultSequence { get; }
     private readonly LootEntry[] _reservedLoadout;
 
     /// <summary>
@@ -35,6 +38,9 @@ public readonly struct RaidAdmissionData
     public bool IsValid => RaidCode.IsValid &&
                            !string.IsNullOrWhiteSpace(ReservationId) &&
                            ProfileId.IsValid &&
+                           PlayerExpeditionProgressionResolver.IsValidBaseline(Level, CurrentExperience) &&
+                           LastAppliedProgressionResultSequence >= 0 &&
+                           LastAppliedProgressionResultSequence < int.MaxValue &&
                            RaidLoadoutRules.TryValidateShape(ReservedLoadout, out _) &&
                            RaidLoadoutRules.TryValidatePreparedEquipmentReferences(
                                ReservedLoadout,
@@ -47,11 +53,17 @@ public readonly struct RaidAdmissionData
         ProfileId profileId,
         string reservationId,
         IReadOnlyList<LootEntry> reservedLoadout,
-        IReadOnlyList<int> entryIndicesPlusOne = null)
+        IReadOnlyList<int> entryIndicesPlusOne = null,
+        int level = ExperienceCurve.InitialLevel,
+        long currentExperience = 0,
+        int lastAppliedProgressionResultSequence = 0)
     {
         RaidCode = raidCode;
         ProfileId = profileId;
         ReservationId = reservationId;
+        Level = level;
+        CurrentExperience = currentExperience;
+        LastAppliedProgressionResultSequence = lastAppliedProgressionResultSequence;
         _reservedLoadout = CopyLoadout(reservedLoadout);
         _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
     }
@@ -76,6 +88,9 @@ public readonly struct RaidAdmissionData
         RaidCode raidCode,
         ProfileId profileId,
         PendingLoadoutReservation reservation,
+        int level,
+        long currentExperience,
+        int lastAppliedProgressionResultSequence,
         out RaidAdmissionData data)
     {
         data = default;
@@ -99,7 +114,15 @@ public readonly struct RaidAdmissionData
                 reservation.PreparedEquipment.Get(slots[index]));
         }
 
-        data = new RaidAdmissionData(raidCode, profileId, reservation.ReservationId, entries, indices);
+        data = new RaidAdmissionData(
+            raidCode,
+            profileId,
+            reservation.ReservationId,
+            entries,
+            indices,
+            level,
+            currentExperience,
+            lastAppliedProgressionResultSequence);
         return data.IsValid;
     }
 

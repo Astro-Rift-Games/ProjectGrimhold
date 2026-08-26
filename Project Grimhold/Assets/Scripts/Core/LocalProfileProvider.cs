@@ -1,9 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Provides one local ProfileId for the lifetime of the current application process.
-/// Separate processes receive separate identities, including multiple builds launched
-/// under the same operating-system account.
+/// Provides the backend CharacterId used as the local ProfileId for the current authenticated flow.
 /// </summary>
 public static class LocalProfileProvider
 {
