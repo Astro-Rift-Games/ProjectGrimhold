@@ -18,10 +18,11 @@ pending loadout reservation and extraction receipts survive Town-Raid-Town trans
 The aggregate starts empty on every application launch and is discarded when the process
 closes. The active composition does not read or write `Application.persistentDataPath`.
 Existing `grimhold-profile.json` files and the previous `PlayerPrefs` identity are ignored.
-`LocalProfileProvider` generates one `ProfileId` per application process. This value is
-stable across runner and scene transitions, but a new process receives a new value. As a
-result, multiple standalone processes under the same operating-system account remain
-distinct Town queue members.
+Since US-23, `LocalProfileProvider` no longer generates a random `ProfileId` per process.
+Instead, it receives the authoritative `CharacterId` injected by the backend after a successful login.
+This value is stable across runner and scene transitions. Multiple standalone processes logged in
+with different accounts will have distinct `ProfileId`s and remain distinct Town queue members.
+Logging into multiple clients with the *same* account is currently outside the scope of local persistence design but is handled by the backend's session rules.
 
 ```text
 IPlayerStashService / IPlayerLoadoutService
