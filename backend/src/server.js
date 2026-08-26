@@ -1,4 +1,4 @@
-﻿// src/server.js
+// src/server.js
 // Entry point. Validates environment variables, connects to MongoDB,
 // and starts Express only if the database connection succeeds (fail-fast).
 const config = require('./config/env');
@@ -8,7 +8,7 @@ const app = require('./app');
 async function start() {
   try {
     await connectToDatabase(config.mongodbUri);
-    app.listen(config.port, () => {
+    app.listen(config.port, '0.0.0.0', () => {
       console.log('[Server] Running on port ' + config.port + '.');
     });
   } catch (err) {
