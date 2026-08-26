@@ -180,6 +180,8 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         "replacement-profile",
                         CreateParticipantId(16),
+                        ExperienceCurve.InitialLevel,
+                        0,
                         "replacement-generation"));
             NetworkRaidParticipant restored =
                 restoredObject.GetComponent<NetworkRaidParticipant>();
@@ -230,6 +232,8 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         profileId,
                         CreateParticipantId(position.x < 0f ? 1 : 2),
+                        ExperienceCurve.InitialLevel,
+                        0,
                         "task-130-generation"));
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();

@@ -39,9 +39,10 @@ candidate. Normal Dungeon rewards are accepted only while the participant is `Ra
 The ledger commits all four accumulator values only after the candidate succeeds; every
 rejection leaves the replicated breakdown unchanged.
 
-`Defeated`, `Extracted` and `Aborted` freeze normal Dungeon rewards but do not erase the
-snapshot. Later result resolution may read the frozen breakdown without making the ledger
-responsible for consolidation.
+Terminal participant states reject normal Dungeon rewards but do not erase the snapshot.
+`PlayerExpeditionProgressionResolver` freezes the ledger only after every resolution and
+application calculation has succeeded. The frozen breakdown remains the canonical provisional
+snapshot used to reconstruct committed history.
 
 ## Definitive experience resolution
 
@@ -71,8 +72,24 @@ zero-Experience resolution is still consumed and produces a no-op result, while 
 delegates level processing to `CharacterProgressionRules`.
 
 The pure application domain does not identify a Raid participation, store state or write a profile.
-TASK-110 owns the authoritative mapping from Raid context to a definitive Progression outcome and
-must preserve that resolution together with its single application state for the same participation.
+`PlayerExpeditionProgressionResolver`, co-located with the participant and ledger, owns that
+authoritative mapping and preserves one resolution together with its single application state.
+Fresh admission injects and validates a Level/Experience baseline; the current composition passes
+Level 1 and 0 Experience explicitly. Level zero is the only missing-baseline sentinel. Fusion
+restoration preserves the baseline and never replaces it with the fresh-composition fallback.
+
+The resolver prepares all fallible work before mutation: authority, baseline, semantic cause,
+participant lifecycle, unfrozen ledger snapshot, resolution and consolidated application. Its
+commit then only freezes the ledger, copies outcome, retained basis points, consolidated Experience
+and resulting Level/Experience, and writes `Committed` last. Public baseline, resolution and
+application snapshots are side-effect-free; committed percentage and Experience are historical and
+are not recalculated if balance changes. Repeated finalization returns `AlreadyCommitted`.
+
+The accepted semantic causes are extraction confirmed, defeat confirmed, voluntary abandonment
+confirmed and definitive disconnection confirmed. `Aborted` is only a technical lifecycle state and
+never implies an outcome. Bootstrap/pre-Dungeon cancellation has no participation Experience to
+resolve. Active Host cancellation keeps its current technical closure; its Progression meaning is
+not defined by this task and no outcome is invented for it.
 
 ## Producer idempotency
 
@@ -148,10 +165,11 @@ and the Progress result cannot undo or repeat accepted Experience.
 ## Extracted Loot Experience
 
 The normal Dungeon API continues to reject the `ExtractedLoot` category. Confirmed extraction
-uses a separate ledger operation that accepts the matching confirmed `ResultSequence`, changes
-only `ExtractedLootExperience`, and preserves Kill, Assist and Exploration Experience. The
-extraction transaction owns one-shot protection through its existing pending state and
-`IsExtractionCommitConfirmed`; the ledger adds no parallel reward journal.
+uses a separate ledger operation that accepts the matching `ResultSequence`, changes only
+`ExtractedLootExperience`, and preserves Kill, Assist and Exploration Experience. The ledger stores
+the resolved extraction sequence because retry and Host Migration must distinguish a newly applied
+candidate from the same candidate already applied. This is a single producer marker, not a generic
+reward journal.
 
 Raid loot provenance preserves quantified `Dungeon` and `Player(RaidParticipantId)` buckets through
 transfers, Equipment, world drops, corpses, snapshots, Host Migration and the pending extraction
@@ -172,17 +190,18 @@ sums with checked `long` arithmetic and applies a `1..10000` basis-point rate us
 and remainder. The current rate is 1000 basis points. Missing or invalid Values for eligible
 quantities, invalid rates and overflow reject the complete calculation without mutating eligibility.
 
-`ExtractedLootExperienceProducer` is a non-networked `MonoBehaviour` on the Raid player prefab.
-It owns only the static Value catalog reference and rate. `PlayerExtractionLootSaver` owns the
-process-local candidate, binds it to the pending `ResultSequence`, and discards it whenever that
-pending transaction is replaced or cleared. No candidate or configuration is replicated.
+`ExtractedLootExperienceProducer` remains a non-networked owner of the static Value catalog and
+rate. Before persistence, State Authority calculates one candidate from retained authoritative
+ownership and stores its eligible Value and awarded Experience on the participant, bound to the
+current `ResultSequence`. This durable candidate is not granted Experience and is never
+recalculated for the same transaction after retry or Host Migration.
 
-State Authority prepares eligibility, eligible Value and candidate Experience from the retained
-authoritative ownership snapshot before Loot consumption. On a valid persistence ACK it performs
-exact-clear, confirms the extraction, then attempts the matching ledger reward. Calculation or
-ledger failure is diagnostic only: it cannot block or revert Loot extraction, and the candidate is
-discarded after confirmation without retry. Provenance and the candidate never enter stash/backend
-persistence.
+The extraction phases are `AwaitingExperiencePreparation`, `AwaitingPersistenceAck`,
+`ExtractedLootPending`, `ProgressionPending` and `Complete`. After persistence ACK and exact-clear,
+the ledger applies the candidate idempotently. New application, the same sequence already resolved,
+or a valid zero award advances to `ProgressionPending`; a real failure keeps the candidate pending
+and leaves Progression unfrozen. Once pending Progression begins, retries never execute extracted
+Loot again. Only resolver `Success` or `AlreadyCommitted` completes the transaction.
 
 ## Host Migration and reconnection
 

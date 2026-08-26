@@ -61,12 +61,16 @@ public sealed class SessionCompositionConfigurationTests
         NetworkRaidParticipant participant = participantPrefab.GetComponent<NetworkRaidParticipant>();
         PlayerExpeditionExperienceLedger[] ledgers =
             participantPrefab.GetComponents<PlayerExpeditionExperienceLedger>();
+        PlayerExpeditionProgressionResolver[] resolvers =
+            participantPrefab.GetComponents<PlayerExpeditionProgressionResolver>();
         Assert.That(participantObject, Is.Not.Null);
         Assert.That(participant, Is.Not.Null);
         Assert.That(ledgers, Has.Length.EqualTo(1));
+        Assert.That(resolvers, Has.Length.EqualTo(1));
         Assert.That(participantPrefab.GetComponent<PlayerCharacter>(), Is.Null);
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(participant));
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(ledgers[0]));
+        Assert.That(participantObject.NetworkedBehaviours, Does.Contain(resolvers[0]));
 
         GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
         Assert.That(socialPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null);

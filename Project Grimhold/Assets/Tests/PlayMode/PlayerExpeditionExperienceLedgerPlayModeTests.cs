@@ -124,11 +124,18 @@ namespace Tests.PlayMode.Progression
                 8,
                 true,
                 ExpeditionExperienceLedgerFailure.None);
+            yield return RegisterExtracted(
+                ledger,
+                1,
+                99,
+                true,
+                ExpeditionExperienceLedgerFailure.None);
 
             Assert.That(ledger.Snapshot.KillExperience, Is.EqualTo(12));
             Assert.That(ledger.Snapshot.AssistExperience, Is.Zero);
             Assert.That(ledger.Snapshot.ExplorationExperience, Is.Zero);
             Assert.That(ledger.Snapshot.ExtractedLootExperience, Is.EqualTo(8));
+            Assert.That(ledger.ExtractedLootResolvedResultSequence, Is.EqualTo(1));
         }
 
         private IEnumerator StartRunner()

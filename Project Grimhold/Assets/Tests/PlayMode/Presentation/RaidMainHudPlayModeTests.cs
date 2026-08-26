@@ -221,7 +221,8 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("host-profile", CreateParticipantId(1), "raid-generation"));
+                    .Initialize("host-profile", CreateParticipantId(1),
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -242,7 +243,8 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("client-profile", CreateParticipantId(2), "raid-generation"));
+                    .Initialize("client-profile", CreateParticipantId(2),
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -315,7 +317,8 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("local-profile", CreateParticipantId(1), "raid-generation"));
+                    .Initialize("local-profile", CreateParticipantId(1),
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
@@ -346,7 +349,8 @@ namespace Tests.PlayMode.Presentation
                 Quaternion.identity,
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
-                    .Initialize("remote-profile", CreateParticipantId(2), "raid-generation"));
+                    .Initialize("remote-profile", CreateParticipantId(2),
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
                 UnityEngine.LogType.Error,

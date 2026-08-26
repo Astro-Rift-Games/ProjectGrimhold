@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 2568880284868340658}
   - component: {fileID: 4242367586246355310}
   - component: {fileID: 770129000000000001}
+  - component: {fileID: 770129000000000002}
   m_Layer: 0
   m_Name: NetworkRaidParticipant
   m_TagString: Untagged
@@ -54,6 +55,7 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 4242367586246355310}
   - {fileID: 770129000000000001}
+  - {fileID: 770129000000000002}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &4242367586246355310
 MonoBehaviour:
@@ -76,8 +78,10 @@ MonoBehaviour:
   _CurrentAvatarId:
     Raw: 0
   _ResultSequence: 0
-  _IsExtractionCommitConfirmed:
-    RawValue: 0
+  _ExtractionExperiencePhase: 0
+  _ExtractedLootCandidateEligibleValue: 0
+  _ExtractedLootCandidateExperience: 0
+  _FinalizationCause: 0
   _IsReturnAuthorized:
     RawValue: 0
 --- !u!114 &770129000000000001
@@ -96,3 +100,27 @@ MonoBehaviour:
   _AssistExperience: 0
   _ExplorationExperience: 0
   _ExtractedLootExperience: 0
+  _IsFrozen:
+    RawValue: 0
+  _ExtractedLootResolvedResultSequence: 0
+--- !u!114 &770129000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5004213290188446567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af08379a2f5f4c7eba65f0f7ab27ef41, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerExpeditionProgressionResolver
+  _BaselineLevel: 0
+  _BaselineExperience: 0
+  _Committed:
+    RawValue: 0
+  _CommittedOutcome: 0
+  _CommittedRetentionBasisPoints: 0
+  _CommittedConsolidatedExperience: 0
+  _CommittedResultingLevel: 0
+  _CommittedResultingExperience: 0
