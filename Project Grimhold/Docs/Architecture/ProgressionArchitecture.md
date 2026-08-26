@@ -74,9 +74,9 @@ delegates level processing to `CharacterProgressionRules`.
 The pure application domain does not identify a Raid participation, store state or write a profile.
 `PlayerExpeditionProgressionResolver`, co-located with the participant and ledger, owns that
 authoritative mapping and preserves one resolution together with its single application state.
-Fresh admission injects and validates a Level/Experience baseline; the current composition passes
-Level 1 and 0 Experience explicitly. Level zero is the only missing-baseline sentinel. Fusion
-restoration preserves the baseline and never replaces it with the fresh-composition fallback.
+Fresh admission injects and validates the durable Level/Experience baseline from the admitted
+local profile. Level zero is the only missing-baseline sentinel. Fusion restoration preserves
+the baseline and never replaces it with a fresh-composition fallback.
 
 The resolver prepares all fallible work before mutation: authority, baseline, semantic cause,
 participant lifecycle, unfrozen ledger snapshot, resolution and consolidated application. Its
@@ -90,6 +90,33 @@ confirmed and definitive disconnection confirmed. `Aborted` is only a technical 
 never implies an outcome. Bootstrap/pre-Dungeon cancellation has no participation Experience to
 resolve. Active Host cancellation keeps its current technical closure; its Progression meaning is
 not defined by this task and no outcome is invented for it.
+
+## Durable result sequence and local consolidation
+
+`LastAppliedProgressionResultSequence` is the last progression result confirmed durably by the
+local profile. It is not a counter of every result ever produced by State Authority and it does
+not restart at zero for every participation. Each fresh admission transports the current durable
+watermark. `NetworkRaidParticipant` initializes `ResultSequence` from that baseline, and its one
+definitive result proposes exactly `baseline + 1`.
+
+The local profile accepts a new result only when its sequence equals the current durable
+watermark plus one. After a successful atomic profile save, that sequence becomes the new
+watermark. If a result cannot be persisted locally, including a result produced for a
+definitively disconnected client, it does not permanently consume a profile sequence. A later
+admission may therefore propose the same `watermark + 1`. This deliberate local-only contract
+does not add backend recovery, remote synchronization or another authoritative store.
+
+After the resolver commits its immutable resolution, Input Authority asks `LocalProfileStore`
+to persist the matching `ProgressionReceipt`. `Success` and an exact `AlreadyApplied` permit an
+ACK. `PersistenceFailed` remains retryable without ACK. `Stale`, `Conflict` and `Invalid` are
+terminal local failures and never ACK. `AlreadyApplied` requires the sequence to equal the
+current watermark and `LastProgressionReceipt` to match exactly; an older sequence is always
+`Stale`, because later profile progress does not prove which historical receipt was applied.
+
+State Authority accepts an ACK only for the participant's current Input Authority, ProfileId,
+raid generation, definitive resolution and current `ResultSequence`. Extraction, defeat and
+voluntary abandonment cannot authorize Return before this durable ACK. The ACK flag and resolver
+state are networked with the participant, so Host Migration preserves confirmed and pending work.
 
 ## Producer idempotency
 

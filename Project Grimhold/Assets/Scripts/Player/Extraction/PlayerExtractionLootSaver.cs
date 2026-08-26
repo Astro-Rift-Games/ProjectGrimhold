@@ -18,7 +18,7 @@ public enum ExtractionLootSaveStatus
 
 /// <summary>
 /// Coordinates the authoritative extraction result with the local player's
-/// process-local Loadout commit.
+/// durable local Loadout commit.
 ///
 /// State Authority retains the raid snapshot until Input Authority acknowledges
 /// an idempotent local commit. The raid inventory is therefore never cleared

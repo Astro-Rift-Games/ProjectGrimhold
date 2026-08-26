@@ -84,20 +84,7 @@ public static class NetworkRunnerFactory
         if (launchContext != null)
         {
             RaidAdmissionData admission;
-            if (loadoutReservation != null)
-            {
-                if (!RaidAdmissionData.TryCreate(
-                        launchContext.RaidCode,
-                        joinData.ProfileId,
-                        loadoutReservation,
-                        out admission))
-                {
-                    Debug.LogError("[NetworkRunnerFactory] Local reservation cannot produce valid raid admission data.");
-                    Object.Destroy(runnerObject);
-                    return false;
-                }
-            }
-            else if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
+            if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
             {
                 Debug.LogError("[NetworkRunnerFactory] Coordinated runner is missing valid admission data.");
                 Object.Destroy(runnerObject);

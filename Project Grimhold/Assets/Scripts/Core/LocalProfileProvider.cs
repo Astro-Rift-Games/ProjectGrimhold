@@ -1,12 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Provides one local ProfileId for the lifetime of the current application process.
-/// Separate processes receive separate identities, including multiple builds launched
-/// under the same operating-system account.
+/// Provides the stable local ProfileId shared by every session and application restart.
 /// </summary>
 public static class LocalProfileProvider
 {
+    internal const string PlayerPrefsKey = "grimhold_profile_id";
     private static ProfileId _processProfile;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -16,15 +15,33 @@ public static class LocalProfileProvider
     }
 
     /// <summary>
-    /// Returns the identity shared by every Town and raid runner in this process.
-    /// The first call creates it; application restart discards it.
+    /// Returns the identity shared by every Town and raid runner on this installation.
+    /// The first call creates and durably stores it.
     /// </summary>
     public static ProfileId GetOrCreateLocalProfile()
     {
         if (!_processProfile.IsValid)
         {
-            _processProfile = new ProfileId(System.Guid.NewGuid().ToString("N"));
-            Debug.Log($"[{nameof(LocalProfileProvider)}] Generated process-local ProfileId: {_processProfile.Value}");
+            string stored = PlayerPrefs.GetString(PlayerPrefsKey, string.Empty);
+            if (!string.IsNullOrWhiteSpace(stored))
+            {
+                try
+                {
+                    _processProfile = new ProfileId(stored);
+                }
+                catch (System.ArgumentException)
+                {
+                    _processProfile = default;
+                }
+            }
+
+            if (!_processProfile.IsValid)
+            {
+                _processProfile = new ProfileId(System.Guid.NewGuid().ToString("N"));
+                PlayerPrefs.SetString(PlayerPrefsKey, _processProfile.Value);
+                PlayerPrefs.Save();
+                Debug.Log($"[{nameof(LocalProfileProvider)}] Generated persistent ProfileId: {_processProfile.Value}");
+            }
         }
 
         return _processProfile;

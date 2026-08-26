@@ -1,8 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Creates one process-local stash context that survives scene and NetworkRunner transitions.
-/// Its gameplay data is intentionally discarded when the application closes.
+/// Creates one durable local profile context that survives scenes, runners and application restarts.
 /// </summary>
 public static class ApplicationStashServiceBootstrapper
 {
@@ -29,10 +28,12 @@ public static class ApplicationStashServiceBootstrapper
         }
 
         ProfileId profileId = LocalProfileProvider.GetOrCreateLocalProfile();
-        var repository = new InMemoryLocalProfileRepository();
+        var repository = new LocalProfileRepository(
+            new LocalProfileFileStore(),
+            Application.persistentDataPath);
         if (!repository.Initialize(profileId, configuration.LootCatalog))
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] In-memory profile unavailable: {repository.LastError}");
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Durable profile unavailable: {repository.LastError}");
             Object.DontDestroyOnLoad(contextObject);
             return;
         }

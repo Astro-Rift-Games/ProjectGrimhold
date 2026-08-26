@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 
+[Category("TASK143")]
 public sealed class LocalProfilePersistenceEditModeTests
 {
     private const string MainPath = ".\\grimhold-profile.json";
@@ -55,7 +56,7 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
-    public void Repository_RoundTripsVersionOneSnapshot()
+    public void Repository_RoundTripsCurrentSnapshot()
     {
         var files = new MemoryFileStore();
         var profile = new ProfileId("11111111111111111111111111111111");
@@ -613,10 +614,269 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.UnsupportedVersion));
     }
 
+    [Test]
+    public void Codec_MigratesVersionOneWithInitialProgressionState()
+    {
+        var profile = new ProfileId("51515151515151515151515151515151");
+        string json =
+            $"{{\"schemaVersion\":1,\"profileId\":\"{profile.Value}\",\"currency\":0}}";
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            json,
+            profile,
+            _catalog,
+            out LocalProfileSnapshot migrated,
+            out _,
+            out string error), Is.True, error);
+        Assert.That(migrated.SchemaVersion, Is.EqualTo(2));
+        Assert.That(migrated.Level, Is.EqualTo(1));
+        Assert.That(migrated.CurrentExperience, Is.Zero);
+        Assert.That(migrated.LastAppliedProgressionResultSequence, Is.Zero);
+        Assert.That(migrated.LastProgressionReceipt, Is.Null);
+        Assert.That(migrated.AppliedProgressionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Store_ProgressionCommitIsDurableAndExactRetryDoesNotWriteOrNotifyAgain()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("52525252525252525252525252525252");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(TryCreateResolution(120, out ExpeditionExperienceResolution resolution), Is.True);
+        ProgressionReceipt receipt = CreateReceipt(repository.Snapshot, profile, "raid-a", 1, resolution);
+        int commitEvents = 0;
+        store.ProfileCommitted += _ => commitEvents++;
+
+        Assert.That(
+            store.TryCommitProgression(receipt, resolution),
+            Is.EqualTo(ProgressionCommitResult.Success));
+        int writesAfterSuccess = files.WriteCount;
+        Assert.That(repository.Snapshot.Level, Is.EqualTo(2));
+        Assert.That(repository.Snapshot.CurrentExperience, Is.EqualTo(20));
+        Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.EqualTo(1));
+        Assert.That(repository.Snapshot.LastProgressionReceipt, Is.EqualTo(receipt));
+        Assert.That(commitEvents, Is.EqualTo(1));
+
+        Assert.That(
+            store.TryCommitProgression(receipt, resolution),
+            Is.EqualTo(ProgressionCommitResult.AlreadyApplied));
+        Assert.That(files.WriteCount, Is.EqualTo(writesAfterSuccess));
+        Assert.That(commitEvents, Is.EqualTo(1));
+
+        var reloaded = new LocalProfileRepository(files, ".");
+        Assert.That(reloaded.Initialize(profile, _catalog), Is.True, reloaded.LastError);
+        Assert.That(reloaded.Snapshot.Level, Is.EqualTo(2));
+        Assert.That(reloaded.Snapshot.CurrentExperience, Is.EqualTo(20));
+        Assert.That(reloaded.Snapshot.LastProgressionReceipt, Is.EqualTo(receipt));
+    }
+
+    [Test]
+    public void Store_ProgressionClassificationRejectsConflictStaleAndSequenceGap()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("53535353535353535353535353535353");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(TryCreateResolution(10, out ExpeditionExperienceResolution resolution), Is.True);
+        ProgressionReceipt first = CreateReceipt(repository.Snapshot, profile, "raid-a", 1, resolution);
+        Assert.That(store.TryCommitProgression(first, resolution), Is.EqualTo(ProgressionCommitResult.Success));
+
+        var conflict = new ProgressionReceipt("raid-b", profile, 1, 10, first.ResultingLevel);
+        Assert.That(store.TryCommitProgression(conflict, resolution), Is.EqualTo(ProgressionCommitResult.Conflict));
+
+        ProgressionReceipt second = CreateReceipt(repository.Snapshot, profile, "raid-b", 2, resolution);
+        Assert.That(store.TryCommitProgression(second, resolution), Is.EqualTo(ProgressionCommitResult.Success));
+        Assert.That(store.TryCommitProgression(first, resolution), Is.EqualTo(ProgressionCommitResult.Stale));
+
+        ProgressionReceipt gap = CreateReceipt(repository.Snapshot, profile, "raid-gap", 4, resolution);
+        Assert.That(store.TryCommitProgression(gap, resolution), Is.EqualTo(ProgressionCommitResult.Invalid));
+        Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Store_FailedProgressionSaveLeavesObservableSnapshotAndEventsUnchanged()
+    {
+        var files = new MemoryFileStore { FailWrites = true };
+        var profile = new ProfileId("54545454545454545454545454545454");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(TryCreateResolution(100, out ExpeditionExperienceResolution resolution), Is.True);
+        ProgressionReceipt receipt = CreateReceipt(repository.Snapshot, profile, "raid-fail", 1, resolution);
+        int commitEvents = 0;
+        store.ProfileCommitted += _ => commitEvents++;
+
+        Assert.That(
+            store.TryCommitProgression(receipt, resolution),
+            Is.EqualTo(ProgressionCommitResult.PersistenceFailed));
+        Assert.That(repository.Snapshot.Level, Is.EqualTo(1));
+        Assert.That(repository.Snapshot.CurrentExperience, Is.Zero);
+        Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.Zero);
+        Assert.That(repository.Snapshot.LastProgressionReceipt, Is.Null);
+        Assert.That(commitEvents, Is.Zero);
+    }
+
+    [Test]
+    public void Store_PrunedProgressionHistoryStillRejectsOldReceiptAsStale()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("55555555555555555555555555555555");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(TryCreateResolution(1, out ExpeditionExperienceResolution resolution), Is.True);
+        ProgressionReceipt first = default;
+
+        for (int sequence = 1;
+             sequence <= LocalProfileSnapshot.MaxAppliedProgressionReceipts + 1;
+             sequence++)
+        {
+            ProgressionReceipt receipt = CreateReceipt(
+                repository.Snapshot,
+                profile,
+                $"raid-{sequence}",
+                sequence,
+                resolution);
+            if (sequence == 1)
+            {
+                first = receipt;
+            }
+            Assert.That(
+                store.TryCommitProgression(receipt, resolution),
+                Is.EqualTo(ProgressionCommitResult.Success));
+        }
+
+        Assert.That(repository.Snapshot.AppliedProgressionReceipts, Has.Count.EqualTo(256));
+        Assert.That(repository.Snapshot.AppliedProgressionReceipts[0].ResultSequence, Is.EqualTo(2));
+        Assert.That(
+            store.TryCommitProgression(first, resolution),
+            Is.EqualTo(ProgressionCommitResult.Stale));
+    }
+
+    [Test]
+    public void Store_ZeroExperienceResolutionStillAdvancesDurableWatermark()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("56565656565656565656565656565656");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(ExpeditionExperienceRules.TryApplyNormalReward(
+            default,
+            ExpeditionExperienceCategory.Kill,
+            50,
+            out ExpeditionExperienceSnapshot snapshot,
+            out _), Is.True);
+        Assert.That(ExpeditionExperienceResolutionRules.TryResolve(
+            default,
+            snapshot,
+            ExpeditionExperienceResolutionOutcome.Abandoned,
+            ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy,
+            out ExpeditionExperienceResolution resolution,
+            out _), Is.True);
+        var receipt = new ProgressionReceipt("raid-zero", profile, 1, 0, 1);
+
+        Assert.That(
+            store.TryCommitProgression(receipt, resolution),
+            Is.EqualTo(ProgressionCommitResult.Success));
+        Assert.That(repository.Snapshot.Level, Is.EqualTo(1));
+        Assert.That(repository.Snapshot.CurrentExperience, Is.Zero);
+        Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Codec_RejectsInconsistentLastProgressionReceiptInvariant()
+    {
+        var profile = new ProfileId("57575757575757575757575757575757");
+        var invalid = new LocalProfileSnapshot
+        {
+            ProfileId = profile,
+            LastAppliedProgressionResultSequence = 1,
+            LastProgressionReceipt = null
+        };
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(invalid),
+            profile,
+            _catalog,
+            out _,
+            out _,
+            out string error), Is.False);
+        Assert.That(error, Does.Contain("last receipt").IgnoreCase);
+    }
+
+    [Test]
+    public void Repository_RecoversBackupWhenPrimaryProgressionStateIsInvalid()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("58585858585858585858585858585858");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        Assert.That(repository.TrySave(repository.Snapshot.Clone(), out _), Is.True);
+        files.Files[BackupPath] = files.Files[MainPath];
+        files.Files[MainPath] = files.Files[MainPath].Replace("\"level\": 1", "\"level\": 0");
+
+        var recovered = new LocalProfileRepository(files, ".");
+        Assert.That(recovered.Initialize(profile, _catalog), Is.True, recovered.LastError);
+        Assert.That(recovered.Status, Is.EqualTo(LocalProfilePersistenceStatus.RecoveredFromBackup));
+        Assert.That(recovered.Snapshot.Level, Is.EqualTo(1));
+    }
+
+    private static bool TryCreateResolution(
+        long experience,
+        out ExpeditionExperienceResolution resolution)
+    {
+        resolution = default;
+        if (!ExpeditionExperienceRules.TryApplyNormalReward(
+                default,
+                ExpeditionExperienceCategory.Kill,
+                experience,
+                out ExpeditionExperienceSnapshot snapshot,
+                out _))
+        {
+            return false;
+        }
+
+        return ExpeditionExperienceResolutionRules.TryResolve(
+            default,
+            snapshot,
+            ExpeditionExperienceResolutionOutcome.Extracted,
+            ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy,
+            out resolution,
+            out _);
+    }
+
+    private static ProgressionReceipt CreateReceipt(
+        LocalProfileSnapshot current,
+        ProfileId profile,
+        string raidId,
+        int resultSequence,
+        in ExpeditionExperienceResolution resolution)
+    {
+        Assert.That(ConsolidatedExperienceApplicationRules.TryApply(
+            ProgressionBalanceDefaults.InitialExperienceCurve,
+            default,
+            current.Level,
+            current.CurrentExperience,
+            resolution,
+            out ConsolidatedExperienceApplication application,
+            out _), Is.True);
+        return new ProgressionReceipt(
+            raidId,
+            profile,
+            resultSequence,
+            resolution.ConsolidatedExperience,
+            application.Result.ResultingLevel);
+    }
+
     private sealed class MemoryFileStore : ILocalProfileFileStore
     {
         public readonly Dictionary<string, string> Files = new(StringComparer.Ordinal);
         public bool FailWrites;
+        public int WriteCount;
 
         public bool Exists(string path) => Files.ContainsKey(path);
         public bool TryRead(string path, out string contents, out string error)
@@ -628,6 +888,7 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         public bool TryWriteAtomically(string mainPath, string temporaryPath, string backupPath, string contents, out string error)
         {
+            WriteCount++;
             if (FailWrites)
             {
                 error = "Simulated disk failure";
