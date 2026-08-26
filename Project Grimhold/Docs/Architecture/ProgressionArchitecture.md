@@ -114,10 +114,13 @@ both fields, while Host Migration restore spawns do not overwrite copied values.
 rejection or ineligibility never gates the existing interaction or Extraction Progress path,
 and the Progress result cannot undo or repeat accepted Experience.
 
-## Extracted Loot boundary
+## Extracted Loot Experience
 
-`ExtractedLootExperience` exists in the breakdown and starts at zero, but the ledger exposes
-no write path for it. The normal Dungeon API rejects the `ExtractedLoot` category.
+The normal Dungeon API continues to reject the `ExtractedLoot` category. Confirmed extraction
+uses a separate ledger operation that accepts the matching confirmed `ResultSequence`, changes
+only `ExtractedLootExperience`, and preserves Kill, Assist and Exploration Experience. The
+extraction transaction owns one-shot protection through its existing pending state and
+`IsExtractionCommitConfirmed`; the ledger adds no parallel reward journal.
 
 Raid loot provenance preserves quantified `Dungeon` and `Player(RaidParticipantId)` buckets through
 transfers, Equipment, world drops, corpses, snapshots, Host Migration and the pending extraction
@@ -130,11 +133,25 @@ the repository's full ProfileId domain without storing, hashing, truncating or n
 only when their original participant belongs to a different initial `RaidTeamId` than the extractor.
 The resolver validates exact totals and never mutates provenance or Experience state.
 
-This boundary does not calculate, credit or consume `ExtractedLootExperience`, does not choose an
-order relative to `TryMarkExtracted`, and is not integrated with the persistence ACK or exact-clear.
-Provenance is Raid-scoped and never enters stash/backend persistence; the extracted-Loot Experience
-integration must define the synchronous ledger and one-shot consumption point while the preserved
-extraction snapshot is still authoritative.
+`IRaidLootValueSource` is independent from `ExtractionValuePerUnit` and `SellValuePerUnit`.
+The current `RaidLootValueCatalog` is a replaceable local source with one positive `long` Value
+per productive `LootId`; its values are provisional configuration, not economic balance.
+`ExtractedLootExperienceCalculator` multiplies only eligible quantities by their configured Value,
+sums with checked `long` arithmetic and applies a `1..10000` basis-point rate using integer quotient
+and remainder. The current rate is 1000 basis points. Missing or invalid Values for eligible
+quantities, invalid rates and overflow reject the complete calculation without mutating eligibility.
+
+`ExtractedLootExperienceProducer` is a non-networked `MonoBehaviour` on the Raid player prefab.
+It owns only the static Value catalog reference and rate. `PlayerExtractionLootSaver` owns the
+process-local candidate, binds it to the pending `ResultSequence`, and discards it whenever that
+pending transaction is replaced or cleared. No candidate or configuration is replicated.
+
+State Authority prepares eligibility, eligible Value and candidate Experience from the retained
+authoritative ownership snapshot before Loot consumption. On a valid persistence ACK it performs
+exact-clear, confirms the extraction, then attempts the matching ledger reward. Calculation or
+ledger failure is diagnostic only: it cannot block or revert Loot extraction, and the candidate is
+discarded after confirmation without retry. Provenance and the candidate never enter stash/backend
+persistence.
 
 ## Host Migration and reconnection
 

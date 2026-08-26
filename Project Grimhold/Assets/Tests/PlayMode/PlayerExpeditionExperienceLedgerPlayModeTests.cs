@@ -89,6 +89,48 @@ namespace Tests.PlayMode.Progression
             }
         }
 
+        [UnityTest]
+        public IEnumerator ConfirmedExtractionReward_RequiresMatchingConfirmationAndPreservesBreakdown()
+        {
+            yield return StartRunner();
+            NetworkObject participantObject = SpawnParticipant();
+            NetworkRaidParticipant participant = participantObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionExperienceLedger ledger =
+                participantObject.GetComponent<PlayerExpeditionExperienceLedger>();
+
+            yield return Register(
+                ledger,
+                ExpeditionExperienceCategory.Kill,
+                12,
+                true,
+                ExpeditionExperienceLedgerFailure.None);
+            yield return ConfigureExtraction(participant, 1, false);
+            yield return RegisterExtracted(
+                ledger,
+                1,
+                8,
+                false,
+                ExpeditionExperienceLedgerFailure.ExtractionNotConfirmed);
+            yield return ConfigureExtraction(participant, 1, true);
+            yield return RegisterExtracted(
+                ledger,
+                2,
+                8,
+                false,
+                ExpeditionExperienceLedgerFailure.ResultSequenceMismatch);
+            yield return RegisterExtracted(
+                ledger,
+                1,
+                8,
+                true,
+                ExpeditionExperienceLedgerFailure.None);
+
+            Assert.That(ledger.Snapshot.KillExperience, Is.EqualTo(12));
+            Assert.That(ledger.Snapshot.AssistExperience, Is.Zero);
+            Assert.That(ledger.Snapshot.ExplorationExperience, Is.Zero);
+            Assert.That(ledger.Snapshot.ExtractedLootExperience, Is.EqualTo(8));
+        }
+
         private IEnumerator StartRunner()
         {
             var runnerObject = new GameObject("ExpeditionExperienceLedgerTestRunner");
@@ -142,6 +184,31 @@ namespace Tests.PlayMode.Progression
             yield return WaitUntilCompletion(previousSequence);
             Assert.That(_driver.LastResult, Is.True);
             Assert.That(participant.State, Is.EqualTo(state));
+        }
+
+        private IEnumerator ConfigureExtraction(
+            NetworkRaidParticipant participant,
+            int resultSequence,
+            bool isConfirmed)
+        {
+            int previousSequence = _driver.CompletionSequence;
+            _driver.RequestConfigureExtraction(participant, resultSequence, isConfirmed);
+            yield return WaitUntilCompletion(previousSequence);
+            Assert.That(_driver.LastResult, Is.True);
+        }
+
+        private IEnumerator RegisterExtracted(
+            PlayerExpeditionExperienceLedger ledger,
+            int resultSequence,
+            long amount,
+            bool expectedResult,
+            ExpeditionExperienceLedgerFailure expectedFailure)
+        {
+            int previousSequence = _driver.CompletionSequence;
+            _driver.RequestRegisterExtractedLootReward(ledger, resultSequence, amount);
+            yield return WaitUntilCompletion(previousSequence);
+            Assert.That(_driver.LastResult, Is.EqualTo(expectedResult));
+            Assert.That(_driver.LastFailure, Is.EqualTo(expectedFailure));
         }
 
         private IEnumerator WaitUntilCompletion(int previousSequence)

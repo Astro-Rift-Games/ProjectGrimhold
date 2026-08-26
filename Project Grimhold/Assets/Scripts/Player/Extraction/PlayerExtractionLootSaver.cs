@@ -28,6 +28,7 @@ public enum ExtractionLootSaveStatus
 [RequireComponent(typeof(PlayerExtractionController))]
 [RequireComponent(typeof(PlayerLootReceiver))]
 [RequireComponent(typeof(PlayerWeaponEquipmentNetworkController))]
+[RequireComponent(typeof(ExtractedLootExperienceProducer))]
 public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 {
     internal const int MaximumSnapshotEntries =
@@ -37,6 +38,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private PlayerExtractionController _extractionController;
     private PlayerLootReceiver _lootReceiver;
     private PlayerWeaponEquipmentNetworkController _weaponEquipment;
+    private ExtractedLootExperienceProducer _experienceProducer;
     private RaidAvatarParticipantLink _participantLink;
     private NetworkRaidParticipant _participant;
     private IReadOnlyList<LootEntry> _pendingSnapshot;
@@ -44,6 +46,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private int[] _pendingCatalogIndices;
     private int[] _pendingAmounts;
     private int _pendingResultSequence;
+    private ExtractedLootExperienceCandidate? _pendingExperienceCandidate;
     private bool _localCommitAttempted;
 
     [Networked]
@@ -59,6 +62,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         _extractionController = GetComponent<PlayerExtractionController>();
         _lootReceiver = GetComponent<PlayerLootReceiver>();
         _weaponEquipment = GetComponent<PlayerWeaponEquipmentNetworkController>();
+        _experienceProducer = GetComponent<ExtractedLootExperienceProducer>();
         _participantLink = GetComponent<RaidAvatarParticipantLink>();
         LocalSaveStatus = ExtractionLootSaveStatus.None;
     }
@@ -121,11 +125,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         _participant = null;
-        _pendingSnapshot = null;
-        _pendingOwnershipSnapshot = null;
-        _pendingCatalogIndices = null;
-        _pendingAmounts = null;
-        RetryTimer = TickTimer.None;
+        ClearPendingTransaction();
     }
 
     /// <summary>
@@ -162,6 +162,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
     private bool PreparePendingTransaction()
     {
+        _pendingExperienceCandidate = null;
         string snapshotError = null;
         if (!TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
@@ -214,11 +215,51 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             amounts[i] = entry.Amount;
         }
 
+        int resultSequence = _participant.ResultSequence;
+        ExtractedLootExperienceCandidate? experienceCandidate = null;
+        if (_experienceProducer == null)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Missing {nameof(ExtractedLootExperienceProducer)}; " +
+                "the Loot extraction will continue without an Experience reward.",
+                this);
+        }
+        else
+        {
+            NetworkSpawnManager spawnManager = Runner?.GetComponent<NetworkSpawnManager>();
+            if (spawnManager == null ||
+                !spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations))
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerExtractionLootSaver)}: Initial Raid affiliations are unavailable; " +
+                    "the Loot extraction will continue without an Experience reward.",
+                    this);
+            }
+            else if (_experienceProducer.TryPrepare(
+                         resultSequence,
+                         _participant.RaidParticipantId,
+                         ownershipSnapshot,
+                         affiliations,
+                         out ExtractedLootExperienceCandidate preparedCandidate,
+                         out string experienceError))
+            {
+                experienceCandidate = preparedCandidate;
+            }
+            else
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerExtractionLootSaver)}: {experienceError ?? "Extracted Loot Experience could not be calculated."} " +
+                    "The Loot extraction will continue.",
+                    this);
+            }
+        }
+
         _pendingSnapshot = snapshot;
         _pendingOwnershipSnapshot = ownershipSnapshot;
         _pendingCatalogIndices = indices;
         _pendingAmounts = amounts;
-        _pendingResultSequence = _participant.ResultSequence;
+        _pendingResultSequence = resultSequence;
+        _pendingExperienceCandidate = experienceCandidate;
         LocalSaveStatus = ExtractionLootSaveStatus.Pending;
         _localCommitAttempted = false;
         return true;
@@ -256,6 +297,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         _pendingResultSequence = resultSequence;
+        if (!_pendingExperienceCandidate.HasValue ||
+            !_pendingExperienceCandidate.Value.Matches(resultSequence))
+        {
+            _pendingExperienceCandidate = null;
+        }
         _pendingCatalogIndices = (int[])catalogIndices.Clone();
         _pendingAmounts = (int[])amounts.Clone();
         _pendingSnapshot = BuildSnapshot(catalogIndices, amounts);
@@ -354,11 +400,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        _pendingSnapshot = null;
-        _pendingOwnershipSnapshot = null;
-        _pendingCatalogIndices = null;
-        _pendingAmounts = null;
-        RetryTimer = TickTimer.None;
+        TryApplyPendingExtractedLootExperience(resultSequence);
+        ClearPendingTransaction();
     }
 
     private bool ValidateIncomingPayload(int[] catalogIndices, int[] amounts)
@@ -449,6 +492,68 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private bool HasPendingTransaction()
     {
         return HasValidPendingPayload();
+    }
+
+    private void TryApplyPendingExtractedLootExperience(int resultSequence)
+    {
+        if (!_pendingExperienceCandidate.HasValue)
+        {
+            return;
+        }
+
+        ExtractedLootExperienceCandidate candidate = _pendingExperienceCandidate.Value;
+        if (!CandidateMatchesPendingTransaction(
+                candidate,
+                resultSequence,
+                _pendingResultSequence,
+                _participant.ResultSequence))
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Extracted Loot Experience candidate does not " +
+                "belong to the confirmed pending transaction. The reward will be discarded.",
+                this);
+            return;
+        }
+
+        if (_experienceProducer == null)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction has no " +
+                $"{nameof(ExtractedLootExperienceProducer)}. The extraction remains confirmed.",
+                this);
+            return;
+        }
+
+        if (!_experienceProducer.TryApplyConfirmed(
+                _participant,
+                candidate,
+                out ExpeditionExperienceLedgerFailure failure))
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction could not credit " +
+                $"Extracted Loot Experience ({failure}). The extraction remains confirmed.",
+                this);
+        }
+    }
+
+    internal static bool CandidateMatchesPendingTransaction(
+        in ExtractedLootExperienceCandidate candidate,
+        int acknowledgedResultSequence,
+        int pendingResultSequence,
+        int participantResultSequence) =>
+        candidate.Matches(acknowledgedResultSequence) &&
+        acknowledgedResultSequence == pendingResultSequence &&
+        acknowledgedResultSequence == participantResultSequence;
+
+    private void ClearPendingTransaction()
+    {
+        _pendingSnapshot = null;
+        _pendingOwnershipSnapshot = null;
+        _pendingCatalogIndices = null;
+        _pendingAmounts = null;
+        _pendingResultSequence = 0;
+        _pendingExperienceCandidate = null;
+        RetryTimer = TickTimer.None;
     }
 
     private bool TryResolvePendingParticipant()

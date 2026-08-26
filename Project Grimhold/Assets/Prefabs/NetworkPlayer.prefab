@@ -6078,6 +6078,7 @@ GameObject:
   - component: {fileID: 3762360656477037451}
   - component: {fileID: 8421478658459878521}
   - component: {fileID: 2262447401525612929}
+  - component: {fileID: 9200000000000000100}
   - component: {fileID: 5489547608340585132}
   - component: {fileID: 9100000000000000900}
   - component: {fileID: 5661482956119050771}
@@ -6787,6 +6788,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f8a152c446782f40b65c6fff9451176, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerExtractionLootSaver
+--- !u!114 &9200000000000000100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 765d8a80378b44edb990718b59832dc2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ExtractedLootExperienceProducer
+  _valueCatalog: {fileID: 11400000, guid: ad31c71f4d154f7a9c683c7f54baa093, type: 2}
+  _experienceRateBasisPoints: 1000
 --- !u!114 &5489547608340585132
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -96,6 +96,58 @@ namespace Tests.EditMode.Progression
                 ExpeditionExperienceApplicationFailure.TotalOverflow);
         }
 
+        [Test]
+        public void ExtractedLootReward_PreservesNormalCategoriesAndAcceptsZero()
+        {
+            var original = new ExpeditionExperienceSnapshot(3, 4, 5, 0);
+
+            Assert.That(
+                ExpeditionExperienceRules.TryApplyExtractedLootReward(
+                    original,
+                    0,
+                    out ExpeditionExperienceSnapshot zeroCandidate,
+                    out ExpeditionExperienceApplicationFailure zeroFailure),
+                Is.True,
+                zeroFailure.ToString());
+            Assert.That(zeroCandidate, Is.EqualTo(original));
+
+            Assert.That(
+                ExpeditionExperienceRules.TryApplyExtractedLootReward(
+                    original,
+                    7,
+                    out ExpeditionExperienceSnapshot candidate,
+                    out ExpeditionExperienceApplicationFailure failure),
+                Is.True,
+                failure.ToString());
+            AssertSnapshot(candidate, 3, 4, 5, 7, 19);
+        }
+
+        [Test]
+        public void ExtractedLootReward_RejectsNegativeAndOverflowAtomically()
+        {
+            var original = new ExpeditionExperienceSnapshot(1, 2, 3, 4);
+            Assert.That(
+                ExpeditionExperienceRules.TryApplyExtractedLootReward(
+                    original,
+                    -1,
+                    out ExpeditionExperienceSnapshot negative,
+                    out ExpeditionExperienceApplicationFailure negativeFailure),
+                Is.False);
+            Assert.That(negativeFailure, Is.EqualTo(ExpeditionExperienceApplicationFailure.InvalidAmount));
+            Assert.That(negative, Is.EqualTo(original));
+
+            var categoryFull = new ExpeditionExperienceSnapshot(0, 0, 0, long.MaxValue);
+            Assert.That(
+                ExpeditionExperienceRules.TryApplyExtractedLootReward(
+                    categoryFull,
+                    1,
+                    out ExpeditionExperienceSnapshot overflow,
+                    out ExpeditionExperienceApplicationFailure overflowFailure),
+                Is.False);
+            Assert.That(overflowFailure, Is.EqualTo(ExpeditionExperienceApplicationFailure.CategoryOverflow));
+            Assert.That(overflow, Is.EqualTo(categoryFull));
+        }
+
         private static ExpeditionExperienceSnapshot Apply(
             in ExpeditionExperienceSnapshot current,
             ExpeditionExperienceCategory category,

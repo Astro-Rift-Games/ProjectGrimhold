@@ -3,7 +3,7 @@ public static class ExpeditionExperienceRules
 {
     /// <summary>
     /// Calculates the complete candidate state for one normal Dungeon reward.
-    /// Extracted Loot is intentionally reserved for the later extraction integration.
+    /// Extracted Loot is intentionally reserved for the specialized confirmed-extraction path.
     /// </summary>
     public static bool TryApplyNormalReward(
         in ExpeditionExperienceSnapshot current,
@@ -78,6 +78,50 @@ public static class ExpeditionExperienceRules
                 resultingCategoryExperience,
                 current.ExtractedLootExperience)
         };
+        return true;
+    }
+
+    /// <summary>
+    /// Calculates the complete candidate for one confirmed extraction reward.
+    /// Zero is valid because deterministic percentage flooring may award no Experience.
+    /// </summary>
+    public static bool TryApplyExtractedLootReward(
+        in ExpeditionExperienceSnapshot current,
+        long amount,
+        out ExpeditionExperienceSnapshot candidate,
+        out ExpeditionExperienceApplicationFailure failure)
+    {
+        candidate = current;
+        failure = ExpeditionExperienceApplicationFailure.None;
+        if (!TryCalculateTotal(current, out long currentTotal))
+        {
+            failure = ExpeditionExperienceApplicationFailure.InvalidState;
+            return false;
+        }
+
+        if (amount < 0)
+        {
+            failure = ExpeditionExperienceApplicationFailure.InvalidAmount;
+            return false;
+        }
+
+        if (current.ExtractedLootExperience > long.MaxValue - amount)
+        {
+            failure = ExpeditionExperienceApplicationFailure.CategoryOverflow;
+            return false;
+        }
+
+        if (currentTotal > long.MaxValue - amount)
+        {
+            failure = ExpeditionExperienceApplicationFailure.TotalOverflow;
+            return false;
+        }
+
+        candidate = new ExpeditionExperienceSnapshot(
+            current.KillExperience,
+            current.AssistExperience,
+            current.ExplorationExperience,
+            current.ExtractedLootExperience + amount);
         return true;
     }
 

@@ -184,6 +184,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     }
     public NetworkPrefabRef LootContainerPrefab => _lootContainerPrefab;
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
+
+    /// <summary>
+    /// Projects the immutable launch cohort into its canonical initial affiliation snapshot.
+    /// The launch context remains the sole source of this runner-local projection.
+    /// </summary>
+    public bool TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations)
+    {
+        affiliations = null;
+        return _launchContext != null &&
+            RaidInitialAffiliationSnapshot.TryCreate(_launchContext.Participants, out affiliations);
+    }
     
     public bool ShouldInitializeMatchPhase => _startupContext.IsValid && _startupContext.ShouldInitializeMatchPhase;
     public bool IsScenePrepared => _sceneLoadState == SceneLoadProcessingState.Completed &&
