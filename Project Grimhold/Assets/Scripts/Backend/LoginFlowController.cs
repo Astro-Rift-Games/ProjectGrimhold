@@ -93,9 +93,16 @@ public sealed class LoginFlowController : MonoBehaviour
                 return LoginFlowResult.Failure(LoginFlowStatus.NetworkError, "Cannot reach the server. Check your connection.");
             }
 
-            var message = registerError.error == "USERNAME_TAKEN"
-                ? "Username is already taken."
-                : "Failed to register account.";
+            string message = "Failed to register account.";
+            if (registerError.error == "USERNAME_TAKEN")
+            {
+                message = "Username is already taken.";
+            }
+            else if (registerError.error == "VALIDATION_FAILED")
+            {
+                message = "Invalid username or password format (e.g. no special characters like '_', minimum 6 chars for password).";
+            }
+
             return LoginFlowResult.Failure(LoginFlowStatus.RegistrationFailed, message);
         }
 

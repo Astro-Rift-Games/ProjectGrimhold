@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12e5b9fb29f466747b2ffb76973b0e50, type: 3}
   m_Name: BackendConfiguration
   m_EditorClassIdentifier: Assembly-CSharp::Grimhold.Backend.BackendConfiguration
-  BaseUrl: http://localhost:3000
-  TimeoutSeconds: 5
+  BaseUrl: https://projectgrimhold.up.railway.app
+  TimeoutSeconds: 10
