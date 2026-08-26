@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -60,6 +60,28 @@ namespace Grimhold.Backend
             }
 
             return ProcessResponse<CharacterProfileData>(request);
+        }
+
+        public static async Task<(bool success, CreateCharacterResult data, BackendError error)> PostCreateCharacterAsync(BackendConfiguration config, string token, string name)
+        {
+            var url = $"{config.BaseUrl}/character/me";
+            var requestData = new CreateCharacterRequest { name = name };
+            var json = JsonUtility.ToJson(requestData);
+
+            using var request = new UnityWebRequest(url, "POST");
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+            request.timeout = config.TimeoutSeconds;
+
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            return ProcessResponse<CreateCharacterResult>(request);
         }
 
         private static (bool success, T data, BackendError error) ProcessResponse<T>(UnityWebRequest request)

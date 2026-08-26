@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Grimhold.Backend
 {
@@ -41,5 +41,18 @@ namespace Grimhold.Backend
     public struct PatchProfileRequest
     {
         public string customNote;
+    }
+
+    [Serializable]
+    public struct CreateCharacterRequest
+    {
+        public string name;
+    }
+
+    [Serializable]
+    public struct CreateCharacterResult
+    {
+        public string characterId;
+        public string name;
     }
 }

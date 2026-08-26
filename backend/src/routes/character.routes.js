@@ -4,9 +4,22 @@ const router = express.Router();
 const CharacterService = require('../services/CharacterService');
 const authenticate = require('../middleware/authenticate');
 const { updateProfileValidator } = require('../validators/profile.validators');
+const { createCharacterValidator } = require('../validators/character.validators');
 
 // Apply authentication middleware to all routes in this router
 router.use(authenticate);
+
+
+// POST /character/me
+router.post('/me', createCharacterValidator, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    const result = await CharacterService.createForAccount(req.accountId, name);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /character/me
 router.get('/me', async (req, res, next) => {

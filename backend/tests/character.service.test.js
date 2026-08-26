@@ -13,6 +13,34 @@ test('CharacterService', async (t) => {
     Character.prototype.save = originalSave;
   });
 
+  await t.test('createForAccount() - should create a character if none exists', async () => {
+    Character.findOne = async () => null;
+    const originalSave = Character.prototype.save;
+    Character.prototype.save = async function() {
+      this._id = 'char123';
+      return this;
+    };
+
+    const result = await CharacterService.createForAccount('acc123', 'Hero');
+    
+    assert.ok(result.characterId);
+    assert.strictEqual(result.name, 'Hero');
+
+    Character.prototype.save = originalSave;
+  });
+
+  await t.test('createForAccount() - should throw 409 if character already exists', async () => {
+    Character.findOne = async () => ({ _id: 'char123' });
+
+    try {
+      await CharacterService.createForAccount('acc123', 'Hero');
+      assert.fail('Should have thrown an error');
+    } catch (error) {
+      assert.strictEqual(error.statusCode, 409);
+      assert.strictEqual(error.errorCode, 'CHARACTER_ALREADY_EXISTS');
+    }
+  });
+
   await t.test('getByAccountId() - should return character if found', async () => {
     const mockCharacter = { _id: 'char123', accountId: 'acc123', name: 'Alpha' };
     Character.findOne = async () => mockCharacter;

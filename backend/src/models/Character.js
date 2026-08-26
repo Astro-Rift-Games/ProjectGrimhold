@@ -15,6 +15,8 @@ const characterSchema = new mongoose.Schema({
     lastSeen: { type: Date, default: null },
     customNote: { type: String, maxlength: 256, default: '' }
   },
+  level: { type: Number, default: 1 },
+  experience: { type: Number, default: 0 },
   createdAt: {
     type: Date,
     default: Date.now
