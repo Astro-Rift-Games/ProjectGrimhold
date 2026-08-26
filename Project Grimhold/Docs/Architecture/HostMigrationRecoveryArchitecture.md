@@ -89,14 +89,21 @@ copy created before sealing.
 
 An unrecovered `Raiding` participant takes the Host-Migration-specific
 `Raiding -> Aborted` route. It does not set `IsReturnAuthorized`, does not invoke
-Return or persistence, clears authority/routing, records terminal/no-rejoin, and
-despawns its avatar and participant.
+Return or persistence, clears authority/routing, records terminal/no-rejoin, completes the
+material closure already owned by Networking, resolves Progression explicitly as
+`DefinitivelyDisconnected`, and despawns its avatar and participant. TASK-110 does not define a
+new Loot policy for that material closure.
 
 An unrecovered `Defeated` profile loses its participant, `PlayerObject`, routing,
 and Input Authority and becomes terminal/no-rejoin. The independent defeated
 avatar/corpse NetworkObject and its `NetworkLootContainer` remain authoritative;
 only the separate `NetworkRaidParticipant` is despawned. The historical Host is
 finalized by the same state-dependent rules and never blocks sealing.
+
+Temporary departures while recovery is `Open` or `Sealing` never resolve Progression. A recovered
+profile keeps the same participant, baseline, ledger, extraction candidate/phase and committed
+resolution/application. A restored `Defeated` participant remains `Defeated`; sealing never replaces
+that result with disconnection.
 
 After completion, every remaining `Raiding` participant has an active peer,
 correct `PlayerObject`, and avatar Input Authority. No unrecovered participant is

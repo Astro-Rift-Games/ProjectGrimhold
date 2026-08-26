@@ -34,10 +34,27 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     public int ResultSequence { get; private set; }
 
     [Networked]
-    public NetworkBool IsExtractionCommitConfirmed { get; private set; }
+    public ExtractionExperienceTransactionPhase ExtractionExperiencePhase { get; private set; }
+
+    [Networked]
+    public long ExtractedLootCandidateEligibleValue { get; private set; }
+
+    [Networked]
+    public long ExtractedLootCandidateExperience { get; private set; }
+
+    [Networked]
+    public ExpeditionProgressionFinalizationCause FinalizationCause { get; private set; }
 
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
+
+    public bool IsExtractionCommitConfirmed =>
+        ExtractionExperiencePhase >= ExtractionExperienceTransactionPhase.ExtractedLootPending;
+
+    public bool IsExtractionProgressionComplete =>
+        ExtractionExperiencePhase == ExtractionExperienceTransactionPhase.Complete;
+
+    private PlayerExpeditionProgressionResolver _progressionResolver;
 
     /// <summary>
     /// Resolves the current avatar without changing simulation state.
@@ -55,12 +72,23 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     internal void Initialize(
         string profileId,
         RaidParticipantId raidParticipantId,
+        int baselineLevel,
+        long baselineExperience,
         string raidGenerationId = null,
         string loadoutReservationId = null)
     {
         if (!raidParticipantId.IsValid)
         {
             throw new System.ArgumentException("Raid participant identity must be valid.", nameof(raidParticipantId));
+        }
+
+        _progressionResolver ??= GetComponent<PlayerExpeditionProgressionResolver>();
+        if (_progressionResolver == null ||
+            !_progressionResolver.TryInitializeBaseline(baselineLevel, baselineExperience))
+        {
+            throw new System.ArgumentException(
+                "Progression baseline must be valid for the current curve.",
+                nameof(baselineLevel));
         }
 
         ProfileId = profileId;
@@ -70,8 +98,46 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;
         ResultSequence = 0;
-        IsExtractionCommitConfirmed = false;
+        ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.None;
+        ExtractedLootCandidateEligibleValue = 0;
+        ExtractedLootCandidateExperience = 0;
+        FinalizationCause = ExpeditionProgressionFinalizationCause.None;
         IsReturnAuthorized = false;
+    }
+
+    private void Awake()
+    {
+        _progressionResolver = GetComponent<PlayerExpeditionProgressionResolver>();
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority || _progressionResolver == null)
+        {
+            return;
+        }
+
+        if (State == RaidParticipantState.Defeated)
+        {
+            _progressionResolver.TryFinalize(
+                ExpeditionProgressionFinalizationCause.DefeatConfirmed);
+            return;
+        }
+
+        if (FinalizationCause ==
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed)
+        {
+            TryAdvanceVoluntaryAbandon();
+            return;
+        }
+
+        if (State == RaidParticipantState.Aborted &&
+            FinalizationCause ==
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed)
+        {
+            _progressionResolver.TryFinalize(
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed);
+        }
     }
 
     /// <summary>
@@ -106,6 +172,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         State = RaidParticipantState.Defeated;
         CurrentAvatarId = default;
         ResultSequence++;
+        FinalizationCause = ExpeditionProgressionFinalizationCause.None;
+        _progressionResolver?.TryFinalize(
+            ExpeditionProgressionFinalizationCause.DefeatConfirmed);
         return true;
     }
 
@@ -121,6 +190,8 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
         State = RaidParticipantState.Extracted;
         ResultSequence++;
+        ExtractionExperiencePhase =
+            ExtractionExperienceTransactionPhase.AwaitingExperiencePreparation;
         return true;
     }
 
@@ -130,7 +201,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     /// </summary>
     internal bool TryAbortForClosure()
     {
-        return TryTransitionToAborted(authorizeReturn: true);
+        return TryTransitionToAborted(
+            ExpeditionProgressionFinalizationCause.None,
+            authorizeReturn: true);
     }
 
     public void InputAuthorityGained()
@@ -143,9 +216,32 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     /// Terminalizes a raiding participant that did not recover a peer during Host Migration.
     /// This is not a voluntary Return and therefore never publishes Return authorization.
     /// </summary>
-    internal bool TryAbortForHostMigrationRecovery()
+    internal PlayerExpeditionProgressionFinalizationResult
+        TryFinalizeDefinitiveDisconnectAfterMaterialClosure()
     {
-        return TryTransitionToAborted(authorizeReturn: false);
+        if (State == RaidParticipantState.Raiding)
+        {
+            if (!TryTransitionToAborted(
+                    ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed,
+                    authorizeReturn: false))
+            {
+                return PlayerExpeditionProgressionFinalizationResult.FromStatus(
+                    PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle);
+            }
+        }
+        else if (!HasStateAuthority || State != RaidParticipantState.Aborted ||
+                 FinalizationCause !=
+                    ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed)
+        {
+            return PlayerExpeditionProgressionFinalizationResult.FromStatus(
+                PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle);
+        }
+
+        return _progressionResolver != null
+            ? _progressionResolver.TryFinalize(
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed)
+            : PlayerExpeditionProgressionFinalizationResult.FromStatus(
+                PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle);
     }
 
     /// <summary>
@@ -154,13 +250,90 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     internal bool TryConfirmExtractionCommit(int resultSequence)
     {
         if (!HasStateAuthority || State != RaidParticipantState.Extracted ||
-            resultSequence != ResultSequence || IsExtractionCommitConfirmed)
+            resultSequence != ResultSequence ||
+            ExtractionExperiencePhase !=
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck)
         {
             return false;
         }
 
-        IsExtractionCommitConfirmed = true;
+        ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.ExtractedLootPending;
         return true;
+    }
+
+    internal bool TryStoreExtractedLootCandidate(
+        in ExtractedLootExperienceCandidate candidate)
+    {
+        if (!HasStateAuthority || State != RaidParticipantState.Extracted ||
+            ExtractionExperiencePhase !=
+                ExtractionExperienceTransactionPhase.AwaitingExperiencePreparation ||
+            !candidate.Matches(ResultSequence))
+        {
+            return false;
+        }
+
+        ExtractedLootCandidateEligibleValue = candidate.EligibleValue;
+        ExtractedLootCandidateExperience = candidate.AwardedExperience;
+        ExtractionExperiencePhase =
+            ExtractionExperienceTransactionPhase.AwaitingPersistenceAck;
+        return true;
+    }
+
+    internal bool TryGetExtractedLootCandidate(out ExtractedLootExperienceCandidate candidate)
+    {
+        candidate = default;
+        if (State != RaidParticipantState.Extracted || ResultSequence <= 0 ||
+            ExtractionExperiencePhase <
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck ||
+            ExtractionExperiencePhase >
+                ExtractionExperienceTransactionPhase.ExtractedLootPending)
+        {
+            return false;
+        }
+
+        candidate = new ExtractedLootExperienceCandidate(
+            ResultSequence,
+            new ExtractedLootExperienceCalculation(
+                ExtractedLootCandidateEligibleValue,
+                ExtractedLootCandidateExperience));
+        return candidate.IsValid;
+    }
+
+    internal bool TryAdvanceToProgressionPending(int resultSequence)
+    {
+        if (!HasStateAuthority || State != RaidParticipantState.Extracted ||
+            resultSequence != ResultSequence ||
+            ExtractionExperiencePhase !=
+                ExtractionExperienceTransactionPhase.ExtractedLootPending)
+        {
+            return false;
+        }
+
+        ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.ProgressionPending;
+        return true;
+    }
+
+    internal PlayerExpeditionProgressionFinalizationResult TryFinalizeExtractionProgression()
+    {
+        if (_progressionResolver == null)
+        {
+            return PlayerExpeditionProgressionFinalizationResult.FromStatus(
+                PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle);
+        }
+
+        PlayerExpeditionProgressionFinalizationResult result =
+            _progressionResolver.TryFinalize(
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed);
+        if (result.IsCompleted &&
+            ExtractionExperiencePhase ==
+                ExtractionExperienceTransactionPhase.ProgressionPending)
+        {
+            ExtractedLootCandidateEligibleValue = 0;
+            ExtractedLootCandidateExperience = 0;
+            ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.Complete;
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -227,11 +400,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        State = RaidParticipantState.Aborted;
-        CurrentAvatarId = default;
-        ResultSequence++;
-        IsReturnAuthorized = true;
-        Debug.Log($"[HM-MULTI] Client abandon authorized. State={State}.", this);
+        FinalizationCause =
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+        TryAdvanceVoluntaryAbandon();
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -242,7 +413,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        if (State == RaidParticipantState.Extracted && !IsExtractionCommitConfirmed)
+        if (State == RaidParticipantState.Extracted && !IsExtractionProgressionComplete)
         {
             return;
         }
@@ -293,7 +464,53 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             avatar.Id.IsValid && avatar.Id == CurrentAvatarId;
     }
 
-    private bool TryTransitionToAborted(bool authorizeReturn)
+    private void TryAdvanceVoluntaryAbandon()
+    {
+        if (!HasStateAuthority ||
+            FinalizationCause !=
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed ||
+            IsReturnAuthorized)
+        {
+            return;
+        }
+
+        NetworkObject avatar = null;
+        if (State == RaidParticipantState.Raiding)
+        {
+            if (!TryResolveCurrentAvatar(out avatar) || avatar == null ||
+                !avatar.TryGetBehaviour(out PlayerCorpseGenerationController corpseGeneration) ||
+                !corpseGeneration.TryConvertInventoryToCorpseLoot(Runner.Tick))
+            {
+                return;
+            }
+
+            State = RaidParticipantState.Aborted;
+            CurrentAvatarId = default;
+            ResultSequence++;
+            if (!avatar.InputAuthority.IsNone)
+            {
+                avatar.AssignInputAuthority(PlayerRef.None);
+            }
+        }
+
+        if (State != RaidParticipantState.Aborted || _progressionResolver == null)
+        {
+            return;
+        }
+
+        PlayerExpeditionProgressionFinalizationResult result =
+            _progressionResolver.TryFinalize(
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
+        if (result.IsCompleted)
+        {
+            IsReturnAuthorized = true;
+            Debug.Log($"[HM-MULTI] Client abandon authorized. State={State}.", this);
+        }
+    }
+
+    private bool TryTransitionToAborted(
+        ExpeditionProgressionFinalizationCause cause,
+        bool authorizeReturn)
     {
         if (!HasStateAuthority || State != RaidParticipantState.Raiding)
         {
@@ -303,6 +520,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         State = RaidParticipantState.Aborted;
         CurrentAvatarId = default;
         ResultSequence++;
+        FinalizationCause = cause;
         IsReturnAuthorized = authorizeReturn;
         return true;
     }

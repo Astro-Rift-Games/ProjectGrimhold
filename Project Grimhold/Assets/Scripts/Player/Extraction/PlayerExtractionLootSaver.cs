@@ -74,9 +74,13 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         if (HasStateAuthority && TryResolvePendingParticipant() &&
             _participant.State == RaidParticipantState.Extracted &&
-            !_participant.IsExtractionCommitConfirmed)
+            !_participant.IsExtractionProgressionComplete)
         {
-            PreparePendingTransaction();
+            if (_participant.ExtractionExperiencePhase <=
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck)
+            {
+                PreparePendingTransaction();
+            }
         }
     }
 
@@ -84,12 +88,15 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     {
         if (!HasStateAuthority || !TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
-            _participant.IsExtractionCommitConfirmed)
+            _participant.IsExtractionProgressionComplete)
         {
             return;
         }
 
-        if (!HasPendingTransaction() && !PreparePendingTransaction())
+        ExtractionExperienceTransactionPhase phase =
+            _participant.ExtractionExperiencePhase;
+        if (phase <= ExtractionExperienceTransactionPhase.AwaitingPersistenceAck &&
+            !HasPendingTransaction() && !PreparePendingTransaction())
         {
             return;
         }
@@ -99,7 +106,14 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        SendPendingTransaction();
+        if (phase <= ExtractionExperienceTransactionPhase.AwaitingPersistenceAck)
+        {
+            SendPendingTransaction();
+        }
+        else
+        {
+            TryAdvanceConfirmedExperienceTransaction();
+        }
         RetryTimer = TickTimer.CreateFromSeconds(Runner, RetryIntervalSeconds);
     }
 
@@ -151,7 +165,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         if (!HasStateAuthority || controller != _extractionController ||
             !TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
-            _participant.IsExtractionCommitConfirmed)
+            _participant.ExtractionExperiencePhase >
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck)
         {
             return;
         }
@@ -166,7 +181,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         string snapshotError = null;
         if (!TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
-            _participant.IsExtractionCommitConfirmed ||
+            _participant.ExtractionExperiencePhase >
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck ||
             _lootReceiver == null || _weaponEquipment == null ||
             !PlayerExpeditionLootSnapshot.TryCapture(
                 _lootReceiver,
@@ -216,13 +232,25 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         int resultSequence = _participant.ResultSequence;
-        ExtractedLootExperienceCandidate? experienceCandidate = null;
-        if (_experienceProducer == null)
+        ExtractedLootExperienceCandidate experienceCandidate;
+        if (_participant.ExtractionExperiencePhase ==
+            ExtractionExperienceTransactionPhase.AwaitingPersistenceAck)
+        {
+            if (!_participant.TryGetExtractedLootCandidate(out experienceCandidate))
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerExtractionLootSaver)}: Stored extracted-Loot candidate is invalid.",
+                    this);
+                return false;
+            }
+        }
+        else if (_experienceProducer == null)
         {
             Debug.LogError(
                 $"{nameof(PlayerExtractionLootSaver)}: Missing {nameof(ExtractedLootExperienceProducer)}; " +
-                "the Loot extraction will continue without an Experience reward.",
+                "the extraction remains pending.",
                 this);
+            return false;
         }
         else
         {
@@ -232,8 +260,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             {
                 Debug.LogError(
                     $"{nameof(PlayerExtractionLootSaver)}: Initial Raid affiliations are unavailable; " +
-                    "the Loot extraction will continue without an Experience reward.",
+                    "the extraction remains pending.",
                     this);
+                return false;
             }
             else if (_experienceProducer.TryPrepare(
                          resultSequence,
@@ -244,13 +273,21 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
                          out string experienceError))
             {
                 experienceCandidate = preparedCandidate;
+                if (!_participant.TryStoreExtractedLootCandidate(experienceCandidate))
+                {
+                    Debug.LogError(
+                        $"{nameof(PlayerExtractionLootSaver)}: Could not store the extracted-Loot candidate.",
+                        this);
+                    return false;
+                }
             }
             else
             {
                 Debug.LogError(
                     $"{nameof(PlayerExtractionLootSaver)}: {experienceError ?? "Extracted Loot Experience could not be calculated."} " +
-                    "The Loot extraction will continue.",
+                    "The extraction remains pending.",
                     this);
+                return false;
             }
         }
 
@@ -378,7 +415,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     {
         if (!HasStateAuthority || !TryResolvePendingParticipant() ||
             _participant.State != RaidParticipantState.Extracted ||
-            _participant.IsExtractionCommitConfirmed ||
+            _participant.ExtractionExperiencePhase !=
+                ExtractionExperienceTransactionPhase.AwaitingPersistenceAck ||
             resultSequence != _participant.ResultSequence ||
             resultSequence != _pendingResultSequence ||
             !HasValidPendingPayload())
@@ -400,8 +438,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        TryApplyPendingExtractedLootExperience(resultSequence);
-        ClearPendingTransaction();
+        TryAdvanceConfirmedExperienceTransaction();
     }
 
     private bool ValidateIncomingPayload(int[] catalogIndices, int[] amounts)
@@ -494,46 +531,67 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         return HasValidPendingPayload();
     }
 
-    private void TryApplyPendingExtractedLootExperience(int resultSequence)
+    private void TryAdvanceConfirmedExperienceTransaction()
     {
-        if (!_pendingExperienceCandidate.HasValue)
+        if (!TryResolvePendingParticipant())
         {
             return;
         }
 
-        ExtractedLootExperienceCandidate candidate = _pendingExperienceCandidate.Value;
-        if (!CandidateMatchesPendingTransaction(
-                candidate,
-                resultSequence,
-                _pendingResultSequence,
-                _participant.ResultSequence))
+        if (_participant.ExtractionExperiencePhase ==
+            ExtractionExperienceTransactionPhase.ExtractedLootPending &&
+            !TryResolveExtractedLootExperience())
+        {
+            return;
+        }
+
+        if (_participant.ExtractionExperiencePhase !=
+            ExtractionExperienceTransactionPhase.ProgressionPending)
+        {
+            return;
+        }
+
+        PlayerExpeditionProgressionFinalizationResult result =
+            _participant.TryFinalizeExtractionProgression();
+        if (!result.IsCompleted)
         {
             Debug.LogError(
-                $"{nameof(PlayerExtractionLootSaver)}: Extracted Loot Experience candidate does not " +
-                "belong to the confirmed pending transaction. The reward will be discarded.",
+                $"{nameof(PlayerExtractionLootSaver)}: Extraction Progression remains pending " +
+                $"({result.Status}).",
                 this);
             return;
         }
 
-        if (_experienceProducer == null)
+        ClearPendingTransaction();
+    }
+
+    private bool TryResolveExtractedLootExperience()
+    {
+        if (_experienceProducer == null ||
+            !_participant.TryGetExtractedLootCandidate(out ExtractedLootExperienceCandidate candidate))
         {
             Debug.LogError(
-                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction has no " +
-                $"{nameof(ExtractedLootExperienceProducer)}. The extraction remains confirmed.",
+                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction has no valid " +
+                "extracted-Loot candidate.",
                 this);
-            return;
+            return false;
         }
 
-        if (!_experienceProducer.TryApplyConfirmed(
+        ExtractedLootExperienceRegistrationStatus status =
+            _experienceProducer.TryApplyConfirmed(
                 _participant,
                 candidate,
-                out ExpeditionExperienceLedgerFailure failure))
+                out ExpeditionExperienceLedgerFailure failure);
+        if (status == ExtractedLootExperienceRegistrationStatus.Failed)
         {
             Debug.LogError(
-                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction could not credit " +
-                $"Extracted Loot Experience ({failure}). The extraction remains confirmed.",
+                $"{nameof(PlayerExtractionLootSaver)}: Confirmed extraction could not resolve " +
+                $"Extracted Loot Experience ({failure}).",
                 this);
+            return false;
         }
+
+        return _participant.TryAdvanceToProgressionPending(candidate.ResultSequence);
     }
 
     internal static bool CandidateMatchesPendingTransaction(

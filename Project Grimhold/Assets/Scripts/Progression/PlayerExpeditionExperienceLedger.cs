@@ -21,6 +21,12 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
     [Networked]
     public long ExtractedLootExperience { get; private set; }
 
+    [Networked]
+    public NetworkBool IsFrozen { get; private set; }
+
+    [Networked]
+    public int ExtractedLootResolvedResultSequence { get; private set; }
+
     private NetworkRaidParticipant _participant;
 
     public ExpeditionExperienceSnapshot Snapshot => new(
@@ -57,6 +63,12 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
         if (!HasStateAuthority)
         {
             failure = ExpeditionExperienceLedgerFailure.MissingStateAuthority;
+            return false;
+        }
+
+        if (IsFrozen)
+        {
+            failure = ExpeditionExperienceLedgerFailure.LedgerFrozen;
             return false;
         }
 
@@ -97,7 +109,7 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
     /// The extraction coordinator owns one-shot protection and calls this at most once while
     /// retaining the matching pending candidate.
     /// </summary>
-    internal bool TryRegisterConfirmedExtractedLootReward(
+    internal ExtractedLootExperienceRegistrationStatus TryRegisterConfirmedExtractedLootReward(
         int resultSequence,
         long amount,
         out ExpeditionExperienceLedgerFailure failure)
@@ -105,31 +117,49 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
         if (!HasStateAuthority)
         {
             failure = ExpeditionExperienceLedgerFailure.MissingStateAuthority;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         if (_participant == null)
         {
             failure = ExpeditionExperienceLedgerFailure.MissingParticipant;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
+        }
+
+        if (IsFrozen)
+        {
+            failure = ExpeditionExperienceLedgerFailure.LedgerFrozen;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         if (_participant.State != RaidParticipantState.Extracted)
         {
             failure = ExpeditionExperienceLedgerFailure.ParticipantNotExtracted;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         if (resultSequence <= 0 || resultSequence != _participant.ResultSequence)
         {
             failure = ExpeditionExperienceLedgerFailure.ResultSequenceMismatch;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
+        }
+
+        if (ExtractedLootResolvedResultSequence == resultSequence)
+        {
+            failure = ExpeditionExperienceLedgerFailure.None;
+            return ExtractedLootExperienceRegistrationStatus.AlreadyResolved;
+        }
+
+        if (ExtractedLootResolvedResultSequence != 0)
+        {
+            failure = ExpeditionExperienceLedgerFailure.ResultSequenceMismatch;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         if (!_participant.IsExtractionCommitConfirmed)
         {
             failure = ExpeditionExperienceLedgerFailure.ExtractionNotConfirmed;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         if (!ExpeditionExperienceRules.TryApplyExtractedLootReward(
@@ -139,15 +169,22 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
                 out ExpeditionExperienceApplicationFailure applicationFailure))
         {
             failure = MapFailure(applicationFailure);
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         KillExperience = candidate.KillExperience;
         AssistExperience = candidate.AssistExperience;
         ExplorationExperience = candidate.ExplorationExperience;
         ExtractedLootExperience = candidate.ExtractedLootExperience;
+        ExtractedLootResolvedResultSequence = resultSequence;
         failure = ExpeditionExperienceLedgerFailure.None;
-        return true;
+        return ExtractedLootExperienceRegistrationStatus.Applied;
+    }
+
+    /// <summary>Final no-fail write used only after Progression preparation succeeds.</summary>
+    internal void CommitFreeze()
+    {
+        IsFrozen = true;
     }
 
     private static ExpeditionExperienceLedgerFailure MapFailure(

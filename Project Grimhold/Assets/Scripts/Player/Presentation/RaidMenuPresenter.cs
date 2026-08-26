@@ -32,7 +32,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _returnStarted;
     private float _nextNoTargetRefreshAt;
     private RaidParticipantState _observedParticipantState;
-    private bool _observedExtractionCommitConfirmed;
+    private bool _observedExtractionFinalizationComplete;
     private ExtractionLootSaveStatus _observedSaveStatus;
 
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -75,8 +75,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedParticipantState = _participant != null
             ? _participant.State
             : RaidParticipantState.Raiding;
-        _observedExtractionCommitConfirmed = _participant != null &&
-            _participant.IsExtractionCommitConfirmed;
+        _observedExtractionFinalizationComplete = _participant != null &&
+            _participant.IsExtractionProgressionComplete;
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
@@ -108,7 +108,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _returnStarted = false;
         _nextNoTargetRefreshAt = 0f;
         _observedParticipantState = RaidParticipantState.Raiding;
-        _observedExtractionCommitConfirmed = false;
+        _observedExtractionFinalizationComplete = false;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
         _view?.Clear();
     }
@@ -393,7 +393,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
         if (_participant.State == RaidParticipantState.Extracted &&
-            !_participant.IsExtractionCommitConfirmed)
+            !_participant.IsExtractionProgressionComplete)
         {
             return;
         }
@@ -417,9 +417,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
                 ? _extractionLootSaver.LocalSaveStatus
-                : (_participant.IsExtractionCommitConfirmed
+                : (_participant.IsExtractionProgressionComplete
                     ? ExtractionLootSaveStatus.Committed
                     : ExtractionLootSaveStatus.Pending);
+            if (!_participant.IsExtractionProgressionComplete &&
+                saveStatus == ExtractionLootSaveStatus.Committed)
+            {
+                saveStatus = ExtractionLootSaveStatus.Pending;
+            }
             _view.PresentExtractedState(saveStatus);
         }
         else if (IsLocalDefeated())
@@ -469,15 +474,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         RaidParticipantState state = _participant.State;
-        bool commitConfirmed = _participant.IsExtractionCommitConfirmed;
+        bool finalizationComplete = _participant.IsExtractionProgressionComplete;
         ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
         bool resultChanged = state != _observedParticipantState ||
-                             commitConfirmed != _observedExtractionCommitConfirmed ||
+                             finalizationComplete != _observedExtractionFinalizationComplete ||
                              saveStatus != _observedSaveStatus;
         _observedParticipantState = state;
-        _observedExtractionCommitConfirmed = commitConfirmed;
+        _observedExtractionFinalizationComplete = finalizationComplete;
         _observedSaveStatus = saveStatus;
 
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)

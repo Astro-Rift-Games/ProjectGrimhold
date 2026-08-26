@@ -163,7 +163,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
     }
 
-    /// <summary>Returns whether an extracted participant still awaits TASK-80 confirmation.</summary>
+    /// <summary>Returns whether an extracted participant still awaits complete finalization.</summary>
     public bool HasPendingExtractionCommits
     {
         get
@@ -173,7 +173,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 if (participantObject != null &&
                     participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
                     participant.State == RaidParticipantState.Extracted &&
-                    !participant.IsExtractionCommitConfirmed)
+                    !participant.IsExtractionProgressionComplete)
                 {
                     return true;
                 }
@@ -1415,11 +1415,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     $"Unrecovered Defeated profile '{profileId}' has no authoritative lootable corpse.");
             }
 
-            if (participant.State == RaidParticipantState.Raiding &&
-                !participant.TryAbortForHostMigrationRecovery())
+            if (participant.State == RaidParticipantState.Raiding && avatar != null)
             {
-                throw new InvalidOperationException(
-                    $"Unrecovered Raiding participant '{profileId}' could not transition to Aborted.");
+                _runner.Despawn(avatar);
+                avatar = null;
+            }
+
+            if (participant.State == RaidParticipantState.Raiding)
+            {
+                PlayerExpeditionProgressionFinalizationResult progressionResult =
+                    participant.TryFinalizeDefinitiveDisconnectAfterMaterialClosure();
+                if (!progressionResult.IsCompleted)
+                {
+                    throw new InvalidOperationException(
+                        $"Unrecovered Raiding participant '{profileId}' could not finalize " +
+                        $"Progression ({progressionResult.Status}).");
+                }
             }
 
             RaidParticipantState finalizedState = participant.State;
@@ -2378,6 +2389,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     participant.Initialize(
                         joinData.ProfileId.Value,
                         raidParticipantId,
+                        ExperienceCurve.InitialLevel,
+                        0,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null);
                 }
@@ -3250,10 +3263,52 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _controlledReturns.MarkTerminal(in departureKey);
-        participant.TryAbortForClosure();
+        if (participant.State == RaidParticipantState.Extracted &&
+            !participant.IsExtractionProgressionComplete)
+        {
+            if (avatarObject != null && !avatarObject.InputAuthority.IsNone)
+            {
+                avatarObject.AssignInputAuthority(PlayerRef.None);
+            }
+
+            Debug.LogWarning(
+                $"Extracted participant '{profileId}' left while finalization remains " +
+                $"{participant.ExtractionExperiencePhase}; authoritative objects were retained.",
+                participant);
+            return;
+        }
+
+        bool preserveMaterialBody = participant.State == RaidParticipantState.Aborted &&
+            participant.FinalizationCause ==
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+
         if (avatarObject != null)
         {
-            runner.Despawn(avatarObject);
+            if (preserveMaterialBody)
+            {
+                if (!avatarObject.InputAuthority.IsNone)
+                {
+                    avatarObject.AssignInputAuthority(PlayerRef.None);
+                }
+            }
+            else
+            {
+                runner.Despawn(avatarObject);
+            }
+        }
+
+        if (participant.State == RaidParticipantState.Raiding)
+        {
+            PlayerExpeditionProgressionFinalizationResult progressionResult =
+                participant.TryFinalizeDefinitiveDisconnectAfterMaterialClosure();
+            if (!progressionResult.IsCompleted)
+            {
+                Debug.LogError(
+                    $"Definitive disconnect for '{profileId}' could not finalize Progression " +
+                    $"({progressionResult.Status}). Participant retained.",
+                    participant);
+                return;
+            }
         }
 
         runner.Despawn(participantObject);

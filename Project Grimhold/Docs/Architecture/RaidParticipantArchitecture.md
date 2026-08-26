@@ -13,8 +13,10 @@ inventory, extraction or lifecycle state.
 
 The PlayerObject co-locates one `PlayerExpeditionExperienceLedger` that owns the
 participant's provisional Expedition Experience independently from the avatar. Its
-authority, lifecycle, producer-idempotency boundary and future consolidation boundary are
+authority, lifecycle and producer-idempotency boundary are
 defined in `Docs/Architecture/ProgressionArchitecture.md`.
+It also co-locates one `PlayerExpeditionProgressionResolver`, which owns the admitted baseline
+and the immutable resolution/application history for this participation.
 
 State Authority alone transitions `Raiding` to `Defeated`, `Extracted` or `Aborted`.
 The transition state is not another health, extraction or inventory source of truth:
@@ -28,11 +30,14 @@ has the same Input Authority solely to consume regular player input.
 
 On defeat, `PlayerCorpseGenerationController` completes the co-located inventory handoff
 before `RaidAvatarParticipantLink` records `Defeated` and removes the avatar Input
-Authority. The avatar stays spawned as the synchronised lootable body. On confirmed
-abandon, the temporary avatar is despawned without any persistence operation.
+Authority. The avatar stays spawned as the synchronised lootable body. Voluntary abandonment
+reuses that material Loot handoff without synthesizing combat damage or Kill Experience; only
+after it succeeds does the participant record technical `Aborted`, resolve `Abandoned`, and
+authorize return.
 
-Extraction enters `Extracted`, but return remains unavailable until `PlayerExtractionLootSaver` confirms the
-matching `ResultSequence` after its idempotent Loadout commit. `PlayerLootReceiver` derives
+Extraction enters `Extracted`, but return remains unavailable until `PlayerExtractionLootSaver`
+completes persistence, extracted-Loot Experience and Progression for the matching
+`ResultSequence`. `PlayerLootReceiver` derives
 its mutation lock from the existing extraction state, so no second inventory-lock source
 is replicated. The previous loadout-saving listener remains disabled because it cleared Raid
 inventory before that ACK. `PlayerExtractionLootSaver` retains the complete snapshot and
@@ -77,9 +82,9 @@ Snapshot restoration remaps both directions of the participant/avatar relationsh
 reassigning PlayerObject and avatar input authority. A defeated participant has no current
 avatar, so its restored body remains without player control.
 
-The co-located Expedition Experience ledger contains only replicated accumulators, so
-`CopyStateFrom` restores it with the participant and requires no NetworkId remap or
-restore-time initialization.
+`CopyStateFrom` restores the ledger accumulators/freeze/producer marker, extraction phase and
+candidate, and resolver baseline/history with the participant. None is reinitialized or requires a
+NetworkId remap.
 
 ## Follow-up dependencies
 
@@ -91,7 +96,8 @@ responsibilities may not change PlayerObject identity or create a parallel parti
 
 `Assets/Prefabs/NetworkRaidParticipant.prefab` is the registered Fusion participant prefab
 and contains its `NetworkObject`, `NetworkRaidParticipant` and exactly one
-`PlayerExpeditionExperienceLedger` network behaviour.
+`PlayerExpeditionExperienceLedger` plus exactly one `PlayerExpeditionProgressionResolver` network
+behaviour.
 `FusionSessionLauncher._raidParticipantPrefab` on `Assets/Prefabs/Systems.prefab` references
 that asset. `RaidAvatarParticipantLink` lives on the base `NetworkPlayer` prefab and is
 therefore inherited by both catalog avatars (`NetworkPlayerMelee` and

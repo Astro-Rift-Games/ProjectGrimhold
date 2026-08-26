@@ -106,16 +106,19 @@ When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootS
 
 On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
 
-Before sending the persistent payload, State Authority also projects initial affiliation, eligibility,
-eligible Value and candidate extracted-Loot Experience from the retained snapshot. That process-local
-candidate carries the same `ResultSequence` as the pending transaction and is never part of the
-Loadout/stash payload. A calculation failure is logged but does not invalidate the Loot transaction.
+Before sending the persistent payload, State Authority projects initial affiliation, eligibility,
+eligible Value and candidate extracted-Loot Experience from the retained snapshot. The participant
+stores that candidate durably for the matching `ResultSequence`; it is not provisional Experience
+until confirmed extraction lets the ledger resolve it. Preparation failure retains ownership and
+retries without starting persistence.
 
-For a valid ACK, exact-clear first validates and removes Inventory, Equipment and provenance. The
-participant extraction commit is then confirmed. Only after confirmation may the matching candidate
-be offered once to the provisional Experience ledger. The pending transaction and candidate are
-cleared whether that ledger operation succeeds or fails; Progression cannot revert extraction and
-callbacks after confirmation cannot retry the reward.
+The authoritative phases are `AwaitingExperiencePreparation -> AwaitingPersistenceAck ->
+ExtractedLootPending -> ProgressionPending -> Complete`. A valid ACK exact-clears ownership and
+enters `ExtractedLootPending`. Ledger success, the same sequence already resolved, or a valid zero
+award advances; a real failure remains retryable and cannot freeze Progression. After
+`ProgressionPending`, retries execute only TASK-110. Resolver `Success` or `AlreadyCommitted` alone
+completes the transaction and permits Return. Fusion restoration resumes the stored phase and
+candidate without recalculation.
 
 ## Individual quota progress
 

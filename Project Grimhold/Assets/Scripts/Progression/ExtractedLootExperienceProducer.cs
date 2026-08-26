@@ -56,7 +56,7 @@ public sealed class ExtractedLootExperienceProducer : MonoBehaviour
         return candidate.IsValid;
     }
 
-    public bool TryApplyConfirmed(
+    public ExtractedLootExperienceRegistrationStatus TryApplyConfirmed(
         NetworkRaidParticipant participant,
         in ExtractedLootExperienceCandidate candidate,
         out ExpeditionExperienceLedgerFailure failure)
@@ -65,7 +65,7 @@ public sealed class ExtractedLootExperienceProducer : MonoBehaviour
             !candidate.Matches(participant.ResultSequence))
         {
             failure = ExpeditionExperienceLedgerFailure.ResultSequenceMismatch;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         PlayerExpeditionExperienceLedger ledger =
@@ -73,7 +73,7 @@ public sealed class ExtractedLootExperienceProducer : MonoBehaviour
         if (ledger == null)
         {
             failure = ExpeditionExperienceLedgerFailure.MissingLedger;
-            return false;
+            return ExtractedLootExperienceRegistrationStatus.Failed;
         }
 
         return ledger.TryRegisterConfirmedExtractedLootReward(
