@@ -150,7 +150,11 @@ The unchanged `LootTransferRequest` carries no provenance. After source validati
 
 `PlayerLootTransferNetworkController` contributes only after both commits when the destination is its own `PlayerLootReceiver` and the eligible amount is positive. Deposits, other destinations, rejected transfers and credited-only units contribute zero. The definition's authoritative `ExtractionValuePerUnit` is multiplied by eligible units using `long`; the individual receiver performs final quota saturation. `PlayerLootReceiver` stores no first-acquisition eligibility. Raid ownership provenance is a separate contract described below.
 
-Economy is independent: `ExtractionValuePerUnit` measures quota contribution and `SellValuePerUnit` measures money. Inventory total-value calculations and economic presentation use only the sell value.
+Economy and progression Value are independent: `ExtractionValuePerUnit` measures quota contribution,
+`SellValuePerUnit` measures money, and `IRaidLootValueSource` provides the provisional positive Value
+used only to calculate extracted-Loot Experience. Inventory total-value calculations and economic
+presentation use only the sell value. The current local progression catalog assigns replaceable
+placeholder values to every productive `LootId`; it does not define final balance or economy.
 
 ## Raid loot origin
 

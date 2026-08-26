@@ -92,6 +92,64 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Applies the reward belonging to the extraction result that has already been confirmed.
+    /// The extraction coordinator owns one-shot protection and calls this at most once while
+    /// retaining the matching pending candidate.
+    /// </summary>
+    internal bool TryRegisterConfirmedExtractedLootReward(
+        int resultSequence,
+        long amount,
+        out ExpeditionExperienceLedgerFailure failure)
+    {
+        if (!HasStateAuthority)
+        {
+            failure = ExpeditionExperienceLedgerFailure.MissingStateAuthority;
+            return false;
+        }
+
+        if (_participant == null)
+        {
+            failure = ExpeditionExperienceLedgerFailure.MissingParticipant;
+            return false;
+        }
+
+        if (_participant.State != RaidParticipantState.Extracted)
+        {
+            failure = ExpeditionExperienceLedgerFailure.ParticipantNotExtracted;
+            return false;
+        }
+
+        if (resultSequence <= 0 || resultSequence != _participant.ResultSequence)
+        {
+            failure = ExpeditionExperienceLedgerFailure.ResultSequenceMismatch;
+            return false;
+        }
+
+        if (!_participant.IsExtractionCommitConfirmed)
+        {
+            failure = ExpeditionExperienceLedgerFailure.ExtractionNotConfirmed;
+            return false;
+        }
+
+        if (!ExpeditionExperienceRules.TryApplyExtractedLootReward(
+                Snapshot,
+                amount,
+                out ExpeditionExperienceSnapshot candidate,
+                out ExpeditionExperienceApplicationFailure applicationFailure))
+        {
+            failure = MapFailure(applicationFailure);
+            return false;
+        }
+
+        KillExperience = candidate.KillExperience;
+        AssistExperience = candidate.AssistExperience;
+        ExplorationExperience = candidate.ExplorationExperience;
+        ExtractedLootExperience = candidate.ExtractedLootExperience;
+        failure = ExpeditionExperienceLedgerFailure.None;
+        return true;
+    }
+
     private static ExpeditionExperienceLedgerFailure MapFailure(
         ExpeditionExperienceApplicationFailure failure) => failure switch
     {

@@ -78,5 +78,26 @@ public sealed class PlayerExtractionLootSaverTests
                 _ => true),
             Is.True);
     }
+
+    [Test]
+    public void ExperienceCandidate_MustBelongToAckPendingAndParticipantSequence()
+    {
+        var candidate = new ExtractedLootExperienceCandidate(
+            3,
+            new ExtractedLootExperienceCalculation(100, 10));
+
+        Assert.That(
+            PlayerExtractionLootSaver.CandidateMatchesPendingTransaction(candidate, 3, 3, 3),
+            Is.True);
+        Assert.That(
+            PlayerExtractionLootSaver.CandidateMatchesPendingTransaction(candidate, 2, 3, 3),
+            Is.False);
+        Assert.That(
+            PlayerExtractionLootSaver.CandidateMatchesPendingTransaction(candidate, 3, 2, 3),
+            Is.False);
+        Assert.That(
+            PlayerExtractionLootSaver.CandidateMatchesPendingTransaction(candidate, 3, 3, 4),
+            Is.False);
+    }
 }
 #endif

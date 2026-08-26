@@ -104,7 +104,18 @@ Automated coverage should include configuration and geometry boundaries, progres
 
 When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The process-local snapshot is only a verified projection. A valid aggregate may contain up to 22 distinct entries: sixteen Inventory types plus six Equipment slots, while every catalog index remains valid in the independent `0..63` range.
 
-On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities. After ACK, exact-clear validates both quantity and provenance, clears Inventory and Equipment ownership, and only then confirms the extraction commit. The provenance boundary neither calculates nor credits `ExtractedLootExperience`.
+On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
+
+Before sending the persistent payload, State Authority also projects initial affiliation, eligibility,
+eligible Value and candidate extracted-Loot Experience from the retained snapshot. That process-local
+candidate carries the same `ResultSequence` as the pending transaction and is never part of the
+Loadout/stash payload. A calculation failure is logged but does not invalidate the Loot transaction.
+
+For a valid ACK, exact-clear first validates and removes Inventory, Equipment and provenance. The
+participant extraction commit is then confirmed. Only after confirmation may the matching candidate
+be offered once to the provisional Experience ledger. The pending transaction and candidate are
+cleared whether that ledger operation succeeds or fails; Progression cannot revert extraction and
+callbacks after confirmation cannot retry the reward.
 
 ## Individual quota progress
 

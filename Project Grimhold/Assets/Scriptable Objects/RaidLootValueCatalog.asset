@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 728c8d546a2048afba03ad30743961bd, type: 3}
+  m_Name: RaidLootValueCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::RaidLootValueCatalog
+  _entries:
+  - _lootDefinition: {fileID: 11400000, guid: 588f98d3ce1283d47adcf8bc420f12d5, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 0579b9c205ee88a4b8c94315d95afa5e, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: b61e8bc9f2bfa7b4a83ed98b979edb77, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 6f4e8f3a2c1b49d8a7e65013fcbd9421, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 3d7f2a91c4b845e6b0d18e37a5c92f04, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 43c94e930aa64f27afcd4fe41a706f07, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 516a3b1c179d42ebbc63e82246d783e0, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 8081524fb32548bdbbc8c9e27641e5da, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 735d695f2bdf492cbeb02c9ec587d595, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: d813853221354d3cbf3e891b46a7bffd, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: a1b2c3d400014e7f9a0b0c0d0e0f1001, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: a1b2c3d400024e7f9a0b0c0d0e0f1002, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: a1b2c3d400034e7f9a0b0c0d0e0f1003, type: 2}
+    _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: a1b2c3d400044e7f9a0b0c0d0e0f1004, type: 2}
+    _valuePerUnit: 100
