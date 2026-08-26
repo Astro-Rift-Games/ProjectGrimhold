@@ -126,6 +126,9 @@ public sealed class TownRaidPreparationRulesTests
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, members[1].ProfileId, out RaidLaunchContext second), Is.True);
         Assert.That(first.ParticipantProfileIds, Is.EqualTo(new[] { host, members[1].ProfileId, members[2].ProfileId }));
         Assert.That(second.ParticipantProfileIds, Is.EqualTo(first.ParticipantProfileIds));
+        Assert.That(first.Participants, Has.Count.EqualTo(3));
+        Assert.That(first.Participants, Has.All.Matches<RaidLaunchParticipant>(
+            participant => participant.TeamId.IsValid && participant.TeamId.Value == 1));
         Assert.That(first.LaunchRevision, Is.EqualTo(3));
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, new ProfileId("absent"), out _), Is.False);
     }

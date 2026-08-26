@@ -11,7 +11,18 @@ public sealed class RaidAdmissionRulesTests
         RaidCode.TryParse("654321", out RaidCode wrongCode);
         var host = new ProfileId("host");
         var client = new ProfileId("client");
-        RaidLaunchContext.TryCreate(code, host, new[] { host, client }, host, 1, out RaidLaunchContext context);
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            code,
+            host,
+            new[]
+            {
+                new RaidLaunchParticipant(host, teamId),
+                new RaidLaunchParticipant(client, teamId)
+            },
+            host,
+            1,
+            out RaidLaunchContext context);
 
         var loadout = new[] { new LootEntry(new LootId("training_sword"), 1) };
         var valid = new RaidAdmissionData(code, client, "reservation", loadout, new[] { 1, 0, 0, 0, 0, 0 });

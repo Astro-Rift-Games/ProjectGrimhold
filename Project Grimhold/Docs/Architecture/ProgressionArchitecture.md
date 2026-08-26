@@ -125,10 +125,16 @@ boundary. The authority assigns the stable Raid-scoped ID from the frozen admiss
 `NetworkRaidParticipant` retains the independent logical `ProfileId`. Provenance therefore accepts
 the repository's full ProfileId domain without storing, hashing, truncating or normalizing it.
 
-This provenance boundary does not calculate, credit or consume `ExtractedLootExperience`, and it does
-not choose an order relative to `TryMarkExtracted`. Provenance is Raid-scoped and never enters
-stash/backend persistence; the extracted-Loot Experience integration must define the synchronous ledger and one-shot
-consumption point while the preserved extraction snapshot is still authoritative.
+`RaidLootEligibilityResolver` is a pure projection over `PlayerExpeditionLootSnapshot` and
+`RaidInitialAffiliationSnapshot`. Dungeon quantities are eligible; Player quantities are eligible
+only when their original participant belongs to a different initial `RaidTeamId` than the extractor.
+The resolver validates exact totals and never mutates provenance or Experience state.
+
+This boundary does not calculate, credit or consume `ExtractedLootExperience`, does not choose an
+order relative to `TryMarkExtracted`, and is not integrated with the persistence ACK or exact-clear.
+Provenance is Raid-scoped and never enters stash/backend persistence; the extracted-Loot Experience
+integration must define the synchronous ledger and one-shot consumption point while the preserved
+extraction snapshot is still authoritative.
 
 ## Host Migration and reconnection
 

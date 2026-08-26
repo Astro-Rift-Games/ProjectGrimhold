@@ -346,6 +346,28 @@ namespace Tests.PlayMode.Equipment
                     $"Combined must aggregate the equipped {equipped.Id} exactly once.");
             }
 
+            var profile = new ProfileId("equipment-owner");
+            RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+            Assert.That(
+                RaidInitialAffiliationSnapshot.TryCreate(
+                    new[] { new RaidLaunchParticipant(profile, teamId) },
+                    out RaidInitialAffiliationSnapshot affiliations),
+                Is.True);
+            RaidParticipantIdAssignment.TryResolve(
+                new[] { profile }, profile, out RaidParticipantId extractorId);
+            Assert.That(
+                RaidLootEligibilityResolver.TryResolve(
+                    extractorId,
+                    snapshot,
+                    affiliations,
+                    out RaidLootEligibilitySnapshot eligibility,
+                    out error),
+                Is.True,
+                error);
+            Assert.That(eligibility.TotalAmount, Is.GreaterThan(0));
+            Assert.That(eligibility.EligibleAmount, Is.Zero,
+                "Inventory and Equipment introduced by the extractor must remain ineligible.");
+
             Assert.That(snapshot.MatchesCurrent(_receiver, _equipment, out error), Is.True, error);
             Assert.That(snapshot.TryClearExact(_receiver, _equipment, out error), Is.True, error);
 

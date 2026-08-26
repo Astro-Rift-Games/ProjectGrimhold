@@ -266,16 +266,19 @@ public static class TownRaidPreparationRules
             return false;
         }
 
-        var profiles = new ProfileId[snapshot.Members.Count];
+        RaidTeamId.TryCreate(1, out RaidTeamId currentCohortTeamId);
+        var participants = new RaidLaunchParticipant[snapshot.Members.Count];
         for (int index = 0; index < snapshot.Members.Count; index++)
         {
-            profiles[index] = snapshot.Members[index].ProfileId;
+            participants[index] = new RaidLaunchParticipant(
+                snapshot.Members[index].ProfileId,
+                currentCohortTeamId);
         }
 
         return RaidLaunchContext.TryCreate(
             snapshot.RaidCode,
             snapshot.HostProfileId,
-            profiles,
+            participants,
             localProfileId,
             snapshot.LaunchRevision,
             out launchContext);

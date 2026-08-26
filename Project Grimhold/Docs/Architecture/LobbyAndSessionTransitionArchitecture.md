@@ -97,7 +97,11 @@ path as the Town queue. The coded token carries `RaidCode`; the previous
 Create and Join remain in the Town Shared runner. The replicated Town preparation
 owns the six-digit code, ProfileId members, Ready flags and Host Start boundary.
 Start freezes the cohort and the coordinator copies a runner-independent launch
-context before Town shutdown. Gameplay `WaitingForPlayers` is only the technical
+context before Town shutdown. Its canonical members are immutable
+`RaidLaunchParticipant(ProfileId, RaidTeamId)` values; the current Town flow assigns
+Team 1 explicitly to the complete cohort. Team identity supports equality only and
+defines no order or priority. `ParticipantProfileIds` is a derived compatibility
+projection, not a second roster. Gameplay `WaitingForPlayers` is only the technical
 connecting phase; it has no Ready or player-facing Start UI. The existing bootstrap
 must wait for every frozen profile and then advance automatically to `InProgress`.
 

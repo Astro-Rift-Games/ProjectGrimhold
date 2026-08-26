@@ -38,7 +38,14 @@ public sealed class SessionConnectionStateMachineTests
         SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
         var profile = new ProfileId("11111111111111111111111111111111");
         RaidCode.TryParse("123456", out RaidCode code);
-        RaidLaunchContext.TryCreate(code, profile, new[] { profile }, profile, 7, out RaidLaunchContext context);
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            code,
+            profile,
+            new[] { new RaidLaunchParticipant(profile, teamId) },
+            profile,
+            7,
+            out RaidLaunchContext context);
         var ticket = new RaidTransitionTicket(
             new RaidConnectionRequest(code, RaidConnectionRole.Host),
             new PendingLoadoutReservation("old-reservation", Array.Empty<StashItem>()),
@@ -133,7 +140,14 @@ public sealed class SessionConnectionStateMachineTests
     {
         var host = new ProfileId("11111111111111111111111111111111");
         RaidCode.TryParse("123456", out RaidCode code);
-        RaidLaunchContext.TryCreate(code, host, new List<ProfileId> { host }, host, 1, out RaidLaunchContext context);
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            code,
+            host,
+            new[] { new RaidLaunchParticipant(host, teamId) },
+            host,
+            1,
+            out RaidLaunchContext context);
         var reservation = new PendingLoadoutReservation(
             "reservation-1",
             new List<StashItem>());
