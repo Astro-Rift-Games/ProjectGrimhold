@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Grimhold.Backend;
 
 public class ApplicationAuthContext : MonoBehaviour
@@ -31,6 +31,11 @@ public class ApplicationAuthContext : MonoBehaviour
         CharacterName = characterData.name;
         Profile = profileData.profile;
         IsAuthenticated = true;
+    }
+
+    public void UpdateProfile(CharacterProfileValues updatedProfile)
+    {
+        Profile = updatedProfile;
     }
 
     public void Clear()
