@@ -7,32 +7,26 @@ using UnityEngine;
 /// </summary>
 public static class LocalProfileProvider
 {
-    private static ProfileId _remoteCharacterId;
+    private static ProfileId _processProfile;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetProcessProfile()
     {
-        _remoteCharacterId = default;
+        _processProfile = default;
     }
 
     /// <summary>
     /// Returns the identity shared by every Town and raid runner in this process.
-    /// Default if not authenticated.
+    /// The first call creates it; application restart discards it.
     /// </summary>
     public static ProfileId GetOrCreateLocalProfile()
     {
-        return _remoteCharacterId;
-    }
+        if (!_processProfile.IsValid)
+        {
+            _processProfile = new ProfileId(System.Guid.NewGuid().ToString("N"));
+            Debug.Log($"[{nameof(LocalProfileProvider)}] Generated process-local ProfileId: {_processProfile.Value}");
+        }
 
-    public static void SetRemoteCharacterId(ProfileId characterId)
-    {
-        _remoteCharacterId = characterId;
-        Debug.Log($"[{nameof(LocalProfileProvider)}] Remote CharacterId set: {characterId.Value}");
-    }
-
-    public static void ClearRemoteCharacterId()
-    {
-        _remoteCharacterId = default;
-        Debug.Log($"[{nameof(LocalProfileProvider)}] Remote CharacterId cleared.");
+        return _processProfile;
     }
 }
