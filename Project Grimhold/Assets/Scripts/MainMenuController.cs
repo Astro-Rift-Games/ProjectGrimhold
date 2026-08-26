@@ -35,6 +35,9 @@ public sealed class MainMenuController : MonoBehaviour
     private LoginPanelView _loginPanel;
 
     [SerializeField]
+    private CharacterCreationPanelView _characterCreationPanel;
+
+    [SerializeField]
     private LoginFlowController _loginFlowController;
 
     private void OnEnable()
@@ -60,11 +63,18 @@ public sealed class MainMenuController : MonoBehaviour
         // "Enter Town" is locked until the login flow completes successfully.
         createRoomButton.interactable = false;
 
+        if (_characterCreationPanel != null)
+        {
+            _characterCreationPanel.gameObject.SetActive(false);
+            _characterCreationPanel.AddCreateListener(OnCreateCharacterButtonClicked);
+        }
+
         if (_loginPanel != null)
         {
             _loginPanel.gameObject.SetActive(true);
             _loginPanel.SetStatus(string.Empty);
             _loginPanel.AddLoginListener(OnLoginButtonClicked);
+            _loginPanel.AddRegisterListener(OnRegisterButtonClicked);
         }
         else
         {
@@ -82,6 +92,12 @@ public sealed class MainMenuController : MonoBehaviour
         if (_loginPanel != null)
         {
             _loginPanel.RemoveLoginListener(OnLoginButtonClicked);
+            _loginPanel.RemoveRegisterListener(OnRegisterButtonClicked);
+        }
+
+        if (_characterCreationPanel != null)
+        {
+            _characterCreationPanel.RemoveCreateListener(OnCreateCharacterButtonClicked);
         }
     }
 
@@ -100,16 +116,76 @@ public sealed class MainMenuController : MonoBehaviour
             _loginPanel.Username,
             _loginPanel.Password);
 
+        HandleLoginFlowResult(result);
+    }
+
+    private async void OnRegisterButtonClicked()
+    {
+        if (_loginFlowController == null)
+        {
+            Debug.LogError($"[{nameof(MainMenuController)}] LoginFlowController not assigned.");
+            return;
+        }
+
+        _loginPanel.SetInteractable(false);
+        _loginPanel.SetStatus("Registering...");
+
+        LoginFlowResult result = await _loginFlowController.ExecuteRegisterAsync(
+            _loginPanel.Username,
+            _loginPanel.Password);
+
+        HandleLoginFlowResult(result);
+    }
+
+    private void HandleLoginFlowResult(LoginFlowResult result)
+    {
         if (result.IsSuccess)
         {
-            _loginPanel.SetStatus("Login successful.");
+            _loginPanel.SetStatus("Success.");
             _loginPanel.gameObject.SetActive(false);
             createRoomButton.interactable = true;
+        }
+        else if (result.Status == LoginFlowStatus.NeedsCharacterCreation)
+        {
+            _loginPanel.gameObject.SetActive(false);
+
+            if (_characterCreationPanel != null)
+            {
+                _characterCreationPanel.gameObject.SetActive(true);
+                _characterCreationPanel.SetStatus("Account created. Please choose a character name.");
+                _characterCreationPanel.SetInteractable(true);
+            }
+            else
+            {
+                Debug.LogError($"[{nameof(MainMenuController)}] Needs character creation but no panel assigned!");
+            }
         }
         else
         {
             _loginPanel.SetStatus(result.ErrorMessage);
             _loginPanel.SetInteractable(true);
+        }
+    }
+
+    private async void OnCreateCharacterButtonClicked()
+    {
+        if (_loginFlowController == null) return;
+
+        _characterCreationPanel.SetInteractable(false);
+        _characterCreationPanel.SetStatus("Creating character...");
+
+        LoginFlowResult result = await _loginFlowController.CreateCharacterAsync(_characterCreationPanel.CharacterName);
+
+        if (result.IsSuccess)
+        {
+            _characterCreationPanel.SetStatus("Success.");
+            _characterCreationPanel.gameObject.SetActive(false);
+            createRoomButton.interactable = true;
+        }
+        else
+        {
+            _characterCreationPanel.SetStatus(result.ErrorMessage);
+            _characterCreationPanel.SetInteractable(true);
         }
     }
 

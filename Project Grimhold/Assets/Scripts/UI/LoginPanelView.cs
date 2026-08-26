@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,6 +11,7 @@ public sealed class LoginPanelView : MonoBehaviour
     [SerializeField] private TMP_InputField _usernameInput;
     [SerializeField] private TMP_InputField _passwordInput;
     [SerializeField] private Button _loginButton;
+    [SerializeField] private Button _registerButton;
     [SerializeField] private TextMeshProUGUI _statusText;
 
     public string Username => _usernameInput.text.Trim();
@@ -21,6 +22,7 @@ public sealed class LoginPanelView : MonoBehaviour
         _usernameInput.interactable = interactable;
         _passwordInput.interactable = interactable;
         _loginButton.interactable = interactable;
+        if (_registerButton != null) _registerButton.interactable = interactable;
     }
 
     public void SetStatus(string message)
@@ -34,4 +36,14 @@ public sealed class LoginPanelView : MonoBehaviour
 
     public void RemoveLoginListener(UnityEngine.Events.UnityAction action)
         => _loginButton.onClick.RemoveListener(action);
+
+    public void AddRegisterListener(UnityEngine.Events.UnityAction action)
+    {
+        if (_registerButton != null) _registerButton.onClick.AddListener(action);
+    }
+
+    public void RemoveRegisterListener(UnityEngine.Events.UnityAction action)
+    {
+        if (_registerButton != null) _registerButton.onClick.RemoveListener(action);
+    }
 }
