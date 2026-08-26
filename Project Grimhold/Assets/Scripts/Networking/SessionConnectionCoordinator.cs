@@ -1043,10 +1043,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return false;
         }
 
+        RaidTeamId.TryCreate(1, out RaidTeamId currentCohortTeamId);
+        var participants = new RaidLaunchParticipant[profiles.Count];
+        for (int index = 0; index < profiles.Count; index++)
+        {
+            participants[index] = new RaidLaunchParticipant(profiles[index], currentCohortTeamId);
+        }
+
         return RaidLaunchContext.TryCreate(
             raidCode,
             hostProfile,
-            profiles,
+            participants,
             localProfile,
             Mathf.Max(1, _developmentLaunchSequence),
             out launchContext);

@@ -47,7 +47,18 @@ public sealed class FusionSessionAvailabilityTests
         var host = new ProfileId("host");
         var client = new ProfileId("client");
         RaidCode.TryParse("123456", out RaidCode code);
-        RaidLaunchContext.TryCreate(code, host, new[] { host, client }, client, 1, out RaidLaunchContext frozen);
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            code,
+            host,
+            new[]
+            {
+                new RaidLaunchParticipant(host, teamId),
+                new RaidLaunchParticipant(client, teamId)
+            },
+            client,
+            1,
+            out RaidLaunchContext frozen);
 
         Assert.That(
             SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(

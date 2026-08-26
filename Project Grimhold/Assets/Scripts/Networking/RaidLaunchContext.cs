@@ -8,6 +8,8 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class RaidLaunchContext
 {
+    private readonly RaidLaunchParticipant[] _participants;
+    private readonly IReadOnlyList<RaidLaunchParticipant> _readOnlyParticipants;
     private readonly ProfileId[] _participantProfileIds;
     private readonly IReadOnlyList<ProfileId> _readOnlyParticipantProfileIds;
 
@@ -15,12 +17,13 @@ public sealed class RaidLaunchContext
     public ProfileId HostProfileId { get; }
     public ProfileId LocalProfileId { get; }
     public int LaunchRevision { get; }
+    public IReadOnlyList<RaidLaunchParticipant> Participants => _readOnlyParticipants;
     public IReadOnlyList<ProfileId> ParticipantProfileIds => _readOnlyParticipantProfileIds;
 
     private RaidLaunchContext(
         RaidCode raidCode,
         ProfileId hostProfileId,
-        IReadOnlyList<ProfileId> participantProfileIds,
+        IReadOnlyList<RaidLaunchParticipant> participants,
         ProfileId localProfileId,
         int launchRevision)
     {
@@ -28,7 +31,9 @@ public sealed class RaidLaunchContext
         HostProfileId = hostProfileId;
         LocalProfileId = localProfileId;
         LaunchRevision = launchRevision;
-        _participantProfileIds = Copy(participantProfileIds);
+        _participants = Copy(participants);
+        _readOnlyParticipants = Array.AsReadOnly(_participants);
+        _participantProfileIds = CopyProfiles(_participants);
         _readOnlyParticipantProfileIds = Array.AsReadOnly(_participantProfileIds);
     }
 
@@ -39,13 +44,15 @@ public sealed class RaidLaunchContext
     public static bool TryCreate(
         RaidCode raidCode,
         ProfileId hostProfileId,
-        IReadOnlyList<ProfileId> participantProfileIds,
+        IReadOnlyList<RaidLaunchParticipant> participants,
         ProfileId localProfileId,
         int launchRevision,
         out RaidLaunchContext context)
     {
+        ProfileId[] participantProfileIds = CopyProfiles(participants);
         if (!raidCode.IsValid || !localProfileId.IsValid ||
             !RaidSessionRules.IsValidLaunchRevision(launchRevision) ||
+            !AreValidParticipants(participants) ||
             !RaidSessionRules.IsValidParticipantCohort(hostProfileId, participantProfileIds) ||
             !RaidSessionRules.ContainsProfile(participantProfileIds, localProfileId))
         {
@@ -56,25 +63,60 @@ public sealed class RaidLaunchContext
         context = new RaidLaunchContext(
             raidCode,
             hostProfileId,
-            participantProfileIds,
+            participants,
             localProfileId,
             launchRevision);
         return true;
     }
 
-    private static ProfileId[] Copy(IReadOnlyList<ProfileId> profiles)
+    private static bool AreValidParticipants(IReadOnlyList<RaidLaunchParticipant> participants)
     {
-        if (profiles == null)
+        if (participants == null || participants.Count < 1 ||
+            participants.Count > RaidSessionRules.MaxParticipants)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < participants.Count; index++)
+        {
+            if (!participants[index].IsValid)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static RaidLaunchParticipant[] Copy(IReadOnlyList<RaidLaunchParticipant> participants)
+    {
+        if (participants == null)
+        {
+            return Array.Empty<RaidLaunchParticipant>();
+        }
+
+        var copy = new RaidLaunchParticipant[participants.Count];
+        for (int index = 0; index < participants.Count; index++)
+        {
+            copy[index] = participants[index];
+        }
+
+        return copy;
+    }
+
+    private static ProfileId[] CopyProfiles(IReadOnlyList<RaidLaunchParticipant> participants)
+    {
+        if (participants == null)
         {
             return Array.Empty<ProfileId>();
         }
 
-        var copy = new ProfileId[profiles.Count];
-        for (int index = 0; index < profiles.Count; index++)
+        var profiles = new ProfileId[participants.Count];
+        for (int index = 0; index < participants.Count; index++)
         {
-            copy[index] = profiles[index];
+            profiles[index] = participants[index].ProfileId;
         }
 
-        return copy;
+        return profiles;
     }
 }
