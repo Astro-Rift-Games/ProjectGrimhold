@@ -7,6 +7,9 @@ public static class ProgressionBalanceDefaults
 {
     public static ExperienceCurve InitialExperienceCurve { get; } = CreateInitialExperienceCurve();
 
+    public static ExpeditionExperienceRetentionPolicy InitialExpeditionExperienceRetentionPolicy { get; } =
+        CreateInitialExpeditionExperienceRetentionPolicy();
+
     private static ExperienceCurve CreateInitialExperienceCurve()
     {
         long[] requirements =
@@ -22,5 +25,20 @@ public static class ProgressionBalanceDefaults
         }
 
         return curve;
+    }
+
+    private static ExpeditionExperienceRetentionPolicy CreateInitialExpeditionExperienceRetentionPolicy()
+    {
+        if (!ExpeditionExperienceRetentionPolicy.TryCreate(
+                extractedBasisPoints: 10_000,
+                defeatedBasisPoints: 2_000,
+                abandonedBasisPoints: 0,
+                definitivelyDisconnectedBasisPoints: 0,
+                out ExpeditionExperienceRetentionPolicy policy))
+        {
+            throw new InvalidOperationException("Initial expedition experience retention policy is invalid.");
+        }
+
+        return policy;
     }
 }

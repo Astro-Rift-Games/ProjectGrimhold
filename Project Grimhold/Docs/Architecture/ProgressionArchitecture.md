@@ -43,6 +43,29 @@ rejection leaves the replicated breakdown unchanged.
 snapshot. Later result resolution may read the frozen breakdown without making the ledger
 responsible for consolidation.
 
+## Definitive experience resolution
+
+`ExpeditionExperienceResolutionRules` is a pure C# transition from a validated provisional
+snapshot to one immutable `ExpeditionExperienceResolution`. Its outcome domain contains only
+the definitive Progression results `Extracted`, `Defeated`, `Abandoned` and
+`DefinitivelyDisconnected`; temporary disconnection, pre-Dungeon cancellation and the cause or
+history that produced an outcome remain outside this domain.
+
+`ExpeditionExperienceRetentionPolicy` supplies one independently configurable `0..10000`
+basis-point percentage per outcome. The initial policy retains 100% after extraction, 20% after
+defeat and 0% after abandonment or definitive disconnection. Resolution derives the validated
+total from the preserved `ExpeditionExperienceSnapshot` and applies the percentage with integer
+quotient-and-remainder arithmetic, so the result is floored without floating-point arithmetic or
+an overflow at `long.MaxValue`. The complete original category breakdown remains available and
+no second provisional total is stored.
+
+The transition accepts an immutable previous resolution and rejects replacement once completed.
+This deterministic one-shot rule does not store state by itself. `PlayerExpeditionExperienceLedger`
+continues to own only provisional Raid Experience and does not resolve or apply it. TASK-110 owns
+the authoritative mapping from Raid context to a definitive Progression outcome and the storage of
+the resulting resolution for that participation. Applying consolidated Experience to persistent
+Level and Experience remains a separate responsibility.
+
 ## Producer idempotency
 
 The ledger receives only a reward that its authoritative producer has already recognized
