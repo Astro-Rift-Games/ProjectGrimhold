@@ -105,6 +105,16 @@ namespace Tests.PlayMode.Presentation
             Assert.That(menuView.ControlsText, Is.Not.Null);
             Assert.That(menuView.ResumeButton, Is.Not.Null);
             Assert.That(menuView.AbandonButton, Is.Not.Null);
+            Assert.That(menuView.ProgressionResultsRoot, Is.Not.Null);
+            Assert.That(menuView.ProgressionResultsRoot.activeSelf, Is.False);
+            Assert.That(menuView.ProgressionActivityText, Is.Not.Null);
+            Assert.That(menuView.ProgressionExperienceText, Is.Not.Null);
+            Assert.That(menuView.ProgressionLevelText, Is.Not.Null);
+            Assert.That(menuView.ProgressionLevelStatusText, Is.Not.Null);
+            Assert.That(menuView.ProgressionExperienceFill, Is.Not.Null);
+            Assert.That(
+                menuView.ProgressionExperienceFill.type,
+                Is.EqualTo(UnityEngine.UI.Image.Type.Filled));
 
             MonoBehaviour[] behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(true);
             for (int index = 0; index < behaviours.Length; index++)

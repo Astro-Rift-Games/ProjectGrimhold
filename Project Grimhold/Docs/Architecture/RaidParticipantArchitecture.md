@@ -33,7 +33,8 @@ before `RaidAvatarParticipantLink` records `Defeated` and removes the avatar Inp
 Authority. The avatar stays spawned as the synchronised lootable body. Voluntary abandonment
 reuses that material Loot handoff without synthesizing combat damage or Kill Experience; only
 after it succeeds does the participant record technical `Aborted`, resolve `Abandoned`, and
-authorize return.
+expose Results. Its durable progression ACK confirms persistence but does not authorize Return;
+the participant remains terminal until an explicit Return request is accepted by State Authority.
 
 Extraction enters `Extracted`, but return remains unavailable until `PlayerExtractionLootSaver`
 completes persistence, extracted-Loot Experience and Progression for the matching
@@ -53,18 +54,27 @@ resolve both directions. The direct-development composition without a participan
 may still fall back to avatar Input Authority.
 
 After `Defeated`, the avatar is no longer current or locally controllable, but the local
-participant retains Input Authority and therefore owns the terminal HUD composition. The
-HUD remains bound without restoring gameplay input. `Spectating` is local presentation,
+participant retains Input Authority and therefore owns the terminal HUD composition. The same
+terminal ownership is retained for `Aborted` only when its semantic cause is
+`VoluntaryAbandonConfirmed`; other aborted states do not gain this exception. Existing extracted
+HUD ownership remains unchanged. The HUD remains bound without restoring gameplay input.
+`Spectating` is local presentation,
 never a `RaidParticipantState`. A defeated Client may observe or request Return; the
 canonical Host enters spectator automatically and cannot Return while sustaining the
 runner's State Authority. Remote defeated bodies cannot own local HUD. Presentation
 observes return authorization and delegates the local runner transition to
 `SessionConnectionCoordinator`. No UI component shuts down a runner or loads a scene.
 
-`Defeated` and `Extracted` use distinct result presentations. Defeat reports the fallen
-avatar and exposes actions according to the canonical profile role. Extraction reports success, displays the pending
-Loadout commit and keeps return disabled until `IsExtractionCommitConfirmed` corresponds
-to the current `ResultSequence`.
+`Extracted`, `Defeated` and voluntary abandonment present the immutable
+`ExpeditionProgressionResult` captured after resolver commitment. Before that snapshot is
+available the menu reports that Results are processing. Persistence feedback remains independent
+from the summary, and its ACK never authorizes Return by itself. The button is only a local
+reflection of snapshot, ACK, extraction and role conditions; `RequestReturn` remains the
+authoritative boundary and a rejected request does not consume future local attempts.
+
+Once State Authority accepts an explicit request it publishes `IsReturnAuthorized`.
+Presentation observes that state and delegates to `SessionConnectionCoordinator`, which alone
+owns the Raid-to-Town runner transition.
 
 Return authorization and departure classification are specified in
 `Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md`.
@@ -73,7 +83,8 @@ The avatar's Fusion `Spawned` callbacks run before `NetworkSpawnManager` can ass
 `CurrentAvatarId` after `runner.Spawn` returns. Camera and HUD binders therefore observe
 the relationship during `Render` and retry until both replicated directions resolve.
 Camera and active-gameplay bindings may be released when the avatar stops being current;
-the HUD binder instead retains only the local defeated participant's terminal composition.
+the HUD binder retains the local terminal composition for defeat and confirmed voluntary
+abandonment, without treating every `Aborted` state as abandonment.
 This observation is presentation-only and never advances participant simulation state.
 
 ## Host migration

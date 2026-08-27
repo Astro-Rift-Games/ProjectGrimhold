@@ -39,6 +39,15 @@ Return while the raid is active. A defeated Client may Return. Immediately befor
 `ControlledReturnRegistry`. `Extracted` return and living abandonment keep their separate
 existing contracts.
 
+All supported terminal Results share the same separation: resolver commitment makes an immutable
+summary available; durable persistence ACK confirms persistence only; and an explicit
+`RequestReturn` asks State Authority to revalidate outcome, extraction and role restrictions.
+The ACK alone never publishes `IsReturnAuthorized`, including for confirmed voluntary
+abandonment. A locally rejected or premature click does not latch the request, so it may be
+issued later when observable conditions become valid. Only after State Authority publishes
+`IsReturnAuthorized` does presentation delegate the transition to
+`SessionConnectionCoordinator`.
+
 ## Player departure
 
 `OnPlayerLeft` cannot assume Fusion still exposes `GetPlayerObject(player)`. State Authority
@@ -76,9 +85,11 @@ transfer, take-all, drop and consumable intentions are rejected and any open inv
 closed.
 
 Cleanup is idempotent on authorized Return, match finish, shutdown, despawn, disable, scene
-unload and destruction: it clears camera/target buffers, hides spectator UI, removes listeners,
-releases suppression and restores the local inventory block as the composition leaves the
-raid.
+unload and destruction: it clears camera/target buffers, the participant and progression resolver,
+the captured Results snapshot, observed states and request latches; hides terminal/spectator UI;
+removes listeners; releases suppression; and restores the local inventory block as the composition
+leaves the raid. Hiding and reopening only the menu root does not tear down the active binding or
+replace its captured snapshot.
 
 ## Scope and validation boundary
 

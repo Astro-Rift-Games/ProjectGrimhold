@@ -8,6 +8,8 @@ public sealed class RaidDefeatLifecycleSourceTests
         "Assets/Scripts/Networking/NetworkRaidParticipant.cs";
     private const string SpawnManagerPath =
         "Assets/Scripts/Networking/NetworkSpawnManager.cs";
+    private const string MenuPresenterPath =
+        "Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs";
 
     [Test]
     public void DefeatedReturn_RegistersControlledDepartureBeforePublishingAuthorization()
@@ -19,6 +21,48 @@ public sealed class RaidDefeatLifecycleSourceTests
         Assert.That(
             rpc.IndexOf("TryRegisterControlledReturn", StringComparison.Ordinal),
             Is.LessThan(rpc.LastIndexOf("IsReturnAuthorized = true", StringComparison.Ordinal)));
+    }
+
+    [Test]
+    public void ProgressionAck_ConfirmsPersistenceWithoutPublishingReturnAuthorization()
+    {
+        string acknowledgement = ReadMethod(
+            File.ReadAllText(ParticipantPath),
+            "internal bool TryConfirmProgressionCommit");
+
+        Assert.That(
+            acknowledgement,
+            Does.Contain("IsProgressionCommitConfirmed = true"));
+        Assert.That(acknowledgement, Does.Not.Contain("IsReturnAuthorized = true"));
+    }
+
+    [Test]
+    public void ResultsCapture_ReadsResolverOnlyUntilFirstSuccessfulSnapshot()
+    {
+        string capture = ReadMethod(
+            File.ReadAllText(MenuPresenterPath),
+            "private bool TryCaptureProgressionResult");
+
+        Assert.That(
+            capture.IndexOf("if (_hasProgressionResultSnapshot)", StringComparison.Ordinal),
+            Is.LessThan(capture.IndexOf("TryGetProgressionResult", StringComparison.Ordinal)));
+        Assert.That(capture, Does.Contain("_progressionResultSnapshot = result"));
+        Assert.That(capture, Does.Contain("_hasProgressionResultSnapshot = true"));
+    }
+
+    [Test]
+    public void PrematureReturn_DoesNotConsumePresenterRequestLatch()
+    {
+        string request = ReadMethod(
+            File.ReadAllText(MenuPresenterPath),
+            "private void RequestTerminalReturnOnce");
+
+        Assert.That(
+            request.IndexOf("!CanIssueReturnRequest()", StringComparison.Ordinal),
+            Is.LessThan(request.IndexOf("_returnRequested = true", StringComparison.Ordinal)));
+        Assert.That(
+            request.IndexOf("_returnRequested = true", StringComparison.Ordinal),
+            Is.LessThan(request.IndexOf("_participant.RequestReturn()", StringComparison.Ordinal)));
     }
 
     [Test]

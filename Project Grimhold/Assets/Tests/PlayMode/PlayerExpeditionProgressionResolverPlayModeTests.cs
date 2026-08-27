@@ -114,6 +114,41 @@ namespace Tests.PlayMode.Progression
         }
 
         [UnityTest]
+        public IEnumerator VoluntaryAbandonAck_ConfirmsPersistenceWithoutAuthorizingReturn()
+        {
+            yield return StartRunner();
+
+            NetworkObject participantObject = SpawnParticipant(10, 1, 0);
+            NetworkRaidParticipant participant =
+                participantObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionExperienceLedger ledger =
+                participantObject.GetComponent<PlayerExpeditionExperienceLedger>();
+            PlayerExpeditionProgressionResolver resolver =
+                participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
+
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 100);
+            yield return Configure(
+                participant,
+                RaidParticipantState.Aborted,
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+                ExtractionExperienceTransactionPhase.None);
+            yield return Finalize(
+                resolver,
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
+
+            Assert.That((bool)participant.IsProgressionCommitConfirmed, Is.False);
+            Assert.That((bool)participant.IsReturnAuthorized, Is.False);
+
+            int sequence = _driver.CompletionSequence;
+            _driver.RequestConfirmProgressionCommit(participant);
+            yield return WaitForDriver(sequence);
+
+            Assert.That(_driver.LastResult, Is.True);
+            Assert.That((bool)participant.IsProgressionCommitConfirmed, Is.True);
+            Assert.That((bool)participant.IsReturnAuthorized, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator Extraction_AppliesMultipleLevelsAndFailureBeforeCommitIsAtomic()
         {
             yield return StartRunner();

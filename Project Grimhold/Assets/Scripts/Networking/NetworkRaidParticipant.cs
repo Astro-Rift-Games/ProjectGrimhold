@@ -323,12 +323,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return false;
         }
 
+        // A durable ACK confirms persistence only. Return remains a separate,
+        // explicitly requested State Authority transition.
         IsProgressionCommitConfirmed = true;
-        if (FinalizationCause ==
-            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed)
-        {
-            IsReturnAuthorized = true;
-        }
         return true;
     }
 
