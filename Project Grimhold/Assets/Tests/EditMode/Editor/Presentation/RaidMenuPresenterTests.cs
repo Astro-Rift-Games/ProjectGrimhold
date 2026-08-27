@@ -298,7 +298,10 @@ namespace Tests.EditMode.Presentation
                     state,
                     cause,
                     extractionComplete,
-                    isHost),
+                    isHost,
+                    isCompatibleClientPhase: !isHost,
+                    isMatchFinished: false,
+                    hasRaidingParticipants: isHost),
                 Is.False);
         }
 
@@ -319,7 +322,10 @@ namespace Tests.EditMode.Presentation
                     state,
                     cause,
                     isExtractionProgressionComplete: true,
-                    isHost: false),
+                    isHost: false,
+                    isCompatibleClientPhase: true,
+                    isMatchFinished: false,
+                    hasRaidingParticipants: false),
                 Is.True);
         }
 
@@ -331,6 +337,55 @@ namespace Tests.EditMode.Presentation
             InvokePrivateMethod(_presenter, "RequestTerminalReturnOnce");
 
             Assert.That(ReadPrivateField<bool>(_presenter, "_returnRequested"), Is.False);
+        }
+
+        [Test]
+        public void View_AcceptedReturnRequest_DisablesButtonAndShowsPendingState()
+        {
+            ExpeditionProgressionResult result = CreateResult(
+                ExpeditionExperienceResolutionOutcome.Defeated,
+                retentionBasisPoints: 2_000,
+                resultingExperience: 20,
+                nextLevelRequirement: 100,
+                isMaxLevel: false);
+
+            _view.PresentProgressionResults(
+                "Resultados",
+                result,
+                "Progreso guardado.",
+                canReturn: false,
+                returnRequested: true,
+                canSpectate: false,
+                isSpectating: false,
+                canRetryPersistence: false);
+
+            Assert.That(_view.AbandonButton.interactable, Is.False);
+            Assert.That(_view.AbandonButton.GetComponentInChildren<TMPro.TMP_Text>(true).text,
+                Is.EqualTo("Regreso solicitado"));
+            Assert.That(_view.StatusText.text, Does.Contain("Regreso solicitado"));
+        }
+
+        [Test]
+        public void Presenter_FinishedPhase_RefreshesRetainedResultsAndEnablesEligibleHostReturn()
+        {
+            Assert.That(
+                RaidMenuPresenter.ShouldRefreshForMatchPhase(
+                    NetworkMatchController.MatchPhase.Closing,
+                    NetworkMatchController.MatchPhase.Finished,
+                    hasPersistentResultScreen: true),
+                Is.True);
+            Assert.That(
+                RaidMenuPresenter.CanIssueReturnRequest(
+                    hasProgressionResultSnapshot: true,
+                    isProgressionCommitConfirmed: true,
+                    RaidParticipantState.Extracted,
+                    ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
+                    isExtractionProgressionComplete: true,
+                    isHost: true,
+                    isCompatibleClientPhase: true,
+                    isMatchFinished: true,
+                    hasRaidingParticipants: false),
+                Is.True);
         }
 
         [TestCase(RaidParticipantState.Defeated,
@@ -496,6 +551,7 @@ namespace Tests.EditMode.Presentation
                 result,
                 persistenceFeedback,
                 canReturn,
+                returnRequested: false,
                 canSpectate: false,
                 isSpectating: false,
                 canRetryPersistence: canRetryPersistence);

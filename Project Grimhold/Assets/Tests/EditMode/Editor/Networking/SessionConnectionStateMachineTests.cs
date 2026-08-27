@@ -59,8 +59,8 @@ public sealed class SessionConnectionStateMachineTests
             SetPrivateField(coordinator, "_launchDispatchActive", true);
             SetPrivateField(coordinator, "_raidAdmissionConfirmed", true);
             SetPrivateField(coordinator, "_loadoutConfirmationPending", true);
-            SetPrivateField(coordinator, "_raidClosureReturnStarted", true);
-            SetPrivateField(coordinator, "_raidClosureHostShutdownAt", 10f);
+            SetPrivateField(coordinator, "_hostResultsReturnRequested", true);
+            SetPrivateField(coordinator, "_hostResultsReturnStarted", true);
             SetPrivateField(coordinator, "_pendingTransitionFailure", (SessionTransitionResult?)SessionTransitionResult.ConnectionFailed);
 
             InvokePrivateMethod(coordinator, "CompleteTownEntry", new object[] { null });
@@ -70,8 +70,8 @@ public sealed class SessionConnectionStateMachineTests
             Assert.That(ReadPrivateField<bool>(coordinator, "_launchDispatchActive"), Is.False);
             Assert.That(ReadPrivateField<bool>(coordinator, "_raidAdmissionConfirmed"), Is.False);
             Assert.That(ReadPrivateField<bool>(coordinator, "_loadoutConfirmationPending"), Is.False);
-            Assert.That(ReadPrivateField<bool>(coordinator, "_raidClosureReturnStarted"), Is.False);
-            Assert.That(ReadPrivateField<float>(coordinator, "_raidClosureHostShutdownAt"), Is.EqualTo(-1f));
+            Assert.That(ReadPrivateField<bool>(coordinator, "_hostResultsReturnRequested"), Is.False);
+            Assert.That(ReadPrivateField<bool>(coordinator, "_hostResultsReturnStarted"), Is.False);
             Assert.That(coordinator.TryConsumeLastTransitionFailure(out _), Is.False);
         }
         finally

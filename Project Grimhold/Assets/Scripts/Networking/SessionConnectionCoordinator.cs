@@ -34,9 +34,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _clientJoinRetryDelaySeconds = 0.5f;
 
-    [SerializeField, Min(0f)]
-    private float _raidClosureHostGraceSeconds = 5f;
-
     [Header("Direct Development Context")]
     [SerializeField]
     private string _developmentRaidCode = "900001";
@@ -58,8 +55,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _launchDispatchActive;
     private bool _raidAdmissionConfirmed;
     private bool _loadoutConfirmationPending;
-    private bool _raidClosureReturnStarted;
-    private float _raidClosureHostShutdownAt = -1f;
+    private bool _hostResultsReturnRequested;
+    private bool _hostResultsReturnStarted;
     private SessionTransitionResult? _pendingTransitionFailure;
     private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
@@ -284,7 +281,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void Update()
     {
-        ObserveCompletedRaid();
+        ObservePendingHostResultsReturn();
         if (_loadoutConfirmationPending)
         {
             TryConfirmActiveReservation();
@@ -300,31 +297,124 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _ = BeginAcknowledgedRaidLaunchAsync(launchSequence);
     }
 
-    private void ObserveCompletedRaid()
+    /// <summary>
+    /// Registers the operational Host's explicit intent to leave completed Results.
+    /// The global transition remains pending while any remote peer belongs to the runner.
+    /// </summary>
+    public bool RequestHostResultsReturn()
     {
-        if (_raidClosureReturnStarted || _operationActive || State != SessionConnectionState.Raid ||
-            _raidLauncher == null || _raidLauncher.Runner == null || _raidLauncher.MatchController == null ||
-            _raidLauncher.MatchController.Phase != NetworkMatchController.MatchPhase.Finished)
+        if (_hostResultsReturnRequested || _hostResultsReturnStarted)
+        {
+            return true;
+        }
+
+        if (!TryResolveHostResultsContext(
+                out NetworkRunner runner,
+                out NetworkMatchController matchController,
+                out NetworkSpawnManager spawnManager,
+                out NetworkRaidParticipant participant,
+                out bool hasProgressionResultSnapshot))
+        {
+            return false;
+        }
+
+        if (!RaidResultsReturnPolicy.CanRequestHostReturn(
+                participant.State,
+                participant.FinalizationCause,
+                participant.IsExtractionProgressionComplete,
+                hasProgressionResultSnapshot,
+                participant.IsProgressionCommitConfirmed,
+                runner.IsServer,
+                spawnManager.HasRaidingParticipants,
+                matchController.Phase == NetworkMatchController.MatchPhase.Finished))
+        {
+            return false;
+        }
+
+        _hostResultsReturnRequested = true;
+        return true;
+    }
+
+    private void ObservePendingHostResultsReturn()
+    {
+        if (!_hostResultsReturnRequested)
         {
             return;
         }
 
-        if (_raidLauncher.Runner.IsServer)
-        {
-            if (_raidClosureHostShutdownAt < 0f)
-            {
-                _raidClosureHostShutdownAt = Time.unscaledTime + _raidClosureHostGraceSeconds;
-                return;
-            }
+        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        NetworkMatchController matchController = _raidLauncher != null
+            ? _raidLauncher.MatchController
+            : null;
+        NetworkSpawnManager spawnManager = runner != null
+            ? runner.GetComponent<NetworkSpawnManager>()
+            : null;
 
-            if (Time.unscaledTime < _raidClosureHostShutdownAt)
-            {
-                return;
-            }
+        if (runner == null || !runner.IsRunning || !runner.IsServer ||
+            matchController == null || spawnManager == null)
+        {
+            ResetHostResultsReturn();
+            return;
         }
 
-        _raidClosureReturnStarted = true;
-        _ = ReturnToTownAsync();
+        if (!RaidResultsReturnPolicy.ShouldStartHostReturn(
+                _hostResultsReturnRequested,
+                _hostResultsReturnStarted,
+                _operationActive,
+                State == SessionConnectionState.Raid,
+                hasValidHostRunner: true,
+                isMatchFinished: matchController.Phase ==
+                    NetworkMatchController.MatchPhase.Finished,
+                hasRaidingParticipants: spawnManager.HasRaidingParticipants,
+                hasConnectedRemoteParticipants:
+                    spawnManager.HasConnectedRemoteParticipants))
+        {
+            return;
+        }
+
+        _hostResultsReturnStarted = true;
+        _ = CompletePendingHostResultsReturnAsync();
+    }
+
+    private bool TryResolveHostResultsContext(
+        out NetworkRunner runner,
+        out NetworkMatchController matchController,
+        out NetworkSpawnManager spawnManager,
+        out NetworkRaidParticipant participant,
+        out bool hasProgressionResultSnapshot)
+    {
+        runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        matchController = _raidLauncher != null ? _raidLauncher.MatchController : null;
+        spawnManager = runner != null ? runner.GetComponent<NetworkSpawnManager>() : null;
+        participant = null;
+        hasProgressionResultSnapshot = false;
+        if (State != SessionConnectionState.Raid || _operationActive || runner == null ||
+            !runner.IsRunning || !runner.IsServer || matchController == null || spawnManager == null ||
+            !runner.TryGetPlayerObject(runner.LocalPlayer, out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out participant))
+        {
+            return false;
+        }
+
+        PlayerExpeditionProgressionResolver resolver =
+            participant.GetComponent<PlayerExpeditionProgressionResolver>();
+        hasProgressionResultSnapshot = resolver != null &&
+            resolver.TryGetProgressionResult(out ExpeditionProgressionResult _);
+        return true;
+    }
+
+    private async Task CompletePendingHostResultsReturnAsync()
+    {
+        SessionTransitionResult result = await ReturnToTownAsync();
+        if (this == null || result == SessionTransitionResult.Succeeded)
+        {
+            return;
+        }
+
+        _hostResultsReturnRequested = false;
+        _hostResultsReturnStarted = false;
+        _pendingTransitionFailure = result;
     }
 
     private async Task BeginAcknowledgedRaidLaunchAsync(int launchSequence)
@@ -409,6 +499,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void OnDestroy()
     {
+        ResetHostResultsReturn();
         _activeTransitionCancellation?.Cancel();
         _activeTransitionCancellation?.Dispose();
         _activeTransitionCancellation = null;
@@ -632,8 +723,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _raidAdmissionConfirmed = ticket.HasLoadoutReservation;
             _loadoutConfirmationPending = ticket.HasLoadoutReservation;
             TryConfirmActiveReservation();
-            _raidClosureReturnStarted = false;
-            _raidClosureHostShutdownAt = -1f;
+            ResetHostResultsReturn();
             _pendingTransitionFailure = null;
             return SessionTransitionResult.Succeeded;
         }
@@ -865,8 +955,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _raidAdmissionConfirmed = true;
             _loadoutConfirmationPending = true;
             TryConfirmActiveReservation();
-            _raidClosureReturnStarted = false;
-            _raidClosureHostShutdownAt = -1f;
+            ResetHostResultsReturn();
             _pendingTransitionFailure = null;
             return SessionTransitionResult.Succeeded;
         }
@@ -1176,10 +1265,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private bool TransitionTo(SessionConnectionState nextState)
     {
+        SessionConnectionState previousState = State;
         if (!_stateMachine.TryTransition(nextState))
         {
             Debug.LogError($"Invalid session transition: {State} -> {nextState}.", this);
             return false;
+        }
+
+        if (previousState == SessionConnectionState.Raid &&
+            nextState != SessionConnectionState.Raid)
+        {
+            ResetHostResultsReturn();
         }
 
         StateChanged?.Invoke(nextState);
@@ -1208,9 +1304,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _launchDispatchActive = false;
         _raidAdmissionConfirmed = false;
         _loadoutConfirmationPending = false;
-        _raidClosureReturnStarted = false;
-        _raidClosureHostShutdownAt = -1f;
+        ResetHostResultsReturn();
         _pendingTransitionFailure = pendingFailure;
+    }
+
+    private void ResetHostResultsReturn()
+    {
+        _hostResultsReturnRequested = false;
+        _hostResultsReturnStarted = false;
     }
 
     private void UpdateTicketState(SessionConnectionState state)

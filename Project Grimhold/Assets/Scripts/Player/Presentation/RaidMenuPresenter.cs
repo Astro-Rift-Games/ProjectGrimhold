@@ -40,6 +40,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _observedHasLocalProgressionCommitResult;
     private ProgressionCommitResult _observedLocalProgressionCommitResult;
     private ExtractionLootSaveStatus _observedSaveStatus;
+    private NetworkMatchController.MatchPhase _observedMatchPhase;
 
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
 
@@ -105,6 +106,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
+        _observedMatchPhase = GetMatchPhase();
 
         if (isActiveAndEnabled)
         {
@@ -141,6 +143,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedHasLocalProgressionCommitResult = false;
         _observedLocalProgressionCommitResult = default;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
+        _observedMatchPhase = NetworkMatchController.MatchPhase.WaitingForPlayers;
         _view?.Clear();
     }
 
@@ -359,18 +362,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        // An operational Host cannot abandon its participant while sustaining
-        // the raid. Cancel Raid is the authoritative action for that role.
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
-        {
-            _awaitingAbandonConfirmation = false;
-            RefreshViewContent();
-            return;
-        }
-
         if (_participant.State == RaidParticipantState.Defeated)
         {
-            if (CanDefeatedParticipantReturn())
+            if (TryResolveOperationalLocalRole(out bool defeatedIsHost) && defeatedIsHost)
+            {
+                RequestTerminalReturnOnce();
+            }
+            else if (CanDefeatedParticipantReturn())
             {
                 Debug.Log("[RAID-SPECTATOR] Client Return selected.", this);
                 RequestTerminalReturnOnce();
@@ -381,6 +379,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (_participant.State == RaidParticipantState.Extracted)
         {
             RequestTerminalReturnOnce();
+            return;
+        }
+
+        // An operational Host cannot abandon its participant while sustaining
+        // the raid. Cancel Raid is the authoritative action for that role.
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        {
+            _awaitingAbandonConfirmation = false;
+            RefreshViewContent();
             return;
         }
 
@@ -424,7 +431,20 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _returnRequested = true;
-        _participant.RequestReturn();
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        {
+            SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+            if (coordinator == null || !coordinator.RequestHostResultsReturn())
+            {
+                _returnRequested = false;
+            }
+        }
+        else
+        {
+            _participant.RequestReturn();
+        }
+
+        RefreshViewContent();
     }
 
     private void RefreshViewContent()
@@ -458,7 +478,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                     title,
                     _progressionResultSnapshot,
                     persistenceFeedback,
-                    CanIssueReturnRequest(),
+                    !_returnRequested && CanIssueReturnRequest(),
+                    _returnRequested,
                     canSpectate,
                     isSpectating,
                     canRetryPersistence);
@@ -524,6 +545,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
+        NetworkMatchController.MatchPhase matchPhase = GetMatchPhase();
         bool hadProgressionResultSnapshot = _hasProgressionResultSnapshot;
         bool hasProgressionResultSnapshot =
             HasPersistentResultScreen() && TryCaptureProgressionResult();
@@ -536,7 +558,11 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                                  _observedHasLocalProgressionCommitResult ||
                              localProgressionCommitResult !=
                                  _observedLocalProgressionCommitResult ||
-                             saveStatus != _observedSaveStatus;
+                             saveStatus != _observedSaveStatus ||
+                             ShouldRefreshForMatchPhase(
+                                 _observedMatchPhase,
+                                 matchPhase,
+                                 HasPersistentResultScreen());
         _observedParticipantState = state;
         _observedExtractionFinalizationComplete = finalizationComplete;
         _observedProgressionCommitConfirmed = progressionCommitConfirmed;
@@ -544,6 +570,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             hasLocalProgressionCommitResult;
         _observedLocalProgressionCommitResult = localProgressionCommitResult;
         _observedSaveStatus = saveStatus;
+        _observedMatchPhase = matchPhase;
 
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
         {
@@ -623,8 +650,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (matchController != null && matchController.Phase == NetworkMatchController.MatchPhase.Finished)
         {
             CleanupSpectatorPresentation();
-            _inventoryPresenter?.SetGameplayMutationsBlocked(false);
-            CloseMenuInternal(forceReleaseSuppression: true);
+            _inventoryPresenter?.SetGameplayMutationsBlocked(true);
+            if (!IsOpen)
+            {
+                OpenMenu();
+            }
+            else
+            {
+                RefreshViewContent();
+            }
             return;
         }
 
@@ -721,13 +755,34 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return false;
         }
 
-        return CanIssueReturnRequest(
-            _hasProgressionResultSnapshot,
-            _participant.IsProgressionCommitConfirmed,
+        NetworkMatchController matchController = GetMatchController();
+        NetworkMatchController.MatchPhase phase = matchController != null
+            ? matchController.Phase
+            : NetworkMatchController.MatchPhase.WaitingForPlayers;
+        bool isCompatibleClientPhase = phase == NetworkMatchController.MatchPhase.InProgress ||
+                                       phase == NetworkMatchController.MatchPhase.Closing ||
+                                       phase == NetworkMatchController.MatchPhase.Finished;
+        if (!isHost)
+        {
+            return RaidResultsReturnPolicy.CanRequestClientReturn(
+                _participant.State,
+                _participant.FinalizationCause,
+                _participant.IsExtractionProgressionComplete,
+                _hasProgressionResultSnapshot,
+                _participant.IsProgressionCommitConfirmed,
+                isCompatibleClientPhase);
+        }
+
+        NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+        return RaidResultsReturnPolicy.CanRequestHostReturn(
             _participant.State,
             _participant.FinalizationCause,
             _participant.IsExtractionProgressionComplete,
-            isHost);
+            _hasProgressionResultSnapshot,
+            _participant.IsProgressionCommitConfirmed,
+            isServer: true,
+            hasRaidingParticipants: spawnManager == null || spawnManager.HasRaidingParticipants,
+            isMatchFinished: phase == NetworkMatchController.MatchPhase.Finished);
     }
 
     internal static bool CanIssueReturnRequest(
@@ -736,23 +791,31 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         RaidParticipantState state,
         ExpeditionProgressionFinalizationCause finalizationCause,
         bool isExtractionProgressionComplete,
-        bool isHost)
+        bool isHost,
+        bool isCompatibleClientPhase,
+        bool isMatchFinished,
+        bool hasRaidingParticipants)
     {
-        if (!hasProgressionResultSnapshot ||
-            !isProgressionCommitConfirmed || isHost)
+        if (isHost)
         {
-            return false;
+            return RaidResultsReturnPolicy.CanRequestHostReturn(
+                state,
+                finalizationCause,
+                isExtractionProgressionComplete,
+                hasProgressionResultSnapshot,
+                isProgressionCommitConfirmed,
+                isServer: true,
+                hasRaidingParticipants,
+                isMatchFinished);
         }
 
-        return state switch
-        {
-            RaidParticipantState.Extracted =>
-                isExtractionProgressionComplete,
-            RaidParticipantState.Defeated => true,
-            RaidParticipantState.Aborted => finalizationCause ==
-                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
-            _ => false
-        };
+        return RaidResultsReturnPolicy.CanRequestClientReturn(
+            state,
+            finalizationCause,
+            isExtractionProgressionComplete,
+            hasProgressionResultSnapshot,
+            isProgressionCommitConfirmed,
+            isCompatibleClientPhase);
     }
 
     private string GetTerminalResultTitle()
@@ -835,6 +898,16 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private NetworkMatchController GetMatchController() => _runner != null
         ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
         : null;
+
+    private NetworkMatchController.MatchPhase GetMatchPhase() =>
+        GetMatchController()?.Phase ??
+        NetworkMatchController.MatchPhase.WaitingForPlayers;
+
+    internal static bool ShouldRefreshForMatchPhase(
+        NetworkMatchController.MatchPhase previous,
+        NetworkMatchController.MatchPhase current,
+        bool hasPersistentResultScreen) =>
+        hasPersistentResultScreen && previous != current;
 
     private async void ReturnToTownAsync()
     {

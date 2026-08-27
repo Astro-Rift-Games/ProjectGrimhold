@@ -6,8 +6,8 @@ public sealed class RaidClosureStateTests
     public void ClosureStatesPreserveTheAuthoritativeOrder()
     {
         Assert.That((byte)RaidClosureState.AwaitingPersistence, Is.LessThan((byte)RaidClosureState.Cleaning));
-        Assert.That((byte)RaidClosureState.Cleaning, Is.LessThan((byte)RaidClosureState.ReturnOrdered));
-        Assert.That((byte)RaidClosureState.ReturnOrdered, Is.LessThan((byte)RaidClosureState.Finished));
+        Assert.That((byte)RaidClosureState.Cleaning, Is.LessThan((byte)RaidClosureState.ResultsRetained));
+        Assert.That((byte)RaidClosureState.ResultsRetained, Is.LessThan((byte)RaidClosureState.Finished));
     }
 
     [Test]
