@@ -14,7 +14,9 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
         RegisterExtractedLootReward = 4,
         ConfigureProgressionFinalization = 5,
         FinalizeProgression = 6,
-        ConfigureProgressionBaseline = 7
+        ConfigureProgressionBaseline = 7,
+        ConfigureSourceCount = 8,
+        CopyProgressionState = 9
     }
 
     private static readonly PropertyInfo ParticipantStateProperty =
@@ -33,11 +35,23 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
     private static readonly PropertyInfo BaselineExperienceProperty =
         typeof(PlayerExpeditionProgressionResolver).GetProperty(
             nameof(PlayerExpeditionProgressionResolver.BaselineExperience));
+    private static readonly PropertyInfo CandidateEligibleValueProperty =
+        typeof(NetworkRaidParticipant).GetProperty(
+            nameof(NetworkRaidParticipant.ExtractedLootCandidateEligibleValue));
+    private static readonly PropertyInfo CandidateExperienceProperty =
+        typeof(NetworkRaidParticipant).GetProperty(
+            nameof(NetworkRaidParticipant.ExtractedLootCandidateExperience));
+    private static readonly PropertyInfo ExtractedLootExperienceProperty =
+        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+            nameof(PlayerExpeditionExperienceLedger.ExtractedLootExperience));
+    private static readonly PropertyInfo ExtractedLootSequenceProperty =
+        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+            nameof(PlayerExpeditionExperienceLedger.ExtractedLootResolvedResultSequence));
 
     private RequestedOperation _operation;
     private PlayerExpeditionExperienceLedger _ledger;
     private NetworkRaidParticipant _participant;
-    private ExpeditionExperienceCategory _category;
+    private ExpeditionExperienceSource _source;
     private long _amount;
     private RaidParticipantState _participantState;
     private int _resultSequence;
@@ -47,6 +61,11 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
     private PlayerExpeditionProgressionResolver _resolver;
     private int _baselineLevel;
     private long _baselineExperience;
+    private long _eligibleExtractedLootValue;
+    private long _extractedLootExperience;
+    private int _sourceCount;
+    private PlayerExpeditionExperienceLedger _sourceLedger;
+    private PlayerExpeditionProgressionResolver _sourceResolver;
 
     public int CompletionSequence { get; private set; }
     public bool LastResult { get; private set; }
@@ -55,11 +74,11 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
 
     public void RequestRegisterReward(
         PlayerExpeditionExperienceLedger ledger,
-        ExpeditionExperienceCategory category,
+        ExpeditionExperienceSource source,
         long amount)
     {
         _ledger = ledger;
-        _category = category;
+        _source = source;
         _amount = amount;
         _operation = RequestedOperation.RegisterReward;
     }
@@ -100,12 +119,16 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
         RaidParticipantState state,
         ExpeditionProgressionFinalizationCause cause,
         ExtractionExperienceTransactionPhase extractionPhase =
-            ExtractionExperienceTransactionPhase.None)
+            ExtractionExperienceTransactionPhase.None,
+        long eligibleExtractedLootValue = 0,
+        long extractedLootExperience = 0)
     {
         _participant = participant;
         _participantState = state;
         _finalizationCause = cause;
         _extractionPhase = extractionPhase;
+        _eligibleExtractedLootValue = eligibleExtractedLootValue;
+        _extractedLootExperience = extractedLootExperience;
         _operation = RequestedOperation.ConfigureProgressionFinalization;
     }
 
@@ -129,6 +152,30 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
         _operation = RequestedOperation.ConfigureProgressionBaseline;
     }
 
+    public void RequestConfigureSourceCount(
+        PlayerExpeditionExperienceLedger ledger,
+        ExpeditionExperienceSource source,
+        int count)
+    {
+        _ledger = ledger;
+        _source = source;
+        _sourceCount = count;
+        _operation = RequestedOperation.ConfigureSourceCount;
+    }
+
+    public void RequestCopyProgressionState(
+        PlayerExpeditionExperienceLedger targetLedger,
+        PlayerExpeditionProgressionResolver targetResolver,
+        PlayerExpeditionExperienceLedger sourceLedger,
+        PlayerExpeditionProgressionResolver sourceResolver)
+    {
+        _ledger = targetLedger;
+        _resolver = targetResolver;
+        _sourceLedger = sourceLedger;
+        _sourceResolver = sourceResolver;
+        _operation = RequestedOperation.CopyProgressionState;
+    }
+
     public override void FixedUpdateNetwork()
     {
         RequestedOperation operation = _operation;
@@ -149,7 +196,7 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
                 }
 
                 LastResult = _ledger.TryRegisterNormalReward(
-                    _category,
+                    _source,
                     _amount,
                     out ExpeditionExperienceLedgerFailure failure);
                 LastFailure = failure;
@@ -184,6 +231,26 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
                 ParticipantStateProperty.SetValue(_participant, _participantState);
                 FinalizationCauseProperty.SetValue(_participant, _finalizationCause);
                 ExtractionPhaseProperty.SetValue(_participant, _extractionPhase);
+                if (_extractionPhase == ExtractionExperienceTransactionPhase.ProgressionPending)
+                {
+                    int sequence = (int)ResultSequenceProperty.GetValue(_participant);
+                    if (sequence <= 0)
+                    {
+                        sequence = 1;
+                        ResultSequenceProperty.SetValue(_participant, sequence);
+                    }
+
+                    CandidateEligibleValueProperty.SetValue(
+                        _participant,
+                        _eligibleExtractedLootValue);
+                    CandidateExperienceProperty.SetValue(
+                        _participant,
+                        _extractedLootExperience);
+                    PlayerExpeditionExperienceLedger ledger =
+                        _participant.GetComponent<PlayerExpeditionExperienceLedger>();
+                    ExtractedLootExperienceProperty.SetValue(ledger, _extractedLootExperience);
+                    ExtractedLootSequenceProperty.SetValue(ledger, sequence);
+                }
                 LastResult = true;
                 LastFailure = ExpeditionExperienceLedgerFailure.None;
                 break;
@@ -195,6 +262,36 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
             case RequestedOperation.ConfigureProgressionBaseline:
                 BaselineLevelProperty.SetValue(_resolver, _baselineLevel);
                 BaselineExperienceProperty.SetValue(_resolver, _baselineExperience);
+                LastResult = true;
+                LastFailure = ExpeditionExperienceLedgerFailure.None;
+                break;
+            case RequestedOperation.ConfigureSourceCount:
+                PropertyInfo countProperty = _source switch
+                {
+                    ExpeditionExperienceSource.PveKill =>
+                        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+                            nameof(PlayerExpeditionExperienceLedger.PveKillCount)),
+                    ExpeditionExperienceSource.PvpKill =>
+                        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+                            nameof(PlayerExpeditionExperienceLedger.PvpKillCount)),
+                    ExpeditionExperienceSource.PveAssist =>
+                        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+                            nameof(PlayerExpeditionExperienceLedger.PveAssistCount)),
+                    ExpeditionExperienceSource.PvpAssist =>
+                        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+                            nameof(PlayerExpeditionExperienceLedger.PvpAssistCount)),
+                    ExpeditionExperienceSource.FirstOpenChest =>
+                        typeof(PlayerExpeditionExperienceLedger).GetProperty(
+                            nameof(PlayerExpeditionExperienceLedger.FirstOpenChestCount)),
+                    _ => null
+                };
+                countProperty?.SetValue(_ledger, _sourceCount);
+                LastResult = countProperty != null;
+                LastFailure = ExpeditionExperienceLedgerFailure.None;
+                break;
+            case RequestedOperation.CopyProgressionState:
+                _ledger.CopyStateFrom(_sourceLedger);
+                _resolver.CopyStateFrom(_sourceResolver);
                 LastResult = true;
                 LastFailure = ExpeditionExperienceLedgerFailure.None;
                 break;

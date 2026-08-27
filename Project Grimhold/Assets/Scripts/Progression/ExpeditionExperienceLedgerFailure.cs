@@ -15,5 +15,7 @@ public enum ExpeditionExperienceLedgerFailure : byte
     ExtractionNotConfirmed = 11,
     ResultSequenceMismatch = 12,
     MissingLedger = 13,
-    LedgerFrozen = 14
+    LedgerFrozen = 14,
+    InvalidSource = 15,
+    SourceCountOverflow = 16
 }

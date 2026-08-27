@@ -478,7 +478,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             ExtractionExperiencePhase <
                 ExtractionExperienceTransactionPhase.AwaitingPersistenceAck ||
             ExtractionExperiencePhase >
-                ExtractionExperienceTransactionPhase.ExtractedLootPending)
+                ExtractionExperienceTransactionPhase.ProgressionPending)
         {
             return false;
         }

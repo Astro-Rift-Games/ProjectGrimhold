@@ -338,9 +338,12 @@ namespace Tests.PlayMode.Progression
 
         private static void AssertLedger(NetworkRaidParticipant participant, long expectedKill)
         {
-            ExpeditionExperienceSnapshot snapshot = GetLedger(participant).Snapshot;
+            PlayerExpeditionExperienceLedger ledger = GetLedger(participant);
+            ExpeditionExperienceSnapshot snapshot = ledger.Snapshot;
             Assert.That(snapshot.KillExperience, Is.EqualTo(expectedKill));
             Assert.That(snapshot.TotalExperience, Is.EqualTo(expectedKill));
+            Assert.That(ledger.PveKillCount, Is.EqualTo(expectedKill > 0 ? 1 : 0));
+            Assert.That(ledger.PvpKillCount, Is.Zero);
         }
 
         private static void ExpectBasePrefabExtractionProgressValidationError()

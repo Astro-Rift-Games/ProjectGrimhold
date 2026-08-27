@@ -65,7 +65,7 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
         }
 
         if (!ledger.TryRegisterNormalReward(
-                ExpeditionExperienceCategory.Kill,
+                ExpeditionExperienceSource.PveKill,
                 _killExperience,
                 out _))
         {

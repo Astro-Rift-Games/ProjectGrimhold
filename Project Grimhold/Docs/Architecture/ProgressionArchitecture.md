@@ -23,8 +23,17 @@ The ledger replicates four non-negative `long` accumulators:
 - Exploration Experience;
 - Extracted Loot Experience.
 
+It also replicates the committed activity counts required by Results: PvE and PvP Kills,
+PvE and PvP Assists, and valid first chest openings. Normal rewards enter through an explicit
+`ExpeditionExperienceSource`; `None` and unknown values are invalid. A valid source maps to the
+existing Kill, Assist or Exploration category, and its complete Experience candidate plus one
+activity-count increment are committed atomically. PvP and Assist have no producer yet, so those
+counters remain zero until their authoritative attribution rules exist.
+
 Total Expedition Experience is derived from these accumulators and is never replicated as
 a second source of truth. The public snapshot exposes only this gameplay breakdown.
+Combat Experience is likewise derived as Kill plus Assist. Non-negative accumulators and a valid
+complete `long` total make both projections safe without another replicated total or overflow rule.
 
 ## Deterministic domain and Fusion boundary
 
@@ -84,6 +93,20 @@ commit then only freezes the ledger, copies outcome, retained basis points, cons
 and resulting Level/Experience, and writes `Committed` last. Public baseline, resolution and
 application snapshots are side-effect-free; committed percentage and Experience are historical and
 are not recalculated if balance changes. Repeated finalization returns `AlreadyCommitted`.
+
+The commit also captures the three historical facts that cannot be recovered after the transaction
+advances: exact eligible extracted-Loot Value, the next-Level Experience requirement and whether the
+resulting Level is maximum. Extraction validates that its retained candidate belongs to the current
+result and that its awarded Experience matches the ledger before capturing its Value; every other
+outcome captures zero eligible Value. Maximum Level always stores a zero next-Level requirement,
+while a non-maximum result stores one positive requirement.
+The pending extraction candidate remains readable through `ProgressionPending`; it is cleared only
+after the resolver has committed and the participant advances the transaction to `Complete`.
+
+`TryGetProgressionResult` is available only after the resolver is committed and the ledger frozen.
+It combines the existing committed resolution and application snapshots, frozen activity counts,
+eligible Value and Level-progress facts into an immutable `ExpeditionProgressionResult`. Reading it
+never evaluates producers, retention, Level application, the Experience curve or persistence.
 
 The accepted semantic causes are extraction confirmed, defeat confirmed, voluntary abandonment
 confirmed and definitive disconnection confirmed. `Aborted` is only a technical lifecycle state and
@@ -151,6 +174,8 @@ Each eligible PvE target owns one `KillExperienceSource`, registered in the runn
 `EntityRegistry` under the target's canonical `EntityId`. Its serialized non-negative `long`
 is independent from Extraction Progress configuration. The source replicates only `IsGranted`;
 availability is derived from a positive configured value and that one-shot flag being false.
+Its ledger source is explicitly `PveKill`; the current producer guarantees creature targets and
+must not be reused for PvP without a separate authoritative affiliation integration.
 
 After an authoritative applied fatal result, `DamageResolver` resolves the Last Hit attacker as
 a current Raid avatar, follows `RaidAvatarParticipantLink` to its stable
@@ -188,6 +213,8 @@ preserve the owner and resolved state with the container. Fresh State Authority 
 both fields, while Host Migration restore spawns do not overwrite copied values. XP success,
 rejection or ineligibility never gates the existing interaction or Extraction Progress path,
 and the Progress result cannot undo or repeat accepted Experience.
+An accepted reward uses `FirstOpenChest`, so its Exploration Experience and first-opening count
+advance in the same authoritative operation.
 
 ## Extracted Loot Experience
 

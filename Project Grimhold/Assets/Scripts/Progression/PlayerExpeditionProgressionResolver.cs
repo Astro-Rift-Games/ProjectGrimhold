@@ -33,6 +33,15 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
     [Networked]
     private long CommittedResultingExperience { get; set; }
 
+    [Networked]
+    private long CommittedEligibleExtractedLootValue { get; set; }
+
+    [Networked]
+    private long CommittedNextLevelExperienceRequirement { get; set; }
+
+    [Networked]
+    private NetworkBool CommittedIsMaxLevel { get; set; }
+
     private NetworkRaidParticipant _participant;
     private PlayerExpeditionExperienceLedger _ledger;
 
@@ -102,6 +111,33 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
     }
 
     /// <summary>
+    /// Projects the complete immutable presentation result without resolving or applying gameplay.
+    /// </summary>
+    public bool TryGetProgressionResult(out ExpeditionProgressionResult result)
+    {
+        result = default;
+        if (_ledger == null || !_ledger.IsFrozen ||
+            !TryGetResolution(out ExpeditionExperienceResolution resolution) ||
+            !TryGetApplication(out ConsolidatedExperienceApplication application))
+        {
+            return false;
+        }
+
+        result = new ExpeditionProgressionResult(
+            resolution,
+            application.Result,
+            _ledger.PveKillCount,
+            _ledger.PvpKillCount,
+            _ledger.PveAssistCount,
+            _ledger.PvpAssistCount,
+            _ledger.FirstOpenChestCount,
+            CommittedEligibleExtractedLootValue,
+            CommittedNextLevelExperienceRequirement,
+            CommittedIsMaxLevel);
+        return true;
+    }
+
+    /// <summary>
     /// Prepares every fallible rule result before atomically freezing and committing history.
     /// </summary>
     public PlayerExpeditionProgressionFinalizationResult TryFinalize(
@@ -154,6 +190,23 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
                 applicationFailure);
         }
 
+        if (!TryResolveCommittedLevelProgress(
+                application.Result,
+                out bool isMaxLevel,
+                out long nextLevelExperienceRequirement))
+        {
+            return PlayerExpeditionProgressionFinalizationResult.FromApplicationFailure(
+                ConsolidatedExperienceApplicationFailure.InvalidProgressionState);
+        }
+
+        if (!TryResolveCommittedEligibleLootValue(
+                outcome,
+                resolution,
+                out long eligibleExtractedLootValue))
+        {
+            return Result(PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle);
+        }
+
         // Commit contains no validation, callbacks or external fallible work.
         _ledger.CommitFreeze();
         CommittedOutcome = resolution.Outcome;
@@ -161,6 +214,9 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
         CommittedConsolidatedExperience = resolution.ConsolidatedExperience;
         CommittedResultingLevel = application.Result.ResultingLevel;
         CommittedResultingExperience = application.Result.ResultingExperience;
+        CommittedEligibleExtractedLootValue = eligibleExtractedLootValue;
+        CommittedNextLevelExperienceRequirement = nextLevelExperienceRequirement;
+        CommittedIsMaxLevel = isMaxLevel;
         Committed = true;
         return Result(PlayerExpeditionProgressionFinalizationStatus.Success);
     }
@@ -170,6 +226,54 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
             ProgressionBalanceDefaults.InitialExperienceCurve,
             level,
             experience);
+
+    internal static bool TryResolveCommittedLevelProgress(
+        in ExperienceApplicationResult application,
+        out bool isMaxLevel,
+        out long nextLevelExperienceRequirement)
+    {
+        ExperienceCurve curve = ProgressionBalanceDefaults.InitialExperienceCurve;
+        isMaxLevel = application.ResultingLevel == curve.MaximumLevel;
+        nextLevelExperienceRequirement = 0;
+        if (isMaxLevel)
+        {
+            return application.ResultingExperience == 0;
+        }
+
+        return curve.TryGetRequiredExperience(
+                application.ResultingLevel,
+                out nextLevelExperienceRequirement) &&
+            nextLevelExperienceRequirement > 0;
+    }
+
+    private bool TryResolveCommittedEligibleLootValue(
+        ExpeditionExperienceResolutionOutcome outcome,
+        in ExpeditionExperienceResolution resolution,
+        out long eligibleExtractedLootValue)
+    {
+        eligibleExtractedLootValue = 0;
+        if (outcome != ExpeditionExperienceResolutionOutcome.Extracted)
+        {
+            return true;
+        }
+
+        if (!_participant.TryGetExtractedLootCandidate(
+                out ExtractedLootExperienceCandidate candidate) ||
+            _ledger.ExtractedLootResolvedResultSequence != candidate.ResultSequence)
+        {
+            return false;
+        }
+
+        if (!candidate.Matches(_participant.ResultSequence) ||
+            candidate.AwardedExperience !=
+                resolution.ProvisionalExperience.ExtractedLootExperience)
+        {
+            return false;
+        }
+
+        eligibleExtractedLootValue = candidate.EligibleValue;
+        return true;
+    }
 
     private bool TryResolveOutcome(
         ExpeditionProgressionFinalizationCause cause,

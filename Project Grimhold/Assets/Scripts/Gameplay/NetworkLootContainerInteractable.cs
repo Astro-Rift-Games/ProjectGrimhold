@@ -171,7 +171,7 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
             participant.GetComponent<PlayerExpeditionExperienceLedger>();
         if (ledger == null ||
             !ledger.TryRegisterNormalReward(
-                ExpeditionExperienceCategory.Exploration,
+                ExpeditionExperienceSource.FirstOpenChest,
                 _firstOpenExperienceReward,
                 out _))
         {

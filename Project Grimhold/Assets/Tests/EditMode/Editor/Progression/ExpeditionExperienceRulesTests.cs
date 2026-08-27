@@ -97,6 +97,20 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
+        public void ValidTotalGuaranteesCombatProjectionIsRepresentable()
+        {
+            ExpeditionExperienceSnapshot snapshot = Apply(
+                ExpeditionExperienceSnapshot.Empty,
+                ExpeditionExperienceCategory.Kill,
+                long.MaxValue - 1);
+            snapshot = Apply(snapshot, ExpeditionExperienceCategory.Assist, 1);
+
+            Assert.That(snapshot.TotalExperience, Is.EqualTo(long.MaxValue));
+            Assert.That(snapshot.KillExperience + snapshot.AssistExperience,
+                Is.EqualTo(long.MaxValue));
+        }
+
+        [Test]
         public void ExtractedLootReward_PreservesNormalCategoriesAndAcceptsZero()
         {
             var original = new ExpeditionExperienceSnapshot(3, 4, 5, 0);
