@@ -280,18 +280,18 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         _cleanupAttempted = true;
-        bool cleanupSucceeded = spawnManager.TryCleanupRaidGeneration(out int failureCount);
+        bool cleanupSucceeded = spawnManager.TryCleanupRaidWorldForResults(out int failureCount);
         CleanupFailureCount = failureCount;
-        ClosureState = RaidClosureState.ReturnOrdered;
+        ClosureState = RaidClosureState.ResultsRetained;
         Phase = MatchPhase.Finished;
         ClosureState = RaidClosureState.Finished;
         if (!cleanupSucceeded)
         {
-            Debug.LogError($"[NetworkMatchController] Raid cleanup completed with {failureCount} failure(s); return still ordered.", this);
+            Debug.LogError($"[NetworkMatchController] Results world cleanup completed with {failureCount} failure(s).", this);
         }
         else
         {
-            Debug.Log("[NetworkMatchController] Raid cleanup completed; return ordered.", this);
+            Debug.Log("[NetworkMatchController] Gameplay world cleanup completed; Results remain available.", this);
         }
     }
 
@@ -314,7 +314,7 @@ public enum RaidClosureState : byte
     None = 0,
     AwaitingPersistence = 1,
     Cleaning = 2,
-    ReturnOrdered = 3,
+    ResultsRetained = 3,
     Finished = 4,
     Failed = 5
 }

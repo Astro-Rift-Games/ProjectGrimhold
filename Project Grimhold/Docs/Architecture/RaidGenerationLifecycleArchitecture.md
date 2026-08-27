@@ -12,7 +12,8 @@ one equivalent local identifier.
 `NetworkMatchController` remains the sole authoritative lifecycle owner. It closes
 admission, rejects new gameplay spawns, waits for pending extraction persistence,
 asks `NetworkSpawnManager` to perform idempotent runner-scoped cleanup, and then
-publishes the return order. A different runner is created for the next raid.
+publishes a retained Results state. It never orders a Town transition. A different
+runner is created for the next raid only after an explicit return request is consumed.
 
 The lifecycle is:
 
@@ -23,12 +24,12 @@ WaitingForPlayers (Gameplay prepared; no initial PvPvE generation)
 InProgress
   -> Closing / AwaitingPersistence
   -> Cleaning
-  -> Finished / ReturnOrdered
+  -> Finished / ResultsRetained
 
 Starting / bootstrap failure
   -> Closing / AwaitingPersistence
   -> Cleaning
-  -> Finished / ReturnOrdered
+  -> Finished / ResultsRetained
 ```
 
 `Start Raid` is authoritative and closes the session before invoking
@@ -44,19 +45,23 @@ Host abandonment remains a participant result: if another participant is still
 
 - `NetworkMatchController`: replicated phase, closure reason, generation identity,
   persistence barrier and cleanup diagnostics; State Authority only.
-- `NetworkSpawnManager`: runner-scoped participant queries, spawn blocking and
-  cleanup of all network objects except the match coordinator.
+- `NetworkSpawnManager`: runner-scoped participant and connectivity queries, spawn
+  blocking and one-shot cleanup of gameplay world objects while retaining participants,
+  Results avatars, player routing and Controlled Return state.
 - `NetworkRaidParticipant`: authoritative participant result and generation ID;
   no stash or loadout mutation during abort/cleanup.
-- `SessionConnectionCoordinator`: observes `Finished`; Clients return immediately,
-  while the Host waits for the configured five-second grace before its normal
-  shutdown path.
+- `SessionConnectionCoordinator`: never translates `Finished` directly into Town.
+  Clients retain their individual Controlled Return path. The Host records an explicit
+  request and consumes it only after `OnPlayerLeft`/runner connectivity confirms that no
+  remote peer remains.
 - `PlayerExtractionLootSaver`: the only source of extraction commit confirmation. A pending commit
   prevents cleanup and is never silently discarded.
 
 Runner scope is the isolation boundary: cleanup cannot affect another raid because
-the next generation uses a new runner. Fusion Host Migration remains valid only
-while the phase is `InProgress`; a closing generation is not resumed.
+the next generation uses a new runner. The retained Results cleanup is idempotent and
+does not clear participant routing before `OnPlayerLeft`; shutdown performs the final
+runner-scoped cleanup. Fusion Host Migration remains valid only while the phase is
+`InProgress`; a closing generation is not resumed.
 
 ## Failure and validation
 
