@@ -28,6 +28,14 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField] private Button _cancelRaidButton;
     [SerializeField] private TMP_Text _cancelRaidButtonText;
 
+    [Header("Progression Results")]
+    [SerializeField] private GameObject _progressionResultsRoot;
+    [SerializeField] private TMP_Text _progressionActivityText;
+    [SerializeField] private TMP_Text _progressionExperienceText;
+    [SerializeField] private TMP_Text _progressionLevelText;
+    [SerializeField] private TMP_Text _progressionLevelStatusText;
+    [SerializeField] private Image _progressionExperienceFill;
+
     [Header("Spectator")]
     [SerializeField] private GameObject _spectatorBarRoot;
     [SerializeField] private TMP_Text _spectatorTargetText;
@@ -49,6 +57,12 @@ public sealed class RaidMenuView : MonoBehaviour
     public Button AbandonButton => _abandonButton;
     public TMP_Text AbandonButtonText => _abandonButtonText;
     public Button CancelRaidButton => _cancelRaidButton;
+    public GameObject ProgressionResultsRoot => _progressionResultsRoot;
+    public TMP_Text ProgressionActivityText => _progressionActivityText;
+    public TMP_Text ProgressionExperienceText => _progressionExperienceText;
+    public TMP_Text ProgressionLevelText => _progressionLevelText;
+    public TMP_Text ProgressionLevelStatusText => _progressionLevelStatusText;
+    public Image ProgressionExperienceFill => _progressionExperienceFill;
     public GameObject SpectatorBarRoot => _spectatorBarRoot;
     public TMP_Text SpectatorTargetText => _spectatorTargetText;
     public Button PreviousTargetButton => _previousTargetButton;
@@ -59,6 +73,7 @@ public sealed class RaidMenuView : MonoBehaviour
     {
         CacheButtonLabels();
         BindButtonListeners();
+        SetProgressionResultsVisible(false);
         SetSpectatorBarVisible(false);
     }
 
@@ -87,6 +102,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentAliveState(bool canAbandon = true)
     {
+        SetProgressionResultsVisible(false);
         SetText(_titleText, "Menú de Incursión");
         SetText(_statusText, "La simulación continúa en tiempo real.");
         SetText(_controlsText, DefaultControlsText);
@@ -100,6 +116,7 @@ public sealed class RaidMenuView : MonoBehaviour
     /// <summary>Presents role-aware actions for a defeated local participant.</summary>
     public void PresentDefeatedState(bool canReturn, bool isSpectating)
     {
+        SetProgressionResultsVisible(false);
         SetText(_titleText, "Has sido Derrotado");
         SetText(
             _statusText,
@@ -116,6 +133,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentExtractedState(bool isCommitConfirmed)
     {
+        SetProgressionResultsVisible(false);
         SetText(_titleText, "Extracción completada");
         SetText(
             _statusText,
@@ -130,6 +148,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentExtractedState(ExtractionLootSaveStatus saveStatus)
     {
+        SetProgressionResultsVisible(false);
         SetText(_titleText, "Extracción completada");
         string status = saveStatus switch
         {
@@ -152,6 +171,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentAbandonConfirmation()
     {
+        SetProgressionResultsVisible(false);
         SetText(_titleText, "Abandonar incursión");
         SetText(
             _statusText,
@@ -161,6 +181,95 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_resumeButtonText, "Cancelar");
         SetButtonState(_abandonButton, true, true);
         SetText(_abandonButtonText, "Confirmar abandono");
+    }
+
+    public void PresentProgressionResultsPending(
+        string title,
+        string persistenceFeedback,
+        bool canSpectate,
+        bool isSpectating,
+        bool canRetryPersistence)
+    {
+        SetText(_titleText, title);
+        SetText(_statusText, persistenceFeedback);
+        SetText(_controlsText, "Procesando resultados");
+        SetProgressionResultsVisible(false);
+        PresentTerminalActions(
+            canReturn: false,
+            canSpectate: canSpectate,
+            isSpectating: isSpectating,
+            canRetryPersistence: canRetryPersistence);
+        SetCancelRaidVisible(false);
+    }
+
+    public void PresentProgressionResults(
+        string title,
+        in ExpeditionProgressionResult result,
+        string persistenceFeedback,
+        bool canReturn,
+        bool canSpectate,
+        bool isSpectating,
+        bool canRetryPersistence)
+    {
+        SetText(_titleText, title);
+        SetText(_statusText, persistenceFeedback);
+        SetText(_controlsText, string.Empty);
+        SetText(
+            _progressionActivityText,
+            $"Eliminaciones PvE: {result.PveKillCount}\n" +
+            $"Eliminaciones PvP: {result.PvpKillCount}\n" +
+            $"Asistencias PvE: {result.PveAssistCount}\n" +
+            $"Asistencias PvP: {result.PvpAssistCount}\n" +
+            $"Primeras aperturas: {result.FirstOpenChestCount}");
+        SetText(
+            _progressionExperienceText,
+            $"Combate: {result.CombatExperience} XP\n" +
+            $"Exploración: {result.ExplorationExperience} XP\n" +
+            $"Loot: {result.LootExperience} XP\n" +
+            $"Valor de Loot elegible: {result.EligibleExtractedLootValue}\n" +
+            $"XP generada: {result.ProvisionalExperienceTotal}\n" +
+            $"Conservación: {FormatRetentionPercentage(result.RetentionBasisPoints)}\n" +
+            $"XP consolidada: {result.ConsolidatedExperience}");
+
+        if (result.IsMaxLevel)
+        {
+            SetText(
+                _progressionLevelText,
+                $"Nivel {result.PreviousLevel} ({result.PreviousExperience} XP) → " +
+                $"Nivel {result.ResultingLevel}");
+            SetText(_progressionLevelStatusText, "Nivel máximo alcanzado");
+            SetProgressionFill(1f);
+        }
+        else
+        {
+            SetText(
+                _progressionLevelText,
+                $"Nivel {result.PreviousLevel} ({result.PreviousExperience} XP) → " +
+                $"Nivel {result.ResultingLevel}\n" +
+                $"Progreso: {result.ResultingExperience} / " +
+                $"{result.NextLevelExperienceRequirement} XP");
+            SetText(
+                _progressionLevelStatusText,
+                result.LevelsGained > 0
+                    ? result.LevelsGained == 1
+                        ? "¡Subiste 1 nivel!"
+                        : $"¡Subiste {result.LevelsGained} niveles!"
+                    : "Sin ascenso de nivel");
+            float fillAmount = result.NextLevelExperienceRequirement > 0
+                ? Mathf.Clamp01(
+                    (float)((double)result.ResultingExperience /
+                    result.NextLevelExperienceRequirement))
+                : 0f;
+            SetProgressionFill(fillAmount);
+        }
+
+        SetProgressionResultsVisible(true);
+        PresentTerminalActions(
+            canReturn,
+            canSpectate,
+            isSpectating,
+            canRetryPersistence);
+        SetCancelRaidVisible(false);
     }
 
     public void SetCancelRaidVisible(bool visible)
@@ -200,7 +309,61 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_controlsText, string.Empty);
         SetMenuVisible(false);
         SetCancelRaidVisible(false);
+        SetProgressionResultsVisible(false);
         SetSpectatorBarVisible(false);
+    }
+
+    internal static string FormatRetentionPercentage(int basisPoints)
+    {
+        int wholePercentage = basisPoints / 100;
+        int fractionalPercentage = basisPoints % 100;
+        if (fractionalPercentage == 0)
+        {
+            return $"{wholePercentage}%";
+        }
+
+        if (fractionalPercentage % 10 == 0)
+        {
+            return $"{wholePercentage}.{fractionalPercentage / 10}%";
+        }
+
+        return $"{wholePercentage}.{fractionalPercentage:00}%";
+    }
+
+    private void PresentTerminalActions(
+        bool canReturn,
+        bool canSpectate,
+        bool isSpectating,
+        bool canRetryPersistence)
+    {
+        bool showPrimaryAction = canRetryPersistence || canSpectate;
+        SetButtonState(_resumeButton, showPrimaryAction, showPrimaryAction);
+        SetText(
+            _resumeButtonText,
+            canRetryPersistence
+                ? "Reintentar"
+                : isSpectating
+                    ? "Continuar observando"
+                    : "Observar");
+        SetButtonState(_abandonButton, true, canReturn);
+        SetText(_abandonButtonText, "Volver al pueblo");
+    }
+
+    private void SetProgressionResultsVisible(bool visible)
+    {
+        if (_progressionResultsRoot != null &&
+            _progressionResultsRoot.activeSelf != visible)
+        {
+            _progressionResultsRoot.SetActive(visible);
+        }
+    }
+
+    private void SetProgressionFill(float fillAmount)
+    {
+        if (_progressionExperienceFill != null)
+        {
+            _progressionExperienceFill.fillAmount = fillAmount;
+        }
     }
 
     private void BindButtonListeners()

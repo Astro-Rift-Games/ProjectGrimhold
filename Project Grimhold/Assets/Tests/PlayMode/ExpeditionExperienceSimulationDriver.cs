@@ -16,7 +16,8 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
         FinalizeProgression = 6,
         ConfigureProgressionBaseline = 7,
         ConfigureSourceCount = 8,
-        CopyProgressionState = 9
+        CopyProgressionState = 9,
+        ConfirmProgressionCommit = 10
     }
 
     private static readonly PropertyInfo ParticipantStateProperty =
@@ -176,6 +177,16 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
         _operation = RequestedOperation.CopyProgressionState;
     }
 
+    public void RequestConfirmProgressionCommit(
+        NetworkRaidParticipant participant)
+    {
+        _participant = participant;
+        _resolver = participant != null
+            ? participant.GetComponent<PlayerExpeditionProgressionResolver>()
+            : null;
+        _operation = RequestedOperation.ConfirmProgressionCommit;
+    }
+
     public override void FixedUpdateNetwork()
     {
         RequestedOperation operation = _operation;
@@ -293,6 +304,20 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
                 _ledger.CopyStateFrom(_sourceLedger);
                 _resolver.CopyStateFrom(_sourceResolver);
                 LastResult = true;
+                LastFailure = ExpeditionExperienceLedgerFailure.None;
+                break;
+            case RequestedOperation.ConfirmProgressionCommit:
+                LastResult = _participant != null && _resolver != null &&
+                    _resolver.TryGetResolution(
+                        out ExpeditionExperienceResolution resolution) &&
+                    _resolver.TryGetApplication(
+                        out ConsolidatedExperienceApplication application) &&
+                    _participant.TryConfirmProgressionCommit(
+                        _participant.ProfileId.ToString(),
+                        _participant.RaidGenerationId.ToString(),
+                        _participant.ResultSequence,
+                        resolution.ConsolidatedExperience,
+                        application.Result.ResultingLevel);
                 LastFailure = ExpeditionExperienceLedgerFailure.None;
                 break;
         }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Binds the local gameplay HUD to this peer's active raid avatar and retains its
-/// terminal result UI when the local participant becomes defeated.
+/// terminal result UI for the supported local terminal outcomes.
 /// All dependencies are serialized within the network player prefab.
 /// </summary>
 [DisallowMultipleComponent]
@@ -367,7 +367,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             return false;
         }
 
-        if (participant.State == RaidParticipantState.Defeated)
+        if (ShouldRetainTerminalHud(
+                participant.State,
+                participant.FinalizationCause))
         {
             return true;
         }
@@ -375,4 +377,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         return HasInputAuthority &&
             participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar == Object;
     }
+
+    internal static bool ShouldRetainTerminalHud(
+        RaidParticipantState state,
+        ExpeditionProgressionFinalizationCause finalizationCause) =>
+        state == RaidParticipantState.Defeated ||
+        (state == RaidParticipantState.Aborted &&
+         finalizationCause ==
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
 }

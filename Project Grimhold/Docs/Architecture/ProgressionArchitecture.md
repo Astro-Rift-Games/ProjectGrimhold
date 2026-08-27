@@ -107,6 +107,10 @@ after the resolver has committed and the participant advances the transaction to
 It combines the existing committed resolution and application snapshots, frozen activity counts,
 eligible Value and Level-progress facts into an immutable `ExpeditionProgressionResult`. Reading it
 never evaluates producers, retention, Level application, the Experience curve or persistence.
+Results presentation captures the first successful read as its local immutable snapshot and does
+not query or replace it again during that active binding. Resolver commitment therefore makes the
+summary available independently from durable persistence: pending, retryable or failed persistence
+may change its own feedback and keep Return disabled, but cannot hide or alter an available summary.
 
 The accepted semantic causes are extraction confirmed, defeat confirmed, voluntary abandonment
 confirmed and definitive disconnection confirmed. `Aborted` is only a technical lifecycle state and
@@ -140,6 +144,25 @@ State Authority accepts an ACK only for the participant's current Input Authorit
 raid generation, definitive resolution and current `ResultSequence`. Extraction, defeat and
 voluntary abandonment cannot authorize Return before this durable ACK. The ACK flag and resolver
 state are networked with the participant, so Host Migration preserves confirmed and pending work.
+The ACK confirms persistence only and never publishes `IsReturnAuthorized`. After a snapshot is
+available and the ACK plus outcome-specific barriers are observable, presentation may enable its
+button and issue an explicit `RequestReturn`. State Authority revalidates the request before
+publishing `IsReturnAuthorized`; `SessionConnectionCoordinator` remains the sole owner of the
+subsequent Raid-to-Town transition.
+
+The complete terminal flow is:
+
+```text
+resolver Committed + ledger frozen
+-> Results snapshot available
+-> durable persistence ACK
+-> Return button locally eligible
+-> explicit RequestReturn
+-> State Authority validation
+-> IsReturnAuthorized
+-> SessionConnectionCoordinator
+-> Town
+```
 
 ## Producer idempotency
 

@@ -20,6 +20,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private RaidInventoryPresenter _inventoryPresenter;
     private NetworkRunner _runner;
     private NetworkRaidParticipant _participant;
+    private PlayerExpeditionProgressionResolver _progressionResolver;
     private PlayerExtractionLootSaver _extractionLootSaver;
     private LocalRaidSpectatorController _spectator;
 
@@ -30,9 +31,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _awaitingAbandonConfirmation;
     private bool _returnRequested;
     private bool _returnStarted;
+    private bool _hasProgressionResultSnapshot;
+    private ExpeditionProgressionResult _progressionResultSnapshot;
     private float _nextNoTargetRefreshAt;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionFinalizationComplete;
+    private bool _observedProgressionCommitConfirmed;
+    private bool _observedHasLocalProgressionCommitResult;
+    private ProgressionCommitResult _observedLocalProgressionCommitResult;
     private ExtractionLootSaveStatus _observedSaveStatus;
 
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -65,6 +71,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         if (_participant != null)
         {
+            _progressionResolver =
+                _participant.GetComponent<PlayerExpeditionProgressionResolver>();
+            if (_progressionResolver == null)
+            {
+                Debug.LogError(
+                    $"{nameof(RaidMenuPresenter)} could not resolve " +
+                    $"{nameof(PlayerExpeditionProgressionResolver)}.",
+                    this);
+                Unbind();
+                return;
+            }
+
             _spectator = new LocalRaidSpectatorController(_runner, _participant);
         }
 
@@ -77,6 +95,13 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             : RaidParticipantState.Raiding;
         _observedExtractionFinalizationComplete = _participant != null &&
             _participant.IsExtractionProgressionComplete;
+        _observedProgressionCommitConfirmed = _participant != null &&
+            _participant.IsProgressionCommitConfirmed;
+        _observedHasLocalProgressionCommitResult = _participant != null &&
+            _participant.HasLocalProgressionCommitResult;
+        _observedLocalProgressionCommitResult = _participant != null
+            ? _participant.LocalProgressionCommitResult
+            : default;
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
@@ -99,6 +124,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inventoryPresenter = null;
         _runner = null;
         _participant = null;
+        _progressionResolver = null;
         _extractionLootSaver = null;
         _spectator = null;
         _isBound = false;
@@ -106,9 +132,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _awaitingAbandonConfirmation = false;
         _returnRequested = false;
         _returnStarted = false;
+        _hasProgressionResultSnapshot = false;
+        _progressionResultSnapshot = default;
         _nextNoTargetRefreshAt = 0f;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionFinalizationComplete = false;
+        _observedProgressionCommitConfirmed = false;
+        _observedHasLocalProgressionCommitResult = false;
+        _observedLocalProgressionCommitResult = default;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
         _view?.Clear();
     }
@@ -197,10 +228,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private void OnDisable()
     {
-        Unsubscribe();
-        CleanupSpectatorPresentation();
-        _inventoryPresenter?.SetGameplayMutationsBlocked(false);
-        CloseMenuInternal(forceReleaseSuppression: true);
+        Unbind();
     }
 
     private void OnDestroy()
@@ -356,6 +384,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
+        if (IsVoluntaryAbandonResult())
+        {
+            RequestTerminalReturnOnce();
+            return;
+        }
+
         if (!_awaitingAbandonConfirmation)
         {
             _awaitingAbandonConfirmation = true;
@@ -384,16 +418,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private void RequestTerminalReturnOnce()
     {
-        if (_participant == null || _returnRequested)
-        {
-            return;
-        }
-        if (_participant.State == RaidParticipantState.Defeated && !CanDefeatedParticipantReturn())
-        {
-            return;
-        }
-        if (_participant.State == RaidParticipantState.Extracted &&
-            !_participant.IsExtractionProgressionComplete)
+        if (_returnRequested || !CanIssueReturnRequest())
         {
             return;
         }
@@ -409,29 +434,44 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_awaitingAbandonConfirmation)
+        if (_awaitingAbandonConfirmation && !HasPersistentResultScreen())
         {
             _view.PresentAbandonConfirmation();
         }
-        else if (_participant != null && _participant.State == RaidParticipantState.Extracted)
-        {
-            ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
-                ? _extractionLootSaver.LocalSaveStatus
-                : (_participant.IsExtractionProgressionComplete
-                    ? ExtractionLootSaveStatus.Committed
-                    : ExtractionLootSaveStatus.Pending);
-            if (!_participant.IsExtractionProgressionComplete &&
-                saveStatus == ExtractionLootSaveStatus.Committed)
-            {
-                saveStatus = ExtractionLootSaveStatus.Pending;
-            }
-            _view.PresentExtractedState(saveStatus);
-        }
-        else if (IsLocalDefeated())
+        else if (_participant == null && IsLocalDefeated())
         {
             _view.PresentDefeatedState(
-                CanDefeatedParticipantReturn(),
-                _spectator != null && _spectator.IsActive);
+                canReturn: false,
+                isSpectating: false);
+        }
+        else if (HasPersistentResultScreen())
+        {
+            bool canRetryPersistence;
+            string persistenceFeedback =
+                GetPersistenceFeedback(out canRetryPersistence);
+            bool canSpectate = IsLocalDefeated();
+            bool isSpectating = _spectator != null && _spectator.IsActive;
+            string title = GetTerminalResultTitle();
+            if (TryCaptureProgressionResult())
+            {
+                _view.PresentProgressionResults(
+                    title,
+                    _progressionResultSnapshot,
+                    persistenceFeedback,
+                    CanIssueReturnRequest(),
+                    canSpectate,
+                    isSpectating,
+                    canRetryPersistence);
+            }
+            else
+            {
+                _view.PresentProgressionResultsPending(
+                    title,
+                    persistenceFeedback,
+                    canSpectate,
+                    isSpectating,
+                    canRetryPersistence);
+            }
         }
         else
         {
@@ -475,14 +515,34 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         RaidParticipantState state = _participant.State;
         bool finalizationComplete = _participant.IsExtractionProgressionComplete;
+        bool progressionCommitConfirmed =
+            _participant.IsProgressionCommitConfirmed;
+        bool hasLocalProgressionCommitResult =
+            _participant.HasLocalProgressionCommitResult;
+        ProgressionCommitResult localProgressionCommitResult =
+            _participant.LocalProgressionCommitResult;
         ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
+        bool hadProgressionResultSnapshot = _hasProgressionResultSnapshot;
+        bool hasProgressionResultSnapshot =
+            HasPersistentResultScreen() && TryCaptureProgressionResult();
+        bool capturedResult = !hadProgressionResultSnapshot &&
+            hasProgressionResultSnapshot;
         bool resultChanged = state != _observedParticipantState ||
                              finalizationComplete != _observedExtractionFinalizationComplete ||
+                             progressionCommitConfirmed != _observedProgressionCommitConfirmed ||
+                             hasLocalProgressionCommitResult !=
+                                 _observedHasLocalProgressionCommitResult ||
+                             localProgressionCommitResult !=
+                                 _observedLocalProgressionCommitResult ||
                              saveStatus != _observedSaveStatus;
         _observedParticipantState = state;
         _observedExtractionFinalizationComplete = finalizationComplete;
+        _observedProgressionCommitConfirmed = progressionCommitConfirmed;
+        _observedHasLocalProgressionCommitResult =
+            hasLocalProgressionCommitResult;
+        _observedLocalProgressionCommitResult = localProgressionCommitResult;
         _observedSaveStatus = saveStatus;
 
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
@@ -504,6 +564,25 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             {
                 RefreshViewContent();
             }
+        }
+
+        else if (IsVoluntaryAbandonResult())
+        {
+            _awaitingAbandonConfirmation = false;
+            _inventoryPresenter?.SetGameplayMutationsBlocked(true);
+            if (!IsOpen)
+            {
+                _inventoryPresenter?.Close();
+                OpenMenu();
+            }
+            else if (resultChanged || capturedResult)
+            {
+                RefreshViewContent();
+            }
+        }
+        else if (IsLocalDefeated() && IsOpen && (resultChanged || capturedResult))
+        {
+            RefreshViewContent();
         }
     }
 
@@ -610,6 +689,149 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool IsLocalDefeated() => _wasDefeatedObserved ||
         (_participant != null && _participant.State == RaidParticipantState.Defeated);
 
+    private bool IsVoluntaryAbandonResult() => _participant != null &&
+        _participant.State == RaidParticipantState.Aborted &&
+        _participant.FinalizationCause ==
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+
+    private bool TryCaptureProgressionResult()
+    {
+        if (_hasProgressionResultSnapshot)
+        {
+            return true;
+        }
+
+        if (_progressionResolver == null ||
+            !_progressionResolver.TryGetProgressionResult(
+                out ExpeditionProgressionResult result))
+        {
+            return false;
+        }
+
+        _progressionResultSnapshot = result;
+        _hasProgressionResultSnapshot = true;
+        return true;
+    }
+
+    private bool CanIssueReturnRequest()
+    {
+        if (_participant == null ||
+            !TryResolveOperationalLocalRole(out bool isHost))
+        {
+            return false;
+        }
+
+        return CanIssueReturnRequest(
+            _hasProgressionResultSnapshot,
+            _participant.IsProgressionCommitConfirmed,
+            _participant.State,
+            _participant.FinalizationCause,
+            _participant.IsExtractionProgressionComplete,
+            isHost);
+    }
+
+    internal static bool CanIssueReturnRequest(
+        bool hasProgressionResultSnapshot,
+        bool isProgressionCommitConfirmed,
+        RaidParticipantState state,
+        ExpeditionProgressionFinalizationCause finalizationCause,
+        bool isExtractionProgressionComplete,
+        bool isHost)
+    {
+        if (!hasProgressionResultSnapshot ||
+            !isProgressionCommitConfirmed || isHost)
+        {
+            return false;
+        }
+
+        return state switch
+        {
+            RaidParticipantState.Extracted =>
+                isExtractionProgressionComplete,
+            RaidParticipantState.Defeated => true,
+            RaidParticipantState.Aborted => finalizationCause ==
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+            _ => false
+        };
+    }
+
+    private string GetTerminalResultTitle()
+    {
+        if (_participant == null)
+        {
+            return "Resultados";
+        }
+
+        return _participant.State switch
+        {
+            RaidParticipantState.Extracted => "Extracción completada",
+            RaidParticipantState.Defeated => "Has sido Derrotado",
+            RaidParticipantState.Aborted when IsVoluntaryAbandonResult() =>
+                "Incursión abandonada",
+            _ => "Resultados"
+        };
+    }
+
+    private string GetPersistenceFeedback(out bool canRetryPersistence)
+    {
+        canRetryPersistence = false;
+        string progressionFeedback;
+        if (_participant == null)
+        {
+            progressionFeedback = "Persistencia de progresión no disponible.";
+        }
+        else if (_participant.IsProgressionCommitConfirmed)
+        {
+            progressionFeedback = "Progreso guardado y confirmado.";
+        }
+        else if (!_participant.HasLocalProgressionCommitResult)
+        {
+            progressionFeedback = "Guardado de progresión pendiente.";
+        }
+        else
+        {
+            progressionFeedback = _participant.LocalProgressionCommitResult switch
+            {
+                ProgressionCommitResult.Success or ProgressionCommitResult.AlreadyApplied =>
+                    "Progreso guardado localmente. Esperando confirmación autoritativa.",
+                ProgressionCommitResult.PersistenceFailed =>
+                    "No se pudo guardar la progresión. Reintentando.",
+                ProgressionCommitResult.Stale =>
+                    "La progresión local está desactualizada y no pudo confirmarse.",
+                ProgressionCommitResult.Conflict =>
+                    "La progresión local presenta un conflicto y no pudo confirmarse.",
+                _ => "La progresión local no pudo confirmarse."
+            };
+        }
+
+        if (_participant == null ||
+            _participant.State != RaidParticipantState.Extracted)
+        {
+            return progressionFeedback;
+        }
+
+        ExtractionLootSaveStatus lootStatus = _extractionLootSaver != null
+            ? _extractionLootSaver.LocalSaveStatus
+            : (_participant.IsExtractionProgressionComplete
+                ? ExtractionLootSaveStatus.Committed
+                : ExtractionLootSaveStatus.Pending);
+        if (!_participant.IsExtractionProgressionComplete &&
+            lootStatus == ExtractionLootSaveStatus.Committed)
+        {
+            lootStatus = ExtractionLootSaveStatus.Pending;
+        }
+        string lootFeedback = lootStatus switch
+        {
+            ExtractionLootSaveStatus.Committed => "Botín asegurado.",
+            ExtractionLootSaveStatus.PersistenceFailed =>
+                "No se pudo guardar el botín. Pulsa Reintentar.",
+            _ => "Guardado de botín pendiente."
+        };
+        canRetryPersistence =
+            lootStatus == ExtractionLootSaveStatus.PersistenceFailed;
+        return $"{lootFeedback}\n{progressionFeedback}";
+    }
+
     private NetworkMatchController GetMatchController() => _runner != null
         ? _runner.GetComponent<NetworkSpawnManager>()?.MatchController
         : null;
@@ -662,5 +884,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     }
 
     private bool HasPersistentResultScreen() => IsLocalDefeated() ||
-        (_participant != null && _participant.State == RaidParticipantState.Extracted);
+        (_participant != null && _participant.State == RaidParticipantState.Extracted) ||
+        IsVoluntaryAbandonResult();
 }
