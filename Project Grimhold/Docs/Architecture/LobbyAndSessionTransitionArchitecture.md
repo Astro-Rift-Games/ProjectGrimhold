@@ -28,6 +28,7 @@ The coordinator exposes:
 - `ConnectToTownAsync(selectedBuild)`
 - `EnterRaidAsync(request)`
 - `ReturnToTownAsync()`
+- `RequestHostResultsReturn()` for the operational Host's explicit Results decision
 - `StartDirectRaidForDevelopmentAsync(...)`, which is explicitly outside the player flow
 
 `SessionConnectionStateMachine` contains the transition rules without Unity or Fusion
@@ -66,6 +67,8 @@ the explicit development entry point. Invalid transitions do not mutate state.
 | Town spawn positions | `HubSpawnSceneConfiguration` in `Lobby-Town` | Town scene |
 | Spawned local social avatar | Fusion player object mapping | `HubPlayerSpawner` / runner |
 | Gameplay simulation state | Existing raid network behaviours | Raid runner and State Authority |
+| Pending Host Results return | Coordinator request/start latches | Coordinator |
+| Remote peer connectivity blocking Host shutdown | Existing player routing OR `NetworkRunner.ActivePlayers` | `NetworkSpawnManager` / runner |
 
 The coordinator never stores references to objects owned by a unloadable gameplay scene.
 The transition ticket is local lifecycle data; it is not replicated state and does not add a
@@ -145,6 +148,45 @@ is owned by `NetworkSpawnManager` and is now enabled only by the Starting
 bootstrap. No preplaced trap, hazard, extraction, sanctuary, timer or AI behaviour
 was changed without evidence that it mutates state before `InProgress`; nested
 prefabs remain subject to the same phase audit when their behaviour is introduced.
+
+### Retained Results and explicit return
+
+`MatchPhase.Finished` ends gameplay but is not a Town transition request. State Authority
+blocks further spawns and performs a one-shot cleanup of enemies, loot, breakables and other
+dynamic world objects while retaining each `NetworkRaidParticipant`, its current Results
+avatar, player routing and the minimum Controlled Return state. Results, progression, loot
+and persistence are not resolved again during this retained phase; final runner shutdown is
+still the definitive cleanup boundary.
+
+A Client remains on the existing participant route: its explicit `RequestReturn()` is
+authorized only for an accepted terminal participant with a captured progression result,
+confirmed persistence and a compatible raid phase. The resulting
+`ReturnParticipantToTownAsync()` removes only that Client through the existing lifecycle.
+
+The operational Host never uses the participant return RPC. Its Results button calls
+`RequestHostResultsReturn()`, which records one local intent only after the local participant
+is terminal, its result and persistence are confirmed, the match is `Finished`, and no
+participant remains `Raiding`. `Update()` reevaluates that pending intent; it starts the
+existing `ReturnToTownAsync()` exactly once only when no remote peer remains connected.
+Removing a Client's terminal objects does not satisfy this condition: routing is retained
+until `OnPlayerLeft`, and the query is additionally guarded by `NetworkRunner.ActivePlayers`.
+Therefore `Finished` alone can remain in Results indefinitely, and a pending Host return
+cannot shut down the runner while a remote Client still belongs to it.
+
+#### MVP topology constraint
+
+The Host-specific Results return path exists only because the MVP Raid topology is
+Host/Client: the operational Host owns the authoritative `NetworkRunner` lifecycle, so its
+departure cannot behave exactly like an individual Client departure. This is a temporary
+technical constraint, not a Game Design rule or intended permanent product behaviour.
+
+The post-MVP target is Dedicated Server. With that topology no player owns the authoritative
+Raid lifecycle, the Host/Client distinction for leaving Results must disappear, and every
+player should use the same semantic individual Results departure flow. The current special
+handling therefore remains localized to Networking and session lifecycle. Progression, the
+Results domain, Extraction and other gameplay systems must not acquire Host-specific
+dependencies. This decision documents the migration boundary only; it does not introduce
+Dedicated Server support or speculative abstractions in the MVP implementation.
 
 ## Runner lifecycle
 

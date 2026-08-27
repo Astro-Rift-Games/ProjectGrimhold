@@ -196,6 +196,7 @@ public sealed class RaidMenuView : MonoBehaviour
         SetProgressionResultsVisible(false);
         PresentTerminalActions(
             canReturn: false,
+            returnRequested: false,
             canSpectate: canSpectate,
             isSpectating: isSpectating,
             canRetryPersistence: canRetryPersistence);
@@ -207,12 +208,17 @@ public sealed class RaidMenuView : MonoBehaviour
         in ExpeditionProgressionResult result,
         string persistenceFeedback,
         bool canReturn,
+        bool returnRequested,
         bool canSpectate,
         bool isSpectating,
         bool canRetryPersistence)
     {
         SetText(_titleText, title);
-        SetText(_statusText, persistenceFeedback);
+        SetText(
+            _statusText,
+            returnRequested
+                ? $"{persistenceFeedback}\nRegreso solicitado."
+                : persistenceFeedback);
         SetText(_controlsText, string.Empty);
         SetText(
             _progressionActivityText,
@@ -266,6 +272,7 @@ public sealed class RaidMenuView : MonoBehaviour
         SetProgressionResultsVisible(true);
         PresentTerminalActions(
             canReturn,
+            returnRequested,
             canSpectate,
             isSpectating,
             canRetryPersistence);
@@ -332,6 +339,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     private void PresentTerminalActions(
         bool canReturn,
+        bool returnRequested,
         bool canSpectate,
         bool isSpectating,
         bool canRetryPersistence)
@@ -345,8 +353,10 @@ public sealed class RaidMenuView : MonoBehaviour
                 : isSpectating
                     ? "Continuar observando"
                     : "Observar");
-        SetButtonState(_abandonButton, true, canReturn);
-        SetText(_abandonButtonText, "Volver al pueblo");
+        SetButtonState(_abandonButton, true, canReturn && !returnRequested);
+        SetText(
+            _abandonButtonText,
+            returnRequested ? "Regreso solicitado" : "Volver al pueblo");
     }
 
     private void SetProgressionResultsVisible(bool visible)

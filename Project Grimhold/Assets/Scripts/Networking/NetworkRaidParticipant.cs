@@ -597,14 +597,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     private void RPC_RequestReturn(RpcInfo info = default)
     {
-        if (IsReturnAuthorized || State == RaidParticipantState.Raiding)
-        {
-            return;
-        }
-
-        if ((State == RaidParticipantState.Extracted && !IsExtractionProgressionComplete) ||
-            (RequiresProgressionCommitAcknowledgement() &&
-             !IsProgressionCommitConfirmed))
+        if (IsReturnAuthorized)
         {
             return;
         }
@@ -632,6 +625,19 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             Debug.LogWarning(
                 "[HM-MULTI] Operational Host Return rejected while the Host must sustain the Raid.",
                 this);
+            return;
+        }
+
+        bool hasProgressionResultSnapshot = _progressionResolver != null &&
+            _progressionResolver.TryGetProgressionResult(out ExpeditionProgressionResult _);
+        if (!RaidResultsReturnPolicy.CanRequestClientReturn(
+                State,
+                FinalizationCause,
+                IsExtractionProgressionComplete,
+                hasProgressionResultSnapshot,
+                IsProgressionCommitConfirmed,
+                spawnManager.IsResultsReturnPhaseCompatible))
+        {
             return;
         }
 

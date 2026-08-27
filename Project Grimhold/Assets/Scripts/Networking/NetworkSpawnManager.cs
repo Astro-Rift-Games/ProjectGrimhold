@@ -104,6 +104,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
     private readonly InitialBreakableSpawnState _breakableSpawnState = new();
+    private bool _resultsWorldCleanupAttempted;
+    private int _resultsWorldCleanupFailureCount;
 
     private ulong _lootSessionSeed;
     private bool _hasLootSessionSeed;
@@ -183,6 +185,46 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
     }
+
+    /// <summary>
+    /// Reports remote peers that still belong to this runner. Player routing is retained until
+    /// OnPlayerLeft, and ActivePlayers protects the same boundary if an object mapping is absent.
+    /// </summary>
+    public bool HasConnectedRemoteParticipants
+    {
+        get
+        {
+            if (_runner == null)
+            {
+                return false;
+            }
+
+            PlayerRef localPlayer = _runner.LocalPlayer;
+            foreach (PlayerRef player in _spawnedPlayers.Keys)
+            {
+                if (player != localPlayer)
+                {
+                    return true;
+                }
+            }
+
+            foreach (PlayerRef player in _runner.ActivePlayers)
+            {
+                if (player != localPlayer)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    internal bool IsResultsReturnPhaseCompatible => _matchController != null &&
+        (_matchController.Phase == NetworkMatchController.MatchPhase.InProgress ||
+         _matchController.Phase == NetworkMatchController.MatchPhase.Closing ||
+         _matchController.Phase == NetworkMatchController.MatchPhase.Finished);
+
     public NetworkPrefabRef LootContainerPrefab => _lootContainerPrefab;
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
 
@@ -262,7 +304,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (participant == null || participant.Runner != _runner ||
             participant.State != RaidParticipantState.Defeated || _matchController == null ||
             (_matchController.Phase != NetworkMatchController.MatchPhase.InProgress &&
-             _matchController.Phase != NetworkMatchController.MatchPhase.Closing))
+             _matchController.Phase != NetworkMatchController.MatchPhase.Closing &&
+             _matchController.Phase != NetworkMatchController.MatchPhase.Finished))
         {
             rejectionReason = "Participant is not a defeated member of an active raid.";
             return false;
@@ -298,6 +341,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
+        _resultsWorldCleanupAttempted = false;
+        _resultsWorldCleanupFailureCount = 0;
         _lootSessionSeed = 0;
         _hasLootSessionSeed = false;
         _spawnPointLookup.Clear();
@@ -2519,15 +2564,23 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     }
 
     /// <summary>
-    /// Despawns every network object owned by this runner except the lifecycle coordinator.
-    /// Runner scope is the generation boundary: a different raid always owns a new runner.
+    /// Cleans gameplay world state once while retaining connected participant Results objects.
+    /// The runner shutdown remains the definitive generation cleanup boundary.
     /// </summary>
-    public bool TryCleanupRaidGeneration(out int failureCount)
+    public bool TryCleanupRaidWorldForResults(out int failureCount)
     {
+        if (_resultsWorldCleanupAttempted)
+        {
+            failureCount = _resultsWorldCleanupFailureCount;
+            return failureCount == 0;
+        }
+
+        _resultsWorldCleanupAttempted = true;
         failureCount = 0;
         if (_runner == null || !_runner.IsServer)
         {
             failureCount = 1;
+            _resultsWorldCleanupFailureCount = failureCount;
             return false;
         }
 
@@ -2540,7 +2593,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             NetworkObject networkObject = _cleanupBuffer[index];
             if (networkObject == null ||
                 networkObject.TryGetBehaviour(out NetworkMatchController _) ||
-                networkObject.NetworkTypeId.IsSceneObject)
+                networkObject.NetworkTypeId.IsSceneObject ||
+                IsRetainedResultsObject(networkObject))
             {
                 continue;
             }
@@ -2556,14 +2610,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
-        _spawnedPlayers.Clear();
-        _spawnedAvatars.Clear();
-        _admissionData.Clear();
         _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
-        _admittedPlayers.Clear();
-        _admittedProfiles.Clear();
-        _controlledReturns.Clear();
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
         _lootSessionSeed = 0;
@@ -2575,8 +2623,30 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _runner.GetComponent<EntityRegistry>()?.ClearForRaidClosure();
         _runner.GetComponent<ExtractionSanctuaryAssignmentService>()?.ResetForRaidClosure();
         _cleanupBuffer.Clear();
+        _resultsWorldCleanupFailureCount = failureCount;
 
         return failureCount == 0;
+    }
+
+    private bool IsRetainedResultsObject(NetworkObject networkObject)
+    {
+        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+        {
+            if (participantObject == networkObject)
+            {
+                return true;
+            }
+        }
+
+        foreach (NetworkObject avatarObject in _spawnedAvatars.Values)
+        {
+            if (avatarObject == networkObject)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType)

@@ -122,7 +122,6 @@ MonoBehaviour:
   _townSceneName: Lobby-Town
   _gameplaySceneName: Gameplay
   _clientJoinRetryDelaySeconds: 0.5
-  _raidClosureHostGraceSeconds: 5
   _developmentRaidCode: 900001
   _developmentHostProfileId: 
   _developmentAdmittedProfileIds: []
