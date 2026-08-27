@@ -121,7 +121,7 @@ namespace Tests.PlayMode.Progression
 
             yield return Execute(_ => Assert.That(
                 firstLedger.TryRegisterNormalReward(
-                    ExpeditionExperienceCategory.Kill,
+                    ExpeditionExperienceSource.PveKill,
                     long.MaxValue,
                     out ExpeditionExperienceLedgerFailure failure),
                 Is.True,
@@ -158,6 +158,8 @@ namespace Tests.PlayMode.Progression
                     Vector3.zero)
                 .GetComponent<NetworkLootContainerInteractable>();
 
+            Object.DestroyImmediate(
+                firstParticipant.GetComponent<PlayerExpeditionProgressionResolver>());
             Object.DestroyImmediate(GetLedger(firstParticipant));
             yield return Interact(interactable, firstAvatar);
 
@@ -221,7 +223,7 @@ namespace Tests.PlayMode.Progression
 
             yield return Execute(_ => Assert.That(
                 firstLedger.TryRegisterNormalReward(
-                    ExpeditionExperienceCategory.Kill,
+                    ExpeditionExperienceSource.PveKill,
                     long.MaxValue,
                     out ExpeditionExperienceLedgerFailure failure),
                 Is.True,
@@ -370,12 +372,14 @@ namespace Tests.PlayMode.Progression
             long exploration,
             long total)
         {
-            ExpeditionExperienceSnapshot snapshot = GetLedger(participant).Snapshot;
+            PlayerExpeditionExperienceLedger ledger = GetLedger(participant);
+            ExpeditionExperienceSnapshot snapshot = ledger.Snapshot;
             Assert.That(snapshot.KillExperience, Is.Zero);
             Assert.That(snapshot.AssistExperience, Is.Zero);
             Assert.That(snapshot.ExplorationExperience, Is.EqualTo(exploration));
             Assert.That(snapshot.ExtractedLootExperience, Is.Zero);
             Assert.That(snapshot.TotalExperience, Is.EqualTo(total));
+            Assert.That(ledger.FirstOpenChestCount, Is.EqualTo(exploration > 0 ? 1 : 0));
         }
 
         private static void ExpectBasePrefabExtractionProgressValidationError()

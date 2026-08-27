@@ -52,7 +52,7 @@ namespace Tests.PlayMode.Progression
 
             yield return Register(
                 ledger,
-                ExpeditionExperienceCategory.Kill,
+                ExpeditionExperienceSource.PveKill,
                 12,
                 true,
                 ExpeditionExperienceLedgerFailure.None);
@@ -61,10 +61,10 @@ namespace Tests.PlayMode.Progression
 
             yield return Register(
                 ledger,
-                ExpeditionExperienceCategory.ExtractedLoot,
+                ExpeditionExperienceSource.None,
                 20,
                 false,
-                ExpeditionExperienceLedgerFailure.ExtractedLootRequiresExtractionResolution);
+                ExpeditionExperienceLedgerFailure.InvalidSource);
             Assert.That(ledger.Snapshot.ExtractedLootExperience, Is.Zero);
             Assert.That(ledger.Snapshot.TotalExperience, Is.EqualTo(12));
 
@@ -80,7 +80,7 @@ namespace Tests.PlayMode.Progression
                 ExpeditionExperienceSnapshot before = ledger.Snapshot;
                 yield return Register(
                     ledger,
-                    ExpeditionExperienceCategory.Exploration,
+                    ExpeditionExperienceSource.FirstOpenChest,
                     1,
                     false,
                     ExpeditionExperienceLedgerFailure.ParticipantNotRaiding);
@@ -100,7 +100,7 @@ namespace Tests.PlayMode.Progression
 
             yield return Register(
                 ledger,
-                ExpeditionExperienceCategory.Kill,
+                ExpeditionExperienceSource.PveKill,
                 12,
                 true,
                 ExpeditionExperienceLedgerFailure.None);
@@ -138,6 +138,96 @@ namespace Tests.PlayMode.Progression
             Assert.That(ledger.ExtractedLootResolvedResultSequence, Is.EqualTo(1));
         }
 
+        [Test]
+        public void NonAuthorityLedger_RejectsWithoutMutation()
+        {
+            var participantObject = new GameObject("NonAuthorityLedger");
+            PlayerExpeditionExperienceLedger ledger =
+                participantObject.AddComponent<PlayerExpeditionExperienceLedger>();
+
+            Assert.That(
+                ledger.TryRegisterNormalReward(
+                    ExpeditionExperienceSource.PveKill,
+                    10,
+                    out ExpeditionExperienceLedgerFailure failure),
+                Is.False);
+            Assert.That(failure, Is.EqualTo(ExpeditionExperienceLedgerFailure.MissingStateAuthority));
+
+            Object.DestroyImmediate(participantObject);
+        }
+
+        [UnityTest]
+        public IEnumerator NormalSources_RejectInvalidAndOverflowWithoutPartialMutation()
+        {
+            yield return StartRunner();
+            NetworkObject participantObject = SpawnParticipant();
+            PlayerExpeditionExperienceLedger ledger =
+                participantObject.GetComponent<PlayerExpeditionExperienceLedger>();
+
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.None,
+                10,
+                false,
+                ExpeditionExperienceLedgerFailure.InvalidSource);
+            yield return Register(
+                ledger,
+                (ExpeditionExperienceSource)byte.MaxValue,
+                10,
+                false,
+                ExpeditionExperienceLedgerFailure.InvalidSource);
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.PveKill,
+                -1,
+                false,
+                ExpeditionExperienceLedgerFailure.InvalidAmount);
+            Assert.That(ledger.Snapshot, Is.EqualTo(ExpeditionExperienceSnapshot.Empty));
+            Assert.That(ledger.PveKillCount, Is.Zero);
+
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.PveKill,
+                long.MaxValue,
+                true,
+                ExpeditionExperienceLedgerFailure.None);
+            ExpeditionExperienceSnapshot full = ledger.Snapshot;
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.PvpKill,
+                1,
+                false,
+                ExpeditionExperienceLedgerFailure.CategoryOverflow);
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.FirstOpenChest,
+                1,
+                false,
+                ExpeditionExperienceLedgerFailure.TotalOverflow);
+            Assert.That(ledger.Snapshot, Is.EqualTo(full));
+            Assert.That(ledger.PveKillCount, Is.EqualTo(1));
+            Assert.That(ledger.PvpKillCount, Is.Zero);
+            Assert.That(ledger.FirstOpenChestCount, Is.Zero);
+
+            int sequence = _driver.CompletionSequence;
+            _driver.RequestConfigureSourceCount(
+                ledger,
+                ExpeditionExperienceSource.PveKill,
+                int.MaxValue);
+            yield return WaitUntilCompletion(sequence);
+            Assert.That(_driver.LastResult, Is.True);
+
+            ExpeditionExperienceSnapshot before = ledger.Snapshot;
+            yield return Register(
+                ledger,
+                ExpeditionExperienceSource.PveKill,
+                10,
+                false,
+                ExpeditionExperienceLedgerFailure.SourceCountOverflow);
+            Assert.That(ledger.Snapshot, Is.EqualTo(before));
+            Assert.That(ledger.PveKillCount, Is.EqualTo(int.MaxValue));
+        }
+
         private IEnumerator StartRunner()
         {
             var runnerObject = new GameObject("ExpeditionExperienceLedgerTestRunner");
@@ -170,13 +260,13 @@ namespace Tests.PlayMode.Progression
 
         private IEnumerator Register(
             PlayerExpeditionExperienceLedger ledger,
-            ExpeditionExperienceCategory category,
+            ExpeditionExperienceSource source,
             long amount,
             bool expectedResult,
             ExpeditionExperienceLedgerFailure expectedFailure)
         {
             int previousSequence = _driver.CompletionSequence;
-            _driver.RequestRegisterReward(ledger, category, amount);
+            _driver.RequestRegisterReward(ledger, source, amount);
             yield return WaitUntilCompletion(previousSequence);
             Assert.That(_driver.LastResult, Is.EqualTo(expectedResult));
             Assert.That(_driver.LastFailure, Is.EqualTo(expectedFailure));

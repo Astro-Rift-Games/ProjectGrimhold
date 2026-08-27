@@ -83,7 +83,7 @@ namespace Tests.PlayMode.Progression
                 PlayerExpeditionProgressionResolver resolver =
                     participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
 
-                yield return Register(ledger, ExpeditionExperienceCategory.Kill, 100);
+                yield return Register(ledger, ExpeditionExperienceSource.PveKill, 100);
                 RaidParticipantState state = causes[index] switch
                 {
                     ExpeditionProgressionFinalizationCause.ExtractionConfirmed =>
@@ -103,7 +103,7 @@ namespace Tests.PlayMode.Progression
                     Is.True);
                 Assert.That(resolution.Outcome, Is.EqualTo(outcomes[index]));
                 Assert.That(resolution.ConsolidatedExperience, Is.EqualTo(consolidated[index]));
-                Assert.That(ledger.IsFrozen, Is.True);
+                Assert.That((bool)ledger.IsFrozen, Is.True);
 
                 yield return Finalize(resolver, causes[index]);
                 Assert.That(
@@ -117,7 +117,7 @@ namespace Tests.PlayMode.Progression
         public IEnumerator Extraction_AppliesMultipleLevelsAndFailureBeforeCommitIsAtomic()
         {
             yield return StartRunner();
-            NetworkObject participantObject = SpawnParticipant(20, 1, 90);
+            NetworkObject participantObject = SpawnParticipant(5, 1, 90);
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
             PlayerExpeditionExperienceLedger ledger =
@@ -125,15 +125,15 @@ namespace Tests.PlayMode.Progression
             PlayerExpeditionProgressionResolver resolver =
                 participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
 
-            yield return Register(ledger, ExpeditionExperienceCategory.Kill, 250);
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 250);
             ExpeditionExperienceSnapshot before = ledger.Snapshot;
             yield return Finalize(resolver, ExpeditionProgressionFinalizationCause.None);
             Assert.That(
                 _driver.LastProgressionResult.Status,
                 Is.EqualTo(PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle));
-            Assert.That(ledger.IsFrozen, Is.False);
+            Assert.That((bool)ledger.IsFrozen, Is.False);
             Assert.That(ledger.Snapshot, Is.EqualTo(before));
-            Assert.That(resolver.Committed, Is.False);
+            Assert.That((bool)resolver.Committed, Is.False);
 
             yield return Configure(
                 participant,
@@ -146,15 +146,36 @@ namespace Tests.PlayMode.Progression
             Assert.That(
                 _driver.LastProgressionResult.Status,
                 Is.EqualTo(PlayerExpeditionProgressionFinalizationStatus.IncompatibleLifecycle));
-            Assert.That(ledger.IsFrozen, Is.False);
+            Assert.That((bool)ledger.IsFrozen, Is.False);
             Assert.That(ledger.Snapshot, Is.EqualTo(before));
-            Assert.That(resolver.Committed, Is.False);
+            Assert.That((bool)resolver.Committed, Is.False);
 
             yield return Configure(
                 participant,
                 RaidParticipantState.Extracted,
                 ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
-                ExtractionExperienceTransactionPhase.ProgressionPending);
+                ExtractionExperienceTransactionPhase.ProgressionPending,
+                eligibleExtractedLootValue: 100,
+                extractedLootExperience: 10);
+
+            int sequence = _driver.CompletionSequence;
+            _driver.RequestConfigureProgressionBaseline(resolver, 0, 0);
+            yield return WaitForDriver(sequence);
+            yield return Finalize(
+                resolver,
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed);
+            Assert.That(
+                _driver.LastProgressionResult.Status,
+                Is.EqualTo(PlayerExpeditionProgressionFinalizationStatus.MissingOrInvalidBaseline));
+            Assert.That(participant.ExtractedLootCandidateEligibleValue, Is.EqualTo(100));
+            Assert.That(participant.ExtractedLootCandidateExperience, Is.EqualTo(10));
+            Assert.That(ledger.Snapshot.ExtractedLootExperience, Is.EqualTo(10));
+            Assert.That((bool)ledger.IsFrozen, Is.False);
+            Assert.That((bool)resolver.Committed, Is.False);
+
+            sequence = _driver.CompletionSequence;
+            _driver.RequestConfigureProgressionBaseline(resolver, 1, 90);
+            yield return WaitForDriver(sequence);
             yield return Finalize(
                 resolver,
                 ExpeditionProgressionFinalizationCause.ExtractionConfirmed);
@@ -172,7 +193,7 @@ namespace Tests.PlayMode.Progression
         public IEnumerator MissingBaseline_ReturnsIntegrationFailureWithoutFreezingLedger()
         {
             yield return StartRunner();
-            NetworkObject participantObject = SpawnParticipant(30, 1, 0);
+            NetworkObject participantObject = SpawnParticipant(6, 1, 0);
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
             PlayerExpeditionExperienceLedger ledger =
@@ -180,7 +201,7 @@ namespace Tests.PlayMode.Progression
             PlayerExpeditionProgressionResolver resolver =
                 participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
 
-            yield return Register(ledger, ExpeditionExperienceCategory.Kill, 10);
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 10);
             int sequence = _driver.CompletionSequence;
             _driver.RequestConfigureProgressionBaseline(resolver, 0, 0);
             yield return WaitForDriver(sequence);
@@ -196,8 +217,121 @@ namespace Tests.PlayMode.Progression
             Assert.That(
                 _driver.LastProgressionResult.Status,
                 Is.EqualTo(PlayerExpeditionProgressionFinalizationStatus.MissingOrInvalidBaseline));
-            Assert.That(ledger.IsFrozen, Is.False);
-            Assert.That(resolver.Committed, Is.False);
+            Assert.That((bool)ledger.IsFrozen, Is.False);
+            Assert.That((bool)resolver.Committed, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator CommittedResult_IsCompleteRepeatableAndPreservedByStateCopy()
+        {
+            yield return StartRunner();
+            NetworkObject sourceObject = SpawnParticipant(7, 1, 90);
+            NetworkRaidParticipant participant =
+                sourceObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionExperienceLedger ledger =
+                sourceObject.GetComponent<PlayerExpeditionExperienceLedger>();
+            PlayerExpeditionProgressionResolver resolver =
+                sourceObject.GetComponent<PlayerExpeditionProgressionResolver>();
+
+            Assert.That(resolver.TryGetProgressionResult(out _), Is.False);
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 10);
+            yield return Register(ledger, ExpeditionExperienceSource.PvpKill, 15);
+            yield return Register(ledger, ExpeditionExperienceSource.PveAssist, 4);
+            yield return Register(ledger, ExpeditionExperienceSource.PvpAssist, 3);
+            yield return Register(ledger, ExpeditionExperienceSource.FirstOpenChest, 5);
+            yield return Configure(
+                participant,
+                RaidParticipantState.Extracted,
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
+                ExtractionExperienceTransactionPhase.ProgressionPending,
+                eligibleExtractedLootValue: 100,
+                extractedLootExperience: 10);
+            yield return Finalize(
+                resolver,
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed);
+
+            ExpeditionExperienceSnapshot frozen = ledger.Snapshot;
+            yield return RegisterRejected(
+                ledger,
+                ExpeditionExperienceSource.PveKill,
+                1,
+                ExpeditionExperienceLedgerFailure.LedgerFrozen);
+            Assert.That(ledger.Snapshot, Is.EqualTo(frozen));
+            Assert.That(ledger.PveKillCount, Is.EqualTo(1));
+            Assert.That(resolver.TryGetProgressionResult(out ExpeditionProgressionResult first),
+                Is.True);
+            Assert.That(resolver.TryGetProgressionResult(out ExpeditionProgressionResult second),
+                Is.True);
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(ledger.Snapshot, Is.EqualTo(frozen));
+            Assert.That(first.Outcome, Is.EqualTo(ExpeditionExperienceResolutionOutcome.Extracted));
+            Assert.That(first.PveKillCount, Is.EqualTo(1));
+            Assert.That(first.PvpKillCount, Is.EqualTo(1));
+            Assert.That(first.PveAssistCount, Is.EqualTo(1));
+            Assert.That(first.PvpAssistCount, Is.EqualTo(1));
+            Assert.That(first.FirstOpenChestCount, Is.EqualTo(1));
+            Assert.That(first.CombatExperience, Is.EqualTo(32));
+            Assert.That(first.ExplorationExperience, Is.EqualTo(5));
+            Assert.That(first.LootExperience, Is.EqualTo(10));
+            Assert.That(first.EligibleExtractedLootValue, Is.EqualTo(100));
+            Assert.That(first.ProvisionalExperienceTotal, Is.EqualTo(47));
+            Assert.That(first.RetentionBasisPoints, Is.EqualTo(10_000));
+            Assert.That(first.ConsolidatedExperience, Is.EqualTo(47));
+            Assert.That(first.PreviousLevel, Is.EqualTo(1));
+            Assert.That(first.PreviousExperience, Is.EqualTo(90));
+            Assert.That(first.ResultingLevel, Is.EqualTo(2));
+            Assert.That(first.ResultingExperience, Is.EqualTo(37));
+            Assert.That(first.LevelsGained, Is.EqualTo(1));
+            Assert.That(first.IsMaxLevel, Is.False);
+            Assert.That(first.NextLevelExperienceRequirement, Is.EqualTo(105));
+
+            NetworkObject restoredObject = SpawnParticipant(8, 1, 0);
+            PlayerExpeditionExperienceLedger restoredLedger =
+                restoredObject.GetComponent<PlayerExpeditionExperienceLedger>();
+            PlayerExpeditionProgressionResolver restoredResolver =
+                restoredObject.GetComponent<PlayerExpeditionProgressionResolver>();
+            int sequence = _driver.CompletionSequence;
+            _driver.RequestCopyProgressionState(
+                restoredLedger,
+                restoredResolver,
+                ledger,
+                resolver);
+            yield return WaitForDriver(sequence);
+
+            Assert.That(
+                restoredResolver.TryGetProgressionResult(
+                    out ExpeditionProgressionResult restoredResult),
+                Is.True);
+            Assert.That(restoredResult, Is.EqualTo(first));
+        }
+
+        [UnityTest]
+        public IEnumerator CommittedMaximumLevel_IsUnambiguous()
+        {
+            yield return StartRunner();
+            NetworkObject participantObject = SpawnParticipant(9, 30, 0);
+            NetworkRaidParticipant participant =
+                participantObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionExperienceLedger ledger =
+                participantObject.GetComponent<PlayerExpeditionExperienceLedger>();
+            PlayerExpeditionProgressionResolver resolver =
+                participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
+
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 10);
+            yield return Configure(
+                participant,
+                RaidParticipantState.Defeated,
+                ExpeditionProgressionFinalizationCause.None,
+                ExtractionExperienceTransactionPhase.None);
+            yield return Finalize(
+                resolver,
+                ExpeditionProgressionFinalizationCause.DefeatConfirmed);
+
+            Assert.That(resolver.TryGetProgressionResult(out ExpeditionProgressionResult result),
+                Is.True);
+            Assert.That(result.IsMaxLevel, Is.True);
+            Assert.That(result.NextLevelExperienceRequirement, Is.Zero);
+            Assert.That(result.EligibleExtractedLootValue, Is.Zero);
         }
 
         private IEnumerator StartRunner()
@@ -247,23 +381,44 @@ namespace Tests.PlayMode.Progression
 
         private IEnumerator Register(
             PlayerExpeditionExperienceLedger ledger,
-            ExpeditionExperienceCategory category,
+            ExpeditionExperienceSource source,
             long amount)
         {
             int sequence = _driver.CompletionSequence;
-            _driver.RequestRegisterReward(ledger, category, amount);
+            _driver.RequestRegisterReward(ledger, source, amount);
             yield return WaitForDriver(sequence);
             Assert.That(_driver.LastResult, Is.True, _driver.LastFailure.ToString());
+        }
+
+        private IEnumerator RegisterRejected(
+            PlayerExpeditionExperienceLedger ledger,
+            ExpeditionExperienceSource source,
+            long amount,
+            ExpeditionExperienceLedgerFailure expectedFailure)
+        {
+            int sequence = _driver.CompletionSequence;
+            _driver.RequestRegisterReward(ledger, source, amount);
+            yield return WaitForDriver(sequence);
+            Assert.That(_driver.LastResult, Is.False);
+            Assert.That(_driver.LastFailure, Is.EqualTo(expectedFailure));
         }
 
         private IEnumerator Configure(
             NetworkRaidParticipant participant,
             RaidParticipantState state,
             ExpeditionProgressionFinalizationCause cause,
-            ExtractionExperienceTransactionPhase phase)
+            ExtractionExperienceTransactionPhase phase,
+            long eligibleExtractedLootValue = 0,
+            long extractedLootExperience = 0)
         {
             int sequence = _driver.CompletionSequence;
-            _driver.RequestConfigureProgressionFinalization(participant, state, cause, phase);
+            _driver.RequestConfigureProgressionFinalization(
+                participant,
+                state,
+                cause,
+                phase,
+                eligibleExtractedLootValue,
+                extractedLootExperience);
             yield return WaitForDriver(sequence);
         }
 

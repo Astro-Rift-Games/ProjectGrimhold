@@ -22,6 +22,21 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
     public long ExtractedLootExperience { get; private set; }
 
     [Networked]
+    public int PveKillCount { get; private set; }
+
+    [Networked]
+    public int PvpKillCount { get; private set; }
+
+    [Networked]
+    public int PveAssistCount { get; private set; }
+
+    [Networked]
+    public int PvpAssistCount { get; private set; }
+
+    [Networked]
+    public int FirstOpenChestCount { get; private set; }
+
+    [Networked]
     public NetworkBool IsFrozen { get; private set; }
 
     [Networked]
@@ -56,7 +71,7 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
     /// complete its own one-shot transition immediately after this method succeeds.
     /// </summary>
     public bool TryRegisterNormalReward(
-        ExpeditionExperienceCategory category,
+        ExpeditionExperienceSource source,
         long amount,
         out ExpeditionExperienceLedgerFailure failure)
     {
@@ -84,6 +99,21 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
             return false;
         }
 
+        if (!TryResolveSource(
+                source,
+                out ExpeditionExperienceCategory category,
+                out int currentCount))
+        {
+            failure = ExpeditionExperienceLedgerFailure.InvalidSource;
+            return false;
+        }
+
+        if (currentCount == int.MaxValue)
+        {
+            failure = ExpeditionExperienceLedgerFailure.SourceCountOverflow;
+            return false;
+        }
+
         ExpeditionExperienceSnapshot current = Snapshot;
         if (!ExpeditionExperienceRules.TryApplyNormalReward(
                 current,
@@ -100,6 +130,7 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
         AssistExperience = candidate.AssistExperience;
         ExplorationExperience = candidate.ExplorationExperience;
         ExtractedLootExperience = candidate.ExtractedLootExperience;
+        CommitSourceCount(source, currentCount + 1);
         failure = ExpeditionExperienceLedgerFailure.None;
         return true;
     }
@@ -185,6 +216,62 @@ public sealed class PlayerExpeditionExperienceLedger : NetworkBehaviour
     internal void CommitFreeze()
     {
         IsFrozen = true;
+    }
+
+    private bool TryResolveSource(
+        ExpeditionExperienceSource source,
+        out ExpeditionExperienceCategory category,
+        out int currentCount)
+    {
+        category = default;
+        currentCount = 0;
+        switch (source)
+        {
+            case ExpeditionExperienceSource.PveKill:
+                category = ExpeditionExperienceCategory.Kill;
+                currentCount = PveKillCount;
+                return currentCount >= 0;
+            case ExpeditionExperienceSource.PvpKill:
+                category = ExpeditionExperienceCategory.Kill;
+                currentCount = PvpKillCount;
+                return currentCount >= 0;
+            case ExpeditionExperienceSource.PveAssist:
+                category = ExpeditionExperienceCategory.Assist;
+                currentCount = PveAssistCount;
+                return currentCount >= 0;
+            case ExpeditionExperienceSource.PvpAssist:
+                category = ExpeditionExperienceCategory.Assist;
+                currentCount = PvpAssistCount;
+                return currentCount >= 0;
+            case ExpeditionExperienceSource.FirstOpenChest:
+                category = ExpeditionExperienceCategory.Exploration;
+                currentCount = FirstOpenChestCount;
+                return currentCount >= 0;
+            default:
+                return false;
+        }
+    }
+
+    private void CommitSourceCount(ExpeditionExperienceSource source, int count)
+    {
+        switch (source)
+        {
+            case ExpeditionExperienceSource.PveKill:
+                PveKillCount = count;
+                break;
+            case ExpeditionExperienceSource.PvpKill:
+                PvpKillCount = count;
+                break;
+            case ExpeditionExperienceSource.PveAssist:
+                PveAssistCount = count;
+                break;
+            case ExpeditionExperienceSource.PvpAssist:
+                PvpAssistCount = count;
+                break;
+            case ExpeditionExperienceSource.FirstOpenChest:
+                FirstOpenChestCount = count;
+                break;
+        }
     }
 
     private static ExpeditionExperienceLedgerFailure MapFailure(
