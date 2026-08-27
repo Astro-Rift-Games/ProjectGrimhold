@@ -164,6 +164,28 @@ resolver Committed + ledger frozen
 -> Town
 ```
 
+## Town progression presentation
+
+Town presents only the persistent Level and Experience already stored by the local profile:
+
+```text
+LocalProfileStore
+-> ApplicationStashContext.ProfileCommitted
+-> TownProgressionBinding
+-> local Town progression HUD
+```
+
+The binding subscribes before its initial read so a commit cannot be missed between those two
+operations. That initial read is always performed when the local `SocialPlayer` enters or returns
+to Town, because the relevant commit may have completed during the Raid before the Town HUD existed.
+Later `ProfileCommitted` notifications refresh an active HUD only when they identify the observed
+local `ProfileId`.
+
+The Town HUD does not consume `ExpeditionProgressionResult` or any Results presentation snapshot.
+Results retains its independent immutable, read-only summary of one participation; Town observes
+only the current persistent values exposed by `LocalProfileStore` and never recalculates or grants
+Experience.
+
 ## Producer idempotency
 
 The ledger receives only a reward that its authoritative producer has already recognized
