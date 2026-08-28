@@ -1,31 +1,25 @@
-﻿fileFormatVersion: 2
-guid: 6065d39c7fbe3e1458de7b07d22772da
+fileFormatVersion: 2
+guid: 4c91d89b660176a468ae8d9e858b8779
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 392252230827070786
-    second: Skeleton-Ranged-Walk-NE-Sheet_0
+      213: -2295901368109046795
+    second: Skeleton-Ranged-Attack-S-Sheet_0
   - first:
-      213: -5294131257935260004
-    second: Skeleton-Ranged-Walk-NE-Sheet_1
+      213: 3261271088614628471
+    second: Skeleton-Ranged-Attack-S-Sheet_1
   - first:
-      213: -2539031930832249796
-    second: Skeleton-Ranged-Walk-NE-Sheet_2
+      213: 6947310247167787605
+    second: Skeleton-Ranged-Attack-S-Sheet_2
   - first:
-      213: -4965961961506842612
-    second: Skeleton-Ranged-Walk-NE-Sheet_3
+      213: -7797007047678788290
+    second: Skeleton-Ranged-Attack-S-Sheet_3
   - first:
-      213: 2776827814080231217
-    second: Skeleton-Ranged-Walk-NE-Sheet_4
+      213: -2129934236564458911
+    second: Skeleton-Ranged-Attack-S-Sheet_4
   - first:
-      213: -8523173395198940412
-    second: Skeleton-Ranged-Walk-NE-Sheet_5
-  - first:
-      213: -4308483491516923262
-    second: Skeleton-Ranged-Walk-NE-Sheet_6
-  - first:
-      213: -6114258449016406215
-    second: Skeleton-Ranged-Walk-NE-Sheet_7
+      213: 8401627122483365157
+    second: Skeleton-Ranged-Attack-S-Sheet_5
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -69,7 +63,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 16
@@ -109,7 +103,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 0
+    textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -121,13 +115,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_0
+      name: Skeleton-Ranged-Attack-S-Sheet_0
       rect:
         serializedVersion: 2
-        x: 41
-        y: 35
-        width: 14
-        height: 25
+        x: 0
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -136,20 +130,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2455dc0635f817500800000000000000
-      internalID: 392252230827070786
+      spriteID: 5f3e682bed15320e0800000000000000
+      internalID: -2295901368109046795
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_1
+      name: Skeleton-Ranged-Attack-S-Sheet_1
       rect:
         serializedVersion: 2
-        x: 136
-        y: 35
-        width: 16
-        height: 24
+        x: 96
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -158,20 +152,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: c961a70aba77786b0800000000000000
-      internalID: -5294131257935260004
+      spriteID: 77c5021b6cc524d20800000000000000
+      internalID: 3261271088614628471
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_2
+      name: Skeleton-Ranged-Attack-S-Sheet_2
       rect:
         serializedVersion: 2
-        x: 233
-        y: 35
-        width: 14
-        height: 25
+        x: 192
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -180,20 +174,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: c3c9e5949eb83ccd0800000000000000
-      internalID: -2539031930832249796
+      spriteID: 5520ed28cddc96060800000000000000
+      internalID: 6947310247167787605
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_3
+      name: Skeleton-Ranged-Attack-S-Sheet_3
       rect:
         serializedVersion: 2
-        x: 329
-        y: 37
-        width: 14
-        height: 24
+        x: 288
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -202,20 +196,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: c08584428eb551bb0800000000000000
-      internalID: -4965961961506842612
+      spriteID: e3d73e386677bc390800000000000000
+      internalID: -7797007047678788290
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_4
+      name: Skeleton-Ranged-Attack-S-Sheet_4
       rect:
         serializedVersion: 2
-        x: 426
-        y: 37
-        width: 12
-        height: 23
+        x: 384
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -224,20 +218,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1373da44f26498620800000000000000
-      internalID: 2776827814080231217
+      spriteID: 162f1a2c814f072e0800000000000000
+      internalID: -2129934236564458911
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_5
+      name: Skeleton-Ranged-Attack-S-Sheet_5
       rect:
         serializedVersion: 2
-        x: 522
-        y: 37
-        width: 12
-        height: 22
+        x: 480
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -246,52 +240,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 40b6b1c64fa97b980800000000000000
-      internalID: -8523173395198940412
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_6
-      rect:
-        serializedVersion: 2
-        x: 618
-        y: 36
-        width: 12
-        height: 24
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 282cf7f77113534c0800000000000000
-      internalID: -4308483491516923262
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NE-Sheet_7
-      rect:
-        serializedVersion: 2
-        x: 713
-        y: 36
-        width: 14
-        height: 25
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 93f3279d55ac52ba0800000000000000
-      internalID: -6114258449016406215
+      spriteID: 52588eaaa53989470800000000000000
+      internalID: 8401627122483365157
       vertices: []
       indices: 
       edges: []
@@ -310,17 +260,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Skeleton-Ranged-Walk-NE-Sheet_0: 392252230827070786
-      Skeleton-Ranged-Walk-NE-Sheet_1: -5294131257935260004
-      Skeleton-Ranged-Walk-NE-Sheet_2: -2539031930832249796
-      Skeleton-Ranged-Walk-NE-Sheet_3: -4965961961506842612
-      Skeleton-Ranged-Walk-NE-Sheet_4: 2776827814080231217
-      Skeleton-Ranged-Walk-NE-Sheet_5: -8523173395198940412
-      Skeleton-Ranged-Walk-NE-Sheet_6: -4308483491516923262
-      Skeleton-Ranged-Walk-NE-Sheet_7: -6114258449016406215
+      Skeleton-Ranged-Attack-S-Sheet_0: -2295901368109046795
+      Skeleton-Ranged-Attack-S-Sheet_1: 3261271088614628471
+      Skeleton-Ranged-Attack-S-Sheet_2: 6947310247167787605
+      Skeleton-Ranged-Attack-S-Sheet_3: -7797007047678788290
+      Skeleton-Ranged-Attack-S-Sheet_4: -2129934236564458911
+      Skeleton-Ranged-Attack-S-Sheet_5: 8401627122483365157
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-

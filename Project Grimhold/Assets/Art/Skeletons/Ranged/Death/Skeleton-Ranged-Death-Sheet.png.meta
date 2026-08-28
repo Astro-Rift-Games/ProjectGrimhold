@@ -1,29 +1,25 @@
-<<<<<<< Updated upstream
 fileFormatVersion: 2
-=======
-﻿fileFormatVersion: 2
->>>>>>> Stashed changes
-guid: 40f0621af5c7ef142b862b69cfd8b741
+guid: ad046afa6595faf449d84ee7fa245812
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3609418507514097383
-    second: Skeleton-Ranged-Idle-SE-Sheet_0
+      213: -1916454737230044060
+    second: Skeleton-Ranged-Death-Sheet_0
   - first:
-      213: -6428466403205262156
-    second: Skeleton-Ranged-Idle-SE-Sheet_1
+      213: -3257956876666376269
+    second: Skeleton-Ranged-Death-Sheet_1
   - first:
-      213: -2092499445281392909
-    second: Skeleton-Ranged-Idle-SE-Sheet_2
+      213: -2565990060552935689
+    second: Skeleton-Ranged-Death-Sheet_2
   - first:
-      213: 4749133371156635220
-    second: Skeleton-Ranged-Idle-SE-Sheet_3
+      213: -4174835467220684827
+    second: Skeleton-Ranged-Death-Sheet_3
   - first:
-      213: -1004955668323437381
-    second: Skeleton-Ranged-Idle-SE-Sheet_4
+      213: -364502842762597494
+    second: Skeleton-Ranged-Death-Sheet_4
   - first:
-      213: -8011271133960962917
-    second: Skeleton-Ranged-Idle-SE-Sheet_5
+      213: -7639266921964794940
+    second: Skeleton-Ranged-Death-Sheet_5
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -67,7 +63,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 16
@@ -107,11 +103,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-<<<<<<< Updated upstream
-    textureCompression: 1
-=======
     textureCompression: 0
->>>>>>> Stashed changes
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -123,20 +115,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_0
+      name: Skeleton-Ranged-Death-Sheet_0
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 0
         y: 0
         width: 96
         height: 96
-=======
-        x: 41
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -145,27 +130,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 911d6edadf4c8edc0800000000000000
-      internalID: -3609418507514097383
+      spriteID: 464e94ff1926765e0800000000000000
+      internalID: -1916454737230044060
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_1
+      name: Skeleton-Ranged-Death-Sheet_1
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 96
         y: 0
         width: 96
         height: 96
-=======
-        x: 137
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -174,27 +152,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4b4da62addf79c6a0800000000000000
-      internalID: -6428466403205262156
+      spriteID: 3bf62c86b7969c2d0800000000000000
+      internalID: -3257956876666376269
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_2
+      name: Skeleton-Ranged-Death-Sheet_2
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 192
         y: 0
         width: 96
         height: 96
-=======
-        x: 233
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -203,27 +174,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 3f6fc4f47d2f5f2e0800000000000000
-      internalID: -2092499445281392909
+      spriteID: 7f62f8792a5c36cd0800000000000000
+      internalID: -2565990060552935689
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_3
+      name: Skeleton-Ranged-Death-Sheet_3
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 288
         y: 0
         width: 96
         height: 96
-=======
-        x: 329
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -232,27 +196,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 45e9eba93af48e140800000000000000
-      internalID: 4749133371156635220
+      spriteID: 5efeb9403410016c0800000000000000
+      internalID: -4174835467220684827
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_4
+      name: Skeleton-Ranged-Death-Sheet_4
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 384
         y: 0
         width: 96
         height: 96
-=======
-        x: 425
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -261,27 +218,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: bb4f096e42ead02f0800000000000000
-      internalID: -1004955668323437381
+      spriteID: a8be381889601faf0800000000000000
+      internalID: -364502842762597494
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-SE-Sheet_5
+      name: Skeleton-Ranged-Death-Sheet_5
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 480
         y: 0
         width: 96
         height: 96
-=======
-        x: 521
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -290,8 +240,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b9c7ae4695f32d090800000000000000
-      internalID: -8011271133960962917
+      spriteID: 4cb85e3853fdbf590800000000000000
+      internalID: -7639266921964794940
       vertices: []
       indices: 
       edges: []
@@ -310,18 +260,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Skeleton-Ranged-Idle-SE-Sheet_0: -3609418507514097383
-      Skeleton-Ranged-Idle-SE-Sheet_1: -6428466403205262156
-      Skeleton-Ranged-Idle-SE-Sheet_2: -2092499445281392909
-      Skeleton-Ranged-Idle-SE-Sheet_3: 4749133371156635220
-      Skeleton-Ranged-Idle-SE-Sheet_4: -1004955668323437381
-      Skeleton-Ranged-Idle-SE-Sheet_5: -8011271133960962917
+      Skeleton-Ranged-Death-Sheet_0: -1916454737230044060
+      Skeleton-Ranged-Death-Sheet_1: -3257956876666376269
+      Skeleton-Ranged-Death-Sheet_2: -2565990060552935689
+      Skeleton-Ranged-Death-Sheet_3: -4174835467220684827
+      Skeleton-Ranged-Death-Sheet_4: -364502842762597494
+      Skeleton-Ranged-Death-Sheet_5: -7639266921964794940
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes

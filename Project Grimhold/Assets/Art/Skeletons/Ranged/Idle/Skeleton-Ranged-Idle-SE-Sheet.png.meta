@@ -1,31 +1,25 @@
-﻿fileFormatVersion: 2
-guid: 2e5633e9b300d3e419f2de406670a1ed
+fileFormatVersion: 2
+guid: 40f0621af5c7ef142b862b69cfd8b741
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5189543699502916690
-    second: Skeleton-Ranged-Walk-NW-Sheet_0
+      213: -3609418507514097383
+    second: Skeleton-Ranged-Idle-SE-Sheet_0
   - first:
-      213: -4119204897379208996
-    second: Skeleton-Ranged-Walk-NW-Sheet_1
+      213: -6428466403205262156
+    second: Skeleton-Ranged-Idle-SE-Sheet_1
   - first:
-      213: 160954222135614685
-    second: Skeleton-Ranged-Walk-NW-Sheet_2
+      213: -2092499445281392909
+    second: Skeleton-Ranged-Idle-SE-Sheet_2
   - first:
-      213: -8411640425057793751
-    second: Skeleton-Ranged-Walk-NW-Sheet_3
+      213: 4749133371156635220
+    second: Skeleton-Ranged-Idle-SE-Sheet_3
   - first:
-      213: -1123922528190120405
-    second: Skeleton-Ranged-Walk-NW-Sheet_4
+      213: -1004955668323437381
+    second: Skeleton-Ranged-Idle-SE-Sheet_4
   - first:
-      213: 3242597966077683333
-    second: Skeleton-Ranged-Walk-NW-Sheet_5
-  - first:
-      213: -1521114505604167602
-    second: Skeleton-Ranged-Walk-NW-Sheet_6
-  - first:
-      213: 7941389393790868889
-    second: Skeleton-Ranged-Walk-NW-Sheet_7
+      213: -8011271133960962917
+    second: Skeleton-Ranged-Idle-SE-Sheet_5
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -69,7 +63,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 16
@@ -109,7 +103,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 0
+    textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -121,13 +115,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_0
+      name: Skeleton-Ranged-Idle-SE-Sheet_0
       rect:
         serializedVersion: 2
-        x: 41
-        y: 35
-        width: 14
-        height: 25
+        x: 0
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -136,20 +130,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 254ec33df76f40840800000000000000
-      internalID: 5189543699502916690
+      spriteID: 911d6edadf4c8edc0800000000000000
+      internalID: -3609418507514097383
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_1
+      name: Skeleton-Ranged-Idle-SE-Sheet_1
       rect:
         serializedVersion: 2
-        x: 136
-        y: 35
-        width: 16
-        height: 24
+        x: 96
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -158,20 +152,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: cd0b9a668f4a5d6c0800000000000000
-      internalID: -4119204897379208996
+      spriteID: 4b4da62addf79c6a0800000000000000
+      internalID: -6428466403205262156
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_2
+      name: Skeleton-Ranged-Idle-SE-Sheet_2
       rect:
         serializedVersion: 2
-        x: 233
-        y: 35
-        width: 14
-        height: 25
+        x: 192
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -180,20 +174,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ddc1e732303db3200800000000000000
-      internalID: 160954222135614685
+      spriteID: 3f6fc4f47d2f5f2e0800000000000000
+      internalID: -2092499445281392909
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_3
+      name: Skeleton-Ranged-Idle-SE-Sheet_3
       rect:
         serializedVersion: 2
-        x: 329
-        y: 37
-        width: 14
-        height: 24
+        x: 288
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -202,20 +196,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9294d16a999d34b80800000000000000
-      internalID: -8411640425057793751
+      spriteID: 45e9eba93af48e140800000000000000
+      internalID: 4749133371156635220
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_4
+      name: Skeleton-Ranged-Idle-SE-Sheet_4
       rect:
         serializedVersion: 2
-        x: 426
-        y: 37
-        width: 12
-        height: 23
+        x: 384
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -224,20 +218,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: b2e3b285a660760f0800000000000000
-      internalID: -1123922528190120405
+      spriteID: bb4f096e42ead02f0800000000000000
+      internalID: -1004955668323437381
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_5
+      name: Skeleton-Ranged-Idle-SE-Sheet_5
       rect:
         serializedVersion: 2
-        x: 522
-        y: 37
-        width: 12
-        height: 22
+        x: 480
+        y: 0
+        width: 96
+        height: 96
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -246,52 +240,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 586e67d8ba5000d20800000000000000
-      internalID: 3242597966077683333
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_6
-      rect:
-        serializedVersion: 2
-        x: 618
-        y: 36
-        width: 12
-        height: 24
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: e4805c69a6ae3eae0800000000000000
-      internalID: -1521114505604167602
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Skeleton-Ranged-Walk-NW-Sheet_7
-      rect:
-        serializedVersion: 2
-        x: 713
-        y: 36
-        width: 14
-        height: 25
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 99d95ff049b753e60800000000000000
-      internalID: 7941389393790868889
+      spriteID: b9c7ae4695f32d090800000000000000
+      internalID: -8011271133960962917
       vertices: []
       indices: 
       edges: []
@@ -310,17 +260,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Skeleton-Ranged-Walk-NW-Sheet_0: 5189543699502916690
-      Skeleton-Ranged-Walk-NW-Sheet_1: -4119204897379208996
-      Skeleton-Ranged-Walk-NW-Sheet_2: 160954222135614685
-      Skeleton-Ranged-Walk-NW-Sheet_3: -8411640425057793751
-      Skeleton-Ranged-Walk-NW-Sheet_4: -1123922528190120405
-      Skeleton-Ranged-Walk-NW-Sheet_5: 3242597966077683333
-      Skeleton-Ranged-Walk-NW-Sheet_6: -1521114505604167602
-      Skeleton-Ranged-Walk-NW-Sheet_7: 7941389393790868889
+      Skeleton-Ranged-Idle-SE-Sheet_0: -3609418507514097383
+      Skeleton-Ranged-Idle-SE-Sheet_1: -6428466403205262156
+      Skeleton-Ranged-Idle-SE-Sheet_2: -2092499445281392909
+      Skeleton-Ranged-Idle-SE-Sheet_3: 4749133371156635220
+      Skeleton-Ranged-Idle-SE-Sheet_4: -1004955668323437381
+      Skeleton-Ranged-Idle-SE-Sheet_5: -8011271133960962917
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-

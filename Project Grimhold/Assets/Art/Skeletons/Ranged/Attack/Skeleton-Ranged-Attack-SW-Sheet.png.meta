@@ -1,29 +1,25 @@
-<<<<<<< Updated upstream
 fileFormatVersion: 2
-=======
-﻿fileFormatVersion: 2
->>>>>>> Stashed changes
-guid: fa5c752f914f3fe4ca12beee90704630
+guid: e71bc88992b2a3e4280c762a2c718529
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 9216902348851344761
-    second: Skeleton-Ranged-Idle-NW-Sheet_0
+      213: 182130092884338784
+    second: Skeleton-Ranged-Attack-SW-Sheet_0
   - first:
-      213: -4293534904001255954
-    second: Skeleton-Ranged-Idle-NW-Sheet_1
+      213: 8939485582526294461
+    second: Skeleton-Ranged-Attack-SW-Sheet_1
   - first:
-      213: -986800791913960886
-    second: Skeleton-Ranged-Idle-NW-Sheet_2
+      213: -2827622747667992500
+    second: Skeleton-Ranged-Attack-SW-Sheet_2
   - first:
-      213: -5533615608830357750
-    second: Skeleton-Ranged-Idle-NW-Sheet_3
+      213: 3006736205394883169
+    second: Skeleton-Ranged-Attack-SW-Sheet_3
   - first:
-      213: -2338172908591451016
-    second: Skeleton-Ranged-Idle-NW-Sheet_4
+      213: -7731835732890168480
+    second: Skeleton-Ranged-Attack-SW-Sheet_4
   - first:
-      213: 6306320194911788856
-    second: Skeleton-Ranged-Idle-NW-Sheet_5
+      213: 5029015442342842627
+    second: Skeleton-Ranged-Attack-SW-Sheet_5
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -67,7 +63,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 16
@@ -107,11 +103,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-<<<<<<< Updated upstream
     textureCompression: 1
-=======
-    textureCompression: 0
->>>>>>> Stashed changes
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -123,20 +115,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_0
+      name: Skeleton-Ranged-Attack-SW-Sheet_0
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 0
         y: 0
         width: 96
         height: 96
-=======
-        x: 41
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -145,27 +130,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9757fb06ad309ef70800000000000000
-      internalID: 9216902348851344761
+      spriteID: 068a741ca5e078200800000000000000
+      internalID: 182130092884338784
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_1
+      name: Skeleton-Ranged-Attack-SW-Sheet_1
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 96
         y: 0
         width: 96
         height: 96
-=======
-        x: 137
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -174,27 +152,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ee5a340c0cc4a64c0800000000000000
-      internalID: -4293534904001255954
+      spriteID: db9a43d16ce6f0c70800000000000000
+      internalID: 8939485582526294461
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_2
+      name: Skeleton-Ranged-Attack-SW-Sheet_2
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 192
         y: 0
         width: 96
         height: 96
-=======
-        x: 233
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -203,27 +174,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: a4ae4e578ed2e42f0800000000000000
-      internalID: -986800791913960886
+      spriteID: c407f66a71442c8d0800000000000000
+      internalID: -2827622747667992500
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_3
+      name: Skeleton-Ranged-Attack-SW-Sheet_3
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 288
         y: 0
         width: 96
         height: 96
-=======
-        x: 329
-        y: 35
-        width: 14
-        height: 24
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -232,27 +196,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: a0f0c101ce5a433b0800000000000000
-      internalID: -5533615608830357750
+      spriteID: 1623edff5a21ab920800000000000000
+      internalID: 3006736205394883169
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_4
+      name: Skeleton-Ranged-Attack-SW-Sheet_4
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 384
         y: 0
         width: 96
         height: 96
-=======
-        x: 425
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -261,27 +218,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 874f6f7b0242d8fd0800000000000000
-      internalID: -2338172908591451016
+      spriteID: 063d86fad5003b490800000000000000
+      internalID: -7731835732890168480
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Skeleton-Ranged-Idle-NW-Sheet_5
+      name: Skeleton-Ranged-Attack-SW-Sheet_5
       rect:
         serializedVersion: 2
-<<<<<<< Updated upstream
         x: 480
         y: 0
         width: 96
         height: 96
-=======
-        x: 521
-        y: 35
-        width: 14
-        height: 25
->>>>>>> Stashed changes
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -290,8 +240,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 83fd6911ecc848750800000000000000
-      internalID: 6306320194911788856
+      spriteID: 3019cc266e6aac540800000000000000
+      internalID: 5029015442342842627
       vertices: []
       indices: 
       edges: []
@@ -310,18 +260,14 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Skeleton-Ranged-Idle-NW-Sheet_0: 9216902348851344761
-      Skeleton-Ranged-Idle-NW-Sheet_1: -4293534904001255954
-      Skeleton-Ranged-Idle-NW-Sheet_2: -986800791913960886
-      Skeleton-Ranged-Idle-NW-Sheet_3: -5533615608830357750
-      Skeleton-Ranged-Idle-NW-Sheet_4: -2338172908591451016
-      Skeleton-Ranged-Idle-NW-Sheet_5: 6306320194911788856
+      Skeleton-Ranged-Attack-SW-Sheet_0: 182130092884338784
+      Skeleton-Ranged-Attack-SW-Sheet_1: 8939485582526294461
+      Skeleton-Ranged-Attack-SW-Sheet_2: -2827622747667992500
+      Skeleton-Ranged-Attack-SW-Sheet_3: 3006736205394883169
+      Skeleton-Ranged-Attack-SW-Sheet_4: -7731835732890168480
+      Skeleton-Ranged-Attack-SW-Sheet_5: 5029015442342842627
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
