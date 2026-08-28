@@ -8,6 +8,8 @@ public sealed class RaidResultsLifecycleSourceTests
         "Assets/Scripts/Networking/NetworkSpawnManager.cs";
     private const string CoordinatorPath =
         "Assets/Scripts/Networking/SessionConnectionCoordinator.cs";
+    private const string PresenterPath =
+        "Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs";
 
     [Test]
     public void ResultsWorldCleanup_RetainsParticipantRoutingAndIsOneShot()
@@ -87,6 +89,55 @@ public sealed class RaidResultsLifecycleSourceTests
         Assert.That(transition, Is.GreaterThan(requestGuard));
         Assert.That(observer, Does.Contain("HasConnectedRemoteParticipants"));
         Assert.That(observer, Does.Contain("ResetHostResultsReturn()"));
+    }
+
+    [Test]
+    public void HostCancellationObserver_ArmsOnlyTheAuthoritativeCancellationClosure()
+    {
+        string observer = ReadMethod(
+            File.ReadAllText(CoordinatorPath),
+            "private void ObserveHostCancellationClosure");
+
+        Assert.That(observer, Does.Contain("ShouldArmHostCancellationReturn"));
+        Assert.That(observer, Does.Contain("_hostCancellationReturnArmed = true"));
+        Assert.That(observer, Does.Contain("_hostResultsReturnRequested = true"));
+        Assert.That(observer, Does.Not.Contain("ReturnParticipantToTownAsync"));
+
+        string armingRule = ReadMethod(
+            File.ReadAllText(CoordinatorPath),
+            "internal static bool ShouldArmHostCancellationReturn");
+        Assert.That(armingRule, Does.Contain("RaidClosureReason.HostCancellation"));
+        Assert.That(armingRule, Does.Contain("SessionConnectionState.Raid"));
+    }
+
+    [Test]
+    public void ParticipantReturnObserver_ExcludesTheOperationalHost()
+    {
+        string observer = ReadMethod(
+            File.ReadAllText(PresenterPath),
+            "private void ObserveParticipantState");
+
+        int guard = observer.IndexOf("ShouldStartParticipantReturn", StringComparison.Ordinal);
+        int start = observer.IndexOf("ReturnToTownAsync();", StringComparison.Ordinal);
+        Assert.That(guard, Is.GreaterThanOrEqualTo(0));
+        Assert.That(start, Is.GreaterThan(guard));
+        Assert.That(observer, Does.Contain("TryResolveOperationalLocalRole(out bool isOperationalHost)"));
+    }
+
+    [Test]
+    public void ParticipantReturn_ReleasesItsLatchOnANonSucceededTransition()
+    {
+        string transition = ReadMethod(
+            File.ReadAllText(PresenterPath),
+            "private async void ReturnToTownAsync");
+
+        Assert.That(transition, Does.Contain("SessionTransitionResult.Succeeded"));
+        Assert.That(transition, Does.Contain("RestorePresentationAfterFailedReturn"));
+
+        string restore = ReadMethod(
+            File.ReadAllText(PresenterPath),
+            "private void RestorePresentationAfterFailedReturn");
+        Assert.That(restore, Does.Contain("_returnStarted = false"));
     }
 
     private static string ReadMethod(string source, string signature)

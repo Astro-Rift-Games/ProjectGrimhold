@@ -57,6 +57,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _loadoutConfirmationPending;
     private bool _hostResultsReturnRequested;
     private bool _hostResultsReturnStarted;
+    private bool _hostCancellationReturnArmed;
     private SessionTransitionResult? _pendingTransitionFailure;
     private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
@@ -281,6 +282,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void Update()
     {
+        ObserveHostCancellationClosure();
         ObservePendingHostResultsReturn();
         if (_loadoutConfirmationPending)
         {
@@ -333,6 +335,63 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _hostResultsReturnRequested = true;
         return true;
+    }
+
+    /// <summary>
+    /// Determines whether an authoritative Host cancellation must arm the pending operational-Host
+    /// return. This is the second valid entry point into that lifecycle: a cancelled generation
+    /// produces no accepted terminal Results, so the Results eligibility gate cannot authorize it.
+    /// It never bypasses the shutdown boundary evaluated by <see cref="ObservePendingHostResultsReturn"/>.
+    /// </summary>
+    internal static bool ShouldArmHostCancellationReturn(
+        bool cancellationReturnArmed,
+        bool hostReturnRequested,
+        bool hostReturnStarted,
+        bool operationActive,
+        SessionConnectionState state,
+        bool hasValidHostRunner,
+        RaidClosureReason closureReason,
+        NetworkMatchController.MatchPhase phase)
+    {
+        return !cancellationReturnArmed &&
+               !hostReturnRequested &&
+               !hostReturnStarted &&
+               !operationActive &&
+               state == SessionConnectionState.Raid &&
+               hasValidHostRunner &&
+               closureReason == RaidClosureReason.HostCancellation &&
+               (phase == NetworkMatchController.MatchPhase.Closing ||
+                phase == NetworkMatchController.MatchPhase.Finished);
+    }
+
+    private void ObserveHostCancellationClosure()
+    {
+        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        NetworkMatchController matchController = _raidLauncher != null
+            ? _raidLauncher.MatchController
+            : null;
+        if (matchController == null ||
+            !ShouldArmHostCancellationReturn(
+                _hostCancellationReturnArmed,
+                _hostResultsReturnRequested,
+                _hostResultsReturnStarted,
+                _operationActive,
+                State,
+                hasValidHostRunner: runner != null && runner.IsRunning && runner.IsServer,
+                matchController.ClosureReason,
+                matchController.Phase))
+        {
+            return;
+        }
+
+        // Armed exactly once per raid generation: a failed transition must not be retried
+        // every frame. The failure remains observable through TryConsumeLastTransitionFailure.
+        _hostCancellationReturnArmed = true;
+        _hostResultsReturnRequested = true;
+        Debug.Log(
+            $"[{nameof(SessionConnectionCoordinator)}] Host cancellation closure armed the pending " +
+            "global Town return.",
+            this);
     }
 
     private void ObservePendingHostResultsReturn()
@@ -1312,6 +1371,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         _hostResultsReturnRequested = false;
         _hostResultsReturnStarted = false;
+        _hostCancellationReturnArmed = false;
     }
 
     private void UpdateTicketState(SessionConnectionState state)

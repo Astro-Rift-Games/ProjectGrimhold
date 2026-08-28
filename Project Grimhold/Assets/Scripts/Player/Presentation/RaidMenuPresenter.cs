@@ -31,6 +31,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _awaitingAbandonConfirmation;
     private bool _returnRequested;
     private bool _returnStarted;
+    private bool _hostClosureAcknowledged;
     private bool _hasProgressionResultSnapshot;
     private ExpeditionProgressionResult _progressionResultSnapshot;
     private float _nextNoTargetRefreshAt;
@@ -134,6 +135,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _awaitingAbandonConfirmation = false;
         _returnRequested = false;
         _returnStarted = false;
+        _hostClosureAcknowledged = false;
         _hasProgressionResultSnapshot = false;
         _progressionResultSnapshot = default;
         _nextNoTargetRefreshAt = 0f;
@@ -524,7 +526,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        if (_participant.IsReturnAuthorized && !_returnStarted)
+        bool hasOperationalRole = TryResolveOperationalLocalRole(out bool isOperationalHost);
+        if (ShouldStartParticipantReturn(
+                _participant.IsReturnAuthorized,
+                _returnStarted,
+                hasOperationalRole,
+                isOperationalHost))
         {
             _returnStarted = true;
             CleanupSpectatorPresentation();
@@ -532,6 +539,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             CloseMenuInternal(forceReleaseSuppression: true);
             ReturnToTownAsync();
             return;
+        }
+
+        // The operational Host owns the runner: its authorization comes from the authoritative
+        // closure, so the global Town return belongs to SessionConnectionCoordinator and this
+        // presenter only acknowledges the closure locally, exactly once.
+        if (_participant.IsReturnAuthorized && hasOperationalRole && isOperationalHost &&
+            !_hostClosureAcknowledged)
+        {
+            _hostClosureAcknowledged = true;
+            CleanupSpectatorPresentation();
+            _inventoryPresenter?.SetGameplayMutationsBlocked(true);
+            CloseMenuInternal(forceReleaseSuppression: true);
         }
 
         RaidParticipantState state = _participant.State;
@@ -903,6 +922,22 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         GetMatchController()?.Phase ??
         NetworkMatchController.MatchPhase.WaitingForPlayers;
 
+    /// <summary>
+    /// Individual participant return is valid only for a resolved non-Host role. An unresolved
+    /// role means the runner is missing or shutting down and must never start a return.
+    /// </summary>
+    internal static bool ShouldStartParticipantReturn(
+        bool isReturnAuthorized,
+        bool returnStarted,
+        bool hasOperationalRole,
+        bool isOperationalHost)
+    {
+        return isReturnAuthorized &&
+               !returnStarted &&
+               hasOperationalRole &&
+               !isOperationalHost;
+    }
+
     internal static bool ShouldRefreshForMatchPhase(
         NetworkMatchController.MatchPhase previous,
         NetworkMatchController.MatchPhase current,
@@ -913,20 +948,54 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     {
         try
         {
-            if (SessionConnectionCoordinator.Instance != null)
+            if (SessionConnectionCoordinator.Instance == null)
             {
-                await SessionConnectionCoordinator.Instance.ReturnParticipantToTownAsync();
+                return;
             }
+
+            SessionTransitionResult result =
+                await SessionConnectionCoordinator.Instance.ReturnParticipantToTownAsync();
+            if (this == null || result == SessionTransitionResult.Succeeded)
+            {
+                return;
+            }
+
+            Debug.LogError(
+                $"{nameof(RaidMenuPresenter)} participant return did not complete. Result={result}.",
+                this);
+            RestorePresentationAfterFailedReturn();
         }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
-            _returnStarted = false;
-            if (IsLocalDefeated())
-            {
-                EnterDefeatedPresentation();
-            }
+            RestorePresentationAfterFailedReturn();
         }
+    }
+
+    /// <summary>
+    /// Releases the local return latch so a failed transition never leaves the player without UI.
+    /// </summary>
+    private void RestorePresentationAfterFailedReturn()
+    {
+        _returnStarted = false;
+        if (!_isBound)
+        {
+            return;
+        }
+
+        if (IsLocalDefeated())
+        {
+            EnterDefeatedPresentation();
+            return;
+        }
+
+        if (!IsOpen)
+        {
+            OpenMenu();
+            return;
+        }
+
+        RefreshViewContent();
     }
 
     private void EnsureInputSuppression()

@@ -388,6 +388,76 @@ namespace Tests.EditMode.Presentation
                 Is.True);
         }
 
+        [Test]
+        public void Presenter_AuthorizedClient_StartsTheIndividualParticipantReturn()
+        {
+            Assert.That(
+                RaidMenuPresenter.ShouldStartParticipantReturn(
+                    isReturnAuthorized: true,
+                    returnStarted: false,
+                    hasOperationalRole: true,
+                    isOperationalHost: false),
+                Is.True);
+        }
+
+        [Test]
+        public void Presenter_OperationalHost_NeverStartsTheIndividualParticipantReturn()
+        {
+            // Cancel Raid authorizes every participant, including the Host's. The Host's
+            // departure belongs to the coordinator's global raid closure.
+            Assert.That(
+                RaidMenuPresenter.ShouldStartParticipantReturn(
+                    isReturnAuthorized: true,
+                    returnStarted: false,
+                    hasOperationalRole: true,
+                    isOperationalHost: true),
+                Is.False);
+        }
+
+        [Test]
+        public void Presenter_UnresolvedOperationalRole_StartsNoParticipantReturn()
+        {
+            Assert.That(
+                RaidMenuPresenter.ShouldStartParticipantReturn(
+                    isReturnAuthorized: true,
+                    returnStarted: false,
+                    hasOperationalRole: false,
+                    isOperationalHost: false),
+                Is.False);
+        }
+
+        [Test]
+        public void Presenter_ParticipantReturn_IsStartedOnlyOnce()
+        {
+            Assert.That(
+                RaidMenuPresenter.ShouldStartParticipantReturn(
+                    isReturnAuthorized: true,
+                    returnStarted: true,
+                    hasOperationalRole: true,
+                    isOperationalHost: false),
+                Is.False);
+            Assert.That(
+                RaidMenuPresenter.ShouldStartParticipantReturn(
+                    isReturnAuthorized: false,
+                    returnStarted: false,
+                    hasOperationalRole: true,
+                    isOperationalHost: false),
+                Is.False);
+        }
+
+        [Test]
+        public void Presenter_FailedParticipantReturn_ReleasesTheLatchAndRestoresTheMenu()
+        {
+            SetPresenterBoundState();
+            SetPrivateField(_presenter, "_returnStarted", true);
+            _presenter.CloseMenu();
+
+            InvokePrivateMethod(_presenter, "RestorePresentationAfterFailedReturn");
+
+            Assert.That(ReadPrivateField<bool>(_presenter, "_returnStarted"), Is.False);
+            Assert.That(_presenter.IsOpen, Is.True);
+        }
+
         [TestCase(RaidParticipantState.Defeated,
             ExpeditionProgressionFinalizationCause.DefeatConfirmed, true)]
         [TestCase(RaidParticipantState.Aborted,
