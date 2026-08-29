@@ -5,10 +5,34 @@ using System;
 /// </summary>
 public static class ProgressionBalanceDefaults
 {
+    public const int InitialAttributeValue = 5;
+    public const int InitialAvailableAttributePoints = 10;
+
+    public static CharacterAttributeState InitialCharacterAttributeState { get; } =
+        CreateInitialCharacterAttributeState();
+
     public static ExperienceCurve InitialExperienceCurve { get; } = CreateInitialExperienceCurve();
 
     public static ExpeditionExperienceRetentionPolicy InitialExpeditionExperienceRetentionPolicy { get; } =
         CreateInitialExpeditionExperienceRetentionPolicy();
+
+    private static CharacterAttributeState CreateInitialCharacterAttributeState()
+    {
+        if (!CharacterAttributeState.TryCreate(
+                InitialAttributeValue,
+                InitialAttributeValue,
+                InitialAttributeValue,
+                InitialAttributeValue,
+                InitialAttributeValue,
+                InitialAttributeValue,
+                InitialAvailableAttributePoints,
+                out CharacterAttributeState state))
+        {
+            throw new InvalidOperationException("Initial character attribute balance is invalid.");
+        }
+
+        return state;
+    }
 
     private static ExperienceCurve CreateInitialExperienceCurve()
     {
