@@ -140,6 +140,8 @@ For visual character identity, modularity and the composition of body/hands/equi
 
 For specific equipment slots, main hand/off hand structure, weapon sets or equipment structural compatibilities, read `GD-12 — Estructura de Equipamiento del Personaje`.
 
+For concrete equipment catalog, attribute requirements, weapon scaling, equipment statistics and training weapons, read `09 - Diseño de Equipamiento`.
+
 #### 05 - Progresión Persistente, Experiencia y Niveles
 
 https://docs.google.com/document/d/1_3QJsqyCRtFLGMwinsht3Y7sxE-qfGSeJ9J39xaSbb8
@@ -215,6 +217,40 @@ Read when the task affects:
 
 This document does not own XP generation or the level progression curve. It also does not define concrete equipment requirements, weapon scaling grades or equipment scaling formulas.
 
+For concrete equipment requirements, weapon scaling grades, equipment values and equipment scaling configuration, read `09 - Diseño de Equipamiento`.
+
+#### 09 - Diseño de Equipamiento
+
+https://docs.google.com/document/d/1otmwGRyMe4ZWQOb-fEY1cCGzrb7zIq995qvv__xkx0Y
+
+The document is named `09 - Diseño de Equipamiento` in Drive and may refer to itself
+internally as `GD-15`.
+
+Defines the concrete Equipment Design and initial MVP equipment catalog.
+
+Read when the task affects:
+
+* Concrete weapon definitions.
+* Concrete armor definitions and sets.
+* Weapon attribute requirements.
+* Weapon attribute scaling and scaling grades.
+* Base weapon damage, attack interval, range and Stamina cost.
+* Weapon-specific baseline behaviors.
+* Training weapons.
+* Concrete armor Physical Defense and Magical Defense values.
+* Armor resource bonuses.
+* Equipment evolution data structure.
+* Item Value.
+* Equipment definition and instance data fields.
+
+`GD-12 — Estructura de Equipamiento del Personaje` remains the source of truth for
+structural equipment rules such as slots, Weapon Sets, Main Hand / Off Hand,
+one-handed/two-handed compatibility, Dual Wield, accessories and Quick Slots.
+
+`08 - Estadísticas Derivadas y Fórmulas de Atributos` remains the source of truth for
+character attribute formulas and limits. This document consumes those rules when defining
+equipment requirements and scaling; it does not redefine them.
+
 #### GD-11 — Dirección Visual Modular del Personaje sin Clases
 
 https://docs.google.com/document/d/166_nPvqQnEg3qYTBMSa83vY7u5TRgZbXm5SqMynJim0
@@ -251,6 +287,8 @@ Read when the task affects:
 * Structural compatibilities and restrictions.
 * Equipping, unequipping and displacement of already-equipped items when an equip operation requires it.
 
+For the concrete MVP equipment catalog, numerical weapon and armor properties, requirements, scaling and Item Value, read `09 - Diseño de Equipamiento`.
+
 ### Cross-system changes
 
 Read every relevant document when a change crosses responsibilities.
@@ -277,6 +315,14 @@ Examples:
 
 * XP produced by Raid outcomes or extracted Loot:
   `05 - Progresión Persistente, Experiencia y Niveles` + `06 - Sistema de Extracción` + `07 - Sistema de Loot` + relevant persistence or Results architecture when applicable.
+
+* Equipment implementation:
+`GD-12 — Estructura de Equipamiento del Personaje` for structural slots and compatibility
+  + `09 - Diseño de Equipamiento` for concrete equipment definitions, requirements,
+scaling and values
+  + `08 - Estadísticas Derivadas y Fórmulas de Atributos` when character attributes
+participate in requirements or scaling
+  + relevant Inventory, Combat or presentation architecture depending on the change.
 
 Do not read unrelated design documents by default.
 

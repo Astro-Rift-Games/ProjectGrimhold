@@ -80,6 +80,16 @@ Repeated application rejects before reevaluating the resolution or progression s
 zero-Experience resolution is still consumed and produces a no-op result, while positive Experience
 delegates level processing to `CharacterProgressionRules`.
 
+`CharacterAttributePointGrantRules` is a separate pure consequence that consumes a structurally
+consistent `ExperienceApplicationResult` and the current `CharacterAttributeState`. It never reads
+an Experience curve or recalculates Experience, Level or `LevelsGained`; it only grants the configured
+points per effective Level gained and preserves every assigned attribute. Its immutable grant has
+pending and applied states, and a valid zero-Level transition is consumed as a no-op.
+
+This one-shot protection depends on the consumer preserving and resubmitting the previous grant.
+It prevents reuse of that consumed application but does not globally identify a Level transition,
+deduplicate two fresh pending applications, or introduce a receipt, sequence or journal.
+
 The pure application domain does not identify a Raid participation, store state or write a profile.
 `PlayerExpeditionProgressionResolver`, co-located with the participant and ledger, owns that
 authoritative mapping and preserves one resolution together with its single application state.

@@ -7,6 +7,7 @@ public static class ProgressionBalanceDefaults
 {
     public const int InitialAttributeValue = 5;
     public const int InitialAvailableAttributePoints = 10;
+    public const int InitialAttributePointsPerLevel = 1;
 
     public static CharacterAttributeState InitialCharacterAttributeState { get; } =
         CreateInitialCharacterAttributeState();
