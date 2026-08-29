@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: 466f0a714a8003242a2c91986b40daad
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 2087847553399885162
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_0
+  - first:
+      213: -7861890017161550132
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_1
+  - first:
+      213: 7535466672381085124
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_2
+  - first:
+      213: -2590560459468604345
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_3
+  - first:
+      213: -4040799758075014715
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_4
+  - first:
+      213: 5547236745383020514
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_5
+  - first:
+      213: 6928042834420760615
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_6
+  - first:
+      213: 6732714720870692708
+    second: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 40
+        y: 45
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a6d8195b94689fc10800000000000000
+      internalID: 2087847553399885162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 138
+        y: 44
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc665e7fea4f4e290800000000000000
+      internalID: -7861890017161550132
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 232
+        y: 45
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4c5c110930b539860800000000000000
+      internalID: 7535466672381085124
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 327
+        y: 43
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 74c733cccfa7c0cd0800000000000000
+      internalID: -2590560459468604345
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 425
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5c1547377023ce7c0800000000000000
+      internalID: -4040799758075014715
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 523
+        y: 39
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e78c8ded6ebbfc40800000000000000
+      internalID: 5547236745383020514
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7200756604a552060800000000000000
+      internalID: 6928042834420760615
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 711
+        y: 41
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4677a8ffd586f6d50800000000000000
+      internalID: 6732714720870692708
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_0: 2087847553399885162
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_1: -7861890017161550132
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_2: 7535466672381085124
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_3: -2590560459468604345
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_4: -4040799758075014715
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_5: 5547236745383020514
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_6: 6928042834420760615
+      Set-HeavyArmor-RightGauntlet-Walk-S-Sheet_7: 6732714720870692708
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

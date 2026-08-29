@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: 4847c00576ea3984a95c88e00ab545df
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 5647463181843142936
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_0
+  - first:
+      213: -6046871312201218567
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_1
+  - first:
+      213: -4480966661227809656
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_2
+  - first:
+      213: -752218843104655765
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_3
+  - first:
+      213: -8002075888809029862
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_4
+  - first:
+      213: -4028362639815702770
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_5
+  - first:
+      213: 2130689969269708766
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_6
+  - first:
+      213: -2486101041192565514
+    second: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 41
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8199bd3a7d1df5e40800000000000000
+      internalID: 5647463181843142936
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 139
+        y: 39
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9f50fb94492351ca0800000000000000
+      internalID: -6046871312201218567
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 233
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 884f523109860d1c0800000000000000
+      internalID: -4480966661227809656
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 327
+        y: 41
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b66446792f49f85f0800000000000000
+      internalID: -752218843104655765
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 424
+        y: 45
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a1fc1dd306ae2f090800000000000000
+      internalID: -8002075888809029862
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 522
+        y: 44
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e078453b5816818c0800000000000000
+      internalID: -4028362639815702770
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 616
+        y: 45
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed71fc8fc3bb19d10800000000000000
+      internalID: 2130689969269708766
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-LeftGlove-Walk-N-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 711
+        y: 43
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6f40df366489f7dd0800000000000000
+      internalID: -2486101041192565514
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_0: 5647463181843142936
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_1: -6046871312201218567
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_2: -4480966661227809656
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_3: -752218843104655765
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_4: -8002075888809029862
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_5: -4028362639815702770
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_6: 2130689969269708766
+      Set-ArmyRanger-LeftGlove-Walk-N-Sheet_7: -2486101041192565514
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

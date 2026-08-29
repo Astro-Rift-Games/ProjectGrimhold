@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: 33f369111bcd71c4ca536b56ba58137a
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -2558219433609494813
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_0
+  - first:
+      213: 2739050749528270923
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_1
+  - first:
+      213: -4448604095319007599
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_2
+  - first:
+      213: 7587127390020539949
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_3
+  - first:
+      213: 3861564091477941463
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_4
+  - first:
+      213: -1001830230150854529
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_5
+  - first:
+      213: 9065584404238893369
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_6
+  - first:
+      213: 7611441539330439110
+    second: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 47
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3ee743aaaf06f7cd0800000000000000
+      internalID: -2558219433609494813
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 140
+        y: 39
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b4866630520130620800000000000000
+      internalID: 2739050749528270923
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 239
+        y: 40
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 19e992025226342c0800000000000000
+      internalID: -4448604095319007599
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 338
+        y: 42
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d269fc3b924ea4960800000000000000
+      internalID: 7587127390020539949
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 435
+        y: 43
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7dc52fde418079530800000000000000
+      internalID: 3861564091477941463
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 529
+        y: 44
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f784c9ea6b8c812f0800000000000000
+      internalID: -1001830230150854529
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 627
+        y: 43
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9310bffebfc6fcd70800000000000000
+      internalID: 9065584404238893369
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-RightGlove-Walk-NE-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 722
+        y: 42
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c7717cb0c541a960800000000000000
+      internalID: 7611441539330439110
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_0: -2558219433609494813
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_1: 2739050749528270923
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_2: -4448604095319007599
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_3: 7587127390020539949
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_4: 3861564091477941463
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_5: -1001830230150854529
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_6: 9065584404238893369
+      Set-ArcaneMage-RightGlove-Walk-NE-Sheet_7: 7611441539330439110
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

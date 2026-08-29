@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: ad43de9dd52357c4e8cd84cf0c3e09c3
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -118691709044840053
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_0
+  - first:
+      213: -5030154698673395228
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_1
+  - first:
+      213: -674829337297626592
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_2
+  - first:
+      213: 1022349870260041511
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_3
+  - first:
+      213: -507004952351405068
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_4
+  - first:
+      213: -4372186917922477431
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_5
+  - first:
+      213: 3393160130776499533
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_6
+  - first:
+      213: -8085313048430521427
+    second: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 41
+        y: 39
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b89299cf4825a5ef0800000000000000
+      internalID: -118691709044840053
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 137
+        y: 38
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4e96f44d3fc413ab0800000000000000
+      internalID: -5030154698673395228
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 233
+        y: 39
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 02adc5a0b4682a6f0800000000000000
+      internalID: -674829337297626592
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 329
+        y: 40
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 72734055acd103e00800000000000000
+      internalID: 1022349870260041511
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 425
+        y: 39
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4fb0bbb9ea1c6f8f0800000000000000
+      internalID: -507004952351405068
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 521
+        y: 38
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 98aee99b92fd253c0800000000000000
+      internalID: -4372186917922477431
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 39
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d4583f4492de61f20800000000000000
+      internalID: 3393160130776499533
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-HeavyArmor-Breastplate-Walk-SW-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 713
+        y: 40
+        width: 14
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: da3d77ace923bcf80800000000000000
+      internalID: -8085313048430521427
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_0: -118691709044840053
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_1: -5030154698673395228
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_2: -674829337297626592
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_3: 1022349870260041511
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_4: -507004952351405068
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_5: -4372186917922477431
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_6: 3393160130776499533
+      Set-HeavyArmor-Breastplate-Walk-SW-Sheet_7: -8085313048430521427
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: f0b24fe5c6316214ca2ea7ab052ec106
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3566865582833656754
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_0
+  - first:
+      213: -9128558334380802434
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_1
+  - first:
+      213: -7491910108869075701
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_2
+  - first:
+      213: 5695080483959486340
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_3
+  - first:
+      213: -1741707984519927949
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_4
+  - first:
+      213: -5819428758389137527
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_5
+  - first:
+      213: 5265407771176653351
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_6
+  - first:
+      213: -3033110818950607520
+    second: Set-ArcaneMage-Garb-Walk-SE-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 41
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e4c12a586a2ff7ec0800000000000000
+      internalID: -3566865582833656754
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 137
+        y: 38
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e7efccf5f88d05180800000000000000
+      internalID: -9128558334380802434
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 233
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b0d53b72373670890800000000000000
+      internalID: -7491910108869075701
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 329
+        y: 40
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4873aadb68df80f40800000000000000
+      internalID: 5695080483959486340
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 425
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3776a38e0d534d7e0800000000000000
+      internalID: -1741707984519927949
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 521
+        y: 38
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 98fd58c706c3d3fa0800000000000000
+      internalID: -5819428758389137527
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 722d096787c721940800000000000000
+      internalID: 5265407771176653351
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArcaneMage-Garb-Walk-SE-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 713
+        y: 40
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 06d0e00c7c938e5d0800000000000000
+      internalID: -3033110818950607520
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_0: -3566865582833656754
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_1: -9128558334380802434
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_2: -7491910108869075701
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_3: 5695080483959486340
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_4: -1741707984519927949
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_5: -5819428758389137527
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_6: 5265407771176653351
+      Set-ArcaneMage-Garb-Walk-SE-Sheet_7: -3033110818950607520
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

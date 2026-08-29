@@ -1,0 +1,325 @@
+fileFormatVersion: 2
+guid: 3818c688dc32d5e44a3833684ac73878
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 2268456519682345671
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_0
+  - first:
+      213: -7081979205278309753
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_1
+  - first:
+      213: 5512896458788462372
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_2
+  - first:
+      213: 5188987137269223862
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_3
+  - first:
+      213: 8379152619603616404
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_4
+  - first:
+      213: 4093575340273624715
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_5
+  - first:
+      213: 7648991049772214685
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_6
+  - first:
+      213: 5599904954420936977
+    second: Set-ArmyRanger-Armor-Walk-NW-Sheet_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_0
+      rect:
+        serializedVersion: 2
+        x: 41
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cac5149f2d2b7f10800000000000000
+      internalID: 2268456519682345671
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_1
+      rect:
+        serializedVersion: 2
+        x: 137
+        y: 38
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 782eeaa4f61c7bd90800000000000000
+      internalID: -7081979205278309753
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_2
+      rect:
+        serializedVersion: 2
+        x: 233
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 42f5895ee1eb18c40800000000000000
+      internalID: 5512896458788462372
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_3
+      rect:
+        serializedVersion: 2
+        x: 329
+        y: 40
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6b1d0051f4cf20840800000000000000
+      internalID: 5188987137269223862
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_4
+      rect:
+        serializedVersion: 2
+        x: 425
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 492e142b9eab84470800000000000000
+      internalID: 8379152619603616404
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_5
+      rect:
+        serializedVersion: 2
+        x: 521
+        y: 38
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b86ee42551d4fc830800000000000000
+      internalID: 4093575340273624715
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_6
+      rect:
+        serializedVersion: 2
+        x: 617
+        y: 39
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d99a0db65dca62a60800000000000000
+      internalID: 7648991049772214685
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Set-ArmyRanger-Armor-Walk-NW-Sheet_7
+      rect:
+        serializedVersion: 2
+        x: 713
+        y: 40
+        width: 14
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 111c530f2ebd6bd40800000000000000
+      internalID: 5599904954420936977
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_0: 2268456519682345671
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_1: -7081979205278309753
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_2: 5512896458788462372
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_3: 5188987137269223862
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_4: 8379152619603616404
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_5: 4093575340273624715
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_6: 7648991049772214685
+      Set-ArmyRanger-Armor-Walk-NW-Sheet_7: 5599904954420936977
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
