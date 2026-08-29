@@ -18,6 +18,8 @@ public sealed class LocalProfileSnapshot
     public long Currency { get; set; } = InitialCurrency;
     public int Level { get; set; } = ExperienceCurve.InitialLevel;
     public long CurrentExperience { get; set; }
+    public CharacterAttributeState CharacterAttributes { get; set; } =
+        ProgressionBalanceDefaults.InitialCharacterAttributeState;
     public int LastAppliedProgressionResultSequence { get; set; }
     public ProgressionReceipt? LastProgressionReceipt { get; set; }
     public List<StashItem> Stash { get; } = new();
@@ -38,6 +40,7 @@ public sealed class LocalProfileSnapshot
             Currency = Currency,
             Level = Level,
             CurrentExperience = CurrentExperience,
+            CharacterAttributes = CharacterAttributes,
             LastAppliedProgressionResultSequence = LastAppliedProgressionResultSequence,
             LastProgressionReceipt = LastProgressionReceipt,
             PreparedEquipment = PreparedEquipment,

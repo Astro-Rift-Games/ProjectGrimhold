@@ -90,6 +90,13 @@ This one-shot protection depends on the consumer preserving and resubmitting the
 It prevents reuse of that consumed application but does not globally identify a Level transition,
 deduplicate two fresh pending applications, or introduce a receipt, sequence or journal.
 
+The local character aggregate stores the confirmed `CharacterAttributeState`. During progression
+commit, `LocalProfileStore` gives the already calculated `ExperienceApplicationResult` to
+`CharacterAttributePointGrantRules` and commits Level, Experience, available attribute points,
+watermark and receipt as one process-local candidate. Receipt classification occurs first, so an
+exact replay cannot grant points again. The store does not preserve a second point-grant receipt or
+recalculate Level gains.
+
 `CharacterAttributeAssignmentRules` is the separate pure transition that assigns exactly one
 available point to one selected attribute. The caller supplies the current balance maximum; the
 operation consumes one available point, preserves every other attribute and rejects atomically when
@@ -101,7 +108,7 @@ for exposing assignment only in Town; this domain rule has no UI, networking or 
 The pure application domain does not identify a Raid participation, store state or write a profile.
 `PlayerExpeditionProgressionResolver`, co-located with the participant and ledger, owns that
 authoritative mapping and preserves one resolution together with its single application state.
-Fresh admission injects and validates the durable Level/Experience baseline from the admitted
+Fresh admission injects and validates the confirmed Level/Experience baseline from the admitted
 local profile. Level zero is the only missing-baseline sentinel. Fusion restoration preserves
 the baseline and never replaces it with a fresh-composition fallback.
 
@@ -127,7 +134,7 @@ eligible Value and Level-progress facts into an immutable `ExpeditionProgression
 never evaluates producers, retention, Level application, the Experience curve or persistence.
 Results presentation captures the first successful read as its local immutable snapshot and does
 not query or replace it again during that active binding. Resolver commitment therefore makes the
-summary available independently from durable persistence: pending, retryable or failed persistence
+summary available independently from profile commit: pending, retryable or failed commit
 may change its own feedback and keep Return disabled, but cannot hide or alter an available summary.
 
 The accepted semantic causes are extraction confirmed, defeat confirmed, voluntary abandonment
@@ -136,17 +143,18 @@ never implies an outcome. Bootstrap/pre-Dungeon cancellation has no participatio
 resolve. Active Host cancellation keeps its current technical closure; its Progression meaning is
 not defined by this task and no outcome is invented for it.
 
-## Durable result sequence and local consolidation
+## Process-local result sequence and consolidation
 
-`LastAppliedProgressionResultSequence` is the last progression result confirmed durably by the
-local profile. It is not a counter of every result ever produced by State Authority and it does
-not restart at zero for every participation. Each fresh admission transports the current durable
+`LastAppliedProgressionResultSequence` is the last progression result confirmed by the current
+process-local profile aggregate. It is not durable across application restart and is not a counter
+of every result ever produced by State Authority. It does not restart at zero for every
+participation. Each fresh admission transports the current
 watermark. `NetworkRaidParticipant` initializes `ResultSequence` from that baseline, and its one
 definitive result proposes exactly `baseline + 1`.
 
-The local profile accepts a new result only when its sequence equals the current durable
-watermark plus one. After a successful atomic profile save, that sequence becomes the new
-watermark. If a result cannot be persisted locally, including a result produced for a
+The local profile accepts a new result only when its sequence equals the current process-local
+watermark plus one. After a successful atomic aggregate commit, that sequence becomes the new
+watermark. If a result cannot be committed to the process-local profile, including one produced for a
 definitively disconnected client, it does not permanently consume a profile sequence. A later
 admission may therefore propose the same `watermark + 1`. This deliberate local-only contract
 does not add backend recovery, remote synchronization or another authoritative store.
@@ -160,9 +168,9 @@ current watermark and `LastProgressionReceipt` to match exactly; an older sequen
 
 State Authority accepts an ACK only for the participant's current Input Authority, ProfileId,
 raid generation, definitive resolution and current `ResultSequence`. Extraction, defeat and
-voluntary abandonment cannot authorize Return before this durable ACK. The ACK flag and resolver
+voluntary abandonment cannot authorize Return before this process-local commit ACK. The ACK flag and resolver
 state are networked with the participant, so Host Migration preserves confirmed and pending work.
-The ACK confirms persistence only and never publishes `IsReturnAuthorized`. After a snapshot is
+The ACK confirms the process-local profile commit only and never publishes `IsReturnAuthorized`. After a snapshot is
 available and the ACK plus outcome-specific barriers are observable, presentation may enable its
 button and issue an explicit `RequestReturn`. State Authority revalidates the request before
 publishing `IsReturnAuthorized`; `SessionConnectionCoordinator` remains the sole owner of the
@@ -173,7 +181,7 @@ The complete terminal flow is:
 ```text
 resolver Committed + ledger frozen
 -> Results snapshot available
--> durable persistence ACK
+-> process-local profile commit ACK
 -> Return button locally eligible
 -> explicit RequestReturn
 -> State Authority validation
@@ -184,7 +192,7 @@ resolver Committed + ledger frozen
 
 ## Town progression presentation
 
-Town presents only the persistent Level and Experience already stored by the local profile:
+Town presents only the confirmed Level and Experience already stored by the local profile:
 
 ```text
 LocalProfileStore
@@ -201,8 +209,15 @@ local `ProfileId`.
 
 The Town HUD does not consume `ExpeditionProgressionResult` or any Results presentation snapshot.
 Results retains its independent immutable, read-only summary of one participation; Town observes
-only the current persistent values exposed by `LocalProfileStore` and never recalculates or grants
+only the current confirmed values exposed by `LocalProfileStore` and never recalculates or grants
 Experience.
+
+Town attribute assignment follows the same confirmed-profile presentation boundary. Its binding
+reads `CharacterAttributeState` through `LocalProfileStore`, refreshes only after a matching
+`ProfileCommitted`, and derives button availability by querying `CharacterAttributeAssignmentRules`.
+The UI neither grants Level-up points nor mutates attributes optimistically. Attributes and points
+form part of the character state currently maintained by the process-local aggregate and are
+intended for durable persistence through the future backend integration.
 
 ## Producer idempotency
 

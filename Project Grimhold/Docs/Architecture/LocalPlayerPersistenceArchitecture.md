@@ -21,6 +21,11 @@ Equipment assignments, pending reservations, extraction receipts and progression
 Town-Raid-Town transitions while the application remains open. They are discarded on application
 shutdown until the backend integration hydrates and commits this aggregate remotely.
 
+`CharacterAttributeState` is part of that same character aggregate. New profiles initialize it
+from `ProgressionBalanceDefaults.InitialCharacterAttributeState`; assigned values and available
+points survive consumer, scene and runner replacement only while this application process remains
+open. They are intended for durable backend persistence when that integration exists.
+
 ```text
 IPlayerStashService / IPlayerLoadoutService
                 -> LocalProfileStore
@@ -32,6 +37,11 @@ IPlayerStashService / IPlayerLoadoutService
 snapshot, asks the repository to accept it, and publishes the observable replacement and
 `ProfileCommitted` only after the complete in-process transaction succeeds. It never mutates the
 current snapshot before acceptance.
+
+The productive `InMemoryLocalProfileRepository` accepts an isolated clone of that complete
+candidate after validating its readiness and profile identity. It never encodes or reconstructs
+the aggregate through `LocalProfileSaveCodec`; domain mutations are validated by
+`LocalProfileStore` and their pure rules.
 
 `LocalProfileRepository`, `LocalProfileFileStore` and `LocalProfileSaveCodec` remain isolated,
 test-covered legacy infrastructure. They are not part of the runtime composition and files such
@@ -59,12 +69,20 @@ watermark is `AlreadyApplied`, a different payload at that sequence is `Conflict
 sequence is `Stale`, and a sequence gap is invalid. The bounded receipt list is audit history
 only and may be pruned without weakening rejection of an old result.
 
-Level, current Experience, watermark, `LastProgressionReceipt` and receipt history are one
-candidate mutation. Watermark zero requires no last receipt. A positive watermark requires
+Level, current Experience, available attribute points, watermark, `LastProgressionReceipt` and
+receipt history are one candidate mutation. Watermark zero requires no last receipt. A positive watermark requires
 the last receipt to exist, match that sequence and belong to the snapshot ProfileId.
 `LocalProfileStore` reuses `ConsolidatedExperienceApplicationRules`; it does not duplicate the
-curve. A zero-XP resolution still advances the watermark. Only `Success` publishes a
+curve, and delegates point calculation to `CharacterAttributePointGrantRules`. A zero-XP
+resolution still advances the watermark. Only `Success` publishes a
 commit event; `AlreadyApplied` performs no second write or notification.
+
+Town attribute assignment is another `LocalProfileStore` transaction. The store delegates the
+single-point operation and configurable maximum to `CharacterAttributeAssignmentRules`, submits a
+complete candidate and publishes `ProfileCommitted` only after repository acceptance. Town UI
+reads the confirmed `CharacterAttributeState` through the store's try-pattern query and treats
+`ProfileCommitted` for the matching `ProfileId` as its sole refresh signal. This observable commit
+does not imply cross-process durability.
 
 ## Domain and authority boundaries
 

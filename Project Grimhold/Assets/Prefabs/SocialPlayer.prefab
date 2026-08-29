@@ -394,6 +394,7 @@ GameObject:
   - component: {fileID: 5930331051498512961}
   - component: {fileID: 3426327737543358221}
   - component: {fileID: 3167084725009871997}
+  - component: {fileID: 6766885198686593445}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -603,6 +604,7 @@ MonoBehaviour:
   - {fileID: 5930331051498512961}
   - {fileID: 3426327737543358221}
   - {fileID: 3167084725009871997}
+  - {fileID: 6766885198686593445}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9115544833474229447
 MonoBehaviour:
@@ -757,6 +759,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b305844b221c4226932b004585f678fc, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::TownProgressionPresenter
+--- !u!114 &6766885198686593445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17d571a37ded46f6b176b2ca399e3582, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownAttributeAssignmentPresenter
 --- !u!1 &5000000000000000001
 GameObject:
   m_ObjectHideFlags: 0

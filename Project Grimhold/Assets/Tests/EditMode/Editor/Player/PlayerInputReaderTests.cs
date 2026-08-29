@@ -39,10 +39,10 @@ namespace Tests.EditMode.Player
             IDisposable second = _reader.AcquireGameplayInputSuppression();
 
             first.Dispose();
-            Assert.That(ReadSuppressionCount(), Is.EqualTo(1));
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
 
             second.Dispose();
-            Assert.That(ReadSuppressionCount(), Is.Zero);
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.False);
         }
 
         [Test]
@@ -53,7 +53,7 @@ namespace Tests.EditMode.Player
             suppression.Dispose();
             suppression.Dispose();
 
-            Assert.That(ReadSuppressionCount(), Is.Zero);
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.False);
         }
 
         [Test]
@@ -77,18 +77,9 @@ namespace Tests.EditMode.Player
 
             InvokeOnInteractPerformed();
 
-            Assert.That(ReadSuppressionCount(), Is.EqualTo(1));
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
             Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False);
             second.Dispose();
-        }
-
-        private int ReadSuppressionCount()
-        {
-            FieldInfo field = typeof(PlayerInputReader).GetField(
-                "_gameplaySuppressionCount",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            return (int)field.GetValue(_reader);
         }
 
         private void InvokeOnInteractPerformed()

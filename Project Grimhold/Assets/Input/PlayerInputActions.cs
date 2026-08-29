@@ -281,6 +281,15 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": ""Press(behavior=0)"",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ToggleAttributes"",
+                    ""type"": ""Button"",
+                    ""id"": ""05464309-08da-4760-ad6a-ecdb38c3ac22"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -305,6 +314,17 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""CloseInventory"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d732ab15-0c83-4201-b693-a4fd73f4329d"",
+                    ""path"": ""<Keyboard>/c"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleAttributes"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -323,6 +343,7 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         m_LocalUI = asset.FindActionMap("LocalUI", throwIfNotFound: true);
         m_LocalUI_ToggleInventory = m_LocalUI.FindAction("ToggleInventory", throwIfNotFound: true);
         m_LocalUI_CloseInventory = m_LocalUI.FindAction("CloseInventory", throwIfNotFound: true);
+        m_LocalUI_ToggleAttributes = m_LocalUI.FindAction("ToggleAttributes", throwIfNotFound: true);
     }
 
     ~@PlayerInputActions()
@@ -557,6 +578,7 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
     private List<ILocalUIActions> m_LocalUIActionsCallbackInterfaces = new List<ILocalUIActions>();
     private readonly InputAction m_LocalUI_ToggleInventory;
     private readonly InputAction m_LocalUI_CloseInventory;
+    private readonly InputAction m_LocalUI_ToggleAttributes;
     /// <summary>
     /// Provides access to input actions defined in input action map "LocalUI".
     /// </summary>
@@ -576,6 +598,10 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "LocalUI/CloseInventory".
         /// </summary>
         public InputAction @CloseInventory => m_Wrapper.m_LocalUI_CloseInventory;
+        /// <summary>
+        /// Provides access to the underlying input action "LocalUI/ToggleAttributes".
+        /// </summary>
+        public InputAction @ToggleAttributes => m_Wrapper.m_LocalUI_ToggleAttributes;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -608,6 +634,9 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @CloseInventory.started += instance.OnCloseInventory;
             @CloseInventory.performed += instance.OnCloseInventory;
             @CloseInventory.canceled += instance.OnCloseInventory;
+            @ToggleAttributes.started += instance.OnToggleAttributes;
+            @ToggleAttributes.performed += instance.OnToggleAttributes;
+            @ToggleAttributes.canceled += instance.OnToggleAttributes;
         }
 
         /// <summary>
@@ -625,6 +654,9 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @CloseInventory.started -= instance.OnCloseInventory;
             @CloseInventory.performed -= instance.OnCloseInventory;
             @CloseInventory.canceled -= instance.OnCloseInventory;
+            @ToggleAttributes.started -= instance.OnToggleAttributes;
+            @ToggleAttributes.performed -= instance.OnToggleAttributes;
+            @ToggleAttributes.canceled -= instance.OnToggleAttributes;
         }
 
         /// <summary>
@@ -729,5 +761,12 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnCloseInventory(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ToggleAttributes" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnToggleAttributes(InputAction.CallbackContext context);
     }
 }

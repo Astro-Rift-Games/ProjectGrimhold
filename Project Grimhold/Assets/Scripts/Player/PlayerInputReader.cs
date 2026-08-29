@@ -23,6 +23,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private PlayerInputActions _inputActions;
     private InputAction _weaponSlot1Action;
     private InputAction _weaponSlot2Action;
+    private InputAction _toggleAttributesAction;
 
     private Vector2 _moveDirection;
     private Vector2 _aimWorldPosition;
@@ -48,6 +49,12 @@ public sealed class PlayerInputReader : MonoBehaviour
     public event Func<bool> InventoryCloseRequested;
 
     /// <summary>
+    /// Raised for the local-only action that opens or closes the Town attribute panel.
+    /// This intention is never included in <see cref="PlayerNetworkInput"/>.
+    /// </summary>
+    public event Action AttributesToggleRequested;
+
+    /// <summary>
     /// Raised for the local-only action that requests toggling the local menu.
     /// </summary>
     public event Action MenuToggleRequested;
@@ -66,6 +73,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions = new PlayerInputActions();
         _weaponSlot1Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot1", true);
         _weaponSlot2Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot2", true);
+        _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
     }
 
     private void OnEnable()
@@ -75,6 +83,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.Gameplay.PrimaryAttack.canceled += OnPrimaryAttackCanceled;
         _inputActions.LocalUI.ToggleInventory.performed += OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed += OnCloseInventoryPerformed;
+        _toggleAttributesAction.performed += OnToggleAttributesPerformed;
         _inputActions.Gameplay.Enable();
         _inputActions.LocalUI.Enable();
     }
@@ -95,6 +104,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.Gameplay.PrimaryAttack.canceled -= OnPrimaryAttackCanceled;
         _inputActions.LocalUI.ToggleInventory.performed -= OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed -= OnCloseInventoryPerformed;
+        _toggleAttributesAction.performed -= OnToggleAttributesPerformed;
         _inputActions.Gameplay.Disable();
         _inputActions.LocalUI.Disable();
         ResetInputState();
@@ -127,6 +137,11 @@ public sealed class PlayerInputReader : MonoBehaviour
     private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
     {
         InventoryToggleRequested?.Invoke();
+    }
+
+    private void OnToggleAttributesPerformed(InputAction.CallbackContext context)
+    {
+        AttributesToggleRequested?.Invoke();
     }
 
     private void OnCloseInventoryPerformed(InputAction.CallbackContext context)
@@ -174,6 +189,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         _gameplaySuppressionCount++;
         return new GameplayInputSuppression(this);
     }
+
+    public bool IsGameplayInputSuppressed => _gameplaySuppressionCount > 0;
 
     /// <summary>
     /// Returns the latest local intentions accumulated since Fusion's
@@ -395,8 +412,6 @@ public sealed class PlayerInputReader : MonoBehaviour
         _primaryAttackRequiresRelease = _inputActions.Gameplay.PrimaryAttack.IsPressed();
         _interactRequiresRelease = _inputActions.Gameplay.Interact.IsPressed();
     }
-
-    private bool IsGameplayInputSuppressed => _gameplaySuppressionCount > 0;
 
     private sealed class GameplayInputSuppression : IDisposable
     {

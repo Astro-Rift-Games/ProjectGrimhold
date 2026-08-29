@@ -130,6 +130,19 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [Test]
+        public void AttributesToggle_RemainsAvailableDuringSuppression()
+        {
+            int toggleCount = 0;
+            _reader.AttributesToggleRequested += () => toggleCount++;
+            using IDisposable suppression = _reader.AcquireGameplayInputSuppression();
+
+            SetKey(Key.C, true);
+
+            Assert.That(toggleCount, Is.EqualTo(1));
+            Assert.That(_reader.ConsumeNetworkInput().Equals(default(PlayerNetworkInput)), Is.True);
+        }
+
+        [Test]
         public void InventoryClose_RemainsAvailableDuringSuppression()
         {
             int closeCount = 0;

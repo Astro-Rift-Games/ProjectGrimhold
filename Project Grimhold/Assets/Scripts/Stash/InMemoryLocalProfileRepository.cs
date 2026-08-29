@@ -7,7 +7,6 @@
 public sealed class InMemoryLocalProfileRepository : ILocalProfileRepository
 {
     private readonly object _sync = new();
-    private LootDefinitionCatalog _catalog;
     private ProfileId _profileId;
 
     public LocalProfilePersistenceStatus Status { get; private set; } = LocalProfilePersistenceStatus.Unavailable;
@@ -29,7 +28,6 @@ public sealed class InMemoryLocalProfileRepository : ILocalProfileRepository
         }
 
         _profileId = profileId;
-        _catalog = catalog;
         Snapshot = new LocalProfileSnapshot { ProfileId = profileId };
         Status = LocalProfilePersistenceStatus.Ready;
         LastError = null;
@@ -37,8 +35,9 @@ public sealed class InMemoryLocalProfileRepository : ILocalProfileRepository
     }
 
     /// <summary>
-    /// Replaces the current process snapshot after applying the same aggregate validation
-    /// used by the durable repository. No filesystem or PlayerPrefs data is written.
+    /// Replaces the current process snapshot with an isolated clone of the accepted aggregate.
+    /// Domain mutations are validated by LocalProfileStore and its pure rules; this productive
+    /// repository never routes state through the legacy JSON codec.
     /// </summary>
     public bool TrySave(LocalProfileSnapshot snapshot, out string error)
     {
@@ -57,19 +56,7 @@ public sealed class InMemoryLocalProfileRepository : ILocalProfileRepository
                 return false;
             }
 
-            if (!LocalProfileSaveCodec.TryDecode(
-                    LocalProfileSaveCodec.Encode(snapshot),
-                    _profileId,
-                    _catalog,
-                    out LocalProfileSnapshot validatedSnapshot,
-                    out _,
-                    out error))
-            {
-                LastError = error;
-                return false;
-            }
-
-            Snapshot = validatedSnapshot;
+            Snapshot = snapshot.Clone();
             LastError = null;
             return true;
         }

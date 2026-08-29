@@ -195,6 +195,15 @@
                     "processors": "",
                     "interactions": "Press(behavior=0)",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ToggleAttributes",
+                    "type": "Button",
+                    "id": "05464309-08da-4760-ad6a-ecdb38c3ac22",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "Press(behavior=0)",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -217,6 +226,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "CloseInventory",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d732ab15-0c83-4201-b693-a4fd73f4329d",
+                    "path": "<Keyboard>/c",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ToggleAttributes",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

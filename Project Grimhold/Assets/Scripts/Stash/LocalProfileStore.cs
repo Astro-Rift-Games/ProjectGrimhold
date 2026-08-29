@@ -49,8 +49,55 @@ public sealed class LocalProfileStore
     public int GetLastAppliedProgressionResultSequence() =>
         _repository.Snapshot != null ? _repository.Snapshot.LastAppliedProgressionResultSequence : 0;
 
+    public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
+    {
+        lock (_sync)
+        {
+            state = default;
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            if (!IsAvailable || snapshot == null || snapshot.ProfileId != _profileId)
+            {
+                return false;
+            }
+
+            state = snapshot.CharacterAttributes;
+            return true;
+        }
+    }
+
+    public CharacterAttributeAssignmentCommitResult TryAssignCharacterAttribute(
+        CharacterAttribute attribute,
+        out CharacterAttributeAssignmentFailure failure)
+    {
+        lock (_sync)
+        {
+            failure = CharacterAttributeAssignmentFailure.None;
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return CharacterAttributeAssignmentCommitResult.Unavailable;
+            }
+
+            if (!CharacterAttributeAssignmentRules.TryAssign(
+                    ProgressionBalanceDefaults.InitialMaximumAttributeValue,
+                    current.CharacterAttributes,
+                    attribute,
+                    out CharacterAttributeState candidate,
+                    out failure))
+            {
+                return CharacterAttributeAssignmentCommitResult.Rejected;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.CharacterAttributes = candidate;
+            return Commit(next) == StashOperationResult.Success
+                ? CharacterAttributeAssignmentCommitResult.Success
+                : CharacterAttributeAssignmentCommitResult.PersistenceFailed;
+        }
+    }
+
     /// <summary>
-    /// Applies one resolved raid reward and its idempotency watermark as a single durable mutation.
+    /// Applies one resolved raid reward and its idempotency watermark as one process-local mutation.
     /// The observable repository snapshot is unchanged unless the complete candidate saves.
     /// </summary>
     public ProgressionCommitResult TryCommitProgression(
@@ -112,9 +159,21 @@ public sealed class LocalProfileStore
                 return ProgressionCommitResult.Invalid;
             }
 
+            if (!CharacterAttributePointGrantRules.TryApply(
+                    ProgressionBalanceDefaults.InitialAttributePointsPerLevel,
+                    default,
+                    current.CharacterAttributes,
+                    application.Result,
+                    out CharacterAttributePointGrant pointGrant,
+                    out _))
+            {
+                return ProgressionCommitResult.Invalid;
+            }
+
             LocalProfileSnapshot next = current.Clone();
             next.Level = application.Result.ResultingLevel;
             next.CurrentExperience = application.Result.ResultingExperience;
+            next.CharacterAttributes = pointGrant.Result;
             next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
             next.LastProgressionReceipt = receipt;
             next.AppliedProgressionReceipts.Add(receipt);
