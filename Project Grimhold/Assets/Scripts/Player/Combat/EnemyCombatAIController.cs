@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Fusion;
 using UnityEngine;
 
@@ -104,9 +104,21 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         bool attackRequested = _movementController.IsAttacking;
 
-        if (!attackRequested || !IsAttackEnabled || !_character.IsAlive)
+        if (!IsAttackEnabled || !_character.IsAlive)
         {
             ClearPendingDamage();
+            return;
+        }
+
+        // Si ya empezó el ataque (tiene daño pendiente), dejamos que termine la animación.
+        // No evaluamos ni cancelamos el objetivo hasta que el hit frame se resuelva.
+        if (_hasPendingDamage)
+        {
+            return;
+        }
+
+        if (!attackRequested)
+        {
             return;
         }
 
@@ -219,12 +231,11 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
         );
         _pendingTargetId = targetId;
         _hasPendingDamage = true;
-
-        // Bypassing animation event for Ranged enemies since they do not have attack animations yet.
-        if (_activeAttack != null && _activeAttack.Type == AttackType.Ranged)
-        {
-            _executeAttackNextTick = true;
-        }
+        
+        float cooldownSeconds = _activeAttack.CooldownSeconds;
+        AttackCooldown = cooldownSeconds > 0f
+            ? TickTimer.CreateFromSeconds(Runner, cooldownSeconds)
+            : TickTimer.None;
     }
 
     /// <summary>
@@ -426,11 +437,6 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
     private void CommitAttack(in AttackRequest request)
     {
-        float cooldownSeconds = _activeAttack.CooldownSeconds;
-        AttackCooldown = cooldownSeconds > 0f
-            ? TickTimer.CreateFromSeconds(Runner, cooldownSeconds)
-            : TickTimer.None;
-
         LastAttackOrigin = request.Origin;
         LastAttackDirection = request.Direction;
         LastAttackTypeValue = (int)_activeAttack.Type;
@@ -464,3 +470,8 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     }
 #endif
 }
+
+
+
+
+

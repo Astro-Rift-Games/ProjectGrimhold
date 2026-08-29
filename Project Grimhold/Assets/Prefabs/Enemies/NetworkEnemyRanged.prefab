@@ -114,11 +114,11 @@ PrefabInstance:
       objectReference: {fileID: 8275184075383188249}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[11]'
-      value:
+      value: 
       objectReference: {fileID: 4371707113031235481}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[12]'
-      value:
+      value: 
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _renderers.Array.size
@@ -278,6 +278,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3126052149844608079}
+    - targetCorrespondingSourceObject: {fileID: 1221760144332657486, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8888888888888888882}
   m_SourcePrefab: {fileID: 100100000, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
 --- !u!114 &474837780548594562 stripped
 MonoBehaviour:
@@ -290,6 +293,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba6e9ecc0c8b7a941af085f53dd307e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageResolver
+--- !u!1 &1228438661385467990 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1221760144332657486, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8888888888888888882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1228438661385467990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8f1e4730a9cff046854c12646aa4b7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAttackAnimationListener
+  _combatController: {fileID: 3937134794404569010}
 --- !u!114 &3063524857490360846 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3133108637029622038, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -328,7 +349,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4438265232833103325, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
   m_PrefabInstance: {fileID: 142103171782748952}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1228438661385467990}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: afe2b31576831dd48bffe24695b0eb40, type: 3}
@@ -343,7 +364,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
 --- !u!1 &4421098701350888620 stripped
 GameObject:
@@ -442,7 +463,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8943053b70db424aace9870732ea79d2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KillExperienceSource
 --- !u!58 &8916101597558410055 stripped
 CircleCollider2D:

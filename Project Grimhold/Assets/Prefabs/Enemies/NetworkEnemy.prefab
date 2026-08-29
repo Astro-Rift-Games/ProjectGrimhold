@@ -4959,7 +4959,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 5496709202239764530}
   m_Father: {fileID: 2520259848855165086}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1066720069559603162
@@ -5163,12 +5164,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4314099452745549171}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2520259848855165086}
+  m_Father: {fileID: 7397229956843810021}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4369124737019072436
 GameObject:
@@ -5222,7 +5223,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7397229956843810021}
-  - {fileID: 5496709202239764530}
   - {fileID: 3964075307184218784}
   - {fileID: 7201000000000000021}
   - {fileID: 9000000000000000002}
@@ -5685,7 +5685,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8943053b70db424aace9870732ea79d2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KillExperienceSource
   _killExperience: 0
   _IsGranted:
@@ -5750,7 +5750,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
 --- !u!1 &6258069994273772255
 GameObject:
