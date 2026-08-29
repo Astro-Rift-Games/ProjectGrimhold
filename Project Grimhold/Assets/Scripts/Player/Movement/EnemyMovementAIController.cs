@@ -269,12 +269,10 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         Vector2 moveDirection = ComputeMoveDirection();
 
-        bool canMove = IsControlEnabled && (_characterBase == null || _characterBase.IsAlive);
+        bool isAlive = _characterBase == null || _characterBase.IsAlive;
+        bool canMove = IsControlEnabled && isAlive;
 
-        if (canMove && moveDirection.sqrMagnitude > ValidDirectionSqrThreshold)
-        {
-            FacingDirection = moveDirection.normalized;
-        }
+        UpdateFacingDirection(moveDirection, canMove, isAlive);
 
         float speed = IsOnPursuit ? PursuitSpeed : _patrolSpeed;
         Vector2 displacement = canMove
@@ -613,8 +611,50 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Movement direction computation
+    // Facing and movement direction computation
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Writes the replicated facing direction for this tick.
+    ///
+    /// <para>
+    /// While attacking, <see cref="EnemyAttackState"/> holds the enemy stationary by disabling
+    /// <see cref="IsControlEnabled"/>, so the movement direction stops being a valid facing
+    /// source. Facing is then resolved straight toward the target's current position, letting a
+    /// stationary enemy keep tracking a moving player. Movement itself stays disabled.
+    /// </para>
+    /// <para>
+    /// The <paramref name="canMove"/> inversion matters: <see cref="IsAttacking"/> is a sensor
+    /// written by <see cref="EvaluateActiveTarget"/> as soon as the target enters
+    /// <see cref="_attackRange"/>, which happens while the FSM is still in Chase and control is
+    /// still enabled. Requiring movement to be disabled keeps pursuit facing under pathfinding
+    /// until the enemy actually stops.
+    /// </para>
+    /// <para>
+    /// <paramref name="isAlive"/> is required because sensors keep running after death, so
+    /// <see cref="IsAttacking"/> can remain true on a corpse whose killer is still in range.
+    /// </para>
+    /// </summary>
+    private void UpdateFacingDirection(Vector2 moveDirection, bool canMove, bool isAlive)
+    {
+        if (isAlive &&
+            !canMove &&
+            IsAttacking &&
+            TryGetCurrentTarget(out _, out Transform targetTransform) &&
+            PlayerAimMath.TryResolveDirection(
+                transform.position,
+                targetTransform.position,
+                out Vector2 targetDirection))
+        {
+            FacingDirection = targetDirection;
+            return;
+        }
+
+        if (canMove && moveDirection.sqrMagnitude > ValidDirectionSqrThreshold)
+        {
+            FacingDirection = moveDirection.normalized;
+        }
+    }
 
     /// <summary>
     /// Returns the normalized movement direction for this tick.

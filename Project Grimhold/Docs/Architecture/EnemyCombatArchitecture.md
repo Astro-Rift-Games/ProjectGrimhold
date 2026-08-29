@@ -87,6 +87,13 @@ The attack hit-frame boundary stores the target `EntityId` accepted with the pen
 * **Strategy Execution**: Delegates combat execution to an assigned `IAttack` strategy (e.g., `MeleeAttack` or `RangedAttack`).
 * **Network Replication**: Replicates `AttackSequence`, `LastAttackOrigin`, `LastAttackDirection`, and tick information to allow proxy clients to render attack animations smoothly via `AttackPerformed` events.
 
+### Facing vs. Aim
+
+`IMovementState.FacingDirection` and the attack aim direction are separate concerns and must not be conflated:
+
+* **Facing** is a locomotion and presentation value. It normally follows the movement direction, which during pursuit comes from `EnemyPathfindingNavigator` and may point around an obstacle rather than at the target. `Attack` holds the enemy stationary (`IsControlEnabled == false`), so while attacking `EnemyMovementAIController` resolves facing directly toward the target's current position instead; the enemy re-orients without moving. Sensors keep running after death, so this path is additionally gated on the character being alive.
+* **Aim** is resolved per attack. `EnemyCombatAIController` computes ranged aim from `_attackOrigin` toward the target's current position, so `FacingDirection` is never the authoritative source for a ranged shot. Melee continues to consume `FacingDirection`. The resolved direction is frozen into the pending `AttackRequest` at commit time, so a projectile keeps the direction it was fired with and never homes.
+
 ---
 
 ## Shared Presentation Abstractions

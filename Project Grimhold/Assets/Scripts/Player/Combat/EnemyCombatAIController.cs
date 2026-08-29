@@ -110,7 +110,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             return;
         }
 
-        bool hasTarget = _movementController.TryGetCurrentTarget(out EntityId targetId, out _);
+        bool hasTarget = _movementController.TryGetCurrentTarget(out EntityId targetId, out Transform targetTransform);
 
         if (!hasTarget && targetId.Value != 0)
         {
@@ -132,7 +132,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             return;
         }
 
-        TryCommitAttack(_movementController.FacingDirection, targetId);
+        TryCommitAttack(ResolveAimDirection(targetTransform), targetId);
     }
 
     public override void Render()
@@ -155,6 +155,39 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             AttackPerformed?.Invoke(performedEvent);
             _lastObservedSequence = AttackSequence;
         }
+    }
+
+    /// <summary>
+    /// Resolves the aim direction for a new attack.
+    ///
+    /// <para>
+    /// Ranged attacks aim from <see cref="_attackOrigin"/> toward the target's current position.
+    /// <see cref="IMovementState.FacingDirection"/> is not authoritative for ranged aiming: it is
+    /// a locomotion value derived from the pursuit path, so it can point around an obstacle rather
+    /// than at the target.
+    /// </para>
+    /// <para>
+    /// Melee keeps consuming <see cref="IMovementState.FacingDirection"/> so its arc is unchanged.
+    /// The same value is the fallback when the target transform is missing or the origin and the
+    /// target are effectively coincident.
+    /// </para>
+    /// </summary>
+    private Vector2 ResolveAimDirection(Transform targetTransform)
+    {
+        Vector2 facingDirection = _movementController.FacingDirection;
+
+        if (targetTransform == null || _activeAttack == null || _activeAttack.Type != AttackType.Ranged)
+        {
+            return facingDirection;
+        }
+
+        Vector2 originPosition = _attackOrigin != null
+            ? (Vector2)_attackOrigin.position
+            : (Vector2)transform.position;
+
+        return PlayerAimMath.TryResolveDirection(originPosition, targetTransform.position, out Vector2 aimDirection)
+            ? aimDirection
+            : facingDirection;
     }
 
     /// <summary>
