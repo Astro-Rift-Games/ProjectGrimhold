@@ -90,6 +90,14 @@ This one-shot protection depends on the consumer preserving and resubmitting the
 It prevents reuse of that consumed application but does not globally identify a Level transition,
 deduplicate two fresh pending applications, or introduce a receipt, sequence or journal.
 
+`CharacterAttributeAssignmentRules` is the separate pure transition that assigns exactly one
+available point to one selected attribute. The caller supplies the current balance maximum; the
+operation consumes one available point, preserves every other attribute and rejects atomically when
+the identifier is unknown, no point is available or the selected value is already at or above that
+maximum. The maximum is an operational balance rule rather than a structural invariant, so an
+existing `CharacterAttributeState` may remain structurally valid above it. The consumer is responsible
+for exposing assignment only in Town; this domain rule has no UI, networking or persistence context.
+
 The pure application domain does not identify a Raid participation, store state or write a profile.
 `PlayerExpeditionProgressionResolver`, co-located with the participant and ledger, owns that
 authoritative mapping and preserves one resolution together with its single application state.
