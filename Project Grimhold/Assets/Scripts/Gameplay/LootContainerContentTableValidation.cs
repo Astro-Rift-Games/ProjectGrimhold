@@ -14,7 +14,7 @@ public static class LootContainerContentTableValidation
         LootContainerContentTable table,
         LootDefinitionCatalog catalog,
         int slotCapacity,
-        int networkCapacity,
+        int distinctLootCapacity,
         out ValidatedLootContainerContentSnapshot snapshot,
         out string error)
     {
@@ -34,15 +34,15 @@ public static class LootContainerContentTableValidation
             return false;
         }
 
-        if (!LootInventoryRules.IsValidSlotCapacity(slotCapacity, networkCapacity))
+        if (!LootInventoryRules.IsValidSlotCapacity(slotCapacity, distinctLootCapacity))
         {
-            error = $"Slot capacity must be between 1 and {networkCapacity}.";
+            error = $"Slot capacity must be between 1 and {distinctLootCapacity}.";
             return false;
         }
 
-        if (catalog.DefinitionCount > networkCapacity)
+        if (catalog.DefinitionCount > RaidLootOriginPackedBuffer.MaximumCatalogEntries)
         {
-            error = $"Catalog contains {catalog.DefinitionCount} definitions but only {networkCapacity} can be represented.";
+            error = $"Catalog contains {catalog.DefinitionCount} definitions but only {RaidLootOriginPackedBuffer.MaximumCatalogEntries} indices can be represented.";
             return false;
         }
 
@@ -62,7 +62,9 @@ public static class LootContainerContentTableValidation
 
         IReadOnlyList<LootContainerContentTableEntry> configuredEntries = table.Entries;
         int entryCount = configuredEntries?.Count ?? 0;
-        int effectiveMaximum = Math.Min(configuredMaximum, Math.Min(entryCount, Math.Min(slotCapacity, networkCapacity)));
+        int effectiveMaximum = Math.Min(
+            configuredMaximum,
+            Math.Min(entryCount, Math.Min(slotCapacity, distinctLootCapacity)));
         if (minimum > effectiveMaximum)
         {
             error = "The configured minimum stack count cannot be satisfied by the eligible entries and capacities.";
@@ -84,7 +86,7 @@ public static class LootContainerContentTableValidation
                 true,
                 0,
                 slotCapacity,
-                networkCapacity);
+                distinctLootCapacity);
             return true;
         }
 
@@ -104,7 +106,7 @@ public static class LootContainerContentTableValidation
             }
 
             if (!catalog.TryGetIndex(definition.LootId, out int catalogIndex) ||
-                catalogIndex < 0 || catalogIndex >= networkCapacity)
+                catalogIndex < 0 || catalogIndex >= RaidLootOriginPackedBuffer.MaximumCatalogEntries)
             {
                 error = $"Loot table entry {i} is not representable by the assigned catalog.";
                 return false;
@@ -155,7 +157,7 @@ public static class LootContainerContentTableValidation
             table.AllowEmpty,
             totalWeight,
             slotCapacity,
-            networkCapacity);
+            distinctLootCapacity);
         return true;
     }
 }

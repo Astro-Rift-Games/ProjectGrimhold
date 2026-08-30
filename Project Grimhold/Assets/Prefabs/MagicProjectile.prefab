@@ -18,7 +18,7 @@ PrefabInstance:
       objectReference: {fileID: 9100000, guid: 4403cd98d3e9c6f41afabdb8f436c8ab, type: 2}
     - target: {fileID: 2215579267790226133, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_Name
-      value: ArrowProjectile
+      value: MagicProjectile
       objectReference: {fileID: 0}
     - target: {fileID: 2867869614531767180, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -43,7 +43,7 @@ PrefabInstance:
     - target: {fileID: 3134513433825008769, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 4702899422589728862, guid: cddac14ea5f5cd94c990ead87c7690ac, type: 3}
+      objectReference: {fileID: -2584717478098627136, guid: 011329a72a6cba547bae395168b5527c, type: 3}
     - target: {fileID: 3134513433825008769, guid: b68349702bdcbb84f9aed456ed6b035c, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1

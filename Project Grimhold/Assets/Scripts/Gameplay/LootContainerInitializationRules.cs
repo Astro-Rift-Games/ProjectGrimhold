@@ -13,7 +13,7 @@ public static class LootContainerInitializationRules
         IReadOnlyList<LootContainerInitialEntry> initialEntries,
         LootDefinitionCatalog catalog,
         int slotCapacity,
-        int networkCapacity,
+        int distinctLootCapacity,
         out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
         out string error)
     {
@@ -39,7 +39,7 @@ public static class LootContainerInitializationRules
             normalized,
             catalog,
             slotCapacity,
-            networkCapacity,
+            distinctLootCapacity,
             out resolvedEntries,
             out error);
     }
@@ -51,7 +51,7 @@ public static class LootContainerInitializationRules
         IReadOnlyList<LootEntry> initialEntries,
         LootDefinitionCatalog catalog,
         int slotCapacity,
-        int networkCapacity,
+        int distinctLootCapacity,
         out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
         out string error)
     {
@@ -65,20 +65,20 @@ public static class LootContainerInitializationRules
             return false;
         }
 
-        if (!LootInventoryRules.IsValidSlotCapacity(slotCapacity, networkCapacity))
+        if (!LootInventoryRules.IsValidSlotCapacity(slotCapacity, distinctLootCapacity))
         {
-            error = $"Slot capacity must be between 1 and {networkCapacity}.";
+            error = $"Slot capacity must be between 1 and {distinctLootCapacity}.";
             return false;
         }
 
-        if (catalog.DefinitionCount > networkCapacity)
+        if (catalog.DefinitionCount > RaidLootOriginPackedBuffer.MaximumCatalogEntries)
         {
-            error = $"Catalog contains {catalog.DefinitionCount} definitions but only {networkCapacity} can be represented.";
+            error = $"Catalog contains {catalog.DefinitionCount} definitions but only {RaidLootOriginPackedBuffer.MaximumCatalogEntries} indices can be represented.";
             return false;
         }
 
         int count = initialEntries?.Count ?? 0;
-        if (count > slotCapacity || count > networkCapacity)
+        if (count > slotCapacity || count > distinctLootCapacity)
         {
             error = "Initial content exceeds the configured slot capacity.";
             return false;
@@ -96,7 +96,7 @@ public static class LootContainerInitializationRules
             }
 
             if (!catalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
-                catalogIndex < 0 || catalogIndex >= networkCapacity)
+                catalogIndex < 0 || catalogIndex >= RaidLootOriginPackedBuffer.MaximumCatalogEntries)
             {
                 error = $"Initial entry {i} is not representable by the assigned catalog.";
                 return false;

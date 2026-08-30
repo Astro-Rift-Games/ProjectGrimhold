@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -185,6 +187,29 @@ namespace Tests.EditMode.Loot
             AssertNetworkBehaviourIsBaked(networkObject, equipment);
             AssertNetworkBehaviourIsBaked(networkObject, playerOrigins);
             AssertNetworkBehaviourIsBaked(networkObject, corpseOrigins);
+        }
+
+        [Test]
+        public void ProductivePlayerLootEndpoint_AcceptsCatalogBeyondDistinctStackCapacity()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+            Assert.That(prefab, Is.Not.Null);
+
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            Assert.That(container, Is.Not.Null);
+            Assert.That(container.LootCatalog.DefinitionCount,
+                Is.GreaterThan(NetworkLootContainer.MaxDistinctLootTypes));
+
+            bool valid = LootContainerInitializationRules.TryBuild(
+                Array.Empty<LootEntry>(),
+                container.LootCatalog,
+                container.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out IReadOnlyList<KeyValuePair<int, int>> entries,
+                out string error);
+
+            Assert.That(valid, Is.True, error);
+            Assert.That(entries, Is.Empty);
         }
 
         [Test]

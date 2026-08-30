@@ -117,6 +117,31 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void Snapshot_AllowsCatalogBeyondDistinctStackCapacity_WhenTableFits()
+        {
+            var definitions = new LootDefinition[22];
+            for (int index = 0; index < definitions.Length; index++)
+            {
+                definitions[index] = CreateDefinition($"item_{index:00}");
+            }
+
+            SetCatalog(definitions);
+            LootContainerContentTable table = CreateTable(
+                1,
+                1,
+                false,
+                new LootContainerContentTableEntry(definitions[21], 1, 1, 1));
+
+            Assert.That(
+                TrySnapshot(table, out ValidatedLootContainerContentSnapshot snapshot, out string error),
+                Is.True,
+                error);
+            Assert.That(snapshot.EntryCount, Is.EqualTo(1));
+            Assert.That(snapshot.GetEntry(0).CatalogIndex, Is.EqualTo(21));
+            Assert.That(snapshot.NetworkCapacity, Is.EqualTo(NetworkLootContainer.MaxDistinctLootTypes));
+        }
+
+        [Test]
         public void Roller_IsReproducibleUniqueOrderedAndSupportsIntMaxValue()
         {
             LootDefinition third = CreateDefinition("third");

@@ -8,6 +8,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerArmorPresenter : MonoBehaviour
 {
+    private const int EquipmentSortingOrderOffset = 1;
+
     [Header("Dependencies")]
     [SerializeField]
     private PlayerWeaponEquipmentNetworkController _equipmentSource;
@@ -77,8 +79,24 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
         
         ApplyConfigToTarget(_glovesConfig, _leftGloveVisual);
         ApplyConfigToTarget(_glovesConfig, _rightGloveVisual);
+        ApplyGloveBaseVisibility();
         
         ApplyConfigToTarget(_bootsConfig, _bootsVisual);
+    }
+
+    private void ApplyGloveBaseVisibility()
+    {
+        bool showBaseHands = _glovesConfig == null;
+
+        if (_leftHandBase != null)
+        {
+            _leftHandBase.enabled = showBaseHands;
+        }
+
+        if (_rightHandBase != null)
+        {
+            _rightHandBase.enabled = showBaseHands;
+        }
     }
 
     private EquipmentVisualDefinition GetVisualConfig(EquipmentSlot slot)
@@ -119,10 +137,10 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
         {
             target.sprite = config.ResolveSprite(source.sprite);
             
-            // For now, always copy animation transforms/flips/sortings from the base part to ensure it sticks.
+            // Follow animated renderer state while keeping the equipment deterministically above its base part.
             target.flipX = source.flipX;
             target.flipY = source.flipY;
-            target.sortingOrder = source.sortingOrder;
+            target.sortingOrder = source.sortingOrder + EquipmentSortingOrderOffset;
             target.sortingLayerID = source.sortingLayerID;
         }
     }

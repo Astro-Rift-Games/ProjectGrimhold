@@ -50,6 +50,35 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void CatalogMayExceedDistinctStackCapacity_WhenInitialStacksFit()
+        {
+            var definitions = new LootDefinition[22];
+            for (int index = 0; index < definitions.Length; index++)
+            {
+                definitions[index] = CreateDefinition($"item_{index:00}");
+            }
+
+            SetCatalog(definitions);
+
+            bool valid = LootContainerInitializationRules.TryBuild(
+                new[]
+                {
+                    new LootContainerInitialEntry(definitions[20], 1),
+                    new LootContainerInitialEntry(definitions[21], 1)
+                },
+                _catalog,
+                16,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out IReadOnlyList<KeyValuePair<int, int>> entries,
+                out string error);
+
+            Assert.That(valid, Is.True, error);
+            Assert.That(entries, Has.Count.EqualTo(2));
+            Assert.That(entries[0].Key, Is.EqualTo(20));
+            Assert.That(entries[1].Key, Is.EqualTo(21));
+        }
+
+        [Test]
         public void InitialContent_IsResolvedInCatalogIndexOrder()
         {
             LootDefinition gem = CreateDefinition("gem");
