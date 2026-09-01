@@ -8,8 +8,6 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerArmorPresenter : MonoBehaviour
 {
-    private const int EquipmentSortingOrderOffset = 1;
-
     [Header("Dependencies")]
     [SerializeField]
     private PlayerWeaponEquipmentNetworkController _equipmentSource;
@@ -140,7 +138,7 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
             // Follow animated renderer state while keeping the equipment deterministically above its base part.
             target.flipX = source.flipX;
             target.flipY = source.flipY;
-            target.sortingOrder = source.sortingOrder + EquipmentSortingOrderOffset;
+            target.sortingOrder = EquipmentLayerSortingRule.ResolveEquipmentSortingOrder(source.sortingOrder);
             target.sortingLayerID = source.sortingLayerID;
         }
     }

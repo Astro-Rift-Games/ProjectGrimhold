@@ -168,6 +168,117 @@ public class PlayerArmorPresenterTests
         Assert.That(_rightHandBase.enabled, Is.True);
     }
 
+    [Test]
+    public void EquipmentSortingRule_PreservesRelativeOffsetAsBaseOrderChanges()
+    {
+        // The equipment layer must keep the same relative offset above its base part no
+        // matter how the base order changes with direction / animation frames.
+        foreach (int baseOrder in new[] { -10, 0, 1, 3, 7, 30 })
+        {
+            int equipped = EquipmentLayerSortingRule.ResolveEquipmentSortingOrder(baseOrder);
+            Assert.That(equipped, Is.EqualTo(baseOrder + EquipmentLayerSortingRule.RelativeSortingOffset));
+            Assert.That(equipped, Is.GreaterThan(baseOrder));
+        }
+    }
+
+    [Test]
+    public void ProductivePrefab_BasePartsHaveDistinctSortingOrders()
+    {
+        // No-armor determinism: the base character must never depend on equipment to
+        // disambiguate depth, so every base part owns a unique sorting order.
+        SerializedObject serialized = LoadPrefabPresenter();
+        int[] baseOrders =
+        {
+            GetOrder(serialized, "_legsBase"),
+            GetOrder(serialized, "_bodyBase"),
+            GetOrder(serialized, "_leftHandBase"),
+            GetOrder(serialized, "_rightHandBase"),
+            GetOrder(serialized, "_headBase"),
+        };
+
+        CollectionAssert.AllItemsAreUnique(baseOrders);
+    }
+
+    [Test]
+    public void ProductivePrefab_NoEquipmentLayerCollidesWithAForeignBasePart()
+    {
+        // The root cause guarded here: each equipment layer must sit in a reserved slot
+        // (its own base + offset) and never share an order with a different base part.
+        SerializedObject serialized = LoadPrefabPresenter();
+        (string baseProp, string equipProp)[] pairs =
+        {
+            ("_legsBase", "_bootsVisual"),
+            ("_bodyBase", "_armorVisual"),
+            ("_leftHandBase", "_leftGloveVisual"),
+            ("_rightHandBase", "_rightGloveVisual"),
+            ("_headBase", "_helmetVisual"),
+        };
+
+        var baseOrderByProp = new System.Collections.Generic.Dictionary<string, int>();
+        foreach ((string baseProp, _) in pairs)
+        {
+            baseOrderByProp[baseProp] = GetOrder(serialized, baseProp);
+        }
+
+        foreach ((string baseProp, string equipProp) in pairs)
+        {
+            int equipOrder = GetOrder(serialized, equipProp);
+            Assert.That(equipOrder,
+                Is.EqualTo(baseOrderByProp[baseProp] + EquipmentLayerSortingRule.RelativeSortingOffset),
+                equipProp);
+
+            foreach (var foreign in baseOrderByProp)
+            {
+                if (foreign.Key == baseProp)
+                {
+                    continue;
+                }
+
+                Assert.That(equipOrder, Is.Not.EqualTo(foreign.Value),
+                    $"{equipProp} collides with base part {foreign.Key}");
+            }
+        }
+    }
+
+    [Test]
+    public void ProductivePrefab_PreservesIntendedBackToFrontStack()
+    {
+        // Legs < Boots < Body < Armor < LeftHand < LeftGlove < Head < Helmet
+        SerializedObject serialized = LoadPrefabPresenter();
+        int legs = GetOrder(serialized, "_legsBase");
+        int boots = GetOrder(serialized, "_bootsVisual");
+        int body = GetOrder(serialized, "_bodyBase");
+        int armor = GetOrder(serialized, "_armorVisual");
+        int leftHand = GetOrder(serialized, "_leftHandBase");
+        int leftGlove = GetOrder(serialized, "_leftGloveVisual");
+        int head = GetOrder(serialized, "_headBase");
+        int helmet = GetOrder(serialized, "_helmetVisual");
+
+        Assert.That(legs, Is.LessThan(boots), "Legs < Boots");
+        Assert.That(boots, Is.LessThan(body), "Boots < Body");
+        Assert.That(body, Is.LessThan(armor), "Body < Armor");
+        Assert.That(armor, Is.LessThan(leftHand), "Armor < LeftHand");
+        Assert.That(leftHand, Is.LessThan(leftGlove), "LeftHand < LeftGlove");
+        Assert.That(leftGlove, Is.LessThan(head), "LeftGlove < Head");
+        Assert.That(head, Is.LessThan(helmet), "Head < Helmet");
+    }
+
+    private static SerializedObject LoadPrefabPresenter()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        Assert.That(prefab, Is.Not.Null);
+        PlayerArmorPresenter presenter = prefab.GetComponent<PlayerArmorPresenter>();
+        Assert.That(presenter, Is.Not.Null);
+        return new SerializedObject(presenter);
+    }
+
+    private static int GetOrder(SerializedObject presenter, string property)
+    {
+        var renderer = presenter.FindProperty(property).objectReferenceValue as SpriteRenderer;
+        Assert.That(renderer, Is.Not.Null, property);
+        return renderer.sortingOrder;
+    }
+
     private SpriteRenderer CreateRenderer(string objectName)
     {
         GameObject child = new GameObject(objectName);
