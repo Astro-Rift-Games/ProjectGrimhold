@@ -51,7 +51,34 @@ namespace Tests.EditMode.Equipment
                 "HeavyArmor", "RightGauntlet", new PartSpec("LeftHand", "LeftGauntlet"),
                 new PartSpec("RightHand", "RightGauntlet")),
             new("HeavyArmorLegPlate", "heavy_armor_leg_plate", LootCategory.Boots, EquipmentSlot.Boots,
-                "HeavyArmor", "LegPlate", new PartSpec("Legs", "LegPlate"))
+                "HeavyArmor", "LegPlate", new PartSpec("Legs", "LegPlate")),
+            new("LightArmorOpenSallet", "light_armor_open_sallet", LootCategory.Helmet, EquipmentSlot.Helmet,
+                "LightArmor", "OpenSallet", new PartSpec("Head", "OpenSallet")),
+            new("LightArmorChainMailArmor", "light_armor_chain_mail_armor", LootCategory.Armor, EquipmentSlot.Armor,
+                "LightArmor", "ChainMailArmor", new PartSpec("Body", "ChainMailArmor")),
+            new("LightArmorGloves", "light_armor_gloves", LootCategory.Gloves, EquipmentSlot.Gloves,
+                "LightArmor", "RightGlove", new PartSpec("LeftHand", "LeftGlove"),
+                new PartSpec("RightHand", "RightGlove")),
+            new("LightArmorChainMailTrousers", "light_armor_chain_mail_trousers", LootCategory.Boots, EquipmentSlot.Boots,
+                "LightArmor", "ChainMailTrousers", new PartSpec("Legs", "ChainMailTrousers")),
+            new("ForestRangerHood", "forest_ranger_hood", LootCategory.Helmet, EquipmentSlot.Helmet,
+                "ForestRanger", "Hood", new PartSpec("Head", "Hood")),
+            new("ForestRangerLeatherArmor", "forest_ranger_leather_armor", LootCategory.Armor, EquipmentSlot.Armor,
+                "ForestRanger", "LeatherArmor", new PartSpec("Body", "LeatherArmor")),
+            new("ForestRangerGloves", "forest_ranger_gloves", LootCategory.Gloves, EquipmentSlot.Gloves,
+                "ForestRanger", "RightGlove", new PartSpec("LeftHand", "LeftGlove"),
+                new PartSpec("RightHand", "RightGlove")),
+            new("ForestRangerTrousers", "forest_ranger_trousers", LootCategory.Boots, EquipmentSlot.Boots,
+                "ForestRanger", "Trousers", new PartSpec("Legs", "Trousers")),
+            new("FireMageHood", "fire_mage_hood", LootCategory.Helmet, EquipmentSlot.Helmet,
+                "FireMage", "Hood", new PartSpec("Head", "Hood")),
+            new("FireMageGarb", "fire_mage_garb", LootCategory.Armor, EquipmentSlot.Armor,
+                "FireMage", "Garb", new PartSpec("Body", "Garb")),
+            new("FireMageGloves", "fire_mage_gloves", LootCategory.Gloves, EquipmentSlot.Gloves,
+                "FireMage", "RightGlove", new PartSpec("LeftHand", "LeftGlove"),
+                new PartSpec("RightHand", "RightGlove")),
+            new("FireMageTrousers", "fire_mage_trousers", LootCategory.Boots, EquipmentSlot.Boots,
+                "FireMage", "Trousers", new PartSpec("Legs", "Trousers"))
         };
 
         [Test]
@@ -85,7 +112,11 @@ namespace Tests.EditMode.Equipment
             }
 
             Assert.That(piecesPerSet.Keys,
-                Is.EquivalentTo(new[] { "ArcaneMage", "ArmyRanger", "HeavyArmor" }));
+                Is.EquivalentTo(new[]
+                {
+                    "ArcaneMage", "ArmyRanger", "HeavyArmor",
+                    "LightArmor", "ForestRanger", "FireMage"
+                }));
             foreach (int count in piecesPerSet.Values)
             {
                 Assert.That(count, Is.EqualTo(4));
@@ -100,7 +131,7 @@ namespace Tests.EditMode.Equipment
             SerializedProperty entries = serializedCatalog.FindProperty("_definitions");
 
             Assert.That(entries, Is.Not.Null);
-            Assert.That(entries.arraySize, Is.EqualTo(22));
+            Assert.That(entries.arraySize, Is.EqualTo(34));
 
             AssertCatalogEntry(entries, 10, "ArcaneMageHat", "a1b2c3d400014e7f9a0b0c0d0e0f1001");
             AssertCatalogEntry(entries, 11, "ArcaneMageGarb", "a1b2c3d400024e7f9a0b0c0d0e0f1002");
@@ -177,7 +208,8 @@ namespace Tests.EditMode.Equipment
                 mappingsPerSet[spec.SetName] = setCount + mappings.Count;
             }
 
-            Assert.That(totalMappings, Is.EqualTo(1260));
+            Assert.That(totalMappings, Is.EqualTo(2520));
+            Assert.That(mappingsPerSet.Count, Is.EqualTo(6));
             foreach (int count in mappingsPerSet.Values)
             {
                 Assert.That(count, Is.EqualTo(420));
