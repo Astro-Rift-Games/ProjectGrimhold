@@ -72,9 +72,24 @@ sequenceDiagram
     Flow-->>UI: LoginFlowResult.Success
 ```
 
+### Logout Lifecycle
+
+The session lifecycle is completed by allowing the user to explicitly log out from the Town or MainMenu.
+Currently, logout is a purely client-side operation:
+
+1.  **UI Trigger**: The player clicks "Logout" in the Town menu.
+2.  **Session Disconnect**: The `SessionConnectionCoordinator` cleanly tears down the active network runner (e.g. disconnecting from the Town) and returns the application state to the MainMenu.
+3.  **Client-Side Teardown**: `LoginFlowController.ExecuteLogoutAsync()` is called, which:
+    *   Calls the backend `POST /auth/logout` endpoint. This acts as a semantic signal, though the backend currently treats it as a no-op (returning `204 No Content`).
+    *   Invokes `ApplicationStashServiceBootstrapper.ResetForLogout()` to tear down the in-memory Stash and Loadout state for the previous user. The context GameObject is kept alive to support subsequent logins without a process restart.
+    *   Clears the local `ApplicationAuthContext` (discarding the JWT).
+    *   Clears the `LocalProfileProvider` (discarding the remote `CharacterId`).
+4.  **Re-authentication**: The player is returned to the `LoginPanelView` and can authenticate with a different account. A successful new login will re-initialize the `ApplicationStashServiceBootstrapper` with the new account's `ProfileId`.
+
 ### Constraints & Future Work
 
 *   **No Direct DB Access**: Unity never talks directly to MongoDB. All communication is via HTTP REST to the backend.
 *   **Fusion Boundary**: Photon Fusion receives the `ProfileId` (which is now the remote `CharacterId`) to identify players in a session. However, Fusion itself does *not* validate JWTs or perform authentication. The Town server (State Authority) will eventually need to validate player identities against the backend, but currently, it trusts the `ProfileId` provided by the client during connection.
 *   **HTTPS**: Development currently occurs over HTTP. Production deployments must enforce HTTPS for all backend communication to secure credentials and JWTs in transit.
 *   **Temporary Persistence**: While `customNote` and `lastSeen` persist remotely, core gameplay state (Stash, Loadout, Receipts) currently remains local and temporary per process (as defined in `LocalPlayerPersistenceArchitecture.md`). Subsequent roadmap stages will migrate these to the authoritative backend.
+*   **Stateless JWT & Revocation**: Because JWTs are stateless, they remain valid until they naturally expire. The current MVP logout is purely client-side. Real server-side token invalidation (e.g., via a Redis blacklist or MongoDB revoked-tokens collection) is deferred as future security work.

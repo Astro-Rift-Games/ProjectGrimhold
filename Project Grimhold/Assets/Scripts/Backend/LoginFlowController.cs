@@ -36,6 +36,8 @@ public readonly struct LoginFlowResult
 /// </summary>
 public sealed class LoginFlowController : MonoBehaviour
 {
+    public static LoginFlowController Instance { get; private set; }
+
     [SerializeField] private BackendConfiguration _config;
     [SerializeField] private ApplicationAuthContext _authContext;
 
@@ -43,6 +45,22 @@ public sealed class LoginFlowController : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        // Detach from any scene hierarchy so DontDestroyOnLoad works on the root.
+        if (transform.parent != null)
+        {
+            transform.SetParent(null, true);
+        }
+
+        DontDestroyOnLoad(gameObject);
+
         if (_config == null)
         {
             _config = ScriptableObject.CreateInstance<BackendConfiguration>();
@@ -57,6 +75,14 @@ public sealed class LoginFlowController : MonoBehaviour
                 var authObj = new GameObject(nameof(ApplicationAuthContext));
                 _authContext = authObj.AddComponent<ApplicationAuthContext>();
             }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 
@@ -159,7 +185,19 @@ public sealed class LoginFlowController : MonoBehaviour
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
         }
 
-        // Step 4: Inject identity into local systems
+        // Step 4: Fetch inventory snapshot
+        InventoryData? inventoryData = null;
+        var (invOk, invData, _) = await InventoryClient.GetInventoryAsync(_config, token);
+        if (invOk)
+        {
+            inventoryData = invData;
+        }
+        else
+        {
+            Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
+        }
+
+        // Step 5: Inject identity into local systems
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
 
@@ -168,9 +206,22 @@ public sealed class LoginFlowController : MonoBehaviour
             _authContext.Initialize(token, charData, profileData);
         }
 
-        // Step 5: Initialize the stash with the now-valid ProfileId
-        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId);
+        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated inventory
+        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData);
 
         return LoginFlowResult.Success();
+    }
+
+    public async Task<bool> ExecuteLogoutAsync()
+    {
+        var token = _authContext?.Token ?? _pendingToken;
+        if (!string.IsNullOrEmpty(token))
+        {
+            await AuthenticationClient.PostLogoutAsync(_config, token);
+        }
+
+        ApplicationStashServiceBootstrapper.ResetForLogout();
+        ClearState();
+        return true;
     }
 }

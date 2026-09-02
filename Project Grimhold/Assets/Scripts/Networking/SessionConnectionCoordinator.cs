@@ -136,6 +136,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 RaidLaunchPreparationResult.Rejected);
         }
 
+        var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+        if (remoteInventoryService != null)
+        {
+            _ = remoteInventoryService.SavePendingReservationAsync(reservation);
+        }
+
         RaidConnectionRole role = launchContext.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
@@ -829,6 +835,47 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return ReturnToTownInternalAsync(isParticipantReturn: true);
     }
 
+    /// <summary>
+    /// Gracefully shuts down the active Town runner (if any) and transitions back to the MainMenu state.
+    /// This is valid from the Town or Failed states.
+    /// </summary>
+    public async Task<SessionTransitionResult> ReturnToMainMenuAsync()
+    {
+        if (State != SessionConnectionState.Town && State != SessionConnectionState.Failed)
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Cannot return to MainMenu from state {State}.", this);
+            return SessionTransitionResult.InvalidState;
+        }
+
+        if (_operationActive)
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] A transition is already active.", this);
+            return SessionTransitionResult.Busy;
+        }
+
+        _operationActive = true;
+        try
+        {
+            if (_hubLauncher != null)
+            {
+                await _hubLauncher.ShutdownAndDestroyRunnerAsync();
+            }
+
+            if (!_stateMachine.TryTransition(SessionConnectionState.MainMenu))
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Failed state transition to MainMenu.", this);
+                return SessionTransitionResult.InvalidState;
+            }
+
+            CompleteTownEntry();
+            return SessionTransitionResult.Succeeded;
+        }
+        finally
+        {
+            _operationActive = false;
+        }
+    }
+
     private async Task<SessionTransitionResult> ReturnToTownInternalAsync(
         bool isParticipantReturn)
     {
@@ -1125,6 +1172,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         StashOperationResult result = stashContext.LoadoutService.TryRollbackLoadoutReservation(
             localProfile,
             _activeTicket.Value.LoadoutReservation.ReservationId);
+            
+        if (result == StashOperationResult.Success)
+        {
+            var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+            if (remoteInventoryService != null)
+            {
+                _ = remoteInventoryService.ClearPendingReservationAsync();
+            }
+        }
+
         return result == StashOperationResult.Success;
     }
 
@@ -1227,6 +1284,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _activeTicket.Value.LoadoutReservation.ReservationId);
         if (result == StashOperationResult.Success)
         {
+            var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+            if (remoteInventoryService != null)
+            {
+                _ = remoteInventoryService.ClearPendingReservationAsync();
+            }
             _loadoutConfirmationPending = false;
             return true;
         }

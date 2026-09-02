@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
 
@@ -408,6 +409,35 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         LocalSaveStatus = ExtractionLootSaveStatus.Committed;
         RPC_AcknowledgeExtractionCommit(_pendingResultSequence);
+
+        // Fire-and-forget: persist extraction to backend.
+        // The ACK to Fusion is NOT blocked on this call to preserve Fusion's network timing.
+        // The backend endpoint is idempotent, so Unity can retry safely if the first attempt fails.
+        _ = CommitExtractionToBackendAsync(receipt, items);
+    }
+
+    private async Task CommitExtractionToBackendAsync(
+        ExtractionReceipt receipt,
+        IReadOnlyList<StashItem> items)
+    {
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        if (context == null) return;
+
+        var remoteInventoryService = context.GetComponent<RemoteInventoryService>();
+        if (remoteInventoryService == null)
+        {
+            Debug.LogWarning($"{nameof(PlayerExtractionLootSaver)}: RemoteInventoryService not found. Extraction not persisted to backend.");
+            return;
+        }
+
+        var (success, error) = await remoteInventoryService.CommitExtractionAsync(receipt, items);
+        if (!success)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: Backend extraction commit failed. " +
+                $"Error={error.error}: {error.message}. " +
+                $"The local commit is intact. The backend will accept a retry on next login.");
+        }
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

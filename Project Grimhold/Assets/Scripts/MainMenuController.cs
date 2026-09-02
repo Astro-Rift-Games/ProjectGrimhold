@@ -40,15 +40,34 @@ public sealed class MainMenuController : MonoBehaviour
     [SerializeField]
     private LoginFlowController _loginFlowController;
 
+    private LoginFlowController LoginFlow
+    {
+        get
+        {
+            if (_loginFlowController == null)
+            {
+                _loginFlowController = LoginFlowController.Instance ?? FindAnyObjectByType<LoginFlowController>();
+            }
+            return _loginFlowController;
+        }
+    }
+
+    private SessionConnectionCoordinator ConnectionCoordinator
+    {
+        get
+        {
+            if (_connectionCoordinator == null)
+            {
+                _connectionCoordinator = SessionConnectionCoordinator.Instance ?? FindAnyObjectByType<SessionConnectionCoordinator>();
+            }
+            return _connectionCoordinator;
+        }
+    }
+
     private void OnEnable()
     {
         createRoomButton.onClick.AddListener(CreateRoom);
         joinRoomButton.onClick.AddListener(JoinRoom);
-
-        if (_connectionCoordinator == null)
-        {
-            _connectionCoordinator = SessionConnectionCoordinator.Instance;
-        }
 
         roomCodeInput.gameObject.SetActive(false);
         joinRoomButton.gameObject.SetActive(false);
@@ -73,6 +92,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             _loginPanel.gameObject.SetActive(true);
             _loginPanel.SetStatus(string.Empty);
+            _loginPanel.ClearFields();
             _loginPanel.AddLoginListener(OnLoginButtonClicked);
             _loginPanel.AddRegisterListener(OnRegisterButtonClicked);
         }
@@ -103,7 +123,8 @@ public sealed class MainMenuController : MonoBehaviour
 
     private async void OnLoginButtonClicked()
     {
-        if (_loginFlowController == null)
+        var loginFlow = LoginFlow;
+        if (loginFlow == null)
         {
             Debug.LogError($"[{nameof(MainMenuController)}] LoginFlowController not assigned.");
             return;
@@ -112,7 +133,7 @@ public sealed class MainMenuController : MonoBehaviour
         _loginPanel.SetInteractable(false);
         _loginPanel.SetStatus("Logging in...");
 
-        LoginFlowResult result = await _loginFlowController.ExecuteLoginAsync(
+        LoginFlowResult result = await loginFlow.ExecuteLoginAsync(
             _loginPanel.Username,
             _loginPanel.Password);
 
@@ -121,7 +142,8 @@ public sealed class MainMenuController : MonoBehaviour
 
     private async void OnRegisterButtonClicked()
     {
-        if (_loginFlowController == null)
+        var loginFlow = LoginFlow;
+        if (loginFlow == null)
         {
             Debug.LogError($"[{nameof(MainMenuController)}] LoginFlowController not assigned.");
             return;
@@ -130,7 +152,7 @@ public sealed class MainMenuController : MonoBehaviour
         _loginPanel.SetInteractable(false);
         _loginPanel.SetStatus("Registering...");
 
-        LoginFlowResult result = await _loginFlowController.ExecuteRegisterAsync(
+        LoginFlowResult result = await loginFlow.ExecuteRegisterAsync(
             _loginPanel.Username,
             _loginPanel.Password);
 
@@ -169,12 +191,13 @@ public sealed class MainMenuController : MonoBehaviour
 
     private async void OnCreateCharacterButtonClicked()
     {
-        if (_loginFlowController == null) return;
+        var loginFlow = LoginFlow;
+        if (loginFlow == null) return;
 
         _characterCreationPanel.SetInteractable(false);
         _characterCreationPanel.SetStatus("Creating character...");
 
-        LoginFlowResult result = await _loginFlowController.CreateCharacterAsync(_characterCreationPanel.CharacterName);
+        LoginFlowResult result = await loginFlow.CreateCharacterAsync(_characterCreationPanel.CharacterName);
 
         if (result.IsSuccess)
         {
@@ -217,13 +240,14 @@ public sealed class MainMenuController : MonoBehaviour
 
         try
         {
-            if (_connectionCoordinator == null)
+            var coordinator = ConnectionCoordinator;
+            if (coordinator == null)
             {
                 throw new InvalidOperationException("Session connection coordinator is unavailable.");
             }
 
             SessionTransitionResult result =
-                await _connectionCoordinator.ConnectToTownAsync();
+                await coordinator.ConnectToTownAsync();
 
             if (result != SessionTransitionResult.Succeeded)
             {
@@ -259,12 +283,13 @@ public sealed class MainMenuController : MonoBehaviour
         SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
         try
         {
-            if (_connectionCoordinator == null)
+            var coordinator = ConnectionCoordinator;
+            if (coordinator == null)
             {
                 throw new InvalidOperationException("Session connection coordinator is unavailable.");
             }
 
-            result = await _connectionCoordinator.StartDirectRaidForDevelopmentAsync(
+            result = await coordinator.StartDirectRaidForDevelopmentAsync(
                 roomCodeInput.text,
                 GameMode.Client);
         }
