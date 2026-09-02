@@ -12,14 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bc9949b26744e4e911903248773f294, type: 3}
   m_Name: RangeEnemyAttackConfig
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttackConfig
-  _damage: 10
-  _damageType: 0
-  _cooldownSeconds: 0.5
   _inputMode: 0
-  _knockbackForce: 6
   _projectileSpeed: 10
   _lifetimeSeconds: 10
-  _maxRange: 10
   _projectileSpawnOffset: 0.7
   _projectilePrefab:
     RawGuidValue: 686320b67645c8f48a77a264eec096c6

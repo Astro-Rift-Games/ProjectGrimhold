@@ -12,14 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bc9949b26744e4e911903248773f294, type: 3}
   m_Name: DartTrapConfig
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttackConfig
-  _damage: 5
-  _damageType: 0
-  _cooldownSeconds: 0.125
   _inputMode: 0
-  _knockbackForce: 2
   _projectileSpeed: 20
   _lifetimeSeconds: 10
-  _maxRange: 5
   _projectileSpawnOffset: 0.5
   _projectilePrefab:
     RawGuidValue: 3ab712d5d6994c64aa4e888228750fc5

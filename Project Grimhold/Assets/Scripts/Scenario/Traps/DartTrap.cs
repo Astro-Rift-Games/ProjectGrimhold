@@ -21,6 +21,7 @@ public sealed class DartTrap : BaseTrap
     [Header("Configuración de Ataque y Spawner")]
     [SerializeField] private RangedAttackConfig _attackConfig;
     [SerializeField] private FusionProjectileSpawner _projectileSpawner;
+    [SerializeField, Min(0.1f)] private float _maximumRange = 5f;
 
     [Networked] private int DartsShot { get; set; }
     [Networked] private TickTimer DartIntervalTimer { get; set; }
@@ -69,7 +70,7 @@ public sealed class DartTrap : BaseTrap
             return;
         }
 
-        if (_attackConfig == null)
+        if (_attackConfig == null || trapInfo == null)
         {
             Debug.LogWarning($"{nameof(DartTrap)}: Falta la configuración RangedAttackConfig en {gameObject.name}.", this);
             return;
@@ -85,11 +86,11 @@ public sealed class DartTrap : BaseTrap
             new EntityId(0),
             spawnOrigin,
             dir,
-            _attackConfig.Damage,
-            _attackConfig.DamageType,
+            trapInfo.damage,
+            trapInfo.DamageType,
             _attackConfig.ProjectileSpeed,
             _attackConfig.LifetimeSeconds,
-            _attackConfig.MaxRange,
+            _maximumRange,
             Runner.Tick
         );
 

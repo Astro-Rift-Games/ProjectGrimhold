@@ -345,9 +345,16 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         int activeCatalog = slot1Catalog > 0 ? slot1Catalog : slot2Catalog;
         if (TryResolveEligibleWeapon(
-                activeCatalog - 1, attributes, out _, out AttackConfig activeConfig) !=
+                activeCatalog - 1,
+                attributes,
+                out LootDefinition activeDefinition,
+                out AttackConfig activeConfig) !=
                 WeaponEligibilityFailure.None ||
-            !TryConfigureStrategy(activeConfig, out _))
+            !TryConfigureStrategy(
+                activeDefinition.WeaponDefinition,
+                activeConfig,
+                attributes,
+                out _))
         {
             error = "The prepared active weapon cannot configure a combat strategy.";
             return false;
@@ -589,7 +596,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         {
             if (!ValidateWeaponDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
             WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(
-                catalogIndex, out _, out AttackConfig attackConfig, out _);
+                catalogIndex,
+                out _,
+                out AttackConfig attackConfig,
+                out CharacterAttributeState attributes);
             if (eligibility == WeaponEligibilityFailure.AttributesUnavailable)
             {
                 return EquipmentOperationResult.DependenciesUnavailable;
@@ -606,7 +616,11 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             }
 
             becomesActive = ActiveWeaponSlot == WeaponSlot.None;
-            if (becomesActive && !TryConfigureStrategy(attackConfig, out _))
+            if (becomesActive && !TryConfigureStrategy(
+                    definition.WeaponDefinition,
+                    attackConfig,
+                    attributes,
+                    out _))
             {
                 return EquipmentOperationResult.InvalidEquipment;
             }
@@ -760,7 +774,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         int catalogIndex = GetCatalogIndexPlusOne(EquipmentSlotRules.FromWeaponSlot(activeSlot)) - 1;
         WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(
-            catalogIndex, out _, out AttackConfig attackConfig, out _);
+            catalogIndex,
+            out LootDefinition definition,
+            out AttackConfig attackConfig,
+            out CharacterAttributeState attributes);
         if (eligibility == WeaponEligibilityFailure.AttributesUnavailable)
         {
             if (!_reportedUnavailableWeaponAttributes)
@@ -784,7 +801,11 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         _reportedUnavailableWeaponAttributes = false;
         if (eligibility != WeaponEligibilityFailure.None ||
-            !TryConfigureStrategy(attackConfig, out MonoBehaviour attackSource))
+            !TryConfigureStrategy(
+                definition.WeaponDefinition,
+                attackConfig,
+                attributes,
+                out MonoBehaviour attackSource))
         {
             Debug.LogError($"{nameof(PlayerWeaponEquipmentNetworkController)} could not rebuild active weapon index {catalogIndex}.", this);
             if (HasStateAuthority)
@@ -957,11 +978,31 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             : WeaponEligibilityFailure.RequirementsNotMet;
     }
 
-    private bool TryConfigureStrategy(AttackConfig attackConfig, out MonoBehaviour attackSource)
+    private bool TryConfigureStrategy(
+        WeaponDefinition weaponDefinition,
+        AttackConfig attackConfig,
+        in CharacterAttributeState attributes,
+        out MonoBehaviour attackSource)
     {
         attackSource = null;
+        if (!TryResolveEffectiveDamage(weaponDefinition, attributes, out float effectiveDamage))
+        {
+            return false;
+        }
+
+        var parameters = new AttackExecutionParameters(
+            effectiveDamage,
+            weaponDefinition.DamageType,
+            weaponDefinition.AttackIntervalSeconds,
+            weaponDefinition.Range,
+            weaponDefinition.KnockbackForce);
+        if (!parameters.TryValidate(out _))
+        {
+            return false;
+        }
+
         if (attackConfig is MeleeAttackConfig meleeConfig && _meleeAttack != null &&
-            _meleeAttack.TryConfigure(meleeConfig))
+            _meleeAttack.TryConfigure(meleeConfig, parameters))
         {
             attackSource = _meleeAttack;
             return true;
@@ -969,13 +1010,34 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         if (attackConfig is RangedAttackConfig rangedConfig && _rangedAttack != null &&
             _projectileSpawner != null && _projectileSpawner.TryConfigure(rangedConfig) &&
-            _rangedAttack.TryConfigure(rangedConfig))
+            _rangedAttack.TryConfigure(rangedConfig, parameters))
         {
             attackSource = _rangedAttack;
             return true;
         }
 
         return false;
+    }
+
+    private static bool TryResolveEffectiveDamage(
+        WeaponDefinition weaponDefinition,
+        in CharacterAttributeState attributes,
+        out float effectiveDamage)
+    {
+        effectiveDamage = 0f;
+        if (weaponDefinition == null ||
+            !weaponDefinition.OffensiveScaling.TryResolveAttributeValue(attributes, out int attributeValue))
+        {
+            return false;
+        }
+
+        effectiveDamage = WeaponDamageCalculator.Calculate(
+            weaponDefinition.BaseDamage,
+            attributeValue,
+            weaponDefinition.OffensiveScaling.Coefficient);
+        return effectiveDamage > 0f &&
+            !float.IsNaN(effectiveDamage) &&
+            !float.IsInfinity(effectiveDamage);
     }
 
     private bool CanMutateEquipment() => _character != null && _character.IsAlive &&

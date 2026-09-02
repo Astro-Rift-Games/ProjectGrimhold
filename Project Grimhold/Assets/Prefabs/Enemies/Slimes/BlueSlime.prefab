@@ -402,6 +402,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttack
   _config: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _defaultParameters:
+    _damage: 10
+    _damageType: 0
+    _cooldownSeconds: 0.5
+    _range: 1.5
+    _knockbackForce: 7
   _targetQuerySource: {fileID: 142597065861624644}
   _damageResolverSource: {fileID: 8746061331448358488}
 --- !u!114 &142597065861624644
@@ -430,7 +436,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttackGizmoDrawer
   _attackOrigin: {fileID: 3622679648598810352}
-  _config: {fileID: 11400000, guid: 9e9a3c2ba91ae4c4695953134d59af28, type: 2}
+  _attack: {fileID: 6249109546555964142}
   _movementControllerSource: {fileID: 5054560393642584851}
 --- !u!114 &4854276181518498371 stripped
 MonoBehaviour:

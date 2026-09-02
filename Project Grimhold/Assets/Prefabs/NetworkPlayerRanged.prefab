@@ -258,6 +258,12 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttack
   _config: {fileID: 11400000, guid: 72c2830a8240480099febce01129a88f, type: 2}
+  _defaultParameters:
+    _damage: 10
+    _damageType: 0
+    _cooldownSeconds: 0.5
+    _range: 10
+    _knockbackForce: 6
   _projectileSpawnerSource: {fileID: 4419447253773158415}
 --- !u!114 &4419447253773158415
 MonoBehaviour:

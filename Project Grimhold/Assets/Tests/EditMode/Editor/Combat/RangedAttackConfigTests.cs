@@ -26,11 +26,8 @@ namespace Tests.EditMode.Combat
         {
             var config = ScriptableObject.CreateInstance<RangedAttackConfig>();
 
-            SetPrivateField(config, typeof(AttackConfig), "_damage", 10f);
-            SetPrivateField(config, typeof(AttackConfig), "_cooldownSeconds", 0.5f);
             SetPrivateField(config, "_projectileSpeed", 10f);
             SetPrivateField(config, "_lifetimeSeconds", 5f);
-            SetPrivateField(config, "_maxRange", 10f);
             SetPrivateField(config, "_projectileSpawnOffset", 0.7f);
             SetPrivateField(config, "_projectilePrefab", new NetworkPrefabRef("00000000000000000000000000000001"));
             SetPrivateField(config, "_impactLayerMask", new LayerMask { value = 1 });
@@ -48,17 +45,6 @@ namespace Tests.EditMode.Combat
         private static void SetPrivateField<T>(object target, string fieldName, T value)
         {
             SetPrivateField(target, target.GetType(), fieldName, value);
-        }
-
-        [Test]
-        public void TryValidate_WithInvalidDamage_Fails()
-        {
-            _config = CreateTemporaryValidConfig();
-            SetPrivateField(_config, typeof(AttackConfig), "_damage", 0f);
-
-            bool result = _config.TryValidate(out string error);
-            Assert.IsFalse(result);
-            Assert.That(error, Does.Contain("Damage"));
         }
 
         [Test]
@@ -81,17 +67,6 @@ namespace Tests.EditMode.Combat
             bool result = _config.TryValidate(out string error);
             Assert.IsFalse(result);
             Assert.That(error, Does.Contain("LifetimeSeconds"));
-        }
-
-        [Test]
-        public void TryValidate_WithInvalidRange_Fails()
-        {
-            _config = CreateTemporaryValidConfig();
-            SetPrivateField(_config, "_maxRange", 0f);
-
-            bool result = _config.TryValidate(out string error);
-            Assert.IsFalse(result);
-            Assert.That(error, Does.Contain("MaxRange"));
         }
 
         [Test]
