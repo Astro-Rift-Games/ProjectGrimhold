@@ -51,11 +51,20 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
+    const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
+    const lastExtraction = extractionReceipts.length > 0
+      ? {
+          raidId: extractionReceipts[extractionReceipts.length - 1].raidId,
+          resultSequence: extractionReceipts[extractionReceipts.length - 1].resultSequence
+        }
+      : null;
+
     return {
       stash:              serializeItems(character.inventory.stash),
       loadout:            serializeItems(character.inventory.loadout),
       preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
-      pendingReservation: serializePendingReservation(character.inventory.pendingReservation)
+      pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
+      lastAppliedExtractionReceipt: lastExtraction
     };
   }
 

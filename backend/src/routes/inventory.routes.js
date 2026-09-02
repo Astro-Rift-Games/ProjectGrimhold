@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const InventoryService = require('../services/InventoryService');
+const ExtractionCommitService = require('../services/ExtractionCommitService');
 const authenticate = require('../middleware/authenticate');
 const {
   moveItemValidator,
@@ -9,6 +10,7 @@ const {
   pendingReservationValidator,
   commitExtractionValidator
 } = require('../validators/inventory.validators');
+const { commitExtractionUnifiedValidator } = require('../validators/extraction.validators');
 
 // All inventory routes require a valid JWT token.
 router.use(authenticate);
@@ -111,6 +113,24 @@ router.post('/me/inventory/extraction', commitExtractionValidator, async (req, r
       items || []
     );
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/extraction/commit  [UNIFIED — Etapa 1]
+// Persists loot and progression from a successful raid extraction in one atomic write.
+// Idempotent: replaying the same (raidId, resultSequence) returns { alreadySecured: true }.
+// Body: {
+//   raidId:         string,
+//   resultSequence: number,
+//   items?:         [{ lootId, amount }],
+//   progression?:   { consolidatedExperience: number, resultingLevel: number }
+// }
+router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (req, res, next) => {
+  try {
+    const result = await ExtractionCommitService.commit(req.accountId, req.body);
+    res.status(result.alreadySecured ? 200 : 201).json(result);
   } catch (err) {
     next(err);
   }
