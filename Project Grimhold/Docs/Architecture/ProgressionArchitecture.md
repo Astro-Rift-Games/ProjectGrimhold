@@ -53,6 +53,20 @@ Terminal participant states reject normal Dungeon rewards but do not erase the s
 application calculation has succeeded. The frozen breakdown remains the canonical provisional
 snapshot used to reconstruct committed history.
 
+## Derived character statistics
+
+`CharacterDerivedStatisticsCalculator` is a pure C# projection over the confirmed
+`CharacterAttributeState`. During a Raid, consumers obtain that frozen state from
+`NetworkRaidParticipant`; the calculator does not query persistence, UI or an avatar-owned copy.
+Its immutable configuration supplies the current balance values for maximum Health, maximum
+Stamina and additional-Loot probability. Probabilities use integer basis points so deterministic
+consumers can preserve fractional percentages without floating-point state.
+
+The projection owns no runtime or persistent state and is not separately replicated. Strength,
+Dexterity and Intelligence remain raw competencies read from `CharacterAttributeState`; they are
+not copied into a parallel offensive-statistics model. Current Health, current Stamina, equipment
+scaling and the authoritative Loot roll remain owned by their respective consuming systems.
+
 ## Definitive experience resolution
 
 `ExpeditionExperienceResolutionRules` is a pure C# transition from a validated provisional
