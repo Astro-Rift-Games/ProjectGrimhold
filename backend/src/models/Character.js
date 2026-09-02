@@ -34,6 +34,23 @@ const extractionReceiptSchema = new mongoose.Schema({
   resultSequence: { type: Number, required: true }
 }, { _id: false });
 
+const progressionReceiptSchema = new mongoose.Schema({
+  raidId:                 { type: String, required: true },
+  resultSequence:         { type: Number, required: true },
+  consolidatedExperience: { type: Number, required: true },
+  resultingLevel:         { type: Number, required: true }
+}, { _id: false });
+
+const characterAttributeStateSchema = new mongoose.Schema({
+  vitality:        { type: Number, default: 0, min: 0 },
+  resistance:      { type: Number, default: 0, min: 0 },
+  strength:        { type: Number, default: 0, min: 0 },
+  dexterity:       { type: Number, default: 0, min: 0 },
+  intelligence:    { type: Number, default: 0, min: 0 },
+  luck:            { type: Number, default: 0, min: 0 },
+  availablePoints: { type: Number, default: 0, min: 0 }
+}, { _id: false });
+
 const characterSchema = new mongoose.Schema({
   accountId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -51,6 +68,10 @@ const characterSchema = new mongoose.Schema({
   },
   level:      { type: Number, default: 1 },
   experience: { type: Number, default: 0 },
+  lastAppliedProgressionResultSequence: { type: Number, default: 0 },
+  lastProgressionReceipt:               { type: progressionReceiptSchema, default: null },
+  appliedProgressionReceipts:           { type: [progressionReceiptSchema], default: [] },
+  characterAttributes:                  { type: characterAttributeStateSchema, default: () => ({}) },
   // Durable inventory state.
   // Persisted only when the player moves an item between containers (save-on-move).
   inventory: {

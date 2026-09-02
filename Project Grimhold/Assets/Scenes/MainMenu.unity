@@ -609,6 +609,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3198790475584024798, guid: 29f439518d3e565498687c9928661656, type: 3}
+      propertyPath: _config
+      value: 
+      objectReference: {fileID: 11400000, guid: 57e734eaea2a74940a4f7dd9e2597c12, type: 2}
     - target: {fileID: 5439897705220950916, guid: 29f439518d3e565498687c9928661656, type: 3}
       propertyPath: _coordinator
       value: 

@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth.routes');
 const characterRoutes = require('./routes/character.routes');
 const inventoryRoutes = require('./routes/inventory.routes');
+const progressionRoutes = require('./routes/progression.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/character', characterRoutes);
 app.use('/character', inventoryRoutes);
+app.use('/character', progressionRoutes);
 
 // Health check endpoint.
 app.get('/health', (_req, res) => {
