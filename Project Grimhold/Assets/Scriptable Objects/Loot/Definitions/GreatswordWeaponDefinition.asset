@@ -12,6 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
   m_Name: GreatswordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  _baseDamage: 45
+  _attackIntervalSeconds: 1.4
+  _range: 2
+  _staminaCost: 22
+  _damageType: 0
+  _knockbackForce: 10
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
   _offensiveScaling:
     _attribute: 2

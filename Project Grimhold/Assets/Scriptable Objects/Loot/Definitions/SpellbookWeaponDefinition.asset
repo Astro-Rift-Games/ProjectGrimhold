@@ -12,6 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
   m_Name: SpellbookWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  _baseDamage: 34
+  _attackIntervalSeconds: 1.1
+  _range: 2.5
+  _staminaCost: 15
+  _damageType: 1
+  _knockbackForce: 0
   _primaryAttack: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
   _offensiveScaling:
     _attribute: 4

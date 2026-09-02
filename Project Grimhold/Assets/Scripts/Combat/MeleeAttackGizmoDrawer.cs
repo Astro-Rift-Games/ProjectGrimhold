@@ -13,7 +13,7 @@ public sealed class MeleeAttackGizmoDrawer : MonoBehaviour
     public Transform AttackOrigin => _attackOrigin;
 
     [SerializeField]
-    private MeleeAttackConfig _config;
+    private MeleeAttack _attack;
 
     [SerializeField]
     private MonoBehaviour _movementControllerSource;
@@ -22,7 +22,7 @@ public sealed class MeleeAttackGizmoDrawer : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        if (_config == null)
+        if (_attack == null || _attack.Radius <= 0f || _attack.EditorEffectiveRange <= 0f)
         {
             return;
         }
@@ -39,7 +39,7 @@ public sealed class MeleeAttackGizmoDrawer : MonoBehaviour
         }
         direction.Normalize();
 
-        Vector2 attackCenter = origin + direction * _config.Range;
+        Vector2 attackCenter = origin + direction * _attack.EditorDetectionCenterOffset;
 
         // Draw origin point
         Gizmos.color = Color.blue;
@@ -55,11 +55,11 @@ public sealed class MeleeAttackGizmoDrawer : MonoBehaviour
 
         // Draw circle at the actual attack area center
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(attackCenter, _config.Radius);
+        Gizmos.DrawWireSphere(attackCenter, _attack.Radius);
 
         // Draw line from origin to the farthest edge of the circle
         Gizmos.color = new Color(1f, 0.5f, 0f, 0.5f);
-        Gizmos.DrawLine(origin, attackCenter + direction * _config.Radius);
+        Gizmos.DrawLine(origin, attackCenter + direction * _attack.Radius);
     }
 
     private void TryResolveFacingDirection(ref Vector2 direction)

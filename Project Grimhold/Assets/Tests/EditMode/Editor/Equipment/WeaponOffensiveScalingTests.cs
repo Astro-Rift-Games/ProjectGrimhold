@@ -88,6 +88,7 @@ namespace Tests.EditMode.Equipment
             try
             {
                 SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
                 SetPrivateField(
                     weapon,
                     "_offensiveScaling",
@@ -128,12 +129,41 @@ namespace Tests.EditMode.Equipment
         private static MeleeAttackConfig CreateValidMeleeConfig()
         {
             var config = ScriptableObject.CreateInstance<MeleeAttackConfig>();
-            SetPrivateField(config, typeof(AttackConfig), "_damage", 10f);
-            SetPrivateField(config, "_range", 1f);
             SetPrivateField(config, "_radius", 0.5f);
             SetPrivateField(config, "_maximumTargets", 1);
             SetPrivateField(config, "_targetLayerMask", new LayerMask { value = 1 });
             return config;
+        }
+
+        [Test]
+        public void WeaponDefinition_WithEffectiveRangeBelowMeleeRadius_IsInvalid()
+        {
+            WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            MeleeAttackConfig attack = CreateValidMeleeConfig();
+            try
+            {
+                SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
+                SetPrivateField(weapon, "_range", 0.49f);
+
+                Assert.That(weapon.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("must be at least its melee radius"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(attack);
+                Object.DestroyImmediate(weapon);
+            }
+        }
+
+        private static void SetValidWeaponStats(WeaponDefinition weapon)
+        {
+            SetPrivateField(weapon, "_baseDamage", 10f);
+            SetPrivateField(weapon, "_attackIntervalSeconds", 0.5f);
+            SetPrivateField(weapon, "_range", 1.5f);
+            SetPrivateField(weapon, "_staminaCost", 1f);
+            SetPrivateField(weapon, "_damageType", DamageType.Physical);
+            SetPrivateField(weapon, "_knockbackForce", 0f);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value) =>

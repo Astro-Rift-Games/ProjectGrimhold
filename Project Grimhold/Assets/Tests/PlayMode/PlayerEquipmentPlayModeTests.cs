@@ -31,6 +31,7 @@ namespace Tests.PlayMode.Equipment
 
         private NetworkRunner _runner;
         private PlayerEquipmentSimulationDriver _driver;
+        private PrimaryAttackStatusSimulationDriver _cooldownDriver;
         private PlayerWeaponEquipmentNetworkController _equipment;
         private PlayerLootReceiver _receiver;
         private PlayerCombatNetworkController _combat;
@@ -354,17 +355,65 @@ namespace Tests.PlayMode.Equipment
         {
             yield return StartRaidPlayer();
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            AssertRuntimeParameters(
+                _equipment.GetComponent<MeleeAttack>(),
+                22f,
+                DamageType.Physical,
+                1f,
+                1.5f,
+                5f);
             yield return Equip(_rangedWeapon, EquipmentOperationResult.Succeeded);
+
+            AssertRuntimeParameters(
+                _equipment.GetComponent<RangedAttack>(),
+                0f,
+                DamageType.Physical,
+                0f,
+                0f,
+                0f);
 
             yield return Unequip(EquipmentSlot.WeaponSlot1, EquipmentOperationResult.Succeeded);
 
             Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot2));
             Assert.That(ResolveActiveWeapon().LootId, Is.EqualTo(_rangedWeapon.LootId));
+            AssertRuntimeParameters(
+                _equipment.GetComponent<RangedAttack>(),
+                25.5f,
+                DamageType.Magical,
+                0.7f,
+                5f,
+                0f);
 
             yield return Unequip(EquipmentSlot.WeaponSlot2, EquipmentOperationResult.Succeeded);
 
             Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
             Assert.That(_equipment.HasAnyWeapon, Is.False);
+            Assert.That(_combat.TryGetPrimaryAttackStatus(out _), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator RebuildingForTheRemainingWeapon_PreservesAnExistingCooldown()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            yield return Equip(_rangedWeapon, EquipmentOperationResult.Succeeded);
+
+            _cooldownDriver.Target = _combat;
+            _cooldownDriver.RequestedCooldownSeconds = 2f;
+            _cooldownDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => !_cooldownDriver.IsRequested,
+                "The authoritative cooldown setup did not run.");
+            Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus before), Is.True);
+            Assert.That(before.IsAvailable, Is.False);
+
+            yield return Unequip(EquipmentSlot.WeaponSlot1, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot2));
+            Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus after), Is.True);
+            Assert.That(after.IsAvailable, Is.False);
+            Assert.That(after.CooldownDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(after.CooldownRemainingSeconds, Is.GreaterThan(0f));
         }
 
         [UnityTest]
@@ -545,6 +594,7 @@ namespace Tests.PlayMode.Equipment
             _runner = runnerObject.AddComponent<NetworkRunner>();
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _cooldownDriver = runnerObject.AddComponent<PrimaryAttackStatusSimulationDriver>();
             _runner.ProvideInput = true;
 
             var start = _runner.StartGame(new StartGameArgs
@@ -681,6 +731,26 @@ namespace Tests.PlayMode.Equipment
         {
             Assert.That(_equipment.TryGetEquippedDefinition(out LootDefinition definition), Is.True);
             return definition;
+        }
+
+        private static void AssertRuntimeParameters(
+            MonoBehaviour attack,
+            float damage,
+            DamageType damageType,
+            float cooldown,
+            float range,
+            float knockback)
+        {
+            FieldInfo field = attack.GetType().GetField(
+                "_runtimeParameters",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var actual = (AttackExecutionParameters)field.GetValue(attack);
+            Assert.That(actual.Damage, Is.EqualTo(damage).Within(0.0001f));
+            Assert.That(actual.DamageType, Is.EqualTo(damageType));
+            Assert.That(actual.CooldownSeconds, Is.EqualTo(cooldown).Within(0.0001f));
+            Assert.That(actual.Range, Is.EqualTo(range).Within(0.0001f));
+            Assert.That(actual.KnockbackForce, Is.EqualTo(knockback).Within(0.0001f));
         }
 
         private static int TotalIn(IReadOnlyList<LootEntry> entries, LootId lootId)

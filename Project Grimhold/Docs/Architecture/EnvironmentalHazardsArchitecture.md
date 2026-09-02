@@ -47,6 +47,7 @@ All traps transition through a standard four-phase lifecycle defined in `BaseTra
 * **Projectile Spawner**: Integrates `FusionProjectileSpawner` and reads static configuration from `RangedAttackConfig`.
 * **Burst Control**: Replicates `DartsShot` count and `DartIntervalTimer` (`TickTimer`) across tick updates.
 * **Projectile Simulation**: Spawns `NetworkProjectile` entities with source `EntityId(0)`. Darts use the exact same continuous collision cast and kinematic simulation as player and enemy ranged attacks.
+* **Ownership**: `TrapInfo` supplies damage (`5`) and Physical damage type. `DartTrap` supplies its effective range (`5`), while `RangedAttackConfig` supplies projectile behavior. The previously serialized attack-config knockback was never passed to the projectile request; this refactor preserves zero knockback.
 
 ## Data Contracts and Configuration (`TrapInfo`)
 

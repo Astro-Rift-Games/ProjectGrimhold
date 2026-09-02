@@ -985,13 +985,24 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         out MonoBehaviour attackSource)
     {
         attackSource = null;
-        if (!TryResolveEffectiveDamage(weaponDefinition, attackConfig, attributes, out float effectiveDamage))
+        if (!TryResolveEffectiveDamage(weaponDefinition, attributes, out float effectiveDamage))
+        {
+            return false;
+        }
+
+        var parameters = new AttackExecutionParameters(
+            effectiveDamage,
+            weaponDefinition.DamageType,
+            weaponDefinition.AttackIntervalSeconds,
+            weaponDefinition.Range,
+            weaponDefinition.KnockbackForce);
+        if (!parameters.TryValidate(out _))
         {
             return false;
         }
 
         if (attackConfig is MeleeAttackConfig meleeConfig && _meleeAttack != null &&
-            _meleeAttack.TryConfigure(meleeConfig, effectiveDamage))
+            _meleeAttack.TryConfigure(meleeConfig, parameters))
         {
             attackSource = _meleeAttack;
             return true;
@@ -999,7 +1010,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         if (attackConfig is RangedAttackConfig rangedConfig && _rangedAttack != null &&
             _projectileSpawner != null && _projectileSpawner.TryConfigure(rangedConfig) &&
-            _rangedAttack.TryConfigure(rangedConfig, effectiveDamage))
+            _rangedAttack.TryConfigure(rangedConfig, parameters))
         {
             attackSource = _rangedAttack;
             return true;
@@ -1010,19 +1021,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
     private static bool TryResolveEffectiveDamage(
         WeaponDefinition weaponDefinition,
-        AttackConfig attackConfig,
         in CharacterAttributeState attributes,
         out float effectiveDamage)
     {
         effectiveDamage = 0f;
-        if (weaponDefinition == null || attackConfig == null ||
+        if (weaponDefinition == null ||
             !weaponDefinition.OffensiveScaling.TryResolveAttributeValue(attributes, out int attributeValue))
         {
             return false;
         }
 
         effectiveDamage = WeaponDamageCalculator.Calculate(
-            attackConfig.Damage,
+            weaponDefinition.BaseDamage,
             attributeValue,
             weaponDefinition.OffensiveScaling.Coefficient);
         return effectiveDamage > 0f &&

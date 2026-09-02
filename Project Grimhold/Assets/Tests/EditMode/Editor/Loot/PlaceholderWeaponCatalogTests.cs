@@ -99,6 +99,57 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void WeaponAssets_ExposeTheConfiguredMvpCombatStatistics()
+        {
+            AssertCombatStats(RecoverySword, 22f, 1f, 1.5f, 15f, DamageType.Physical, 5f);
+            AssertCombatStats(TrainingSword, 22f, 1f, 1.5f, 15f, DamageType.Physical, 5f);
+            AssertCombatStats(Longsword, 30f, 1f, 1.5f, 15f, DamageType.Physical, 5f);
+            AssertCombatStats(Greatsword, 45f, 1.4f, 2f, 22f, DamageType.Physical, 10f);
+            AssertCombatStats(Wand, 22f, 0.7f, 5f, 10f, DamageType.Magical, 0f);
+            AssertCombatStats(Spellbook, 34f, 1.1f, 2.5f, 15f, DamageType.Magical, 0f);
+            AssertCombatStats(Staff, 45f, 1.4f, 7f, 22f, DamageType.Magical, 0f);
+        }
+
+        [Test]
+        public void SharedAttackConfigs_DoNotCollapseWeaponOwnedStatistics()
+        {
+            WeaponDefinition recovery = ResolveWeapon(RecoverySword);
+            WeaponDefinition greatsword = ResolveWeapon(Greatsword);
+            WeaponDefinition wand = ResolveWeapon(Wand);
+            WeaponDefinition staff = ResolveWeapon(Staff);
+
+            Assert.That(recovery.PrimaryAttack, Is.SameAs(greatsword.PrimaryAttack));
+            Assert.That(recovery.BaseDamage, Is.Not.EqualTo(greatsword.BaseDamage));
+            Assert.That(recovery.AttackIntervalSeconds, Is.Not.EqualTo(greatsword.AttackIntervalSeconds));
+            Assert.That(recovery.Range, Is.Not.EqualTo(greatsword.Range));
+
+            Assert.That(wand.PrimaryAttack, Is.SameAs(staff.PrimaryAttack));
+            Assert.That(wand.BaseDamage, Is.Not.EqualTo(staff.BaseDamage));
+            Assert.That(wand.AttackIntervalSeconds, Is.Not.EqualTo(staff.AttackIntervalSeconds));
+            Assert.That(wand.Range, Is.Not.EqualTo(staff.Range));
+        }
+
+        [Test]
+        public void EffectiveDamage_UsesWeaponBaseDamageAndOnlyItsConfiguredScaling()
+        {
+            WeaponDefinition trainingSword = ResolveWeapon(TrainingSword);
+            WeaponDefinition longsword = ResolveWeapon(Longsword);
+
+            Assert.That(
+                WeaponDamageCalculator.Calculate(
+                    trainingSword.BaseDamage,
+                    999,
+                    trainingSword.OffensiveScaling.Coefficient),
+                Is.EqualTo(trainingSword.BaseDamage));
+            Assert.That(
+                WeaponDamageCalculator.Calculate(
+                    longsword.BaseDamage,
+                    10,
+                    longsword.OffensiveScaling.Coefficient),
+                Is.EqualTo(longsword.BaseDamage + 10f * 0.7f));
+        }
+
+        [Test]
         public void Catalog_ContainsNoDuplicateLootIdOrDefinitionReference()
         {
             var seenIds = new HashSet<string>();
@@ -310,6 +361,24 @@ namespace Tests.EditMode.Loot
             Assert.That(_catalog.TryGet(lootId, out LootDefinition definition), Is.True, lootId);
             Assert.That(definition.WeaponDefinition, Is.Not.Null, lootId);
             return definition.WeaponDefinition;
+        }
+
+        private void AssertCombatStats(
+            string lootId,
+            float damage,
+            float interval,
+            float range,
+            float stamina,
+            DamageType damageType,
+            float knockback)
+        {
+            WeaponDefinition weapon = ResolveWeapon(lootId);
+            Assert.That(weapon.BaseDamage, Is.EqualTo(damage), lootId);
+            Assert.That(weapon.AttackIntervalSeconds, Is.EqualTo(interval), lootId);
+            Assert.That(weapon.Range, Is.EqualTo(range), lootId);
+            Assert.That(weapon.StaminaCost, Is.EqualTo(stamina), lootId);
+            Assert.That(weapon.DamageType, Is.EqualTo(damageType), lootId);
+            Assert.That(weapon.KnockbackForce, Is.EqualTo(knockback), lootId);
         }
 
         private void AssertRequirements(
