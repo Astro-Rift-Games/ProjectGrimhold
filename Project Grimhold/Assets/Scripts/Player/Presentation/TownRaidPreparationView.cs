@@ -263,6 +263,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     {
         ExpeditionPreparationResult.InvalidPreparedWeapon =>
             "La preparación de arma no es válida. Revisá tus Weapon Slots en el Stash.",
+        ExpeditionPreparationResult.AttributeRequirementsNotMet =>
+            "Tus atributos actuales no cumplen los requisitos del arma preparada.",
         ExpeditionPreparationResult.RecoveryWeaponUnavailable =>
             "No tenés ningún arma preparada y el arma base de recuperación no está configurada.",
         ExpeditionPreparationResult.LoadoutFull =>

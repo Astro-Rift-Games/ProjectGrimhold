@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System;
 using NUnit.Framework;
 using UnityEditor;
 
@@ -13,6 +14,7 @@ namespace Tests.EditMode.Equipment
         private const string CatalogPath =
             "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset";
         private static readonly LootId Sword = new("training_sword");
+        private static readonly LootId Greatsword = new("greatsword");
         private static readonly LootId Helmet = new("placeholder_helmet");
         private static readonly LootId Boots = new("placeholder_boots");
 
@@ -118,6 +120,116 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
             Assert.That(store.GetStash()[0].Amount, Is.EqualTo(1), "A rejected assignment moves nothing.");
             Assert.That(store.GetLoadout(), Is.Empty);
+        }
+
+        [Test]
+        public void Store_RejectsUnmetWeaponRequirementsWithoutChangingOwnershipOrCommitting()
+        {
+            CharacterAttributeState attributes = CreateAttributes(strength: 5);
+            LocalProfileStore store = CreateStore(
+                "52525252525252525252525252525252",
+                attributes,
+                snapshot => snapshot.Stash.Add(new StashItem(Greatsword, 1)));
+            int commitCount = 0;
+            store.ProfileCommitted += _ => commitCount++;
+
+            Assert.That(
+                store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, Greatsword),
+                Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
+
+            Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(store.GetLoadout(), Is.Empty);
+            Assert.That(commitCount, Is.Zero);
+        }
+
+        [Test]
+        public void Store_AcceptsWeaponWhenConfirmedAttributesMeetItsRequirement()
+        {
+            LocalProfileStore store = CreateStore(
+                "53535353535353535353535353535353",
+                CreateAttributes(strength: 10),
+                snapshot => snapshot.Stash.Add(new StashItem(Greatsword, 1)));
+
+            Assert.That(
+                store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, Greatsword),
+                Is.EqualTo(StashOperationResult.Success));
+
+            Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(Greatsword));
+            Assert.That(store.GetStash(), Is.Empty);
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+        }
+
+        [Test]
+        public void Store_RejectsUnmetWeaponAlreadyInLoadoutWithoutChangingAssignmentOrCommitting()
+        {
+            LocalProfileStore store = CreateStore(
+                "56565656565656565656565656565656",
+                CreateAttributes(strength: 5),
+                snapshot => snapshot.Loadout.Add(new StashItem(Greatsword, 1)));
+            int commitCount = 0;
+            store.ProfileCommitted += _ => commitCount++;
+
+            Assert.That(
+                store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, Greatsword),
+                Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
+
+            Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(store.GetStash(), Is.Empty);
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(commitCount, Is.Zero);
+        }
+
+        [Test]
+        public void PreparationAndReservation_RejectPersistedWeaponWithUnmetRequirementsAtomically()
+        {
+            LocalProfileStore store = CreateStore(
+                "54545454545454545454545454545454",
+                CreateAttributes(strength: 5),
+                snapshot =>
+                {
+                    snapshot.Loadout.Add(new StashItem(Greatsword, 1));
+                    snapshot.PreparedEquipment = new PreparedEquipmentLoadout(Greatsword, default);
+                });
+            int commitCount = 0;
+            store.ProfileCommitted += _ => commitCount++;
+
+            Assert.That(
+                store.TryPrepareExpeditionEquipment(),
+                Is.EqualTo(ExpeditionPreparationResult.AttributeRequirementsNotMet));
+            Assert.That(
+                store.TryCreateLoadoutReservation("unmet-requirements", out PendingLoadoutReservation reservation),
+                Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
+
+            Assert.That(reservation, Is.Null);
+            Assert.That(store.PendingReservation, Is.Null);
+            Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(Greatsword));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(commitCount, Is.Zero);
+        }
+
+        [Test]
+        public void Rollback_RejectsReservedWeaponWithUnmetRequirementsWithoutPartialRestore()
+        {
+            const string reservationId = "rollback-unmet-requirements";
+            LocalProfileStore store = CreateStore(
+                "55555555555555555555555555555555",
+                CreateAttributes(strength: 5),
+                snapshot => snapshot.PendingReservation = new PendingLoadoutReservation(
+                    reservationId,
+                    new[] { new StashItem(Greatsword, 1) },
+                    new PreparedEquipmentLoadout(Greatsword, default)));
+            int commitCount = 0;
+            store.ProfileCommitted += _ => commitCount++;
+
+            Assert.That(
+                store.TryRollbackLoadoutReservation(reservationId),
+                Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
+
+            Assert.That(store.PendingReservation, Is.Not.Null);
+            Assert.That(store.GetLoadout(), Is.Empty);
+            Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(commitCount, Is.Zero);
         }
 
         [Test]
@@ -246,10 +358,34 @@ namespace Tests.EditMode.Equipment
 
         private LocalProfileStore CreateStore(string profileValue)
         {
+            return CreateStore(
+                profileValue,
+                ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                null);
+        }
+
+        private LocalProfileStore CreateStore(
+            string profileValue,
+            in CharacterAttributeState attributes,
+            Action<LocalProfileSnapshot> configure)
+        {
             var profile = new ProfileId(profileValue);
             var repository = new InMemoryLocalProfileRepository();
             Assert.That(repository.Initialize(profile, _catalog), Is.True);
+            LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
+            snapshot.CharacterAttributes = attributes;
+            configure?.Invoke(snapshot);
+            Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             return new LocalProfileStore(repository, profile, _catalog);
+        }
+
+        private static CharacterAttributeState CreateAttributes(int strength)
+        {
+            Assert.That(
+                CharacterAttributeState.TryCreate(
+                    5, 5, strength, 5, 5, 5, 0, out CharacterAttributeState attributes),
+                Is.True);
+            return attributes;
         }
     }
 }

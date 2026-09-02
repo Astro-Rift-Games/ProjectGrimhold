@@ -75,6 +75,18 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void WeaponAssets_ExposeTheConfiguredMvpAttributeRequirements()
+        {
+            AssertRequirements(RecoverySword, 0, 0, 0);
+            AssertRequirements(TrainingSword, 0, 0, 0);
+            AssertRequirements(Longsword, 5, 0, 0);
+            AssertRequirements(Greatsword, 10, 0, 0);
+            AssertRequirements(Wand, 0, 0, 5);
+            AssertRequirements(Spellbook, 0, 0, 10);
+            AssertRequirements(Staff, 0, 0, 15);
+        }
+
+        [Test]
         public void Catalog_ContainsNoDuplicateLootIdOrDefinitionReference()
         {
             var seenIds = new HashSet<string>();
@@ -286,6 +298,19 @@ namespace Tests.EditMode.Loot
             Assert.That(_catalog.TryGet(lootId, out LootDefinition definition), Is.True, lootId);
             Assert.That(definition.WeaponDefinition, Is.Not.Null, lootId);
             return definition.WeaponDefinition;
+        }
+
+        private void AssertRequirements(
+            string lootId,
+            int strength,
+            int dexterity,
+            int intelligence)
+        {
+            WeaponAttributeRequirements actual = ResolveWeapon(lootId).AttributeRequirements;
+            Assert.That(
+                actual,
+                Is.EqualTo(new WeaponAttributeRequirements(strength, dexterity, intelligence)),
+                lootId);
         }
 
         private List<LootDefinition> ReadSerializedDefinitions()

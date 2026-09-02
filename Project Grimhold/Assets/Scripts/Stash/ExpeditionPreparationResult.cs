@@ -14,6 +14,9 @@ public enum ExpeditionPreparationResult
     /// <summary>A persisted prepared weapon reference does not resolve to a usable weapon unit.</summary>
     InvalidPreparedWeapon,
 
+    /// <summary>The confirmed character attributes do not satisfy a prepared weapon.</summary>
+    AttributeRequirementsNotMet,
+
     /// <summary>No weapon is prepared and Town has no configured recovery weapon to grant.</summary>
     RecoveryWeaponUnavailable,
 

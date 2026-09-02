@@ -36,6 +36,16 @@ PlayerLootReceiver
 
 The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes `Equipar` for any category `EquipmentSlotRules` reports as equippable — Weapon, Helmet, Armor, Gloves, Boots — enabling it only while `CanEquip` reports a free destination slot, and forwards only its `LootId` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount, destination slot and configuration. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
+Weapon eligibility consumes the admitted `CharacterAttributeState` through the avatar's
+`RaidAvatarParticipantLink`. Local `CanEquip` may suppress an impossible intention, but State
+Authority reuses the same `WeaponAttributeRequirements` rule before extracting Inventory,
+changing Equipment or configuring Combat. Prepared admission validates all weapon references
+before mutating any Inventory or Equipment state. Selection and restoration preserve the single
+invariant that an ineligible weapon never becomes active; they do not define a second eligibility
+policy. Missing admitted attributes fail as an unavailable dependency, while insufficient values
+return `AttributeRequirementsNotMet` through the existing Equipment feedback path. Armor remains
+outside attribute requirements during the MVP.
+
 ## Slot projection and metadata
 
 `PlayerLootReceiver.TryGetLootContent` already emits catalog-index order. `RaidInventoryProjection` preserves that order, rejects content beyond gameplay capacity, and appends empty entries until the projection length equals `SlotCapacity`.

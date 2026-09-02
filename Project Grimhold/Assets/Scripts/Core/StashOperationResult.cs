@@ -26,5 +26,8 @@ public enum StashOperationResult
     /// <summary>
     /// The underlying persistence mechanism failed to save the loot.
     /// </summary>
-    PersistenceFailed
+    PersistenceFailed,
+
+    /// <summary>The confirmed character attributes do not satisfy a weapon assignment.</summary>
+    AttributeRequirementsNotMet
 }

@@ -6962,6 +6962,7 @@ MonoBehaviour:
   _meleeAttack: {fileID: 8300000000000000002}
   _rangedAttack: {fileID: 8300000000000000003}
   _projectileSpawner: {fileID: 8300000000000000004}
+  _participantLink: {fileID: 5489547608340585132}
   _EquipmentRevision: 0
 --- !u!114 &176522636574861152
 MonoBehaviour:

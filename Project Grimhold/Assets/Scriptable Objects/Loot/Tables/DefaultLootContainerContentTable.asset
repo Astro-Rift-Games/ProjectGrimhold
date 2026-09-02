@@ -30,23 +30,23 @@ MonoBehaviour:
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 43c94e930aa64f27afcd4fe41a706f07, type: 2}
-    _weight: 1
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 516a3b1c179d42ebbc63e82246d783e0, type: 2}
-    _weight: 1
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 8081524fb32548bdbbc8c9e27641e5da, type: 2}
-    _weight: 1
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 735d695f2bdf492cbeb02c9ec587d595, type: 2}
-    _weight: 1
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: d813853221354d3cbf3e891b46a7bffd, type: 2}
-    _weight: 1
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: a1b2c3d400014e7f9a0b0c0d0e0f1001, type: 2}

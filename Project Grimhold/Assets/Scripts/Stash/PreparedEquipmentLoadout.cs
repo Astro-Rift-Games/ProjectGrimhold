@@ -164,6 +164,53 @@ public readonly struct PreparedEquipmentLoadout
             definition.WeaponDefinition.TryValidate(out _);
     }
 
+    /// <summary>
+    /// Evaluates every prepared weapon against the same confirmed character-attribute state.
+    /// Armor slots are deliberately outside the MVP requirement contract.
+    /// </summary>
+    public static bool TryValidateWeaponRequirements(
+        in PreparedEquipmentLoadout loadout,
+        in CharacterAttributeState attributes,
+        LootDefinitionCatalog catalog,
+        out string error)
+    {
+        error = null;
+        if (catalog == null)
+        {
+            error = "Prepared weapon requirement validation needs a loot catalog.";
+            return false;
+        }
+
+        EquipmentSlot[] weaponSlots =
+        {
+            EquipmentSlot.WeaponSlot1,
+            EquipmentSlot.WeaponSlot2
+        };
+        for (int index = 0; index < weaponSlots.Length; index++)
+        {
+            LootId lootId = loadout.Get(weaponSlots[index]);
+            if (!lootId.IsValid)
+            {
+                continue;
+            }
+
+            if (!catalog.TryGet(lootId.Value, out LootDefinition definition) ||
+                definition == null || definition.WeaponDefinition == null)
+            {
+                error = $"Prepared weapon '{lootId.Value}' cannot be resolved.";
+                return false;
+            }
+
+            if (!definition.WeaponDefinition.AreAttributeRequirementsSatisfiedBy(attributes))
+            {
+                error = $"Character attributes do not satisfy prepared weapon '{lootId.Value}'.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Counts how many slots reference the same loot identity.</summary>
     public static int CountReferences(in PreparedEquipmentLoadout loadout, LootId lootId)
     {

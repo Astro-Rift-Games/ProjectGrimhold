@@ -14,13 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: greatsword
   _displayName: Greatsword
-  _description: Placeholder melee weapon with a longer silhouette used to validate per-weapon grip and stance.
+  _description: Placeholder melee weapon with a longer silhouette used to validate
+    per-weapon grip and stance.
   _icon: {fileID: -750601586623795954, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
   _worldSprite: {fileID: -750601586623795954, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
   _category: 5
   _rarity: 0
-  _extractionValuePerUnit: 0
+  _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 11400000, guid: 4a813e65aeaf42b8bb08ccd8df7d5fdf, type: 2}
+  _equipmentVisualDefinition:
+    _usesBaseSpritesAsPlaceholder: 1
+    _tint: {r: 1, g: 1, b: 1, a: 1}
+    _spriteMappings: []

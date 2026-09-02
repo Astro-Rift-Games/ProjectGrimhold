@@ -14,13 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: spellbook
   _displayName: Spellbook
-  _description: Placeholder ranged weapon whose silhouette is not blade aligned, used to validate generic weapon presentation.
+  _description: Placeholder ranged weapon whose silhouette is not blade aligned,
+    used to validate generic weapon presentation.
   _icon: {fileID: -8844135577414249669, guid: af101e7447dee2b478180f3daf3fe774, type: 3}
   _worldSprite: {fileID: -8844135577414249669, guid: af101e7447dee2b478180f3daf3fe774, type: 3}
   _category: 5
   _rarity: 0
-  _extractionValuePerUnit: 0
+  _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 11400000, guid: 33a8998fa9a04d6bb4788cd456ed88b1, type: 2}
+  _equipmentVisualDefinition:
+    _usesBaseSpritesAsPlaceholder: 1
+    _tint: {r: 1, g: 1, b: 1, a: 1}
+    _spriteMappings: []

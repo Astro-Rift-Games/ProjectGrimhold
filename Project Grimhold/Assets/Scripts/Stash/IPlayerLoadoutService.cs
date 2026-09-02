@@ -15,6 +15,10 @@ public interface IPlayerLoadoutService
 
     PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId);
 
+    /// <summary>
+    /// Assigns one owned unit atomically. Weapon assignments must satisfy the profile's confirmed
+    /// character attributes; armor assignments and slot release have no attribute requirement.
+    /// </summary>
     StashOperationResult TryAssignPreparedEquipment(
         ProfileId profileId,
         EquipmentSlot slot,
@@ -54,7 +58,10 @@ public interface IPlayerLoadoutService
     /// </summary>
     StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items);
 
-    /// <summary>Creates or reuses the current application reservation for a raid admission.</summary>
+    /// <summary>
+    /// Creates or reuses the current application reservation for a raid admission after
+    /// revalidating every prepared weapon against the profile's confirmed attributes.
+    /// </summary>
     StashOperationResult TryCreateLoadoutReservation(
         ProfileId profileId,
         string reservationId,
