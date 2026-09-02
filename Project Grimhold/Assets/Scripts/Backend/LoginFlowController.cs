@@ -185,4 +185,17 @@ public sealed class LoginFlowController : MonoBehaviour
 
         return LoginFlowResult.Success();
     }
+
+    public async Task<bool> ExecuteLogoutAsync()
+    {
+        var token = _authContext?.Token ?? _pendingToken;
+        if (!string.IsNullOrEmpty(token))
+        {
+            await AuthenticationClient.PostLogoutAsync(_config, token);
+        }
+
+        ApplicationStashServiceBootstrapper.ResetForLogout();
+        ClearState();
+        return true;
+    }
 }

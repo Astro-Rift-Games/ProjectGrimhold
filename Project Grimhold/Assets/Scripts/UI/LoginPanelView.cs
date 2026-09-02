@@ -25,6 +25,12 @@ public sealed class LoginPanelView : MonoBehaviour
         if (_registerButton != null) _registerButton.interactable = interactable;
     }
 
+    public void ClearFields()
+    {
+        _usernameInput.text = string.Empty;
+        _passwordInput.text = string.Empty;
+    }
+
     public void SetStatus(string message)
     {
         if (_statusText != null)

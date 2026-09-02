@@ -212,4 +212,31 @@ public static class ApplicationStashServiceBootstrapper
             snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
         }
     }
+
+    /// <summary>
+    /// Resets the application stash context so that a new authenticated profile can be loaded.
+    /// This destroys the in-memory services but preserves the DDOL GameObject.
+    /// </summary>
+    public static void ResetForLogout()
+    {
+        if (_context != null)
+        {
+            var contextObject = _context.gameObject;
+            
+            // Destroy all dynamically added service components
+            foreach (var comp in contextObject.GetComponents<MonoBehaviour>())
+            {
+                // We don't want to destroy the context itself, just the services
+                if (comp != _context)
+                {
+                    Object.Destroy(comp);
+                }
+            }
+
+            _context.Initialize(null, null, null, null, null);
+        }
+
+        _initializedProfileId = default;
+        Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Context reset for logout.");
+    }
 }

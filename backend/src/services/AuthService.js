@@ -1,4 +1,4 @@
-﻿// src/services/AuthService.js
+// src/services/AuthService.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Account = require('../models/Account');
@@ -55,6 +55,17 @@ class AuthService {
     });
 
     return { token, expiresIn: parseInt(config.jwtExpiresIn, 10) };
+  }
+
+  /**
+   * Logs out the user. Currently a no-op because JWTs are stateless.
+   * Future work: Implement token revocation (blacklist) here.
+   */
+  static async logout(accountId, token) {
+    // No-op for MVP. The token will expire naturally based on jwtExpiresIn.
+    // To implement server-side logout, we would store the revoked token in a Redis
+    // blacklist or a MongoDB collection and check it in the authenticate middleware.
+    return true;
   }
 }
 

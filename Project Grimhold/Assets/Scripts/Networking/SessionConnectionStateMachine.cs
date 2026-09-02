@@ -46,6 +46,7 @@ public sealed class SessionConnectionStateMachine
             SessionConnectionState.Town =>
                 nextState == SessionConnectionState.PreparingRaid ||
                 nextState == SessionConnectionState.ReturningTown ||
+                nextState == SessionConnectionState.MainMenu ||
                 nextState == SessionConnectionState.Failed,
             SessionConnectionState.PreparingRaid =>
                 nextState == SessionConnectionState.ConnectingRaid ||
@@ -64,7 +65,8 @@ public sealed class SessionConnectionStateMachine
             SessionConnectionState.Failed =>
                 nextState == SessionConnectionState.ConnectingTown ||
                 nextState == SessionConnectionState.ConnectingRaid ||
-                nextState == SessionConnectionState.ReturningTown,
+                nextState == SessionConnectionState.ReturningTown ||
+                nextState == SessionConnectionState.MainMenu,
             _ => throw new ArgumentOutOfRangeException(nameof(currentState), currentState, null)
         };
     }

@@ -686,6 +686,47 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return ReturnToTownInternalAsync(isParticipantReturn: true);
     }
 
+    /// <summary>
+    /// Gracefully shuts down the active Town runner (if any) and transitions back to the MainMenu state.
+    /// This is valid from the Town or Failed states.
+    /// </summary>
+    public async Task<SessionTransitionResult> ReturnToMainMenuAsync()
+    {
+        if (State != SessionConnectionState.Town && State != SessionConnectionState.Failed)
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Cannot return to MainMenu from state {State}.", this);
+            return SessionTransitionResult.InvalidState;
+        }
+
+        if (_operationActive)
+        {
+            Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] A transition is already active.", this);
+            return SessionTransitionResult.Busy;
+        }
+
+        _operationActive = true;
+        try
+        {
+            if (_hubLauncher != null)
+            {
+                await _hubLauncher.ShutdownAndDestroyRunnerAsync();
+            }
+
+            if (!_stateMachine.TryTransition(SessionConnectionState.MainMenu))
+            {
+                Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Failed state transition to MainMenu.", this);
+                return SessionTransitionResult.InvalidState;
+            }
+
+            CompleteTownEntry();
+            return SessionTransitionResult.Succeeded;
+        }
+        finally
+        {
+            _operationActive = false;
+        }
+    }
+
     private async Task<SessionTransitionResult> ReturnToTownInternalAsync(
         bool isParticipantReturn)
     {

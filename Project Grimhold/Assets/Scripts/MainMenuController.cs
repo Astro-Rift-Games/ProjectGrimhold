@@ -40,15 +40,22 @@ public sealed class MainMenuController : MonoBehaviour
     [SerializeField]
     private LoginFlowController _loginFlowController;
 
+    private SessionConnectionCoordinator ConnectionCoordinator
+    {
+        get
+        {
+            if (_connectionCoordinator == null)
+            {
+                _connectionCoordinator = SessionConnectionCoordinator.Instance ?? FindAnyObjectByType<SessionConnectionCoordinator>();
+            }
+            return _connectionCoordinator;
+        }
+    }
+
     private void OnEnable()
     {
         createRoomButton.onClick.AddListener(CreateRoom);
         joinRoomButton.onClick.AddListener(JoinRoom);
-
-        if (_connectionCoordinator == null)
-        {
-            _connectionCoordinator = SessionConnectionCoordinator.Instance;
-        }
 
         roomCodeInput.gameObject.SetActive(false);
         joinRoomButton.gameObject.SetActive(false);
@@ -73,6 +80,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             _loginPanel.gameObject.SetActive(true);
             _loginPanel.SetStatus(string.Empty);
+            _loginPanel.ClearFields();
             _loginPanel.AddLoginListener(OnLoginButtonClicked);
             _loginPanel.AddRegisterListener(OnRegisterButtonClicked);
         }
@@ -217,13 +225,14 @@ public sealed class MainMenuController : MonoBehaviour
 
         try
         {
-            if (_connectionCoordinator == null)
+            var coordinator = ConnectionCoordinator;
+            if (coordinator == null)
             {
                 throw new InvalidOperationException("Session connection coordinator is unavailable.");
             }
 
             SessionTransitionResult result =
-                await _connectionCoordinator.ConnectToTownAsync();
+                await coordinator.ConnectToTownAsync();
 
             if (result != SessionTransitionResult.Succeeded)
             {
@@ -259,12 +268,13 @@ public sealed class MainMenuController : MonoBehaviour
         SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
         try
         {
-            if (_connectionCoordinator == null)
+            var coordinator = ConnectionCoordinator;
+            if (coordinator == null)
             {
                 throw new InvalidOperationException("Session connection coordinator is unavailable.");
             }
 
-            result = await _connectionCoordinator.StartDirectRaidForDevelopmentAsync(
+            result = await coordinator.StartDirectRaidForDevelopmentAsync(
                 roomCodeInput.text,
                 GameMode.Client);
         }

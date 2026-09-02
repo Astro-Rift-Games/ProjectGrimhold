@@ -96,5 +96,28 @@ namespace Grimhold.Backend
                 return (false, default, backendError);
             }
         }
+
+        public static async Task<bool> PostLogoutAsync(BackendConfiguration config, string token)
+        {
+            var url = $"{config.BaseUrl}/auth/logout";
+            using var request = new UnityWebRequest(url, "POST");
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+            request.timeout = config.TimeoutSeconds;
+
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"[{nameof(AuthenticationClient)}] Logout failed (network or server error), proceeding with local logout. Error: {request.error}");
+                return false;
+            }
+
+            return true;
+        }
     }
 }
