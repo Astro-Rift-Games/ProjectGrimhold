@@ -14,19 +14,24 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     [SerializeField]
     private RangedAttackConfig _config;
 
+    [SerializeField]
+    private AttackExecutionParameters _defaultParameters;
+
     [Header("Support Components")]
     [SerializeField]
     private MonoBehaviour _projectileSpawnerSource;
 
     private IProjectileSpawner _projectileSpawner;
+    private AttackExecutionParameters _runtimeParameters;
     private bool _isValid;
 
     public AttackType Type => AttackType.Ranged;
-    public float CooldownSeconds => _config != null ? _config.CooldownSeconds : 0f;
+    public float CooldownSeconds => _runtimeParameters.CooldownSeconds;
     public AttackInputMode InputMode => _config != null ? _config.InputMode : AttackInputMode.Press;
 
     private void Awake()
     {
+        _runtimeParameters = _defaultParameters;
         CacheDependencies();
     }
 
@@ -61,9 +66,10 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     /// <summary>
     /// Applies an equipped weapon's ranged configuration to the existing strategy.
     /// </summary>
-    public bool TryConfigure(RangedAttackConfig config)
+    public bool TryConfigure(RangedAttackConfig config, in AttackExecutionParameters parameters)
     {
         _config = config;
+        _runtimeParameters = parameters;
         CacheDependencies();
         _isValid = ValidateDependencies();
         return _isValid;
@@ -80,6 +86,12 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
         if (!_config.TryValidate(out string error))
         {
             Debug.LogError($"{nameof(RangedAttack)}: Invalid configuration on GameObject {gameObject.name}. Error: {error}", this);
+            return false;
+        }
+
+        if (!_runtimeParameters.TryValidate(out string parameterError))
+        {
+            Debug.LogError($"{nameof(RangedAttack)}: Invalid runtime parameters on GameObject {gameObject.name}. Error: {parameterError}", this);
             return false;
         }
 
@@ -124,13 +136,13 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
                 request.AttackerId,
                 projectileOrigin,
                 normalizedDirection,
-                _config.Damage,
-                _config.DamageType,
+                _runtimeParameters.Damage,
+                _runtimeParameters.DamageType,
                 _config.ProjectileSpeed,
                 _config.LifetimeSeconds,
-                _config.MaxRange,
+                _runtimeParameters.Range,
                 request.SimulationTick,
-                _config.KnockbackForce);
+                _runtimeParameters.KnockbackForce);
 
         ProjectileSpawnResult spawnResult =
             _projectileSpawner.Spawn(in spawnRequest);

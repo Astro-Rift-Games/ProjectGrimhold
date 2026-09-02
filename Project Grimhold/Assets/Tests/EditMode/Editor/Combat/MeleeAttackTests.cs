@@ -2,23 +2,17 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Tests.EditMode.Combat
 {
     public class MeleeAttackTests
     {
-        private MeleeAttackConfig CreateConfig(float range = 1f, float radius = 0.5f, int maxTargets = 2, float damage = 10f, DamageType damageType = DamageType.Physical)
+        private MeleeAttackConfig CreateConfig(float radius = 0.5f, int maxTargets = 2)
         {
             var config = ScriptableObject.CreateInstance<MeleeAttackConfig>();
             var type = typeof(MeleeAttackConfig);
-            var baseType = typeof(AttackConfig);
-
-            baseType.GetField("_damage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, damage);
-            baseType.GetField("_damageType", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, damageType);
-            baseType.GetField("_cooldownSeconds", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, 0.5f);
-            baseType.GetField("_inputMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, AttackInputMode.Press);
-
-            type.GetField("_range", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, range);
+            typeof(AttackConfig).GetField("_inputMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, AttackInputMode.Press);
             type.GetField("_radius", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, radius);
             type.GetField("_maximumTargets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(config, maxTargets);
 
@@ -27,6 +21,17 @@ namespace Tests.EditMode.Combat
 
             return config;
         }
+
+        private static AttackExecutionParameters CreateParameters(
+            float damage = 10f,
+            DamageType damageType = DamageType.Physical,
+            float cooldown = 0.5f,
+            float effectiveRange = 1.5f,
+            float knockback = 7f) =>
+            new(damage, damageType, cooldown, effectiveRange, knockback);
+
+        private void Initialize(MeleeAttackConfig config, AttackExecutionParameters? parameters = null) =>
+            _meleeAttack.Initialize(config, parameters ?? CreateParameters(), _fakeQuery, _fakeResolver);
 
         private GameObject _holder;
         private MeleeAttack _meleeAttack;
@@ -52,7 +57,7 @@ namespace Tests.EditMode.Combat
         public void Execute_DeliversNormalizedDirectionToQuery()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var request = new AttackRequest(new EntityId(1), Vector2.zero, new Vector2(2f, 0f), 10);
             _meleeAttack.Execute(request);
@@ -64,7 +69,7 @@ namespace Tests.EditMode.Combat
         public void Execute_WithoutTargets_ReturnsExecuted()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10);
             var result = _meleeAttack.Execute(request);
@@ -77,7 +82,7 @@ namespace Tests.EditMode.Combat
         public void Execute_ExcludesAttackerDefensively()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
             
             var attackerId = new EntityId(1);
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(attackerId, Vector2.right));
@@ -94,7 +99,7 @@ namespace Tests.EditMode.Combat
         public void Execute_DeduplicatesTargetsDefensively()
         {
             var config = CreateConfig(maxTargets: 5);
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var targetId = new EntityId(2);
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(targetId, Vector2.right));
@@ -110,7 +115,7 @@ namespace Tests.EditMode.Combat
         public void Execute_RespectsMaximumTargets()
         {
             var config = CreateConfig(maxTargets: 2);
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(3), Vector2.up));
@@ -123,10 +128,10 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
-        public void Execute_CopiesDamageDetailsFromConfig()
+        public void Execute_CopiesDamageDetailsFromRuntimeParameters()
         {
-            var config = CreateConfig(damage: 25f, damageType: DamageType.Physical);
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            var config = CreateConfig();
+            Initialize(config, CreateParameters(damage: 25f, damageType: DamageType.Magical));
 
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
 
@@ -135,14 +140,59 @@ namespace Tests.EditMode.Combat
 
             Assert.AreEqual(1, _fakeResolver.ResolvedRequests.Count);
             Assert.AreEqual(25f, _fakeResolver.ResolvedRequests[0].Amount);
-            Assert.AreEqual(DamageType.Physical, _fakeResolver.ResolvedRequests[0].DamageType);
+            Assert.AreEqual(DamageType.Magical, _fakeResolver.ResolvedRequests[0].DamageType);
+        }
+
+        [Test]
+        public void TryConfigure_UpdatesAllRuntimeParametersWithoutMutatingConfig()
+        {
+            var config = CreateConfig(radius: 0.5f);
+            Initialize(config);
+            var parameters = CreateParameters(31.75f, DamageType.Magical, 1.25f, 2f, 15f);
+
+            Assert.That(_meleeAttack.TryConfigure(config, parameters), Is.True);
+            _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
+
+            _meleeAttack.Execute(new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(_fakeResolver.ResolvedRequests, Has.Count.EqualTo(1));
+            Assert.That(_fakeResolver.ResolvedRequests[0].Amount, Is.EqualTo(31.75f));
+            Assert.That(_fakeResolver.ResolvedRequests[0].DamageType, Is.EqualTo(DamageType.Magical));
+            Assert.That(_fakeResolver.ResolvedRequests[0].KnockbackForce, Is.EqualTo(15f));
+            Assert.That(_meleeAttack.CooldownSeconds, Is.EqualTo(1.25f));
+            Assert.That(_fakeQuery.LastQuery.Range, Is.EqualTo(1.5f));
+            Assert.That(config.Radius, Is.EqualTo(0.5f));
+        }
+
+        [Test]
+        public void TryConfigure_WhenEffectiveRangeIsLessThanRadius_IsRejected()
+        {
+            var config = CreateConfig(radius: 0.5f);
+            Initialize(config);
+
+            LogAssert.Expect(
+                LogType.Error,
+                "MeleeAttack: Effective range must be at least the detection radius on GameObject MeleeAttackHolder.");
+            Assert.That(_meleeAttack.TryConfigure(config, CreateParameters(effectiveRange: 0.49f)), Is.False);
+        }
+
+        [Test]
+        public void Execute_UsesEffectiveRangeMinusRadiusAsDetectionCenterOffset()
+        {
+            var config = CreateConfig(radius: 0.5f);
+            Initialize(config, CreateParameters(effectiveRange: 1.5f));
+
+            _meleeAttack.Execute(new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(_fakeQuery.LastQuery.Range, Is.EqualTo(1f));
+            Assert.That(_meleeAttack.EffectiveRange, Is.EqualTo(1.5f));
         }
 
         [Test]
         public void Execute_CopiesSimulationTickDirectionAndHitPoint()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var hitPoint = new Vector2(1.5f, 0.5f);
             _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), hitPoint));
@@ -160,7 +210,7 @@ namespace Tests.EditMode.Combat
         public void Execute_WithInvalidDirection_RejectsExecution()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.zero, 10);
             var result = _meleeAttack.Execute(request);
@@ -173,7 +223,7 @@ namespace Tests.EditMode.Combat
         public void Execute_WithoutVisualComponents_RunsSuccessfully()
         {
             var config = CreateConfig();
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10);
             var result = _meleeAttack.Execute(request);
@@ -185,7 +235,7 @@ namespace Tests.EditMode.Combat
         public void Execute_DuplicatesDoNotConsumeMaximumTargets()
         {
             var config = CreateConfig(maxTargets: 2);
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var targetA = new EntityId(2);
             var targetB = new EntityId(3);
@@ -206,7 +256,7 @@ namespace Tests.EditMode.Combat
         public void Execute_AttackerDoesNotConsumeMaximumTargets()
         {
             var config = CreateConfig(maxTargets: 1);
-            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            Initialize(config);
 
             var attackerId = new EntityId(1);
             var targetA = new EntityId(2);

@@ -125,6 +125,7 @@ MonoBehaviour:
   _refPoint: {fileID: 989575695702234616}
   _attackConfig: {fileID: 11400000, guid: 88b60be19822e0544b2f90caa14d7af2, type: 2}
   _projectileSpawner: {fileID: 4357536583330511076}
+  _maximumRange: 5
 --- !u!61 &4222689577850092183
 BoxCollider2D:
   m_ObjectHideFlags: 0

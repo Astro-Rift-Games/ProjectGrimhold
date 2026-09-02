@@ -12,12 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 497d2f5f79a7acf4ebd7b619f76efc9f, type: 3}
   m_Name: SlimeAttackConfig
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttackConfig
-  _damage: 10
-  _damageType: 0
-  _cooldownSeconds: 0.5
   _inputMode: 0
-  _knockbackForce: 4
-  _range: 0.1
   _radius: 5
   _maximumTargets: 5
   _targetLayerMask:

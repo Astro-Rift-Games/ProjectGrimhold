@@ -49,6 +49,7 @@ namespace Tests.EditMode.Combat
 
                 DamageResult result = resolver.Resolve(request);
 
+                Assert.That(damageable.LastRequest.Amount, Is.EqualTo(request.Amount));
                 Assert.That(result.AppliedDamage, Is.EqualTo(7f));
                 Assert.That(sink.CallCount, Is.EqualTo(1));
                 Assert.That(sink.LastEvent.Result.AppliedDamage, Is.EqualTo(7f));
@@ -75,9 +76,11 @@ namespace Tests.EditMode.Combat
 
             public EntityId Id { get; }
             public bool CanReceiveDamage => true;
+            public DamageRequest LastRequest { get; private set; }
 
             public DamageResult ApplyDamage(in DamageRequest request)
             {
+                LastRequest = request;
                 return new DamageResult(
                     Id,
                     true,

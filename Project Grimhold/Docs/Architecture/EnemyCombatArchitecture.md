@@ -87,6 +87,14 @@ The attack hit-frame boundary stores the target `EntityId` accepted with the pen
 * **Strategy Execution**: Delegates combat execution to an assigned `IAttack` strategy (e.g., `MeleeAttack` or `RangedAttack`).
 * **Network Replication**: Replicates `AttackSequence`, `LastAttackOrigin`, `LastAttackDirection`, and tick information to allow proxy clients to render attack animations smoothly via `AttackPerformed` events.
 
+Enemy executors own serialized `AttackExecutionParameters` because they do not resolve player
+Equipment. Shared `AttackConfig` assets carry only execution behavior. Current melee Slimes retain
+damage `10`, Physical type, interval `0.5`, effective range `1.5` and knockback `7`; the ranged enemy
+retains damage `10`, Physical type, interval `0.5`, range `10` and knockback `6`. For melee, the
+query center remains `1.0` because the executor converts effective range as `1.5 - Radius(0.5)`.
+`MeleeAttackGizmoDrawer` reads this same executor transformation. `SlimeAttackConfig` remains an
+unused legacy asset and is not promoted into the productive attack path by this ownership refactor.
+
 ### Facing vs. Aim
 
 `IMovementState.FacingDirection` and the attack aim direction are separate concerns and must not be conflated:

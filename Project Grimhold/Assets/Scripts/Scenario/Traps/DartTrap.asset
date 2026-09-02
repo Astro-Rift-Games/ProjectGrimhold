@@ -15,5 +15,5 @@ MonoBehaviour:
   _activationTime: 0.5
   _resetTime: 2
   _cooldown: 3
-  _damage: 10
+  _damage: 5
   _damageType: 0

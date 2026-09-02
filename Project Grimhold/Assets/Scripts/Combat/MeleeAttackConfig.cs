@@ -7,9 +7,6 @@ using UnityEngine;
 public sealed class MeleeAttackConfig : AttackConfig
 {
     [SerializeField, Min(0.1f)]
-    private float _range = 1f;
-
-    [SerializeField, Min(0.1f)]
     private float _radius = 0.5f;
 
     [SerializeField, Min(1)]
@@ -18,7 +15,6 @@ public sealed class MeleeAttackConfig : AttackConfig
     [SerializeField]
     private LayerMask _targetLayerMask;
 
-    public float Range => _range;
     public float Radius => _radius;
     public int MaximumTargets => _maximumTargets;
     public LayerMask TargetLayerMask => _targetLayerMask;
@@ -27,12 +23,6 @@ public sealed class MeleeAttackConfig : AttackConfig
     {
         if (!TryValidateCommon(out error))
         {
-            return false;
-        }
-
-        if (_range <= 0f)
-        {
-            error = $"{nameof(Range)} must be greater than zero (current: {_range}).";
             return false;
         }
 
@@ -61,11 +51,6 @@ public sealed class MeleeAttackConfig : AttackConfig
     protected override void OnValidate()
     {
         base.OnValidate();
-
-        if (_range < 0.1f)
-        {
-            _range = 0.1f;
-        }
 
         if (_radius < 0.1f)
         {

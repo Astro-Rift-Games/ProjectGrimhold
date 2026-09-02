@@ -11,6 +11,9 @@ namespace Tests.EditMode.Combat
 {
     public class RangedAttackTests
     {
+        private static readonly AttackExecutionParameters DefaultParameters =
+            new(10f, DamageType.Physical, 0.5f, 10f, 6f);
+
         private GameObject _gameObject;
         private RangedAttack _attack;
         private FakeProjectileSpawner _spawner;
@@ -33,11 +36,8 @@ namespace Tests.EditMode.Combat
         {
             var config = ScriptableObject.CreateInstance<RangedAttackConfig>();
 
-            SetPrivateField(config, typeof(AttackConfig), "_damage", 10f);
-            SetPrivateField(config, typeof(AttackConfig), "_cooldownSeconds", 0.5f);
             SetPrivateField(config, "_projectileSpeed", 10f);
             SetPrivateField(config, "_lifetimeSeconds", 5f);
-            SetPrivateField(config, "_maxRange", 10f);
             SetPrivateField(config, "_projectileSpawnOffset", 0.7f);
             SetPrivateField(config, "_projectilePrefab", new NetworkPrefabRef("00000000000000000000000000000001"));
             SetPrivateField(config, "_impactLayerMask", new LayerMask { value = 1 });
@@ -69,6 +69,7 @@ namespace Tests.EditMode.Combat
             _config = CreateTemporaryValidConfig();
 
             SetPrivateField(_attack, typeof(RangedAttack), "_config", _config);
+            SetPrivateField(_attack, typeof(RangedAttack), "_defaultParameters", DefaultParameters);
             SetPrivateField(_attack, typeof(RangedAttack), "_projectileSpawnerSource", _spawner);
 
             _gameObject.SetActive(true);
@@ -88,11 +89,12 @@ namespace Tests.EditMode.Combat
 
             var spawnRequest = _spawner.LastRequest;
             Assert.AreEqual(new EntityId(1), spawnRequest.OwnerId);
-            Assert.AreEqual(_config.Damage, spawnRequest.Damage);
-            Assert.AreEqual(_config.DamageType, spawnRequest.DamageType);
+            Assert.AreEqual(DefaultParameters.Damage, spawnRequest.Damage);
+            Assert.AreEqual(DefaultParameters.DamageType, spawnRequest.DamageType);
             Assert.AreEqual(_config.ProjectileSpeed, spawnRequest.Speed);
             Assert.AreEqual(_config.LifetimeSeconds, spawnRequest.LifetimeSeconds);
-            Assert.AreEqual(_config.MaxRange, spawnRequest.MaximumRange);
+            Assert.AreEqual(DefaultParameters.Range, spawnRequest.MaximumRange);
+            Assert.AreEqual(DefaultParameters.KnockbackForce, spawnRequest.KnockbackForce);
             Assert.AreEqual(10, spawnRequest.SimulationTick);
 
             Vector2 expectedDirection = new Vector2(3f, 4f).normalized;
@@ -102,6 +104,27 @@ namespace Tests.EditMode.Combat
             Vector2 expectedOrigin = new Vector2(2f, 3f) + expectedDirection * _config.ProjectileSpawnOffset;
             Assert.AreEqual(expectedOrigin.x, spawnRequest.Origin.x, 0.0001f);
             Assert.AreEqual(expectedOrigin.y, spawnRequest.Origin.y, 0.0001f);
+        }
+
+        [UnityTest]
+        public IEnumerator TryConfigure_UpdatesAllRuntimeParametersWithoutMutatingConfig()
+        {
+            yield return CreateValidAttack(spawnSucceeds: true);
+            float projectileSpeed = _config.ProjectileSpeed;
+            var parameters = new AttackExecutionParameters(18.25f, DamageType.Magical, 1.25f, 7f, 15f);
+
+            Assert.That(_attack.TryConfigure(_config, parameters), Is.True);
+
+            AttackResult result = _attack.Execute(
+                new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(result.WasExecuted, Is.True);
+            Assert.That(_spawner.LastRequest.Damage, Is.EqualTo(18.25f));
+            Assert.That(_spawner.LastRequest.DamageType, Is.EqualTo(DamageType.Magical));
+            Assert.That(_spawner.LastRequest.MaximumRange, Is.EqualTo(7f));
+            Assert.That(_spawner.LastRequest.KnockbackForce, Is.EqualTo(15f));
+            Assert.That(_attack.CooldownSeconds, Is.EqualTo(1.25f));
+            Assert.That(_config.ProjectileSpeed, Is.EqualTo(projectileSpeed));
         }
 
         [UnityTest]

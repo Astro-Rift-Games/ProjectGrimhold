@@ -31,6 +31,9 @@ namespace Tests.EditMode.Combat
             Assert.That(prefab.GetComponents<RangedAttack>(), Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponents<FusionProjectileSpawner>(), Has.Length.EqualTo(1));
 
+            AssertNeutralExecutor(prefab.GetComponent<MeleeAttack>(), BasePrefabPath);
+            AssertNeutralExecutor(prefab.GetComponent<RangedAttack>(), BasePrefabPath);
+
             PlayerWeaponEquipmentNetworkController equipment =
                 prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
             Assert.That(equipment, Is.Not.Null);
@@ -133,6 +136,22 @@ namespace Tests.EditMode.Combat
                 Is.SameAs(prefab.GetComponent<RangedAttack>()));
             Assert.That(serializedEquipment.FindProperty("_projectileSpawner").objectReferenceValue,
                 Is.SameAs(prefab.GetComponent<FusionProjectileSpawner>()));
+        }
+
+        private static void AssertNeutralExecutor(MonoBehaviour executor, string prefabPath)
+        {
+            var serializedExecutor = new SerializedObject(executor);
+            Assert.That(
+                serializedExecutor.FindProperty("_config").objectReferenceValue,
+                Is.Null,
+                $"{prefabPath} must not activate an executor without an equipped weapon.");
+
+            SerializedProperty defaults = serializedExecutor.FindProperty("_defaultParameters");
+            Assert.That(defaults, Is.Not.Null);
+            Assert.That(defaults.FindPropertyRelative("_damage").floatValue, Is.Zero);
+            Assert.That(defaults.FindPropertyRelative("_cooldownSeconds").floatValue, Is.Zero);
+            Assert.That(defaults.FindPropertyRelative("_range").floatValue, Is.Zero);
+            Assert.That(defaults.FindPropertyRelative("_knockbackForce").floatValue, Is.Zero);
         }
 
     }

@@ -12,7 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
   m_Name: TrainingSwordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  _baseDamage: 22
+  _attackIntervalSeconds: 1
+  _range: 1.5
+  _staminaCost: 15
+  _damageType: 0
+  _knockbackForce: 5
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _offensiveScaling:
+    _attribute: 2
+    _coefficient: 0
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 0

@@ -97,9 +97,13 @@ Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` on
 unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
-Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig`,
-configures the shared `MeleeAttack` or `RangedAttack` executor, and assigns it through
-`TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
+Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
+with the participant's confirmed `CharacterAttributeState`. Equipment selects the attribute declared
+by `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
+local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
+interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
+executor, and assigns it
+through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
 armor slots never reach combat at all: they neither validate the combat dependencies nor
 participate in `HasReplicatedWeaponStateChanged`, so equipping or removing a piece cannot rebuild
 the strategy or disturb the authoritative cooldown. Slot-selection input travels in the normal
@@ -107,7 +111,9 @@ the strategy or disturb the authoritative cooldown. Slot-selection input travels
 of any of the six slots advances `EquipmentRevision`, which is what presentation observes.
 
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
-slot again, rebuilding the strategy without replaying equipment requests. The armor slots need no
+slot again, rebuilding the strategy and recalculating effective damage from the restored confirmed
+attributes without replaying equipment requests. Effective damage is derived runtime state and is
+not replicated or persisted. The armor slots need no
 dedicated restore logic — they are ordinary `[Networked]` properties. ScriptableObjects and
 presentation state are never replicated.
 
@@ -121,13 +127,15 @@ retain a stale weapon cooldown in the HUD.
 
 ### 3. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
-* Reads static data parameters from `MeleeAttackConfig` (ScriptableObject).
-* Delegates short-range target detection to `IAttackTargetQuery` using the settings defined by `MeleeAttackConfig`.
+* Reads radius, maximum targets and target mask from `MeleeAttackConfig`.
+* Receives damage, type, interval, effective range and knockback through `AttackExecutionParameters`.
+* Converts effective weapon range into the query's circle-center offset as `Range - Radius` and rejects `Range < Radius`.
 * Passes damage requests directly to the centralized `IDamageResolver`.
 
 ### 4. Ranged Attack Strategy (`RangedAttack` & `RangedAttackConfig`)
 Generates physical projectiles that traverse the world:
-* Reads static parameters (speed, range, lifetime, layers, prefabs) from `RangedAttackConfig` (ScriptableObject).
+* Reads projectile prefab, speed, lifetime, spawn offset and impact mask from `RangedAttackConfig`.
+* Receives damage, type, interval, maximum range and knockback through `AttackExecutionParameters`.
 * Integrates a configurable **`ProjectileSpawnOffset`**, configured according to the combined collision bounds of the shooter and projectile, which offsets the initial projectile spawn coordinate in the direction of the aim vector to clear the shooter's own collider bounds.
 * Delegates spawning requests to an `IProjectileSpawner` instance.
 
@@ -168,7 +176,7 @@ PvP remains blocked until networking provides an authoritative ally/enemy affili
 | :--- | :--- | :--- | :--- |
 | **`PlayerInputReader`** | Fully Implemented | Captures local buttons/aim and packs into `PlayerNetworkInput`. | Relies on local Unity input wrappers. |
 | **`PlayerCombatNetworkController`** | Fully Implemented | Handles network input, authoritative optional strategy presence, TickTimer cooldowns, and local strategies. | Structural dependencies remain required; an attack strategy is optional. |
-| **`MeleeAttack`** | Fully Implemented | Melee execution strategy, queries targets, resolves damage. | Fully data-driven by `MeleeAttackConfig`. |
+| **`MeleeAttack`** | Fully Implemented | Melee execution strategy, queries targets, resolves damage. | Behavior comes from `MeleeAttackConfig`; resolved statistics come from `AttackExecutionParameters`. |
 | **`Physics2DAttackTargetQuery`** | Fully Implemented | Circular target query with `Physics2D.OverlapCircle`. | Uses `_colliderBuffer` to avoid heap allocations. |
 | **`RangedAttack`** | Fully Implemented | Ranged execution strategy, spawns projectile via `IProjectileSpawner`. | Translates input to `ProjectileSpawnRequest`. |
 | **`FusionProjectileSpawner`** | Fully Implemented | Replicated network spawning via `Runner.TrySpawn`. | State Authority validated. |
@@ -183,29 +191,42 @@ PvP remains blocked until networking provides an authoritative ally/enemy affili
 
 Gameplay properties are separated into stable configurations and dynamic network state:
 
-### 1. `MeleeAttackConfig` (ScriptableObject)
-Inherits from `AttackConfig`. Validated fields:
-* **`_damage`** (float, Min: 0.0): The base damage applied on hit.
-* **`_damageType`** (DamageType): Physical, Magical, etc.
-* **`_cooldownSeconds`** (float, Min: 0.0): Minimum seconds between attacks.
-* **`_inputMode`** (AttackInputMode): Press or Hold.
-* **`_range`** (float, Min: 0.1): Spatial offset of the detection circle's center from the attacker origin.
+### 1. `AttackConfig` and `MeleeAttackConfig` (ScriptableObjects)
+`AttackConfig` owns only `_inputMode`. `MeleeAttackConfig` adds reusable execution behavior:
 * **`_radius`** (float, Min: 0.1): Detection circle radius.
 * **`_maximumTargets`** (int, Min: 1): Maximum number of targets hit in one execute.
 * **`_targetLayerMask`** (LayerMask): Layer mask defining which objects are queried.
 
 ### 2. `RangedAttackConfig` (ScriptableObject)
-Inherits from `AttackConfig`. Validated fields:
-* **`_damage`** (float, Min: 0.0): The base damage applied on hit.
-* **`_damageType`** (DamageType): Damage type.
-* **`_cooldownSeconds`** (float, Min: 0.0): Cooldown between shots.
-* **`_inputMode`** (AttackInputMode): Press or Hold.
+Inherits the input mode and owns only reusable projectile behavior:
 * **`_projectileSpeed`** (float, Min: 0.1): Travel speed of the spawned projectile.
 * **`_lifetimeSeconds`** (float, Min: 0.1): Duration before projectile expires.
-* **`_maxRange`** (float, Min: 0.1): Maximum physical distance the projectile can travel.
 * **`_projectileSpawnOffset`** (float, Min: 0.0): Distance in front of the attacker origin where the projectile spawns.
 * **`_projectilePrefab`** (NetworkPrefabRef): Fusion registered prefab reference.
 * **`_impactLayerMask`** (LayerMask): Collision mask including both target characters and blocking obstacle walls.
+
+### 3. `WeaponDefinition`, runtime parameters and scaling
+
+`WeaponDefinition` is the single source of truth for player weapon `BaseDamage`,
+`AttackIntervalSeconds`, effective `Range`, `StaminaCost`, `DamageType`, `KnockbackForce`,
+requirements and scaling. `StaminaCost` is validated configuration but is not consumed yet.
+Spellbook uses the shared ranged behavior; proximity or area manifestation is outside this contract.
+
+`WeaponOffensiveScaling` stores one `CharacterAttribute` and one non-negative coefficient. A zero
+coefficient means no scaling and contributes zero without reading an attribute. A positive
+coefficient accepts only Strength, Dexterity or Intelligence and resolves its value from the
+confirmed `CharacterAttributeState` already owned by the Raid participant. The provisional rule is:
+
+```text
+EffectiveDamage = WeaponDefinition.BaseDamage + (AttributeValue * ScalingCoefficient)
+```
+
+`WeaponDamageCalculator` owns only this pure arithmetic. Equipment performs the calculation when it
+configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
+runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their
+own `AttackExecutionParameters`, keeping their existing behavior independent from Equipment.
+Scaling grades remain Game Design concepts and are represented in runtime configuration only by their
+resolved coefficient.
 
 ---
 
@@ -217,7 +238,8 @@ Inherits from `AttackConfig`. Validated fields:
 4. **Execution**: If authorized and ready, calls `MeleeAttack.Execute(in AttackRequest)`.
 5. **Direction**: Movement resolves the finite, normalized `PlayerMovementNetworkController.FacingDirection` from the final simulated player position before combat runs in the same tick.
 6. **Query Targets**: `MeleeAttack` delegates queries to `Physics2DAttackTargetQuery.FindTargets()`.
-   * Center is computed as: `Origin + FacingDirection * Range`.
+   * Center is computed as: `Origin + FacingDirection * (WeaponDefinition.Range - MeleeAttackConfig.Radius)`.
+   * `WeaponDefinition.Range` is the effective distance from origin to the farthest edge of the circle; `Range < Radius` is invalid.
    * Targets are queried within `Radius` using `Physics2D.OverlapCircle` with a non-allocating buffer.
 7. **Deduplication and Exclusion**:
    * Attacker's own `EntityId` is excluded.
@@ -275,7 +297,7 @@ DamageRequest ──► IDamageResolver ──► IDamageable (ApplyDamage) ─�
 ```
 
 ### 1. `DamageRequest` & `DamageResult`
-* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, base damage amount, damage type, direction, hit point, and execution tick.
+* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, effective damage amount, damage type, direction, hit point, and execution tick. For player weapons, Equipment resolves that amount before configuring the attack executor; `DamageResolver` does not calculate weapon scaling.
 * **`DamageResult`**: Communicates target ID, execution success, damage amount applied, remaining health, fatal flag, and detailed failure reason.
 
 ### 2. `DamageResolver`
@@ -437,8 +459,9 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 `Assets/Scriptable Objects/Loot/Definitions` ships six placeholder weapons used to validate
 Weapon Equipment, quick slots, switching, world presentation and the Raid HUD icon. They are
 content identities only: they add no attack type, no weapon subtype and no presenter branch.
-Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`, and every
-behavioural difference comes from the reused `AttackConfig` plus the static presentation triple.
+Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`. Functional differences
+may come from the reused `AttackConfig` plus per-weapon attribute requirements and offensive scaling;
+visual differences remain in the static presentation triple.
 
 Sprites come from `Assets/Placeholder/RPG Items 16x16 Pack 1` at the project pixel-art
 convention (16 PPU, Point filter, no mipmaps, Tight mesh). Sword and staff cells use a
