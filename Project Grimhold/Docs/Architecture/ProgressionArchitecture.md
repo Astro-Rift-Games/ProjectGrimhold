@@ -67,6 +67,15 @@ Dexterity and Intelligence remain raw competencies read from `CharacterAttribute
 not copied into a parallel offensive-statistics model. Current Health, current Stamina, equipment
 scaling and the authoritative Loot roll remain owned by their respective consuming systems.
 
+`PlayerCharacter` consumes the projection through its `RaidAvatarParticipantLink`. It lazily derives
+and caches maximum Health only after the linked `NetworkRaidParticipant` exposes its complete frozen
+attribute snapshot. `CharacterBase.Health` remains the single networked current-Health value, while
+`CharacterBase.MaxHealth` is a local projection and is not separately replicated. Fresh State
+Authority player spawns initialize current Health from that effective maximum and the existing healing
+pipeline uses the same value as its cap. Non-player characters continue to use their authored prefab
+maximum. A temporarily unresolved link uses the authored fallback without caching it so restored
+participant/avatar references can resolve after Host Migration fixup.
+
 ## Definitive experience resolution
 
 `ExpeditionExperienceResolutionRules` is a pure C# transition from a validated provisional

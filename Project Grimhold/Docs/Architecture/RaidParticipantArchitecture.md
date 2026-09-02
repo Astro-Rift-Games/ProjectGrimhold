@@ -108,6 +108,11 @@ NetworkId remap.
 The participant's networked character-attribute snapshot and its initialization marker are restored
 by the same Fusion state copy. Host Migration never reloads or replaces them from persistence.
 
+The restored player avatar derives maximum Health again from that restored participant snapshot after
+the participant-link `NetworkId` fixup. Its networked current `Health` is copied with the avatar and
+`CharacterBase.Spawned` suppresses fresh initialization during restoration, so migration never heals,
+resets or otherwise replaces the preserved current value.
+
 ## Follow-up dependencies
 
 The admission flow initializes the admitted avatar loadout. `PlayerExtractionLootSaver` calls
