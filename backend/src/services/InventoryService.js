@@ -227,6 +227,13 @@ class InventoryService {
       preparedEquipment: preparedEquipment || {}
     };
 
+    // Mirror what the Unity client does: the loadout travels inside the reservation.
+    // Clearing it here prevents item duplication on extraction and blocks Alt+F4 recovery exploits.
+    character.inventory.loadout = [];
+    character.inventory.preparedEquipment = {};
+    
+    character.markModified('inventory.loadout');
+    character.markModified('inventory.preparedEquipment');
     character.markModified('inventory.pendingReservation');
     await character.save();
 
@@ -290,11 +297,22 @@ class InventoryService {
       };
     }
 
-    // Merge extracted items into the loadout.
+    if (character.inventory.loadout && character.inventory.loadout.length > 0) {
+      throw { statusCode: 409, errorCode: 'LOADOUT_NOT_EMPTY', message: 'Cannot commit extraction while loadout is not empty.' };
+    }
+
+    // Restore prepared equipment exactly as it was when the raid started
+    if (character.inventory.pendingReservation) {
+      character.inventory.preparedEquipment = character.inventory.pendingReservation.preparedEquipment || {};
+      character.markModified('inventory.preparedEquipment');
+      
+      // Clear the pending reservation so the backend matches the client's confirmed state
+      character.inventory.pendingReservation = null;
+      character.markModified('inventory.pendingReservation');
+    }
+
+    // Add extracted items into the loadout.
     // Items array may be empty (the player extracted but carried no loot).
-    // NOTE: Unlike the Unity-side invariant (which requires loadout to be empty before
-    // committing), the backend loadout is durable and persists between raids. Items
-    // from previous sessions may already be present. We simply merge them in.
     // Duplicate protection against double-extraction is guaranteed by the
     // (raidId, resultSequence) idempotency check above.
     if (items && items.length > 0) {

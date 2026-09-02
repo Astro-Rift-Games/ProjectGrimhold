@@ -5458,7 +5458,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eef9f9b7f53bb954687eb2276ad498c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProfileDebugUtility
-  _config: {fileID: 11400000, guid: 57e734eaea2a74940a4f7dd9e2597c12, type: 2}
+  _config: {fileID: 11400000, guid: 8b4b11f5dafa25441b85725329659039, type: 2}
   noteToWrite: persistence-test-v1
 --- !u!1 &8897883570965529335
 GameObject:

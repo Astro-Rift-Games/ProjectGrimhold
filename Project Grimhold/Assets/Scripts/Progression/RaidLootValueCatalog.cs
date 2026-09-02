@@ -28,8 +28,7 @@ public sealed class RaidLootValueCatalog : ScriptableObject, IRaidLootValueSourc
                 string.IsNullOrWhiteSpace(entry.LootDefinition.Id) ||
                 entry.ValuePerUnit <= 0)
             {
-                valuePerUnit = 0;
-                return false;
+                continue;
             }
 
             if (!string.Equals(entry.LootDefinition.Id, lootId.Value, StringComparison.Ordinal))

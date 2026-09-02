@@ -1,4 +1,4 @@
-﻿const test = require('node:test');
+const test = require('node:test');
 const assert = require('node:assert');
 
 const Character = require('../src/models/Character');
@@ -227,8 +227,10 @@ test('InventoryService', async (t) => {
 
   // --- savePendingReservation / clearPendingReservation ---
 
-  await t.test('savePendingReservation() - persists reservation data', async () => {
+  await t.test('savePendingReservation() - persists reservation data and clears loadout', async () => {
     const mockChar = makeCharacter();
+    mockChar.inventory.loadout = [makeItem('sword', 1)];
+    mockChar.inventory.preparedEquipment = { weaponSlot1: 'sword', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' };
     Character.findOne = async () => mockChar;
 
     const result = await InventoryService.savePendingReservation(
@@ -241,6 +243,8 @@ test('InventoryService', async (t) => {
     assert.ok(result.pendingReservation);
     assert.strictEqual(result.pendingReservation.reservationId, 'res-001');
     assert.deepStrictEqual(result.pendingReservation.items, [{ lootId: 'sword', amount: 1 }]);
+    assert.deepStrictEqual(mockChar.inventory.loadout, []);
+    assert.deepStrictEqual(mockChar.inventory.preparedEquipment, {});
   });
 
   await t.test('clearPendingReservation() - sets reservation to null', async () => {

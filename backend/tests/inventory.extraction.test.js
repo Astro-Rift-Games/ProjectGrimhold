@@ -50,6 +50,26 @@ test('InventoryService.commitExtraction', async (t) => {
     assert.strictEqual(mockChar.inventory.appliedExtractionReceipts[0].raidId, 'raid-001');
   });
 
+  await t.test('restores preparedEquipment from pendingReservation and clears it', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.pendingReservation = {
+      reservationId: 'res-123',
+      items: [{ lootId: 'bone', amount: 1 }],
+      preparedEquipment: { weaponSlot1: 'sword_epic', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' }
+    };
+    Character.findOne = async () => mockChar;
+
+    const result = await InventoryService.commitExtraction(
+      'acc123', 'raid-002', 1,
+      [{ lootId: 'potion', amount: 1 }]
+    );
+
+    assert.strictEqual(result.alreadySecured, false);
+    assert.deepStrictEqual(result.loadout, [{ lootId: 'potion', amount: 1 }]);
+    assert.strictEqual(mockChar.inventory.preparedEquipment.weaponSlot1, 'sword_epic');
+    assert.strictEqual(mockChar.inventory.pendingReservation, null);
+  });
+
   await t.test('is idempotent: returns alreadySecured if same receipt replayed', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.appliedExtractionReceipts = [{ raidId: 'raid-001', resultSequence: 1 }];
@@ -81,23 +101,22 @@ test('InventoryService.commitExtraction', async (t) => {
     assert.deepStrictEqual(result.loadout, [{ lootId: 'axe', amount: 1 }]);
   });
 
-  await t.test('merges extracted items into an already non-empty loadout', async () => {
+  await t.test('throws 409 when loadout is not empty', async () => {
     const mockChar = makeCharacter();
-    // Player already had a sword in their loadout from a previous session
+    // Player has items in loadout (because it wasn't cleared by savePendingReservation, which is an invalid state for commitExtraction)
     mockChar.inventory.loadout = [{ lootId: 'sword', amount: 2 }];
     Character.findOne = async () => mockChar;
 
-    const result = await InventoryService.commitExtraction(
-      'acc123', 'raid-002', 1,
-      [{ lootId: 'potion', amount: 5 }, { lootId: 'sword', amount: 1 }]
-    );
-
-    assert.strictEqual(result.alreadySecured, false);
-    // sword should be merged (2 + 1 = 3), potion should be new
-    const sword = result.loadout.find(i => i.lootId === 'sword');
-    const potion = result.loadout.find(i => i.lootId === 'potion');
-    assert.strictEqual(sword.amount, 3);
-    assert.strictEqual(potion.amount, 5);
+    try {
+      await InventoryService.commitExtraction(
+        'acc123', 'raid-002', 1,
+        [{ lootId: 'potion', amount: 5 }, { lootId: 'sword', amount: 1 }]
+      );
+      assert.fail('Should have thrown');
+    } catch (err) {
+      assert.strictEqual(err.statusCode, 409);
+      assert.strictEqual(err.errorCode, 'LOADOUT_NOT_EMPTY');
+    }
   });
 
   await t.test('accepts empty items array (zero-loot extraction)', async () => {
