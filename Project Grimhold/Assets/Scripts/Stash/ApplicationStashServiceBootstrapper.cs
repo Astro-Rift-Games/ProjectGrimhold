@@ -61,7 +61,7 @@ public static class ApplicationStashServiceBootstrapper
     /// Initializes the stash store for the given profile. Called by LoginFlowController
     /// after a successful login. Safe to call only once per profile per session.
     /// </summary>
-    public static void InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null)
+    public static void InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
     {
         if (!profileId.IsValid)
         {
@@ -87,10 +87,10 @@ public static class ApplicationStashServiceBootstrapper
             return;
         }
 
-        InitializeStore(profileId, inventoryData);
+        InitializeStore(profileId, inventoryData, progressionData);
     }
 
-    private static void InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null)
+    private static void InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
     {
         var contextObject = _context.gameObject;
 
@@ -101,9 +101,9 @@ public static class ApplicationStashServiceBootstrapper
             return;
         }
 
-        if (inventoryData.HasValue)
+        if (inventoryData.HasValue || progressionData.HasValue)
         {
-            HydrateSnapshot(repository.Snapshot, inventoryData.Value, _configuration.LootCatalog);
+            HydrateSnapshot(repository.Snapshot, inventoryData, progressionData, _configuration.LootCatalog);
         }
 
         var store = new LocalProfileStore(
@@ -150,9 +150,12 @@ public static class ApplicationStashServiceBootstrapper
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
     }
 
-    private static void HydrateSnapshot(LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData data, LootDefinitionCatalog catalog)
+    private static void HydrateSnapshot(LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData? inventoryData, Grimhold.Backend.ProgressionData? progressionData, LootDefinitionCatalog catalog)
     {
-        if (data.stash != null)
+        if (inventoryData.HasValue)
+        {
+            var data = inventoryData.Value;
+            if (data.stash != null)
         {
             foreach (var item in data.stash)
             {
@@ -209,6 +212,24 @@ public static class ApplicationStashServiceBootstrapper
             );
 
             snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
+        }
+        }
+
+        if (progressionData.HasValue)
+        {
+            var prog = progressionData.Value;
+            snapshot.Level = prog.level > 0 ? prog.level : 1;
+            snapshot.CurrentExperience = prog.experience > 0 ? prog.experience : 0;
+            snapshot.LastAppliedProgressionResultSequence = prog.lastAppliedProgressionResultSequence;
+            
+            var attr = prog.characterAttributes;
+            if (CharacterAttributeState.TryCreate(
+                attr.vitality, attr.resistance, attr.strength,
+                attr.dexterity, attr.intelligence, attr.luck, attr.availablePoints,
+                out var state))
+            {
+                snapshot.CharacterAttributes = state;
+            }
         }
     }
 

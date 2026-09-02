@@ -197,6 +197,18 @@ public sealed class LoginFlowController : MonoBehaviour
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
         }
 
+        // Step 4b: Fetch progression snapshot
+        ProgressionData? progressionData = null;
+        var (progOk, progData, _) = await ProgressionClient.GetProgressionAsync(_config, token);
+        if (progOk)
+        {
+            progressionData = progData;
+        }
+        else
+        {
+            Debug.LogWarning($"[{nameof(LoginFlowController)}] Progression fetch failed. Proceeding with defaults.");
+        }
+
         // Step 5: Inject identity into local systems
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
@@ -207,7 +219,7 @@ public sealed class LoginFlowController : MonoBehaviour
         }
 
         // Step 6: Initialize the stash with the now-valid ProfileId and hydrated inventory
-        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData);
+        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData, progressionData);
 
         return LoginFlowResult.Success();
     }
