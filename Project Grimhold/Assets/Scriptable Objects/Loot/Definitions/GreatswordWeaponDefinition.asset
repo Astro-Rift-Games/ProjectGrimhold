@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: GreatswordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _offensiveScaling:
+    _attribute: 2
+    _coefficient: 0.55
   _attributeRequirements:
     _minimumStrength: 10
     _minimumDexterity: 0

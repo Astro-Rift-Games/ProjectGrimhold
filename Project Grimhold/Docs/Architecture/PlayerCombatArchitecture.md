@@ -97,9 +97,11 @@ Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` on
 unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
-Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig`,
-configures the shared `MeleeAttack` or `RangedAttack` executor, and assigns it through
-`TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
+Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
+with the participant's confirmed `CharacterAttributeState`. Equipment selects the attribute declared
+by `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, configures
+the shared `MeleeAttack` or `RangedAttack` executor with that already resolved value, and assigns it
+through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
 armor slots never reach combat at all: they neither validate the combat dependencies nor
 participate in `HasReplicatedWeaponStateChanged`, so equipping or removing a piece cannot rebuild
 the strategy or disturb the authoritative cooldown. Slot-selection input travels in the normal
@@ -107,7 +109,9 @@ the strategy or disturb the authoritative cooldown. Slot-selection input travels
 of any of the six slots advances `EquipmentRevision`, which is what presentation observes.
 
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
-slot again, rebuilding the strategy without replaying equipment requests. The armor slots need no
+slot again, rebuilding the strategy and recalculating effective damage from the restored confirmed
+attributes without replaying equipment requests. Effective damage is derived runtime state and is
+not replicated or persisted. The armor slots need no
 dedicated restore logic — they are ordinary `[Networked]` properties. ScriptableObjects and
 presentation state are never replicated.
 
@@ -207,6 +211,23 @@ Inherits from `AttackConfig`. Validated fields:
 * **`_projectilePrefab`** (NetworkPrefabRef): Fusion registered prefab reference.
 * **`_impactLayerMask`** (LayerMask): Collision mask including both target characters and blocking obstacle walls.
 
+### 3. `WeaponOffensiveScaling`
+
+`WeaponDefinition` stores one `CharacterAttribute` and one non-negative coefficient. A zero
+coefficient means no scaling and contributes zero without reading an attribute. A positive
+coefficient accepts only Strength, Dexterity or Intelligence and resolves its value from the
+confirmed `CharacterAttributeState` already owned by the Raid participant. The provisional rule is:
+
+```text
+EffectiveDamage = AttackConfig.Damage + (AttributeValue * ScalingCoefficient)
+```
+
+`WeaponDamageCalculator` owns only this pure arithmetic. Equipment performs the calculation when it
+configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
+runtime value without modifying their `AttackConfig`; non-player consumers use the base damage overload.
+Scaling grades remain Game Design concepts and are represented in runtime configuration only by their
+resolved coefficient.
+
 ---
 
 ## Melee Attack Flow
@@ -275,7 +296,7 @@ DamageRequest ──► IDamageResolver ──► IDamageable (ApplyDamage) ─�
 ```
 
 ### 1. `DamageRequest` & `DamageResult`
-* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, base damage amount, damage type, direction, hit point, and execution tick.
+* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, effective damage amount, damage type, direction, hit point, and execution tick. For player weapons, Equipment resolves that amount before configuring the attack executor; `DamageResolver` does not calculate weapon scaling.
 * **`DamageResult`**: Communicates target ID, execution success, damage amount applied, remaining health, fatal flag, and detailed failure reason.
 
 ### 2. `DamageResolver`
@@ -437,8 +458,9 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 `Assets/Scriptable Objects/Loot/Definitions` ships six placeholder weapons used to validate
 Weapon Equipment, quick slots, switching, world presentation and the Raid HUD icon. They are
 content identities only: they add no attack type, no weapon subtype and no presenter branch.
-Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`, and every
-behavioural difference comes from the reused `AttackConfig` plus the static presentation triple.
+Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`. Functional differences
+may come from the reused `AttackConfig` plus per-weapon attribute requirements and offensive scaling;
+visual differences remain in the static presentation triple.
 
 Sprites come from `Assets/Placeholder/RPG Items 16x16 Pack 1` at the project pixel-art
 convention (16 PPU, Point filter, no mipmaps, Tight mesh). Sword and staff cells use a

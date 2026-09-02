@@ -13,6 +13,9 @@ MonoBehaviour:
   m_Name: StaffWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   _primaryAttack: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
+  _offensiveScaling:
+    _attribute: 4
+    _coefficient: 0.85
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 0

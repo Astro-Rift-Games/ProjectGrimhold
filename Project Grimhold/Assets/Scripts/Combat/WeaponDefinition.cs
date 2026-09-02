@@ -11,12 +11,16 @@ public sealed class WeaponDefinition : ScriptableObject
     private AttackConfig _primaryAttack;
 
     [SerializeField]
+    private WeaponOffensiveScaling _offensiveScaling;
+
+    [SerializeField]
     private PresentationConfig _presentation;
 
     [SerializeField]
     private WeaponAttributeRequirements _attributeRequirements;
 
     public AttackConfig PrimaryAttack => _primaryAttack;
+    public WeaponOffensiveScaling OffensiveScaling => _offensiveScaling;
     public PresentationConfig Presentation => _presentation;
     public WeaponAttributeRequirements AttributeRequirements => _attributeRequirements;
 
@@ -41,6 +45,12 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!_primaryAttack.TryValidate(out string attackError))
         {
             error = $"Weapon definition '{name}' has an invalid primary attack: {attackError}";
+            return false;
+        }
+
+        if (!_offensiveScaling.TryValidate(out string scalingError))
+        {
+            error = $"Weapon definition '{name}' has invalid offensive scaling: {scalingError}";
             return false;
         }
 

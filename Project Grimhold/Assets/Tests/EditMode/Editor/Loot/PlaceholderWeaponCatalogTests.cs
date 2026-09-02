@@ -87,6 +87,18 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void WeaponAssets_ExposeTheConfiguredMvpOffensiveScaling()
+        {
+            AssertNoScaling(RecoverySword);
+            AssertNoScaling(TrainingSword);
+            AssertScaling(Longsword, CharacterAttribute.Strength, 0.70f);
+            AssertScaling(Greatsword, CharacterAttribute.Strength, 0.55f);
+            AssertScaling(Wand, CharacterAttribute.Intelligence, 0.70f);
+            AssertScaling(Spellbook, CharacterAttribute.Intelligence, 0.55f);
+            AssertScaling(Staff, CharacterAttribute.Intelligence, 0.85f);
+        }
+
+        [Test]
         public void Catalog_ContainsNoDuplicateLootIdOrDefinitionReference()
         {
             var seenIds = new HashSet<string>();
@@ -311,6 +323,26 @@ namespace Tests.EditMode.Loot
                 actual,
                 Is.EqualTo(new WeaponAttributeRequirements(strength, dexterity, intelligence)),
                 lootId);
+        }
+
+        private void AssertNoScaling(string lootId)
+        {
+            WeaponOffensiveScaling scaling = ResolveWeapon(lootId).OffensiveScaling;
+            Assert.That(scaling.TryValidate(out string error), Is.True, error);
+            Assert.That(scaling.HasScaling, Is.False, lootId);
+            Assert.That(scaling.Coefficient, Is.Zero, lootId);
+        }
+
+        private void AssertScaling(
+            string lootId,
+            CharacterAttribute attribute,
+            float coefficient)
+        {
+            WeaponOffensiveScaling scaling = ResolveWeapon(lootId).OffensiveScaling;
+            Assert.That(scaling.TryValidate(out string error), Is.True, error);
+            Assert.That(scaling.HasScaling, Is.True, lootId);
+            Assert.That(scaling.Attribute, Is.EqualTo(attribute), lootId);
+            Assert.That(scaling.Coefficient, Is.EqualTo(coefficient).Within(0.0001f), lootId);
         }
 
         private List<LootDefinition> ReadSerializedDefinitions()

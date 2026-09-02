@@ -23,6 +23,7 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
 
     private IAttackTargetQuery _targetQuery;
     private IDamageResolver _damageResolver;
+    private float _runtimeDamage;
     private bool _isValid;
 
     private readonly HashSet<EntityId> _tempProcessedIds = new();
@@ -33,6 +34,7 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
 
     private void Awake()
     {
+        _runtimeDamage = _config != null ? _config.Damage : 0f;
         if (_targetQuery == null || _damageResolver == null)
         {
             CacheDependencies();
@@ -55,15 +57,21 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
         _config = config;
         _targetQuery = targetQuery;
         _damageResolver = damageResolver;
-        _isValid = true;
+        _runtimeDamage = config != null ? config.Damage : 0f;
+        _isValid = ValidateDependencies();
     }
 
     /// <summary>
     /// Applies an equipped weapon's melee configuration to the existing strategy.
     /// </summary>
-    public bool TryConfigure(MeleeAttackConfig config)
+    public bool TryConfigure(MeleeAttackConfig config) =>
+        TryConfigure(config, config != null ? config.Damage : 0f);
+
+    /// <summary>Applies an equipped player weapon's configuration and resolved runtime damage.</summary>
+    public bool TryConfigure(MeleeAttackConfig config, float effectiveDamage)
     {
         _config = config;
+        _runtimeDamage = effectiveDamage;
         CacheDependencies();
         _isValid = ValidateDependencies();
         return _isValid;
@@ -115,6 +123,12 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
         if (!_config.TryValidate(out string error))
         {
             Debug.LogError($"{nameof(MeleeAttack)}: Invalid configuration on GameObject {gameObject.name}. Error: {error}", this);
+            return false;
+        }
+
+        if (_runtimeDamage <= 0f || float.IsNaN(_runtimeDamage) || float.IsInfinity(_runtimeDamage))
+        {
+            Debug.LogError($"{nameof(MeleeAttack)}: Runtime damage must be finite and greater than zero on GameObject {gameObject.name}.", this);
             return false;
         }
 
@@ -205,7 +219,7 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                 DamageRequest damageRequest = new DamageRequest(
                     request.AttackerId,
                     target.TargetId,
-                    _config.Damage,
+                    _runtimeDamage,
                     _config.DamageType,
                     request.Direction,
                     target.HitPoint,

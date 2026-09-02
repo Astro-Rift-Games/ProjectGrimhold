@@ -139,6 +139,38 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void TryConfigure_WithEffectiveDamage_UsesResolvedDamageWithoutMutatingConfig()
+        {
+            var config = CreateConfig(damage: 25f);
+            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+            const float effectiveDamage = 31.75f;
+
+            Assert.That(_meleeAttack.TryConfigure(config, effectiveDamage), Is.True);
+            _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
+
+            _meleeAttack.Execute(new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(_fakeResolver.ResolvedRequests, Has.Count.EqualTo(1));
+            Assert.That(_fakeResolver.ResolvedRequests[0].Amount, Is.EqualTo(effectiveDamage));
+            Assert.That(config.Damage, Is.EqualTo(25f));
+        }
+
+        [Test]
+        public void TryConfigure_WithoutEffectiveDamage_UsesBaseDamage()
+        {
+            var config = CreateConfig(damage: 25f);
+            _meleeAttack.Initialize(config, _fakeQuery, _fakeResolver);
+
+            Assert.That(_meleeAttack.TryConfigure(config), Is.True);
+            _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
+
+            _meleeAttack.Execute(new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(_fakeResolver.ResolvedRequests, Has.Count.EqualTo(1));
+            Assert.That(_fakeResolver.ResolvedRequests[0].Amount, Is.EqualTo(config.Damage));
+        }
+
+        [Test]
         public void Execute_CopiesSimulationTickDirectionAndHitPoint()
         {
             var config = CreateConfig();

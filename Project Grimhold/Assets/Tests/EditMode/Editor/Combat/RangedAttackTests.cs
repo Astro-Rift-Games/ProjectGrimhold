@@ -105,6 +105,37 @@ namespace Tests.EditMode.Combat
         }
 
         [UnityTest]
+        public IEnumerator TryConfigure_WithEffectiveDamage_UsesResolvedDamageWithoutMutatingConfig()
+        {
+            yield return CreateValidAttack(spawnSucceeds: true);
+            float baseDamage = _config.Damage;
+            const float effectiveDamage = 18.25f;
+
+            Assert.That(_attack.TryConfigure(_config, effectiveDamage), Is.True);
+
+            AttackResult result = _attack.Execute(
+                new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(result.WasExecuted, Is.True);
+            Assert.That(_spawner.LastRequest.Damage, Is.EqualTo(effectiveDamage));
+            Assert.That(_config.Damage, Is.EqualTo(baseDamage));
+        }
+
+        [UnityTest]
+        public IEnumerator TryConfigure_WithoutEffectiveDamage_UsesBaseDamage()
+        {
+            yield return CreateValidAttack(spawnSucceeds: true);
+
+            Assert.That(_attack.TryConfigure(_config), Is.True);
+
+            AttackResult result = _attack.Execute(
+                new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10));
+
+            Assert.That(result.WasExecuted, Is.True);
+            Assert.That(_spawner.LastRequest.Damage, Is.EqualTo(_config.Damage));
+        }
+
+        [UnityTest]
         public IEnumerator Execute_WithZeroDirection_IsRejected()
         {
             yield return CreateValidAttack(spawnSucceeds: true);

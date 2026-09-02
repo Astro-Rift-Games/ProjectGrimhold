@@ -19,6 +19,7 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     private MonoBehaviour _projectileSpawnerSource;
 
     private IProjectileSpawner _projectileSpawner;
+    private float _runtimeDamage;
     private bool _isValid;
 
     public AttackType Type => AttackType.Ranged;
@@ -27,6 +28,7 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
 
     private void Awake()
     {
+        _runtimeDamage = _config != null ? _config.Damage : 0f;
         CacheDependencies();
     }
 
@@ -61,9 +63,14 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     /// <summary>
     /// Applies an equipped weapon's ranged configuration to the existing strategy.
     /// </summary>
-    public bool TryConfigure(RangedAttackConfig config)
+    public bool TryConfigure(RangedAttackConfig config) =>
+        TryConfigure(config, config != null ? config.Damage : 0f);
+
+    /// <summary>Applies an equipped player weapon's configuration and resolved runtime damage.</summary>
+    public bool TryConfigure(RangedAttackConfig config, float effectiveDamage)
     {
         _config = config;
+        _runtimeDamage = effectiveDamage;
         CacheDependencies();
         _isValid = ValidateDependencies();
         return _isValid;
@@ -80,6 +87,12 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
         if (!_config.TryValidate(out string error))
         {
             Debug.LogError($"{nameof(RangedAttack)}: Invalid configuration on GameObject {gameObject.name}. Error: {error}", this);
+            return false;
+        }
+
+        if (_runtimeDamage <= 0f || float.IsNaN(_runtimeDamage) || float.IsInfinity(_runtimeDamage))
+        {
+            Debug.LogError($"{nameof(RangedAttack)}: Runtime damage must be finite and greater than zero on GameObject {gameObject.name}.", this);
             return false;
         }
 
@@ -124,7 +137,7 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
                 request.AttackerId,
                 projectileOrigin,
                 normalizedDirection,
-                _config.Damage,
+                _runtimeDamage,
                 _config.DamageType,
                 _config.ProjectileSpeed,
                 _config.LifetimeSeconds,
