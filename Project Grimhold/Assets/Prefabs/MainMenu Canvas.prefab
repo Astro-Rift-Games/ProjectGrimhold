@@ -2208,6 +2208,7 @@ GameObject:
   - component: {fileID: 1166139898924578755}
   - component: {fileID: 3353372595468574703}
   - component: {fileID: 3969383636777520493}
+  - component: {fileID: 5439897705220950916}
   m_Layer: 5
   m_Name: Logout Button
   m_TagString: Untagged
@@ -2317,6 +2318,21 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5439897705220950916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3878250574930096938}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 516e09d1985c10a4cbc3fa9c648d73da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LogoutButtonPresenter
+  _logoutButton: {fileID: 3969383636777520493}
+  _loginFlowController: {fileID: 0}
+  _coordinator: {fileID: 0}
 --- !u!1 &4033229132487294910
 GameObject:
   m_ObjectHideFlags: 0
@@ -2749,7 +2765,7 @@ MonoBehaviour:
   _statusText: {fileID: 33522640589565697}
   _loginPanel: {fileID: 3038555281442451034}
   _characterCreationPanel: {fileID: 6873150830011454415}
-  _loginFlowController: {fileID: 866837423847541575}
+  _loginFlowController: {fileID: 0}
 --- !u!1 &4139823041550405715
 GameObject:
   m_ObjectHideFlags: 0
@@ -5400,7 +5416,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 764016982790621861}
-  - component: {fileID: 866837423847541575}
   - component: {fileID: 3198790475584024798}
   m_Layer: 5
   m_Name: MainMenu
@@ -5431,20 +5446,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &866837423847541575
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8710545314612770629}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 39871ed0bb65d304dbf75790c546b88f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LoginFlowController
-  _config: {fileID: 11400000, guid: 57e734eaea2a74940a4f7dd9e2597c12, type: 2}
-  _authContext: {fileID: 0}
 --- !u!114 &3198790475584024798
 MonoBehaviour:
   m_ObjectHideFlags: 0

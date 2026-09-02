@@ -36,6 +36,8 @@ public readonly struct LoginFlowResult
 /// </summary>
 public sealed class LoginFlowController : MonoBehaviour
 {
+    public static LoginFlowController Instance { get; private set; }
+
     [SerializeField] private BackendConfiguration _config;
     [SerializeField] private ApplicationAuthContext _authContext;
 
@@ -43,6 +45,22 @@ public sealed class LoginFlowController : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        // Detach from any scene hierarchy so DontDestroyOnLoad works on the root.
+        if (transform.parent != null)
+        {
+            transform.SetParent(null, true);
+        }
+
+        DontDestroyOnLoad(gameObject);
+
         if (_config == null)
         {
             _config = ScriptableObject.CreateInstance<BackendConfiguration>();
@@ -57,6 +75,14 @@ public sealed class LoginFlowController : MonoBehaviour
                 var authObj = new GameObject(nameof(ApplicationAuthContext));
                 _authContext = authObj.AddComponent<ApplicationAuthContext>();
             }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 
