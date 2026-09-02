@@ -16,5 +16,6 @@ public enum EquipmentOperationResult
     NoFreeWeaponSlot = 8,
     EmptySlot = 9,
     InventoryFull = 10,
-    SlotOccupied = 11
+    SlotOccupied = 11,
+    AttributeRequirementsNotMet = 12
 }

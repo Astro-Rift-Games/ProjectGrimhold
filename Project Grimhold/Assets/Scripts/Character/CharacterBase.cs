@@ -35,10 +35,10 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     public float Health { get; private set; }
 
     /// <summary>
-    /// Gets the configured maximum health for this character.
-    /// This is immutable local prefab configuration, not duplicated network state.
+    /// Gets the effective maximum health for this character.
+    /// This value is derived locally and is not duplicated network state.
     /// </summary>
-    public float MaxHealth => _maxHealth;
+    public float MaxHealth => ResolveMaximumHealth();
 
     /// <summary>
     /// Stable entity identifier in the gameplay core.
@@ -70,7 +70,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     {
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
-            Health = _maxHealth;
+            Health = ResolveMaximumHealth();
         }
 
         // Keep identity mapped through every collider, but expose only the configured
@@ -178,13 +178,14 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             return new HealResult(Id, false, 0f, Health, HealFailureReason.InvalidAmount);
         }
 
-        if (Health >= _maxHealth)
+        float maximumHealth = ResolveMaximumHealth();
+        if (Health >= maximumHealth)
         {
             return new HealResult(Id, false, 0f, Health, HealFailureReason.HealthFull);
         }
 
         float previousHealth = Health;
-        Health = Mathf.Min(_maxHealth, Health + request.Amount);
+        Health = Mathf.Min(maximumHealth, Health + request.Amount);
         float actualHealed = Health - previousHealth;
 
         return new HealResult(
@@ -224,6 +225,15 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     protected virtual float CalculateMitigatedDamage(float amount, DamageType damageType)
     {
         return amount;
+    }
+
+    /// <summary>
+    /// Resolves the locally derived maximum used by fresh initialization and healing.
+    /// Non-player characters retain their immutable prefab configuration.
+    /// </summary>
+    protected virtual float ResolveMaximumHealth()
+    {
+        return _maxHealth;
     }
 
     /// <summary>

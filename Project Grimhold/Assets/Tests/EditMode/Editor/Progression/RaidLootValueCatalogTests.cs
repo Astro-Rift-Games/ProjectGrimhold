@@ -20,7 +20,7 @@ namespace Tests.EditMode.Progression
 
             Assert.That(values, Is.Not.Null);
             Assert.That(loot, Is.Not.Null);
-            Assert.That(loot.DefinitionCount, Is.EqualTo(14));
+            Assert.That(loot.DefinitionCount, Is.EqualTo(34));
             Assert.That(values.TryValidate(loot, out string error), Is.True, error);
             for (int index = 0; index < loot.DefinitionCount; index++)
             {

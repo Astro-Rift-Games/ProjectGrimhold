@@ -15,8 +15,10 @@ namespace Tests.PlayMode.Presentation
     public sealed class RaidMainHudPlayModeTests
     {
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
+        private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
         private const string MeleePrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
         private const string RangedPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
+        private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
         private const string MeleePrefabGuid = "982f360e5acbdd344a8a75bbc0af94ec";
         private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
 
@@ -124,6 +126,17 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void EnemyKeepsItsSerializedMaximumHealthConfiguration()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyPrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+
+            CharacterBase character = prefab.GetComponent<CharacterBase>();
+            Assert.That(character, Is.Not.Null);
+            Assert.That(character.MaxHealth, Is.EqualTo(100f));
+        }
+
+        [Test]
         public void BinderWithUnresolvedParticipantLinkDoesNotUseAvatarAuthorityFallback()
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
@@ -214,6 +227,82 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
+        public IEnumerator VitalityDefinesFreshHealthHealingLimitAndHudMaximum()
+        {
+            yield return StartRunner();
+
+            Assert.That(
+                CharacterAttributeState.TryCreate(
+                    vitality: 10,
+                    resistance: 5,
+                    strength: 5,
+                    dexterity: 5,
+                    intelligence: 5,
+                    luck: 5,
+                    availablePoints: 5,
+                    out CharacterAttributeState attributes),
+                Is.True);
+
+            NetworkObject participantPrefab = LoadPrefab(ParticipantPrefabGuid);
+            NetworkObject playerPrefab = LoadPrefab(PlayerPrefabGuid);
+            NetworkObject participantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (_, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize(
+                        "vitality-profile",
+                        CreateParticipantId(1),
+                        attributes,
+                        ExperienceCurve.InitialLevel,
+                        0,
+                        "vitality-raid"));
+            _localParticipant = participantObject.GetComponent<NetworkRaidParticipant>();
+
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
+            _localPlayer = _runner.Spawn(
+                playerPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(participantObject));
+            Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
+            _runner.SetPlayerObject(_runner.LocalPlayer, participantObject);
+
+            PlayerCharacter character = _localPlayer.GetComponent<PlayerCharacter>();
+            PlayerLootReceiver receiver = _localPlayer.GetComponent<PlayerLootReceiver>();
+            RaidHudView view = _localPlayer.GetComponentInChildren<RaidHudView>(true);
+
+            Assert.That(character.MaxHealth, Is.EqualTo(125f));
+            Assert.That(character.Health, Is.EqualTo(125f));
+
+            _defeatDriver.Target = character;
+            _defeatDriver.Receiver = receiver;
+            _defeatDriver.RequestedDamageAmount = 50f;
+            _defeatDriver.RequestedHealingAmount = 100f;
+            _defeatDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => !_defeatDriver.IsRequested,
+                "The authoritative damage and healing request did not execute.");
+            yield return WaitUntil(
+                () => view.HealthText.text == "Salud: 125 / 125",
+                "The Raid HUD did not present the Vitality-derived maximum Health.");
+
+            Assert.That(_defeatDriver.FirstResult.IsApplied, Is.True);
+            Assert.That(_defeatDriver.FirstResult.AppliedDamage, Is.EqualTo(50f));
+            Assert.That(_defeatDriver.HealingResult.Success, Is.True);
+            Assert.That(_defeatDriver.HealingResult.AmountHealed, Is.EqualTo(50f));
+            Assert.That(_defeatDriver.HealingResult.NewHealth, Is.EqualTo(125f));
+            Assert.That(character.Health, Is.EqualTo(125f));
+            Assert.That(character.MaxHealth, Is.EqualTo(125f));
+            Assert.That(view.HealthText.text, Is.EqualTo("Salud: 125 / 125"));
+        }
+
+        [UnityTest]
         public IEnumerator DefeatedHostFailClosed_EntersSpectatorAndPreservesPlayerObjectAuthority()
         {
             yield return StartRunner();
@@ -232,6 +321,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("host-profile", CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -254,6 +344,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("client-profile", CreateParticipantId(2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -328,6 +419,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("local-profile", CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -360,6 +452,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("remote-profile", CreateParticipantId(2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -396,7 +489,10 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_localParticipant.HasInputAuthority, Is.True);
             Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
             Assert.That(ReadPresenterFlag(presenter, "_isBound"), Is.True);
-            Assert.That(view.HealthText.text, Is.Not.EqualTo("Salud: — / —"));
+            PlayerCharacter initialCharacter = _localPlayer.GetComponent<PlayerCharacter>();
+            Assert.That(initialCharacter.MaxHealth, Is.EqualTo(100f));
+            Assert.That(initialCharacter.Health, Is.EqualTo(100f));
+            Assert.That(view.HealthText.text, Is.EqualTo("Salud: 100 / 100"));
             Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: 0 / 16"));
             Assert.That(inventoryView.PlayerPanel.TotalValueText.text, Is.EqualTo("Valor: 0"));
             Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
@@ -559,6 +655,13 @@ namespace Tests.PlayMode.Presentation
             }
 
             Assert.That(startTask.Result.Ok, Is.True, startTask.Result.ShutdownReason.ToString());
+        }
+
+        private NetworkObject LoadPrefab(string prefabGuid)
+        {
+            NetworkPrefabId prefabId =
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(prefabGuid));
+            return _runner.Config.PrefabTable.Load(prefabId, true);
         }
 
         private static IEnumerator WaitUntil(Func<bool> predicate, string failureMessage)

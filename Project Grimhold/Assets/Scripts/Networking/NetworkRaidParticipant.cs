@@ -52,6 +52,30 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkBool IsProgressionCommitConfirmed { get; private set; }
 
+    [Networked]
+    private int CharacterVitality { get; set; }
+
+    [Networked]
+    private int CharacterResistance { get; set; }
+
+    [Networked]
+    private int CharacterStrength { get; set; }
+
+    [Networked]
+    private int CharacterDexterity { get; set; }
+
+    [Networked]
+    private int CharacterIntelligence { get; set; }
+
+    [Networked]
+    private int CharacterLuck { get; set; }
+
+    [Networked]
+    private int CharacterAvailableAttributePoints { get; set; }
+
+    [Networked]
+    private NetworkBool IsCharacterAttributeStateInitialized { get; set; }
+
     public bool IsExtractionCommitConfirmed =>
         ExtractionExperiencePhase >= ExtractionExperienceTransactionPhase.ExtractedLootPending;
 
@@ -71,6 +95,53 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     public ProgressionCommitResult LocalProgressionCommitResult { get; private set; }
 
     /// <summary>
+    /// Reads the immutable attribute snapshot admitted for this participation.
+    /// No persistent source is consulted after participant initialization.
+    /// </summary>
+    public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
+    {
+        state = default;
+        if (Object == null || !Object.IsValid)
+        {
+            return false;
+        }
+
+        return TryBuildCharacterAttributeState(
+            IsCharacterAttributeStateInitialized,
+            CharacterVitality,
+            CharacterResistance,
+            CharacterStrength,
+            CharacterDexterity,
+            CharacterIntelligence,
+            CharacterLuck,
+            CharacterAvailableAttributePoints,
+            out state);
+    }
+
+    internal static bool TryBuildCharacterAttributeState(
+        bool initialized,
+        int vitality,
+        int resistance,
+        int strength,
+        int dexterity,
+        int intelligence,
+        int luck,
+        int availablePoints,
+        out CharacterAttributeState state)
+    {
+        state = default;
+        return initialized && CharacterAttributeState.TryCreate(
+            vitality,
+            resistance,
+            strength,
+            dexterity,
+            intelligence,
+            luck,
+            availablePoints,
+            out state);
+    }
+
+    /// <summary>
     /// Resolves the current avatar without changing simulation state.
     /// </summary>
     public bool TryResolveCurrentAvatar(out NetworkObject avatar)
@@ -86,6 +157,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     internal void Initialize(
         string profileId,
         RaidParticipantId raidParticipantId,
+        in CharacterAttributeState characterAttributes,
         int baselineLevel,
         long baselineExperience,
         string raidGenerationId = null,
@@ -117,6 +189,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         RaidParticipantId = raidParticipantId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
         LoadoutReservationId = loadoutReservationId ?? string.Empty;
+        CharacterVitality = characterAttributes.Vitality;
+        CharacterResistance = characterAttributes.Resistance;
+        CharacterStrength = characterAttributes.Strength;
+        CharacterDexterity = characterAttributes.Dexterity;
+        CharacterIntelligence = characterAttributes.Intelligence;
+        CharacterLuck = characterAttributes.Luck;
+        CharacterAvailableAttributePoints = characterAttributes.AvailablePoints;
         State = RaidParticipantState.Raiding;
         CurrentAvatarId = default;
         ResultSequence = baselineResultSequence;
@@ -127,6 +206,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         IsReturnAuthorized = false;
         IsProgressionCommitConfirmed = false;
         HasLocalProgressionCommitResult = false;
+        IsCharacterAttributeStateInitialized = true;
     }
 
     private void Awake()

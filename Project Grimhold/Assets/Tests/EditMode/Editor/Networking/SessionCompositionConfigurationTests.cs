@@ -106,6 +106,46 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
+    public void RaidParticipantAttributeSnapshot_IsUnavailableUntilInitializationAndThenExact()
+    {
+        Assert.That(
+            NetworkRaidParticipant.TryBuildCharacterAttributeState(
+                false, 1, 2, 3, 4, 5, 6, 7, out CharacterAttributeState unavailable),
+            Is.False);
+        Assert.That(unavailable, Is.EqualTo(default(CharacterAttributeState)));
+
+        Assert.That(
+            CharacterAttributeState.TryCreate(
+                1, 2, 3, 4, 5, 6, 7, out CharacterAttributeState expected),
+            Is.True);
+        Assert.That(
+            NetworkRaidParticipant.TryBuildCharacterAttributeState(
+                true, 1, 2, 3, 4, 5, 6, 7, out CharacterAttributeState actual),
+            Is.True);
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void RaidAvatarParticipantLink_DelegatesAttributeSnapshotWithoutOwningACopy()
+    {
+        System.Reflection.FieldInfo[] fields = typeof(RaidAvatarParticipantLink).GetFields(
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.DeclaredOnly);
+        for (int index = 0; index < fields.Length; index++)
+        {
+            Assert.That(fields[index].FieldType, Is.Not.EqualTo(typeof(CharacterAttributeState)));
+        }
+
+        string linkSource = File.ReadAllText(
+            "Assets/Scripts/Networking/RaidAvatarParticipantLink.cs");
+        Assert.That(
+            linkSource,
+            Does.Contain("participant.TryGetCharacterAttributeState(out state)"));
+    }
+
+    [Test]
     public void RaidAvatar_HasSerializedDefeatAndSpectatorControls()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BaseRaidAvatarPath);

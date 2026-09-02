@@ -92,7 +92,10 @@ slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves 
 assignment is a non-owning `LootId` reference into the current Loadout: it never creates units,
 `EquipmentSlotRules` decides which slot an identity may occupy, weapon slots additionally require
 a usable Weapon definition, and one identity used by several slots requires one owned unit per
-reference. Equipping an identity that still lives in the Stash pulls exactly the missing units
+reference. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
+confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
+rule is rechecked before preparation, reservation and rollback; armors have no attribute
+requirements during the MVP. Equipping an identity that still lives in the Stash pulls exactly the missing units
 into the Loadout inside the same commit, because the Loadout is what the reservation transfers; a
 rejected assignment moves nothing. Releasing a slot leaves its unit in the Loadout. Loadout
 removals reconcile the assignments in the same transaction, releasing the last slots first.
@@ -102,6 +105,13 @@ application process until backend persistence is connected.
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.
 `PlayerRef` is not a gameplay-persistence identity.
+
+The confirmed `CharacterAttributeState` crosses the participation-admission boundary once when
+the player starts an expedition. State Authority initializes the corresponding
+`NetworkRaidParticipant`, which then owns the frozen, replicated snapshot for that participation.
+Raid consumers read that participant snapshot through its read-only contract; they do not query
+the application profile, UI or persistence implementation again. The admission transport does not
+default, clamp or normalize the state supplied by the current profile source.
 
 ### Expedition preparation boundary
 
@@ -120,6 +130,8 @@ deterministic and idempotent, so retrying a launch never grants or duplicates an
 * A persisted assignment that no longer resolves to an owned, usable weapon fails explicitly as
   `InvalidPreparedWeapon` without mutating the aggregate. Corruption is never overwritten and
   never hidden behind a recovery grant.
+* A prepared weapon whose requirements exceed the confirmed attributes fails explicitly as
+  `AttributeRequirementsNotMet`; no assignment, ownership or reservation state is changed.
 
 Raid never grants a recovery weapon. Preparation is inert while a reservation is pending.
 

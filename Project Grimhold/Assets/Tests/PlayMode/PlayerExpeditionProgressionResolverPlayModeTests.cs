@@ -408,6 +408,7 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         $"task-110-{participantId}",
                         CreateParticipantId(participantId),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         baselineLevel,
                         baselineExperience,
                         "task-110-generation",

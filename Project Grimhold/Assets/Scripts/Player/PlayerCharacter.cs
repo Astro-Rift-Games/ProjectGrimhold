@@ -17,6 +17,9 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField]
     private RaidAvatarParticipantLink _participantLink;
     private bool _reportedMissingExtractionController;
+    private bool _hasCachedMaximumHealth;
+    private float _cachedMaximumHealth;
+    private bool _reportedInvalidDerivedStatistics;
 
     [Networked]
     public NetworkString<_32> ProfileIdString { get; set; }
@@ -60,6 +63,47 @@ public sealed class PlayerCharacter : CharacterBase
     {
         base.Awake();
         CacheDependencies();
+    }
+
+    /// <summary>
+    /// Derives the participant's effective maximum Health from the frozen Raid attributes.
+    /// A temporarily unresolved participant link keeps the prefab fallback available without
+    /// caching it, so Host Migration remapping can resolve the authoritative snapshot later.
+    /// </summary>
+    protected override float ResolveMaximumHealth()
+    {
+        if (_hasCachedMaximumHealth)
+        {
+            return _cachedMaximumHealth;
+        }
+
+        if (_participantLink == null ||
+            !_participantLink.TryGetCharacterAttributeState(out CharacterAttributeState attributes))
+        {
+            return base.ResolveMaximumHealth();
+        }
+
+        if (!CharacterDerivedStatisticsCalculator.TryCalculate(
+                attributes,
+                ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
+                out CharacterDerivedStatistics statistics,
+                out CharacterDerivedStatisticsCalculationFailure failure))
+        {
+            if (!_reportedInvalidDerivedStatistics)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerCharacter)} could not derive maximum Health from the admitted " +
+                    $"character attributes. Failure={failure}.",
+                    this);
+                _reportedInvalidDerivedStatistics = true;
+            }
+
+            return base.ResolveMaximumHealth();
+        }
+
+        _cachedMaximumHealth = statistics.MaximumHealth;
+        _hasCachedMaximumHealth = true;
+        return _cachedMaximumHealth;
     }
 
     /// <summary>

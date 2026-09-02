@@ -13,6 +13,7 @@ public readonly struct RaidAdmissionData
     public int Level { get; }
     public long CurrentExperience { get; }
     public int LastAppliedProgressionResultSequence { get; }
+    public CharacterAttributeState CharacterAttributes { get; }
     private readonly LootEntry[] _reservedLoadout;
 
     /// <summary>
@@ -53,6 +54,7 @@ public readonly struct RaidAdmissionData
         ProfileId profileId,
         string reservationId,
         IReadOnlyList<LootEntry> reservedLoadout,
+        in CharacterAttributeState characterAttributes,
         IReadOnlyList<int> entryIndicesPlusOne = null,
         int level = ExperienceCurve.InitialLevel,
         long currentExperience = 0,
@@ -64,6 +66,7 @@ public readonly struct RaidAdmissionData
         Level = level;
         CurrentExperience = currentExperience;
         LastAppliedProgressionResultSequence = lastAppliedProgressionResultSequence;
+        CharacterAttributes = characterAttributes;
         _reservedLoadout = CopyLoadout(reservedLoadout);
         _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
     }
@@ -88,6 +91,7 @@ public readonly struct RaidAdmissionData
         RaidCode raidCode,
         ProfileId profileId,
         PendingLoadoutReservation reservation,
+        in CharacterAttributeState characterAttributes,
         int level,
         long currentExperience,
         int lastAppliedProgressionResultSequence,
@@ -119,6 +123,7 @@ public readonly struct RaidAdmissionData
             profileId,
             reservation.ReservationId,
             entries,
+            characterAttributes,
             indices,
             level,
             currentExperience,

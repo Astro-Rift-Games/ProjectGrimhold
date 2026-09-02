@@ -13,8 +13,16 @@ public sealed class WeaponDefinition : ScriptableObject
     [SerializeField]
     private PresentationConfig _presentation;
 
+    [SerializeField]
+    private WeaponAttributeRequirements _attributeRequirements;
+
     public AttackConfig PrimaryAttack => _primaryAttack;
     public PresentationConfig Presentation => _presentation;
+    public WeaponAttributeRequirements AttributeRequirements => _attributeRequirements;
+
+    /// <summary>Uses the shared Equipment eligibility rule for this weapon definition.</summary>
+    public bool AreAttributeRequirementsSatisfiedBy(in CharacterAttributeState attributes) =>
+        _attributeRequirements.IsSatisfiedBy(attributes);
 
     public bool TryValidate(out string error)
     {
@@ -39,6 +47,12 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!_presentation.TryValidate(out string presentationError))
         {
             error = $"Weapon definition '{name}' has invalid presentation: {presentationError}";
+            return false;
+        }
+
+        if (!_attributeRequirements.TryValidate(out string requirementError))
+        {
+            error = $"Weapon definition '{name}' has invalid attribute requirements: {requirementError}";
             return false;
         }
 

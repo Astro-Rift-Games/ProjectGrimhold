@@ -4,8 +4,8 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Stages player inventory grants and fatal damage from Fusion simulation for the
-/// focused player-corpse integration tests.
+/// Stages player inventory grants, damage and healing from Fusion simulation for
+/// focused player health and corpse integration tests.
 /// </summary>
 public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
 {
@@ -17,8 +17,11 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
     public PlayerLootReceiver Receiver { get; set; }
     public bool IsRequested { get; set; }
     public bool RepeatFatalDamage { get; set; }
+    public float RequestedDamageAmount { get; set; } = 1000f;
+    public float RequestedHealingAmount { get; set; }
     public DamageResult FirstResult { get; private set; }
     public DamageResult SecondResult { get; private set; }
+    public HealResult HealingResult { get; private set; }
 
     public void SetEntries(IReadOnlyList<LootEntry> entries)
     {
@@ -67,7 +70,7 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         var damage = new DamageRequest(
             new EntityId(int.MaxValue),
             Target.Id,
-            1000f,
+            RequestedDamageAmount,
             DamageType.TrueDamage,
             Vector2.down,
             Target.transform.position,
@@ -76,6 +79,11 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         if (RepeatFatalDamage)
         {
             SecondResult = Target.ApplyDamage(damage);
+        }
+
+        if (RequestedHealingAmount > 0f)
+        {
+            HealingResult = Target.ApplyHealing(new HealRequest(RequestedHealingAmount));
         }
     }
 

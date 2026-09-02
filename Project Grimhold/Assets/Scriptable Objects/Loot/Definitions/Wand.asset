@@ -14,13 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
   _id: wand
   _displayName: Wand
-  _description: Placeholder ranged weapon with a short silhouette used to validate weapon presentation.
+  _description: Placeholder ranged weapon with a short silhouette used to validate
+    weapon presentation.
   _icon: {fileID: 240872464, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
   _worldSprite: {fileID: 240872464, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
   _category: 5
   _rarity: 0
-  _extractionValuePerUnit: 0
+  _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 11400000, guid: 3c5626000bf14878911f62059c517d9c, type: 2}
+  _equipmentVisualDefinition:
+    _usesBaseSpritesAsPlaceholder: 1
+    _tint: {r: 1, g: 1, b: 1, a: 1}
+    _spriteMappings: []

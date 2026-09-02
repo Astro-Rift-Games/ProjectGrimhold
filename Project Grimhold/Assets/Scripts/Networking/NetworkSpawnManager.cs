@@ -2442,6 +2442,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     participant.Initialize(
                         joinData.ProfileId.Value,
                         raidParticipantId,
+                        admission.CharacterAttributes,
                         admission.Level,
                         admission.CurrentExperience,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,

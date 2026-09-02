@@ -621,6 +621,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             EquipmentOperationResult.ItemNotOwned => "El objeto ya no está disponible",
             EquipmentOperationResult.PlayerUnavailable => "No se puede equipar en este estado",
             EquipmentOperationResult.InvalidEquipment => "La configuración del objeto no es válida",
+            EquipmentOperationResult.AttributeRequirementsNotMet =>
+                "Tus atributos no cumplen los requisitos del arma",
             _ => "No se pudo completar la operación"
         };
     }

@@ -18,6 +18,14 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         Unequip = 2
     }
 
+    private enum WeaponEligibilityFailure : byte
+    {
+        None = 0,
+        InvalidDefinition = 1,
+        AttributesUnavailable = 2,
+        RequirementsNotMet = 3
+    }
+
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
     [SerializeField] private PlayerLootReceiver _lootReceiver;
     [SerializeField] private MonoBehaviour _characterSource;
@@ -25,6 +33,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     [SerializeField] private MeleeAttack _meleeAttack;
     [SerializeField] private RangedAttack _rangedAttack;
     [SerializeField] private FusionProjectileSpawner _projectileSpawner;
+    [SerializeField] private RaidAvatarParticipantLink _participantLink;
 
     [Networked] private int WeaponSlot1CatalogIndexPlusOne { get; set; }
     [Networked] private int WeaponSlot2CatalogIndexPlusOne { get; set; }
@@ -49,6 +58,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     private int _appliedSlot2 = int.MinValue;
     private int _appliedActiveSlot = int.MinValue;
     private bool _initializedBeforeSpawn;
+    private bool _reportedUnavailableWeaponAttributes;
     private readonly Queue<EquipmentOperationResult> _pendingPresentationResults = new();
 
     /// <summary>Every Equipment slot in a stable presentation order, owned by the slot rules.</summary>
@@ -168,19 +178,34 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         _pendingPresentationResults.Clear();
         HasRequestInFlight = false;
         _hasPendingAuthorityRequest = false;
+        _reportedUnavailableWeaponAttributes = false;
     }
 
     /// <summary>
     /// Reports whether the destination slot this loot would target is currently free.
     /// Mirrors the authoritative slot resolution so the UI does not offer impossible intentions.
     /// </summary>
-    public bool CanEquip(LootId lootId) =>
-        TryResolveTargetSlot(lootId, out _, out _) != EquipmentSlot.None;
+    public bool CanEquip(LootId lootId)
+    {
+        EquipmentSlot slot = TryResolveTargetSlot(lootId, out int catalogIndex, out _);
+        return slot != EquipmentSlot.None &&
+            (!EquipmentSlotRules.IsWeaponSlot(slot) ||
+                TryResolveEligibleWeapon(catalogIndex, out _, out _, out _) ==
+                WeaponEligibilityFailure.None);
+    }
 
     public bool TryRequestEquip(LootId lootId)
     {
-        if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight ||
-            TryResolveTargetSlot(lootId, out int catalogIndex, out _) == EquipmentSlot.None)
+        if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight)
+        {
+            return false;
+        }
+
+        EquipmentSlot slot = TryResolveTargetSlot(lootId, out int catalogIndex, out _);
+        if (slot == EquipmentSlot.None ||
+            EquipmentSlotRules.IsWeaponSlot(slot) &&
+            TryResolveEligibleWeapon(catalogIndex, out _, out _, out _) !=
+            WeaponEligibilityFailure.None)
         {
             return false;
         }
@@ -258,9 +283,17 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
     {
         error = null;
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        CacheDependencies();
         if (!HasStateAuthority || reservedLoadout == null || _lootReceiver == null || _lootCatalog == null)
         {
             error = "Prepared equipment initialization requires State Authority and loadout dependencies.";
+            return false;
+        }
+
+        if (_participantLink == null ||
+            !_participantLink.TryGetCharacterAttributeState(out CharacterAttributeState attributes))
+        {
+            error = "Prepared equipment initialization requires admitted character attributes.";
             return false;
         }
 
@@ -277,6 +310,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
                     reservedLoadout,
                     entryIndicesPlusOne[index],
                     slots[index],
+                    attributes,
                     out catalogIndices[index],
                     out error))
             {
@@ -310,7 +344,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
 
         int activeCatalog = slot1Catalog > 0 ? slot1Catalog : slot2Catalog;
-        if (!TryResolveValidWeapon(activeCatalog - 1, out _, out AttackConfig activeConfig) ||
+        if (TryResolveEligibleWeapon(
+                activeCatalog - 1, attributes, out _, out AttackConfig activeConfig) !=
+                WeaponEligibilityFailure.None ||
             !TryConfigureStrategy(activeConfig, out _))
         {
             error = "The prepared active weapon cannot configure a combat strategy.";
@@ -552,7 +588,19 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         if (EquipmentSlotRules.IsWeaponSlot(targetSlot))
         {
             if (!ValidateWeaponDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
-            if (!TryResolveValidWeapon(catalogIndex, out _, out AttackConfig attackConfig))
+            WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(
+                catalogIndex, out _, out AttackConfig attackConfig, out _);
+            if (eligibility == WeaponEligibilityFailure.AttributesUnavailable)
+            {
+                return EquipmentOperationResult.DependenciesUnavailable;
+            }
+
+            if (eligibility == WeaponEligibilityFailure.RequirementsNotMet)
+            {
+                return EquipmentOperationResult.AttributeRequirementsNotMet;
+            }
+
+            if (eligibility != WeaponEligibilityFailure.None)
             {
                 return EquipmentOperationResult.InvalidEquipment;
             }
@@ -682,6 +730,14 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return;
         }
 
+        int requestedCatalogIndex =
+            GetCatalogIndexPlusOne(EquipmentSlotRules.FromWeaponSlot(requested)) - 1;
+        if (TryResolveEligibleWeapon(requestedCatalogIndex, out _, out _, out _) !=
+            WeaponEligibilityFailure.None)
+        {
+            return;
+        }
+
         ActiveWeaponSlotValue = (int)requested;
         EquipmentRevision++;
         ApplyReplicatedActiveWeapon();
@@ -703,12 +759,39 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         }
 
         int catalogIndex = GetCatalogIndexPlusOne(EquipmentSlotRules.FromWeaponSlot(activeSlot)) - 1;
-        if (!TryResolveValidWeapon(catalogIndex, out _, out AttackConfig attackConfig) ||
+        WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(
+            catalogIndex, out _, out AttackConfig attackConfig, out _);
+        if (eligibility == WeaponEligibilityFailure.AttributesUnavailable)
+        {
+            if (!_reportedUnavailableWeaponAttributes)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerWeaponEquipmentNetworkController)} cannot rebuild the active weapon until the admitted participant attributes are available.",
+                    this);
+                _reportedUnavailableWeaponAttributes = true;
+            }
+
+            // Participant remapping can resolve after the avatar during Host Migration. Preserve
+            // the replicated selection and retry instead of turning a temporary dependency gap
+            // into an authoritative Equipment mutation.
+            _appliedActiveSlot = int.MinValue;
+            if (HasStateAuthority)
+            {
+                _combatController.TryClearActiveAttack();
+            }
+            return;
+        }
+
+        _reportedUnavailableWeaponAttributes = false;
+        if (eligibility != WeaponEligibilityFailure.None ||
             !TryConfigureStrategy(attackConfig, out MonoBehaviour attackSource))
         {
             Debug.LogError($"{nameof(PlayerWeaponEquipmentNetworkController)} could not rebuild active weapon index {catalogIndex}.", this);
             if (HasStateAuthority)
             {
+                ActiveWeaponSlotValue = (int)WeaponSlot.None;
+                _appliedActiveSlot = ActiveWeaponSlotValue;
+                EquipmentRevision++;
                 _combatController.TryClearActiveAttack();
             }
             return;
@@ -728,6 +811,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         IReadOnlyList<LootEntry> reservedLoadout,
         int entryIndexPlusOne,
         EquipmentSlot slot,
+        in CharacterAttributeState attributes,
         out int catalogIndexPlusOne,
         out string error)
     {
@@ -750,10 +834,17 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
             return false;
         }
 
-        if (EquipmentSlotRules.IsWeaponSlot(slot) && !TryResolveValidWeapon(catalogIndex, out _, out _))
+        if (EquipmentSlotRules.IsWeaponSlot(slot))
         {
-            error = $"Prepared weapon '{entry.LootId.Value}' is invalid.";
-            return false;
+            WeaponEligibilityFailure failure = TryResolveEligibleWeapon(
+                catalogIndex, attributes, out _, out _);
+            if (failure != WeaponEligibilityFailure.None)
+            {
+                error = failure == WeaponEligibilityFailure.RequirementsNotMet
+                    ? $"Prepared weapon '{entry.LootId.Value}' does not meet attribute requirements."
+                    : $"Prepared weapon '{entry.LootId.Value}' is invalid.";
+                return false;
+            }
         }
 
         catalogIndexPlusOne = catalogIndex + 1;
@@ -826,6 +917,44 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
 
         attackConfig = definition.WeaponDefinition.PrimaryAttack;
         return true;
+    }
+
+    private WeaponEligibilityFailure TryResolveEligibleWeapon(
+        int catalogIndex,
+        out LootDefinition definition,
+        out AttackConfig attackConfig,
+        out CharacterAttributeState attributes)
+    {
+        attributes = default;
+        if (!TryResolveValidWeapon(catalogIndex, out definition, out attackConfig))
+        {
+            return WeaponEligibilityFailure.InvalidDefinition;
+        }
+
+        if (_participantLink == null || !_participantLink.TryGetCharacterAttributeState(out attributes))
+        {
+            return WeaponEligibilityFailure.AttributesUnavailable;
+        }
+
+        return definition.WeaponDefinition.AreAttributeRequirementsSatisfiedBy(attributes)
+            ? WeaponEligibilityFailure.None
+            : WeaponEligibilityFailure.RequirementsNotMet;
+    }
+
+    private WeaponEligibilityFailure TryResolveEligibleWeapon(
+        int catalogIndex,
+        in CharacterAttributeState attributes,
+        out LootDefinition definition,
+        out AttackConfig attackConfig)
+    {
+        if (!TryResolveValidWeapon(catalogIndex, out definition, out attackConfig))
+        {
+            return WeaponEligibilityFailure.InvalidDefinition;
+        }
+
+        return definition.WeaponDefinition.AreAttributeRequirementsSatisfiedBy(attributes)
+            ? WeaponEligibilityFailure.None
+            : WeaponEligibilityFailure.RequirementsNotMet;
     }
 
     private bool TryConfigureStrategy(AttackConfig attackConfig, out MonoBehaviour attackSource)
@@ -911,6 +1040,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
         _character = _characterSource as ICharacter;
         _character ??= GetComponent<ICharacter>();
         _raidOriginState ??= GetComponent<PlayerRaidLootOriginState>();
+        _participantLink ??= GetComponent<RaidAvatarParticipantLink>();
     }
 
     /// <summary>Dependencies every Equipment operation needs, weapons and armor alike.</summary>

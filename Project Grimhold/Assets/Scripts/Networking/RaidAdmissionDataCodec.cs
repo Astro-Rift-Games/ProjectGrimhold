@@ -9,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 7;
+    private const byte CanonicalVersion = 8;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -40,6 +40,13 @@ public static class RaidAdmissionDataCodec
             writer.Write(data.Level);
             writer.Write(data.CurrentExperience);
             writer.Write(data.LastAppliedProgressionResultSequence);
+            writer.Write(data.CharacterAttributes.Vitality);
+            writer.Write(data.CharacterAttributes.Resistance);
+            writer.Write(data.CharacterAttributes.Strength);
+            writer.Write(data.CharacterAttributes.Dexterity);
+            writer.Write(data.CharacterAttributes.Intelligence);
+            writer.Write(data.CharacterAttributes.Luck);
+            writer.Write(data.CharacterAttributes.AvailablePoints);
 
             writer.Write((byte)data.ReservedLoadout.Count);
             for (int index = 0; index < data.ReservedLoadout.Count; index++)
@@ -107,6 +114,18 @@ public static class RaidAdmissionDataCodec
             int level = reader.ReadInt32();
             long currentExperience = reader.ReadInt64();
             int lastAppliedProgressionResultSequence = reader.ReadInt32();
+            if (!CharacterAttributeState.TryCreate(
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    reader.ReadInt32(),
+                    out CharacterAttributeState characterAttributes))
+            {
+                return false;
+            }
 
             int entryCount = reader.ReadByte();
             if (entryCount > RaidLoadoutRules.MaximumEntries)
@@ -142,6 +161,7 @@ public static class RaidAdmissionDataCodec
                 new ProfileId(profileId),
                 reservationId,
                 entries,
+                characterAttributes,
                 indices,
                 level,
                 currentExperience,

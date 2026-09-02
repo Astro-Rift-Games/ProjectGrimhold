@@ -142,6 +142,7 @@ namespace Tests.EditMode.Equipment
             Assert.That((int)EquipmentOperationResult.EmptySlot, Is.EqualTo(9));
             Assert.That((int)EquipmentOperationResult.InventoryFull, Is.EqualTo(10));
             Assert.That((int)EquipmentOperationResult.SlotOccupied, Is.EqualTo(11));
+            Assert.That((int)EquipmentOperationResult.AttributeRequirementsNotMet, Is.EqualTo(12));
         }
     }
 }

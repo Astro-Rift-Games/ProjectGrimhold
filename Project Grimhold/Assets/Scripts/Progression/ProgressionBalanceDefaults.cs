@@ -9,9 +9,18 @@ public static class ProgressionBalanceDefaults
     public const int InitialAvailableAttributePoints = 10;
     public const int InitialAttributePointsPerLevel = 1;
     public const int InitialMaximumAttributeValue = 25;
+    public const int InitialBaseMaximumHealth = 75;
+    public const int InitialMaximumHealthPerVitality = 5;
+    public const int InitialBaseMaximumStamina = 75;
+    public const int InitialMaximumStaminaPerResistance = 5;
+    public const int InitialAdditionalLootChanceBasisPointsPerLuck = 100;
+    public const int InitialMaximumAdditionalLootChanceBasisPoints = 2_500;
 
     public static CharacterAttributeState InitialCharacterAttributeState { get; } =
         CreateInitialCharacterAttributeState();
+
+    public static CharacterDerivedStatisticsConfiguration InitialCharacterDerivedStatisticsConfiguration { get; } =
+        CreateInitialCharacterDerivedStatisticsConfiguration();
 
     public static ExperienceCurve InitialExperienceCurve { get; } = CreateInitialExperienceCurve();
 
@@ -34,6 +43,23 @@ public static class ProgressionBalanceDefaults
         }
 
         return state;
+    }
+
+    private static CharacterDerivedStatisticsConfiguration CreateInitialCharacterDerivedStatisticsConfiguration()
+    {
+        if (!CharacterDerivedStatisticsConfiguration.TryCreate(
+                InitialBaseMaximumHealth,
+                InitialMaximumHealthPerVitality,
+                InitialBaseMaximumStamina,
+                InitialMaximumStaminaPerResistance,
+                InitialAdditionalLootChanceBasisPointsPerLuck,
+                InitialMaximumAdditionalLootChanceBasisPoints,
+                out CharacterDerivedStatisticsConfiguration configuration))
+        {
+            throw new InvalidOperationException("Initial character-derived-statistics balance is invalid.");
+        }
+
+        return configuration;
     }
 
     private static ExperienceCurve CreateInitialExperienceCurve()

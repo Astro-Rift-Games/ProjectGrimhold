@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: GreatswordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _attributeRequirements:
+    _minimumStrength: 10
+    _minimumDexterity: 0
+    _minimumIntelligence: 0
   _presentation:
     _stanceOffset: {x: 0, y: -0.0625}
     _gripPoint: {x: -0.125, y: 0.125}

@@ -21,10 +21,13 @@ namespace Tests.PlayMode.Equipment
     public sealed class PlayerEquipmentPlayModeTests
     {
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
+        private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string MeleeWeaponPath =
             "Assets/Scriptable Objects/Loot/Definitions/TrainingSword.asset";
         private const string RangedWeaponPath =
             "Assets/Scriptable Objects/Loot/Definitions/Wand.asset";
+        private const string GreatswordPath =
+            "Assets/Scriptable Objects/Loot/Definitions/Greatsword.asset";
 
         private NetworkRunner _runner;
         private PlayerEquipmentSimulationDriver _driver;
@@ -34,6 +37,7 @@ namespace Tests.PlayMode.Equipment
 
         private LootDefinition _meleeWeapon;
         private LootDefinition _rangedWeapon;
+        private LootDefinition _greatsword;
         private LootDefinition _helmet;
         private LootDefinition _armor;
         private LootDefinition _gloves;
@@ -224,6 +228,58 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator WeaponWithUnmetRequirements_IsRejectedByAuthorityWithoutMutation()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 5));
+
+            int inventoryBefore = _receiver.GetLootAmount(_greatsword.LootId);
+            int revisionBefore = _equipment.ObservedEquipmentRevision;
+
+            Assert.That(_equipment.CanEquip(_greatsword.LootId), Is.False);
+            Assert.That(_equipment.TryRequestEquip(_greatsword.LootId), Is.False);
+            yield return EquipThroughAuthority(
+                _greatsword,
+                EquipmentOperationResult.AttributeRequirementsNotMet);
+
+            Assert.That(_receiver.GetLootAmount(_greatsword.LootId), Is.EqualTo(inventoryBefore));
+            Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(revisionBefore));
+            Assert.That(_equipment.HasAnyEquipment, Is.False);
+            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponWithSatisfiedRequirements_CanEquipAndBecomeActive()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+
+            yield return Equip(_greatsword, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot1));
+            Assert.That(
+                _equipment.TryGetEquippedDefinition(out LootDefinition equipped),
+                Is.True);
+            Assert.That(equipped, Is.SameAs(_greatsword));
+        }
+
+        [UnityTest]
+        public IEnumerator PreparedWeaponWithUnmetRequirements_IsRejectedBeforeInventoryMutation()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 5));
+            int inventoryBefore = _receiver.GetLootAmount(_greatsword.LootId);
+            int revisionBefore = _equipment.ObservedEquipmentRevision;
+            var reserved = new[] { new LootEntry(_greatsword.LootId, inventoryBefore) };
+            var indices = new[] { 1, 0, 0, 0, 0, 0 };
+
+            Assert.That(
+                _equipment.TryInitializePreparedEquipment(reserved, indices, out string error),
+                Is.False);
+            Assert.That(error, Does.Contain("attribute requirements"));
+            Assert.That(_receiver.GetLootAmount(_greatsword.LootId), Is.EqualTo(inventoryBefore));
+            Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(revisionBefore));
+            Assert.That(_equipment.HasAnyEquipment, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator UnequipWithFullInventory_LeavesInventoryAndEquipmentUnchanged()
         {
             yield return StartRaidPlayer();
@@ -378,13 +434,16 @@ namespace Tests.PlayMode.Equipment
 
         // ---- fixture -------------------------------------------------------------------------
 
-        private IEnumerator StartRaidPlayer()
+        private IEnumerator StartRaidPlayer(CharacterAttributeState? admittedAttributes = null)
         {
             // The player prefab logs missing dependencies for systems this fixture does not host.
             LogAssert.ignoreFailingMessages = true;
             yield return StartRunner();
 
-            NetworkObject playerObject = Spawn(PlayerPrefabGuid, _runner.LocalPlayer);
+            CharacterAttributeState attributes = admittedAttributes ??
+                ProgressionBalanceDefaults.InitialCharacterAttributeState;
+            NetworkObject participantObject = SpawnParticipant(attributes);
+            NetworkObject playerObject = SpawnPlayer(participantObject);
             _equipment = playerObject.GetComponent<PlayerWeaponEquipmentNetworkController>();
             _receiver = playerObject.GetComponent<PlayerLootReceiver>();
             _combat = playerObject.GetComponent<PlayerCombatNetworkController>();
@@ -402,6 +461,7 @@ namespace Tests.PlayMode.Equipment
             {
                 new LootEntry(_meleeWeapon.LootId, 2),
                 new LootEntry(_rangedWeapon.LootId, 1),
+                new LootEntry(_greatsword.LootId, 1),
                 new LootEntry(_helmet.LootId, 2),
                 new LootEntry(_armor.LootId, 1),
                 new LootEntry(_gloves.LootId, 1),
@@ -414,8 +474,10 @@ namespace Tests.PlayMode.Equipment
         {
             _meleeWeapon = AssetDatabase.LoadAssetAtPath<LootDefinition>(MeleeWeaponPath);
             _rangedWeapon = AssetDatabase.LoadAssetAtPath<LootDefinition>(RangedWeaponPath);
+            _greatsword = AssetDatabase.LoadAssetAtPath<LootDefinition>(GreatswordPath);
             Assert.That(_meleeWeapon, Is.Not.Null, MeleeWeaponPath);
             Assert.That(_rangedWeapon, Is.Not.Null, RangedWeaponPath);
+            Assert.That(_greatsword, Is.Not.Null, GreatswordPath);
 
             _helmet = EquipmentTestContent.CreateArmorDefinition("test_helmet", LootCategory.Helmet);
             _armor = EquipmentTestContent.CreateArmorDefinition("test_armor", LootCategory.Armor);
@@ -424,7 +486,57 @@ namespace Tests.PlayMode.Equipment
             _trinket = EquipmentTestContent.CreateNonEquippableDefinition("test_trinket");
 
             _catalog = EquipmentTestContent.CreateCatalog(
-                _meleeWeapon, _rangedWeapon, _helmet, _armor, _gloves, _boots, _trinket);
+                _meleeWeapon, _rangedWeapon, _greatsword,
+                _helmet, _armor, _gloves, _boots, _trinket);
+        }
+
+        private NetworkObject SpawnParticipant(CharacterAttributeState attributes)
+        {
+            RaidParticipantId.TryCreate(1, out RaidParticipantId participantId);
+            NetworkObject prefab = LoadPrefab(ParticipantPrefabGuid);
+            return _runner.Spawn(
+                prefab,
+                Vector3.zero,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        "equipment-test-profile",
+                        participantId,
+                        attributes,
+                        ExperienceCurve.InitialLevel,
+                        0,
+                        "equipment-test-generation"));
+        }
+
+        private NetworkObject SpawnPlayer(NetworkObject participantObject)
+        {
+            NetworkObject prefab = LoadPrefab(PlayerPrefabGuid);
+            return _runner.Spawn(
+                prefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
+        }
+
+        private NetworkObject LoadPrefab(string prefabGuid)
+        {
+            NetworkPrefabId prefabId =
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(prefabGuid));
+            NetworkObject prefab = _runner.Config.PrefabTable.Load(prefabId, true);
+            Assert.That(prefab, Is.Not.Null, prefabGuid);
+            return prefab;
+        }
+
+        private static CharacterAttributeState CreateAttributes(int strength)
+        {
+            Assert.That(
+                CharacterAttributeState.TryCreate(
+                    5, 5, strength, 5, 5, 5, 0, out CharacterAttributeState attributes),
+                Is.True);
+            return attributes;
         }
 
         private IEnumerator StartRunner()
