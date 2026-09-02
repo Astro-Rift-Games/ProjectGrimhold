@@ -326,6 +326,21 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         if (ShouldAcknowledgeProgressionCommit(result))
         {
             TrySendProgressionCommitAcknowledgement(resolution, application);
+
+            if (_localStashContext.Store.TryGetCharacterAttributeState(out var attributeState))
+            {
+                var backendRequest = new Grimhold.Backend.CommitProgressionRequest
+                {
+                    raidId                 = receipt.RaidId,
+                    resultSequence         = receipt.ResultSequence,
+                    consolidatedExperience = receipt.ConsolidatedExperience,
+                    resultingLevel         = receipt.ResultingLevel,
+                    newLevel               = application.Result.ResultingLevel,
+                    newExperience          = application.Result.ResultingExperience,
+                    characterAttributes    = ToAttributesDto(attributeState)
+                };
+                _ = CommitProgressionToBackendAsync(backendRequest);
+            }
         }
     }
 
@@ -343,6 +358,53 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 $"ProfileId={ProfileId}; RaidGenerationId={RaidGenerationId}; " +
                 $"ResultSequence={ResultSequence}.",
                 this);
+        }
+    }
+
+    private Grimhold.Backend.CharacterAttributesData ToAttributesDto(CharacterAttributeState state)
+    {
+        state.TryGetValue(CharacterAttribute.Vitality, out int vit);
+        state.TryGetValue(CharacterAttribute.Resistance, out int res);
+        state.TryGetValue(CharacterAttribute.Strength, out int str);
+        state.TryGetValue(CharacterAttribute.Dexterity, out int dex);
+        state.TryGetValue(CharacterAttribute.Intelligence, out int intel);
+        state.TryGetValue(CharacterAttribute.Luck, out int luck);
+
+        return new Grimhold.Backend.CharacterAttributesData
+        {
+            vitality = vit,
+            resistance = res,
+            strength = str,
+            dexterity = dex,
+            intelligence = intel,
+            luck = luck,
+            availablePoints = state.AvailablePoints
+        };
+    }
+
+    private async System.Threading.Tasks.Task CommitProgressionToBackendAsync(
+        Grimhold.Backend.CommitProgressionRequest request)
+    {
+        var authContext = ApplicationAuthContext.Instance;
+        if (authContext == null || string.IsNullOrEmpty(authContext.Token))
+        {
+            Debug.LogError($"[{nameof(NetworkRaidParticipant)}] Cannot commit progression to backend: not authenticated.");
+            return;
+        }
+
+        var config = Resources.Load<Grimhold.Backend.BackendConfiguration>("BackendConfiguration");
+        if (config == null)
+        {
+            config = ScriptableObject.CreateInstance<Grimhold.Backend.BackendConfiguration>();
+            Debug.LogWarning($"[{nameof(NetworkRaidParticipant)}] BackendConfiguration missing from Resources. Using defaults.");
+        }
+
+        var (success, result, error) = await Grimhold.Backend.ProgressionClient.CommitProgressionAsync(
+            config, authContext.Token, request);
+
+        if (!success)
+        {
+            Debug.LogError($"[{nameof(NetworkRaidParticipant)}] Backend progression commit failed: {error.message}");
         }
     }
 
