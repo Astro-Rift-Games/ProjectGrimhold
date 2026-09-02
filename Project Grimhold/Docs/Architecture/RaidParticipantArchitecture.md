@@ -11,6 +11,14 @@ Each participant also replicates the `RaidGenerationId` assigned by
 `NetworkMatchController`; it is an identity marker only and does not duplicate
 inventory, extraction or lifecycle state.
 
+Each fresh participation also freezes the confirmed `CharacterAttributeState` supplied by the
+current profile source. The flow is `profile source -> participation admission/initialization ->
+NetworkRaidParticipant -> gameplay consumers`. State Authority writes the seven values and then
+publishes the initialization marker; the public try-pattern read therefore never exposes a partial
+snapshot. `NetworkRaidParticipant` remains the only source of truth for these attributes during
+the participation. `RaidAvatarParticipantLink` delegates reads to it and owns no attribute copy.
+Redistribution, profile validation and persistence remain outside the Raid runtime boundary.
+
 The PlayerObject co-locates one `PlayerExpeditionExperienceLedger` that owns the
 participant's provisional Expedition Experience independently from the avatar. Its
 authority, lifecycle and producer-idempotency boundary are
@@ -96,6 +104,9 @@ avatar, so its restored body remains without player control.
 `CopyStateFrom` restores the ledger accumulators/freeze/producer marker, extraction phase and
 candidate, and resolver baseline/history with the participant. None is reinitialized or requires a
 NetworkId remap.
+
+The participant's networked character-attribute snapshot and its initialization marker are restored
+by the same Fusion state copy. Host Migration never reloads or replaces them from persistence.
 
 ## Follow-up dependencies
 

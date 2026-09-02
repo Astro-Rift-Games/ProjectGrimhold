@@ -189,6 +189,7 @@ namespace Tests.EditMode.Equipment
                     code,
                     new ProfileId("45454545454545454545454545454545"),
                     reservation,
+                    ProgressionBalanceDefaults.InitialCharacterAttributeState,
                     ExperienceCurve.InitialLevel,
                     0,
                     0,

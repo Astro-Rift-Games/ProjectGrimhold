@@ -123,6 +123,7 @@ namespace Tests.PlayMode.Loot
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         "unrecovered-defeated-profile",
                         CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel,
                         0,
                         "hm-recovery-generation"));

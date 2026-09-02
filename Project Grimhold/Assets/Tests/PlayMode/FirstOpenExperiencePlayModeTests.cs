@@ -276,6 +276,7 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         profileId,
                         CreateParticipantId(position.x < 0f ? 1 : 2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel,
                         0,
                         "task-132-generation"));

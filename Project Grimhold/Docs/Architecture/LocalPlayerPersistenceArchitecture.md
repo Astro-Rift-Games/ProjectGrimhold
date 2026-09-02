@@ -103,6 +103,13 @@ Fusion may carry `ProfileId` and session snapshots for the active runner, but it
 own the local stash or loadout. A raid Host never reads another client's local aggregate.
 `PlayerRef` is not a gameplay-persistence identity.
 
+The confirmed `CharacterAttributeState` crosses the participation-admission boundary once when
+the player starts an expedition. State Authority initializes the corresponding
+`NetworkRaidParticipant`, which then owns the frozen, replicated snapshot for that participation.
+Raid consumers read that participant snapshot through its read-only contract; they do not query
+the application profile, UI or persistence implementation again. The admission transport does not
+default, clamp or normalize the state supplied by the current profile source.
+
 ### Expedition preparation boundary
 
 `TryPrepareExpeditionEquipment` runs immediately before the reservation boundary and is the only

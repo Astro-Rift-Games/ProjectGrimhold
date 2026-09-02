@@ -180,6 +180,7 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         "replacement-profile",
                         CreateParticipantId(16),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel,
                         0,
                         "replacement-generation"));
@@ -232,6 +233,7 @@ namespace Tests.PlayMode.Progression
                     instance.GetComponent<NetworkRaidParticipant>().Initialize(
                         profileId,
                         CreateParticipantId(position.x < 0f ? 1 : 2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel,
                         0,
                         "task-130-generation"));

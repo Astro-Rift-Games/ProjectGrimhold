@@ -232,6 +232,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("host-profile", CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -254,6 +255,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("client-profile", CreateParticipantId(2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -328,6 +330,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("local-profile", CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(
@@ -360,6 +363,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
                     .Initialize("remote-profile", CreateParticipantId(2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
             LogAssert.Expect(

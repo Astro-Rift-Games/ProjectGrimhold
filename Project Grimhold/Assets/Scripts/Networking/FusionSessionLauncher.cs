@@ -124,10 +124,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             if (profileContext?.Store == null ||
                 profileContext.Store.ProfileId != profileId ||
                 !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
+                !profileContext.Store.TryGetCharacterAttributeState(
+                    out CharacterAttributeState characterAttributes) ||
                 !RaidAdmissionData.TryCreate(
                     launchContext.RaidCode,
                     profileId,
                     loadoutReservation,
+                    characterAttributes,
                     profileContext.Store.GetLevel(),
                     profileContext.Store.GetCurrentExperience(),
                     profileContext.Store.GetLastAppliedProgressionResultSequence(),

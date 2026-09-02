@@ -36,6 +36,14 @@ public sealed class RaidAvatarParticipantLink : NetworkBehaviour, IInputAuthorit
             participantObject != null && participantObject.TryGetBehaviour(out participant);
     }
 
+    /// <summary>Reads the current participation's frozen character-attribute snapshot.</summary>
+    public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
+    {
+        state = default;
+        return TryResolveParticipant(out NetworkRaidParticipant participant) &&
+            participant.TryGetCharacterAttributeState(out state);
+    }
+
     public void InputAuthorityGained()
     {
         Runner?.GetComponent<NetworkSpawnManager>()?
