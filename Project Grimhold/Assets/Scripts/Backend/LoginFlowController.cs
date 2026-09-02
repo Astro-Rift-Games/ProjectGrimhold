@@ -159,7 +159,19 @@ public sealed class LoginFlowController : MonoBehaviour
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
         }
 
-        // Step 4: Inject identity into local systems
+        // Step 4: Fetch inventory snapshot
+        InventoryData? inventoryData = null;
+        var (invOk, invData, _) = await InventoryClient.GetInventoryAsync(_config, token);
+        if (invOk)
+        {
+            inventoryData = invData;
+        }
+        else
+        {
+            Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
+        }
+
+        // Step 5: Inject identity into local systems
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
 
@@ -168,8 +180,8 @@ public sealed class LoginFlowController : MonoBehaviour
             _authContext.Initialize(token, charData, profileData);
         }
 
-        // Step 5: Initialize the stash with the now-valid ProfileId
-        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId);
+        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated inventory
+        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData);
 
         return LoginFlowResult.Success();
     }

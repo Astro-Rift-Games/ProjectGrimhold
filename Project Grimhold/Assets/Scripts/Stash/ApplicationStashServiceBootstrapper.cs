@@ -1,4 +1,5 @@
 using UnityEngine;
+using Grimhold.Backend;
 
 /// <summary>
 /// Creates one process-local stash context that survives scene and NetworkRunner transitions.
@@ -60,7 +61,7 @@ public static class ApplicationStashServiceBootstrapper
     /// Initializes the stash store for the given profile. Called by LoginFlowController
     /// after a successful login. Safe to call only once per profile per session.
     /// </summary>
-    public static void InitializeWithProfile(ProfileId profileId)
+    public static void InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null)
     {
         if (!profileId.IsValid)
         {
@@ -86,10 +87,10 @@ public static class ApplicationStashServiceBootstrapper
             return;
         }
 
-        InitializeStore(profileId);
+        InitializeStore(profileId, inventoryData);
     }
 
-    private static void InitializeStore(ProfileId profileId)
+    private static void InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null)
     {
         var contextObject = _context.gameObject;
 
@@ -98,6 +99,11 @@ public static class ApplicationStashServiceBootstrapper
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] In-memory profile unavailable: {repository.LastError}");
             return;
+        }
+
+        if (inventoryData.HasValue)
+        {
+            HydrateSnapshot(repository.Snapshot, inventoryData.Value, _configuration.LootCatalog);
         }
 
         var store = new LocalProfileStore(
@@ -110,12 +116,31 @@ public static class ApplicationStashServiceBootstrapper
         {
             Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
             store.TryRollbackLoadoutReservation(store.PendingReservation.ReservationId);
+            
+            // At this point we haven't created the RemoteInventoryService component yet.
+            // But we can just use the client directly since we have the auth token in context
+            var authToken = ApplicationAuthContext.Instance?.Token;
+            if (!string.IsNullOrEmpty(authToken) && _configuration != null)
+            {
+                // In a real app we'd probably get the backend config properly, but let's just 
+                // load it directly since it's a ScriptableObject
+                var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
+                if (backendConfig != null)
+                {
+                    _ = InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+                }
+            }
         }
 
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
         var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
         var shopTransactionService = contextObject.AddComponent<LocalShopTransactionService>();
+        
+        // Add RemoteInventoryService to handle backend operations
+        var remoteInventoryService = contextObject.AddComponent<RemoteInventoryService>();
+        remoteInventoryService.Initialize(_configuration, store);
+
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
@@ -124,5 +149,67 @@ public static class ApplicationStashServiceBootstrapper
 
         _initializedProfileId = profileId;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
+    }
+
+    private static void HydrateSnapshot(LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData data, LootDefinitionCatalog catalog)
+    {
+        if (data.stash != null)
+        {
+            foreach (var item in data.stash)
+            {
+                if (catalog.TryGet(item.lootId, out _))
+                {
+                    snapshot.Stash.Add(new StashItem(new LootId(item.lootId), item.amount));
+                }
+            }
+        }
+
+        if (data.loadout != null)
+        {
+            foreach (var item in data.loadout)
+            {
+                if (catalog.TryGet(item.lootId, out _))
+                {
+                    snapshot.Loadout.Add(new StashItem(new LootId(item.lootId), item.amount));
+                }
+            }
+        }
+
+        var eq = data.preparedEquipment;
+        snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+            string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
+            string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
+            string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
+            string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
+            string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
+            string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
+        );
+
+        if (data.pendingReservation.reservationId != null)
+        {
+            var res = data.pendingReservation;
+            var resItems = new System.Collections.Generic.List<StashItem>();
+            if (res.items != null)
+            {
+                foreach (var item in res.items)
+                {
+                    if (catalog.TryGet(item.lootId, out _))
+                    {
+                        resItems.Add(new StashItem(new LootId(item.lootId), item.amount));
+                    }
+                }
+            }
+            var resEq = res.preparedEquipment;
+            var preparedResEq = new PreparedEquipmentLoadout(
+                string.IsNullOrEmpty(resEq.weaponSlot1) ? default : new LootId(resEq.weaponSlot1),
+                string.IsNullOrEmpty(resEq.weaponSlot2) ? default : new LootId(resEq.weaponSlot2),
+                string.IsNullOrEmpty(resEq.helmet) ? default : new LootId(resEq.helmet),
+                string.IsNullOrEmpty(resEq.armor) ? default : new LootId(resEq.armor),
+                string.IsNullOrEmpty(resEq.gloves) ? default : new LootId(resEq.gloves),
+                string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots)
+            );
+
+            snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
+        }
     }
 }

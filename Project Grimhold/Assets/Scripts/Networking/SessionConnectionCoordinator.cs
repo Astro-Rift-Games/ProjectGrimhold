@@ -138,6 +138,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 RaidLaunchPreparationResult.Rejected);
         }
 
+        var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+        if (remoteInventoryService != null)
+        {
+            _ = remoteInventoryService.SavePendingReservationAsync(reservation);
+        }
+
         RaidConnectionRole role = launchContext.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
@@ -977,6 +983,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         StashOperationResult result = stashContext.LoadoutService.TryRollbackLoadoutReservation(
             localProfile,
             _activeTicket.Value.LoadoutReservation.ReservationId);
+            
+        if (result == StashOperationResult.Success)
+        {
+            var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+            if (remoteInventoryService != null)
+            {
+                _ = remoteInventoryService.ClearPendingReservationAsync();
+            }
+        }
+
         return result == StashOperationResult.Success;
     }
 
@@ -1072,6 +1088,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _activeTicket.Value.LoadoutReservation.ReservationId);
         if (result == StashOperationResult.Success)
         {
+            var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+            if (remoteInventoryService != null)
+            {
+                _ = remoteInventoryService.ClearPendingReservationAsync();
+            }
             _loadoutConfirmationPending = false;
             return true;
         }

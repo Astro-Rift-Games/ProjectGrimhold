@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -12,6 +13,7 @@ public class LobbyStashPresenter : MonoBehaviour
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
     private IPlayerStashService _stashService;
     private IPlayerLoadoutService _loadoutService;
+    private RemoteInventoryService _remoteInventoryService;
     private ApplicationStashContext _context;
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
@@ -34,6 +36,7 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _stashService = _context.StashService;
             _loadoutService = _context.LoadoutService;
+            _remoteInventoryService = _context.GetComponent<RemoteInventoryService>();
             _context.ProfileCommitted += OnProfileCommitted;
             RefreshUI();
         }
@@ -58,31 +61,81 @@ public class LobbyStashPresenter : MonoBehaviour
         _context = null;
     }
 
-    private void OnTakeAllRequested()
+    private async void OnTakeAllRequested()
     {
-        if (_loadoutService == null) return;
+        if (_loadoutService == null || _remoteInventoryService == null) return;
+        
+        var stashItems = _stashService.GetStash(_localProfileId).ToList();
+        foreach (var item in stashItems)
+        {
+            var (success, error) = await _remoteInventoryService.MoveToLoadoutAsync(item.LootId, item.Amount);
+            if (!success)
+            {
+                Debug.LogWarning($"[LobbyStashPresenter] Remote Take All failed for {item.LootId.Value}: {error.message}");
+                return;
+            }
+        }
+
         var result = _loadoutService.TryTransferAllToLoadout(_localProfileId);
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Take All failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Take All failed locally: {result}");
         }
     }
 
-    private void OnLeaveAllRequested()
+    private async void OnLeaveAllRequested()
     {
-        if (_loadoutService == null) return;
+        if (_loadoutService == null || _remoteInventoryService == null) return;
+
+        var loadoutItems = _loadoutService.GetLoadout(_localProfileId).ToList();
+        foreach (var item in loadoutItems)
+        {
+            var (success, error) = await _remoteInventoryService.MoveToStashAsync(item.LootId, item.Amount);
+            if (!success)
+            {
+                Debug.LogWarning($"[LobbyStashPresenter] Remote Leave All failed for {item.LootId.Value}: {error.message}");
+                return;
+            }
+        }
+
         var result = _loadoutService.TryTransferAllToStash(_localProfileId);
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Leave All failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Leave All failed locally: {result}");
         }
     }
 
-    private void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode)
+    private async void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode)
     {
-        if (_loadoutService == null) return;
+        if (_loadoutService == null || _remoteInventoryService == null) return;
 
         int amountToTransfer = mode == LootTransferQuantityMode.FullStack ? int.MaxValue : 1;
+
+        if (amountToTransfer == int.MaxValue)
+        {
+            if (isFromStash)
+            {
+                var item = _stashService.GetStash(_localProfileId).FirstOrDefault(i => i.LootId == lootId);
+                if (item != null) amountToTransfer = item.Amount;
+            }
+            else
+            {
+                var item = _loadoutService.GetLoadout(_localProfileId).FirstOrDefault(i => i.LootId == lootId);
+                if (item != null) amountToTransfer = item.Amount;
+            }
+        }
+
+        if (amountToTransfer == int.MaxValue || amountToTransfer <= 0) return;
+
+        var (success, error) = isFromStash 
+            ? await _remoteInventoryService.MoveToLoadoutAsync(lootId, amountToTransfer)
+            : await _remoteInventoryService.MoveToStashAsync(lootId, amountToTransfer);
+
+        if (!success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Remote transfer failed: {error.message}");
+            return;
+        }
 
         StashOperationResult result;
         if (isFromStash)
@@ -96,30 +149,59 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Transfer failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Transfer failed locally: {result}");
         }
     }
 
-    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
+    private async void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
     {
-        if (_loadoutService == null) return;
+        if (_loadoutService == null || _remoteInventoryService == null) return;
+
+        // Optimistic local first so we can read the full prepared equipment layout to send it
         StashOperationResult result = _loadoutService.TryAssignPreparedEquipment(
             _localProfileId,
             slot,
             lootId);
+
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment assignment failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment assignment failed locally: {result}");
+            return;
+        }
+
+        var equipment = _loadoutService.GetPreparedEquipment(_localProfileId);
+        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(equipment);
+        
+        if (!success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment assignment failed: {error.message}");
+            // Rollback local change
+            _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
         }
     }
 
-    private void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
+    private async void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
     {
-        if (_loadoutService == null) return;
+        if (_loadoutService == null || _remoteInventoryService == null) return;
+
+        var previousEquipment = _loadoutService.GetPreparedEquipment(_localProfileId);
+        var previousLootId = previousEquipment.Get(slot);
+
         StashOperationResult result = _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
         if (result != StashOperationResult.Success)
         {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment clear failed: {result}");
+            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment clear failed locally: {result}");
+            return;
+        }
+
+        var equipment = _loadoutService.GetPreparedEquipment(_localProfileId);
+        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(equipment);
+
+        if (!success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment clear failed: {error.message}");
+            // Rollback
+            _loadoutService.TryAssignPreparedEquipment(_localProfileId, slot, previousLootId);
         }
     }
 
