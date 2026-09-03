@@ -7,6 +7,7 @@ namespace Tests.EditMode.Progression
         [TestCase(0, 0, 0, 75, 75, 0)]
         [TestCase(5, 5, 5, 100, 100, 500)]
         [TestCase(25, 25, 25, 200, 200, 2_500)]
+        [TestCase(30, 30, 30, 225, 225, 2_500)]
         public void Calculate_UsesDocumentedInitialFormulas(
             int vitality,
             int resistance,

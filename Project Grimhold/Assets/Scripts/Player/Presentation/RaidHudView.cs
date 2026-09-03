@@ -21,6 +21,12 @@ public sealed class RaidHudView : MonoBehaviour
     private Image _healthFill;
 
     [SerializeField]
+    private TMP_Text _staminaText;
+
+    [SerializeField]
+    private Image _staminaFill;
+
+    [SerializeField]
     private TMP_Text _attackText;
 
     [SerializeField]
@@ -60,6 +66,12 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Gets the health fill for presentation verification.</summary>
     public Image HealthFill => _healthFill;
 
+    /// <summary>Gets the Stamina label for presentation verification.</summary>
+    public TMP_Text StaminaText => _staminaText;
+
+    /// <summary>Gets the Stamina fill for presentation verification.</summary>
+    public Image StaminaFill => _staminaFill;
+
     /// <summary>Gets the primary-attack label for presentation verification.</summary>
     public TMP_Text AttackText => _attackText;
 
@@ -98,6 +110,25 @@ public sealed class RaidHudView : MonoBehaviour
     {
         SetText(_healthText, $"Salud: {UnavailableValue} / {UnavailableValue}");
         SetFill(_healthFill, 0f);
+    }
+
+    /// <summary>Presents current, maximum and Exhaustion state without owning gameplay state.</summary>
+    public void PresentStamina(float currentStamina, float maximumStamina, bool isExhausted)
+    {
+        float safeCurrent = IsFinite(currentStamina) ? Mathf.Max(0f, currentStamina) : 0f;
+        float safeMaximum = IsFinite(maximumStamina) ? Mathf.Max(0f, maximumStamina) : 0f;
+        string exhaustionSuffix = isExhausted ? " (Agotado)" : string.Empty;
+        SetText(
+            _staminaText,
+            $"Stamina: {safeCurrent:0} / {safeMaximum:0}{exhaustionSuffix}");
+        SetFill(_staminaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+    }
+
+    /// <summary>Restores the unavailable Stamina placeholder and empty fill.</summary>
+    public void ClearStamina()
+    {
+        SetText(_staminaText, $"Stamina: {UnavailableValue} / {UnavailableValue}");
+        SetFill(_staminaFill, 0f);
     }
 
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
@@ -242,6 +273,7 @@ public sealed class RaidHudView : MonoBehaviour
         }
 
         ClearHealth();
+        ClearStamina();
         ClearAttack();
         ClearInventory();
         PresentExtractionUnavailable();

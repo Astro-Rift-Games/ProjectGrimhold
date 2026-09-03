@@ -63,15 +63,32 @@ namespace Tests.EditMode.Presentation
         public void MissingDependenciesKeepEveryGameplaySectionUnavailable()
         {
             Assert.That(_view.HealthText.text, Is.EqualTo("Salud: — / —"));
+            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: — / —"));
             Assert.That(_view.AttackText.text, Is.Empty);
             Assert.That(_view.CooldownSecondsText.text, Is.Empty);
             Assert.That(_view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
             Assert.That(_view.HealthFill.fillAmount, Is.Zero);
+            Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
             Assert.That(_view.CooldownFill.fillAmount, Is.Zero);
             Assert.That(_view.HealthFill.rectTransform.localScale.x, Is.Zero);
+            Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.Zero);
             Assert.That(_view.CooldownRoot.gameObject.activeSelf, Is.False);
             Assert.That(_view.DefeatedRoot.activeSelf, Is.False);
+        }
+
+        [Test]
+        public void StaminaViewPresentsNormalizedValueAndExhaustion()
+        {
+            _view.PresentStamina(25.4f, 100.4f, isExhausted: true);
+
+            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: 25 / 100 (Agotado)"));
+            Assert.That(_view.StaminaFill.fillAmount, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
+            Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
+
+            _view.PresentStamina(float.NaN, float.PositiveInfinity, isExhausted: false);
+            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: 0 / 0"));
+            Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
         }
 
         [TestCase(3.2f, "Extracción: 3,2 s")]
