@@ -197,7 +197,6 @@ public sealed class LocalProfileStore
                 return StashOperationResult.InvalidInventory;
             }
             TryRemove(next.Loadout, lootId, amount);
-            ReconcilePreparedEquipment(next);
         }
         else
         {
@@ -207,7 +206,6 @@ public sealed class LocalProfileStore
             {
                 int amountToRemove = System.Math.Min(availableInLoadout, amount);
                 TryRemove(next.Loadout, lootId, amountToRemove);
-                ReconcilePreparedEquipment(next);
             }
         }
 
@@ -256,7 +254,6 @@ public sealed class LocalProfileStore
         int actualAmount = Math.Min(amount, available);
         if (!TryRemove(next.Loadout, lootId, actualAmount) || !TryMerge(next.Stash, new[] { new StashItem(lootId, actualAmount) }))
             return StashOperationResult.InvalidInventory;
-        ReconcilePreparedEquipment(next);
         return Commit(next);
     }
 
@@ -280,7 +277,6 @@ public sealed class LocalProfileStore
         if (next.Loadout.Count == 0) return StashOperationResult.Success;
         if (!TryMerge(next.Stash, next.Loadout)) return StashOperationResult.InvalidInventory;
         next.Loadout.Clear();
-        next.PreparedEquipment = default;
         return Commit(next);
     }
 
@@ -298,10 +294,8 @@ public sealed class LocalProfileStore
     }
 
     /// <summary>
-    /// Assigns one owned unit to an Equipment slot. Prepared units must belong to the Loadout,
-    /// because the Loadout is what the raid reservation transfers. A unit that still lives in the
-    /// Stash is therefore moved into the Loadout inside the same atomic commit, so equipping from
-    /// either panel of the Stash screen produces the same aggregate.
+    /// Assigns one owned unit to an Equipment slot. The item is explicitly removed from
+    /// the Loadout (or Stash) because PreparedEquipment now exclusively owns it.
     /// </summary>
     public StashOperationResult TryAssignPreparedEquipment(EquipmentSlot slot, LootId lootId)
     {
@@ -317,6 +311,21 @@ public sealed class LocalProfileStore
         }
 
         LocalProfileSnapshot next = current.Clone();
+        
+        // Refund previous item in the slot back to Loadout
+        LootId previousLootId = next.PreparedEquipment.Get(slot);
+        if (previousLootId.IsValid)
+        {
+            if (FindIndex(next.Loadout, previousLootId) < 0 && next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
+            {
+                return StashOperationResult.PersistenceFailed; // Loadout full, can't unequip
+            }
+            if (!TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) }))
+            {
+                return StashOperationResult.PersistenceFailed;
+            }
+        }
+
         PreparedEquipmentLoadout candidate = next.PreparedEquipment.With(slot, lootId);
 
         if (EquipmentSlotRules.IsWeaponSlot(slot) &&
@@ -326,16 +335,22 @@ public sealed class LocalProfileStore
             return StashOperationResult.AttributeRequirementsNotMet;
         }
 
-        int required = PreparedEquipmentLoadout.CountReferences(candidate, lootId);
-        int missing = required - FindAmount(next.Loadout, lootId);
-        if (missing > 0 && !TryPullFromStash(next, lootId, missing))
+        // Deduct the new item from Loadout or Stash
+        if (FindAmount(next.Loadout, lootId) >= 1)
+        {
+            TryRemove(next.Loadout, lootId, 1);
+        }
+        else if (FindAmount(next.Stash, lootId) >= 1)
+        {
+            TryRemove(next.Stash, lootId, 1);
+        }
+        else
         {
             return StashOperationResult.InvalidInventory;
         }
 
         if (!PreparedEquipmentLoadout.TryValidate(
                 candidate,
-                next.Loadout,
                 _lootCatalog,
                 requireWeapon: false,
                 out _))
@@ -347,7 +362,7 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    /// <summary>Releases one Equipment slot. The unit stays in the Loadout.</summary>
+    /// <summary>Releases one Equipment slot and returns the unit to the Loadout.</summary>
     public StashOperationResult TryClearPreparedEquipment(EquipmentSlot slot)
     {
         if (!EquipmentSlotRules.IsEquipmentSlot(slot))
@@ -355,30 +370,29 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        LocalProfileSnapshot next = _repository.Snapshot.Clone();
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (!IsAvailable || current == null)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot next = current.Clone();
+        LootId previousLootId = next.PreparedEquipment.Get(slot);
+
+        if (previousLootId.IsValid)
+        {
+            if (FindIndex(next.Loadout, previousLootId) < 0 && next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
+            {
+                return StashOperationResult.PersistenceFailed; // Loadout full, can't unequip
+            }
+            if (!TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) }))
+            {
+                return StashOperationResult.PersistenceFailed;
+            }
+        }
+
         next.PreparedEquipment = next.PreparedEquipment.Without(slot);
         return Commit(next);
-    }
-
-    /// <summary>
-    /// Moves the missing units of one identity from the Stash into the Loadout. It mutates the
-    /// received candidate snapshot only, so the caller still decides whether to commit.
-    /// </summary>
-    private static bool TryPullFromStash(LocalProfileSnapshot snapshot, LootId lootId, int amount)
-    {
-        if (amount <= 0 || FindAmount(snapshot.Stash, lootId) < amount)
-        {
-            return false;
-        }
-
-        if (FindIndex(snapshot.Loadout, lootId) < 0 &&
-            snapshot.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
-        {
-            return false;
-        }
-
-        return TryRemove(snapshot.Stash, lootId, amount) &&
-            TryMerge(snapshot.Loadout, new[] { new StashItem(lootId, amount) });
     }
 
     /// <summary>
@@ -407,7 +421,6 @@ public sealed class LocalProfileStore
         // It fails explicitly instead of being overwritten or hidden behind a recovery grant.
         if (prepared.HasAnyWeapon && !PreparedEquipmentLoadout.TryValidate(
                 prepared,
-                current.Loadout,
                 _lootCatalog,
                 requireWeapon: false,
                 out _))
@@ -468,19 +481,15 @@ public sealed class LocalProfileStore
         }
 
         LocalProfileSnapshot next = current.Clone();
-        if (FindAmount(next.Loadout, _recoveryWeaponLootId) <= 0)
+        
+        // Remove from Stash or Loadout if owned, otherwise just grant it directly
+        if (FindAmount(next.Loadout, _recoveryWeaponLootId) >= 1)
         {
-            if (next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
-            {
-                return ExpeditionPreparationResult.LoadoutFull;
-            }
-
-            // Prefer a unit the profile already owns before minting the guaranteed one.
+            TryRemove(next.Loadout, _recoveryWeaponLootId, 1);
+        }
+        else if (FindAmount(next.Stash, _recoveryWeaponLootId) >= 1)
+        {
             TryRemove(next.Stash, _recoveryWeaponLootId, 1);
-            if (!TryMerge(next.Loadout, new[] { new StashItem(_recoveryWeaponLootId, 1) }))
-            {
-                return ExpeditionPreparationResult.LoadoutFull;
-            }
         }
 
         // Only the weapon slot is granted: prepared armor is untouched by the recovery guarantee.
@@ -518,7 +527,6 @@ public sealed class LocalProfileStore
 
         if (!PreparedEquipmentLoadout.TryValidate(
                 current.PreparedEquipment,
-                current.Loadout,
                 _lootCatalog,
                 requireWeapon: true,
                 out _))
@@ -571,7 +579,6 @@ public sealed class LocalProfileStore
         PreparedEquipmentLoadout restoredWeapons = next.PendingReservation.PreparedEquipment;
         if (!PreparedEquipmentLoadout.TryValidate(
                 restoredWeapons,
-                next.Loadout,
                 _lootCatalog,
                 requireWeapon: true,
                 out _))
@@ -710,46 +717,5 @@ public sealed class LocalProfileStore
         return result;
     }
 
-    /// <summary>
-    /// Drops the Equipment assignments whose units no longer belong to the Loadout. Slots are
-    /// released from the last one backwards, so a shortage always keeps the earliest assignment.
-    /// </summary>
-    private void ReconcilePreparedEquipment(LocalProfileSnapshot snapshot)
-    {
-        PreparedEquipmentLoadout current = snapshot.PreparedEquipment;
-        if (!current.HasAnyEquipment)
-        {
-            return;
-        }
 
-        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        PreparedEquipmentLoadout candidate = current;
-        for (int index = slots.Length - 1; index >= 0; index--)
-        {
-            EquipmentSlot slot = slots[index];
-            LootId lootId = candidate.Get(slot);
-            if (!lootId.IsValid)
-            {
-                continue;
-            }
-
-            if (FindAmount(snapshot.Loadout, lootId) <
-                PreparedEquipmentLoadout.CountReferences(candidate, lootId))
-            {
-                candidate = candidate.Without(slot);
-            }
-        }
-
-        if (!PreparedEquipmentLoadout.TryValidate(
-                candidate,
-                snapshot.Loadout,
-                _lootCatalog,
-                requireWeapon: false,
-                out _))
-        {
-            candidate = default;
-        }
-
-        snapshot.PreparedEquipment = candidate;
-    }
 }

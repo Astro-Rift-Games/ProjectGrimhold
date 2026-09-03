@@ -168,9 +168,10 @@ class InventoryService {
 
   /**
    * Replaces the six equipment slot assignments for the character's loadout.
-   * Each slot must either be empty or reference a lootId present in the loadout.
+   * Modifies the Loadout (and Stash if needed) by deducting newly assigned items
+   * and refunding unassigned items back to the Loadout.
    * @throws 404 if no character found.
-   * @throws 422 if any non-empty slot references an item not in the loadout.
+   * @throws 422 if a new item is not found in either the Loadout or the Stash.
    */
   static async updatePreparedEquipment(accountId, slots) {
     const character = await Character.findOne({ accountId });
@@ -180,36 +181,69 @@ class InventoryService {
 
     const slotNames = ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots'];
 
-    // Count how many times each lootId is referenced across slots.
-    const usageCount = {};
+    const oldEquipment = character.inventory.preparedEquipment || {};
+    const removedItems = [];
+    const addedItems = [];
+
+    // Find the diff
     for (const slot of slotNames) {
-      const lootId = slots[slot] || '';
-      if (!lootId) continue;
-      usageCount[lootId] = (usageCount[lootId] || 0) + 1;
-    }
-
-    for (const [lootId, count] of Object.entries(usageCount)) {
-      const ownedItem = character.inventory.loadout.find(i => i.lootId === lootId);
-      if (!ownedItem) {
-        throw {
-          statusCode: 422,
-          errorCode: 'ITEM_NOT_IN_LOADOUT',
-          message: `'${lootId}' is not present in the loadout.`
-        };
-      }
-      if (ownedItem.amount < count) {
-        throw {
-          statusCode: 422,
-          errorCode: 'INSUFFICIENT_LOADOUT_ITEMS',
-          message: `'${lootId}' occupies ${count} slot(s) but only ${ownedItem.amount} unit(s) are owned.`
-        };
+      const oldItem = oldEquipment[slot] || '';
+      const newItem = slots[slot] || '';
+      
+      if (oldItem !== newItem) {
+        if (oldItem) removedItems.push(oldItem);
+        if (newItem) addedItems.push(newItem);
       }
     }
 
+    // Refund removed items to loadout
+    for (const lootId of removedItems) {
+      const existing = character.inventory.loadout.find(i => i.lootId === lootId);
+      if (existing) {
+        existing.amount += 1;
+      } else {
+        character.inventory.loadout.push({ lootId, amount: 1 });
+      }
+    }
+
+    // Deduct added items from loadout (or stash)
+    for (const lootId of addedItems) {
+      let deducted = false;
+      const loadoutIndex = character.inventory.loadout.findIndex(i => i.lootId === lootId);
+      
+      if (loadoutIndex !== -1 && character.inventory.loadout[loadoutIndex].amount > 0) {
+        character.inventory.loadout[loadoutIndex].amount -= 1;
+        if (character.inventory.loadout[loadoutIndex].amount === 0) {
+          character.inventory.loadout.splice(loadoutIndex, 1);
+        }
+        deducted = true;
+      } else {
+        const stashIndex = character.inventory.stash.findIndex(i => i.lootId === lootId);
+        if (stashIndex !== -1 && character.inventory.stash[stashIndex].amount > 0) {
+          character.inventory.stash[stashIndex].amount -= 1;
+          if (character.inventory.stash[stashIndex].amount === 0) {
+            character.inventory.stash.splice(stashIndex, 1);
+          }
+          character.markModified('inventory.stash');
+          deducted = true;
+        }
+      }
+
+      if (!deducted) {
+        throw {
+          statusCode: 422,
+          errorCode: 'ITEM_NOT_FOUND',
+          message: `'${lootId}' is not present in the loadout or stash.`
+        };
+      }
+    }
+
+    // Apply the new equipment assignments
     for (const slot of slotNames) {
       character.inventory.preparedEquipment[slot] = slots[slot] || '';
     }
 
+    character.markModified('inventory.loadout');
     character.markModified('inventory.preparedEquipment');
     await character.save();
 

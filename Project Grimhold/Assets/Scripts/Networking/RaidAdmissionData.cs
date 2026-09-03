@@ -113,9 +113,24 @@ public readonly struct RaidAdmissionData
         var indices = new int[slots.Length];
         for (int index = 0; index < slots.Length; index++)
         {
-            indices[index] = FindEntryIndexPlusOne(
-                entries,
-                reservation.PreparedEquipment.Get(slots[index]));
+            LootId eqLootId = reservation.PreparedEquipment.Get(slots[index]);
+            if (eqLootId.IsValid)
+            {
+                int entryIndex = FindEntryIndexPlusOne(entries, eqLootId) - 1;
+                if (entryIndex >= 0)
+                {
+                    entries[entryIndex] = new LootEntry(eqLootId, entries[entryIndex].Amount + 1);
+                }
+                else
+                {
+                    entries.Add(new LootEntry(eqLootId, 1));
+                }
+                indices[index] = FindEntryIndexPlusOne(entries, eqLootId);
+            }
+            else
+            {
+                indices[index] = 0;
+            }
         }
 
         data = new RaidAdmissionData(
@@ -194,7 +209,7 @@ public readonly struct RaidAdmissionData
 /// </summary>
 public static class RaidLoadoutRules
 {
-    public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots;
+    public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots + 6; // +6 for equipment slots
     public const int MaximumAmountPerEntry = 9999;
     public const int MaximumTokenBytes = 512;
     public const int MaximumTextBytes = 64;

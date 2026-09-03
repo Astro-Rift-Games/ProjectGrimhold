@@ -241,7 +241,6 @@ public static class LocalProfileSaveCodec
             data.preparedBoots);
         if (!PreparedEquipmentLoadout.TryValidate(
                 candidate.PreparedEquipment,
-                candidate.Loadout,
                 catalog,
                 requireWeapon: false,
                 out error))
@@ -282,7 +281,6 @@ public static class LocalProfileSaveCodec
                 data.pendingReservation.preparedBoots);
             if (!PreparedEquipmentLoadout.TryValidate(
                     reservedEquipment,
-                    reservationItems,
                     catalog,
                     requireWeapon: true,
                     out error))
