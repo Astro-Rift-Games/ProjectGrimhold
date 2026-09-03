@@ -16,8 +16,18 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [SerializeField, Min(0f)]
     private float _moveSpeed = 5f;
 
+    [Header("Sprint Balance (Temporary)")]
+    [SerializeField, Min(1f)]
+    private float _sprintSpeedMultiplier = 1.5f;
+
+    [SerializeField, Min(0f)]
+    private float _sprintStaminaCostPerSecond = 10f;
+
     [SerializeField]
     private Kinematic2DMovementMotor _movementMotor;
+
+    [SerializeField]
+    private PlayerStaminaNetworkController _staminaController;
 
     private bool _dependenciesValid;
 
@@ -105,8 +115,13 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
         bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive;
 
+        bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove);
+        float effectiveSpeed = shouldSprint && CanSprint(Runner.DeltaTime)
+            ? _moveSpeed * _sprintSpeedMultiplier
+            : _moveSpeed;
+
         Vector2 displacement = canMove
-            ? moveDirection * _moveSpeed * Runner.DeltaTime
+            ? moveDirection * effectiveSpeed * Runner.DeltaTime
             : Vector2.zero;
 
         // Apply decaying knockback velocity.
@@ -175,6 +190,23 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                input.Buttons.Bits == 0;
     }
 
+    internal static bool ShouldSprint(
+        in PlayerNetworkInput input,
+        bool hasInput,
+        Vector2 moveDirection,
+        bool canMove)
+    {
+        return hasInput && canMove &&
+               moveDirection.sqrMagnitude > ValidMovementSqrThreshold &&
+               input.Buttons.IsSet(PlayerInputButton.Sprint);
+    }
+
+    private bool CanSprint(float deltaTime)
+    {
+        return _staminaController != null &&
+               _staminaController.TrySpendContinuous(_sprintStaminaCostPerSecond * deltaTime);
+    }
+
     private void CacheDependencies()
     {
         if (_movementMotor == null)
@@ -186,6 +218,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_characterBase == null)
         {
             _characterBase = GetComponent<CharacterBase>();
+        }
+
+        if (_staminaController == null)
+        {
+            _staminaController = GetComponent<PlayerStaminaNetworkController>();
         }
     }
 
@@ -208,6 +245,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private void OnValidate()
     {
         _moveSpeed = Mathf.Max(0f, _moveSpeed);
+        _sprintSpeedMultiplier = Mathf.Max(1f, _sprintSpeedMultiplier);
+        _sprintStaminaCostPerSecond = Mathf.Max(0f, _sprintStaminaCostPerSecond);
 
         if (_movementMotor == null)
         {

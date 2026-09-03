@@ -23,6 +23,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private PlayerInputActions _inputActions;
     private InputAction _weaponSlot1Action;
     private InputAction _weaponSlot2Action;
+    private InputAction _sprintAction;
     private InputAction _toggleAttributesAction;
 
     private Vector2 _moveDirection;
@@ -73,6 +74,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions = new PlayerInputActions();
         _weaponSlot1Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot1", true);
         _weaponSlot2Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot2", true);
+        _sprintAction = _inputActions.asset.FindAction("Gameplay/Sprint", true);
         _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
     }
 
@@ -94,6 +96,7 @@ public sealed class PlayerInputReader : MonoBehaviour
 
         UpdateDiscreteButtonRearm();
         ReadPrimaryAttack();
+        ReadSprint();
         ReadWeaponSelection();
     }
 
@@ -334,6 +337,13 @@ public sealed class PlayerInputReader : MonoBehaviour
         {
             _pendingButtons.Set(PlayerInputButton.WeaponSlot2, true);
         }
+    }
+
+    private void ReadSprint()
+    {
+        _buttons.Set(
+            PlayerInputButton.Sprint,
+            !IsGameplayInputSuppressed && _sprintAction.IsPressed());
     }
 
     private void AccumulateButton(

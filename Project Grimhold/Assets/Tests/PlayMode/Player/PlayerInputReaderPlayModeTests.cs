@@ -81,6 +81,23 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [Test]
+        public void Sprint_IsTransportedWhileHeldAndSuppressedWithGameplayInput()
+        {
+            SetKey(Key.LeftShift, true);
+            InvokeReaderLifecycle("Update");
+
+            Assert.That(
+                _reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Sprint),
+                Is.True);
+
+            using IDisposable suppression = _reader.AcquireGameplayInputSuppression();
+
+            Assert.That(
+                _reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Sprint),
+                Is.False);
+        }
+
+        [Test]
         public void ReleasingSuppression_RecalculatesAimWithoutNewPointerMovement()
         {
             SetMousePosition(new Vector2(250f, 180f));

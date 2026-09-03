@@ -46,6 +46,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private PlayerCharacter _playerCharacter;
 
     [SerializeField]
+    private PlayerStaminaNetworkController _staminaController;
+
+    [SerializeField]
     private PlayerCombatNetworkController _combatController;
 
     [SerializeField]
@@ -162,7 +165,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null || _consumableController == null ||
             _weaponEquipmentController == null ||
-            _playerCharacter == null || _combatController == null || _extractionController == null)
+            _playerCharacter == null || _staminaController == null ||
+            _combatController == null || _extractionController == null)
         {
             Debug.LogError($"{nameof(LocalPlayerHudBinder)} has missing HUD dependencies.", this);
             SetHudActive(false);
@@ -196,6 +200,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         _lootPresenter.Bind(_lootReceiver);
         _raidHudPresenter.Bind(
             _playerCharacter,
+            _staminaController,
             _combatController,
             _weaponEquipmentController,
             _lootReceiver,

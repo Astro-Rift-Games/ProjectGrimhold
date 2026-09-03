@@ -13,6 +13,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private RaidHudView _view;
 
     private PlayerCharacter _character;
+    private PlayerStaminaNetworkController _staminaController;
     private PlayerCombatNetworkController _combatController;
     private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
     private PlayerLootReceiver _lootReceiver;
@@ -31,6 +32,11 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private float _observedHealth;
     private float _observedMaxHealth;
     private bool _observedDefeated;
+
+    private bool _hasStaminaState;
+    private float _observedCurrentStamina;
+    private float _observedMaximumStamina;
+    private bool _observedExhausted;
 
     private bool _hasCombatState;
     private bool _observedAttackAvailable;
@@ -62,6 +68,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     /// </param>
     public void Bind(
         PlayerCharacter character,
+        PlayerStaminaNetworkController staminaController,
         PlayerCombatNetworkController combatController,
         PlayerWeaponEquipmentNetworkController weaponEquipmentController,
         PlayerLootReceiver lootReceiver,
@@ -73,6 +80,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         Unbind();
 
         _character = character;
+        _staminaController = staminaController;
         _combatController = combatController;
         _weaponEquipmentController = weaponEquipmentController;
         _lootReceiver = lootReceiver;
@@ -96,7 +104,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController)
     {
-        Bind(character, combatController, null, lootReceiver, extractionController, null, null, null);
+        Bind(character, null, combatController, null, lootReceiver, extractionController, null, null, null);
     }
 
     /// <summary>
@@ -114,6 +122,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         Bind(
             character,
+            null,
             combatController,
             null,
             lootReceiver,
@@ -129,6 +138,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     public void Unbind()
     {
         _character = null;
+        _staminaController = null;
         _combatController = null;
         _weaponEquipmentController = null;
         _lootReceiver = null;
@@ -171,6 +181,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         }
 
         RefreshHealth();
+        RefreshStamina();
         RefreshCombat();
         RefreshInventoryIfNeeded();
         RefreshExtraction();
@@ -179,6 +190,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private void RefreshAll()
     {
         RefreshHealth();
+        RefreshStamina();
         RefreshCombat();
         RefreshInventoryIfNeeded();
         RefreshExtraction();
@@ -214,6 +226,37 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedDefeated = defeated;
         _view?.PresentHealth(health, maxHealth);
         _view?.PresentDefeated(defeated);
+    }
+
+    private void RefreshStamina()
+    {
+        if (!IsSpawned(_staminaController) ||
+            !_staminaController.TryGetMaximumStamina(out float maximumStamina))
+        {
+            if (_hasStaminaState)
+            {
+                _hasStaminaState = false;
+                _view?.ClearStamina();
+            }
+
+            return;
+        }
+
+        float currentStamina = _staminaController.CurrentStamina;
+        bool isExhausted = _staminaController.IsExhausted;
+        if (_hasStaminaState &&
+            Mathf.Approximately(_observedCurrentStamina, currentStamina) &&
+            Mathf.Approximately(_observedMaximumStamina, maximumStamina) &&
+            _observedExhausted == isExhausted)
+        {
+            return;
+        }
+
+        _hasStaminaState = true;
+        _observedCurrentStamina = currentStamina;
+        _observedMaximumStamina = maximumStamina;
+        _observedExhausted = isExhausted;
+        _view?.PresentStamina(currentStamina, maximumStamina, isExhausted);
     }
 
     private void RefreshCombat()
@@ -478,6 +521,10 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedHealth = 0f;
         _observedMaxHealth = 0f;
         _observedDefeated = false;
+        _hasStaminaState = false;
+        _observedCurrentStamina = 0f;
+        _observedMaximumStamina = 0f;
+        _observedExhausted = false;
         _hasCombatState = false;
         _observedAttackAvailable = false;
         _observedCooldownDuration = 0f;
