@@ -17,6 +17,14 @@ namespace Grimhold.Backend
         public InventoryItemData[]      loadout;
         public PreparedEquipmentData    preparedEquipment;
         public PendingReservationData   pendingReservation;
+        public ExtractionReceiptData    lastAppliedExtractionReceipt;
+    }
+
+    [Serializable]
+    public struct ExtractionReceiptData
+    {
+        public string raidId;
+        public int resultSequence;
     }
 
     /// <summary>A single item slot (stash or loadout entry).</summary>
@@ -144,5 +152,32 @@ namespace Grimhold.Backend
         /// The caller should treat this as success — no retry needed.
         /// </summary>
         public bool alreadySecured;
+    }
+
+    [Serializable]
+    public struct ExtractionProgressionData
+    {
+        public long consolidatedExperience;
+        public int resultingLevel;
+    }
+
+    [Serializable]
+    public struct CommitExtractionUnifiedRequest
+    {
+        public string              raidId;
+        public int                 resultSequence;
+        public InventoryItemData[] items;
+        // Progression is optional in backend, so we pass it when XP > 0
+        public ExtractionProgressionData progression;
+    }
+
+    [Serializable]
+    public struct CommitExtractionUnifiedResult
+    {
+        public bool                  alreadySecured;
+        public InventoryItemData[]   loadout;
+        public int                   level;
+        public long                  experience;
+        public CharacterAttributesData characterAttributes;
     }
 }

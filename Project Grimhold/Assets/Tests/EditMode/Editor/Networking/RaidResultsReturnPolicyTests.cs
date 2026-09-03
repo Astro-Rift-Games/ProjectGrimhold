@@ -11,7 +11,6 @@ public sealed class RaidResultsReturnPolicyTests
                 ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
                 isExtractionProgressionComplete: true,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isCompatiblePhase: true),
             Is.False);
     }
@@ -29,7 +28,6 @@ public sealed class RaidResultsReturnPolicyTests
                 cause,
                 isExtractionProgressionComplete: true,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isCompatiblePhase: true),
             Is.True);
     }
@@ -47,7 +45,6 @@ public sealed class RaidResultsReturnPolicyTests
                 cause,
                 isExtractionProgressionComplete: state != RaidParticipantState.Extracted,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isCompatiblePhase: true),
             Is.False);
     }
@@ -100,7 +97,6 @@ public sealed class RaidResultsReturnPolicyTests
                 ExpeditionProgressionFinalizationCause.DefeatConfirmed,
                 isExtractionProgressionComplete: true,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isServer: true,
                 hasRaidingParticipants: false,
                 isMatchFinished: true),
@@ -112,7 +108,6 @@ public sealed class RaidResultsReturnPolicyTests
                 ExpeditionProgressionFinalizationCause.DefeatConfirmed,
                 isExtractionProgressionComplete: true,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isServer: true,
                 hasRaidingParticipants: false,
                 isMatchFinished: true),
@@ -128,7 +123,6 @@ public sealed class RaidResultsReturnPolicyTests
                 ExpeditionProgressionFinalizationCause.None,
                 isExtractionProgressionComplete: false,
                 hasProgressionResultSnapshot: true,
-                isProgressionCommitConfirmed: true,
                 isServer: true,
                 hasRaidingParticipants: false,
                 isMatchFinished: true),

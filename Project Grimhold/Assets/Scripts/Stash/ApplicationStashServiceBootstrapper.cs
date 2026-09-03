@@ -103,7 +103,7 @@ public static class ApplicationStashServiceBootstrapper
 
         if (inventoryData.HasValue || progressionData.HasValue)
         {
-            HydrateSnapshot(repository.Snapshot, inventoryData, progressionData, _configuration.LootCatalog);
+            HydrateSnapshot(profileId, repository.Snapshot, inventoryData, progressionData, _configuration.LootCatalog);
         }
 
         var store = new LocalProfileStore(
@@ -111,7 +111,28 @@ public static class ApplicationStashServiceBootstrapper
             profileId,
             _configuration.LootCatalog,
             _configuration.RecoveryWeaponLootId);
-        if (store.PendingReservation != null)
+        if (store.PendingExtractionCommit != null)
+        {
+            Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Retrying pending extraction commit from a previous session crash.");
+            
+            // Since we know the extraction succeeded locally, the reservation should not be rolled back.
+            // We clear it locally and retry the extraction commit to the backend.
+            if (store.PendingReservation != null)
+            {
+                store.TryConfirmLoadoutReservation(store.PendingReservation.ReservationId);
+            }
+            
+            var authToken = ApplicationAuthContext.Instance?.Token;
+            if (!string.IsNullOrEmpty(authToken) && _configuration != null)
+            {
+                var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
+                if (backendConfig != null)
+                {
+                    _ = RetryPendingExtractionAsync(store, backendConfig, authToken);
+                }
+            }
+        }
+        else if (store.PendingReservation != null)
         {
             Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
             store.TryRollbackLoadoutReservation(store.PendingReservation.ReservationId);
@@ -150,7 +171,7 @@ public static class ApplicationStashServiceBootstrapper
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
     }
 
-    private static void HydrateSnapshot(LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData? inventoryData, Grimhold.Backend.ProgressionData? progressionData, LootDefinitionCatalog catalog)
+    private static void HydrateSnapshot(ProfileId profileId, LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData? inventoryData, Grimhold.Backend.ProgressionData? progressionData, LootDefinitionCatalog catalog)
     {
         if (inventoryData.HasValue)
         {
@@ -213,6 +234,15 @@ public static class ApplicationStashServiceBootstrapper
 
             snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
         }
+
+        if (data.lastAppliedExtractionReceipt.resultSequence > 0)
+        {
+            snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt(
+                data.lastAppliedExtractionReceipt.raidId,
+                profileId,
+                data.lastAppliedExtractionReceipt.resultSequence
+            ));
+        }
         }
 
         if (progressionData.HasValue)
@@ -230,6 +260,49 @@ public static class ApplicationStashServiceBootstrapper
             {
                 snapshot.CharacterAttributes = state;
             }
+        }
+    }
+
+    private static async System.Threading.Tasks.Task RetryPendingExtractionAsync(
+        LocalProfileStore store,
+        BackendConfiguration backendConfig,
+        string authToken)
+    {
+        var commit = store.PendingExtractionCommit;
+        if (commit == null) return;
+
+        var items = new InventoryItemData[commit.Items.Count];
+        for (int i = 0; i < commit.Items.Count; i++)
+        {
+            items[i] = new InventoryItemData
+            {
+                lootId = commit.Items[i].LootId.Value,
+                amount = commit.Items[i].Amount
+            };
+        }
+
+        var request = new CommitExtractionUnifiedRequest
+        {
+            raidId = commit.Receipt.RaidId,
+            resultSequence = commit.Receipt.ResultSequence,
+            items = items,
+            progression = new ExtractionProgressionData
+            {
+                consolidatedExperience = commit.ConsolidatedExperience,
+                resultingLevel = commit.ResultingLevel
+            }
+        };
+
+        var (success, result, error) = await InventoryClient.CommitExtractionUnifiedAsync(backendConfig, authToken, request);
+
+        if (success)
+        {
+            Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Successfully recovered pending extraction commit.");
+            store.ClearPendingExtractionCommit();
+        }
+        else
+        {
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Failed to recover pending extraction commit: {error.error} - {error.message}");
         }
     }
 

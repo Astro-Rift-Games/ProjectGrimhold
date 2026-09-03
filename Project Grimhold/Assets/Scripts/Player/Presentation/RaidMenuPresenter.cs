@@ -37,9 +37,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private float _nextNoTargetRefreshAt;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionFinalizationComplete;
-    private bool _observedProgressionCommitConfirmed;
-    private bool _observedHasLocalProgressionCommitResult;
-    private ProgressionCommitResult _observedLocalProgressionCommitResult;
     private ExtractionLootSaveStatus _observedSaveStatus;
     private NetworkMatchController.MatchPhase _observedMatchPhase;
 
@@ -97,13 +94,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             : RaidParticipantState.Raiding;
         _observedExtractionFinalizationComplete = _participant != null &&
             _participant.IsExtractionProgressionComplete;
-        _observedProgressionCommitConfirmed = _participant != null &&
-            _participant.IsProgressionCommitConfirmed;
-        _observedHasLocalProgressionCommitResult = _participant != null &&
-            _participant.HasLocalProgressionCommitResult;
-        _observedLocalProgressionCommitResult = _participant != null
-            ? _participant.LocalProgressionCommitResult
-            : default;
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
@@ -141,9 +131,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _nextNoTargetRefreshAt = 0f;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionFinalizationComplete = false;
-        _observedProgressionCommitConfirmed = false;
-        _observedHasLocalProgressionCommitResult = false;
-        _observedLocalProgressionCommitResult = default;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
         _observedMatchPhase = NetworkMatchController.MatchPhase.WaitingForPlayers;
         _view?.Clear();
@@ -555,12 +542,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
         RaidParticipantState state = _participant.State;
         bool finalizationComplete = _participant.IsExtractionProgressionComplete;
-        bool progressionCommitConfirmed =
-            _participant.IsProgressionCommitConfirmed;
-        bool hasLocalProgressionCommitResult =
-            _participant.HasLocalProgressionCommitResult;
-        ProgressionCommitResult localProgressionCommitResult =
-            _participant.LocalProgressionCommitResult;
         ExtractionLootSaveStatus saveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
@@ -572,11 +553,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             hasProgressionResultSnapshot;
         bool resultChanged = state != _observedParticipantState ||
                              finalizationComplete != _observedExtractionFinalizationComplete ||
-                             progressionCommitConfirmed != _observedProgressionCommitConfirmed ||
-                             hasLocalProgressionCommitResult !=
-                                 _observedHasLocalProgressionCommitResult ||
-                             localProgressionCommitResult !=
-                                 _observedLocalProgressionCommitResult ||
                              saveStatus != _observedSaveStatus ||
                              ShouldRefreshForMatchPhase(
                                  _observedMatchPhase,
@@ -584,10 +560,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                                  HasPersistentResultScreen());
         _observedParticipantState = state;
         _observedExtractionFinalizationComplete = finalizationComplete;
-        _observedProgressionCommitConfirmed = progressionCommitConfirmed;
-        _observedHasLocalProgressionCommitResult =
-            hasLocalProgressionCommitResult;
-        _observedLocalProgressionCommitResult = localProgressionCommitResult;
         _observedSaveStatus = saveStatus;
         _observedMatchPhase = matchPhase;
 
@@ -788,7 +760,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                 _participant.FinalizationCause,
                 _participant.IsExtractionProgressionComplete,
                 _hasProgressionResultSnapshot,
-                _participant.IsProgressionCommitConfirmed,
                 isCompatibleClientPhase);
         }
 
@@ -798,7 +769,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             _participant.FinalizationCause,
             _participant.IsExtractionProgressionComplete,
             _hasProgressionResultSnapshot,
-            _participant.IsProgressionCommitConfirmed,
             isServer: true,
             hasRaidingParticipants: spawnManager == null || spawnManager.HasRaidingParticipants,
             isMatchFinished: phase == NetworkMatchController.MatchPhase.Finished);
@@ -806,7 +776,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     internal static bool CanIssueReturnRequest(
         bool hasProgressionResultSnapshot,
-        bool isProgressionCommitConfirmed,
         RaidParticipantState state,
         ExpeditionProgressionFinalizationCause finalizationCause,
         bool isExtractionProgressionComplete,
@@ -822,7 +791,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                 finalizationCause,
                 isExtractionProgressionComplete,
                 hasProgressionResultSnapshot,
-                isProgressionCommitConfirmed,
                 isServer: true,
                 hasRaidingParticipants,
                 isMatchFinished);
@@ -833,7 +801,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             finalizationCause,
             isExtractionProgressionComplete,
             hasProgressionResultSnapshot,
-            isProgressionCommitConfirmed,
             isCompatibleClientPhase);
     }
 
@@ -857,39 +824,11 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private string GetPersistenceFeedback(out bool canRetryPersistence)
     {
         canRetryPersistence = false;
-        string progressionFeedback;
-        if (_participant == null)
-        {
-            progressionFeedback = "Persistencia de progresión no disponible.";
-        }
-        else if (_participant.IsProgressionCommitConfirmed)
-        {
-            progressionFeedback = "Progreso guardado y confirmado.";
-        }
-        else if (!_participant.HasLocalProgressionCommitResult)
-        {
-            progressionFeedback = "Guardado de progresión pendiente.";
-        }
-        else
-        {
-            progressionFeedback = _participant.LocalProgressionCommitResult switch
-            {
-                ProgressionCommitResult.Success or ProgressionCommitResult.AlreadyApplied =>
-                    "Progreso guardado localmente. Esperando confirmación autoritativa.",
-                ProgressionCommitResult.PersistenceFailed =>
-                    "No se pudo guardar la progresión. Reintentando.",
-                ProgressionCommitResult.Stale =>
-                    "La progresión local está desactualizada y no pudo confirmarse.",
-                ProgressionCommitResult.Conflict =>
-                    "La progresión local presenta un conflicto y no pudo confirmarse.",
-                _ => "La progresión local no pudo confirmarse."
-            };
-        }
 
         if (_participant == null ||
             _participant.State != RaidParticipantState.Extracted)
         {
-            return progressionFeedback;
+            return string.Empty;
         }
 
         ExtractionLootSaveStatus lootStatus = _extractionLootSaver != null
@@ -911,7 +850,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         };
         canRetryPersistence =
             lootStatus == ExtractionLootSaveStatus.PersistenceFailed;
-        return $"{lootFeedback}\n{progressionFeedback}";
+        return lootFeedback;
     }
 
     private NetworkMatchController GetMatchController() => _runner != null

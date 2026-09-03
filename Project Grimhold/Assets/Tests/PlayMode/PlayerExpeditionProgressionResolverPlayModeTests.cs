@@ -136,7 +136,6 @@ namespace Tests.PlayMode.Progression
                 resolver,
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
 
-            Assert.That((bool)participant.IsProgressionCommitConfirmed, Is.False);
             Assert.That((bool)participant.IsReturnAuthorized, Is.False);
 
             int sequence = _driver.CompletionSequence;
@@ -144,7 +143,6 @@ namespace Tests.PlayMode.Progression
             yield return WaitForDriver(sequence);
 
             Assert.That(_driver.LastResult, Is.True);
-            Assert.That((bool)participant.IsProgressionCommitConfirmed, Is.True);
             Assert.That((bool)participant.IsReturnAuthorized, Is.False);
         }
 

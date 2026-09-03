@@ -133,6 +133,16 @@ namespace Grimhold.Backend
             return await PostJson<CommitExtractionRequest, CommitExtractionResult>(config, token, url, request);
         }
 
+        /// <summary>
+        /// Unified commit for extraction loot and progression to the backend.
+        /// </summary>
+        public static async Task<(bool success, CommitExtractionUnifiedResult data, BackendError error)>
+            CommitExtractionUnifiedAsync(BackendConfiguration config, string token, CommitExtractionUnifiedRequest request)
+        {
+            var url = $"{config.BaseUrl}/character/me/extraction/commit";
+            return await PostJson<CommitExtractionUnifiedRequest, CommitExtractionUnifiedResult>(config, token, url, request);
+        }
+
         // ------------------------------------------------------------------
         // Shared helpers (mirror the pattern in CharacterClient)
         // ------------------------------------------------------------------

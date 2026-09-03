@@ -155,6 +155,41 @@ public class RemoteInventoryService : MonoBehaviour
         return (success, error);
     }
 
+    public async Task<(bool success, BackendError error)> CommitExtractionUnifiedAsync(
+        ExtractionReceipt receipt,
+        System.Collections.Generic.IReadOnlyList<StashItem> items,
+        long consolidatedExperience,
+        int resultingLevel)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitExtractionUnifiedAsync: Not authenticated.");
+            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        }
+
+        var request = new CommitExtractionUnifiedRequest
+        {
+            raidId         = receipt.RaidId,
+            resultSequence = receipt.ResultSequence,
+            items          = MapToDTO(items),
+            progression    = new ExtractionProgressionData
+            {
+                consolidatedExperience = consolidatedExperience,
+                resultingLevel = resultingLevel
+            }
+        };
+
+        var (success, result, error) = await InventoryClient.CommitExtractionUnifiedAsync(_backendConfig, AuthToken, request);
+
+        if (success && result.alreadySecured)
+        {
+            Debug.Log($"[{nameof(RemoteInventoryService)}] Unified extraction already secured on backend " +
+                      $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
+        }
+
+        return (success, error);
+    }
+
     private InventoryItemData[] MapToDTO(System.Collections.Generic.IReadOnlyList<StashItem> items)
     {
         var result = new InventoryItemData[items.Count];

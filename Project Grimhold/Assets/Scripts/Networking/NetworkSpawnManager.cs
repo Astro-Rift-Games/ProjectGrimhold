@@ -174,9 +174,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 if (participantObject != null &&
                     participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                    ((participant.State == RaidParticipantState.Extracted &&
-                      !participant.IsExtractionProgressionComplete) ||
-                     participant.IsProgressionCommitPending))
+                    (participant.State == RaidParticipantState.Extracted &&
+                      !participant.IsExtractionProgressionComplete))
                 {
                     return true;
                 }
@@ -1192,9 +1191,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
 
             bool completedTerminalState =
-                (participant.State == RaidParticipantState.Extracted ||
-                 participant.State == RaidParticipantState.Aborted) &&
-                !participant.IsProgressionCommitPending;
+                participant.State == RaidParticipantState.Extracted ||
+                participant.State == RaidParticipantState.Aborted;
             bool terminal = participant.IsReturnAuthorized || completedTerminalState;
             _hostMigrationSnapshotHadRaidingParticipant |=
                 participant.State == RaidParticipantState.Raiding;
@@ -1210,8 +1208,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     _launchContext.HostProfileId,
                     participant.State,
                     participant.IsReturnAuthorized,
-                    terminalKnown: terminal,
-                    isProgressionCommitPending: participant.IsProgressionCommitPending))
+                    terminalKnown: terminal))
             {
                 _hostMigrationEligibleProfiles.Add(profileId);
                 _hostMigrationUnresolvedProfiles.Add(profileId);
@@ -1230,14 +1227,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         ProfileId oldHostProfileId,
         RaidParticipantState state,
         bool isReturnAuthorized,
-        bool terminalKnown,
-        bool isProgressionCommitPending)
+        bool terminalKnown)
     {
         return profileId.IsValid && profileId != oldHostProfileId &&
                !isReturnAuthorized && !terminalKnown &&
                (state == RaidParticipantState.Raiding ||
-                state == RaidParticipantState.Defeated ||
-                isProgressionCommitPending);
+                state == RaidParticipantState.Defeated);
     }
 
     private bool AreAllEligibleProfilesRecovered()
@@ -1400,8 +1395,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             if (!expected.TryGetBehaviour(out NetworkRaidParticipant participant) ||
                 participant.IsReturnAuthorized ||
                 (participant.State != RaidParticipantState.Raiding &&
-                 participant.State != RaidParticipantState.Defeated &&
-                 !participant.IsProgressionCommitPending))
+                 participant.State != RaidParticipantState.Defeated))
             {
                 RemoveRecoveredHostMigrationProfile(profileId, player, requeue: false);
                 _hostMigrationEligibleProfiles.Remove(profileId);
@@ -1532,8 +1526,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             if (participant.IsReturnAuthorized ||
                 (participant.State != RaidParticipantState.Raiding &&
-                 participant.State != RaidParticipantState.Defeated &&
-                 !participant.IsProgressionCommitPending))
+                 participant.State != RaidParticipantState.Defeated))
             {
                 failure = $"Recovered profile '{recovered.Key}' is terminal and cannot remain operational.";
                 return false;
@@ -3277,9 +3270,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     migrationProfileId.Value,
                     migrationParticipant.RaidGenerationId.ToString());
                 bool completedTerminalState =
-                    (migrationParticipant.State == RaidParticipantState.Extracted ||
-                     migrationParticipant.State == RaidParticipantState.Aborted) &&
-                    !migrationParticipant.IsProgressionCommitPending;
+                    migrationParticipant.State == RaidParticipantState.Extracted ||
+                    migrationParticipant.State == RaidParticipantState.Aborted;
                 terminal |= migrationParticipant.IsReturnAuthorized ||
                             completedTerminalState ||
                             _controlledReturns.IsTerminal(in key);
@@ -3346,9 +3338,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _controlledReturns.MarkTerminal(in departureKey);
-        if (participant.IsProgressionCommitPending ||
-            (participant.State == RaidParticipantState.Extracted &&
-             !participant.IsExtractionProgressionComplete))
+        if (participant.State == RaidParticipantState.Extracted &&
+             !participant.IsExtractionProgressionComplete)
         {
             if (avatarObject != null && !avatarObject.InputAuthority.IsNone)
             {

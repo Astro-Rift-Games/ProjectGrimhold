@@ -49,8 +49,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
 
-    [Networked]
-    public NetworkBool IsProgressionCommitConfirmed { get; private set; }
+
 
     [Networked]
     private int CharacterVitality { get; set; }
@@ -82,17 +81,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     public bool IsExtractionProgressionComplete =>
         ExtractionExperiencePhase == ExtractionExperienceTransactionPhase.Complete;
 
-    public bool IsProgressionCommitPending =>
-        RequiresProgressionCommitAcknowledgement() &&
-        !IsProgressionCommitConfirmed;
-
     private PlayerExpeditionProgressionResolver _progressionResolver;
     private ApplicationStashContext _localStashContext;
     private int _localProgressionResultSequence;
     private float _nextProgressionCommitRetryAt;
-
-    public bool HasLocalProgressionCommitResult { get; private set; }
-    public ProgressionCommitResult LocalProgressionCommitResult { get; private set; }
 
     /// <summary>
     /// Reads the immutable attribute snapshot admitted for this participation.
@@ -204,8 +196,6 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         ExtractedLootCandidateExperience = 0;
         FinalizationCause = ExpeditionProgressionFinalizationCause.None;
         IsReturnAuthorized = false;
-        IsProgressionCommitConfirmed = false;
-        HasLocalProgressionCommitResult = false;
         IsCharacterAttributeStateInitialized = true;
     }
 
@@ -246,7 +236,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
     public override void Render()
     {
-        if (!HasInputAuthority || IsProgressionCommitConfirmed ||
+        if (!HasInputAuthority ||
             _progressionResolver == null || ResultSequence <= 0 ||
             FinalizationCause ==
                 ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed ||
@@ -256,220 +246,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        if (_localProgressionResultSequence != ResultSequence)
-        {
-            _localProgressionResultSequence = ResultSequence;
-            HasLocalProgressionCommitResult = false;
-            _nextProgressionCommitRetryAt = 0f;
-        }
-
-        if (HasLocalProgressionCommitResult &&
-            !ShouldRetryProgressionCommit(LocalProgressionCommitResult))
-        {
-            if (ShouldAcknowledgeProgressionCommit(LocalProgressionCommitResult))
-            {
-                TrySendProgressionCommitAcknowledgement(resolution, application);
-            }
-            return;
-        }
-
-        if (Time.unscaledTime < _nextProgressionCommitRetryAt)
-        {
-            return;
-        }
-
-        _nextProgressionCommitRetryAt =
-            Time.unscaledTime + ProgressionCommitRetryIntervalSeconds;
-        TryCommitProgressionLocally(resolution, application);
+        // Legacy local progression commit has been removed.
     }
 
-    private void TryCommitProgressionLocally(
-        in ExpeditionExperienceResolution resolution,
-        in ConsolidatedExperienceApplication application)
-    {
-        if (_localStashContext == null)
-        {
-            _localStashContext = FindAnyObjectByType<ApplicationStashContext>();
-        }
-        ProfileId participantProfile;
-        try
-        {
-            participantProfile = new ProfileId(ProfileId.ToString());
-        }
-        catch (System.ArgumentException)
-        {
-            SetLocalProgressionResult(ProgressionCommitResult.Invalid);
-            return;
-        }
 
-        if (_localStashContext?.Store == null)
-        {
-            SetLocalProgressionResult(ProgressionCommitResult.PersistenceFailed);
-            return;
-        }
-
-        if (_localStashContext.Store.ProfileId != participantProfile)
-        {
-            SetLocalProgressionResult(ProgressionCommitResult.Invalid);
-            return;
-        }
-
-        var receipt = new ProgressionReceipt(
-            RaidGenerationId.ToString(),
-            participantProfile,
-            ResultSequence,
-            resolution.ConsolidatedExperience,
-            application.Result.ResultingLevel);
-        ProgressionCommitResult result =
-            _localStashContext.Store.TryCommitProgression(receipt, resolution);
-        SetLocalProgressionResult(result);
-        if (ShouldAcknowledgeProgressionCommit(result))
-        {
-            TrySendProgressionCommitAcknowledgement(resolution, application);
-
-            if (_localStashContext.Store.TryGetCharacterAttributeState(out var attributeState))
-            {
-                var backendRequest = new Grimhold.Backend.CommitProgressionRequest
-                {
-                    raidId                 = receipt.RaidId,
-                    resultSequence         = receipt.ResultSequence,
-                    consolidatedExperience = receipt.ConsolidatedExperience,
-                    resultingLevel         = receipt.ResultingLevel,
-                    newLevel               = application.Result.ResultingLevel,
-                    newExperience          = application.Result.ResultingExperience,
-                    characterAttributes    = ToAttributesDto(attributeState)
-                };
-                _ = CommitProgressionToBackendAsync(backendRequest);
-            }
-        }
-    }
-
-    private void SetLocalProgressionResult(ProgressionCommitResult result)
-    {
-        bool changed = !HasLocalProgressionCommitResult ||
-            LocalProgressionCommitResult != result;
-        HasLocalProgressionCommitResult = true;
-        LocalProgressionCommitResult = result;
-        if (changed && result != ProgressionCommitResult.Success &&
-            result != ProgressionCommitResult.AlreadyApplied)
-        {
-            Debug.LogError(
-                $"[{nameof(NetworkRaidParticipant)}] Local progression commit ended with {result}. " +
-                $"ProfileId={ProfileId}; RaidGenerationId={RaidGenerationId}; " +
-                $"ResultSequence={ResultSequence}.",
-                this);
-        }
-    }
-
-    private Grimhold.Backend.CharacterAttributesData ToAttributesDto(CharacterAttributeState state)
-    {
-        state.TryGetValue(CharacterAttribute.Vitality, out int vit);
-        state.TryGetValue(CharacterAttribute.Resistance, out int res);
-        state.TryGetValue(CharacterAttribute.Strength, out int str);
-        state.TryGetValue(CharacterAttribute.Dexterity, out int dex);
-        state.TryGetValue(CharacterAttribute.Intelligence, out int intel);
-        state.TryGetValue(CharacterAttribute.Luck, out int luck);
-
-        return new Grimhold.Backend.CharacterAttributesData
-        {
-            vitality = vit,
-            resistance = res,
-            strength = str,
-            dexterity = dex,
-            intelligence = intel,
-            luck = luck,
-            availablePoints = state.AvailablePoints
-        };
-    }
-
-    private async System.Threading.Tasks.Task CommitProgressionToBackendAsync(
-        Grimhold.Backend.CommitProgressionRequest request)
-    {
-        var authContext = ApplicationAuthContext.Instance;
-        if (authContext == null || string.IsNullOrEmpty(authContext.Token))
-        {
-            Debug.LogError($"[{nameof(NetworkRaidParticipant)}] Cannot commit progression to backend: not authenticated.");
-            return;
-        }
-
-        var config = Resources.Load<Grimhold.Backend.BackendConfiguration>("BackendConfiguration");
-        if (config == null)
-        {
-            config = ScriptableObject.CreateInstance<Grimhold.Backend.BackendConfiguration>();
-            Debug.LogWarning($"[{nameof(NetworkRaidParticipant)}] BackendConfiguration missing from Resources. Using defaults.");
-        }
-
-        var (success, result, error) = await Grimhold.Backend.ProgressionClient.CommitProgressionAsync(
-            config, authContext.Token, request);
-
-        if (!success)
-        {
-            Debug.LogError($"[{nameof(NetworkRaidParticipant)}] Backend progression commit failed: {error.message}");
-        }
-    }
-
-    private void TrySendProgressionCommitAcknowledgement(
-        in ExpeditionExperienceResolution resolution,
-        in ConsolidatedExperienceApplication application)
-    {
-        if (Time.unscaledTime < _nextProgressionCommitRetryAt)
-        {
-            return;
-        }
-
-        _nextProgressionCommitRetryAt =
-            Time.unscaledTime + ProgressionCommitRetryIntervalSeconds;
-        RPC_AcknowledgeProgressionCommit(
-            ProfileId.ToString(),
-            RaidGenerationId.ToString(),
-            ResultSequence,
-            resolution.ConsolidatedExperience,
-            application.Result.ResultingLevel);
-    }
-
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    private void RPC_AcknowledgeProgressionCommit(
-        string profileId,
-        string raidGenerationId,
-        int resultSequence,
-        long consolidatedExperience,
-        int resultingLevel)
-    {
-        TryConfirmProgressionCommit(
-            profileId,
-            raidGenerationId,
-            resultSequence,
-            consolidatedExperience,
-            resultingLevel);
-    }
-
-    internal bool TryConfirmProgressionCommit(
-        string profileId,
-        string raidGenerationId,
-        int resultSequence,
-        long consolidatedExperience,
-        int resultingLevel)
-    {
-        if (!HasStateAuthority || IsProgressionCommitConfirmed ||
-            FinalizationCause ==
-                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed ||
-            !string.Equals(profileId, ProfileId.ToString(), System.StringComparison.Ordinal) ||
-            !string.Equals(raidGenerationId, RaidGenerationId.ToString(), System.StringComparison.Ordinal) ||
-            resultSequence != ResultSequence ||
-            _progressionResolver == null ||
-            !_progressionResolver.TryGetResolution(out ExpeditionExperienceResolution resolution) ||
-            !_progressionResolver.TryGetApplication(out ConsolidatedExperienceApplication application) ||
-            resolution.ConsolidatedExperience != consolidatedExperience ||
-            application.Result.ResultingLevel != resultingLevel)
-        {
-            return false;
-        }
-
-        // A durable ACK confirms persistence only. Return remains a separate,
-        // explicitly requested State Authority transition.
-        IsProgressionCommitConfirmed = true;
-        return true;
-    }
 
     /// <summary>
     /// Associates the only controllable avatar with this participant.
@@ -777,7 +557,6 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 FinalizationCause,
                 IsExtractionProgressionComplete,
                 hasProgressionResultSnapshot,
-                IsProgressionCommitConfirmed,
                 spawnManager.IsResultsReturnPhaseCompatible))
         {
             return;
@@ -869,20 +648,4 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         IsReturnAuthorized = authorizeReturn;
         return true;
     }
-
-    private bool RequiresProgressionCommitAcknowledgement() =>
-        State == RaidParticipantState.Extracted ||
-        State == RaidParticipantState.Defeated ||
-        (State == RaidParticipantState.Aborted &&
-         FinalizationCause ==
-            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
-
-    internal static bool ShouldAcknowledgeProgressionCommit(
-        ProgressionCommitResult result) =>
-        result == ProgressionCommitResult.Success ||
-        result == ProgressionCommitResult.AlreadyApplied;
-
-    internal static bool ShouldRetryProgressionCommit(
-        ProgressionCommitResult result) =>
-        result == ProgressionCommitResult.PersistenceFailed;
 }

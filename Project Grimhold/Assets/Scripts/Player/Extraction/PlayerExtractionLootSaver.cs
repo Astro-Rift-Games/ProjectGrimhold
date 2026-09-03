@@ -396,7 +396,39 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             _participant.RaidGenerationId.ToString(),
             localProfileId,
             _pendingResultSequence);
-        StashOperationResult result = context.Store.TryCommitExtraction(receipt, items);
+            
+        long consolidatedExperience = 0;
+        int resultingLevel = context.Store.GetLevel();
+        if (_pendingExperienceCandidate.HasValue)
+        {
+            consolidatedExperience = _pendingExperienceCandidate.Value.AwardedExperience;
+            
+            // Re-calculate the resulting level locally to pass it to the unified payload.
+            var resolution = new ExpeditionExperienceResolution(
+                ExpeditionExperienceResolutionOutcome.Extracted,
+                default,
+                10000,
+                consolidatedExperience);
+                
+            if (ConsolidatedExperienceApplicationRules.TryApply(
+                    ProgressionBalanceDefaults.InitialExperienceCurve,
+                    default,
+                    context.Store.GetLevel(),
+                    context.Store.GetCurrentExperience(),
+                    resolution,
+                    out ConsolidatedExperienceApplication application,
+                    out _))
+            {
+                resultingLevel = application.Result.ResultingLevel;
+            }
+        }
+
+        StashOperationResult result = context.Store.TryCommitExtraction(
+            receipt,
+            items,
+            consolidatedExperience,
+            resultingLevel);
+            
         if (result != StashOperationResult.Success && result != StashOperationResult.AlreadySecured)
         {
             Debug.LogError(
@@ -413,12 +445,15 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         // Fire-and-forget: persist extraction to backend.
         // The ACK to Fusion is NOT blocked on this call to preserve Fusion's network timing.
         // The backend endpoint is idempotent, so Unity can retry safely if the first attempt fails.
-        _ = CommitExtractionToBackendAsync(receipt, items);
+        _ = CommitExtractionToBackendAsync(receipt, items, consolidatedExperience, resultingLevel, context.Store);
     }
 
     private async Task CommitExtractionToBackendAsync(
         ExtractionReceipt receipt,
-        IReadOnlyList<StashItem> items)
+        IReadOnlyList<StashItem> items,
+        long consolidatedExperience,
+        int resultingLevel,
+        LocalProfileStore store)
     {
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
         if (context == null) return;
@@ -430,13 +465,19 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        var (success, error) = await remoteInventoryService.CommitExtractionAsync(receipt, items);
+        var (success, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
+            receipt, items, consolidatedExperience, resultingLevel);
+            
         if (!success)
         {
             Debug.LogError(
                 $"{nameof(PlayerExtractionLootSaver)}: Backend extraction commit failed. " +
                 $"Error={error.error}: {error.message}. " +
                 $"The local commit is intact. The backend will accept a retry on next login.");
+        }
+        else
+        {
+            store.ClearPendingExtractionCommit();
         }
     }
 

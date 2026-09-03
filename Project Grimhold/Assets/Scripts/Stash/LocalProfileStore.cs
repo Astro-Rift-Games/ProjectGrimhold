@@ -39,7 +39,10 @@ public sealed class LocalProfileStore
         _repository.Snapshot != null ? _repository.Snapshot.Loadout : Array.Empty<StashItem>();
     public PreparedEquipmentLoadout GetPreparedEquipment() =>
         _repository.Snapshot != null ? _repository.Snapshot.PreparedEquipment : default;
-    public PendingLoadoutReservation PendingReservation => _repository.Snapshot?.PendingReservation;
+    public PendingLoadoutReservation PendingReservation => 
+        _repository.Snapshot?.PendingReservation;
+    public PendingExtractionCommit PendingExtractionCommit => 
+        _repository.Snapshot?.PendingExtractionCommit;
     public long GetCurrency() =>
         _repository.Snapshot != null ? _repository.Snapshot.Currency : LocalProfileSnapshot.InitialCurrency;
     public int GetLevel() =>
@@ -96,98 +99,7 @@ public sealed class LocalProfileStore
         }
     }
 
-    /// <summary>
-    /// Applies one resolved raid reward and its idempotency watermark as one process-local mutation.
-    /// The observable repository snapshot is unchanged unless the complete candidate saves.
-    /// </summary>
-    public ProgressionCommitResult TryCommitProgression(
-        in ProgressionReceipt receipt,
-        in ExpeditionExperienceResolution resolution)
-    {
-        lock (_sync)
-        {
-            LocalProfileSnapshot current = _repository.Snapshot;
-            if (!IsAvailable || current == null || !receipt.IsValid ||
-                receipt.ProfileId != _profileId || !resolution.IsResolved ||
-                receipt.ConsolidatedExperience != resolution.ConsolidatedExperience)
-            {
-                return ProgressionCommitResult.Invalid;
-            }
 
-            int watermark = current.LastAppliedProgressionResultSequence;
-            if ((watermark == 0 && current.LastProgressionReceipt.HasValue) ||
-                (watermark > 0 &&
-                 (!current.LastProgressionReceipt.HasValue ||
-                  current.LastProgressionReceipt.Value.ResultSequence != watermark ||
-                  current.LastProgressionReceipt.Value.ProfileId != current.ProfileId)))
-            {
-                return ProgressionCommitResult.Invalid;
-            }
-
-            if (receipt.ResultSequence < watermark)
-            {
-                return ProgressionCommitResult.Stale;
-            }
-
-            if (receipt.ResultSequence == watermark)
-            {
-                return current.LastProgressionReceipt.HasValue &&
-                       current.LastProgressionReceipt.Value.Equals(receipt)
-                    ? ProgressionCommitResult.AlreadyApplied
-                    : ProgressionCommitResult.Conflict;
-            }
-
-            if (watermark == int.MaxValue || receipt.ResultSequence != watermark + 1)
-            {
-                return ProgressionCommitResult.Invalid;
-            }
-
-            if (!ConsolidatedExperienceApplicationRules.TryApply(
-                    ProgressionBalanceDefaults.InitialExperienceCurve,
-                    default,
-                    current.Level,
-                    current.CurrentExperience,
-                    resolution,
-                    out ConsolidatedExperienceApplication application,
-                    out _))
-            {
-                return ProgressionCommitResult.Invalid;
-            }
-
-            if (application.Result.ResultingLevel != receipt.ResultingLevel)
-            {
-                return ProgressionCommitResult.Invalid;
-            }
-
-            if (!CharacterAttributePointGrantRules.TryApply(
-                    ProgressionBalanceDefaults.InitialAttributePointsPerLevel,
-                    default,
-                    current.CharacterAttributes,
-                    application.Result,
-                    out CharacterAttributePointGrant pointGrant,
-                    out _))
-            {
-                return ProgressionCommitResult.Invalid;
-            }
-
-            LocalProfileSnapshot next = current.Clone();
-            next.Level = application.Result.ResultingLevel;
-            next.CurrentExperience = application.Result.ResultingExperience;
-            next.CharacterAttributes = pointGrant.Result;
-            next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
-            next.LastProgressionReceipt = receipt;
-            next.AppliedProgressionReceipts.Add(receipt);
-            while (next.AppliedProgressionReceipts.Count >
-                   LocalProfileSnapshot.MaxAppliedProgressionReceipts)
-            {
-                next.AppliedProgressionReceipts.RemoveAt(0);
-            }
-
-            return Commit(next) == StashOperationResult.Success
-                ? ProgressionCommitResult.Success
-                : ProgressionCommitResult.PersistenceFailed;
-        }
-    }
 
     public StashOperationResult TryCreditCurrency(long amount)
     {
@@ -686,7 +598,11 @@ public sealed class LocalProfileStore
     /// persistent Loadout empty. A new receipt therefore fails atomically when
     /// that invariant is not true; extracted items are never redirected to Stash.
     /// </summary>
-    public StashOperationResult TryCommitExtraction(ExtractionReceipt receipt, IReadOnlyList<StashItem> items)
+    public StashOperationResult TryCommitExtraction(
+        ExtractionReceipt receipt, 
+        IReadOnlyList<StashItem> items,
+        long consolidatedExperience,
+        int resultingLevel)
     {
         if (!receipt.IsValid || receipt.ProfileId != _profileId || !HasValidItems(items, allowEmpty: true))
             return StashOperationResult.InvalidInventory;
@@ -706,7 +622,24 @@ public sealed class LocalProfileStore
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);
+
+        next.PendingExtractionCommit = new PendingExtractionCommit(
+            receipt,
+            items,
+            consolidatedExperience,
+            resultingLevel);
+
         return Commit(next);
+    }
+    public void ClearPendingExtractionCommit()
+    {
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (current == null || current.PendingExtractionCommit == null)
+            return;
+            
+        LocalProfileSnapshot next = current.Clone();
+        next.PendingExtractionCommit = null;
+        Commit(next);
     }
 
     private StashOperationResult Commit(LocalProfileSnapshot next)

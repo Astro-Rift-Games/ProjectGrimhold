@@ -273,19 +273,18 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.AbandonButton.interactable, Is.False);
         }
 
-        [TestCase(false, true, RaidParticipantState.Defeated,
+        [TestCase(false, RaidParticipantState.Defeated,
             ExpeditionProgressionFinalizationCause.DefeatConfirmed, true, false)]
-        [TestCase(true, false, RaidParticipantState.Defeated,
+        [TestCase(true, RaidParticipantState.Defeated,
             ExpeditionProgressionFinalizationCause.DefeatConfirmed, true, false)]
-        [TestCase(true, true, RaidParticipantState.Extracted,
+        [TestCase(true, RaidParticipantState.Extracted,
             ExpeditionProgressionFinalizationCause.ExtractionConfirmed, false, false)]
-        [TestCase(true, true, RaidParticipantState.Aborted,
+        [TestCase(true, RaidParticipantState.Aborted,
             ExpeditionProgressionFinalizationCause.None, true, false)]
-        [TestCase(true, true, RaidParticipantState.Defeated,
+        [TestCase(true, RaidParticipantState.Defeated,
             ExpeditionProgressionFinalizationCause.DefeatConfirmed, true, true)]
         public void Presenter_ReturnGate_RejectsMissingObservableCondition(
             bool hasSnapshot,
-            bool hasAck,
             RaidParticipantState state,
             ExpeditionProgressionFinalizationCause cause,
             bool extractionComplete,
@@ -294,7 +293,6 @@ namespace Tests.EditMode.Presentation
             Assert.That(
                 RaidMenuPresenter.CanIssueReturnRequest(
                     hasSnapshot,
-                    hasAck,
                     state,
                     cause,
                     extractionComplete,
@@ -318,7 +316,6 @@ namespace Tests.EditMode.Presentation
             Assert.That(
                 RaidMenuPresenter.CanIssueReturnRequest(
                     hasProgressionResultSnapshot: true,
-                    isProgressionCommitConfirmed: true,
                     state,
                     cause,
                     isExtractionProgressionComplete: true,
@@ -377,7 +374,6 @@ namespace Tests.EditMode.Presentation
             Assert.That(
                 RaidMenuPresenter.CanIssueReturnRequest(
                     hasProgressionResultSnapshot: true,
-                    isProgressionCommitConfirmed: true,
                     RaidParticipantState.Extracted,
                     ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
                     isExtractionProgressionComplete: true,

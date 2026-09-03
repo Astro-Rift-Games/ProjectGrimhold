@@ -126,66 +126,6 @@ namespace Tests.EditMode.Progression
             Assert.That(commits, Is.Zero);
         }
 
-        [TestCase(99, 1, 99, 10)]
-        [TestCase(100, 2, 0, 11)]
-        public void ProgressionCommit_GrantsPointsOnlyForLevelsGained(
-            long rewardExperience,
-            int expectedLevel,
-            long expectedExperience,
-            int expectedAvailablePoints)
-        {
-            var repository = ReadyRepository();
-            var store = new LocalProfileStore(repository, Profile);
-            Assert.That(TryCreateResolution(rewardExperience, out ExpeditionExperienceResolution resolution), Is.True);
-            ProgressionReceipt receipt = CreateReceipt(repository.Snapshot, $"raid-{rewardExperience}", 1, resolution);
-
-            Assert.That(store.TryCommitProgression(receipt, resolution), Is.EqualTo(ProgressionCommitResult.Success));
-            Assert.That(repository.Snapshot.Level, Is.EqualTo(expectedLevel));
-            Assert.That(repository.Snapshot.CurrentExperience, Is.EqualTo(expectedExperience));
-            Assert.That(repository.Snapshot.CharacterAttributes.AvailablePoints, Is.EqualTo(expectedAvailablePoints));
-        }
-
-        [Test]
-        public void ProgressionCommit_AtomicallyGrantsAllLevelPointsAndReplayDoesNotGrantAgain()
-        {
-            var repository = ReadyRepository();
-            var store = new LocalProfileStore(repository, Profile);
-            Assert.That(TryCreateResolution(320, out ExpeditionExperienceResolution resolution), Is.True);
-            ProgressionReceipt receipt = CreateReceipt(repository.Snapshot, "raid-attributes", 1, resolution);
-            int commits = 0;
-            store.ProfileCommitted += _ => commits++;
-
-            Assert.That(store.TryCommitProgression(receipt, resolution), Is.EqualTo(ProgressionCommitResult.Success));
-            Assert.That(repository.Snapshot.Level, Is.EqualTo(4));
-            Assert.That(repository.Snapshot.CurrentExperience, Is.EqualTo(5));
-            Assert.That(repository.Snapshot.CharacterAttributes.AvailablePoints, Is.EqualTo(13));
-            Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.EqualTo(1));
-            Assert.That(repository.Snapshot.LastProgressionReceipt, Is.EqualTo(receipt));
-            Assert.That(commits, Is.EqualTo(1));
-
-            Assert.That(store.TryCommitProgression(receipt, resolution), Is.EqualTo(ProgressionCommitResult.AlreadyApplied));
-            Assert.That(repository.Snapshot.CharacterAttributes.AvailablePoints, Is.EqualTo(13));
-            Assert.That(commits, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void FailedProgressionCommit_PreservesLevelExperiencePointsAndWatermark()
-        {
-            var repository = ReadyRepository();
-            repository.FailSaves = true;
-            var store = new LocalProfileStore(repository, Profile);
-            Assert.That(TryCreateResolution(320, out ExpeditionExperienceResolution resolution), Is.True);
-            ProgressionReceipt receipt = CreateReceipt(repository.Snapshot, "raid-failed-attributes", 1, resolution);
-            LogAssert.Expect(LogType.Error, new Regex("\\[LocalProfileStore\\] Commit failed\\."));
-
-            Assert.That(store.TryCommitProgression(receipt, resolution), Is.EqualTo(ProgressionCommitResult.PersistenceFailed));
-            Assert.That(repository.Snapshot.Level, Is.EqualTo(1));
-            Assert.That(repository.Snapshot.CurrentExperience, Is.Zero);
-            Assert.That(repository.Snapshot.CharacterAttributes.AvailablePoints, Is.EqualTo(10));
-            Assert.That(repository.Snapshot.LastAppliedProgressionResultSequence, Is.Zero);
-            Assert.That(repository.Snapshot.LastProgressionReceipt, Is.Null);
-        }
-
         [Test]
         public void RecreatedConsumer_ObservesSameProcessAggregate()
         {
@@ -210,48 +150,6 @@ namespace Tests.EditMode.Progression
                 snapshot.CharacterAttributes = attributes.Value;
             }
             return new StubRepository(snapshot, LocalProfilePersistenceStatus.Ready);
-        }
-
-        private static bool TryCreateResolution(
-            long experience,
-            out ExpeditionExperienceResolution resolution)
-        {
-            resolution = default;
-            return ExpeditionExperienceRules.TryApplyNormalReward(
-                    default,
-                    ExpeditionExperienceCategory.Kill,
-                    experience,
-                    out ExpeditionExperienceSnapshot snapshot,
-                    out _) &&
-                ExpeditionExperienceResolutionRules.TryResolve(
-                    default,
-                    snapshot,
-                    ExpeditionExperienceResolutionOutcome.Extracted,
-                    ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy,
-                    out resolution,
-                    out _);
-        }
-
-        private static ProgressionReceipt CreateReceipt(
-            LocalProfileSnapshot current,
-            string raidId,
-            int sequence,
-            in ExpeditionExperienceResolution resolution)
-        {
-            Assert.That(ConsolidatedExperienceApplicationRules.TryApply(
-                ProgressionBalanceDefaults.InitialExperienceCurve,
-                default,
-                current.Level,
-                current.CurrentExperience,
-                resolution,
-                out ConsolidatedExperienceApplication application,
-                out _), Is.True);
-            return new ProgressionReceipt(
-                raidId,
-                Profile,
-                sequence,
-                resolution.ConsolidatedExperience,
-                application.Result.ResultingLevel);
         }
 
         private sealed class StubRepository : ILocalProfileRepository

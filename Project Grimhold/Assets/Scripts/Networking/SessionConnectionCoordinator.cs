@@ -331,7 +331,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 participant.FinalizationCause,
                 participant.IsExtractionProgressionComplete,
                 hasProgressionResultSnapshot,
-                participant.IsProgressionCommitConfirmed,
                 runner.IsServer,
                 spawnManager.HasRaidingParticipants,
                 matchController.Phase == NetworkMatchController.MatchPhase.Finished))

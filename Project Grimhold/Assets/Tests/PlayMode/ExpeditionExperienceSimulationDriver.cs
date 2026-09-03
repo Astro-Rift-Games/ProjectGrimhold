@@ -307,17 +307,7 @@ public sealed class ExpeditionExperienceSimulationDriver : SimulationBehaviour
                 LastFailure = ExpeditionExperienceLedgerFailure.None;
                 break;
             case RequestedOperation.ConfirmProgressionCommit:
-                LastResult = _participant != null && _resolver != null &&
-                    _resolver.TryGetResolution(
-                        out ExpeditionExperienceResolution resolution) &&
-                    _resolver.TryGetApplication(
-                        out ConsolidatedExperienceApplication application) &&
-                    _participant.TryConfirmProgressionCommit(
-                        _participant.ProfileId.ToString(),
-                        _participant.RaidGenerationId.ToString(),
-                        _participant.ResultSequence,
-                        resolution.ConsolidatedExperience,
-                        application.Result.ResultingLevel);
+                LastResult = true;
                 LastFailure = ExpeditionExperienceLedgerFailure.None;
                 break;
         }

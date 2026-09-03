@@ -26,6 +26,7 @@ public sealed class LocalProfileSnapshot
     public List<StashItem> Loadout { get; } = new();
     public PreparedEquipmentLoadout PreparedEquipment { get; set; }
     public PendingLoadoutReservation PendingReservation { get; set; }
+    public PendingExtractionCommit PendingExtractionCommit { get; set; }
     public List<ExtractionReceipt> AppliedExtractionReceipts { get; } = new();
     public long ShopIdempotencyWatermark { get; set; } = 0;
     public List<ShopTransactionReceipt> AppliedShopTransactionReceipts { get; } = new();
@@ -45,6 +46,7 @@ public sealed class LocalProfileSnapshot
             LastProgressionReceipt = LastProgressionReceipt,
             PreparedEquipment = PreparedEquipment,
             PendingReservation = PendingReservation?.Clone(),
+            PendingExtractionCommit = PendingExtractionCommit,
             ShopIdempotencyWatermark = ShopIdempotencyWatermark
         };
 

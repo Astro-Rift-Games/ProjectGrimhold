@@ -23,12 +23,10 @@ public static class RaidResultsReturnPolicy
         ExpeditionProgressionFinalizationCause finalizationCause,
         bool isExtractionProgressionComplete,
         bool hasProgressionResultSnapshot,
-        bool isProgressionCommitConfirmed,
         bool isCompatiblePhase)
     {
         return isCompatiblePhase &&
                hasProgressionResultSnapshot &&
-               isProgressionCommitConfirmed &&
                IsAcceptedTerminalResult(
                    state,
                    finalizationCause,
@@ -40,7 +38,6 @@ public static class RaidResultsReturnPolicy
         ExpeditionProgressionFinalizationCause finalizationCause,
         bool isExtractionProgressionComplete,
         bool hasProgressionResultSnapshot,
-        bool isProgressionCommitConfirmed,
         bool isServer,
         bool hasRaidingParticipants,
         bool isMatchFinished)
@@ -49,7 +46,6 @@ public static class RaidResultsReturnPolicy
                !hasRaidingParticipants &&
                isMatchFinished &&
                hasProgressionResultSnapshot &&
-               isProgressionCommitConfirmed &&
                IsAcceptedTerminalResult(
                    state,
                    finalizationCause,

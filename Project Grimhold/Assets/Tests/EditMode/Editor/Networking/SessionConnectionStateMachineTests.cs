@@ -319,21 +319,20 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Category("TASK143")]
-    [TestCase(RaidParticipantState.Raiding, false, false, false, false, true)]
-    [TestCase(RaidParticipantState.Defeated, false, false, false, false, true)]
-    [TestCase(RaidParticipantState.Extracted, false, false, false, false, false)]
-    [TestCase(RaidParticipantState.Aborted, false, false, false, false, false)]
-    [TestCase(RaidParticipantState.Extracted, false, false, false, true, true)]
-    [TestCase(RaidParticipantState.Aborted, false, false, false, true, true)]
-    [TestCase(RaidParticipantState.Defeated, true, false, false, false, false)]
-    [TestCase(RaidParticipantState.Raiding, false, true, false, false, false)]
-    [TestCase(RaidParticipantState.Raiding, false, false, true, false, false)]
+    [TestCase(RaidParticipantState.Raiding, false, false, false, true)]
+    [TestCase(RaidParticipantState.Defeated, false, false, false, true)]
+    [TestCase(RaidParticipantState.Extracted, false, false, false, false)]
+    [TestCase(RaidParticipantState.Aborted, false, false, false, false)]
+    [TestCase(RaidParticipantState.Extracted, true, false, false, true)]
+    [TestCase(RaidParticipantState.Aborted, true, false, false, true)]
+    [TestCase(RaidParticipantState.Defeated, true, false, false, false)]
+    [TestCase(RaidParticipantState.Raiding, false, true, false, false)]
+    [TestCase(RaidParticipantState.Raiding, false, false, true, false)]
     public void HostMigrationEligibility_UsesDurableProfileAndTerminalSemantics(
         RaidParticipantState state,
         bool isReturnAuthorized,
         bool terminalKnown,
         bool isOldHost,
-        bool isProgressionCommitPending,
         bool expected)
     {
         var profileId = new ProfileId("profile-survivor");
@@ -347,8 +346,7 @@ public sealed class SessionConnectionStateMachineTests
                 oldHostProfileId,
                 state,
                 isReturnAuthorized,
-                terminalKnown,
-                isProgressionCommitPending),
+                terminalKnown),
             Is.EqualTo(expected));
     }
 

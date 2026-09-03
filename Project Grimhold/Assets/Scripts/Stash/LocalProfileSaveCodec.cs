@@ -27,6 +27,7 @@ public static class LocalProfileSaveCodec
         public string preparedGloves;
         public string preparedBoots;
         public ReservationData pendingReservation;
+        public PendingExtractionCommitData pendingExtractionCommit;
         public ReceiptData[] appliedExtractionReceipts;
         public long shopIdempotencyWatermark;
         public ShopReceiptData[] appliedShopTransactionReceipts;
@@ -50,6 +51,17 @@ public static class LocalProfileSaveCodec
         public string preparedArmor;
         public string preparedGloves;
         public string preparedBoots;
+    }
+
+    [Serializable]
+    private sealed class PendingExtractionCommitData
+    {
+        public string raidId;
+        public string profileId;
+        public int resultSequence;
+        public ItemData[] items;
+        public long consolidatedExperience;
+        public int resultingLevel;
     }
 
     [Serializable]
@@ -110,6 +122,15 @@ public static class LocalProfileSaveCodec
                 preparedArmor = snapshot.PendingReservation.PreparedEquipment.Armor.Value,
                 preparedGloves = snapshot.PendingReservation.PreparedEquipment.Gloves.Value,
                 preparedBoots = snapshot.PendingReservation.PreparedEquipment.Boots.Value
+            },
+            pendingExtractionCommit = snapshot.PendingExtractionCommit == null ? null : new PendingExtractionCommitData
+            {
+                raidId = snapshot.PendingExtractionCommit.Receipt.RaidId,
+                profileId = snapshot.PendingExtractionCommit.Receipt.ProfileId.Value,
+                resultSequence = snapshot.PendingExtractionCommit.Receipt.ResultSequence,
+                items = ToItems(snapshot.PendingExtractionCommit.Items),
+                consolidatedExperience = snapshot.PendingExtractionCommit.ConsolidatedExperience,
+                resultingLevel = snapshot.PendingExtractionCommit.ResultingLevel
             },
             appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
@@ -272,6 +293,31 @@ public static class LocalProfileSaveCodec
                 data.pendingReservation.reservationId,
                 reservationItems,
                 reservedEquipment);
+        }
+
+        if (data.pendingExtractionCommit != null)
+        {
+            var receipt = new ExtractionReceipt(
+                data.pendingExtractionCommit.raidId,
+                expectedProfileId,
+                data.pendingExtractionCommit.resultSequence);
+
+            if (!receipt.IsValid || !string.Equals(data.pendingExtractionCommit.profileId, expectedProfileId.Value, StringComparison.Ordinal))
+            {
+                error = "Pending extraction commit contains invalid receipt data.";
+                return false;
+            }
+
+            if (!TryReadItems(data.pendingExtractionCommit.items, catalog, out List<StashItem> extractionItems, "pending extraction", out error))
+            {
+                return false;
+            }
+
+            candidate.PendingExtractionCommit = new PendingExtractionCommit(
+                receipt,
+                extractionItems,
+                data.pendingExtractionCommit.consolidatedExperience,
+                data.pendingExtractionCommit.resultingLevel);
         }
 
         if (data.appliedExtractionReceipts != null)
