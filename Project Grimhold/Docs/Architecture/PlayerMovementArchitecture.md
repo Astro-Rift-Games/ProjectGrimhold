@@ -930,21 +930,23 @@ Si aparece un segundo motor real, la interfaz puede extraerse en ese momento sin
 
 ### 20.1 Sprint
 
-Componente afectado:
+Sprint is implemented as a held intention in `PlayerNetworkInput`. The movement controller
+derives whether Sprint applies for the current tick from valid movement intention, gameplay
+availability and a successful complete payment to `PlayerStaminaNetworkController`. Sprint has
+no independent `[Networked]` flag: when payment fails, the same input continues at walking speed.
 
-- Cálculo de velocidad efectiva en el controlador.
+`PlayerStaminaNetworkController.FixedUpdateNetwork()` runs before
+`PlayerMovementNetworkController.FixedUpdateNetwork()`. The current configured orders are `-11`
+and `-10`; the architectural contract is the relative order `Stamina < Movement`. Regeneration
+and Exhaustion recovery therefore may make Sprint available in that same tick before Movement
+attempts `SprintCostPerSecond * Runner.DeltaTime`.
 
-Extensión prevista:
+The Stamina owner uses all-or-nothing payment. An insufficient continuous payment preserves its
+remainder, activates Exhaustion and rejects Sprint for that tick. A complete payment that leaves
+zero succeeds for the current tick and activates Exhaustion for subsequent ticks. Collision does
+not refund a paid tick because Sprint is based on valid movement intention, not final displacement.
 
-- Estado autoritativo de sprint.
-- Multiplicador configurable.
-
-No debería modificar:
-
-- Input provider.
-- Motor de colisiones.
-- NetworkTransform.
-- Presenter, salvo visuales.
+The input provider, collision motor, `NetworkTransform` and presentation remain unchanged.
 
 ### 20.2 Slow y haste
 

@@ -122,6 +122,16 @@ not treated as migration failure.
 Restored objects use `CopyStateFrom`, reference fixups, and restore guards in
 state-writing `Spawned()` paths, including extraction sanctuary/zone and traps.
 
+The player avatar's `PlayerStaminaNetworkController` participates in the same snapshot copy.
+`CurrentStamina`, `IsExhausted`, its initialization marker and regeneration-delay `TickTimer` are
+networked state and are restored by `NetworkObject.CopyStateFrom`. The restore-spawn guard prevents
+fresh initialization, but is not the restoration mechanism itself.
+
+Maximum Stamina is not replicated. Until `RaidAvatarParticipantLink.ParticipantId` is remapped and
+the restored participant exposes its frozen attributes, the Stamina controller does not initialize,
+clamp, regenerate or consume the copied resource. After fixup it derives
+`75 + (Resistance * 5)` again and resumes from the copied current value, Exhaustion state and delay.
+
 ## Validation boundary
 
 EditMode tests cover role routing, startup suppression, completion semantics, and

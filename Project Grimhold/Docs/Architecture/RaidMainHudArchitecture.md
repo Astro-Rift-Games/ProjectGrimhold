@@ -30,6 +30,8 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Current health | `CharacterBase.Health` |
 | Maximum health | `CharacterBase.MaxHealth` |
 | Defeat | `!CharacterBase.IsAlive` |
+| Current Stamina and Exhaustion | `PlayerStaminaNetworkController` replicated state |
+| Maximum Stamina | `PlayerStaminaNetworkController.TryGetMaximumStamina` from the admitted attributes |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
 | Active weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
 | Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
@@ -66,7 +68,7 @@ active slot replaces the icon without changing combat or equipment state.
 
 ## Dirty checking
 
-Health/defeat, attack/cooldown, and inventory capacity maintain independent observed state. The presenter writes a section only when its visible state changes. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
+Health/defeat, Stamina/Exhaustion, attack/cooldown, and inventory capacity maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
 
 Attack status may be queried each presentation frame so enablement, defeat, and timer expiry are observed. Loot value is not recalculated each frame after a successful read.
 
