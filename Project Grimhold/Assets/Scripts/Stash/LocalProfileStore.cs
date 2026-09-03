@@ -609,7 +609,8 @@ public sealed class LocalProfileStore
         ExtractionReceipt receipt, 
         IReadOnlyList<StashItem> items,
         long consolidatedExperience,
-        int resultingLevel)
+        int resultingLevel,
+        long resultingExperience)
     {
         if (!receipt.IsValid || receipt.ProfileId != _profileId || !HasValidItems(items, allowEmpty: true))
             return StashOperationResult.InvalidInventory;
@@ -629,6 +630,10 @@ public sealed class LocalProfileStore
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);
+
+        next.Level = resultingLevel;
+        next.CurrentExperience = resultingExperience;
+        next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(
             receipt,
