@@ -413,7 +413,7 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
   * The character's alive status (`IsAlive = false`) immediately disables movement input and combat actions in `FixedUpdateNetwork`.
   * Ongoing attack timers and active projectile spawns are halted.
   * The shared authoritative damage path calls `PlayerCharacter.HandleDeath`, which delegates co-located corpse-loot conversion to `PlayerCorpseGenerationController`. This is not driven by presenters, Animator events, polling, or `Update`. The controller's networked terminal state prevents duplicate conversion during repeated calls or resimulation.
-  * The defeated player retains its own `NetworkObject`. Its initially unavailable `NetworkLootContainer` receives and verifies the exact temporary-inventory snapshot before that inventory is cleared, then becomes available. A load or clear failure leaves the container empty and unavailable while preserving the inventory; no replacement corpse is spawned.
+  * The defeated avatar/body retains its existing `NetworkObject`. Its initially unavailable `NetworkLootContainer` receives and verifies the exact temporary-inventory snapshot before that inventory is cleared, then becomes available. A load or clear failure leaves the container empty and unavailable while preserving the inventory; no replacement corpse is spawned. The separate `NetworkRaidParticipant` remains the stable PlayerObject and participation identity.
 * **Presentation Transition**:
   * Visual presentation components (`PlayerDefeatPresenter`, `PlayerAnimatorView`) detect the transition to the dead state and retain the player's own final defeat pose.
   * **Immediate Action Hiding**: Combat visual effects, attack animations, and movement indicators are stopped immediately (visual priority: Defeat > Damage Feedback > Attack > Locomotion).
@@ -515,7 +515,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 | **Enemy melee damage integration** | Implemented | Evaluates `IDamageable` registered from `CharacterBase`. | Yes (verify enemy health reduction) |
 | **Independence from animation playback** | Implemented | Simulation executes entirely in `FixedUpdateNetwork` tick loops. | Yes (test with empty animation parameters) |
 | **No player/enemy-specific logic in core** | Implemented | Systems interact strictly via interface models. | Yes |
-| **Defeated player keeps network identity** | Implemented | `PlayerCharacter.HandleDeath` delegates to the co-located `PlayerCorpseGenerationController`; no replacement object is spawned. | Yes (Host/Client identity observation) |
+| **Stable participant plus persistent defeated avatar** | Implemented | `NetworkRaidParticipant` remains the PlayerObject; `PlayerCharacter.HandleDeath` delegates to the avatar's co-located `PlayerCorpseGenerationController`, and no replacement corpse is spawned. | Yes (Host/Client participant/body observation) |
 | **Persistent inspectable player body** | Implemented | `PlayerDefeatPresenter.HideBodyVisualAfterTransition` is `false`; the co-located generic loot endpoint becomes available only after authoritative conversion. | Yes (final pose and interaction on both peers) |
 
 ---
