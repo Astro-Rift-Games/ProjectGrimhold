@@ -144,11 +144,14 @@ Unsupported groups never fall back to an enemy prefab. Missing or invalid Loot c
 only Loot; it does not replace the player or enemy policy.
 
 Initial Loot and Breakables use runner-local, generation-idempotent point records. State Authority
-derives deterministic per-point rolls from the session seed, scene generation, group and point
-index. Clients receive only the replicated resulting state. A point is recorded only after
-`Runner.Spawn`, pre-spawn initialization and production availability all succeed; a failed object
-is despawned and the point remains retryable with the same roll. The next generation and shutdown
-clear those records.
+derives a deterministic per-point seed from the session seed, scene generation, group and point
+index, and combines it with the effective Luck probability of the frozen initial Raid cohort.
+Clients receive the replicated pending descriptor; the actual roll is deferred to the chest's
+first valid opening or the breakable's fatal hit. A point is recorded only after `Runner.Spawn`,
+pre-spawn descriptor initialization and production availability all succeed; a failed spawn is
+despawned and the point remains retryable with the same descriptor. Once spawned, terminal
+`Resolved` and `Failed` state prevents rerolls, including across Host Migration. The next
+generation and shutdown clear only the runner-local point records.
 
 ## 7. Fail-closed player spawning
 

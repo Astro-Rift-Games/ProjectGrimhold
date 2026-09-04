@@ -7,7 +7,7 @@ namespace Tests.EditMode.Progression
         [TestCase(0, 0, 0, 75, 75, 0)]
         [TestCase(5, 5, 5, 100, 100, 500)]
         [TestCase(25, 25, 25, 200, 200, 2_500)]
-        [TestCase(30, 30, 30, 225, 225, 2_500)]
+        [TestCase(30, 30, 30, 225, 225, 3_000)]
         public void Calculate_UsesDocumentedInitialFormulas(
             int vitality,
             int resistance,
@@ -31,7 +31,7 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
-        public void Calculate_LuckAboveBalanceMaximumRemainsCapped()
+        public void Calculate_LuckBelowBalanceMaximumIsNotCapped()
         {
             CharacterAttributeState attributes = CreateAttributes(0, 0, 0, 0, 0, 26, 0);
 
@@ -40,7 +40,7 @@ namespace Tests.EditMode.Progression
                 ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
                 out CharacterDerivedStatistics statistics,
                 out _), Is.True);
-            Assert.That(statistics.AdditionalLootChanceBasisPoints, Is.EqualTo(2_500));
+            Assert.That(statistics.AdditionalLootChanceBasisPoints, Is.EqualTo(2_600));
         }
 
         [Test]

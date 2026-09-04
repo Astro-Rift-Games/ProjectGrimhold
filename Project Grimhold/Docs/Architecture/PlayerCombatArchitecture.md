@@ -334,7 +334,7 @@ The combat system coordinates gameplay state with the visual presentation layer 
 hierarchy under `VisualRoot` alongside the procedural weapon presentation under
 `CombatVisuals/WeaponPivot/WeaponSprite`. `NetworkPlayer.prefab` is the productive Raid
 avatar; the legacy `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` remain only
-as historical references. Weapon-specific stance offset, grip point and angular correction
+as historical references. Weapon-specific grip point, angular correction and swing arc
 belong to `WeaponDefinition.Presentation`, while the sprite remains sourced from the linked
 `LootDefinition`. Player prefabs do not select or override those values.
 
@@ -342,7 +342,7 @@ The character visual structure is modularized under `VisualRoot`:
 * **`VisualRoot`**: Houses the single common `Animator` and `PlayerAnimatorView` for the character.
 * **Modular Slots**: Contains independent `SpriteRenderer` components for `Legs`, `Body`, `Head`, `LeftHand`, and `RightHand`, sharing a uniform 96x96 canvas and local position origin `(0, 0, 0)`. `LeftHand` and `RightHand` are the sole visual hands of the character and are driven exclusively by the modular Animator clips.
 * **Single Animator**: A single common `Animator` on `VisualRoot` acts as the ancestor for all modular slots, driving coordinated animation clips across the six visual directions.
-* **`WeaponOrbitAnchor`**: Located as a child under `Body` at local offset `(0, -0.18, 0)`. It provides the torso anchor for the weapon orbit origin. Modular animation clips animate `SpriteRenderer.sprite` and must not animate `Body.transform.localPosition` to avoid displacing the weapon orbit origin.
+* **`RightHandGrip`**: Located directly under `VisualRoot` and animated by every modular locomotion clip. It provides the live hand position used as the weapon pivot origin without making the weapon a child of the hand renderer.
 
 The inherited attack-driven `PlayerCombatPresenter` is disabled on the base
 composition, so equipped weapons do not run an attack swing or alter the visual
@@ -364,18 +364,15 @@ last safe direction via `CharacterVisualDirectionResolver.SanitizeFacing`, with
 is still instantiating the prefab; during that pre-spawn window the presenter applies the
 fallback pose and does not read the networked property until its source `NetworkBehaviour.Object` is valid.
 
-`WeaponOrbitAnchor` is presentation-only and is positioned manually over the
-torso under `Body`. Because `VisualRoot/Body` and `CombatVisuals` are separate branches, the presenter
+`RightHandGrip` is presentation-only and follows the animated right hand under
+`VisualRoot`. Because `VisualRoot/RightHandGrip` and `CombatVisuals` are separate branches, the presenter
 converts the anchor world position into the local space of `WeaponPivot.parent` (`CombatVisuals`).
 It then composes the pose in this order:
 
 ```text
-base WeaponOrbitAnchor (under VisualRoot/Body)
+animated RightHandGrip (under VisualRoot)
 -> conversion to WeaponPivot parent space (CombatVisuals)
 -> visual direction resolution via CharacterVisualDirectionResolver (S, SE, NE, N, NW, SW)
--> discrete WeaponDirectionPreset lookup (Orbit, StanceOffset)
--> discrete WeaponPivot position using bucket canonical facing vector
--> equipped WeaponDefinition stance offset
 -> continuous 360-degree facing rotation and left-hemisphere reflection
 -> weapon grip aligned to the weapon pivot
 -> bucket-driven sorting order (Front: S, SE, SW; Back: N, NE, NW)
@@ -391,8 +388,8 @@ Visual authoring keeps those responsibilities explicit. The presentation grip po
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the
 point inside the visible handle that must coincide with `WeaponPivot`, so grip tuning
 remains per-weapon static configuration instead of a player-prefab override or code
-constant. Weapon stance offsets move the complete weapon pose and
-must not be used to compensate for an incorrect internal grip.
+constant. The animated `RightHandGrip` moves the complete weapon pose; the internal grip
+point must not be used to compensate for an incorrect hand animation.
 
 The continuous weapon rotation does not require adding East or West body clips;
 the six discrete visual directions (N, NE, NW, S, SE, SW) resolved by `CharacterVisualDirectionResolver`
