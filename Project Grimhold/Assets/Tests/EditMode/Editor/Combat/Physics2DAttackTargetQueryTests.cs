@@ -312,9 +312,11 @@ namespace Tests.EditMode.Combat
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
-        [TestCase("Assets/Prefabs/NetworkEnemy.prefab")]
-        [TestCase("Assets/Prefabs/NetworkEnemyMelee.prefab")]
-        [TestCase("Assets/Prefabs/NetworkEnemyRanged.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab")]
         public void CharacterPrefab_SeparatesMovementColliderFromBodyDamageHitbox(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);

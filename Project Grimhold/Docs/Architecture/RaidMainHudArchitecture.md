@@ -40,7 +40,13 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Individual extraction progress | local `PlayerExtractionProgressController.TryGetSnapshot` |
 | Sanctuary assignment and ritual | runner `ExtractionSanctuaryAssignmentService`, `EntityRegistry`, `IExtractionSanctuary` |
 
-`CharacterBase.MaxHealth` exposes the configured maximum as read-only data. It is not a second networked health value.
+`CharacterBase.MaxHealth` exposes the effective maximum as read-only, locally derived data; it is
+not a second networked health value. The base implementation used by NPCs returns the maximum
+authored on their prefab. `PlayerCharacter` overrides that projection and derives the value from
+the `CharacterAttributeState` frozen on its linked `NetworkRaidParticipant`. A temporarily
+unresolved participant link uses the authored player-prefab value only as a non-cached fallback,
+so Host Migration reference fixup can later resolve and cache the admitted value. The HUD consumes
+this same effective maximum and never derives or stores another health cap.
 
 ## Combat evaluation and authority
 
@@ -56,8 +62,8 @@ The presenter obtains normalized cooldown fill from the reported duration and re
 
 The HUD receives the same `PlayerWeaponEquipmentNetworkController` already bound for the
 local avatar. It observes the replicated active slot, resolves that slot's catalog identity and
-then the local static `LootDefinition`; no class context, player variant, RPC or HUD-specific
-networked value is involved. No active weapon or an unresolved identity clears the icon. A changed
+then the local static `LootDefinition`; no RPC or HUD-specific networked value is involved. No
+active weapon or an unresolved identity clears the icon. A changed
 active slot replaces the icon without changing combat or equipment state.
 
 ## Inventory summary and value recovery
@@ -159,7 +165,7 @@ may retarget `LocalCameraController`, but never rebinds HUD or authority to the 
 
 - A loot-value calculator or projection object would duplicate existing public behavior and add no variation point.
 - A HUD-specific timer would compete with Fusion's replicated `TickTimer`.
-- A class catalog created only for two labels would add unnecessary configuration.
+- A separate label catalog would duplicate values already exposed by the gameplay sources.
 - A second binder, Canvas, HUD prefab, or global presentation manager would duplicate the established local-player composition.
 
 ## Validation strategy
