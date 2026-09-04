@@ -71,6 +71,7 @@ namespace Tests.EditMode.Combat
             SetPrivateField(_attack, typeof(RangedAttack), "_config", _config);
             SetPrivateField(_attack, typeof(RangedAttack), "_defaultParameters", DefaultParameters);
             SetPrivateField(_attack, typeof(RangedAttack), "_projectileSpawnerSource", _spawner);
+            Assert.That(_attack.TryConfigure(_config, DefaultParameters), Is.True);
 
             _gameObject.SetActive(true);
             yield return null;

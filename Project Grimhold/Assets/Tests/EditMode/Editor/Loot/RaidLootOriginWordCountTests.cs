@@ -8,9 +8,9 @@ namespace Tests.EditMode.Loot
 {
     public sealed class RaidLootOriginWordCountTests
     {
-        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, 1064, 1611)]
-        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 547, 1025)]
-        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 571, 1055)]
+        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, 1072, 1611)]
+        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 551, 1025)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 575, 1055)]
         [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 22, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,

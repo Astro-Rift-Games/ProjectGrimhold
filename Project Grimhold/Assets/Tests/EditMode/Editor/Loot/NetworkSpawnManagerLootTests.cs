@@ -15,7 +15,7 @@ namespace Tests.EditMode.Loot
     {
         private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
         private const string LootContainerPath = "Assets/Prefabs/LootContainer.prefab";
-        private const string EnemyPrefabPath = "Assets/Prefabs/NetworkEnemy.prefab";
+        private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
         private const string BreakablePrefabPath = "Assets/Prefabs/BreakableObject.prefab";
         private const string PickupPrefabPath = "Assets/Prefabs/LootPickup.prefab";
 
@@ -57,7 +57,7 @@ namespace Tests.EditMode.Loot
             Assert.That(breakable.LootTable, Is.Not.Null);
             Assert.That(breakable.LootCatalog, Is.Not.Null);
             Assert.That(breakable.DropCapacity,
-                Is.GreaterThanOrEqualTo(breakable.LootTable.MaximumDistinctStacks));
+                Is.GreaterThan(breakable.LootTable.MaximumDistinctStacks));
 
             Collider2D[] colliders = prefab.GetComponentsInChildren<Collider2D>(true);
             Assert.That(colliders, Has.Length.EqualTo(2));

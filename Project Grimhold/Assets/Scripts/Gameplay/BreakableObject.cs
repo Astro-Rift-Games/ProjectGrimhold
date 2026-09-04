@@ -5,7 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// Authoritative world obstacle that receives regular combat damage and releases
-/// pre-rolled network pickups when destroyed.
+/// table-backed network pickups when destroyed.
 ///
 /// It owns no interaction or container capability. State Authority is the only
 /// peer allowed to change health, confirm destruction, or spawn drops.
@@ -14,6 +14,14 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 public sealed class BreakableObject : NetworkBehaviour, IDamageable
 {
+    private enum DropOverrideState
+    {
+        NotRequested,
+        ExactApplied,
+        RandomGenerationApplied,
+        Rejected
+    }
+
     [Header("Health")]
     [SerializeField, Min(0.1f)]
     private float _maximumHealth = 25f;
@@ -40,7 +48,9 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
     private EntityId _registeredId;
     private bool _isRegistered;
     private LootEntry[] _initialDrops;
-    private bool _hasInitialDrops;
+    private DropOverrideState _dropOverrideState;
+    private ulong _randomGenerationSeedOverride;
+    private int _additionalLootChanceOverride;
 
     /// <summary>Authoritative health replicated through Fusion snapshots.</summary>
     [Networked]
@@ -49,6 +59,15 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
     /// <summary>Authoritative one-way lifecycle state; destroyed objects never respawn.</summary>
     [Networked]
     public NetworkBool IsDestroyed { get; private set; }
+
+    [Networked]
+    public LootSourceGenerationState GenerationState { get; private set; }
+
+    [Networked]
+    private long RandomGenerationSeedBits { get; set; }
+
+    [Networked]
+    private int AdditionalLootChanceBasisPoints { get; set; }
 
     /// <summary>Stable gameplay identity derived from the Fusion network object.</summary>
     public new EntityId Id => new(unchecked((int)Object.Id.Raw));
@@ -68,8 +87,9 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
     /// <summary>Maximum number of distinct stacks that can be placed around this obstacle.</summary>
     public int DropCapacity => _dropOffsets?.Length ?? 0;
 
-    /// <summary>Whether State Authority received a validated pre-spawn drop result.</summary>
-    public bool HasInitialDrops => _hasInitialDrops;
+    /// <summary>Whether State Authority has a materialized terminal drop result.</summary>
+    public bool HasInitialDrops =>
+        GenerationState == LootSourceGenerationState.Resolved && _initialDrops != null;
 
     private void Awake()
     {
@@ -86,6 +106,24 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         {
             Health = _maximumHealth;
             IsDestroyed = false;
+            if (_dropOverrideState == DropOverrideState.RandomGenerationApplied)
+            {
+                RandomGenerationSeedBits = unchecked((long)_randomGenerationSeedOverride);
+                AdditionalLootChanceBasisPoints = _additionalLootChanceOverride;
+                GenerationState = LootSourceGenerationState.Pending;
+            }
+            else if (_dropOverrideState == DropOverrideState.ExactApplied)
+            {
+                RandomGenerationSeedBits = 0;
+                AdditionalLootChanceBasisPoints = 0;
+                GenerationState = LootSourceGenerationState.Resolved;
+            }
+            else
+            {
+                RandomGenerationSeedBits = 0;
+                AdditionalLootChanceBasisPoints = 0;
+                GenerationState = LootSourceGenerationState.NotApplicable;
+            }
         }
 
         _registry = Runner.GetComponent<EntityRegistry>();
@@ -125,7 +163,9 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         UnregisterDamageable();
         _registry = null;
         _initialDrops = null;
-        _hasInitialDrops = false;
+        _dropOverrideState = DropOverrideState.NotRequested;
+        _randomGenerationSeedOverride = 0;
+        _additionalLootChanceOverride = 0;
     }
 
     /// <summary>
@@ -137,11 +177,17 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         NetworkObject expectedObject,
         IReadOnlyList<LootEntry> drops)
     {
-        if (_hasInitialDrops || runner == null || !runner.IsServer ||
+        if (_dropOverrideState != DropOverrideState.NotRequested)
+        {
+            return false;
+        }
+
+        if (runner == null || !runner.IsServer ||
             expectedObject == null || expectedObject.gameObject != gameObject ||
             expectedObject.GetComponent<BreakableObject>() != this || drops == null ||
             drops.Count > DropCapacity)
         {
+            _dropOverrideState = DropOverrideState.Rejected;
             return false;
         }
 
@@ -150,6 +196,7 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         {
             if (!drops[i].IsValid)
             {
+                _dropOverrideState = DropOverrideState.Rejected;
                 return false;
             }
 
@@ -157,7 +204,36 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         }
 
         _initialDrops = materialized;
-        _hasInitialDrops = true;
+        _dropOverrideState = DropOverrideState.ExactApplied;
+        return true;
+    }
+
+    /// <summary>Configures delayed authoritative generation during the pre-spawn callback.</summary>
+    internal bool TrySetRandomGenerationOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        ulong seed,
+        int additionalLootChanceBasisPoints)
+    {
+        if (_dropOverrideState != DropOverrideState.NotRequested)
+        {
+            return false;
+        }
+
+        if (runner == null || !runner.IsServer || expectedObject == null ||
+            expectedObject.gameObject != gameObject ||
+            expectedObject.GetComponent<BreakableObject>() != this ||
+            _lootTable == null || _lootCatalog == null || DropCapacity <= 0 ||
+            additionalLootChanceBasisPoints < 0 ||
+            additionalLootChanceBasisPoints > CharacterDerivedStatisticsCalculator.BasisPointsDenominator)
+        {
+            _dropOverrideState = DropOverrideState.Rejected;
+            return false;
+        }
+
+        _randomGenerationSeedOverride = seed;
+        _additionalLootChanceOverride = additionalLootChanceBasisPoints;
+        _dropOverrideState = DropOverrideState.RandomGenerationApplied;
         return true;
     }
 
@@ -177,7 +253,8 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
             return Rejected(DamageFailureReason.TargetDead);
         }
 
-        if (!_hasInitialDrops || !_isRegistered)
+        if ((GenerationState != LootSourceGenerationState.Pending && !HasInitialDrops) ||
+            !_isRegistered)
         {
             return Rejected(DamageFailureReason.TargetUnavailable);
         }
@@ -199,9 +276,20 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
 
         if (isFatal)
         {
+            if (GenerationState == LootSourceGenerationState.Pending &&
+                !TryResolveRandomDrops(out string generationError))
+            {
+                Debug.LogError(
+                    $"{nameof(BreakableObject)} consumed Loot generation for '{name}' as Failed. {generationError}",
+                    this);
+            }
+
             IsDestroyed = true;
             ApplyDestroyedState();
-            SpawnDrops();
+            if (GenerationState == LootSourceGenerationState.Resolved)
+            {
+                SpawnDrops();
+            }
         }
 
         return new DamageResult(
@@ -227,20 +315,31 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
             Vector3 position = transform.TransformPoint(new Vector3(offset.x, offset.y, 0f));
             bool callbackApplied = false;
             NetworkLootPickup callbackPickup = null;
-
-            NetworkObject pickupObject = Runner.Spawn(
-                _pickupPrefab,
-                position,
-                Quaternion.identity,
-                inputAuthority: null,
-                onBeforeSpawned: (callbackRunner, instance) =>
-                {
-                    callbackPickup = instance != null
-                        ? instance.GetComponent<NetworkLootPickup>()
-                        : null;
-                    callbackApplied = callbackPickup != null &&
-                        callbackPickup.TrySetSpawnContentOverride(callbackRunner, instance, entry);
-                });
+            NetworkObject pickupObject;
+            try
+            {
+                pickupObject = Runner.Spawn(
+                    _pickupPrefab,
+                    position,
+                    Quaternion.identity,
+                    inputAuthority: null,
+                    onBeforeSpawned: (callbackRunner, instance) =>
+                    {
+                        callbackPickup = instance != null
+                            ? instance.GetComponent<NetworkLootPickup>()
+                            : null;
+                        callbackApplied = callbackPickup != null &&
+                            callbackPickup.TrySetSpawnContentOverride(callbackRunner, instance, entry);
+                    });
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError(
+                    $"{nameof(BreakableObject)} failed to materialize drop {i} for '{name}'. " +
+                    $"The resolved generation will not be retried. {exception.Message}",
+                    this);
+                continue;
+            }
 
             bool initialized = pickupObject != null &&
                 pickupObject.Id.IsValid &&
@@ -260,6 +359,62 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
             {
                 Runner.Despawn(pickupObject);
             }
+        }
+    }
+
+    private bool TryResolveRandomDrops(out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating ||
+            GenerationState != LootSourceGenerationState.Pending)
+        {
+            error = "A pending State Authority Loot source is required.";
+            return false;
+        }
+
+        GenerationState = LootSourceGenerationState.Failed;
+        try
+        {
+            if (!LootContainerContentTableValidation.TryCreateSnapshot(
+                    _lootTable,
+                    _lootCatalog,
+                    DropCapacity,
+                    NetworkLootContainer.MaxDistinctLootTypes,
+                    out ValidatedLootContainerContentSnapshot snapshot,
+                    out error) ||
+                !LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error) ||
+                !LootContainerContentRoller.TryRoll(
+                    snapshot,
+                    unchecked((ulong)RandomGenerationSeedBits),
+                    AdditionalLootChanceBasisPoints,
+                    out IReadOnlyList<LootEntry> rolledDrops,
+                    out error) ||
+                rolledDrops.Count > DropCapacity)
+            {
+                error ??= "Resolved drops exceed breakable capacity.";
+                return false;
+            }
+
+            var materialized = new LootEntry[rolledDrops.Count];
+            for (int index = 0; index < rolledDrops.Count; index++)
+            {
+                if (!rolledDrops[index].IsValid)
+                {
+                    error = $"Resolved drop {index} is invalid.";
+                    return false;
+                }
+
+                materialized[index] = rolledDrops[index];
+            }
+
+            _initialDrops = materialized;
+            GenerationState = LootSourceGenerationState.Resolved;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            error = $"Unexpected Loot resolution failure: {exception.Message}";
+            return false;
         }
     }
 

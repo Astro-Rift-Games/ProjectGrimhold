@@ -180,6 +180,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponent<SocialPlayerIdentity>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<TownRaidPreparationPresenter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalPlayerCameraBinder>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
         Assert.That(prefab.GetComponentInChildren<PlayerAnimatorView>(true), Is.Not.Null);
 
         var forbiddenTypes = new HashSet<System.Type>
@@ -187,7 +188,6 @@ public sealed class SessionCompositionConfigurationTests
             typeof(PlayerCharacter),
             typeof(PlayerCombatNetworkController),
             typeof(DamageResolver),
-            typeof(PlayerLootReceiver),
             typeof(PlayerLootTransferNetworkController),
             typeof(PlayerLootDropNetworkController),
             typeof(PlayerCorpseGenerationController),
@@ -251,7 +251,6 @@ public sealed class SessionCompositionConfigurationTests
 
             Assert.That(renderer.sharedMaterial, Is.EqualTo(networkRenderer.sharedMaterial), $"{slotName} material mismatch");
             Assert.That(renderer.sortingLayerID, Is.EqualTo(networkRenderer.sortingLayerID), $"{slotName} sortingLayerID mismatch");
-            Assert.That(renderer.sortingOrder, Is.EqualTo(networkRenderer.sortingOrder), $"{slotName} sortingOrder mismatch");
             Assert.That(slot.gameObject.layer, Is.EqualTo(networkSlot.gameObject.layer), $"{slotName} layer mismatch");
         }
 

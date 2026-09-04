@@ -274,15 +274,15 @@ namespace Tests.EditMode.Combat
         [Test]
         public void SlimeAttackClips_InvokePendingDamageAtHitFrame()
         {
-            string[] clipPaths =
-            {
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-Down.anim",
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-DownLeft.anim",
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-DownRight.anim",
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-Up.anim",
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-UpLeft.anim",
-                "Assets/Animations/Enemies/Melee/Slime/Attack/Slime-Attack-UpRight.anim"
-            };
+            string[] clipGuids = AssetDatabase.FindAssets(
+                "t:AnimationClip",
+                new[] { "Assets/Animations/Enemies/Melee/Slimes" });
+            string[] allClipPaths = System.Array.ConvertAll(clipGuids, AssetDatabase.GUIDToAssetPath);
+            string[] clipPaths = System.Array.FindAll(
+                allClipPaths,
+                path => path.Contains("/Attack/"));
+
+            Assert.That(clipPaths, Has.Length.EqualTo(18));
 
             for (int clipIndex = 0; clipIndex < clipPaths.Length; clipIndex++)
             {

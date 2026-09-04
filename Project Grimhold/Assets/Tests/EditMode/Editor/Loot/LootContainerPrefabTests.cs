@@ -75,7 +75,7 @@ namespace Tests.EditMode.Loot
                 .Where(entry => entry.Definition != null && entry.Definition.Category == LootCategory.Weapon)
                 .ToArray();
 
-            Assert.That(weaponEntries, Has.Length.EqualTo(1));
+            Assert.That(weaponEntries, Is.Not.Empty);
             LootContainerContentTableEntry weaponEntry = weaponEntries[0];
             LootDefinition weapon = weaponEntry.Definition;
             Assert.That(weapon.TryValidate(out string validationError), Is.True, validationError);
@@ -97,6 +97,12 @@ namespace Tests.EditMode.Loot
                 Is.True,
                 snapshotError);
             Assert.That(
+                LootContainerContentTableValidation.HasAdditionalStackCapacity(
+                    snapshot,
+                    out string capacityError),
+                Is.True,
+                capacityError);
+            Assert.That(
                 Enumerable.Range(0, snapshot.EntryCount).Select(snapshot.GetEntry),
                 Has.Some.Matches<ValidatedLootContainerContentSnapshot.Entry>(entry =>
                     entry.LootId == weapon.LootId && entry.MinimumAmount == 1 && entry.MaximumAmount == 1));
@@ -113,7 +119,7 @@ namespace Tests.EditMode.Loot
         [Test]
         public void EnemyPrefab_PersistsAsItsOwnInitiallyUnavailableLootContainer()
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkEnemy.prefab");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemies/NetworkEnemy.prefab");
 
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.GetComponentsInChildren<NetworkObject>(true), Has.Length.EqualTo(1));

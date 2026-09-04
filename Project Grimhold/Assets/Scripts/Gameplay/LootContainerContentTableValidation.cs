@@ -160,4 +160,31 @@ public static class LootContainerContentTableValidation
             distinctLootCapacity);
         return true;
     }
+
+    /// <summary>
+    /// Verifies that a Luck-compatible source can always add one distinct stack
+    /// beyond its configured base maximum.
+    /// </summary>
+    public static bool HasAdditionalStackCapacity(
+        ValidatedLootContainerContentSnapshot snapshot,
+        out string error)
+    {
+        error = null;
+        if (snapshot == null)
+        {
+            error = "Validated loot snapshot is missing.";
+            return false;
+        }
+
+        int maximumRepresentableStacks = Math.Min(
+            snapshot.EntryCount,
+            Math.Min(snapshot.SlotCapacity, snapshot.NetworkCapacity));
+        if (snapshot.MaximumDistinctStacks >= maximumRepresentableStacks)
+        {
+            error = "Luck-compatible Loot requires capacity for one distinct stack beyond the configured base maximum.";
+            return false;
+        }
+
+        return true;
+    }
 }

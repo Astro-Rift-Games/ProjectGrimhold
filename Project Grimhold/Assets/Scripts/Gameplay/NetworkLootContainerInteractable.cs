@@ -109,6 +109,14 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
+        if (_container.GenerationState == LootSourceGenerationState.Pending &&
+            !_container.TryResolveRandomContent(out string generationError))
+        {
+            Debug.LogError(
+                $"{nameof(NetworkLootContainerInteractable)} consumed Loot generation for '{name}' as Failed. {generationError}",
+                this);
+        }
+
         TryResolveFirstOpenExperience(request.InteractorId);
 
         if (!FirstOpenResolved)

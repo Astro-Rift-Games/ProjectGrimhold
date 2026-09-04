@@ -19,6 +19,10 @@ public sealed class BreakableDamageSimulationDriver : SimulationBehaviour
     public EntityId PickupInteractorId { get; set; }
     public bool IsPickupRequested { get; set; }
     public InteractionResult LastInteractionResult { get; private set; }
+    public NetworkLootContainerInteractable ContainerTarget { get; set; }
+    public EntityId ContainerInteractorId { get; set; }
+    public bool IsContainerInteractionRequested { get; set; }
+    public InteractionResult LastContainerInteractionResult { get; private set; }
 
     public override void FixedUpdateNetwork()
     {
@@ -33,6 +37,15 @@ public sealed class BreakableDamageSimulationDriver : SimulationBehaviour
             LastInteractionResult = PickupTarget.Interact(new InteractionRequest(
                 PickupInteractorId,
                 PickupTarget.Id,
+                Runner.Tick));
+        }
+
+        if (ContainerTarget != null && IsContainerInteractionRequested)
+        {
+            IsContainerInteractionRequested = false;
+            LastContainerInteractionResult = ContainerTarget.Interact(new InteractionRequest(
+                ContainerInteractorId,
+                ContainerTarget.Id,
                 Runner.Tick));
         }
     }
