@@ -399,6 +399,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             
         long consolidatedExperience = 0;
         int resultingLevel = context.Store.GetLevel();
+        long resultingExperience = context.Store.GetCurrentExperience();
         if (_pendingExperienceCandidate.HasValue)
         {
             consolidatedExperience = _pendingExperienceCandidate.Value.AwardedExperience;
@@ -420,6 +421,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
                     out _))
             {
                 resultingLevel = application.Result.ResultingLevel;
+                resultingExperience = application.Result.ResultingExperience;
             }
         }
 
@@ -427,7 +429,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             receipt,
             items,
             consolidatedExperience,
-            resultingLevel);
+            resultingLevel,
+            resultingExperience);
             
         if (result != StashOperationResult.Success && result != StashOperationResult.AlreadySecured)
         {

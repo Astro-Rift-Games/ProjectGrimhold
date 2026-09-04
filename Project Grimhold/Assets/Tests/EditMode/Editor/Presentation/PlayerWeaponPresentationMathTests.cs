@@ -289,8 +289,8 @@ namespace Tests.EditMode.Presentation
             Assert.That(weaponPivot, Is.Not.Null);
             Assert.That(weaponPivot.childCount, Is.EqualTo(1));
             Assert.That(weaponOrbitAnchor, Is.Not.Null);
-            Assert.That(weaponOrbitAnchor.name, Is.EqualTo("WeaponOrbitAnchor"));
-            Assert.That(weaponOrbitAnchor.parent.name, Is.EqualTo("Body"));
+            Assert.That(weaponOrbitAnchor.name, Is.EqualTo("RightHandGrip"));
+            Assert.That(weaponOrbitAnchor.parent.name, Is.EqualTo("VisualRoot"));
             Assert.That(weaponOrbitAnchor.parent, Is.Not.SameAs(weaponPivot.parent));
             Assert.That(weaponVisual, Is.Not.Null);
             Assert.That(weaponRenderer, Is.Not.Null);
@@ -457,10 +457,10 @@ namespace Tests.EditMode.Presentation
                 Assert.That(onEnable, Is.Not.Null);
                 Assert.DoesNotThrow(() => onEnable.Invoke(presenter, null));
                 Assert.That(weaponPivot.localPosition.x, Is.EqualTo(0f).Within(Tolerance));
-                Assert.That(weaponPivot.localPosition.y, Is.EqualTo(-0.32f).Within(Tolerance));
+                Assert.That(weaponPivot.localPosition.y, Is.EqualTo(-0.18f).Within(Tolerance));
                 Assert.That(Quaternion.Angle(weaponPivot.localRotation, Quaternion.Euler(0f, 0f, -90f)), Is.LessThan(Tolerance));
                 Assert.That(weaponPivot.localScale.y, Is.GreaterThan(0f));
-                Assert.That(weaponRenderer.sortingOrder, Is.EqualTo(10));
+                Assert.That(weaponRenderer.sortingOrder, Is.EqualTo(20));
             }
             finally
             {

@@ -2740,6 +2740,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        if (!TryCalculateEffectiveAdditionalLootChance(
+                out int additionalLootChanceBasisPoints,
+                out string luckError))
+        {
+            Debug.LogError(
+                $"[NetworkSpawnManager] Loot group skipped because effective Luck could not be calculated. {luckError}",
+                this);
+            return false;
+        }
+
         if (!EnsureLootSessionSeed(runner))
         {
             Debug.LogError("[NetworkSpawnManager] Loot group skipped because a server-owned session seed could not be created.", this);
@@ -2768,24 +2778,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 _currentSceneLoadGeneration,
                 (int)SpawnGroupType.Loot,
                 spawnIndex);
-            if (!LootContainerContentRoller.TryRoll(
-                    snapshot,
-                    containerSeed,
-                    out IReadOnlyList<LootEntry> rolledContent,
-                    out string rollError))
-            {
-                Debug.LogError(
-                    $"[NetworkSpawnManager] Loot roll failed for point {spawnIndex}, generation {_currentSceneLoadGeneration}, seed {containerSeed}. {rollError}",
-                    this);
-                continue;
-            }
-
             NetworkObject lootContainer = SpawnLootContainer(
                 runner,
                 SpawnGroupType.Loot,
                 spawnIndex,
                 containerSeed,
-                rolledContent,
+                additionalLootChanceBasisPoints,
                 out bool fatalIntegrationFailure);
             if (lootContainer == null)
             {
@@ -2809,12 +2807,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         SpawnGroupType group,
         int spawnIndex,
         ulong containerSeed,
-        IReadOnlyList<LootEntry> rolledContent,
+        int additionalLootChanceBasisPoints,
         out bool fatalIntegrationFailure)
     {
         fatalIntegrationFailure = false;
         if (runner == null || runner != _runner || !runner.IsServer ||
-            group != SpawnGroupType.Loot || !_lootContainerPrefab.IsValid || rolledContent == null)
+            group != SpawnGroupType.Loot || !_lootContainerPrefab.IsValid)
         {
             return null;
         }
@@ -2835,10 +2833,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     ? instance.GetComponent<NetworkLootContainer>()
                     : null;
                 callbackApplied = callbackContainer != null &&
-                    callbackContainer.TrySetInitialContentOverride(
+                    callbackContainer.TrySetRandomGenerationOverride(
                         callbackRunner,
                         instance,
-                        rolledContent);
+                        containerSeed,
+                        additionalLootChanceBasisPoints);
             });
 
         if (lootContainer == null)
@@ -2855,7 +2854,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             callbackContainer.Object == lootContainer &&
             callbackApplied &&
             callbackContainer.IsInitialized &&
-            callbackContainer.IsAvailable;
+            callbackContainer.IsAvailable &&
+            callbackContainer.GenerationState == LootSourceGenerationState.Pending;
 
         if (!initializedSuccessfully)
         {
@@ -2953,12 +2953,19 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        return LootContainerContentTableValidation.TryCreateSnapshot(
-            randomConfig.Table,
-            container.LootCatalog,
-            container.SlotCapacity,
-            NetworkLootContainer.MaxDistinctLootTypes,
-            out snapshot,
+        if (!LootContainerContentTableValidation.TryCreateSnapshot(
+                randomConfig.Table,
+                container.LootCatalog,
+                container.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out snapshot,
+                out error))
+        {
+            return false;
+        }
+
+        return LootContainerContentTableValidation.HasAdditionalStackCapacity(
+            snapshot,
             out error);
     }
 
@@ -2988,6 +2995,49 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
+    private bool TryCalculateEffectiveAdditionalLootChance(
+        out int additionalLootChanceBasisPoints,
+        out string error)
+    {
+        additionalLootChanceBasisPoints = 0;
+        error = null;
+        if (_launchContext?.ParticipantProfileIds == null ||
+            _launchContext.ParticipantProfileIds.Count == 0)
+        {
+            error = "The frozen initial Raid cohort is unavailable.";
+            return false;
+        }
+
+        var participantAttributes = new List<CharacterAttributeState>(
+            _launchContext.ParticipantProfileIds.Count);
+        for (int index = 0; index < _launchContext.ParticipantProfileIds.Count; index++)
+        {
+            ProfileId profileId = _launchContext.ParticipantProfileIds[index];
+            if (!_admittedProfiles.TryGetValue(profileId.Value, out PlayerRef player) ||
+                !_spawnedPlayers.TryGetValue(player, out NetworkObject participantObject) ||
+                participantObject == null ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                !participant.TryGetCharacterAttributeState(out CharacterAttributeState attributes))
+            {
+                error = $"Participant attributes are unavailable for initial profile '{profileId.Value}'.";
+                return false;
+            }
+
+            participantAttributes.Add(attributes);
+        }
+
+        if (!RaidEffectiveLuckCalculator.TryCalculateAdditionalLootChanceBasisPoints(
+                participantAttributes,
+                ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
+                out additionalLootChanceBasisPoints))
+        {
+            error = "The admitted attribute snapshots could not produce effective Luck.";
+            return false;
+        }
+
+        return true;
+    }
+
     private bool SpawnConfiguredBreakables(NetworkRunner runner, SpawnGroupDefinition definition)
     {
         if (!_breakablePrefab.IsValid)
@@ -3005,6 +3055,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             Debug.LogError(
                 $"[NetworkSpawnManager] Breakables group skipped because its configuration is invalid. {preparationError}",
+                this);
+            return false;
+        }
+
+        if (!TryCalculateEffectiveAdditionalLootChance(
+                out int additionalLootChanceBasisPoints,
+                out string luckError))
+        {
+            Debug.LogError(
+                $"[NetworkSpawnManager] Breakables group skipped because effective Luck could not be calculated. {luckError}",
                 this);
             return false;
         }
@@ -3041,23 +3101,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 _currentSceneLoadGeneration,
                 (int)SpawnGroupType.Breakables,
                 spawnIndex);
-            if (!LootContainerContentRoller.TryRoll(
-                    snapshot,
-                    dropSeed,
-                    out IReadOnlyList<LootEntry> rolledDrops,
-                    out string rollError))
-            {
-                Debug.LogError(
-                    $"[NetworkSpawnManager] Breakable loot roll failed for point {spawnIndex}, generation {_currentSceneLoadGeneration}, seed {dropSeed}. {rollError}",
-                    this);
-                continue;
-            }
-
             NetworkObject breakableObject = SpawnBreakable(
                 runner,
                 spawnIndex,
                 dropSeed,
-                rolledDrops,
+                additionalLootChanceBasisPoints,
                 out bool fatalIntegrationFailure);
             if (breakableObject == null)
             {
@@ -3080,12 +3128,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         NetworkRunner runner,
         int spawnIndex,
         ulong dropSeed,
-        IReadOnlyList<LootEntry> rolledDrops,
+        int additionalLootChanceBasisPoints,
         out bool fatalIntegrationFailure)
     {
         fatalIntegrationFailure = false;
         if (runner == null || runner != _runner || !runner.IsServer ||
-            !_breakablePrefab.IsValid || rolledDrops == null)
+            !_breakablePrefab.IsValid)
         {
             return null;
         }
@@ -3110,10 +3158,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     ? instance.GetComponent<BreakableObject>()
                     : null;
                 callbackApplied = callbackBreakable != null &&
-                    callbackBreakable.TrySetInitialDropsOverride(
+                    callbackBreakable.TrySetRandomGenerationOverride(
                         callbackRunner,
                         instance,
-                        rolledDrops);
+                        dropSeed,
+                        additionalLootChanceBasisPoints);
             });
 
         if (breakableObject == null)
@@ -3129,7 +3178,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             callbackBreakable != null &&
             callbackBreakable.Object == breakableObject &&
             callbackApplied &&
-            callbackBreakable.HasInitialDrops;
+            callbackBreakable.GenerationState == LootSourceGenerationState.Pending;
         if (!initializedSuccessfully)
         {
             Debug.LogError(
@@ -3208,12 +3257,19 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        return LootContainerContentTableValidation.TryCreateSnapshot(
-            breakable.LootTable,
-            breakable.LootCatalog,
-            breakable.DropCapacity,
-            NetworkLootContainer.MaxDistinctLootTypes,
-            out snapshot,
+        if (!LootContainerContentTableValidation.TryCreateSnapshot(
+                breakable.LootTable,
+                breakable.LootCatalog,
+                breakable.DropCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out snapshot,
+                out error))
+        {
+            return false;
+        }
+
+        return LootContainerContentTableValidation.HasAdditionalStackCapacity(
+            snapshot,
             out error);
     }
 

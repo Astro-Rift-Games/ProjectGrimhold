@@ -17,17 +17,19 @@ implementation for containers and world drops.
 ```text
 NetworkSpawnSceneConfiguration (Breakables points and amount)
   -> NetworkSpawnManager (State Authority)
-  -> validate table/catalog/prefabs and derive group-scoped seed
-  -> roll LootEntry values
+  -> validate table/catalog/prefabs and additional-stack capacity
+  -> derive group-scoped seed and frozen-cohort Luck probability
   -> Runner.Spawn(BreakableObject, OnBeforeSpawned)
-  -> BreakableObject retains the authoritative roll locally
+  -> BreakableObject replicates the Pending generation descriptor
 
 DamageRequest
   -> DamageResolver
   -> BreakableObject.ApplyDamage
-  -> IsDestroyed = true before any side effect
+  -> partial damage leaves generation Pending
+  -> fatal damage consumes Pending as Resolved or Failed
+  -> confirm fatal damage and IsDestroyed independently of generation outcome
   -> disable/unregister damage and blocking colliders
-  -> Runner.Spawn(NetworkLootPickup, OnBeforeSpawned) per rolled stack
+  -> on Resolved only, Runner.Spawn(NetworkLootPickup, OnBeforeSpawned) per stack
   -> pickup replicates catalog index and quantity
   -> existing interaction and inventory transfer flow
 ```
@@ -35,12 +37,13 @@ DamageRequest
 ## Sources of truth and ownership
 
 - `BreakableObject.Health` and `IsDestroyed` are networked simulation state.
+- Seed, effective additional-Loot probability and `LootSourceGenerationState` are networked descriptor state. `Pending` may transition only once to terminal `Resolved` or `Failed`.
 - State Authority alone applies damage, confirms destruction and spawns pickups.
 - The content table, catalog, pickup prefab and local offsets are immutable prefab configuration.
-- The rolled `LootEntry[]` exists only on the authoritative breakable until destruction. Proxies never receive a seed and never roll.
+- The materialized `LootEntry[]` exists only on State Authority after a successful fatal resolution. Proxies receive the descriptor and terminal state through snapshots but never roll.
 - Each spawned pickup owns the replicated catalog index, quantity and consumed state. Static display data is resolved locally from the shared catalog.
 - `NetworkLootPickup` is spawned at an authoritative world position and therefore its root requires `Fusion.NetworkTransform`, registration in `NetworkedBehaviours`, and `HasMainNetworkTRSP`. This is transform replication, not an AOI workaround.
-- `IsDestroyed` is committed before pickup spawning and is the one-shot guard against simultaneous or repeated damage.
+- `IsDestroyed` is committed before pickup spawning and is the one-shot guard against simultaneous or repeated damage. Descriptor state survives Host Migration, so neither `Resolved` nor `Failed` can roll again.
 
 ## Boundaries and failure policy
 
@@ -49,10 +52,13 @@ DamageRequest
 `NetworkLootContainer`. Presentation observes replicated destruction and never
 changes gameplay state.
 
-Invalid prefab, catalog, table, capacity or pre-spawn initialization skips the
-affected breakable spawn. An invalid returned network object is immediately
-despawned. Runtime pickup initialization failure is logged and the invalid pickup
-is despawned; destruction is not rolled back or retried.
+Invalid prefab, catalog, table, capacity without one additional-stack slot or
+pre-spawn descriptor initialization skips the affected breakable spawn. An invalid
+returned network object is immediately despawned. At fatal damage, any generation
+failure first commits terminal `Failed` and produces zero pickups; it never rejects
+or rolls back the fatal damage, destruction, collider removal or registry removal.
+Runtime pickup initialization failure is logged and the invalid pickup is despawned;
+destruction and generation state are not rolled back or retried.
 
 ## Scene authoring
 
@@ -69,8 +75,8 @@ after destruction.
 ## Validation
 
 - EditMode validates group dispatch, seed-domain separation, prefab composition, table/catalog compatibility and point idempotence.
-- PlayMode validates partial damage, fatal damage, repeated hits, collider and renderer removal, and unique pickup generation.
-- Manual Host/Client validation must confirm replicated destruction, identical pickups, collection, and late joining.
+- PlayMode validates that partial damage leaves generation pending, fatal success creates one deterministic batch, fatal failure still destroys with zero pickups, repeated hits cannot resolve again, and colliders/renderers are removed.
+- Manual Host/Client validation must confirm replicated descriptor and terminal state, simultaneous fatal hits, identical pickups, collection, late joining and Host Migration before and after both `Resolved` and `Failed`.
 
 ## Pickup first-acquisition provenance
 

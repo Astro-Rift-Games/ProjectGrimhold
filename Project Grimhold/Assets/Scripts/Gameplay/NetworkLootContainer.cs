@@ -23,6 +23,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         NotRequested,
         Applied,
+        RandomGenerationApplied,
         Rejected
     }
 
@@ -56,6 +57,15 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     [Networked]
     public int LootChangeSequence { get; private set; }
 
+    [Networked]
+    public LootSourceGenerationState GenerationState { get; private set; }
+
+    [Networked]
+    private long RandomGenerationSeedBits { get; set; }
+
+    [Networked]
+    private int AdditionalLootChanceBasisPoints { get; set; }
+
     private Collider2D[] _cachedColliders;
     private ContainerRaidLootOriginState _raidOriginState;
 
@@ -63,6 +73,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     private Collider2D[] _interactionColliders;
 
     private LootEntry[] _initialContentOverride;
+    private ulong _randomGenerationSeedOverride;
+    private int _additionalLootChanceOverride;
     private InitialContentOverrideState _initialContentOverrideState;
     private bool _spawnedStarted;
     private EntityRegistry _registry;
@@ -103,10 +115,22 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return;
             }
 
-            bool initialized;
+            bool isPendingRandomGeneration =
+                _initialContentOverrideState == InitialContentOverrideState.RandomGenerationApplied;
             IReadOnlyList<KeyValuePair<int, int>> resolvedEntries;
             string error;
-            if (_initialContentOverrideState == InitialContentOverrideState.Applied)
+            bool initialized;
+            if (isPendingRandomGeneration)
+            {
+                initialized = LootContainerInitializationRules.TryBuild(
+                    Array.Empty<LootEntry>(),
+                    _lootCatalog,
+                    _slotCapacity,
+                    MaxDistinctLootTypes,
+                    out resolvedEntries,
+                    out error);
+            }
+            else if (_initialContentOverrideState == InitialContentOverrideState.Applied)
             {
                 initialized = LootContainerInitializationRules.TryBuild(
                     _initialContentOverride,
@@ -134,46 +158,23 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return;
             }
 
-            NetworkDictionary<int, int> inventory = LootInventory;
-            NetworkDictionary<int, int> eligibleInventory = FirstAcquisitionEligibleInventory;
-            if (_raidOriginState == null)
+            if (!TryCommitNaturalContent(resolvedEntries, out string commitError))
             {
                 Debug.LogError(
-                    $"{nameof(NetworkLootContainer)}: Missing {nameof(ContainerRaidLootOriginState)} on '{name}'.",
-                    this);
-                return;
-            }
-            inventory.Clear();
-            eligibleInventory.Clear();
-            try
-            {
-                for (int i = 0; i < resolvedEntries.Count; i++)
-                {
-                    KeyValuePair<int, int> entry = resolvedEntries[i];
-                    inventory.Set(entry.Key, entry.Value);
-                    eligibleInventory.Set(entry.Key, entry.Value);
-                }
-
-                if (!_raidOriginState.TryInitializeDungeon(resolvedEntries, out string originError))
-                {
-                    inventory.Clear();
-                    eligibleInventory.Clear();
-                    Debug.LogError(
-                        $"{nameof(NetworkLootContainer)}: Natural Raid provenance initialization failed for '{name}'. {originError}",
-                        this);
-                    return;
-                }
-            }
-            catch (Exception exception)
-            {
-                inventory.Clear();
-                eligibleInventory.Clear();
-                Debug.LogError(
-                    $"{nameof(NetworkLootContainer)}: Natural content and provenance initialization failed atomically for '{name}'. {exception.Message}",
+                    $"{nameof(NetworkLootContainer)}: Natural content and provenance initialization failed atomically for '{name}'. {commitError}",
                     this);
                 return;
             }
 
+            RandomGenerationSeedBits = isPendingRandomGeneration
+                ? unchecked((long)_randomGenerationSeedOverride)
+                : 0;
+            AdditionalLootChanceBasisPoints = isPendingRandomGeneration
+                ? _additionalLootChanceOverride
+                : 0;
+            GenerationState = isPendingRandomGeneration
+                ? LootSourceGenerationState.Pending
+                : LootSourceGenerationState.NotApplicable;
             IsInitialized = true;
             IsAvailable = false;
         }
@@ -236,6 +237,111 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         return true;
     }
 
+    /// <summary>
+    /// Configures a table-backed source during the authoritative pre-spawn callback.
+    /// Content remains unresolved until the first valid interaction.
+    /// </summary>
+    internal bool TrySetRandomGenerationOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        ulong seed,
+        int additionalLootChanceBasisPoints)
+    {
+        if (_spawnedStarted || _initialContentOverrideState != InitialContentOverrideState.NotRequested)
+        {
+            return false;
+        }
+
+        LootContainerRandomContentConfig randomConfig =
+            GetComponent<LootContainerRandomContentConfig>();
+        if (runner == null || !runner.IsServer || expectedObject == null ||
+            expectedObject.gameObject != gameObject ||
+            expectedObject.GetComponent<NetworkLootContainer>() != this ||
+            randomConfig == null || !randomConfig.enabled || randomConfig.Table == null ||
+            additionalLootChanceBasisPoints < 0 ||
+            additionalLootChanceBasisPoints > CharacterDerivedStatisticsCalculator.BasisPointsDenominator)
+        {
+            _initialContentOverrideState = InitialContentOverrideState.Rejected;
+            return false;
+        }
+
+        _randomGenerationSeedOverride = seed;
+        _additionalLootChanceOverride = additionalLootChanceBasisPoints;
+        _initialContentOverrideState = InitialContentOverrideState.RandomGenerationApplied;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes the pending table-backed generation exactly once. Failure is terminal
+    /// and leaves the container empty but otherwise available for normal interaction.
+    /// </summary>
+    internal bool TryResolveRandomContent(out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating ||
+            !IsInitialized || !IsAvailable || !_isRegistered ||
+            GenerationState != LootSourceGenerationState.Pending)
+        {
+            error = "A pending, available State Authority Loot source is required.";
+            return false;
+        }
+
+        GenerationState = LootSourceGenerationState.Failed;
+        try
+        {
+            if (LootInventory.Count != 0 || FirstAcquisitionEligibleInventory.Count != 0 ||
+                _raidOriginState == null ||
+                !_raidOriginState.TryGetEntries(_lootCatalog, out IReadOnlyList<RaidLootOriginEntry> origins) ||
+                origins.Count != 0)
+            {
+                error = "Pending random generation requires an empty content and provenance state.";
+                return false;
+            }
+
+            LootContainerRandomContentConfig randomConfig =
+                GetComponent<LootContainerRandomContentConfig>();
+            if (randomConfig == null || !randomConfig.enabled ||
+                !LootContainerContentTableValidation.TryCreateSnapshot(
+                    randomConfig.Table,
+                    _lootCatalog,
+                    _slotCapacity,
+                    MaxDistinctLootTypes,
+                    out ValidatedLootContainerContentSnapshot snapshot,
+                    out error) ||
+                !LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error) ||
+                !LootContainerContentRoller.TryRoll(
+                    snapshot,
+                    unchecked((ulong)RandomGenerationSeedBits),
+                    AdditionalLootChanceBasisPoints,
+                    out IReadOnlyList<LootEntry> rolledContent,
+                    out error) ||
+                !LootContainerInitializationRules.TryBuild(
+                    rolledContent,
+                    _lootCatalog,
+                    _slotCapacity,
+                    MaxDistinctLootTypes,
+                    out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
+                    out error) ||
+                !TryCommitNaturalContent(resolvedEntries, out error))
+            {
+                return false;
+            }
+
+            if (resolvedEntries.Count > 0)
+            {
+                LootChangeSequence++;
+            }
+
+            GenerationState = LootSourceGenerationState.Resolved;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            error = $"Unexpected Loot resolution failure: {exception.Message}";
+            return false;
+        }
+    }
+
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         if (_isRegistered && _registry != null)
@@ -246,9 +352,54 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         _isRegistered = false;
         _registry = null;
         _initialContentOverride = null;
+        _randomGenerationSeedOverride = 0;
+        _additionalLootChanceOverride = 0;
+        _initialContentOverrideState = InitialContentOverrideState.NotRequested;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         _hasQueuedDebugAvailability = false;
 #endif
+    }
+
+    private bool TryCommitNaturalContent(
+        IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
+        out string error)
+    {
+        error = null;
+        if (_raidOriginState == null || resolvedEntries == null)
+        {
+            error = $"Missing {nameof(ContainerRaidLootOriginState)} or resolved entries.";
+            return false;
+        }
+
+        NetworkDictionary<int, int> inventory = LootInventory;
+        NetworkDictionary<int, int> eligibleInventory = FirstAcquisitionEligibleInventory;
+        inventory.Clear();
+        eligibleInventory.Clear();
+        try
+        {
+            for (int index = 0; index < resolvedEntries.Count; index++)
+            {
+                KeyValuePair<int, int> entry = resolvedEntries[index];
+                inventory.Set(entry.Key, entry.Value);
+                eligibleInventory.Set(entry.Key, entry.Value);
+            }
+
+            if (!_raidOriginState.TryInitializeDungeon(resolvedEntries, out error))
+            {
+                inventory.Clear();
+                eligibleInventory.Clear();
+                return false;
+            }
+        }
+        catch (Exception exception)
+        {
+            inventory.Clear();
+            eligibleInventory.Clear();
+            error = exception.Message;
+            return false;
+        }
+
+        return true;
     }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -317,7 +468,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.MissingAuthority;
         }
 
-        if (!IsInitialized || !IsAvailable || !_isRegistered)
+        if (!IsInitialized || !IsAvailable || !_isRegistered ||
+            GenerationState == LootSourceGenerationState.Pending)
         {
             return LootTransferFailureReason.ContainerUnavailable;
         }
@@ -369,7 +521,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.MissingAuthority;
         }
 
-        if (!IsInitialized || !IsAvailable || !_isRegistered)
+        if (!IsInitialized || !IsAvailable || !_isRegistered ||
+            GenerationState == LootSourceGenerationState.Pending)
         {
             return LootTransferFailureReason.ContainerUnavailable;
         }

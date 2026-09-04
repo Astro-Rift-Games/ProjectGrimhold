@@ -48,20 +48,12 @@ namespace Tests.EditMode.Equipment
         }
 
         [Test]
-        public void Loadout_ValidatesOwnershipOfEveryOccupiedSlot()
+        public void Loadout_ValidatesEveryOccupiedSlot()
         {
             var loadout = new PreparedEquipmentLoadout(Sword, default, Helmet);
-            var owned = new[] { new StashItem(Sword, 1) };
 
             Assert.That(
-                PreparedEquipmentLoadout.TryValidate(loadout, owned, _catalog, false, out string error),
-                Is.False,
-                "A helmet that is not owned cannot stay prepared.");
-            Assert.That(error, Does.Contain("placeholder_helmet"));
-
-            var complete = new[] { new StashItem(Sword, 1), new StashItem(Helmet, 1) };
-            Assert.That(
-                PreparedEquipmentLoadout.TryValidate(loadout, complete, _catalog, true, out error),
+                PreparedEquipmentLoadout.TryValidate(loadout, _catalog, true, out string error),
                 Is.True,
                 error);
         }

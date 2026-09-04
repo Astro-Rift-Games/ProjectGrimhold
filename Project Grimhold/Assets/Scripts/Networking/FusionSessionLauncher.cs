@@ -362,7 +362,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     equipment,
                     out PlayerExpeditionLootSnapshot ownership,
                     out _) &&
-                MatchesLoadout(reservation.Items, ownership.Combined) &&
+                MatchesLoadout(reservation.Items, ownership.Inventory) &&
                 MatchesPreparedEquipment(reservation.PreparedEquipment, equipment))
             {
                 return true;

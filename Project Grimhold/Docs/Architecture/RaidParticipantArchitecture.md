@@ -3,9 +3,9 @@
 ## Context and decision
 
 `NetworkRaidParticipant` is the raid `PlayerObject` for one admitted `PlayerRef`.
-It owns session-scoped profile identity, selected build, terminal participant state and
-the current avatar reference. `NetworkPlayerMelee` and `NetworkPlayerRanged` are
-temporary avatars, never the persistent participant identity.
+It owns session-scoped profile identity, the frozen admitted character state, terminal participant
+state and the current avatar reference. The productive `NetworkPlayer` is a temporary avatar,
+never the stable participant identity.
 
 Each participant also replicates the `RaidGenerationId` assigned by
 `NetworkMatchController`; it is an identity marker only and does not duplicate
@@ -32,9 +32,9 @@ it records the authoritative outcome after those existing systems have completed
 
 ## Avatar lifecycle
 
-`NetworkSpawnManager` spawns participant first, then exactly one build-selected avatar,
-links both objects and registers only the participant with `SetPlayerObject`. The avatar
-has the same Input Authority solely to consume regular player input.
+`NetworkSpawnManager` spawns the participant first, then exactly one productive
+`NetworkPlayer` avatar, links both objects and registers only the participant with
+`SetPlayerObject`. The avatar has the same Input Authority solely to consume regular player input.
 
 On defeat, `PlayerCorpseGenerationController` completes the co-located inventory handoff
 before `RaidAvatarParticipantLink` records `Defeated` and removes the avatar Input
@@ -126,7 +126,6 @@ and contains its `NetworkObject`, `NetworkRaidParticipant` and exactly one
 `PlayerExpeditionExperienceLedger` plus exactly one `PlayerExpeditionProgressionResolver` network
 behaviour.
 `FusionSessionLauncher._raidParticipantPrefab` on `Assets/Prefabs/Systems.prefab` references
-that asset. `RaidAvatarParticipantLink` lives on the base `NetworkPlayer` prefab and is
-therefore inherited by both catalog avatars (`NetworkPlayerMelee` and
-`NetworkPlayerRanged`). EditMode composition tests protect these assignments and the
-corresponding Fusion `NetworkedBehaviours` lists.
+that asset, while `_raidPlayerPrefab` references the productive `NetworkPlayer.prefab`.
+`RaidAvatarParticipantLink` lives on that avatar prefab. EditMode composition tests protect these
+assignments and the corresponding Fusion `NetworkedBehaviours` lists.

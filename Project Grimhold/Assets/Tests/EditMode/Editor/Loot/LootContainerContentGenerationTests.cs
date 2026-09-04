@@ -171,6 +171,106 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void Roller_LuckAddsOneDistinctStackWithoutChangingBaseContent()
+        {
+            LootDefinition first = CreateDefinition("first");
+            LootDefinition second = CreateDefinition("second");
+            LootDefinition third = CreateDefinition("third");
+            SetCatalog(first, second, third);
+            LootContainerContentTable table = CreateTable(
+                1,
+                1,
+                false,
+                new LootContainerContentTableEntry(first, 1, 1, 3),
+                new LootContainerContentTableEntry(second, 2, 2, 4),
+                new LootContainerContentTableEntry(third, 3, 3, 5));
+            Assert.That(TrySnapshot(table, out ValidatedLootContainerContentSnapshot snapshot, out string error),
+                Is.True, error);
+
+            Assert.That(LootContainerContentRoller.TryRoll(
+                snapshot, 42, 0, out IReadOnlyList<LootEntry> baseRoll, out error), Is.True, error);
+            Assert.That(LootContainerContentRoller.TryRoll(
+                snapshot, 42, 10_000, out IReadOnlyList<LootEntry> luckyRoll, out error), Is.True, error);
+            Assert.That(LootContainerContentRoller.TryRoll(
+                snapshot, 42, 10_000, out IReadOnlyList<LootEntry> repeatedLuckyRoll, out error), Is.True, error);
+
+            Assert.That(baseRoll, Has.Count.EqualTo(1));
+            Assert.That(luckyRoll, Has.Count.EqualTo(2));
+            Assert.That(repeatedLuckyRoll, Is.EqualTo(luckyRoll));
+            Assert.That(luckyRoll, Does.Contain(baseRoll[0]));
+            Assert.That(new HashSet<LootId> { luckyRoll[0].LootId, luckyRoll[1].LootId },
+                Has.Count.EqualTo(2));
+            for (int index = 0; index < luckyRoll.Count; index++)
+            {
+                LootEntry entry = luckyRoll[index];
+                if (entry.LootId == first.LootId)
+                {
+                    Assert.That(entry.Amount, Is.InRange(1, 3));
+                }
+                else if (entry.LootId == second.LootId)
+                {
+                    Assert.That(entry.Amount, Is.InRange(2, 4));
+                }
+                else
+                {
+                    Assert.That(entry.LootId, Is.EqualTo(third.LootId));
+                    Assert.That(entry.Amount, Is.InRange(3, 5));
+                }
+            }
+        }
+
+        [Test]
+        public void Roller_InvalidLuckChanceIsRejectedWithoutPartialContent()
+        {
+            LootDefinition first = CreateDefinition("first");
+            SetCatalog(first);
+            LootContainerContentTable table = CreateTable(
+                1,
+                1,
+                false,
+                new LootContainerContentTableEntry(first, 1, 1, 1));
+            Assert.That(TrySnapshot(table, out ValidatedLootContainerContentSnapshot snapshot, out string error),
+                Is.True, error);
+
+            Assert.That(LootContainerContentRoller.TryRoll(
+                snapshot, 1, -1, out IReadOnlyList<LootEntry> result, out error), Is.False);
+            Assert.That(result, Is.Empty);
+            Assert.That(error, Does.Contain("basis points"));
+        }
+
+        [Test]
+        public void LuckCompatibility_RequiresOneStackBeyondTheBaseMaximum()
+        {
+            LootDefinition first = CreateDefinition("first");
+            LootDefinition second = CreateDefinition("second");
+            SetCatalog(first, second);
+            LootContainerContentTable noHeadroom = CreateTable(
+                2,
+                2,
+                false,
+                new LootContainerContentTableEntry(first, 1, 1, 1),
+                new LootContainerContentTableEntry(second, 1, 1, 1));
+            Assert.That(TrySnapshot(noHeadroom, out ValidatedLootContainerContentSnapshot snapshot, out string error),
+                Is.True, error);
+            Assert.That(
+                LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error),
+                Is.False);
+            Assert.That(error, Does.Contain("one distinct stack"));
+
+            ConfigureTable(
+                noHeadroom,
+                1,
+                1,
+                false,
+                new LootContainerContentTableEntry(first, 1, 1, 1),
+                new LootContainerContentTableEntry(second, 1, 1, 1));
+            Assert.That(TrySnapshot(noHeadroom, out snapshot, out error), Is.True, error);
+            Assert.That(
+                LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error),
+                Is.True, error);
+        }
+
+        [Test]
         public void SeedDerivation_IsStableAndDistinctByPointAndGeneration()
         {
             ulong first = LootContainerSeedRules.Derive(123, 4, 0);

@@ -86,13 +86,12 @@ public readonly struct PreparedEquipmentLoadout
     /// </summary>
     public static bool TryValidate(
         in PreparedEquipmentLoadout loadout,
-        IReadOnlyList<StashItem> ownedItems,
         LootDefinitionCatalog catalog,
         bool requireWeapon,
         out string error)
     {
         error = null;
-        if (ownedItems == null || catalog == null)
+        if (catalog == null)
         {
             error = "Prepared equipment validation dependencies are unavailable.";
             return false;
@@ -120,14 +119,6 @@ public readonly struct PreparedEquipmentLoadout
                 return false;
             }
 
-            int required = CountReferences(loadout, lootId);
-            if (FindAmount(ownedItems, lootId) < required)
-            {
-                error = required > 1
-                    ? $"Prepared '{lootId.Value}' occupies {required} slots but fewer units are owned."
-                    : $"Prepared '{lootId.Value}' is not present in the Loadout.";
-                return false;
-            }
         }
 
         return true;
@@ -211,37 +202,5 @@ public readonly struct PreparedEquipmentLoadout
         return true;
     }
 
-    /// <summary>Counts how many slots reference the same loot identity.</summary>
-    public static int CountReferences(in PreparedEquipmentLoadout loadout, LootId lootId)
-    {
-        if (!lootId.IsValid)
-        {
-            return 0;
-        }
 
-        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        int count = 0;
-        for (int index = 0; index < slots.Length; index++)
-        {
-            if (loadout.Get(slots[index]) == lootId)
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    private static int FindAmount(IReadOnlyList<StashItem> items, LootId lootId)
-    {
-        for (int index = 0; index < items.Count; index++)
-        {
-            if (items[index].LootId == lootId)
-            {
-                return items[index].Amount;
-            }
-        }
-
-        return 0;
-    }
 }

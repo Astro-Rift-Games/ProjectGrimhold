@@ -61,7 +61,8 @@ public class PlayerArmorPresenterTests
         _headBase.flipX = true;
         _headBase.flipY = false;
         _headBase.sortingOrder = 5;
-        _headBase.sortingLayerID = 10;
+        int charactersLayer = SortingLayer.NameToID("Characters");
+        _headBase.sortingLayerID = charactersLayer;
 
         _helmetVisual.enabled = true; // Pretend it's equipped
         
@@ -77,7 +78,7 @@ public class PlayerArmorPresenterTests
         Assert.IsFalse(_helmetVisual.flipY);
         Assert.AreEqual(6, _helmetVisual.sortingOrder);
         Assert.Greater(_helmetVisual.sortingOrder, _headBase.sortingOrder);
-        Assert.AreEqual(10, _helmetVisual.sortingLayerID);
+        Assert.AreEqual(charactersLayer, _helmetVisual.sortingLayerID);
 
         Object.DestroyImmediate(testSprite.texture);
         Object.DestroyImmediate(testSprite);
@@ -111,7 +112,7 @@ public class PlayerArmorPresenterTests
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
         Assert.That(prefab, Is.Not.Null);
 
-        PlayerArmorPresenter presenter = prefab.GetComponent<PlayerArmorPresenter>();
+        PlayerArmorPresenter presenter = prefab.GetComponentInChildren<PlayerArmorPresenter>(true);
         Assert.That(presenter, Is.Not.Null);
 
         var serialized = new SerializedObject(presenter);
@@ -267,7 +268,7 @@ public class PlayerArmorPresenterTests
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
         Assert.That(prefab, Is.Not.Null);
-        PlayerArmorPresenter presenter = prefab.GetComponent<PlayerArmorPresenter>();
+        PlayerArmorPresenter presenter = prefab.GetComponentInChildren<PlayerArmorPresenter>(true);
         Assert.That(presenter, Is.Not.Null);
         return new SerializedObject(presenter);
     }

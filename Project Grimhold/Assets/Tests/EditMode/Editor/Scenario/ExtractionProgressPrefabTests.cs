@@ -30,9 +30,11 @@ namespace Tests.EditMode.Scenario
             Assert.That(serialized.FindProperty("_extractionController").objectReferenceValue, Is.Not.Null);
         }
 
-        [TestCase("Assets/Prefabs/NetworkEnemy.prefab", 0)]
-        [TestCase("Assets/Prefabs/NetworkEnemyMelee.prefab", 10)]
-        [TestCase("Assets/Prefabs/NetworkEnemyRanged.prefab", 15)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 0)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab", 15)]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab", 10)]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab", 10)]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab", 10)]
         public void EnemyPrefabs_HaveExpectedBakedDefeatReward(string path, int expectedReward)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
@@ -56,9 +58,9 @@ namespace Tests.EditMode.Scenario
             Assert.That(chest.GetComponent<NetworkLootContainerInteractable>().FirstOpenProgressReward, Is.EqualTo(5));
         }
 
-        [TestCase("Coins", 50)]
-        [TestCase("Bone", 10)]
-        [TestCase("HealthPotion", 5)]
+        [TestCase("Coins", 1)]
+        [TestCase("Bone", 5)]
+        [TestCase("HealthPotion", 10)]
         public void LootDefinitions_HaveExpectedSellValue(string assetName, int expectedSellValue)
         {
             LootDefinition definition = AssetDatabase.LoadAssetAtPath<LootDefinition>(

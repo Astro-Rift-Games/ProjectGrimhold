@@ -94,6 +94,7 @@ namespace Tests.PlayMode.Presentation
             AssertObjectReference(serializedBinder, "_raidHudPresenter");
             AssertObjectReference(serializedBinder, "_menuPresenter");
             AssertObjectReference(serializedBinder, "_playerCharacter");
+            AssertObjectReference(serializedBinder, "_staminaController");
             AssertObjectReference(serializedBinder, "_combatController");
             AssertObjectReference(serializedBinder, "_combatFeedbackPresenter");
             Assert.That(prefab.GetComponentsInChildren<CombatFeedbackPresenter>(true), Has.Length.EqualTo(1));
@@ -193,17 +194,21 @@ namespace Tests.PlayMode.Presentation
                 RaidHudView view = instance.GetComponentInChildren<RaidHudView>(true);
                 view.Clear();
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: — / —"));
+                Assert.That(view.StaminaText.text, Is.EqualTo("Stamina: — / —"));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.Empty);
                 Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
                 Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
                 Assert.That(view.HealthFill.fillAmount, Is.Zero);
+                Assert.That(view.StaminaFill.fillAmount, Is.Zero);
                 Assert.That(view.CooldownFill.fillAmount, Is.Zero);
                 Assert.That(view.HealthFill.rectTransform.localScale.x, Is.Zero);
+                Assert.That(view.StaminaFill.rectTransform.localScale.x, Is.Zero);
                 Assert.That(view.CooldownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(view.DefeatedRoot.activeSelf, Is.False);
 
                 view.PresentHealth(25f, 100f);
+                view.PresentStamina(25.4f, 100.4f, isExhausted: true);
                 view.PresentAttack(false, 1.2f, 0.6f);
                 view.PresentInventory(3, 16);
                 view.PresentDefeated(true);
@@ -211,6 +216,9 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: 25 / 100"));
                 Assert.That(view.HealthFill.fillAmount, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(view.HealthFill.rectTransform.localScale.x, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(view.StaminaText.text, Is.EqualTo("Stamina: 25 / 100 (Agotado)"));
+                Assert.That(view.StaminaFill.fillAmount, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
+                Assert.That(view.StaminaFill.rectTransform.localScale.x, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.EqualTo("1.2"));
                 Assert.That(view.CooldownFill.fillAmount, Is.EqualTo(0.6f).Within(0.0001f));
@@ -291,6 +299,9 @@ namespace Tests.PlayMode.Presentation
             yield return WaitUntil(
                 () => view.HealthText.text == "Salud: 125 / 125",
                 "The Raid HUD did not present the Vitality-derived maximum Health.");
+            yield return WaitUntil(
+                () => view.StaminaText.text == "Stamina: 100 / 100",
+                "The Raid HUD did not present the Resistance-derived maximum Stamina.");
 
             Assert.That(_defeatDriver.FirstResult.IsApplied, Is.True);
             Assert.That(_defeatDriver.FirstResult.AppliedDamage, Is.EqualTo(50f));
@@ -300,6 +311,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(character.Health, Is.EqualTo(125f));
             Assert.That(character.MaxHealth, Is.EqualTo(125f));
             Assert.That(view.HealthText.text, Is.EqualTo("Salud: 125 / 125"));
+            Assert.That(view.StaminaText.text, Is.EqualTo("Stamina: 100 / 100"));
         }
 
         [UnityTest]
@@ -712,6 +724,8 @@ namespace Tests.PlayMode.Presentation
         {
             Assert.That(view.HealthText, Is.Not.Null);
             Assert.That(view.HealthFill, Is.Not.Null);
+            Assert.That(view.StaminaText, Is.Not.Null);
+            Assert.That(view.StaminaFill, Is.Not.Null);
             Assert.That(view.AttackText, Is.Not.Null);
             Assert.That(view.CooldownRoot, Is.Not.Null);
             Assert.That(view.CooldownIcon, Is.Not.Null);
