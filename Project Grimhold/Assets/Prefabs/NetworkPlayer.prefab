@@ -6331,7 +6331,7 @@ MonoBehaviour:
   - {fileID: 7397229956843810012}
   - {fileID: 1066720069559603162}
   - {fileID: 7397229956843810032}
-  - {fileID: 7397229956843810042}
+  - {fileID: 0}
   - {fileID: 7397229956843810052}
   _duration: 0.2
   _flashColor: {r: 1, g: 0.2, b: 0.2, a: 1}
@@ -7435,7 +7435,7 @@ MonoBehaviour:
   _equipmentSource: {fileID: 8300000000000000005}
   _headBase: {fileID: 7397229956843810032}
   _bodyBase: {fileID: 1066720069559603162}
-  _leftHandBase: {fileID: 7397229956843810042}
+  _leftHandBase: {fileID: 0}
   _rightHandBase: {fileID: 7397229956843810052}
   _legsBase: {fileID: 7397229956843810012}
   _helmetVisual: {fileID: 7661733834665913223}
@@ -7638,7 +7638,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7397229956843810041}
-  - component: {fileID: 7397229956843810042}
+  - component: {fileID: 6561269693806971427}
   m_Layer: 7
   m_Name: LeftHand
   m_TagString: Untagged
@@ -7664,7 +7664,7 @@ Transform:
   - {fileID: 1764435696897887933}
   m_Father: {fileID: 2480353806785807869}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &7397229956843810042
+--- !u!212 &6561269693806971427
 SpriteRenderer:
   serializedVersion: 3
   m_ObjectHideFlags: 0
@@ -7711,7 +7711,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
   m_SortingLayer: 2
-  m_SortingOrder: 4
+  m_SortingOrder: 30
   m_MaskInteraction: 0
   m_Sprite: {fileID: -1062035416023588345, guid: f62e86f4870c5eb4b968e9406962d559, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
