@@ -18,6 +18,18 @@ router.get('/me/progression', async (req, res, next) => {
   }
 });
 
-
+// POST /character/me/progression/commit
+router.post('/me/progression/commit', async (req, res, next) => {
+  console.log(`[Progression Route] Hit POST /me/progression/commit for accountId: ${req.accountId}`);
+  try {
+    console.log('[Progression Route] commitProgression payload:', req.body);
+    const result = await ProgressionService.commitProgression(req.accountId, req.body);
+    console.log('[Progression Route] commitProgression result:', result);
+    res.json(result);
+  } catch (err) {
+    console.error('[Progression Route] Error in commitProgression:', err);
+    next(err);
+  }
+});
 
 module.exports = router;

@@ -39,6 +39,8 @@ public sealed class LoginFlowController : MonoBehaviour
     public static LoginFlowController Instance { get; private set; }
 
     [SerializeField] private BackendConfiguration _config;
+    public BackendConfiguration Config => _config;
+
     [SerializeField] private ApplicationAuthContext _authContext;
 
     private string _pendingToken;

@@ -15,13 +15,41 @@ public class RemoteInventoryService : MonoBehaviour
 
     public void Initialize(LocalProfilePersistenceConfiguration localConfig, LocalProfileStore store)
     {
-        // Try to load backend config. In a real app this might be injected.
-        _backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
-        if (_backendConfig == null)
+        // Fetch configuration from LoginFlowController if available, otherwise try Resources
+        if (LoginFlowController.Instance != null && LoginFlowController.Instance.Config != null)
         {
-            _backendConfig = ScriptableObject.CreateInstance<BackendConfiguration>();
-            Debug.LogWarning($"[{nameof(RemoteInventoryService)}] No BackendConfiguration found. Using defaults.");
+            _backendConfig = LoginFlowController.Instance.Config;
+            Debug.Log($"[{nameof(RemoteInventoryService)}] Loaded BackendConfiguration from LoginFlowController: {_backendConfig.BaseUrl}");
         }
+        else
+        {
+            _backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
+            if (_backendConfig == null)
+            {
+                _backendConfig = ScriptableObject.CreateInstance<BackendConfiguration>();
+                Debug.LogWarning($"[{nameof(RemoteInventoryService)}] No BackendConfiguration found. Using defaults.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Persists character progression and attribute allocations.
+    /// </summary>
+    public async Task<(bool success, BackendError error)> CommitProgressionAsync(CharacterAttributesData attributes)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitProgressionAsync: Not authenticated.");
+            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        }
+
+        var request = new CommitProgressionRequest
+        {
+            characterAttributes = attributes
+        };
+
+        var (success, _, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
+        return (success, error);
     }
 
     /// <summary>

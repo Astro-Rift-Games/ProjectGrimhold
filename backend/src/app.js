@@ -12,6 +12,12 @@ const app = express();
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// Global request logging for debugging
+app.use((req, res, next) => {
+  console.log(`[Express] Received ${req.method} request to: ${req.originalUrl}`);
+  next();
+});
+
 // Routes
 app.use('/auth', authRoutes);
 app.use('/character', characterRoutes);

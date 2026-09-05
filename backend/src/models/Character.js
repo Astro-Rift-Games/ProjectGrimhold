@@ -42,13 +42,13 @@ const progressionReceiptSchema = new mongoose.Schema({
 }, { _id: false });
 
 const characterAttributeStateSchema = new mongoose.Schema({
-  vitality:        { type: Number, default: 0, min: 0 },
-  resistance:      { type: Number, default: 0, min: 0 },
-  strength:        { type: Number, default: 0, min: 0 },
-  dexterity:       { type: Number, default: 0, min: 0 },
-  intelligence:    { type: Number, default: 0, min: 0 },
-  luck:            { type: Number, default: 0, min: 0 },
-  availablePoints: { type: Number, default: 0, min: 0 }
+  vitality:        { type: Number, default: 5, min: 0 },
+  resistance:      { type: Number, default: 5, min: 0 },
+  strength:        { type: Number, default: 5, min: 0 },
+  dexterity:       { type: Number, default: 5, min: 0 },
+  intelligence:    { type: Number, default: 5, min: 0 },
+  luck:            { type: Number, default: 5, min: 0 },
+  availablePoints: { type: Number, default: 10, min: 0 }
 }, { _id: false });
 
 const characterSchema = new mongoose.Schema({

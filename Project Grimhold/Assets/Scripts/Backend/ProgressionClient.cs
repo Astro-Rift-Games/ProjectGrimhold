@@ -16,7 +16,8 @@ namespace Grimhold.Backend
         public static async Task<(bool success, ProgressionData data, BackendError error)>
             GetProgressionAsync(BackendConfiguration config, string token)
         {
-            var url = $"{config.BaseUrl}/character/me/progression";
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            var url = $"{baseUrl}/character/me/progression";
             using var request = UnityWebRequest.Get(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;
@@ -34,7 +35,9 @@ namespace Grimhold.Backend
         public static async Task<(bool success, CommitProgressionResult data, BackendError error)>
             CommitProgressionAsync(BackendConfiguration config, string token, CommitProgressionRequest request)
         {
-            var url = $"{config.BaseUrl}/character/me/progression/commit";
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            var url = $"{baseUrl}/character/me/progression/commit";
+            Debug.Log($"[ProgressionClient] Committing to URL: {url}");
             return await PostJson<CommitProgressionRequest, CommitProgressionResult>(config, token, url, request);
         }
 
@@ -55,6 +58,9 @@ namespace Grimhold.Backend
 
             var operation = request.SendWebRequest();
             while (!operation.isDone) await Task.Yield();
+
+            var responseText = request.downloadHandler?.text ?? "null";
+            Debug.Log($"[ProgressionClient] POST {url} returned HTTP {request.responseCode}. Raw body: {responseText}");
 
             return ProcessResponse<TResult>(request);
         }

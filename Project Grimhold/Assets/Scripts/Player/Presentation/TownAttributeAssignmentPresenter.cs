@@ -115,11 +115,42 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
         return true;
     }
 
-    private void AssignAttribute(CharacterAttribute attribute)
+    private async void AssignAttribute(CharacterAttribute attribute)
     {
         if (_store != null)
         {
-            _store.TryAssignCharacterAttribute(attribute, out _);
+            var commitResult = _store.TryAssignCharacterAttribute(attribute, out _);
+            if (commitResult == CharacterAttributeAssignmentCommitResult.Success &&
+                _store.TryGetCharacterAttributeState(out CharacterAttributeState state))
+            {
+                var remoteService = _profileContext != null ? _profileContext.GetComponent<RemoteInventoryService>() : null;
+                if (remoteService != null)
+                {
+                    var dto = new Grimhold.Backend.CharacterAttributesData
+                    {
+                        vitality = state.Vitality,
+                        resistance = state.Resistance,
+                        strength = state.Strength,
+                        dexterity = state.Dexterity,
+                        intelligence = state.Intelligence,
+                        luck = state.Luck,
+                        availablePoints = state.AvailablePoints
+                    };
+                    var (success, error) = await remoteService.CommitProgressionAsync(dto);
+                    if (success)
+                    {
+                        Debug.Log($"[TownAttributeAssignmentPresenter] Attributes committed to backend successfully.");
+                    }
+                    else
+                    {
+                        Debug.LogError($"[TownAttributeAssignmentPresenter] Failed to commit attributes: {error.error} - {error.message}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[TownAttributeAssignmentPresenter] RemoteInventoryService not found, attributes not committed to backend.");
+                }
+            }
         }
     }
 
