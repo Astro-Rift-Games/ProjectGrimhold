@@ -249,6 +249,126 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
+    public void SharedInventoryPrefab_PreservesCompleteSerializedUiContract()
+    {
+        GameObject sharedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SharedInventoryPath);
+        Assert.That(sharedPrefab, Is.Not.Null);
+
+        RaidInventoryPresenter presenter = sharedPrefab.GetComponent<RaidInventoryPresenter>();
+        RaidInventoryView view = sharedPrefab.GetComponent<RaidInventoryView>();
+        Assert.That(presenter, Is.Not.Null);
+        Assert.That(view, Is.Not.Null);
+        Assert.That(SerializedReference(presenter, "_view"), Is.SameAs(view));
+        Assert.That(SerializedReference(presenter, "_lootCatalog"), Is.Not.Null);
+        Assert.That(SerializedReference(presenter, "_interactionConfig"), Is.Not.Null);
+
+        Assert.That(SerializedReference(view, "_screenRoot"), Is.Not.Null);
+        Assert.That(view.PlayerPanel, Is.Not.Null);
+        Assert.That(view.ContainerPanel, Is.Not.Null);
+        Assert.That(view.TransferFeedbackText, Is.Not.Null);
+        Assert.That(view.TakeAllButton, Is.Not.Null);
+        Assert.That(view.ContextMenu, Is.Not.Null);
+        Assert.That(SerializedReference(view, "_equipmentPanelRoot"), Is.Not.Null);
+        Assert.That(view.IsOpen, Is.False);
+
+        string[] equipmentViewFields =
+        {
+            "_weaponSlot1View", "_weaponSlot2View", "_helmetView",
+            "_armorView", "_glovesView", "_bootsView"
+        };
+        for (int index = 0; index < equipmentViewFields.Length; index++)
+        {
+            Assert.That(SerializedReference(view, equipmentViewFields[index]), Is.Not.Null);
+        }
+
+        RaidLootContextMenuView contextMenu = view.ContextMenu;
+        Assert.That(SerializedReference(contextMenu, "_menuRoot"), Is.Not.Null);
+        Assert.That(SerializedReference(contextMenu, "_buttonContainer"), Is.Not.Null);
+        RaidLootContextActionButton actionButton =
+            SerializedReference(contextMenu, "_buttonPrefab") as RaidLootContextActionButton;
+        Assert.That(actionButton, Is.Not.Null);
+        Assert.That(SerializedReference(actionButton, "_button"), Is.Not.Null);
+        Assert.That(SerializedReference(actionButton, "_label"), Is.Not.Null);
+        Assert.That(
+            SerializedReference(contextMenu, "_canvasRoot"),
+            Is.SameAs(sharedPrefab.transform as RectTransform));
+        Assert.That(contextMenu.IsOpen, Is.False);
+
+        AssertLootPanelContract(view.PlayerPanel, expectsTotalValue: true, expectsEmptyState: false);
+        AssertLootPanelContract(view.ContainerPanel, expectsTotalValue: false, expectsEmptyState: true);
+
+        RaidInventorySlotView[] slots =
+            sharedPrefab.GetComponentsInChildren<RaidInventorySlotView>(true);
+        Assert.That(slots, Has.Length.EqualTo(38));
+        for (int index = 0; index < slots.Length; index++)
+        {
+            Assert.That(SerializedReference(slots[index], "_icon"), Is.Not.Null);
+            Assert.That(SerializedReference(slots[index], "_nameText"), Is.Not.Null);
+            Assert.That(SerializedReference(slots[index], "_amountText"), Is.Not.Null);
+            Assert.That(SerializedReference(slots[index], "_button"), Is.Not.Null);
+            Assert.That(SerializedReference(slots[index], "_background"), Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public void PlayerPrefabs_KeepContextLocalCanvasAndPresenterBindings()
+    {
+        GameObject networkPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BaseRaidAvatarPath);
+        GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+        RaidInventoryPresenter networkPresenter =
+            networkPrefab.GetComponentInChildren<RaidInventoryPresenter>(true);
+        RaidInventoryPresenter socialPresenter =
+            socialPrefab.GetComponentInChildren<RaidInventoryPresenter>(true);
+
+        LocalPlayerHudBinder hudBinder = networkPrefab.GetComponent<LocalPlayerHudBinder>();
+        TownInventoryBinder townBinder = socialPrefab.GetComponent<TownInventoryBinder>();
+        Assert.That(SerializedReference(hudBinder, "_inventoryPresenter"), Is.SameAs(networkPresenter));
+        Assert.That(SerializedReference(townBinder, "_inventoryPresenter"), Is.SameAs(socialPresenter));
+        Assert.That(networkPresenter, Is.Not.SameAs(socialPresenter));
+
+        string[] hudDependencyFields =
+        {
+            "_hudRoot", "_interactionPresenter", "_lootPresenter", "_raidHudPresenter",
+            "_raidMinimapPresenter", "_combatFeedbackPresenter", "_menuPresenter",
+            "_candidateSource", "_interactionController", "_lootReceiver", "_playerCharacter",
+            "_staminaController", "_combatController", "_extractionController",
+            "_extractionProgressController", "_lootTransferController", "_lootDropController",
+            "_consumableController", "_weaponEquipmentController", "_cameraShakeBinder",
+            "_cameraShakeConfig"
+        };
+        for (int index = 0; index < hudDependencyFields.Length; index++)
+        {
+            Assert.That(SerializedReference(hudBinder, hudDependencyFields[index]), Is.Not.Null);
+        }
+
+        AssertInventoryInstanceLayout(networkPresenter, networkPrefab.transform);
+        AssertInventoryInstanceLayout(socialPresenter, socialPrefab.transform);
+
+        Canvas townCanvas = socialPrefab.GetComponentInChildren<Canvas>(true);
+        Assert.That(townCanvas, Is.Not.Null);
+        Assert.That(townCanvas.transform.localScale, Is.EqualTo(Vector3.one));
+        Assert.That(townCanvas.GetComponent<CanvasScaler>(), Is.Not.Null);
+        Assert.That(townCanvas.GetComponent<GraphicRaycaster>(), Is.Not.Null);
+
+        Assert.That(networkPrefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<PlayerInteractionNetworkController>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<PlayerLootTransferNetworkController>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<PlayerLootDropNetworkController>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<PlayerConsumableNetworkController>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<PlayerWeaponEquipmentNetworkController>(), Is.Not.Null);
+
+        NetworkObject networkObject = networkPrefab.GetComponent<NetworkObject>();
+        NetworkBehaviour[] rootBehaviours = networkPrefab.GetComponents<NetworkBehaviour>();
+        for (int index = 0; index < rootBehaviours.Length; index++)
+        {
+            Assert.That(
+                networkObject.NetworkedBehaviours,
+                Does.Contain(rootBehaviours[index]),
+                $"NetworkPlayer is missing {rootBehaviours[index].GetType().Name} in NetworkedBehaviours.");
+        }
+    }
+
+    [Test]
     public void SocialPlayer_ContainsModularLocomotionPresentation()
     {
         GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
@@ -551,6 +671,59 @@ public sealed class SessionCompositionConfigurationTests
         Transform visibilityMesh = FindChild(avatarPrefab.transform, "VisibilityMesh");
         Assert.That(visibilityMesh, Is.Not.Null, prefabPath);
         Assert.That(visibilityMesh.gameObject.activeSelf, Is.False, prefabPath);
+    }
+
+    private static void AssertLootPanelContract(
+        RaidLootPanelView panel,
+        bool expectsTotalValue,
+        bool expectsEmptyState)
+    {
+        Assert.That(SerializedReference(panel, "_panelRoot"), Is.Not.Null);
+        Assert.That(SerializedReference(panel, "_slotContainer"), Is.Not.Null);
+        Assert.That(SerializedReference(panel, "_unavailableRoot"), Is.Not.Null);
+        Assert.That(SerializedReference(panel, "_placeholderIcon"), Is.Not.Null);
+        Assert.That(SerializedReference(panel, "_capacityFeedbackRoot"), Is.Not.Null);
+        Assert.That(SerializedReference(panel, "_capacityFeedbackText"), Is.Not.Null);
+        Assert.That(panel.TotalValueText != null, Is.EqualTo(expectsTotalValue));
+        Assert.That(SerializedReference(panel, "_emptyRoot") != null, Is.EqualTo(expectsEmptyState));
+
+        var serializedPanel = new SerializedObject(panel);
+        SerializedProperty authoredSlots = serializedPanel.FindProperty("_authoredSlots");
+        Assert.That(authoredSlots, Is.Not.Null);
+        Assert.That(authoredSlots.arraySize, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+        for (int index = 0; index < authoredSlots.arraySize; index++)
+        {
+            Assert.That(authoredSlots.GetArrayElementAtIndex(index).objectReferenceValue, Is.Not.Null);
+        }
+    }
+
+    private static void AssertInventoryInstanceLayout(
+        RaidInventoryPresenter presenter,
+        Transform playerRoot)
+    {
+        Assert.That(presenter, Is.Not.Null);
+        Assert.That(presenter.transform.IsChildOf(playerRoot), Is.True);
+        RectTransform inventoryRoot = presenter.transform as RectTransform;
+        Assert.That(inventoryRoot, Is.Not.Null);
+        Assert.That(inventoryRoot.anchorMin, Is.EqualTo(Vector2.zero));
+        Assert.That(inventoryRoot.anchorMax, Is.EqualTo(Vector2.one));
+        Assert.That(inventoryRoot.anchoredPosition, Is.EqualTo(Vector2.zero));
+        Assert.That(inventoryRoot.sizeDelta, Is.EqualTo(Vector2.zero));
+        Assert.That(inventoryRoot.localScale, Is.EqualTo(Vector3.one));
+        Canvas canvas = playerRoot.GetComponentInChildren<Canvas>(true);
+        Assert.That(canvas, Is.Not.Null);
+        Assert.That(presenter.transform.IsChildOf(canvas.transform), Is.True);
+        Assert.That(canvas.GetComponent<GraphicRaycaster>(), Is.Not.Null);
+    }
+
+    private static UnityEngine.Object SerializedReference(UnityEngine.Object owner, string fieldName)
+    {
+        Assert.That(owner, Is.Not.Null, fieldName);
+        var serializedObject = new SerializedObject(owner);
+        SerializedProperty property = serializedObject.FindProperty(fieldName);
+        Assert.That(property, Is.Not.Null, $"{owner.name}.{fieldName}");
+        Assert.That(property.propertyType, Is.EqualTo(SerializedPropertyType.ObjectReference));
+        return property.objectReferenceValue;
     }
 
     private static Transform FindChild(Transform root, string childName)

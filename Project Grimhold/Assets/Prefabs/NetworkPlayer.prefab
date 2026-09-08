@@ -6118,6 +6118,8 @@ MonoBehaviour:
   _CurrentStamina: 0
   _IsExhausted:
     RawValue: 0
+  _IsInitialized:
+    RawValue: 0
 --- !u!114 &7201000000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6619,7 +6621,6 @@ MonoBehaviour:
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
-  _GenerationState: 0
   _interactionColliders:
   - {fileID: 4100000000000000106}
 --- !u!114 &4100000000000000103
@@ -6873,12 +6874,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttack
   _config: {fileID: 0}
-  _defaultParameters:
-    _damage: 0
-    _damageType: 0
-    _cooldownSeconds: 0
-    _range: 0
-    _knockbackForce: 0
   _targetQuerySource: {fileID: 8300000000000000001}
   _damageResolverSource: {fileID: 438361259854513489}
 --- !u!114 &8300000000000000003
@@ -6894,12 +6889,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttack
   _config: {fileID: 0}
-  _defaultParameters:
-    _damage: 0
-    _damageType: 0
-    _cooldownSeconds: 0
-    _range: 0
-    _knockbackForce: 0
   _projectileSpawnerSource: {fileID: 8300000000000000004}
 --- !u!114 &8300000000000000004
 MonoBehaviour:

@@ -13,32 +13,47 @@ namespace Tests.PlayMode.Presentation
 {
     public sealed class RaidInventoryViewPlayModeTests
     {
-        private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
+        private const string SharedInventoryPrefabPath = "Assets/Prefabs/UI/RaidInventoryUI.prefab";
 
+        private GameObject _canvasObject;
         private GameObject _instance;
         private RaidInventoryView _view;
 
         [SetUp]
         public void SetUp()
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SharedInventoryPrefabPath);
             Assert.That(prefab, Is.Not.Null);
 
-            _instance = Object.Instantiate(prefab);
-            _instance.SetActive(false);
-            _view = _instance.GetComponentInChildren<RaidInventoryView>(true);
+            _canvasObject = new GameObject(
+                "RaidInventoryViewTestCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            Canvas canvas = _canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            _instance = Object.Instantiate(prefab, _canvasObject.transform, false);
+            RectTransform inventoryRoot = (RectTransform)_instance.transform;
+            inventoryRoot.anchorMin = Vector2.zero;
+            inventoryRoot.anchorMax = Vector2.one;
+            inventoryRoot.anchoredPosition = Vector2.zero;
+            inventoryRoot.sizeDelta = Vector2.zero;
+            inventoryRoot.localScale = Vector3.one;
+
+            _view = _instance.GetComponent<RaidInventoryView>();
             Assert.That(_view, Is.Not.Null);
             Assert.That(_view.PlayerPanel, Is.Not.Null);
             Assert.That(_view.ContainerPanel, Is.Not.Null);
             Assert.That(_view.TakeAllButton, Is.Not.Null);
             Assert.That(_view.ContextMenu, Is.Not.Null);
-            Assert.That(_instance.GetComponent<PlayerLootDropNetworkController>(), Is.Not.Null);
         }
 
         [TearDown]
         public void TearDown()
         {
-            Object.DestroyImmediate(_instance);
+            Object.DestroyImmediate(_canvasObject);
         }
 
         [UnityTest]
@@ -50,8 +65,8 @@ namespace Tests.PlayMode.Presentation
 
             Transform slots = panel.transform.Find("SlotsGrid");
             Assert.That(slots, Is.Not.Null);
-            GameObject firstSlot = slots.GetChild(slots.childCount - 2).gameObject;
-            GameObject secondSlot = slots.GetChild(slots.childCount - 1).gameObject;
+            GameObject firstSlot = slots.GetChild(0).gameObject;
+            GameObject secondSlot = slots.GetChild(1).gameObject;
 
             Assert.That(panel.EnsureSlotCount(2), Is.True);
             var data = new List<RaidInventorySlotData>
@@ -64,8 +79,8 @@ namespace Tests.PlayMode.Presentation
             panel.ClearContent();
 
             Assert.That(panel.SlotCount, Is.EqualTo(2));
-            Assert.That(slots.GetChild(slots.childCount - 2).gameObject, Is.SameAs(firstSlot));
-            Assert.That(slots.GetChild(slots.childCount - 1).gameObject, Is.SameAs(secondSlot));
+            Assert.That(slots.GetChild(0).gameObject, Is.SameAs(firstSlot));
+            Assert.That(slots.GetChild(1).gameObject, Is.SameAs(secondSlot));
         }
 
         [UnityTest]
@@ -94,6 +109,8 @@ namespace Tests.PlayMode.Presentation
         public IEnumerator OccupiedSlot_MapsLeftToSingleUnitAndRightToFullStack()
         {
             _instance.SetActive(true);
+            _view.SetScreenVisible(true);
+            _view.SetContainerPanelVisible(true);
             RaidLootPanelView panel = _view.ContainerPanel;
             Assert.That(panel.EnsureSlotCount(1), Is.True);
             var data = new List<RaidInventorySlotData>
@@ -103,10 +120,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(panel.Present(data, null, false, true, default), Is.True);
             yield return null;
 
-            Transform slots = panel.transform.Find("SlotsGrid");
-            Assert.That(slots, Is.Not.Null);
-            RaidInventorySlotView slot = slots.GetChild(slots.childCount - 1)
-                .GetComponent<RaidInventorySlotView>();
+            RaidInventorySlotView slot = GetFirstActiveSlot(panel);
             Assert.That(slot, Is.Not.Null);
             Button button = slot.GetComponent<Button>();
             Assert.That(button, Is.Not.Null);
@@ -164,9 +178,8 @@ namespace Tests.PlayMode.Presentation
                 Is.True);
             yield return null;
 
-            RaidInventorySlotView slot = panel.transform.Find("SlotsGrid")
-                .GetChild(panel.transform.Find("SlotsGrid").childCount - 1)
-                .GetComponent<RaidInventorySlotView>();
+            RaidInventorySlotView slot = GetFirstActiveSlot(panel);
+            Assert.That(slot, Is.Not.Null);
             int transferCount = 0;
             LootId requestedLoot = default;
             Vector2 requestedPosition = default;
@@ -218,8 +231,18 @@ namespace Tests.PlayMode.Presentation
             }
 
             Assert.That(visibleLabels, Is.EqualTo(new[] { "Soltar", "Soltar todo" }));
+
+            LootContextActionId requestedAction = default;
+            _view.ContextMenu.ActionRequested += actionId => requestedAction = actionId;
+            RaidLootContextActionButton firstVisibleButton = System.Array.Find(
+                buttons,
+                button => button.gameObject.activeSelf);
+            Assert.That(firstVisibleButton, Is.Not.Null);
+            firstVisibleButton.GetComponent<Button>().onClick.Invoke();
+            Assert.That(requestedAction, Is.EqualTo(actions[0].Id));
+
             var menuRect = (RectTransform)_view.ContextMenu.transform;
-            var canvasRect = (RectTransform)menuRect.parent;
+            var canvasRect = (RectTransform)_instance.transform;
             Assert.That(menuRect.anchoredPosition.x + menuRect.rect.width * 0.5f,
                 Is.LessThanOrEqualTo(canvasRect.rect.xMax + 0.01f));
             Assert.That(menuRect.anchoredPosition.y + menuRect.rect.height * 0.5f,
@@ -265,6 +288,21 @@ namespace Tests.PlayMode.Presentation
 
             _view.SetContainerPanelVisible(false);
             Assert.That(_view.TakeAllButton.interactable, Is.False);
+        }
+
+        private static RaidInventorySlotView GetFirstActiveSlot(RaidLootPanelView panel)
+        {
+            RaidInventorySlotView[] slots =
+                panel.GetComponentsInChildren<RaidInventorySlotView>(true);
+            for (int index = 0; index < slots.Length; index++)
+            {
+                if (slots[index].gameObject.activeSelf)
+                {
+                    return slots[index];
+                }
+            }
+
+            return null;
         }
 
         private sealed class NoOpContextActionProvider : ILootContextActionProvider

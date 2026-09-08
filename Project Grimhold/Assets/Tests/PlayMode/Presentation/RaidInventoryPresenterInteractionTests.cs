@@ -14,7 +14,7 @@ namespace Tests.PlayMode.Presentation
     {
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
         private const string ChestPrefabPath = "Assets/Prefabs/LootContainer.prefab";
-        private const string EnemyPrefabPath = "Assets/Prefabs/NetworkEnemy.prefab";
+        private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
 
         private GameObject _playerInstance;
         private GameObject _inputReaderHolder;

@@ -10535,7 +10535,7 @@ MonoBehaviour:
   _menuRoot: {fileID: 3912513808230569373}
   _buttonContainer: {fileID: 3912513808230569373}
   _buttonPrefab: {fileID: 2550810771360947591}
-  _canvasRoot: {fileID: 0}
+  _canvasRoot: {fileID: 618225265897151319}
 --- !u!1 &4734232563552039409
 GameObject:
   m_ObjectHideFlags: 0

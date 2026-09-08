@@ -7,6 +7,7 @@ using Fusion;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Assert = NUnit.Framework.Assert;
@@ -202,6 +203,8 @@ namespace Tests.PlayMode.Loot
             yield return WaitUntil(
                 () => !enemy.IsAlive && container.IsAvailable,
                 "The enemy did not expose its existing loot container after fatal damage.");
+            enemyObject.transform.position = new Vector3(1.5f, 0f, 0f);
+            Physics2D.SyncTransforms();
 
             yield return LootSourceThroughOccupiedSlot(enemyObject);
         }
@@ -233,6 +236,8 @@ namespace Tests.PlayMode.Loot
             yield return WaitUntil(
                 () => !enemy.IsAlive && container.IsAvailable,
                 "The enemy did not expose its existing loot container after fatal damage.");
+            enemyObject.transform.position = new Vector3(1.5f, 0f, 0f);
+            Physics2D.SyncTransforms();
 
             yield return LootDestinationThroughOccupiedPlayerSlot(enemyObject, 5);
         }
@@ -558,6 +563,7 @@ namespace Tests.PlayMode.Loot
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             _enemyDamageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
+            runnerObject.AddComponent<LocalPlayerJoinContext>();
 
             _inputReaderObject = new GameObject("DefeatedPlayerLootInputReader");
             _inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
@@ -596,6 +602,33 @@ namespace Tests.PlayMode.Loot
             yield return null;
 
             Assert.That(_looterObject.HasInputAuthority, Is.True);
+            NetworkObject participantPrefab = LoadPrefab(ParticipantPrefabGuid);
+            NetworkObject localParticipantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        "defeated-loot-local-profile",
+                        CreateParticipantId(3),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel,
+                        0,
+                        "defeated-loot-test-generation"));
+            NetworkRaidParticipant localParticipant =
+                localParticipantObject.GetComponent<NetworkRaidParticipant>();
+            Assert.That(localParticipant.TrySetCurrentAvatar(_looterObject), Is.True);
+            _looterObject.GetComponent<RaidAvatarParticipantLink>()
+                .SetRestoredParticipant(localParticipantObject.Id);
+            Camera[] cameras = _looterObject.GetComponentsInChildren<Camera>(true);
+            for (int index = 0; index < cameras.Length; index++)
+            {
+                cameras[index].enabled = false;
+            }
+            _looterObject.GetComponent<LocalPlayerHudBinder>().TryBindAsLocalPlayer();
+            yield return null;
+
             Assert.That(
                 _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true),
                 Is.Not.Null);
@@ -839,7 +872,10 @@ namespace Tests.PlayMode.Loot
                 Button button = slot.GetComponent<Button>();
                 Assert.That(button, Is.Not.Null);
                 Assert.That(button.interactable, Is.EqualTo(expectInteractable));
-                button.onClick.Invoke();
+                slot.OnPointerClick(new PointerEventData(null)
+                {
+                    button = PointerEventData.InputButton.Right
+                });
                 return;
             }
 
