@@ -130,36 +130,20 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         }
 
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context == null || context.ShopTransactionService == null || context.Store == null)
+        if (context == null || !context.IsAvailable || context.ShopTransactionService == null ||
+            context.LoadoutService == null || context.CurrencyService == null)
         {
             Debug.LogWarning("Merchant is unavailable because local stash context is not ready.", this);
             return;
         }
 
         // Initialize the network controller with the local execution dependencies
-        merchantController.InitializeLocalClient(context.ShopTransactionService, context.Store.ProfileId);
-
-        // Only force sync the loadout in the social hub (Shared Mode).
-        // In a raid (Host/Client), the inventory is authoritative and must not be overridden.
-        if (Runner.Topology == Topologies.Shared)
-        {
-            var playerLootReceiver = GetComponent<PlayerLootReceiver>();
-            if (playerLootReceiver != null && context.Store != null)
-            {
-                var loadout = context.Store.GetLoadout();
-                var entries = new System.Collections.Generic.List<LootEntry>(loadout.Count);
-                foreach (var item in loadout)
-                {
-                    entries.Add(new LootEntry(item.LootId, item.Amount));
-                }
-                playerLootReceiver.TryForceSyncLoadout(entries, out _);
-            }
-        }
+        merchantController.InitializeLocalClient(context.ShopTransactionService, context.ProfileId);
 
         // Pass dependencies to the UI
         if (_view.ShopUI != null)
         {
-            _view.ShopUI.Initialize(merchantController, context, GetComponent<PlayerLootReceiver>());
+            _view.ShopUI.Initialize(merchantController, context, context.ProfileId);
             _view.ShopUI.OnCloseRequested.AddListener(ClosePanelFromUI);
         }
 

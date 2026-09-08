@@ -1,5 +1,31 @@
 # Raid Inventory UI Architecture
 
+## Shared personal-inventory screen
+
+The personal-inventory screen is one prefab asset shared by Town and Raid, with one independent
+runtime instance under each local player presentation. `NetworkPlayer` and `SocialPlayer` never
+share a runtime presenter, view, input-suppression token, source, or open/closed state. Destroying
+or unbinding one context therefore cannot retain presentation state into the next runner.
+
+`IInventoryReadSource` is the neutral read boundary used by the shared presenter. It exposes only
+a `LootEntry` snapshot, slot capacity, a monotonic revision and a local change notification. It
+does not expose mutations, transfer endpoints, Town/Raid knowledge, catalog metadata or economic
+value. `LootInventoryValueCalculator` derives the displayed total from the snapshot and
+`LootDefinitionCatalog` outside the source.
+
+The bindings remain context-specific:
+
+```text
+Raid: PlayerLootReceiver -> IInventoryReadSource -> RaidInventoryPresenter
+Town: IPlayerLoadoutService -> LocalLoadoutInventoryReadSource -> RaidInventoryPresenter
+```
+
+Raid retains its replicated `PlayerLootReceiver`, container flows, Equipment, context actions and
+authoritative gameplay controllers. Town projects the confirmed application Loadout and enables
+only the personal read-only panel, Tab toggle, Escape close and local gameplay-input suppression.
+Container, Take All, Equipment, drop, consume, equip and context-menu listeners are not subscribed
+in the Town binding.
+
 ## Context and decision
 
 The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. It supports symmetric single-unit and full-stack mouse intentions in both transfer directions, plus a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
@@ -66,7 +92,7 @@ Each panel owns a `RaidLootSelectionState` containing only its selected `LootId`
 
 Opening reconstructs the target `NetworkId`, resolves the exact instance through the bound runner, requires a same-root `NetworkLootContainer` and registered `NetworkLootContainerInteractable` sharing that `NetworkObject`, and requires initialized/available state. The presenter then caches object, components and colliders. The watchdog only rechecks that instance, state and distance through cached colliders; it performs no component or global searches per frame.
 
-Player and container `LootChangeSequence` values are the definitive refresh signals, including remote transfers. `RequestInFlightChanged` only recalculates interactivity. `TransferConfirmed` always refreshes the player; it reconciles the current container and selections only when either endpoint matches the open container. Therefore a late confirmation from A cannot alter B.
+Player and container `LootChangeSequence` values are the definitive Raid refresh signals, including remote transfers. `PlayerLootReceiver.Render` publishes one local `IInventoryReadSource.Changed` notification when it observes a new player revision; it does not modify network state. `RequestInFlightChanged` only recalculates interactivity. `TransferConfirmed` always refreshes the player; it reconciles the current container and selections only when either endpoint matches the open container. Therefore a late confirmation from A cannot alter B.
 
 Transfer feedback is local presentation state inside the inventory screen. An Input Authority peer considers a request in flight only when Fusion reports that the RPC was sent to State Authority; local invocation alone is sufficient only on the State Authority peer. The request RPC uses `RpcHostMode.SourceIsHostPlayer`, so a local Host invocation reports the Host player as `RpcInfo.Source` and passes the same Input Authority validation as a remote Client. A failed local send shows a generic request message, while an authoritative confirmation maps its typed `LootTransferFailureReason` to a player-facing reason. Authority-side transport rejections also finalize the matching request before publishing their local feedback, so an unavailable dependency or rejected envelope cannot leave slots permanently blocked. A standalone success, a new request, close, disable and unbind clear that message; during take-all, later successes preserve the most recent rejection until the sequence finishes. Feedback never predicts or mutates content; replicated endpoint snapshots and their `LootChangeSequence` values remain the only sources of truth.
 
@@ -95,6 +121,13 @@ On final suppression release (transition from 1 to 0 active tokens), movement an
 `LocalInputContext` is a local-only component created on the runner. It stores at most one active `PlayerInputReader`, notifies changes, and clears on shutdown. It contains no networked state, inventory knowledge, or general service registry. `FusionInputProvider` registers its serialized reader through the runner reference obtained by its existing lookup flow. Replacing that lookup is separate technical debt.
 
 `LocalPlayerHudBinder` binds only the Input Authority player's receiver and the reader exposed by its runner context. The inventory presenter remains outside the visual screen root.
+
+`TownInventoryBinder` is the equivalent local lifecycle owner on `SocialPlayer`. It binds only
+after a valid Input Authority spawn, requires the runner join profile to match the available
+`ApplicationStashContext`, observes `LocalInputContext.ReaderChanged`, creates one
+`LocalLoadoutInventoryReadSource`, and symmetrically unbinds and disposes it on reader replacement,
+disable, despawn or destruction. The source itself is the sole subscriber to matching
+`ProfileCommitted` events; the binder never observes profile commits or refreshes the view.
 
 - `Close` hides the screen and releases suppression while retaining binding and slot pools.
 - `OnDisable` closes and unsubscribes but retains bound dependencies for a safe re-enable.

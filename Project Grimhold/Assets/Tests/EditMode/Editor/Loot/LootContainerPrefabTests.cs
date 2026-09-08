@@ -35,7 +35,6 @@ namespace Tests.EditMode.Loot
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
-        [TestCase("Assets/Prefabs/SocialPlayer.prefab")]
         public void ProductivePlayerReceiverCapacity_IsAtMostSixteen(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);

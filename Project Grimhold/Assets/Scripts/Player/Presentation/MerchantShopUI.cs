@@ -8,7 +8,7 @@ using TMPro;
 /// Controller for the Merchant Shop UI Prefab.
 /// It exposes UnityEvents and public methods to allow the Unity Editor 
 /// to bind UI elements without enforcing a specific framework.
-/// Acts strictly as a viewer of LocalProfileStore and LootDefinitionCatalog.
+/// Reads profile state through application services and submits mutations through the shop service.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class MerchantShopUI : MonoBehaviour
@@ -43,14 +43,15 @@ public sealed class MerchantShopUI : MonoBehaviour
 
     private TownMerchantNetworkController _merchantController;
     private ApplicationStashContext _context;
-    private PlayerLootReceiver _playerLootReceiver;
+    private IPlayerLoadoutService _loadoutService;
+    private IPlayerCurrencyService _currencyService;
+    private ProfileId _profileId;
     
     // State
     private LootDefinition _selectedItem;
     private bool _isSelectedFromMerchant;
     private int _selectedQuantity = 1;
     private int _maxAvailableQuantity = 1;
-    private int _lastLootSequence = -1;
     private System.Collections.Generic.List<StoreItemUI> _instantiatedItems = new System.Collections.Generic.List<StoreItemUI>();
     
     [Header("Events")]
@@ -93,21 +94,26 @@ public sealed class MerchantShopUI : MonoBehaviour
     /// Initializes the UI with the necessary controllers and contexts.
     /// Called by the Presenter when opening the shop.
     /// </summary>
-    public void Initialize(TownMerchantNetworkController merchantController, ApplicationStashContext context, PlayerLootReceiver playerLootReceiver)
+    public void Initialize(
+        TownMerchantNetworkController merchantController,
+        ApplicationStashContext context,
+        ProfileId profileId)
     {
         Debug.Log("[MerchantShopUI] Initialize called.");
+        ReleaseBindings();
         _merchantController = merchantController;
         _context = context;
-        _playerLootReceiver = playerLootReceiver;
-
-        if (_playerLootReceiver != null)
-        {
-            _lastLootSequence = _playerLootReceiver.LootChangeSequence;
-        }
+        _loadoutService = context != null ? context.LoadoutService : null;
+        _currencyService = context != null ? context.CurrencyService : null;
+        _profileId = profileId;
 
         if (_merchantController != null)
         {
             _merchantController.LocalTransactionCompleted += HandleTransactionCompleted;
+        }
+        if (_context != null)
+        {
+            _context.ProfileCommitted += OnProfileCommitted;
         }
 
         // Trigger initial refresh
@@ -116,21 +122,11 @@ public sealed class MerchantShopUI : MonoBehaviour
         Debug.Log("[MerchantShopUI] Initialize completed.");
     }
 
-    private void Update()
-    {
-        if (_playerLootReceiver != null && _playerLootReceiver.LootChangeSequence != _lastLootSequence)
-        {
-            _lastLootSequence = _playerLootReceiver.LootChangeSequence;
-            RefreshLists();
-            OnNeedsVisualRefresh?.Invoke();
-        }
-    }
-
     private void UpdateCurrencyDisplay()
     {
-        if (_topCurrencyText != null && _context != null)
+        if (_topCurrencyText != null && _currencyService != null)
         {
-            _topCurrencyText.text = _context.Store.GetCurrency().ToString();
+            _topCurrencyText.text = _currencyService.GetCurrency(_profileId).ToString();
         }
     }
 
@@ -199,10 +195,10 @@ public sealed class MerchantShopUI : MonoBehaviour
 
     private void PopulatePlayerInventory()
     {
-        if (_playerInventoryContainer == null || _storeItemPrefab == null || _playerLootReceiver == null) return;
+        if (_playerInventoryContainer == null || _storeItemPrefab == null || _loadoutService == null) return;
 
         var catalog = _merchantController.Catalog;
-        if (!_playerLootReceiver.TryGetLootContent(out var loadout)) return;
+        var loadout = _loadoutService.GetLoadout(_profileId);
 
         foreach (var item in loadout)
         {
@@ -217,18 +213,12 @@ public sealed class MerchantShopUI : MonoBehaviour
 
     private void OnDisable()
     {
-        if (_merchantController != null)
-        {
-            _merchantController.LocalTransactionCompleted -= HandleTransactionCompleted;
-        }
+        ReleaseBindings();
     }
     
     private void OnDestroy()
     {
-        if (_merchantController != null)
-        {
-            _merchantController.LocalTransactionCompleted -= HandleTransactionCompleted;
-        }
+        ReleaseBindings();
 
         if (_closeButton != null) _closeButton.onClick.RemoveListener(RequestClose);
         if (_quantitySlider != null) _quantitySlider.onValueChanged.RemoveListener(OnSliderValueChanged);
@@ -274,12 +264,7 @@ public sealed class MerchantShopUI : MonoBehaviour
         Debug.Log($"[ShopTransaction] MerchantShopUI.HandleTransactionCompleted: Result={result}");
         OnTransactionResult?.Invoke(result);
 
-        // If the transaction was successful, the local store has been modified, so we should refresh visually
-        if (result == MerchantTransactionResult.Success)
-        {
-            RefreshLists();
-            OnNeedsVisualRefresh?.Invoke();
-        }
+        // Successful persistent commits refresh through ApplicationStashContext.ProfileCommitted.
     }
 
     // --- Center Panel Logic ---
@@ -302,8 +287,9 @@ public sealed class MerchantShopUI : MonoBehaviour
         else
         {
             _maxAvailableQuantity = 0;
-            if (_playerLootReceiver != null && _playerLootReceiver.TryGetLootContent(out var loadout))
+            if (_loadoutService != null)
             {
+                var loadout = _loadoutService.GetLoadout(_profileId);
                 foreach (var item in loadout)
                 {
                     if (item.LootId.Value == lootId)
@@ -422,5 +408,34 @@ public sealed class MerchantShopUI : MonoBehaviour
     {
         _selectedItem = null;
         if (_centerPanelRoot != null) _centerPanelRoot.SetActive(false);
+    }
+
+    private void OnProfileCommitted(ProfileId profileId)
+    {
+        if (profileId != _profileId)
+        {
+            return;
+        }
+
+        RefreshLists();
+        OnNeedsVisualRefresh?.Invoke();
+    }
+
+    private void ReleaseBindings()
+    {
+        if (_merchantController != null)
+        {
+            _merchantController.LocalTransactionCompleted -= HandleTransactionCompleted;
+        }
+        if (_context != null)
+        {
+            _context.ProfileCommitted -= OnProfileCommitted;
+        }
+
+        _merchantController = null;
+        _context = null;
+        _loadoutService = null;
+        _currencyService = null;
+        _profileId = default;
     }
 }

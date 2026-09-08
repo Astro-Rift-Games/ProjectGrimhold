@@ -16,14 +16,6 @@ public class MerchantTransactionOrchestratorTests
     
     private List<MerchantTransactionResult> _uiEvents;
 
-    private class DummyInventoryHandler : IMerchantInventoryHandler
-    {
-        public bool ValidatePurchase(string lootId, int amount) => true;
-        public void CommitPurchase(string lootId, int amount) { }
-        public bool ValidateSale(string lootId, int amount) => true;
-        public void CommitSale(string lootId, int amount) { }
-    }
-
     private class MockShopTransactionService : IShopTransactionService
     {
         public bool ForceFailFunds;
@@ -76,10 +68,10 @@ public class MerchantTransactionOrchestratorTests
         idField?.SetValue(item, "healthpotion");
         extractField?.SetValue(item, 100);
         sellField?.SetValue(item, 20);
-        var itemsField = typeof(LootDefinitionCatalog).GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var itemsField = typeof(LootDefinitionCatalog).GetField("_definitions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (itemsField != null)
         {
-            itemsField.SetValue(_catalog, new[] { item });
+            itemsField.SetValue(_catalog, new List<LootDefinition> { item });
             var initMethod = typeof(LootDefinitionCatalog).GetMethod("OnEnable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             initMethod?.Invoke(_catalog, null);
         }
@@ -97,7 +89,7 @@ public class MerchantTransactionOrchestratorTests
         var simulatedPlayer = PlayerRef.FromEncoded(1);
         _rpcSender.OnPurchaseRequested = (lootId, amount, sequence) => 
         {
-            if (_validator.TryProcessPurchaseRequest(simulatedPlayer, new DummyInventoryHandler(), sequence, lootId.Value, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+            if (_validator.TryProcessPurchaseRequest(simulatedPlayer, sequence, lootId.Value, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
             {
                 _orchestrator.OnPurchaseResponseReceived(sequence, isApproved, txId);
             }
@@ -105,7 +97,7 @@ public class MerchantTransactionOrchestratorTests
 
         _rpcSender.OnSaleRequested = (lootId, amount, sequence) => 
         {
-            if (_validator.TryProcessSaleRequest(simulatedPlayer, new DummyInventoryHandler(), sequence, lootId.Value, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
+            if (_validator.TryProcessSaleRequest(simulatedPlayer, sequence, lootId.Value, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
             {
                 _orchestrator.OnSaleResponseReceived(sequence, isApproved, txId);
             }
@@ -184,7 +176,7 @@ public class MerchantTransactionOrchestratorTests
         _rpcSender.OnPurchaseRequested = (lootId, amount, sequence) => 
         {
             lastSequenceSent = sequence;
-            _validator.TryProcessPurchaseRequest(simulatedPlayer, new DummyInventoryHandler(), sequence, lootId.Value, amount, _catalog, out _, out _);
+            _validator.TryProcessPurchaseRequest(simulatedPlayer, sequence, lootId.Value, amount, _catalog, out _, out _);
         };
 
         _orchestrator.RequestPurchase(new LootId("healthpotion"), 2);
@@ -193,7 +185,7 @@ public class MerchantTransactionOrchestratorTests
         Assert.AreEqual(0, _shopService.Executions);
 
         // Retry the exact same request sequence manually
-        _validator.TryProcessPurchaseRequest(simulatedPlayer, new DummyInventoryHandler(), lastSequenceSent, "healthpotion", 2, _catalog, out bool isApproved, out ShopTransactionId txId);
+        _validator.TryProcessPurchaseRequest(simulatedPlayer, lastSequenceSent, "healthpotion", 2, _catalog, out bool isApproved, out ShopTransactionId txId);
         
         // Deliver the response this time
         _orchestrator.OnPurchaseResponseReceived(lastSequenceSent, isApproved, txId);

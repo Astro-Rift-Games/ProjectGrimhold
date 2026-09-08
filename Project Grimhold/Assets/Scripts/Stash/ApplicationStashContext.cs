@@ -12,6 +12,8 @@ public sealed class ApplicationStashContext : MonoBehaviour
     public IPlayerCurrencyService CurrencyService { get; private set; }
     public IShopTransactionService ShopTransactionService { get; private set; }
     public LocalProfileStore Store { get; private set; }
+    public ProfileId ProfileId => Store != null ? Store.ProfileId : default;
+    public bool IsAvailable => Store != null && Store.IsAvailable;
     public LocalProfilePersistenceStatus PersistenceStatus => Store?.Status ?? LocalProfilePersistenceStatus.Unavailable;
     public string PersistenceError => Store?.LastError;
 

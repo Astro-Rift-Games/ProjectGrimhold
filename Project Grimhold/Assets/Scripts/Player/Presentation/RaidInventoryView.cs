@@ -31,6 +31,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private RaidLootContextMenuView _contextMenu;
 
+    [SerializeField]
+    private GameObject _equipmentPanelRoot;
+
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
     [SerializeField]
     private RaidInventorySlotView _weaponSlot1View;
@@ -127,6 +130,14 @@ public sealed class RaidInventoryView : MonoBehaviour
         if (!visible)
         {
             SetTakeAllInteractable(false);
+        }
+    }
+
+    public void SetEquipmentPanelVisible(bool visible)
+    {
+        if (_equipmentPanelRoot != null && _equipmentPanelRoot.activeSelf != visible)
+        {
+            _equipmentPanelRoot.SetActive(visible);
         }
     }
 

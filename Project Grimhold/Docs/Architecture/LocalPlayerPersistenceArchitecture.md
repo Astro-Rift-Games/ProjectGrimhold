@@ -38,6 +38,28 @@ snapshot, asks the repository to accept it, and publishes the observable replace
 `ProfileCommitted` only after the complete in-process transaction succeeds. It never mutates the
 current snapshot before acceptance.
 
+Town personal-inventory presentation reads the confirmed Loadout through
+`IPlayerLoadoutService`. `LocalLoadoutInventoryReadSource` owns a disposable, read-only
+`LootEntry` projection for the bound profile and is the only owner of its
+`ApplicationStashContext.ProfileCommitted` subscription. It filters commits by `ProfileId`,
+advances its local presentation revision and rebuilds the projection on demand. That reusable
+buffer is never persistent or authoritative state and is not copied into `SocialPlayer`.
+
+`SocialPlayer` therefore has no `PlayerLootReceiver`. `HubPlayerSpawner` does not seed a networked
+Town inventory, and Fusion does not replicate the Loadout or the inventory screen's open state.
+The Raid `NetworkPlayer` retains its separate authoritative `PlayerLootReceiver`; admission and
+extraction continue to cross the existing reservation/receipt boundaries rather than sharing the
+Town projection.
+
+Merchant presentation follows the same persistence ownership. `MerchantShopUI` reads Loadout and
+currency through `IPlayerLoadoutService` and `IPlayerCurrencyService`, and observes matching
+profile commits only to refresh. Purchase and sale intentions continue through
+`IShopTransactionService`; UI, Town presenters and network controllers do not mutate the Loadout,
+currency or `LocalProfileStore` directly. The shared-mode Master owns catalog, stock, request
+sequence, deduplication and response identity, while the local persistent transaction performs the
+final funds, capacity and owned-quantity validation. No replicated inventory shadow participates
+in that decision.
+
 The productive `InMemoryLocalProfileRepository` accepts an isolated clone of that complete
 candidate after validating its readiness and profile identity. It never encodes or reconstructs
 the aggregate through `LocalProfileSaveCodec`; domain mutations are validated by

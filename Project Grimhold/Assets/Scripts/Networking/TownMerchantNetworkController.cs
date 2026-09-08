@@ -12,45 +12,6 @@ using System.Collections.Generic;
 [RequireComponent(typeof(NetworkObject))]
 public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterClientRpcSender
 {
-    private class PlayerLootReceiverHandler : IMerchantInventoryHandler
-    {
-        private readonly PlayerLootReceiver _receiver;
-        private readonly EntityId _merchantId;
-
-        public PlayerLootReceiverHandler(PlayerLootReceiver receiver, EntityId merchantId)
-        {
-            _receiver = receiver;
-            _merchantId = merchantId;
-        }
-
-        public bool ValidatePurchase(string lootId, int amount)
-        {
-            if (_receiver == null) return false;
-            var req = new LootTransferRequest(_merchantId, _receiver.Id, new LootId(lootId), amount, 0);
-            return _receiver.ValidateReceive(req) == LootTransferFailureReason.None;
-        }
-
-        public void CommitPurchase(string lootId, int amount)
-        {
-            if (_receiver == null) return;
-            var req = new LootTransferRequest(_merchantId, _receiver.Id, new LootId(lootId), amount, 0);
-            _receiver.CommitReceive(req);
-        }
-
-        public bool ValidateSale(string lootId, int amount)
-        {
-            if (_receiver == null) return false;
-            var req = new LootTransferRequest(_receiver.Id, _merchantId, new LootId(lootId), amount, 0);
-            return _receiver.ValidateExtraction(req) == LootTransferFailureReason.None;
-        }
-
-        public void CommitSale(string lootId, int amount)
-        {
-            if (_receiver == null) return;
-            var req = new LootTransferRequest(_receiver.Id, _merchantId, new LootId(lootId), amount, 0);
-            _receiver.CommitExtraction(req);
-        }
-    }
     [SerializeField] private LootDefinitionCatalog _catalog;
     [SerializeField] private List<MerchantStockItem> _stock;
 
@@ -69,6 +30,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
 
     public void InitializeLocalClient(IShopTransactionService shopService, ProfileId profileId)
     {
+        ReleaseLocalOrchestrator();
         _shopService = shopService;
         _localProfileId = profileId;
         _localOrchestrator = new MerchantTransactionOrchestrator(_shopService, _catalog, this, _localProfileId);
@@ -78,13 +40,6 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
 
     private void OnLocalTransactionCompleted(MerchantTransactionResult result)
     {
-        // If a purchase was successful locally, increment our local counter so the UI knows
-        // to disable the button if we hit the limit.
-        if (result == MerchantTransactionResult.Success && _localOrchestrator != null)
-        {
-            // Removed obsolete comment
-        }
-        
         LocalTransactionCompleted?.Invoke(result);
     }
     
@@ -126,12 +81,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        if (_localOrchestrator != null)
-        {
-            _localOrchestrator.TransactionCompleted -= OnLocalTransactionCompleted;
-            _localOrchestrator.LocalPurchaseSucceeded -= RecordLocalPurchase;
-            _localOrchestrator = null;
-        }
+        ReleaseLocalOrchestrator();
     }
 
     public void RequestPurchase(LootId lootId, int amount)
@@ -165,31 +115,16 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
         
         if (_requestValidator == null) return;
         
-        PlayerLootReceiver receiver = null;
-        if (Runner.TryGetPlayerObject(source, out var networkObject) && networkObject != null)
+        if (_requestValidator.TryProcessPurchaseRequest(
+                source,
+                clientSequence,
+                lootId,
+                amount,
+                _catalog,
+                out bool isApproved,
+                out ShopTransactionId txId))
         {
-            receiver = networkObject.GetComponent<PlayerLootReceiver>();
-        }
-
-        if (receiver == null)
-        {
-            var receivers = FindObjectsByType<PlayerLootReceiver>(FindObjectsSortMode.None);
-            foreach (var r in receivers)
-            {
-                if (r.Object != null && r.Object.InputAuthority == source)
-                {
-                    receiver = r;
-                    break;
-                }
-            }
-        }
-
-        if (receiver != null && receiver.HasStateAuthority)
-        {
-            if (_requestValidator.TryProcessPurchaseRequest(source, new PlayerLootReceiverHandler(receiver, new EntityId((int)Object.Id.Raw)), clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
-            {
-                Rpc_PurchaseResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
-            }
+            Rpc_PurchaseResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
         }
     }
 
@@ -201,46 +136,17 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
         
         if (_requestValidator == null) return;
         
-        PlayerLootReceiver receiver = null;
-        if (Runner.TryGetPlayerObject(source, out var networkObject) && networkObject != null)
+        if (_requestValidator.TryProcessSaleRequest(
+                source,
+                clientSequence,
+                lootId,
+                amount,
+                _catalog,
+                out bool isApproved,
+                out ShopTransactionId txId))
         {
-            receiver = networkObject.GetComponent<PlayerLootReceiver>();
-        }
-        else
-        {
-            Debug.Log($"[ShopTransaction] Server: Runner.TryGetPlayerObject failed or returned null for Source={source}");
-        }
-
-        if (receiver == null)
-        {
-            var receivers = FindObjectsByType<PlayerLootReceiver>(FindObjectsSortMode.None);
-            foreach (var r in receivers)
-            {
-                if (r.Object != null && r.Object.InputAuthority == source)
-                {
-                    Debug.Log($"[ShopTransaction] Server: Found receiver via FindObjectsByType fallback.");
-                    receiver = r;
-                    break;
-                }
-            }
-        }
-        
-        if (receiver == null)
-        {
-            Debug.LogError($"[ShopTransaction] Server: Receiver is still null! Request will fail.");
-        }
-
-        if (receiver != null && receiver.HasStateAuthority)
-        {
-            if (_requestValidator.TryProcessSaleRequest(source, new PlayerLootReceiverHandler(receiver, new EntityId((int)Object.Id.Raw)), clientSequence, lootId, amount, _catalog, out bool isApproved, out ShopTransactionId txId))
-            {
-                Debug.Log($"[ShopTransaction] Server: TryProcessSaleRequest processed. isApproved={isApproved}, txId={txId.Timestamp}");
-                Rpc_SaleResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
-            }
-            else
-            {
-                Debug.Log($"[ShopTransaction] Server: TryProcessSaleRequest returned false.");
-            }
+            Debug.Log($"[ShopTransaction] Server: TryProcessSaleRequest processed. isApproved={isApproved}, txId={txId.Timestamp}");
+            Rpc_SaleResponse(source, clientSequence, isApproved, txId.Timestamp, txId.Value);
         }
     }
 
@@ -257,5 +163,17 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMasterCli
         Debug.Log($"[ShopTransaction] TownMerchantNetworkController.Rpc_SaleResponse (Client): Seq={clientSequence}, isApproved={isApproved}");
         var txId = isApproved ? new ShopTransactionId(timestamp, txGuid) : default;
         _localOrchestrator?.OnSaleResponseReceived(clientSequence, isApproved, txId);
+    }
+
+    private void ReleaseLocalOrchestrator()
+    {
+        if (_localOrchestrator == null)
+        {
+            return;
+        }
+
+        _localOrchestrator.TransactionCompleted -= OnLocalTransactionCompleted;
+        _localOrchestrator.LocalPurchaseSucceeded -= RecordLocalPurchase;
+        _localOrchestrator = null;
     }
 }

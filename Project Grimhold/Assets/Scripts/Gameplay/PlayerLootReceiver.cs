@@ -10,6 +10,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerLootReceiver : NetworkBehaviour,
+    IInventoryReadSource,
     ILootReceiver,
     ILootExtractor,
     ILootContentReader,
@@ -41,6 +42,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private bool _isRegistered;
     private EntityId _registeredId;
     private readonly Queue<LootGrantPresentationEvent> _pendingPresentationEvents = new();
+    private int _lastNotifiedLootRevision;
 
     /// <summary>
     /// Gets the loot definition catalog.
@@ -51,6 +53,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     /// Local presentation notification emitted during Render on the receiving player's peer.
     /// </summary>
     public event Action<LootGrantPresentationEvent> LootGranted;
+    public event Action Changed;
 
     /// <summary>
     /// Gets the number of distinct loot definitions currently held.
@@ -61,6 +64,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     /// Gets the configured gameplay capacity measured in distinct positive loot stacks.
     /// </summary>
     public int SlotCapacity => _slotCapacity;
+    public int Revision => LootChangeSequence;
 
     /// <summary>
     /// Gets the number of occupied gameplay slots from the replicated inventory.
@@ -90,6 +94,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
     public override void Spawned()
     {
+        _lastNotifiedLootRevision = LootChangeSequence;
         if (!ValidateDependencies())
         {
             return;
@@ -129,6 +134,12 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
     public override void Render()
     {
+        if (_lastNotifiedLootRevision != LootChangeSequence)
+        {
+            _lastNotifiedLootRevision = LootChangeSequence;
+            Changed?.Invoke();
+        }
+
         while (_pendingPresentationEvents.Count > 0)
         {
             LootGranted?.Invoke(_pendingPresentationEvents.Dequeue());
@@ -561,31 +572,8 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     public bool TryCalculateTotalValue(out long total)
     {
         total = 0;
-        if (_lootCatalog == null)
-        {
-            return false;
-        }
-
-        try
-        {
-            foreach (KeyValuePair<int, int> pair in LootInventory)
-            {
-                if (pair.Value <= 0 || !_lootCatalog.TryGetByIndex(pair.Key, out LootDefinition definition))
-                {
-                    total = 0;
-                    return false;
-                }
-
-                total = checked(total + checked((long)pair.Value * definition.SellValuePerUnit));
-            }
-        }
-        catch (OverflowException)
-        {
-            total = 0;
-            return false;
-        }
-
-        return true;
+        return TryGetLootContent(out IReadOnlyList<LootEntry> content) &&
+            LootInventoryValueCalculator.TryCalculate(content, _lootCatalog, out total);
     }
 
     /// <summary>

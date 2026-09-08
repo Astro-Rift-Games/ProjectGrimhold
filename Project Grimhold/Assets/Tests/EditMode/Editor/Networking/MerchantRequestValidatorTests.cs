@@ -1,18 +1,12 @@
 using NUnit.Framework;
 using Fusion;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Assert = NUnit.Framework.Assert;
 
 public class MerchantRequestValidatorTests
 {
-    private class DummyInventoryHandler : IMerchantInventoryHandler
-    {
-        public bool ValidatePurchase(string lootId, int amount) => true;
-        public void CommitPurchase(string lootId, int amount) { }
-        public bool ValidateSale(string lootId, int amount) => true;
-        public void CommitSale(string lootId, int amount) { }
-    }
     private MerchantRequestValidator _validator;
     private LootDefinitionCatalog _catalog;
     private int _guidGenerationCount;
@@ -40,10 +34,10 @@ public class MerchantRequestValidatorTests
         idField?.SetValue(item, "healthpotion");
         extractField?.SetValue(item, 100);
         sellField?.SetValue(item, 20);
-        var itemsField = typeof(LootDefinitionCatalog).GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var itemsField = typeof(LootDefinitionCatalog).GetField("_definitions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         if (itemsField != null)
         {
-            itemsField.SetValue(_catalog, new[] { item });
+            itemsField.SetValue(_catalog, new List<LootDefinition> { item });
             // Re-initialize dictionary
             var initMethod = typeof(LootDefinitionCatalog).GetMethod("OnEnable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             initMethod?.Invoke(_catalog, null);
@@ -55,8 +49,8 @@ public class MerchantRequestValidatorTests
     {
         var player = PlayerRef.FromEncoded(1);
         
-        bool success1 = _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
-        bool success2 = _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out bool approved2, out ShopTransactionId id2);
+        bool success1 = _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
+        bool success2 = _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 2, _catalog, out bool approved2, out ShopTransactionId id2);
 
         Assert.IsTrue(success1);
         Assert.IsTrue(success2);
@@ -71,11 +65,11 @@ public class MerchantRequestValidatorTests
     {
         var player = PlayerRef.FromEncoded(1);
         
-        _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out _, out _);
+        _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 2, _catalog, out _, out _);
         
         int generationCountAfterFirst = _guidGenerationCount;
         
-        _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out _, out _);
+        _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 2, _catalog, out _, out _);
         
         Assert.AreEqual(1, generationCountAfterFirst, "Guid should have been generated exactly once on the first request.");
         Assert.AreEqual(1, _guidGenerationCount, "Guid should not be generated again for a duplicate request.");
@@ -86,9 +80,9 @@ public class MerchantRequestValidatorTests
     {
         var player = PlayerRef.FromEncoded(1);
         
-        _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
+        _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
         
-        bool success2 = _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 3, _catalog, out bool approved2, out ShopTransactionId id2);
+        bool success2 = _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 3, _catalog, out bool approved2, out ShopTransactionId id2);
 
         Assert.IsTrue(approved1);
         Assert.IsFalse(success2, "Second request with same sequence but different payload should be rejected as a conflict.");
@@ -102,8 +96,8 @@ public class MerchantRequestValidatorTests
         var player1 = PlayerRef.FromEncoded(1);
         var player2 = PlayerRef.FromEncoded(2);
         
-        _validator.TryProcessPurchaseRequest(player1, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
-        _validator.TryProcessPurchaseRequest(player2, new DummyInventoryHandler(), 42, "healthpotion", 2, _catalog, out bool approved2, out ShopTransactionId id2);
+        _validator.TryProcessPurchaseRequest(player1, 42, "healthpotion", 2, _catalog, out bool approved1, out ShopTransactionId id1);
+        _validator.TryProcessPurchaseRequest(player2, 42, "healthpotion", 2, _catalog, out bool approved2, out ShopTransactionId id2);
 
         Assert.IsTrue(approved1);
         Assert.IsTrue(approved2);
@@ -116,7 +110,7 @@ public class MerchantRequestValidatorTests
     {
         var player = PlayerRef.FromEncoded(1);
         
-        _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "healthpotion", 0, _catalog, out bool approved, out ShopTransactionId id);
+        _validator.TryProcessPurchaseRequest(player, 42, "healthpotion", 0, _catalog, out bool approved, out ShopTransactionId id);
 
         Assert.IsFalse(approved);
         Assert.AreEqual(Guid.Empty, id.Value);
@@ -127,7 +121,7 @@ public class MerchantRequestValidatorTests
     {
         var player = PlayerRef.FromEncoded(1);
         
-        _validator.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 42, "unknown", 1, _catalog, out bool approved, out ShopTransactionId id);
+        _validator.TryProcessPurchaseRequest(player, 42, "unknown", 1, _catalog, out bool approved, out ShopTransactionId id);
 
         Assert.IsFalse(approved);
         Assert.AreEqual(Guid.Empty, id.Value);
@@ -154,15 +148,15 @@ public class MerchantRequestValidatorTests
         var player = PlayerRef.FromEncoded(1);
         
         // Buy 1 -> Success
-        validatorWithStock.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 1, "healthpotion", 1, _catalog, out bool approved1, out _);
+        validatorWithStock.TryProcessPurchaseRequest(player, 1, "healthpotion", 1, _catalog, out bool approved1, out _);
         Assert.IsTrue(approved1);
         
         // Buy 1 -> Success (Total 2)
-        validatorWithStock.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 2, "healthpotion", 1, _catalog, out bool approved2, out _);
+        validatorWithStock.TryProcessPurchaseRequest(player, 2, "healthpotion", 1, _catalog, out bool approved2, out _);
         Assert.IsTrue(approved2);
         
         // Buy 1 -> Reject (Total 3 > Max 2)
-        validatorWithStock.TryProcessPurchaseRequest(player, new DummyInventoryHandler(), 3, "healthpotion", 1, _catalog, out bool approved3, out _);
+        validatorWithStock.TryProcessPurchaseRequest(player, 3, "healthpotion", 1, _catalog, out bool approved3, out _);
         Assert.IsFalse(approved3);
     }
 }

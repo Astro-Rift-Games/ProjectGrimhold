@@ -21,6 +21,7 @@ public sealed class SessionCompositionConfigurationTests
     private const string TownRaidPreparationViewPath = "Assets/Resources/TownRaidPreparationView.prefab";
     private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
     private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
+    private const string SharedInventoryPath = "Assets/Prefabs/UI/RaidInventoryUI.prefab";
     private const string MeleeRaidAvatarPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
     private const string RangedRaidAvatarPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
     private const string MainMenuCanvasPath = "Assets/Prefabs/MainMenu Canvas.prefab";
@@ -180,7 +181,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponent<SocialPlayerIdentity>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<TownRaidPreparationPresenter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalPlayerCameraBinder>(), Is.Not.Null);
-        Assert.That(prefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<PlayerLootReceiver>(), Is.Null);
         Assert.That(prefab.GetComponentInChildren<PlayerAnimatorView>(true), Is.Not.Null);
 
         var forbiddenTypes = new HashSet<System.Type>
@@ -215,6 +216,36 @@ public sealed class SessionCompositionConfigurationTests
 
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidPreparationPresenter>()));
+        Assert.That(prefab.GetComponents<TownInventoryBinder>(), Has.Length.EqualTo(1));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownInventoryBinder>()));
+    }
+
+    [Test]
+    public void TownAndRaid_UseIndependentInstancesOfTheSharedInventoryPrefab()
+    {
+        GameObject sharedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SharedInventoryPath);
+        GameObject networkPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BaseRaidAvatarPath);
+        GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+
+        Assert.That(sharedPrefab, Is.Not.Null);
+        RaidInventoryPresenter sharedPresenter = sharedPrefab.GetComponent<RaidInventoryPresenter>();
+        RaidInventoryPresenter networkPresenter = networkPrefab.GetComponentInChildren<RaidInventoryPresenter>(true);
+        RaidInventoryPresenter socialPresenter = socialPrefab.GetComponentInChildren<RaidInventoryPresenter>(true);
+        Assert.That(sharedPresenter, Is.Not.Null);
+        Assert.That(networkPresenter, Is.Not.Null);
+        Assert.That(socialPresenter, Is.Not.Null);
+        Assert.That(networkPresenter, Is.Not.SameAs(socialPresenter));
+        Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(networkPresenter), Is.SameAs(sharedPresenter));
+        Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(socialPresenter), Is.SameAs(sharedPresenter));
+        Assert.That(sharedPrefab.GetComponentsInChildren<Canvas>(true), Is.Empty);
+        Assert.That(networkPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
+        Assert.That(socialPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
+
+        Assert.That(networkPrefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<LocalPlayerHudBinder>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponent<TownInventoryBinder>(), Is.Null);
+        Assert.That(socialPrefab.GetComponent<PlayerLootReceiver>(), Is.Null);
+        Assert.That(socialPrefab.GetComponent<TownInventoryBinder>(), Is.Not.Null);
     }
 
     [Test]

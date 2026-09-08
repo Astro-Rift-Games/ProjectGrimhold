@@ -14,6 +14,34 @@ public sealed class RaidLootPanelPresenter
     public IReadOnlyList<LootEntry> OccupiedEntries => _occupiedEntries;
 
     public bool Refresh(
+        IInventoryReadSource inventorySource,
+        LootDefinitionCatalog catalog,
+        RaidLootPanelView view,
+        long? totalValue,
+        bool showEmptyState,
+        RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId,
+        Object logContext)
+    {
+        if (inventorySource == null)
+        {
+            view?.ShowUnavailable();
+            return false;
+        }
+
+        return RefreshCore(
+            inventorySource.TryGetLootContent,
+            inventorySource.SlotCapacity,
+            catalog,
+            view,
+            totalValue,
+            showEmptyState,
+            interactionMode,
+            selectedLootId,
+            logContext);
+    }
+
+    public bool Refresh(
         ILootContentReader contentReader,
         ILootSlotCapacityReader capacityReader,
         LootDefinitionCatalog catalog,
@@ -49,10 +77,41 @@ public sealed class RaidLootPanelPresenter
         LootId selectedLootId,
         Object logContext)
     {
-        if (contentReader == null || capacityReader == null || catalog == null || view == null ||
-            !view.EnsureSlotCount(capacityReader.SlotCapacity) ||
-            !contentReader.TryGetLootContent(out IReadOnlyList<LootEntry> content) ||
-            !RaidInventoryProjection.TryBuild(content, capacityReader.SlotCapacity, _projectedEntries))
+        if (contentReader == null || capacityReader == null)
+        {
+            view?.ShowUnavailable();
+            return false;
+        }
+
+        return RefreshCore(
+            contentReader.TryGetLootContent,
+            capacityReader.SlotCapacity,
+            catalog,
+            view,
+            totalValue,
+            showEmptyState,
+            interactionMode,
+            selectedLootId,
+            logContext);
+    }
+
+    private delegate bool TryReadContent(out IReadOnlyList<LootEntry> content);
+
+    private bool RefreshCore(
+        TryReadContent tryReadContent,
+        int slotCapacity,
+        LootDefinitionCatalog catalog,
+        RaidLootPanelView view,
+        long? totalValue,
+        bool showEmptyState,
+        RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId,
+        Object logContext)
+    {
+        if (tryReadContent == null || catalog == null || view == null ||
+            !view.EnsureSlotCount(slotCapacity) ||
+            !tryReadContent(out IReadOnlyList<LootEntry> content) ||
+            !RaidInventoryProjection.TryBuild(content, slotCapacity, _projectedEntries))
         {
             _occupiedEntries = null;
             view?.ShowUnavailable();

@@ -37,6 +37,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
+    private IInventoryReadSource _inventorySource;
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
     private PlayerInteractionNetworkController _interactionController;
@@ -62,6 +63,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private string _takeAllLastFailureMessage;
     private LootContextActionContext _contextActionContext;
     private bool _gameplayMutationsBlocked;
+    private bool _isRaidBinding;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -115,6 +117,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        _inventorySource = lootReceiver;
         _lootReceiver = lootReceiver;
         _inputReader = inputReader;
         _interactionController = interactionController;
@@ -139,12 +142,44 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        _isRaidBinding = true;
+        _view.SetEquipmentPanelVisible(true);
         _isBound = true;
         if (isActiveAndEnabled)
         {
             Subscribe();
             RefreshPlayerPanel();
             RefreshEquipmentSlots();
+            Close();
+        }
+    }
+
+    /// <summary>
+    /// Binds the existing personal inventory screen to a local, read-only inventory source.
+    /// Town binding has no container or gameplay-mutation endpoints.
+    /// </summary>
+    public void BindTown(IInventoryReadSource inventorySource, PlayerInputReader inputReader)
+    {
+        Unbind();
+
+        if (inventorySource == null || inputReader == null || _view == null ||
+            _view.PlayerPanel == null || _lootCatalog == null)
+        {
+            Debug.LogError($"{nameof(RaidInventoryPresenter)} has missing Town binding or serialized dependencies.", this);
+            return;
+        }
+
+        _inventorySource = inventorySource;
+        _inputReader = inputReader;
+        _isRaidBinding = false;
+        _view.SetContainerPanelVisible(false);
+        _view.SetEquipmentPanelVisible(false);
+        _isBound = true;
+
+        if (isActiveAndEnabled)
+        {
+            Subscribe();
+            RefreshPlayerPanel();
             Close();
         }
     }
@@ -161,6 +196,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _playerValueFailureReported = false;
         _lastObservedInteractionSequence = 0;
         _gameplayMutationsBlocked = false;
+        _isRaidBinding = false;
         _isBound = false;
         ClearBindingReferences();
     }
@@ -201,18 +237,19 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void Update()
     {
-        if (!_isBound || _lootReceiver == null)
+        if (!_isBound || _inventorySource == null)
         {
             return;
         }
 
-        if (_lootReceiver.LootChangeSequence != _observedPlayerLootSequence)
-        {
-            RefreshPlayerPanel();
-        }
-        else if (_playerValueRefreshPending)
+        if (_playerValueRefreshPending)
         {
             RetryPlayerValue();
+        }
+
+        if (!_isRaidBinding)
+        {
+            return;
         }
 
         if (_equipmentController != null &&
@@ -245,9 +282,18 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
-        _lastObservedInteractionSequence = _interactionController.CurrentInteractionSequence;
+        _lastObservedInteractionSequence = _isRaidBinding
+            ? _interactionController.CurrentInteractionSequence
+            : 0;
+        _inventorySource.Changed += OnInventorySourceChanged;
         _inputReader.InventoryToggleRequested += OnInventoryToggleRequested;
         _inputReader.InventoryCloseRequested += OnInventoryCloseRequested;
+        if (!_isRaidBinding)
+        {
+            _isSubscribed = true;
+            return;
+        }
+
         _inputReader.InteractPressedLocally += OnInteractPressedLocally;
         _interactionController.InteractionResolved += OnInteractionResolved;
         _transferController.RequestInFlightChanged += OnRequestInFlightChanged;
@@ -281,6 +327,17 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _inputReader.InventoryToggleRequested -= OnInventoryToggleRequested;
             _inputReader.InventoryCloseRequested -= OnInventoryCloseRequested;
             _inputReader.InteractPressedLocally -= OnInteractPressedLocally;
+        }
+
+        if (_inventorySource != null)
+        {
+            _inventorySource.Changed -= OnInventorySourceChanged;
+        }
+
+        if (!_isRaidBinding)
+        {
+            _isSubscribed = false;
+            return;
         }
 
         if (_interactionController != null)
@@ -355,6 +412,16 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         OpenPersonalInventory();
     }
 
+    private void OnInventorySourceChanged()
+    {
+        if (!_isBound || _inventorySource == null)
+        {
+            return;
+        }
+
+        RefreshPlayerPanel();
+    }
+
     private bool OnInventoryCloseRequested()
     {
         if (_mode == ScreenMode.Closed)
@@ -387,7 +454,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         ClearContainerBinding();
         _mode = ScreenMode.Personal;
         RefreshPlayerPanel();
-        RefreshEquipmentSlots();
+        if (_isRaidBinding)
+        {
+            RefreshEquipmentSlots();
+        }
         EnsureInputSuppression();
         _view.SetContainerPanelVisible(false);
         _view.SetScreenVisible(true);
@@ -986,19 +1056,21 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void RefreshPlayerPanel()
     {
-        if (!_isBound || _lootReceiver == null || _view == null || _view.PlayerPanel == null)
+        if (!_isBound || _inventorySource == null || _view == null || _view.PlayerPanel == null)
         {
             return;
         }
 
-        int currentSequence = _lootReceiver.LootChangeSequence;
+        int currentSequence = _inventorySource.Revision;
         if (currentSequence != _observedPlayerLootSequence)
         {
             _playerValueFailureReported = false;
         }
 
         _observedPlayerLootSequence = currentSequence;
-        bool hasTotalValue = _lootReceiver.TryCalculateTotalValue(out long value);
+        long value = 0;
+        bool hasTotalValue = _inventorySource.TryGetLootContent(out IReadOnlyList<LootEntry> content) &&
+            LootInventoryValueCalculator.TryCalculate(content, _lootCatalog, out value);
         long? totalValue = hasTotalValue ? value : null;
         _playerValueRefreshPending = !hasTotalValue;
         if (hasTotalValue)
@@ -1014,7 +1086,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
-        RaidLootSlotInteractionMode interactionMode = _mode == ScreenMode.Personal &&
+        RaidLootSlotInteractionMode interactionMode = _isRaidBinding && _mode == ScreenMode.Personal &&
             _dropController != null && !_dropController.HasRequestInFlight &&
             _equipmentController != null && !_equipmentController.HasRequestInFlight
                 ? RaidLootSlotInteractionMode.ContextMenu
@@ -1022,8 +1094,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
                     ? RaidLootSlotInteractionMode.Transfer
                     : RaidLootSlotInteractionMode.ReadOnly;
         bool refreshed = _playerPanelPresenter.Refresh(
-            _lootReceiver,
-            _lootReceiver,
+            _inventorySource,
             _lootCatalog,
             _view.PlayerPanel,
             totalValue,
@@ -1047,12 +1118,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void RetryPlayerValue()
     {
-        if (_lootReceiver == null || _view == null || _view.PlayerPanel == null)
+        if (_inventorySource == null || _view == null || _view.PlayerPanel == null)
         {
             return;
         }
 
-        if (!_lootReceiver.TryCalculateTotalValue(out long value))
+        if (!_inventorySource.TryGetLootContent(out IReadOnlyList<LootEntry> content) ||
+            !LootInventoryValueCalculator.TryCalculate(content, _lootCatalog, out long value))
         {
             ReportPlayerValueFailureOnce();
             return;
@@ -1252,6 +1324,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void ClearBindingReferences()
     {
+        _inventorySource = null;
         _lootReceiver = null;
         _inputReader = null;
         _interactionController = null;
