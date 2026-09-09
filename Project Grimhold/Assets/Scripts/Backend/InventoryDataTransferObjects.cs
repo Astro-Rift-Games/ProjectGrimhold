@@ -167,7 +167,7 @@ namespace Grimhold.Backend
         public string              raidId;
         public int                 resultSequence;
         public InventoryItemData[] items;
-        // Progression is optional in backend, so we pass it when XP > 0
+        public PreparedEquipmentData preparedEquipment;
         public ExtractionProgressionData progression;
     }
 

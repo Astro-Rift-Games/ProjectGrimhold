@@ -200,6 +200,7 @@ public class RemoteInventoryService : MonoBehaviour
     public async Task<(bool success, BackendError error)> CommitExtractionUnifiedAsync(
         ExtractionReceipt receipt,
         System.Collections.Generic.IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
         long consolidatedExperience,
         int resultingLevel)
     {
@@ -214,7 +215,16 @@ public class RemoteInventoryService : MonoBehaviour
             raidId         = receipt.RaidId,
             resultSequence = receipt.ResultSequence,
             items          = MapToDTO(items),
-            progression    = new ExtractionProgressionData
+            preparedEquipment = new PreparedEquipmentData
+            {
+                weaponSlot1 = preparedEquipment.WeaponSlot1.IsValid ? preparedEquipment.WeaponSlot1.Value : null,
+                weaponSlot2 = preparedEquipment.WeaponSlot2.IsValid ? preparedEquipment.WeaponSlot2.Value : null,
+                helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
+                armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
+                gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
+                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+            },
+            progression    = new ExtractionProgressionData 
             {
                 consolidatedExperience = consolidatedExperience,
                 resultingLevel = resultingLevel

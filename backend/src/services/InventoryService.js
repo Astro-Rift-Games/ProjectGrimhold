@@ -17,13 +17,14 @@ function serializePreparedEquipment(eq) {
   if (!eq) {
     return { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' };
   }
+  const clean = (val) => (!val || val === 'null' ? '' : val);
   return {
-    weaponSlot1: eq.weaponSlot1 || '',
-    weaponSlot2: eq.weaponSlot2 || '',
-    helmet:      eq.helmet      || '',
-    armor:       eq.armor       || '',
-    gloves:      eq.gloves      || '',
-    boots:       eq.boots       || ''
+    weaponSlot1: clean(eq.weaponSlot1),
+    weaponSlot2: clean(eq.weaponSlot2),
+    helmet:      clean(eq.helmet),
+    armor:       clean(eq.armor),
+    gloves:      clean(eq.gloves),
+    boots:       clean(eq.boots)
   };
 }
 

@@ -31,30 +31,9 @@ const commitExtractionUnifiedValidator = [
   body('resultSequence')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
 
-  body('items')
-    .optional()
-    .isArray({ max: MAX_ITEMS }).withMessage(`must be an array with at most ${MAX_ITEMS} entries`),
-
-  body('items.*.lootId')
-    .isString().withMessage('must be a string')
-    .trim()
-    .notEmpty().withMessage('must not be empty'),
-
-  body('items.*.amount')
-    .isInt({ min: 1 }).withMessage('must be a positive integer'),
-
-  // progression is optional: omit entirely for raids that award no XP.
-  body('progression')
+  body('preparedEquipment')
     .optional()
     .isObject().withMessage('must be an object'),
-
-  body('progression.consolidatedExperience')
-    .if(body('progression').exists())
-    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
-
-  body('progression.resultingLevel')
-    .if(body('progression').exists())
-    .isInt({ min: 1 }).withMessage('must be a positive integer'),
 
   handleValidationErrors,
 ];

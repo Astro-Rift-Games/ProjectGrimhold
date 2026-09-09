@@ -48,6 +48,12 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private int[] _pendingAmounts;
     private int _pendingResultSequence;
     private ExtractedLootExperienceCandidate? _pendingExperienceCandidate;
+    private int _pendingWeaponSlot1Idx = -1;
+    private int _pendingWeaponSlot2Idx = -1;
+    private int _pendingHelmetIdx = -1;
+    private int _pendingArmorIdx = -1;
+    private int _pendingGlovesIdx = -1;
+    private int _pendingBootsIdx = -1;
     private bool _localCommitAttempted;
 
     [Networked]
@@ -197,8 +203,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
             return false;
         }
-
-        IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Combined;
+        // Send only the backpack items to the Stash Loadout;
+        // equipped items will be explicitly persisted to PreparedEquipment.
+        IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Inventory;
 
         LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
         if (catalog == null || snapshot.Count > MaximumSnapshotEntries)
@@ -292,6 +299,15 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
         }
 
+        int GetEqIdx(LootEntry? entry) => (entry.HasValue && entry.Value.IsValid && catalog.TryGetIndex(entry.Value.LootId, out int idx)) ? idx : -1;
+
+        _pendingWeaponSlot1Idx = GetEqIdx(ownershipSnapshot.WeaponSlot1);
+        _pendingWeaponSlot2Idx = GetEqIdx(ownershipSnapshot.WeaponSlot2);
+        _pendingHelmetIdx = GetEqIdx(ownershipSnapshot.Helmet);
+        _pendingArmorIdx = GetEqIdx(ownershipSnapshot.Armor);
+        _pendingGlovesIdx = GetEqIdx(ownershipSnapshot.Gloves);
+        _pendingBootsIdx = GetEqIdx(ownershipSnapshot.Boots);
+
         _pendingSnapshot = snapshot;
         _pendingOwnershipSnapshot = ownershipSnapshot;
         _pendingCatalogIndices = indices;
@@ -313,14 +329,26 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         RPC_CommitExtractionOnInputAuthority(
             _pendingResultSequence,
             _pendingCatalogIndices,
-            _pendingAmounts);
+            _pendingAmounts,
+            _pendingWeaponSlot1Idx,
+            _pendingWeaponSlot2Idx,
+            _pendingHelmetIdx,
+            _pendingArmorIdx,
+            _pendingGlovesIdx,
+            _pendingBootsIdx);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
     private void RPC_CommitExtractionOnInputAuthority(
         int resultSequence,
         int[] catalogIndices,
-        int[] amounts)
+        int[] amounts,
+        int weaponSlot1Idx,
+        int weaponSlot2Idx,
+        int helmetIdx,
+        int armorIdx,
+        int glovesIdx,
+        int bootsIdx)
     {
         if (!ValidateIncomingPayload(catalogIndices, amounts))
         {
@@ -348,6 +376,14 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
             return;
         }
+
+        _pendingWeaponSlot1Idx = weaponSlot1Idx;
+        _pendingWeaponSlot2Idx = weaponSlot2Idx;
+        _pendingHelmetIdx = helmetIdx;
+        _pendingArmorIdx = armorIdx;
+        _pendingGlovesIdx = glovesIdx;
+        _pendingBootsIdx = bootsIdx;
+
         _localCommitAttempted = false;
         LocalSaveStatus = ExtractionLootSaveStatus.Pending;
         TryCommitPendingLocally();
@@ -425,9 +461,20 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
         }
 
+        LootId GetEqLootId(int idx) => idx >= 0 && catalog.TryGetByIndex(idx, out LootDefinition def) ? def.LootId : default;
+
+        PreparedEquipmentLoadout preparedEquipment = new PreparedEquipmentLoadout(
+            GetEqLootId(_pendingWeaponSlot1Idx),
+            GetEqLootId(_pendingWeaponSlot2Idx),
+            GetEqLootId(_pendingHelmetIdx),
+            GetEqLootId(_pendingArmorIdx),
+            GetEqLootId(_pendingGlovesIdx),
+            GetEqLootId(_pendingBootsIdx));
+
         StashOperationResult result = context.Store.TryCommitExtraction(
             receipt,
             items,
+            preparedEquipment,
             consolidatedExperience,
             resultingLevel,
             resultingExperience);
@@ -448,12 +495,13 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         // Fire-and-forget: persist extraction to backend.
         // The ACK to Fusion is NOT blocked on this call to preserve Fusion's network timing.
         // The backend endpoint is idempotent, so Unity can retry safely if the first attempt fails.
-        _ = CommitExtractionToBackendAsync(receipt, items, consolidatedExperience, resultingLevel, context.Store);
+        _ = CommitExtractionToBackendAsync(receipt, items, preparedEquipment, consolidatedExperience, resultingLevel, context.Store);
     }
 
     private async Task CommitExtractionToBackendAsync(
         ExtractionReceipt receipt,
         IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
         long consolidatedExperience,
         int resultingLevel,
         LocalProfileStore store)
@@ -469,7 +517,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         var (success, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
-            receipt, items, consolidatedExperience, resultingLevel);
+            receipt, items, preparedEquipment, consolidatedExperience, resultingLevel);
             
         if (!success)
         {

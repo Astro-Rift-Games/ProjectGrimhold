@@ -187,7 +187,7 @@ public static class ApplicationStashServiceBootstrapper
             }
         }
 
-        if (data.loadout != null)
+        if (data.loadout != null && snapshot.PendingExtractionCommit == null)
         {
             foreach (var item in data.loadout)
             {
@@ -198,15 +198,18 @@ public static class ApplicationStashServiceBootstrapper
             }
         }
 
-        var eq = data.preparedEquipment;
-        snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
-            string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
-            string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
-            string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
-            string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
-            string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
-            string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
-        );
+        if (snapshot.PendingExtractionCommit == null)
+        {
+            var eq = data.preparedEquipment;
+            snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+                string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
+                string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
+                string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
+                string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
+                string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
+                string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
+            );
+        }
 
         if (data.pendingReservation.reservationId != null)
         {
@@ -271,10 +274,10 @@ public static class ApplicationStashServiceBootstrapper
         var commit = store.PendingExtractionCommit;
         if (commit == null) return;
 
-        var items = new InventoryItemData[commit.Items.Count];
+        var requestItems = new InventoryItemData[commit.Items.Count];
         for (int i = 0; i < commit.Items.Count; i++)
         {
-            items[i] = new InventoryItemData
+            requestItems[i] = new InventoryItemData
             {
                 lootId = commit.Items[i].LootId.Value,
                 amount = commit.Items[i].Amount
@@ -285,7 +288,16 @@ public static class ApplicationStashServiceBootstrapper
         {
             raidId = commit.Receipt.RaidId,
             resultSequence = commit.Receipt.ResultSequence,
-            items = items,
+            items = requestItems,
+            preparedEquipment = new PreparedEquipmentData
+            {
+                weaponSlot1 = commit.PreparedEquipment.WeaponSlot1.IsValid ? commit.PreparedEquipment.WeaponSlot1.Value : null,
+                weaponSlot2 = commit.PreparedEquipment.WeaponSlot2.IsValid ? commit.PreparedEquipment.WeaponSlot2.Value : null,
+                helmet = commit.PreparedEquipment.Helmet.IsValid ? commit.PreparedEquipment.Helmet.Value : null,
+                armor = commit.PreparedEquipment.Armor.IsValid ? commit.PreparedEquipment.Armor.Value : null,
+                gloves = commit.PreparedEquipment.Gloves.IsValid ? commit.PreparedEquipment.Gloves.Value : null,
+                boots = commit.PreparedEquipment.Boots.IsValid ? commit.PreparedEquipment.Boots.Value : null
+            },
             progression = new ExtractionProgressionData
             {
                 consolidatedExperience = commit.ConsolidatedExperience,

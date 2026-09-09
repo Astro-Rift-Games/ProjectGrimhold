@@ -619,6 +619,7 @@ public sealed class LocalProfileStore
     public StashOperationResult TryCommitExtraction(
         ExtractionReceipt receipt, 
         IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
         long consolidatedExperience,
         int resultingLevel,
         long resultingExperience)
@@ -645,10 +646,12 @@ public sealed class LocalProfileStore
         next.Level = resultingLevel;
         next.CurrentExperience = resultingExperience;
         next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
+        next.PreparedEquipment = preparedEquipment;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(
             receipt,
             items,
+            preparedEquipment,
             consolidatedExperience,
             resultingLevel);
 

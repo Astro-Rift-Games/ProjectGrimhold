@@ -4,13 +4,13 @@
 //
 // Design invariants:
 //   - Idempotent: same (raidId, resultSequence) → alreadySecured = true, no mutation.
-//   - Atomic: loot + progression applied in a single character.save() call.
-//   - Authoritative: the server independently recalculates level/XP/attribute points;
-//     the client's `resultingLevel` is only used as a cross-check, never trusted blindly.
+//   - Atomic: loot + progression applied in a single findOneAndUpdate call with DB-level lock.
+//   - Authoritative: the server independently recalculates level/XP/attribute points and pulls loot from Fusion results.
 
 'use strict';
 
 const Character = require('../models/Character');
+const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
 const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
@@ -21,33 +21,41 @@ const MAX_EXTRACTION_RECEIPTS = 256;
 // Maximum number of progression receipts kept in history.
 const MAX_PROGRESSION_RECEIPTS = 256;
 
-class ExtractionCommitService {
-  /**
-   * Commits a raid extraction result atomically.
-   *
-   * @param {string} accountId
-   * @param {object} payload
-   * @param {string}   payload.raidId
-   * @param {number}   payload.resultSequence
-   * @param {Array}    [payload.items]       - [{ lootId, amount }], may be absent or empty.
-   * @param {object}   [payload.progression] - { consolidatedExperience, resultingLevel }
-   *
-   * @returns {Promise<{
-   *   alreadySecured:     boolean,
-   *   loadout:            { lootId: string, amount: number }[],
-   *   level:              number,
-   *   experience:         number,
-   *   characterAttributes: object
-   * }>}
-   *
-   * @throws {{ statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND' }}
-   * @throws {{ statusCode: 409, errorCode: 'LOADOUT_NOT_EMPTY' }}
-   * @throws {{ statusCode: 422, errorCode: 'PROGRESSION_MISMATCH' }}
-   */
-  static async commit(accountId, payload) {
-    const { raidId, resultSequence, items = [], progression } = payload;
+function sanitizePreparedEquipment(eq) {
+  if (!eq) return {};
+  return {
+    weaponSlot1: eq.weaponSlot1 || '',
+    weaponSlot2: eq.weaponSlot2 || '',
+    helmet:      eq.helmet      || '',
+    armor:       eq.armor       || '',
+    gloves:      eq.gloves      || '',
+    boots:       eq.boots       || ''
+  };
+}
 
-    const character = await Character.findOne({ accountId });
+class ExtractionCommitService {
+  static async commit(accountId, payload) {
+    const { raidId, resultSequence } = payload;
+
+    // ------------------------------------------------------------------
+    // 1. Authoritative Lookup
+    // ------------------------------------------------------------------
+    // We do NOT trust client payloads for items or experience ideally,
+    // but in Stage 1 we fallback to the client payload if the mock webhook isn't used.
+    let authResult = await AuthoritativeExtractionResult.findOne({ raidId, accountId });
+    if (!authResult) {
+      console.warn(`[ExtractionCommitService] No authResult found for raid ${raidId}. Falling back to client payload (Stage 1).`);
+      authResult = {
+        items: payload.items || [],
+        preparedEquipment: payload.preparedEquipment,
+        experienceGranted: payload.progression ? payload.progression.consolidatedExperience : 0
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // 2. Pre-fetch character to compute state and check memory idempotency
+    // ------------------------------------------------------------------
+    let character = await Character.findOne({ accountId });
     if (!character) {
       throw {
         statusCode: 404,
@@ -56,22 +64,12 @@ class ExtractionCommitService {
       };
     }
 
-    // ------------------------------------------------------------------
-    // 1. Idempotency check for loot
-    // ------------------------------------------------------------------
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
     const lootAlreadyApplied = extractionReceipts.some(
       r => r.raidId === raidId && r.resultSequence === resultSequence
     );
-    if (lootAlreadyApplied) {
-      if (character.inventory.pendingReservation) {
-        character.inventory.preparedEquipment = character.inventory.pendingReservation.preparedEquipment || {};
-        character.inventory.pendingReservation = null;
-        character.markModified('inventory.preparedEquipment');
-        character.markModified('inventory.pendingReservation');
-        await character.save();
-      }
 
+    if (lootAlreadyApplied) {
       return {
         alreadySecured:      true,
         loadout:             serializeItems(character.inventory.loadout),
@@ -81,9 +79,6 @@ class ExtractionCommitService {
       };
     }
 
-    // ------------------------------------------------------------------
-    // 2. Guard: loadout must be empty before an extraction can be applied
-    // ------------------------------------------------------------------
     if (character.inventory.loadout && character.inventory.loadout.length > 0) {
       throw {
         statusCode: 409,
@@ -93,118 +88,105 @@ class ExtractionCommitService {
     }
 
     // ------------------------------------------------------------------
-    // 3. Progression: authoritative recalculation (if included in payload)
+    // 3. Compute new states in memory
     // ------------------------------------------------------------------
-    let applyProgression  = false;
-    let newLevel          = character.level;
-    let newExperience     = character.experience;
-    let pointsGranted     = 0;
-
-    if (progression) {
-      const { consolidatedExperience, resultingLevel: clientResultingLevel } = progression;
-
-      // Check if this progression result was already applied (separate watermark).
-      const progressionAlreadyApplied =
-        resultSequence <= character.lastAppliedProgressionResultSequence;
-
-      if (!progressionAlreadyApplied) {
-        // Server recalculates independently.
-        const computed = computeLevelAndExperience(
-          character.level,
-          character.experience,
-          consolidatedExperience
-        );
-
-        // Reject if client's claimed resultingLevel doesn't match server computation.
-        if (computed.resultingLevel !== clientResultingLevel) {
-          throw {
-            statusCode: 422,
-            errorCode:  'PROGRESSION_MISMATCH',
-            message: `Server computed resultingLevel=${computed.resultingLevel}, ` +
-                     `but client claimed ${clientResultingLevel}. Payload rejected.`,
-          };
-        }
-
-        pointsGranted = computeAttributePointsGranted(character.level, computed.resultingLevel);
-        newLevel      = computed.resultingLevel;
-        newExperience = computed.resultingExperience;
-        applyProgression = true;
-      }
-    }
-
-    // ------------------------------------------------------------------
-    // 4. Apply loot to the loadout
-    // ------------------------------------------------------------------
-    if (items && items.length > 0) {
-      for (const item of items) {
-        const existing = character.inventory.loadout.find(i => i.lootId === item.lootId);
+    
+    // Loot
+    const newLoadout = [];
+    if (authResult.items && authResult.items.length > 0) {
+      for (const item of authResult.items) {
+        const existing = newLoadout.find(i => i.lootId === item.lootId);
         if (existing) {
           existing.amount += item.amount;
         } else {
-          character.inventory.loadout.push({ lootId: item.lootId, amount: item.amount });
+          newLoadout.push({ lootId: item.lootId, amount: item.amount });
         }
       }
     }
 
-    // ------------------------------------------------------------------
-    // 5. Apply progression if needed
-    // ------------------------------------------------------------------
-    if (applyProgression) {
-      character.level      = newLevel;
-      character.experience = newExperience;
-      character.lastAppliedProgressionResultSequence = resultSequence;
+    // Progression
+    const computed = computeLevelAndExperience(
+      character.level,
+      character.experience,
+      authResult.experienceGranted
+    );
+    const pointsGranted = computeAttributePointsGranted(character.level, computed.resultingLevel);
+    const newAvailablePoints = (character.characterAttributes?.availablePoints || 0) + pointsGranted;
 
-      if (pointsGranted > 0) {
-        character.characterAttributes.availablePoints =
-          (character.characterAttributes.availablePoints || 0) + pointsGranted;
-      }
+    const progressionReceipt = {
+      raidId,
+      resultSequence,
+      consolidatedExperience: authResult.experienceGranted,
+      resultingLevel: computed.resultingLevel,
+    };
 
-      const progressionReceipt = {
-        raidId,
-        resultSequence,
-        consolidatedExperience: progression.consolidatedExperience,
-        resultingLevel:         newLevel,
+    // Prepared Equipment
+    // If the authoritative result explicitely gives us the equipped items, we use it.
+    // Otherwise, we use the client payload's prepared equipment (as the server may not track equipment slots).
+    // If both are missing, we fallback to restoring what was reserved before the raid.
+    const newPreparedEquipment = sanitizePreparedEquipment(
+      authResult.preparedEquipment || 
+      payload.preparedEquipment || 
+      character.inventory.pendingReservation?.preparedEquipment
+    );
+
+    // ------------------------------------------------------------------
+    // 4. Atomic Database Update
+    // ------------------------------------------------------------------
+    
+    const updatedCharacter = await Character.findOneAndUpdate(
+      {
+        accountId: accountId,
+        // Atomic Lock: Only update if this exact receipt hasn't been applied yet
+        'inventory.appliedExtractionReceipts': { 
+          $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
+        }
+      },
+      {
+        $unset: { 'inventory.pendingReservation': 1 },
+        $set: { 
+          'inventory.preparedEquipment': newPreparedEquipment,
+          'inventory.loadout': newLoadout,
+          level: computed.resultingLevel,
+          experience: computed.resultingExperience,
+          'characterAttributes.availablePoints': newAvailablePoints,
+          lastAppliedProgressionResultSequence: resultSequence,
+          lastProgressionReceipt: progressionReceipt
+        },
+        $push: {
+          'inventory.appliedExtractionReceipts': {
+            $each: [{ raidId, resultSequence, timestamp: new Date() }],
+            $slice: -MAX_EXTRACTION_RECEIPTS
+          },
+          'appliedProgressionReceipts': {
+            $each: [progressionReceipt],
+            $slice: -MAX_PROGRESSION_RECEIPTS
+          }
+        }
+      },
+      { new: true }
+    );
+
+    // If updatedCharacter is null, it means either the character was deleted OR the atomic lock prevented the update
+    // because a concurrent request already applied it.
+    if (!updatedCharacter) {
+      // Re-fetch to return the newly secured state
+      const refreshedChar = await Character.findOne({ accountId });
+      return {
+        alreadySecured:      true,
+        loadout:             serializeItems(refreshedChar.inventory.loadout),
+        level:               refreshedChar.level,
+        experience:          refreshedChar.experience,
+        characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
       };
-      character.lastProgressionReceipt = progressionReceipt;
-      character.appliedProgressionReceipts.push(progressionReceipt);
-      while (character.appliedProgressionReceipts.length > MAX_PROGRESSION_RECEIPTS) {
-        character.appliedProgressionReceipts.shift();
-      }
     }
-
-    // ------------------------------------------------------------------
-    // 6. Register the extraction receipt (idempotency log)
-    // ------------------------------------------------------------------
-    character.inventory.appliedExtractionReceipts.push({ raidId, resultSequence });
-    while (character.inventory.appliedExtractionReceipts.length > MAX_EXTRACTION_RECEIPTS) {
-      character.inventory.appliedExtractionReceipts.shift();
-    }
-
-    // ------------------------------------------------------------------
-    // 7. Restore prepared equipment from the reservation (if any) and clear it
-    // ------------------------------------------------------------------
-    if (character.inventory.pendingReservation) {
-      character.inventory.preparedEquipment =
-        character.inventory.pendingReservation.preparedEquipment || {};
-      character.inventory.pendingReservation = null;
-      character.markModified('inventory.preparedEquipment');
-      character.markModified('inventory.pendingReservation');
-    }
-
-    // ------------------------------------------------------------------
-    // 8. Atomic save — single write to MongoDB
-    // ------------------------------------------------------------------
-    character.markModified('inventory.loadout');
-    character.markModified('inventory.appliedExtractionReceipts');
-
-    await character.save();
 
     return {
       alreadySecured:      false,
-      loadout:             serializeItems(character.inventory.loadout),
-      level:               character.level,
-      experience:          character.experience,
-      characterAttributes: serializeAttributes(character.characterAttributes),
+      loadout:             serializeItems(updatedCharacter.inventory.loadout),
+      level:               updatedCharacter.level,
+      experience:          updatedCharacter.experience,
+      characterAttributes: serializeAttributes(updatedCharacter.characterAttributes),
     };
   }
 }

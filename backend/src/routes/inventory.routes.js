@@ -129,8 +129,35 @@ router.post('/me/inventory/extraction', commitExtractionValidator, async (req, r
 // }
 router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (req, res, next) => {
   try {
+    console.log("COMMIT PAYLOAD:", JSON.stringify(req.body, null, 2));
     const result = await ExtractionCommitService.commit(req.accountId, req.body);
     res.status(result.alreadySecured ? 200 : 201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ------------------------------------------------------------------
+// TEMPORARY DEBUG ENDPOINT FOR TESTING (Stage 2)
+// Simulated Fusion Webhook
+// ------------------------------------------------------------------
+const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
+
+router.post('/debug/mock-fusion-result', async (req, res, next) => {
+  try {
+    const { raidId, items, experienceGranted, preparedEquipment } = req.body;
+    
+    await AuthoritativeExtractionResult.findOneAndUpdate(
+      { raidId, accountId: req.accountId },
+      { 
+        items: items || [], 
+        experienceGranted: experienceGranted || 100,
+        ...(preparedEquipment ? { preparedEquipment } : {})
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ status: 'mock_injected', raidId, accountId: req.accountId });
   } catch (err) {
     next(err);
   }
