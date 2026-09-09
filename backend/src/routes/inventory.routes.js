@@ -136,4 +136,26 @@ router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (re
   }
 });
 
+// ------------------------------------------------------------------
+// TEMPORARY DEBUG ENDPOINT FOR TESTING (Stage 2)
+// Simulated Fusion Webhook
+// ------------------------------------------------------------------
+const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
+
+router.post('/debug/mock-fusion-result', async (req, res, next) => {
+  try {
+    const { raidId, items, experienceGranted } = req.body;
+    
+    await AuthoritativeExtractionResult.findOneAndUpdate(
+      { raidId, accountId: req.accountId },
+      { items: items || [], experienceGranted: experienceGranted || 100 },
+      { upsert: true, new: true }
+    );
+
+    res.json({ status: 'mock_injected', raidId, accountId: req.accountId });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

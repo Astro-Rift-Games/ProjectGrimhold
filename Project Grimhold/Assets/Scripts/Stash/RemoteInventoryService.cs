@@ -200,7 +200,7 @@ public class RemoteInventoryService : MonoBehaviour
             raidId         = receipt.RaidId,
             resultSequence = receipt.ResultSequence,
             items          = MapToDTO(items),
-            progression    = new ExtractionProgressionData
+            progression    = new ExtractionProgressionData 
             {
                 consolidatedExperience = consolidatedExperience,
                 resultingLevel = resultingLevel

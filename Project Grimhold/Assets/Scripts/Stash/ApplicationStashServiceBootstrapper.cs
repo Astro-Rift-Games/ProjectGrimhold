@@ -271,10 +271,10 @@ public static class ApplicationStashServiceBootstrapper
         var commit = store.PendingExtractionCommit;
         if (commit == null) return;
 
-        var items = new InventoryItemData[commit.Items.Count];
+        var requestItems = new InventoryItemData[commit.Items.Count];
         for (int i = 0; i < commit.Items.Count; i++)
         {
-            items[i] = new InventoryItemData
+            requestItems[i] = new InventoryItemData
             {
                 lootId = commit.Items[i].LootId.Value,
                 amount = commit.Items[i].Amount
@@ -285,7 +285,7 @@ public static class ApplicationStashServiceBootstrapper
         {
             raidId = commit.Receipt.RaidId,
             resultSequence = commit.Receipt.ResultSequence,
-            items = items,
+            items = requestItems,
             progression = new ExtractionProgressionData
             {
                 consolidatedExperience = commit.ConsolidatedExperience,
