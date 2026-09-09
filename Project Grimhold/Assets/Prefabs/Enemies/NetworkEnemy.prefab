@@ -5428,7 +5428,7 @@ MonoBehaviour:
   _damageFeedbackPresenter: {fileID: 2761826599393764438}
   _weaponSpriteRenderer: {fileID: 4522316450052852347}
   _colliders:
-  - {fileID: 0}
+  - {fileID: 8810308870645882975}
   - {fileID: 9000000000000000003}
 --- !u!114 &535414226061721754
 MonoBehaviour:
@@ -5610,7 +5610,8 @@ MonoBehaviour:
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
-  _interactionColliders: []
+  _interactionColliders:
+  - {fileID: 7201000000000000022}
 --- !u!114 &7201000000000000011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5794,7 +5795,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7201000000000000021}
   - component: {fileID: 7201000000000000022}
-  m_Layer: 7
+  m_Layer: 8
   m_Name: LootInteraction
   m_TagString: Untagged
   m_Icon: {fileID: 0}

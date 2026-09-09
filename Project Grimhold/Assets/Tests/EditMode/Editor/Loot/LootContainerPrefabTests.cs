@@ -115,16 +115,66 @@ namespace Tests.EditMode.Loot
             Assert.That(slotData.Amount, Is.EqualTo(1));
         }
 
-        [Test]
-        public void EnemyPrefab_PersistsAsItsOwnInitiallyUnavailableLootContainer()
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab")]
+        [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab")]
+        public void EnemyPrefab_PersistsAsItsOwnInitiallyUnavailableLootContainer(string prefabPath)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemies/NetworkEnemy.prefab");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
 
-            Assert.That(prefab, Is.Not.Null);
-            Assert.That(prefab.GetComponentsInChildren<NetworkObject>(true), Has.Length.EqualTo(1));
-            Assert.That(prefab.GetComponent<EnemyCharacter>(), Is.Not.Null);
-            Assert.That(prefab.GetComponent<NetworkLootContainer>().StartsAvailable, Is.False);
-            Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            Assert.That(prefab.GetComponentsInChildren<NetworkObject>(true), Has.Length.EqualTo(1), prefabPath);
+            Assert.That(prefab.GetComponent<EnemyCharacter>(), Is.Not.Null, prefabPath);
+
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            EnemyDefeatPresenter defeatPresenter = prefab.GetComponent<EnemyDefeatPresenter>();
+            CircleCollider2D physicalCollider = prefab.GetComponent<CircleCollider2D>();
+            Transform damageHitboxTransform = prefab.transform.Find("DamageHitbox");
+            Transform lootInteractionTransform = prefab.transform.Find("LootInteraction");
+
+            Assert.That(container, Is.Not.Null, prefabPath);
+            Assert.That(container.StartsAvailable, Is.False, prefabPath);
+            Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null, prefabPath);
+            Assert.That(defeatPresenter, Is.Not.Null, prefabPath);
+            Assert.That(physicalCollider, Is.Not.Null, prefabPath);
+            Assert.That(physicalCollider.isTrigger, Is.False, prefabPath);
+            Assert.That(damageHitboxTransform, Is.Not.Null, prefabPath);
+            Assert.That(lootInteractionTransform, Is.Not.Null, prefabPath);
+
+            Collider2D damageHitbox = damageHitboxTransform.GetComponent<Collider2D>();
+            Collider2D interactionCollider = lootInteractionTransform.GetComponent<Collider2D>();
+            Assert.That(damageHitbox, Is.Not.Null, prefabPath);
+            Assert.That(damageHitbox.isTrigger, Is.True, prefabPath);
+            Assert.That(interactionCollider, Is.Not.Null, prefabPath);
+            Assert.That(interactionCollider.enabled, Is.True, prefabPath);
+            Assert.That(interactionCollider.isTrigger, Is.True, prefabPath);
+            Assert.That(interactionCollider.gameObject.layer, Is.EqualTo(8), prefabPath);
+
+            var serializedDefeatPresenter = new SerializedObject(defeatPresenter);
+            SerializedProperty defeatColliders = serializedDefeatPresenter.FindProperty("_colliders");
+            Assert.That(defeatColliders.arraySize, Is.EqualTo(2), prefabPath);
+            var configuredDefeatColliders = new List<Collider2D>(defeatColliders.arraySize);
+            for (int index = 0; index < defeatColliders.arraySize; index++)
+            {
+                Collider2D collider =
+                    defeatColliders.GetArrayElementAtIndex(index).objectReferenceValue as Collider2D;
+                Assert.That(collider, Is.Not.Null, prefabPath);
+                configuredDefeatColliders.Add(collider);
+            }
+
+            Assert.That(configuredDefeatColliders.Contains(physicalCollider), Is.True, prefabPath);
+            Assert.That(configuredDefeatColliders.Contains(damageHitbox), Is.True, prefabPath);
+            Assert.That(configuredDefeatColliders.Contains(interactionCollider), Is.False, prefabPath);
+
+            var serializedContainer = new SerializedObject(container);
+            SerializedProperty interactionColliders = serializedContainer.FindProperty("_interactionColliders");
+            Assert.That(interactionColliders.arraySize, Is.EqualTo(1), prefabPath);
+            Assert.That(
+                interactionColliders.GetArrayElementAtIndex(0).objectReferenceValue,
+                Is.SameAs(interactionCollider),
+                prefabPath);
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
