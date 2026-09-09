@@ -73,7 +73,7 @@ public class AudioManager : MonoBehaviour
     /// Reproduce un SFX utilizando un AudioSource del pool.
     /// Soporta posicionamiento espacial (3D) si el config lo indica.
     /// </summary>
-    public void PlaySfx(in AudioClipConfig config, Vector3 worldPosition = default)
+    public void PlaySfx(in CustomClip config, Vector3 worldPosition = default)
     {
         if (!config.IsValid) return;
 
@@ -89,7 +89,7 @@ public class AudioManager : MonoBehaviour
     /// Reproduce un SFX inyectando la configuración en un AudioSource externo.
     /// Útil para objetos que controlan su propio AudioSource (ej: un motor loopeando).
     /// </summary>
-    public void PlaySfxAttached(in AudioClipConfig config, AudioSource source)
+    public void PlaySfxAttached(in CustomClip config, AudioSource source)
     {
         if (!config.IsValid || source == null) return;
 
@@ -114,9 +114,9 @@ public class AudioManager : MonoBehaviour
         return stolenSource;
     }
 
-    private void ApplyConfigToSource(in AudioClipConfig config, AudioSource source)
+    private void ApplyConfigToSource(in CustomClip config, AudioSource source)
     {
-        source.clip = config.Clip;
+        source.clip = config.GetRandomClip();
         source.volume = config.Volume;
         source.pitch = config.Pitch;
         source.spatialBlend = config.SpatialBlend;
@@ -127,7 +127,7 @@ public class AudioManager : MonoBehaviour
     /// Reproduce música de fondo en el canal de música.
     /// (El crossfade se puede implementar aquí a futuro).
     /// </summary>
-    public void PlayMusic(in AudioClipConfig config, float crossfadeDuration = 0f)
+    public void PlayMusic(in CustomClip config, float crossfadeDuration = 0f)
     {
         if (!config.IsValid) return;
 
