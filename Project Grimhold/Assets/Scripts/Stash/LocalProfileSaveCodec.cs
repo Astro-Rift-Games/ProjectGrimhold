@@ -70,6 +70,10 @@ public static class LocalProfileSaveCodec
         public ItemData[] items;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
+        public string preparedWeaponSetAMainHand;
+        public string preparedWeaponSetAOffHand;
+        public string preparedWeaponSetBMainHand;
+        public string preparedWeaponSetBOffHand;
         public string preparedHelmet;
         public string preparedArmor;
         public string preparedGloves;
@@ -147,8 +151,10 @@ public static class LocalProfileSaveCodec
                 profileId = snapshot.PendingExtractionCommit.Receipt.ProfileId.Value,
                 resultSequence = snapshot.PendingExtractionCommit.Receipt.ResultSequence,
                 items = ToItems(snapshot.PendingExtractionCommit.Items),
-                preparedWeaponSlot1 = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSlot1.Value,
-                preparedWeaponSlot2 = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSlot2.Value,
+                preparedWeaponSetAMainHand = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSetAMainHand.Value,
+                preparedWeaponSetAOffHand = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSetAOffHand.Value,
+                preparedWeaponSetBMainHand = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSetBMainHand.Value,
+                preparedWeaponSetBOffHand = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSetBOffHand.Value,
                 preparedHelmet = snapshot.PendingExtractionCommit.PreparedEquipment.Helmet.Value,
                 preparedArmor = snapshot.PendingExtractionCommit.PreparedEquipment.Armor.Value,
                 preparedGloves = snapshot.PendingExtractionCommit.PreparedEquipment.Gloves.Value,
@@ -359,12 +365,14 @@ public static class LocalProfileSaveCodec
             }
 
             PreparedEquipmentLoadout extractionEquipment = ReadPreparedEquipment(
-                data.pendingExtractionCommit.preparedWeaponSlot1,
-                data.pendingExtractionCommit.preparedWeaponSlot2,
+                data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetAMainHand : data.pendingExtractionCommit.preparedWeaponSlot1,
+                data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetBMainHand : data.pendingExtractionCommit.preparedWeaponSlot2,
                 data.pendingExtractionCommit.preparedHelmet,
                 data.pendingExtractionCommit.preparedArmor,
                 data.pendingExtractionCommit.preparedGloves,
-                data.pendingExtractionCommit.preparedBoots);
+                data.pendingExtractionCommit.preparedBoots,
+                data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetAOffHand : null,
+                data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetBOffHand : null);
 
             candidate.PendingExtractionCommit = new PendingExtractionCommit(
                 receipt,

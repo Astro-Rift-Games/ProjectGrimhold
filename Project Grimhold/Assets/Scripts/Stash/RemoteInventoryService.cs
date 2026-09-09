@@ -217,8 +217,8 @@ public class RemoteInventoryService : MonoBehaviour
             items          = MapToDTO(items),
             preparedEquipment = new PreparedEquipmentData
             {
-                weaponSlot1 = preparedEquipment.WeaponSlot1.IsValid ? preparedEquipment.WeaponSlot1.Value : null,
-                weaponSlot2 = preparedEquipment.WeaponSlot2.IsValid ? preparedEquipment.WeaponSlot2.Value : null,
+                weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
+                weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
                 helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
                 armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
                 gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,

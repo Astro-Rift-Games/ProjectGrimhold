@@ -301,8 +301,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         int GetEqIdx(LootEntry? entry) => (entry.HasValue && entry.Value.IsValid && catalog.TryGetIndex(entry.Value.LootId, out int idx)) ? idx : -1;
 
-        _pendingWeaponSlot1Idx = GetEqIdx(ownershipSnapshot.WeaponSlot1);
-        _pendingWeaponSlot2Idx = GetEqIdx(ownershipSnapshot.WeaponSlot2);
+        _pendingWeaponSlot1Idx = GetEqIdx(ownershipSnapshot.WeaponSetAMainHand);
+        _pendingWeaponSlot2Idx = GetEqIdx(ownershipSnapshot.WeaponSetBMainHand);
         _pendingHelmetIdx = GetEqIdx(ownershipSnapshot.Helmet);
         _pendingArmorIdx = GetEqIdx(ownershipSnapshot.Armor);
         _pendingGlovesIdx = GetEqIdx(ownershipSnapshot.Gloves);
