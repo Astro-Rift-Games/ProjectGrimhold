@@ -46,6 +46,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     private readonly List<LootContextActionDescriptor> _contextActions = new();
     private RaidInventorySlotView[] _equipmentSlotViews;
     private LootId _contextLootId;
+    private bool _contextIsFromStash;
     private bool _hasReportedStashOverflow;
     private bool _hasReportedLoadoutOverflow;
 
@@ -71,7 +72,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (_stashPanel != null)
         {
             _stashPanel.SelectionRequested += OnStashSelectionRequested;
-            _stashPanel.ContextRequested += OnPanelContextRequested;
+            _stashPanel.ContextRequested += OnStashContextRequested;
         }
         else
         {
@@ -81,7 +82,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (_loadoutPanel != null)
         {
             _loadoutPanel.SelectionRequested += OnLoadoutSelectionRequested;
-            _loadoutPanel.ContextRequested += OnPanelContextRequested;
+            _loadoutPanel.ContextRequested += OnLoadoutContextRequested;
         }
         else
         {
@@ -100,13 +101,13 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (_stashPanel != null)
         {
             _stashPanel.SelectionRequested -= OnStashSelectionRequested;
-            _stashPanel.ContextRequested -= OnPanelContextRequested;
+            _stashPanel.ContextRequested -= OnStashContextRequested;
         }
 
         if (_loadoutPanel != null)
         {
             _loadoutPanel.SelectionRequested -= OnLoadoutSelectionRequested;
-            _loadoutPanel.ContextRequested -= OnPanelContextRequested;
+            _loadoutPanel.ContextRequested -= OnLoadoutContextRequested;
         }
 
         if (_equipmentSlotViews == null)
@@ -283,11 +284,16 @@ public sealed class LobbyStashUI : MonoBehaviour
         TransferRequested?.Invoke(lootId, false, mode);
 
     /// <summary>
-    /// Opens the contextual menu for one owned stack. Both panels offer the same equip intentions,
-    /// so a unit can be equipped from the Stash or from the Loadout; only the Loadout offers the
-    /// bulk move back to the Stash.
+    /// Opens the contextual menu for one owned stack. Both panels offer the inverse bulk transfer
+    /// and the same equip intentions, so a unit can be equipped from the Stash or from the Loadout.
     /// </summary>
-    private void OnPanelContextRequested(LootId lootId, RectTransform anchor)
+    private void OnStashContextRequested(LootId lootId, RectTransform anchor) =>
+        OpenPanelContext(lootId, anchor, true);
+
+    private void OnLoadoutContextRequested(LootId lootId, RectTransform anchor) =>
+        OpenPanelContext(lootId, anchor, false);
+
+    private void OpenPanelContext(LootId lootId, RectTransform anchor, bool isFromStash)
     {
         if (_contextMenu == null || !lootId.IsValid)
         {
@@ -295,8 +301,12 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
 
         _contextLootId = lootId;
+        _contextIsFromStash = isFromStash;
         _contextActions.Clear();
-        _contextActions.Add(new LootContextActionDescriptor(MoveAllId, "Mover todo al Stash", true, null));
+        string transferLabel = isFromStash
+            ? "Mover todo al Inventario"
+            : "Mover todo al Stash";
+        _contextActions.Add(new LootContextActionDescriptor(MoveAllId, transferLabel, true, null));
 
         LootCategory category = ResolveCategory(lootId);
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
@@ -323,8 +333,12 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (!_contextLootId.IsValid) return;
         if (actionId == MoveAllId)
         {
-            TransferRequested?.Invoke(_contextLootId, false, LootTransferQuantityMode.FullStack);
+            TransferRequested?.Invoke(
+                _contextLootId,
+                _contextIsFromStash,
+                LootTransferQuantityMode.FullStack);
             _contextLootId = default;
+            _contextIsFromStash = false;
             return;
         }
 
@@ -339,6 +353,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
 
         _contextLootId = default;
+        _contextIsFromStash = false;
     }
 
     /// <summary>
