@@ -93,6 +93,26 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void ContextualRejectionWithoutCandidate_DoesNotShowPrompt()
+        {
+            InvokeResult(new InteractionPresentationEvent(
+                6,
+                new EntityId(1),
+                default,
+                10,
+                false,
+                false,
+                InteractionFailureReason.InvalidTarget));
+
+            Assert.That(ReadFloat("_attemptPulseRemaining"), Is.GreaterThan(0f));
+
+            InvokeRefreshPrompt();
+
+            Assert.That(_promptRoot.activeSelf, Is.False);
+            Assert.That(_feedbackRoot.activeSelf, Is.False);
+        }
+
+        [Test]
         public void Unbind_HidesTransientPresentation()
         {
             _promptRoot.SetActive(true);
@@ -111,6 +131,15 @@ namespace Tests.PlayMode.Presentation
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(_presenter, new object[] { presentationEvent });
+        }
+
+        private void InvokeRefreshPrompt()
+        {
+            MethodInfo method = typeof(InteractionHudPresenter).GetMethod(
+                "RefreshPrompt",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(_presenter, null);
         }
 
         private void SetField(string fieldName, object value)

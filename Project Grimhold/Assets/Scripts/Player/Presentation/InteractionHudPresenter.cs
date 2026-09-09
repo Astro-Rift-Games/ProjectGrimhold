@@ -164,7 +164,7 @@ public sealed class InteractionHudPresenter : MonoBehaviour
     private void RefreshPrompt()
     {
         bool hasCandidate = _candidateSource != null && _candidateSource.HasCandidate;
-        bool showPrompt = hasCandidate || _attemptPulseRemaining > 0f;
+        bool showPrompt = hasCandidate;
 
         if (_promptRoot != null)
         {
