@@ -197,8 +197,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
             return false;
         }
-
-        IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Combined;
+        // Send only the backpack items to the Stash Loadout;
+        // equipped items will be explicitly persisted to PreparedEquipment.
+        IReadOnlyList<LootEntry> snapshot = ownershipSnapshot.Inventory;
 
         LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
         if (catalog == null || snapshot.Count > MaximumSnapshotEntries)
@@ -425,9 +426,18 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
         }
 
+        PreparedEquipmentLoadout preparedEquipment = new PreparedEquipmentLoadout(
+            _pendingOwnershipSnapshot.WeaponSlot1?.LootId ?? default,
+            _pendingOwnershipSnapshot.WeaponSlot2?.LootId ?? default,
+            _pendingOwnershipSnapshot.Helmet?.LootId ?? default,
+            _pendingOwnershipSnapshot.Armor?.LootId ?? default,
+            _pendingOwnershipSnapshot.Gloves?.LootId ?? default,
+            _pendingOwnershipSnapshot.Boots?.LootId ?? default);
+
         StashOperationResult result = context.Store.TryCommitExtraction(
             receipt,
             items,
+            preparedEquipment,
             consolidatedExperience,
             resultingLevel,
             resultingExperience);
@@ -448,12 +458,13 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         // Fire-and-forget: persist extraction to backend.
         // The ACK to Fusion is NOT blocked on this call to preserve Fusion's network timing.
         // The backend endpoint is idempotent, so Unity can retry safely if the first attempt fails.
-        _ = CommitExtractionToBackendAsync(receipt, items, consolidatedExperience, resultingLevel, context.Store);
+        _ = CommitExtractionToBackendAsync(receipt, items, preparedEquipment, consolidatedExperience, resultingLevel, context.Store);
     }
 
     private async Task CommitExtractionToBackendAsync(
         ExtractionReceipt receipt,
         IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
         long consolidatedExperience,
         int resultingLevel,
         LocalProfileStore store)
@@ -469,7 +480,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         var (success, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
-            receipt, items, consolidatedExperience, resultingLevel);
+            receipt, items, preparedEquipment, consolidatedExperience, resultingLevel);
             
         if (!success)
         {

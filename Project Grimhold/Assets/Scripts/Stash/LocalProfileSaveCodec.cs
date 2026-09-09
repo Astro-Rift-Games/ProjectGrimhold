@@ -60,6 +60,12 @@ public static class LocalProfileSaveCodec
         public string profileId;
         public int resultSequence;
         public ItemData[] items;
+        public string preparedWeaponSlot1;
+        public string preparedWeaponSlot2;
+        public string preparedHelmet;
+        public string preparedArmor;
+        public string preparedGloves;
+        public string preparedBoots;
         public long consolidatedExperience;
         public int resultingLevel;
     }
@@ -129,6 +135,12 @@ public static class LocalProfileSaveCodec
                 profileId = snapshot.PendingExtractionCommit.Receipt.ProfileId.Value,
                 resultSequence = snapshot.PendingExtractionCommit.Receipt.ResultSequence,
                 items = ToItems(snapshot.PendingExtractionCommit.Items),
+                preparedWeaponSlot1 = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSlot1.Value,
+                preparedWeaponSlot2 = snapshot.PendingExtractionCommit.PreparedEquipment.WeaponSlot2.Value,
+                preparedHelmet = snapshot.PendingExtractionCommit.PreparedEquipment.Helmet.Value,
+                preparedArmor = snapshot.PendingExtractionCommit.PreparedEquipment.Armor.Value,
+                preparedGloves = snapshot.PendingExtractionCommit.PreparedEquipment.Gloves.Value,
+                preparedBoots = snapshot.PendingExtractionCommit.PreparedEquipment.Boots.Value,
                 consolidatedExperience = snapshot.PendingExtractionCommit.ConsolidatedExperience,
                 resultingLevel = snapshot.PendingExtractionCommit.ResultingLevel
             },
@@ -326,9 +338,18 @@ public static class LocalProfileSaveCodec
                 return false;
             }
 
+            PreparedEquipmentLoadout extractionEquipment = ReadPreparedEquipment(
+                data.pendingExtractionCommit.preparedWeaponSlot1,
+                data.pendingExtractionCommit.preparedWeaponSlot2,
+                data.pendingExtractionCommit.preparedHelmet,
+                data.pendingExtractionCommit.preparedArmor,
+                data.pendingExtractionCommit.preparedGloves,
+                data.pendingExtractionCommit.preparedBoots);
+
             candidate.PendingExtractionCommit = new PendingExtractionCommit(
                 receipt,
                 extractionItems,
+                extractionEquipment,
                 data.pendingExtractionCommit.consolidatedExperience,
                 data.pendingExtractionCommit.resultingLevel);
         }

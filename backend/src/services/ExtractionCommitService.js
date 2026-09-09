@@ -35,6 +35,7 @@ class ExtractionCommitService {
       console.warn(`[ExtractionCommitService] No authResult found for raid ${raidId}. Falling back to client payload (Stage 1).`);
       authResult = {
         items: payload.items || [],
+        preparedEquipment: payload.preparedEquipment,
         experienceGranted: payload.progression ? payload.progression.consolidatedExperience : 0
       };
     }
@@ -107,8 +108,10 @@ class ExtractionCommitService {
       resultingLevel: computed.resultingLevel,
     };
 
-    // Prepared Equipment (restore from reservation)
-    const newPreparedEquipment = character.inventory.pendingReservation?.preparedEquipment || {};
+    // Prepared Equipment
+    // If the authoritative result explicitely gives us the equipped items, we use it.
+    // Otherwise, we fallback to restoring what was reserved before the raid.
+    const newPreparedEquipment = authResult.preparedEquipment || character.inventory.pendingReservation?.preparedEquipment || {};
 
     // ------------------------------------------------------------------
     // 4. Atomic Database Update

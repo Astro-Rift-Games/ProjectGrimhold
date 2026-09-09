@@ -167,6 +167,7 @@ namespace Grimhold.Backend
         public string              raidId;
         public int                 resultSequence;
         public InventoryItemData[] items;
+        public PreparedEquipmentData preparedEquipment;
         public ExtractionProgressionData progression;
     }
 

@@ -31,7 +31,9 @@ const commitExtractionUnifiedValidator = [
   body('resultSequence')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
 
-
+  body('preparedEquipment')
+    .optional()
+    .isObject().withMessage('must be an object'),
 
   handleValidationErrors,
 ];

@@ -286,6 +286,15 @@ public static class ApplicationStashServiceBootstrapper
             raidId = commit.Receipt.RaidId,
             resultSequence = commit.Receipt.ResultSequence,
             items = requestItems,
+            preparedEquipment = new PreparedEquipmentData
+            {
+                weaponSlot1 = commit.PreparedEquipment.WeaponSlot1.IsValid ? commit.PreparedEquipment.WeaponSlot1.Value : null,
+                weaponSlot2 = commit.PreparedEquipment.WeaponSlot2.IsValid ? commit.PreparedEquipment.WeaponSlot2.Value : null,
+                helmet = commit.PreparedEquipment.Helmet.IsValid ? commit.PreparedEquipment.Helmet.Value : null,
+                armor = commit.PreparedEquipment.Armor.IsValid ? commit.PreparedEquipment.Armor.Value : null,
+                gloves = commit.PreparedEquipment.Gloves.IsValid ? commit.PreparedEquipment.Gloves.Value : null,
+                boots = commit.PreparedEquipment.Boots.IsValid ? commit.PreparedEquipment.Boots.Value : null
+            },
             progression = new ExtractionProgressionData
             {
                 consolidatedExperience = commit.ConsolidatedExperience,
