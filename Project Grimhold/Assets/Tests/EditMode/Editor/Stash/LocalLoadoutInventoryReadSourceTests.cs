@@ -74,6 +74,27 @@ public sealed class LocalLoadoutInventoryReadSourceTests
     }
 
     [Test]
+    public void Read_ProjectsConfirmedPreparedEquipment()
+    {
+        var expected = new PreparedEquipmentLoadout(
+            new LootId("training_sword"),
+            new LootId("recovery_sword"),
+            new LootId("helmet"),
+            new LootId("armor"),
+            new LootId("gloves"),
+            new LootId("boots"));
+        _loadoutService.PreparedEquipment = expected;
+
+        Assert.That(_source.TryGetPreparedEquipment(out PreparedEquipmentLoadout equipment), Is.True);
+        Assert.That(equipment.WeaponSlot1, Is.EqualTo(expected.WeaponSlot1));
+        Assert.That(equipment.WeaponSlot2, Is.EqualTo(expected.WeaponSlot2));
+        Assert.That(equipment.Helmet, Is.EqualTo(expected.Helmet));
+        Assert.That(equipment.Armor, Is.EqualTo(expected.Armor));
+        Assert.That(equipment.Gloves, Is.EqualTo(expected.Gloves));
+        Assert.That(equipment.Boots, Is.EqualTo(expected.Boots));
+    }
+
+    [Test]
     public void Commits_AreFilteredAndDisposalIsIdempotent()
     {
         int notificationCount = 0;
@@ -106,6 +127,7 @@ public sealed class LocalLoadoutInventoryReadSourceTests
     private sealed class FakeLoadoutService : IPlayerLoadoutService
     {
         public IReadOnlyList<StashItem> Loadout { get; set; } = Array.Empty<StashItem>();
+        public PreparedEquipmentLoadout PreparedEquipment { get; set; }
         public event Action<ProfileId> LoadoutChanged
         {
             add { }
@@ -113,7 +135,7 @@ public sealed class LocalLoadoutInventoryReadSourceTests
         }
 
         public IReadOnlyList<StashItem> GetLoadout(ProfileId profileId) => Loadout;
-        public PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId) => default;
+        public PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId) => PreparedEquipment;
         public StashOperationResult TryAssignPreparedEquipment(ProfileId profileId, EquipmentSlot slot, LootId lootId) => StashOperationResult.InvalidInventory;
         public StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot) => StashOperationResult.InvalidInventory;
         public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) => ExpeditionPreparationResult.ProfileUnavailable;

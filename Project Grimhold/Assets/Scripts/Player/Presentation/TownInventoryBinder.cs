@@ -11,9 +11,15 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     [SerializeField]
     private RaidInventoryPresenter _inventoryPresenter;
 
+    [SerializeField]
+    private LootDefinitionCatalog _lootCatalog;
+
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
+    private TownEquipmentMutationEndpoint _equipmentEndpoint;
+    private TownRaidPreparationDirectory _preparationDirectory;
+    private ProfileId _localProfileId;
     private bool _isLifecycleBound;
     private bool _missingDependenciesReported;
 
@@ -60,9 +66,10 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             : default;
 
         _profileContext = FindAnyObjectByType<ApplicationStashContext>();
+        _preparationDirectory = FindAnyObjectByType<TownRaidPreparationDirectory>();
         _inputContext = Runner != null ? Runner.GetComponent<LocalInputContext>() : null;
         if (_inventoryPresenter == null || _profileContext == null || !_profileContext.IsAvailable ||
-            _profileContext.LoadoutService == null || _inputContext == null ||
+            _profileContext.LoadoutService == null || _inputContext == null || _lootCatalog == null ||
             !localProfileId.IsValid || _profileContext.ProfileId != localProfileId)
         {
             ReportMissingDependencies();
@@ -70,7 +77,13 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             return;
         }
 
+        _localProfileId = localProfileId;
         _inventorySource = new LocalLoadoutInventoryReadSource(_profileContext, localProfileId);
+        _equipmentEndpoint = new TownEquipmentMutationEndpoint(
+            _profileContext.LoadoutService,
+            localProfileId,
+            _lootCatalog,
+            CanMutateEquipment);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
@@ -86,8 +99,29 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         _inventoryPresenter.Unbind();
         if (inputReader != null)
         {
-            _inventoryPresenter.BindTown(_inventorySource, inputReader);
+            _inventoryPresenter.BindTown(
+                _inventorySource,
+                _inventorySource,
+                _equipmentEndpoint,
+                inputReader);
         }
+    }
+
+    private bool CanMutateEquipment()
+    {
+        if (_preparationDirectory == null ||
+            !_preparationDirectory.TryGetPreparation(
+                _localProfileId,
+                out TownRaidPreparationNetworkController preparation))
+        {
+            return true;
+        }
+
+        return TownRaidPreparationPresentation.TryCreate(
+                preparation.Snapshot,
+                _localProfileId,
+                out TownRaidPreparationPresentation presentation) &&
+            !presentation.LocalReady;
     }
 
     private void Cleanup()
@@ -100,6 +134,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         _inventoryPresenter?.Unbind();
         _inventorySource?.Dispose();
         _inventorySource = null;
+        _equipmentEndpoint = null;
+        _localProfileId = default;
         _isLifecycleBound = false;
         ClearReferences();
     }
@@ -108,6 +144,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     {
         _profileContext = null;
         _inputContext = null;
+        _preparationDirectory = null;
     }
 
     private void ReportMissingDependencies()

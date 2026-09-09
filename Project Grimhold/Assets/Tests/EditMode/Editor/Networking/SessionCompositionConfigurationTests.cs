@@ -324,6 +324,7 @@ public sealed class SessionCompositionConfigurationTests
         TownInventoryBinder townBinder = socialPrefab.GetComponent<TownInventoryBinder>();
         Assert.That(SerializedReference(hudBinder, "_inventoryPresenter"), Is.SameAs(networkPresenter));
         Assert.That(SerializedReference(townBinder, "_inventoryPresenter"), Is.SameAs(socialPresenter));
+        Assert.That(SerializedReference(townBinder, "_lootCatalog"), Is.Not.Null);
         Assert.That(networkPresenter, Is.Not.SameAs(socialPresenter));
 
         string[] hudDependencyFields =

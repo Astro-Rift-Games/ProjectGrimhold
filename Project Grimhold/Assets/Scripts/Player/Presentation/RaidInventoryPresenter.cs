@@ -34,10 +34,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly LootDropContextActionProvider _dropActionProvider = new();
     private readonly LootConsumeContextActionProvider _consumeActionProvider = new();
     private readonly LootEquipContextActionProvider _equipActionProvider = new();
+    private readonly TownLootEquipContextActionProvider _townEquipActionProvider = new();
+    private readonly EquipmentUnequipContextActionProvider _unequipActionProvider = new();
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
     private IInventoryReadSource _inventorySource;
+    private IPreparedEquipmentReadSource _preparedEquipmentSource;
+    private ITownEquipmentMutationEndpoint _townEquipmentEndpoint;
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
     private PlayerInteractionNetworkController _interactionController;
@@ -64,6 +68,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private LootContextActionContext _contextActionContext;
     private bool _gameplayMutationsBlocked;
     private bool _isRaidBinding;
+    private bool _observedTownEquipmentCanMutate;
+    private bool _isEquipmentContext;
+    private EquipmentSlot _equipmentContextSlot;
 
     private NetworkId _containerNetworkId;
     private NetworkObject _containerNetworkObject;
@@ -155,31 +162,43 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     }
 
     /// <summary>
-    /// Binds the existing personal inventory screen to a local, read-only inventory source.
-    /// Town binding has no container or gameplay-mutation endpoints.
+    /// Binds the existing personal inventory screen to confirmed persistent Town state.
+    /// Containers and Raid-only mutation endpoints remain unavailable.
     /// </summary>
-    public void BindTown(IInventoryReadSource inventorySource, PlayerInputReader inputReader)
+    public void BindTown(
+        IInventoryReadSource inventorySource,
+        IPreparedEquipmentReadSource preparedEquipmentSource,
+        ITownEquipmentMutationEndpoint equipmentEndpoint,
+        PlayerInputReader inputReader)
     {
         Unbind();
 
-        if (inventorySource == null || inputReader == null || _view == null ||
-            _view.PlayerPanel == null || _lootCatalog == null)
+        if (inventorySource == null || preparedEquipmentSource == null || equipmentEndpoint == null ||
+            inputReader == null || _view == null || _view.PlayerPanel == null ||
+            _view.ContextMenu == null || _lootCatalog == null)
         {
             Debug.LogError($"{nameof(RaidInventoryPresenter)} has missing Town binding or serialized dependencies.", this);
             return;
         }
 
         _inventorySource = inventorySource;
+        _preparedEquipmentSource = preparedEquipmentSource;
+        _townEquipmentEndpoint = equipmentEndpoint;
         _inputReader = inputReader;
+        _townEquipActionProvider.Bind(equipmentEndpoint);
+        _contextActionProviders.Clear();
+        _contextActionProviders.Add(_townEquipActionProvider);
         _isRaidBinding = false;
+        _observedTownEquipmentCanMutate = equipmentEndpoint.CanMutate;
         _view.SetContainerPanelVisible(false);
-        _view.SetEquipmentPanelVisible(false);
+        _view.SetEquipmentPanelVisible(true);
         _isBound = true;
 
         if (isActiveAndEnabled)
         {
             Subscribe();
             RefreshPlayerPanel();
+            RefreshEquipmentSlots();
             Close();
         }
     }
@@ -197,6 +216,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _lastObservedInteractionSequence = 0;
         _gameplayMutationsBlocked = false;
         _isRaidBinding = false;
+        _observedTownEquipmentCanMutate = false;
         _isBound = false;
         ClearBindingReferences();
     }
@@ -221,6 +241,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         Subscribe();
         RefreshPlayerPanel();
+        RefreshEquipmentSlots();
         Close();
     }
 
@@ -249,6 +270,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         if (!_isRaidBinding)
         {
+            bool canMutate = _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate;
+            if (canMutate != _observedTownEquipmentCanMutate)
+            {
+                _observedTownEquipmentCanMutate = canMutate;
+                HideContextMenu();
+                RefreshPlayerPanel();
+                RefreshEquipmentSlots();
+            }
             return;
         }
 
@@ -288,6 +317,17 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _inventorySource.Changed += OnInventorySourceChanged;
         _inputReader.InventoryToggleRequested += OnInventoryToggleRequested;
         _inputReader.InventoryCloseRequested += OnInventoryCloseRequested;
+        if (_contextActionProviders.Count > 0)
+        {
+            _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
+            _view.ContextMenu.ActionRequested += OnContextActionRequested;
+            _view.ContextMenu.DismissRequested += OnContextMenuDismissRequested;
+        }
+        if (_equipmentController != null || _preparedEquipmentSource != null)
+        {
+            _view.EquipmentUnequipRequested += OnEquipmentUnequipRequested;
+            _view.EquipmentContextRequested += OnEquipmentSlotContextRequested;
+        }
         if (!_isRaidBinding)
         {
             _isSubscribed = true;
@@ -305,13 +345,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _consumableController.ConsumeConfirmed += OnConsumeConfirmed;
         _consumableController.ConsumeRejected += OnConsumeRejected;
         _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
-        _view.EquipmentUnequipRequested += OnEquipmentUnequipRequested;
         _view.PlayerPanel.SelectionRequested += OnPlayerSlotSelected;
-        _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
         _view.TakeAllRequested += OnTakeAllRequested;
-        _view.ContextMenu.ActionRequested += OnContextActionRequested;
-        _view.ContextMenu.DismissRequested += OnContextMenuDismissRequested;
         _isSubscribed = true;
     }
 
@@ -332,6 +368,22 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_inventorySource != null)
         {
             _inventorySource.Changed -= OnInventorySourceChanged;
+        }
+
+        if (_view != null && _view.PlayerPanel != null)
+        {
+            _view.PlayerPanel.ContextRequested -= OnPlayerSlotContextRequested;
+        }
+
+        if (_view != null)
+        {
+            _view.EquipmentUnequipRequested -= OnEquipmentUnequipRequested;
+            _view.EquipmentContextRequested -= OnEquipmentSlotContextRequested;
+            if (_view.ContextMenu != null)
+            {
+                _view.ContextMenu.ActionRequested -= OnContextActionRequested;
+                _view.ContextMenu.DismissRequested -= OnContextMenuDismissRequested;
+            }
         }
 
         if (!_isRaidBinding)
@@ -373,7 +425,6 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view != null && _view.PlayerPanel != null)
         {
             _view.PlayerPanel.SelectionRequested -= OnPlayerSlotSelected;
-            _view.PlayerPanel.ContextRequested -= OnPlayerSlotContextRequested;
         }
 
         if (_view != null && _view.ContainerPanel != null)
@@ -383,13 +434,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         if (_view != null)
         {
-            _view.EquipmentUnequipRequested -= OnEquipmentUnequipRequested;
             _view.TakeAllRequested -= OnTakeAllRequested;
-            if (_view.ContextMenu != null)
-            {
-                _view.ContextMenu.ActionRequested -= OnContextActionRequested;
-                _view.ContextMenu.DismissRequested -= OnContextMenuDismissRequested;
-            }
         }
 
         _isSubscribed = false;
@@ -420,6 +465,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         RefreshPlayerPanel();
+        RefreshEquipmentSlots();
     }
 
     private bool OnInventoryCloseRequested()
@@ -454,10 +500,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         ClearContainerBinding();
         _mode = ScreenMode.Personal;
         RefreshPlayerPanel();
-        if (_isRaidBinding)
-        {
-            RefreshEquipmentSlots();
-        }
+        RefreshEquipmentSlots();
         EnsureInputSuppression();
         _view.SetContainerPanelVisible(false);
         _view.SetScreenVisible(true);
@@ -579,11 +622,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshTransferInteraction();
     }
 
-    private void OnPlayerSlotContextRequested(LootId lootId, Vector2 screenPosition)
+    private void OnPlayerSlotContextRequested(LootId lootId, RectTransform anchor)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || _dropController == null ||
-            _dropController.HasRequestInFlight || _equipmentController == null ||
-            _equipmentController.HasRequestInFlight ||
+        bool contextActionsAvailable = _isRaidBinding
+            ? _dropController != null && !_dropController.HasRequestInFlight &&
+                _equipmentController != null && !_equipmentController.HasRequestInFlight
+            : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate;
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !contextActionsAvailable ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
             _lootCatalog == null || !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition))
@@ -601,7 +646,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _view.HideTransferFeedback();
-        if (!_view.ContextMenu.Show(_contextActions, screenPosition))
+        if (!_view.ContextMenu.Show(_contextActions, anchor))
         {
             HideContextMenu();
         }
@@ -612,10 +657,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void OnContextActionRequested(LootContextActionId actionId)
     {
         if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
-            !TryGetEntry(
-                _playerPanelPresenter.OccupiedEntries,
-                _contextActionContext.Entry.LootId,
-                out LootEntry currentEntry))
+            !TryResolveCurrentContextEntry(out LootEntry currentEntry))
         {
             HideContextMenu();
             RefreshTransferInteraction();
@@ -699,48 +741,173 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnEquipmentUnequipRequested(EquipmentSlot slot)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal ||
-            _equipmentController == null || _equipmentController.HasRequestInFlight ||
-            !_equipmentController.TryRequestUnequip(slot))
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal)
         {
             _view.ShowTransferFeedback("No se pudo solicitar desequipar");
             return;
         }
 
+        bool accepted = TryRequestEquipmentUnequip(slot);
+        if (!accepted)
+        {
+            _view.ShowTransferFeedback(
+                !_isRaidBinding && _townEquipmentEndpoint != null && !_townEquipmentEndpoint.CanMutate
+                    ? "No se puede modificar Equipment mientras estás Listo"
+                    : "No se pudo solicitar desequipar");
+            return;
+        }
+
         _view.HideTransferFeedback();
-        RefreshEquipmentSlots();
+        if (_isRaidBinding)
+        {
+            RefreshEquipmentSlots();
+        }
+    }
+
+    private void OnEquipmentSlotContextRequested(EquipmentSlot slot, RectTransform anchor)
+    {
+        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || anchor == null ||
+            !TryGetEquipmentEntry(slot, out LootEntry entry) ||
+            !_lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition))
+        {
+            HideContextMenu();
+            return;
+        }
+
+        _isEquipmentContext = true;
+        _equipmentContextSlot = slot;
+        _contextActionContext = new LootContextActionContext(entry, definition);
+        _unequipActionProvider.Bind(slot, CanRequestEquipmentUnequip, TryRequestEquipmentUnequip);
+        _contextActions.Clear();
+        _unequipActionProvider.CollectActions(_contextActionContext, _contextActions);
+        if (!_view.ContextMenu.Show(_contextActions, anchor))
+        {
+            HideContextMenu();
+        }
+    }
+
+    private bool CanRequestEquipmentUnequip(EquipmentSlot slot)
+    {
+        return _mode == ScreenMode.Personal && TryGetEquipmentEntry(slot, out _) &&
+            (_isRaidBinding
+                ? _equipmentController != null && !_equipmentController.HasRequestInFlight
+                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate);
+    }
+
+    private bool TryRequestEquipmentUnequip(EquipmentSlot slot)
+    {
+        if (!CanRequestEquipmentUnequip(slot))
+        {
+            return false;
+        }
+
+        return _isRaidBinding
+            ? _equipmentController.TryRequestUnequip(slot)
+            : _townEquipmentEndpoint.TryUnequip(slot) == StashOperationResult.Success;
+    }
+
+    private bool TryGetEquipmentEntry(EquipmentSlot slot, out LootEntry entry)
+    {
+        entry = default;
+        if (_isRaidBinding)
+        {
+            return _equipmentController != null && _equipmentController.TryGetSlotLoot(slot, out entry);
+        }
+
+        if (_preparedEquipmentSource == null ||
+            !_preparedEquipmentSource.TryGetPreparedEquipment(out PreparedEquipmentLoadout prepared))
+        {
+            return false;
+        }
+
+        LootId lootId = prepared.Get(slot);
+        if (!lootId.IsValid)
+        {
+            return false;
+        }
+
+        entry = new LootEntry(lootId, 1);
+        return true;
+    }
+
+    private bool TryResolveCurrentContextEntry(out LootEntry entry)
+    {
+        if (_isEquipmentContext)
+        {
+            return TryGetEquipmentEntry(_equipmentContextSlot, out entry) &&
+                entry.LootId == _contextActionContext.Entry.LootId;
+        }
+
+        return TryGetEntry(
+            _playerPanelPresenter.OccupiedEntries,
+            _contextActionContext.Entry.LootId,
+            out entry);
     }
 
     private void RefreshEquipmentSlots()
     {
-        if (_equipmentController == null || _view == null)
+        if (_view == null)
         {
             return;
         }
 
-        _observedEquipmentRevision = _equipmentController.ObservedEquipmentRevision;
-        EquipmentSlot[] slots = PlayerWeaponEquipmentNetworkController.AllSlots;
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         if (_equipmentSlotData == null || _equipmentSlotData.Length != slots.Length)
         {
             _equipmentSlotData = new RaidInventorySlotData[slots.Length];
         }
 
+        PreparedEquipmentLoadout prepared = default;
+        bool hasPreparedSnapshot = _isRaidBinding ||
+            (_preparedEquipmentSource != null &&
+                _preparedEquipmentSource.TryGetPreparedEquipment(out prepared));
         for (int index = 0; index < slots.Length; index++)
         {
-            _equipmentSlotData[index] = CreateEquipmentSlotData(slots[index]);
+            _equipmentSlotData[index] = hasPreparedSnapshot
+                ? CreateEquipmentSlotData(slots[index], in prepared)
+                : RaidInventorySlotData.Empty;
         }
 
-        bool canUnequip = _mode == ScreenMode.Personal &&
-            !_gameplayMutationsBlocked && !_equipmentController.HasRequestInFlight;
+        bool canUnequip = _mode == ScreenMode.Personal && !_gameplayMutationsBlocked &&
+            (_isRaidBinding
+                ? _equipmentController != null && !_equipmentController.HasRequestInFlight
+                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate);
+        WeaponSlot activeSlot = WeaponSlot.None;
+        if (_isRaidBinding && _equipmentController != null)
+        {
+            _observedEquipmentRevision = _equipmentController.ObservedEquipmentRevision;
+            activeSlot = _equipmentController.ActiveWeaponSlot;
+        }
         _view.PresentEquipmentSlots(
             _equipmentSlotData,
-            _equipmentController.ActiveWeaponSlot,
+            activeSlot,
             canUnequip);
     }
 
-    private RaidInventorySlotData CreateEquipmentSlotData(EquipmentSlot slot)
+    private RaidInventorySlotData CreateEquipmentSlotData(
+        EquipmentSlot slot,
+        in PreparedEquipmentLoadout prepared)
     {
-        if (!_equipmentController.TryGetSlotLoot(slot, out LootEntry entry))
+        LootEntry entry;
+        if (_isRaidBinding)
+        {
+            if (_equipmentController == null || !_equipmentController.TryGetSlotLoot(slot, out entry))
+            {
+                return RaidInventorySlotData.Empty;
+            }
+        }
+        else
+        {
+            LootId lootId = prepared.Get(slot);
+            if (!lootId.IsValid)
+            {
+                return RaidInventorySlotData.Empty;
+            }
+
+            entry = new LootEntry(lootId, 1);
+        }
+
+        if (!entry.IsValid)
         {
             return RaidInventorySlotData.Empty;
         }
@@ -1086,9 +1253,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
-        RaidLootSlotInteractionMode interactionMode = _isRaidBinding && _mode == ScreenMode.Personal &&
-            _dropController != null && !_dropController.HasRequestInFlight &&
-            _equipmentController != null && !_equipmentController.HasRequestInFlight
+        RaidLootSlotInteractionMode interactionMode = _mode == ScreenMode.Personal &&
+            (_isRaidBinding
+                ? _dropController != null && !_dropController.HasRequestInFlight &&
+                    _equipmentController != null && !_equipmentController.HasRequestInFlight
+                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate)
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : transferInteractive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1190,8 +1359,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
         RaidLootSlotInteractionMode playerMode = _mode == ScreenMode.Personal &&
-            _dropController != null && !_dropController.HasRequestInFlight &&
-            _equipmentController != null && !_equipmentController.HasRequestInFlight
+            (_isRaidBinding
+                ? _dropController != null && !_dropController.HasRequestInFlight &&
+                    _equipmentController != null && !_equipmentController.HasRequestInFlight
+                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate)
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : interactive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1290,6 +1461,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view?.ContextMenu?.Hide();
         _contextActions.Clear();
         _contextActionContext = default;
+        _isEquipmentContext = false;
+        _equipmentContextSlot = EquipmentSlot.None;
+        _unequipActionProvider.Clear();
         _playerSelection.Clear();
     }
 
@@ -1325,6 +1499,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private void ClearBindingReferences()
     {
         _inventorySource = null;
+        _preparedEquipmentSource = null;
+        _townEquipmentEndpoint = null;
+        _townEquipActionProvider.Bind(null);
         _lootReceiver = null;
         _inputReader = null;
         _interactionController = null;

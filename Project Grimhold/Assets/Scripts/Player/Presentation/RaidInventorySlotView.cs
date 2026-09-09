@@ -36,7 +36,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
     private RaidLootSlotInteractionMode _interactionMode;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
-    public event Action<LootId, Vector2> ContextRequested;
+    public event Action<LootId, RectTransform> ContextRequested;
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
 
@@ -110,7 +110,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         if (_nameText != null) _nameText.text = $"{slotLabel}\n{data.DisplayName}";
         if (_amountText != null) _amountText.text = isActive ? "Activa · Desequipar" : "Desequipar";
         SetInteraction(
-            canUnequip ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly,
+            canUnequip ? RaidLootSlotInteractionMode.TransferWithContextMenu : RaidLootSlotInteractionMode.ReadOnly,
             isActive);
     }
 
@@ -195,7 +195,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         if (_interactionMode == RaidLootSlotInteractionMode.ContextMenu ||
             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu)
         {
-            ContextRequested?.Invoke(_lootId, eventData.position);
+            ContextRequested?.Invoke(_lootId, transform as RectTransform);
             return;
         }
 

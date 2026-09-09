@@ -80,9 +80,7 @@ public readonly struct PreparedEquipmentLoadout
     public PreparedEquipmentLoadout Without(EquipmentSlot slot) => With(slot, default);
 
     /// <summary>
-    /// Validates every occupied slot against slot compatibility, catalog usability and the units
-    /// owned by <paramref name="ownedItems"/>. A unit referenced by several slots requires one
-    /// owned unit per reference.
+    /// Validates every occupied slot against slot compatibility and catalog usability.
     /// </summary>
     public static bool TryValidate(
         in PreparedEquipmentLoadout loadout,
@@ -108,17 +106,11 @@ public readonly struct PreparedEquipmentLoadout
         {
             EquipmentSlot slot = slots[index];
             LootId lootId = loadout.Get(slot);
-            if (!lootId.IsValid)
-            {
-                continue;
-            }
-
-            if (!IsUsableEquipmentDefinition(lootId, slot, catalog))
+            if (lootId.IsValid && !IsUsableEquipmentDefinition(lootId, slot, catalog))
             {
                 error = $"Prepared '{lootId.Value}' cannot occupy {slot}.";
                 return false;
             }
-
         }
 
         return true;

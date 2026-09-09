@@ -94,7 +94,7 @@ public static class LocalProfileSaveCodec
     {
         var data = new SaveData
         {
-            schemaVersion = snapshot.SchemaVersion,
+            schemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
             level = snapshot.Level,
@@ -239,6 +239,10 @@ public static class LocalProfileSaveCodec
             data.preparedArmor,
             data.preparedGloves,
             data.preparedBoots);
+        if (data.schemaVersion < 3)
+        {
+            TryMigrateLegacyEquipmentOwnership(candidate.Loadout, candidate.PreparedEquipment);
+        }
         if (!PreparedEquipmentLoadout.TryValidate(
                 candidate.PreparedEquipment,
                 catalog,
@@ -279,6 +283,10 @@ public static class LocalProfileSaveCodec
                 data.pendingReservation.preparedArmor,
                 data.pendingReservation.preparedGloves,
                 data.pendingReservation.preparedBoots);
+            if (data.schemaVersion < 3)
+            {
+                TryMigrateLegacyEquipmentOwnership(reservationItems, reservedEquipment);
+            }
             if (!PreparedEquipmentLoadout.TryValidate(
                     reservedEquipment,
                     catalog,
@@ -293,7 +301,14 @@ public static class LocalProfileSaveCodec
                 reservedEquipment);
         }
 
-        if (data.pendingExtractionCommit != null)
+        bool hasPendingExtractionData = data.pendingExtractionCommit != null &&
+            (!string.IsNullOrWhiteSpace(data.pendingExtractionCommit.raidId) ||
+             !string.IsNullOrWhiteSpace(data.pendingExtractionCommit.profileId) ||
+             data.pendingExtractionCommit.resultSequence != 0 ||
+             (data.pendingExtractionCommit.items != null && data.pendingExtractionCommit.items.Length > 0) ||
+             data.pendingExtractionCommit.consolidatedExperience != 0 ||
+             data.pendingExtractionCommit.resultingLevel != 0);
+        if (hasPendingExtractionData)
         {
             var receipt = new ExtractionReceipt(
                 data.pendingExtractionCommit.raidId,
@@ -368,6 +383,56 @@ public static class LocalProfileSaveCodec
         snapshot = candidate;
         status = LocalProfilePersistenceStatus.Ready;
         return true;
+    }
+
+    /// <summary>
+    /// Legacy schemas did not encode which of the two historical ownership semantics produced a
+    /// save. A complete Inventory reference set is treated as the temporary non-owning representation;
+    /// otherwise the all-or-nothing fallback preserves the former exclusive representation.
+    /// </summary>
+    private static bool TryMigrateLegacyEquipmentOwnership(
+        List<StashItem> inventory,
+        in PreparedEquipmentLoadout equipment)
+    {
+        var migrated = new List<StashItem>(inventory);
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int index = 0; index < slots.Length; index++)
+        {
+            LootId lootId = equipment.Get(slots[index]);
+            if (lootId.IsValid && !TryRemoveOne(migrated, lootId))
+            {
+                return false;
+            }
+        }
+
+        inventory.Clear();
+        inventory.AddRange(migrated);
+        return true;
+    }
+
+    private static bool TryRemoveOne(List<StashItem> items, LootId lootId)
+    {
+        for (int index = 0; index < items.Count; index++)
+        {
+            StashItem item = items[index];
+            if (item.LootId != lootId)
+            {
+                continue;
+            }
+
+            if (item.Amount == 1)
+            {
+                items.RemoveAt(index);
+            }
+            else
+            {
+                items[index] = new StashItem(lootId, item.Amount - 1);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryReadProgression(

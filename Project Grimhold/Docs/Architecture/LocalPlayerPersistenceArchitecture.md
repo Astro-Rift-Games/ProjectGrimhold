@@ -44,6 +44,11 @@ Town personal-inventory presentation reads the confirmed Loadout through
 `ApplicationStashContext.ProfileCommitted` subscription. It filters commits by `ProfileId`,
 advances its local presentation revision and rebuilds the projection on demand. That reusable
 buffer is never persistent or authoritative state and is not copied into `SocialPlayer`.
+The same source also exposes the confirmed `PreparedEquipmentLoadout` to the shared inventory
+screen, so one matching profile commit refreshes Inventory and Equipment together. Town Equip and
+Unequip intentions cross a local capability endpoint and then use only
+`IPlayerLoadoutService.TryAssignPreparedEquipment` or `TryClearPreparedEquipment`; neither the UI
+nor its presenter calls `LocalProfileStore` directly or holds optimistic Equipment state.
 
 `SocialPlayer` therefore has no `PlayerLootReceiver`. `HubPlayerSpawner` does not seed a networked
 Town inventory, and Fusion does not replicate the Loadout or the inventory screen's open state.
@@ -110,19 +115,30 @@ does not imply cross-process durability.
 
 Stash and loadout transfers, prepared Equipment assignments, loadout reservations and extraction
 receipt application are complete aggregate transactions. `PreparedEquipmentLoadout` covers the six
-slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves and Boots. Every
-assignment is a non-owning `LootId` reference into the current Loadout: it never creates units,
-`EquipmentSlotRules` decides which slot an identity may occupy, weapon slots additionally require
-a usable Weapon definition, and one identity used by several slots requires one owned unit per
-reference. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
+slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves and Boots.
+Inventory and prepared Equipment are mutually exclusive ownership locations. Equip moves one
+`LootId + Amount` unit from Inventory to its Equipment slot, while Unequip moves it back;
+`EquipmentSlotRules` decides which slot an identity may occupy and weapon slots additionally require
+a usable Weapon definition. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
 confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
 rule is rechecked before preparation, reservation and rollback; armors have no attribute
-requirements during the MVP. Equipping an identity that still lives in the Stash pulls exactly the missing units
-into the Loadout inside the same commit, because the Loadout is what the reservation transfers; a
-rejected assignment moves nothing. Releasing a slot leaves its unit in the Loadout. Loadout
-removals reconcile the assignments in the same transaction, releasing the last slots first.
+requirements during the MVP. Equip reads only Inventory, never Stash. Replacement removes the new
+unit before returning the old one so capacity is evaluated against the final state without exposing
+an intermediate state. Unequip rejects atomically when the returned unit would exceed Inventory
+capacity. A rejected operation moves nothing and never creates a Pickup.
 Extraction receipts and the rest of the aggregate remain available only for the current
 application process until backend persistence is connected.
+
+Schema version 3 persists this exclusive-location contract. Earlier schemas did not distinguish
+the former exclusive implementation from the temporary non-owning implementation. Decoding treats
+a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
+complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
+all-or-nothing, and new saves always write schema 3.
+
+The six-slot structure is a temporary technical limitation, not the complete GD-12 model. It has
+no item instances, Main/Off Hand semantics, handedness, complete Weapon Sets, Dual Wield, shields,
+accessories or additional Quick Slots. Those require a later foundational persistence migration;
+this boundary must not infer them from the current two generic weapon slots.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.
@@ -144,12 +160,12 @@ deterministic and idempotent, so retrying a launch never grants or duplicates an
 
 * A valid weapon in Weapon Slot 1 is left untouched and commits nothing.
 * When only Weapon Slot 2 is occupied, the effective selection is normalized towards Slot 1.
-  Both assignments are non-owning references, so no unit moves.
+  The equipped unit only changes slots, so no Inventory unit moves.
 * When no weapon is prepared, Town grants exactly one configured recovery weapon
   (`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`), reusing a unit the profile
   already owns before minting the guaranteed one. Without that configuration the preparation is
   rejected as `RecoveryWeaponUnavailable`; it never falls back to another weapon.
-* A persisted assignment that no longer resolves to an owned, usable weapon fails explicitly as
+* A persisted assignment that no longer resolves to a usable weapon fails explicitly as
   `InvalidPreparedWeapon` without mutating the aggregate. Corruption is never overwritten and
   never hidden behind a recovery grant.
 * A prepared weapon whose requirements exceed the confirmed attributes fails explicitly as
@@ -160,7 +176,7 @@ Raid never grants a recovery weapon. Preparation is inert while a reservation is
 ### Loadout reservation boundary
 
 `TryCreateLoadoutReservation` requires at least one valid prepared weapon and atomically moves
-the complete local Loadout plus its six prepared assignments into `PendingLoadoutReservation`
+the complete local Inventory plus its six separately owned prepared assignments into `PendingLoadoutReservation`
 before the Town queue ACK. The active Town Loadout and its assignments are then empty and cannot
 ambiguously reference units already reserved for Raid. The requirement stays enforced here as a
 domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a

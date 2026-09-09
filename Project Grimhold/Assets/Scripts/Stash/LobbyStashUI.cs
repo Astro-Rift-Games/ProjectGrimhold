@@ -287,7 +287,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     /// so a unit can be equipped from the Stash or from the Loadout; only the Loadout offers the
     /// bulk move back to the Stash.
     /// </summary>
-    private void OnPanelContextRequested(LootId lootId, Vector2 screenPosition)
+    private void OnPanelContextRequested(LootId lootId, RectTransform anchor)
     {
         if (_contextMenu == null || !lootId.IsValid)
         {
@@ -314,7 +314,7 @@ public sealed class LobbyStashUI : MonoBehaviour
                 null));
         }
 
-        _contextMenu.Show(_contextActions, screenPosition);
+        _contextMenu.Show(_contextActions, anchor);
     }
 
     private void OnContextActionRequested(LootContextActionId actionId)

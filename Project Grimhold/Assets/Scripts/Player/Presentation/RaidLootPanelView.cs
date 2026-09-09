@@ -51,7 +51,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
     private bool _hasReportedSlotShortage;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
-    public event Action<LootId, Vector2> ContextRequested;
+    public event Action<LootId, RectTransform> ContextRequested;
 
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
@@ -326,9 +326,9 @@ public sealed class RaidLootPanelView : MonoBehaviour
         SelectionRequested?.Invoke(lootId, quantityMode);
     }
 
-    private void OnSlotContextRequested(LootId lootId, Vector2 screenPosition)
+    private void OnSlotContextRequested(LootId lootId, RectTransform anchor)
     {
-        ContextRequested?.Invoke(lootId, screenPosition);
+        ContextRequested?.Invoke(lootId, anchor);
     }
 
     private static void SetState(GameObject root, bool active)

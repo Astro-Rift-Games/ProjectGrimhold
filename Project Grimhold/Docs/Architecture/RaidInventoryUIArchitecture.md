@@ -18,13 +18,23 @@ The bindings remain context-specific:
 ```text
 Raid: PlayerLootReceiver -> IInventoryReadSource -> RaidInventoryPresenter
 Town: IPlayerLoadoutService -> LocalLoadoutInventoryReadSource -> RaidInventoryPresenter
+      IPlayerLoadoutService -> TownEquipmentMutationEndpoint -> RaidInventoryPresenter
 ```
 
 Raid retains its replicated `PlayerLootReceiver`, container flows, Equipment, context actions and
-authoritative gameplay controllers. Town projects the confirmed application Loadout and enables
-only the personal read-only panel, Tab toggle, Escape close and local gameplay-input suppression.
-Container, Take All, Equipment, drop, consume, equip and context-menu listeners are not subscribed
-in the Town binding.
+authoritative gameplay controllers. Town projects the confirmed application Loadout and the six
+assignments in `PreparedEquipmentLoadout`. Its binding enables the personal panel, Equipment,
+Town-only Equip/Unequip intentions, Tab toggle, Escape close and local gameplay-input suppression.
+Container, Take All, drop, consume and every other Raid mutation remain absent from the Town
+capabilities and listeners.
+
+`LocalLoadoutInventoryReadSource` implements both inventory and prepared-Equipment read contracts,
+owns the single matching `ProfileCommitted` subscription, and triggers one rebuild of both panels
+after a confirmed commit. `TownEquipmentMutationEndpoint` forwards intentions only through
+`IPlayerLoadoutService`; it does not update either projection optimistically. It resolves armor to
+its fixed `EquipmentSlotRules` destination, weapons to the first empty current weapon slot, and
+when both are occupied deterministically replaces Weapon Slot 1. This is deliberately limited to
+the current six-slot `LootId + Amount` model.
 
 ## Context and decision
 
@@ -62,6 +72,11 @@ PlayerLootReceiver
 
 The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes `Equipar` for any category `EquipmentSlotRules` reports as equippable — Weapon, Helmet, Armor, Gloves, Boots — enabling it only while `CanEquip` reports a free destination slot, and forwards only its `LootId` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount, destination slot and configuration. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
+Every context request carries the exact originating slot `RectTransform`. The shared context menu
+positions itself from that anchor in Canvas-local space, prefers the slot's right side, falls back
+to its left side, and finally clamps its rendered bounds inside the Canvas. Inventory and Equipment
+slots use the same rule in Town and Raid; mouse screen coordinates are not retained as layout state.
+
 Weapon eligibility consumes the admitted `CharacterAttributeState` through the avatar's
 `RaidAvatarParticipantLink`. Local `CanEquip` may suppress an impossible intention, but State
 Authority reuses the same `WeaponAttributeRequirements` rule before extracting Inventory,
@@ -78,7 +93,13 @@ outside attribute requirements during the MVP.
 
 The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
 
-`PanelsRow` contains reusable sibling panels. Personal mode shows only the read-only player panel. Loot mode makes occupied slots in both the player and container panels selectable at full capacity, including empty slots and `Contenedor vacío`; empty content does not close the screen. A container-slot click withdraws to the player, while a player-slot click deposits into the open container. In either panel, left click requests exactly one unit and right click requests the complete authoritative stack. There is no drag and drop, editable amount or multiple selection.
+`PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
+panel appropriate to the bound context; Town Equipment is mutable only through its explicit local
+capability. Loot mode makes occupied slots in both the player and container panels selectable at
+full capacity, including empty slots and `Contenedor vacío`; empty content does not close the
+screen. A container-slot click withdraws to the player, while a player-slot click deposits into the
+open container. In either panel, left click requests exactly one unit and right click requests the
+complete authoritative stack. There is no drag and drop, editable amount or multiple selection.
 
 The container panel's “Tomar todo” button is enabled only for a valid open container with at least one visible occupied stack and no active request or batch. `RaidLootTakeAllState` copies the visible `LootId` values in order and tracks only the current local request. The presenter disables both panels and the button until that request finalizes, refreshes the replicated projections, and continues after success or rejection. It retains the last rejection feedback during the batch. New stacks are not appended, quantities remain authoritative, and close or target loss cancels unsent identities without affecting completed transfers.
 
@@ -128,6 +149,11 @@ after a valid Input Authority spawn, requires the runner join profile to match t
 `LocalLoadoutInventoryReadSource`, and symmetrically unbinds and disposes it on reader replacement,
 disable, despawn or destruction. The source itself is the sole subscriber to matching
 `ProfileCommitted` events; the binder never observes profile commits or refreshes the view.
+The binder also creates the Town mutation endpoint and injects a narrow readiness query.
+When the replicated local preparation reports `Ready`, the endpoint rejects Equip/Unequip before
+calling `IPlayerLoadoutService`; Equipment remains visible. Returning to `Not Ready` restores the
+capability. This presentation-composition gate is temporary and does not add Town networking
+knowledge to `IPlayerLoadoutService` or `LocalProfileStore`.
 
 - `Close` hides the screen and releases suppression while retaining binding and slot pools.
 - `OnDisable` closes and unsubscribes but retains bound dependencies for a safe re-enable.
@@ -162,13 +188,14 @@ this contract.
 
 The Stash equipment panel authors the same six slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
-right click on any owned stack — in the Stash or in the Loadout — opens the contextual menu, which
+right click on an owned stack opens the contextual menu. Equipment assignment is accepted only for
+units currently in the Loadout/Inventory; Stash-only units must first be transferred. The menu
 offers only the slots `EquipmentSlotRules` reports as compatible with that unit's category. The
 view resolves the category from the `RaidInventorySlotData` already projected into the panels, so
 it needs no catalog of its own. A left click on an occupied Equipment slot emits the release
 intention for that exact slot. The view emits typed `EquipmentSlot` intentions only;
 `LobbyStashPresenter` forwards them to `IPlayerLoadoutService`, which owns every rule about
-ownership, compatibility and the Stash-to-Loadout pull described in
+ownership, compatibility and the exclusive Inventory-to-Equipment move described in
 `Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
 `TownStashPresenter` instantiates the authored prefab, resolves its `TownStashView` and only shows
 or hides it; it never adds components or configures the Canvas at runtime.

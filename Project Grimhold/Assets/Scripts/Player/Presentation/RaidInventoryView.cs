@@ -59,7 +59,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     private float _transferFeedbackRemaining;
 
     /// <summary>
-    /// The six serialized views in <see cref="PlayerWeaponEquipmentNetworkController.AllSlots"/>
+    /// The six serialized views in <see cref="EquipmentSlotRules.AllSlots"/>
     /// order. Built once from the named fields so the Inspector mapping cannot be mis-ordered.
     /// </summary>
     private RaidInventorySlotView[] _equipmentSlotViews;
@@ -68,6 +68,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     /// <summary>Local-only intention emitted when the enabled take-all control is activated.</summary>
     public event Action TakeAllRequested;
     public event Action<EquipmentSlot> EquipmentUnequipRequested;
+    public event Action<EquipmentSlot, RectTransform> EquipmentContextRequested;
 
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
     public RaidLootPanelView PlayerPanel => _playerPanel;
@@ -179,7 +180,7 @@ public sealed class RaidInventoryView : MonoBehaviour
             return;
         }
 
-        EquipmentSlot[] slots = PlayerWeaponEquipmentNetworkController.AllSlots;
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         int count = Mathf.Min(slots.Length, slotData.Count);
         for (int index = 0; index < count; index++)
         {
@@ -216,7 +217,7 @@ public sealed class RaidInventoryView : MonoBehaviour
             _armorView, _glovesView, _bootsView
         };
 
-        EquipmentSlot[] slots = PlayerWeaponEquipmentNetworkController.AllSlots;
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         if (views.Length != slots.Length)
         {
             Debug.LogError($"{nameof(RaidInventoryView)} exposes {views.Length} equipment views for {slots.Length} slots.", this);
@@ -233,6 +234,7 @@ public sealed class RaidInventoryView : MonoBehaviour
 
             EquipmentSlot slot = slots[index];
             views[index].SelectionRequested += (_, __) => EquipmentUnequipRequested?.Invoke(slot);
+            views[index].ContextRequested += (_, anchor) => EquipmentContextRequested?.Invoke(slot, anchor);
         }
 
         _equipmentSlotViews = views;

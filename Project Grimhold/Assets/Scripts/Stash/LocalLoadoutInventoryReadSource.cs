@@ -7,7 +7,7 @@ using System.Collections.ObjectModel;
 /// The application services remain the source of truth; this object owns only a reusable
 /// presentation snapshot and its subscription to profile commits.
 /// </summary>
-public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IDisposable
+public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPreparedEquipmentReadSource, IDisposable
 {
     private readonly ApplicationStashContext _context;
     private readonly IPlayerLoadoutService _loadoutService;
@@ -66,6 +66,18 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IDis
         }
 
         content = _readOnlySnapshot;
+        return true;
+    }
+
+    public bool TryGetPreparedEquipment(out PreparedEquipmentLoadout equipment)
+    {
+        equipment = default;
+        if (_disposed)
+        {
+            return false;
+        }
+
+        equipment = _loadoutService.GetPreparedEquipment(_profileId);
         return true;
     }
 
