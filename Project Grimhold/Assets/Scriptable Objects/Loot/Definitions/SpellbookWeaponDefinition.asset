@@ -18,17 +18,19 @@ MonoBehaviour:
   _staminaCost: 15
   _damageType: 1
   _knockbackForce: 0
+  _handedness: 0
   _primaryAttack: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
   _offensiveScaling:
     _attribute: 4
     _coefficient: 0.55
-  _attributeRequirements:
-    _minimumStrength: 0
-    _minimumDexterity: 0
-    _minimumIntelligence: 10
   _presentation:
     _stanceOffset: {x: 0, y: 0.125}
     _gripPoint: {x: 0, y: -0.3125}
     _angleCorrection: 0
     _swingArc: 180
     _swingDuration: 0.3
+  _attributeRequirements:
+    _minimumStrength: 0
+    _minimumDexterity: 0
+    _minimumIntelligence: 10
+  _audioConfig: {fileID: 11400000, guid: 2b993c9d3b0ffe04bb76ce96c315935a, type: 2}

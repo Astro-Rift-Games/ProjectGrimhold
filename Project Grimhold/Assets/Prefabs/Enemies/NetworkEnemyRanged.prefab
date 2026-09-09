@@ -160,6 +160,10 @@ PrefabInstance:
       propertyPath: m_WasSpriteAssigned
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 4716473767476056966, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _audioConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: b95f4f9b2595e164db54116ecb24553c, type: 2}
     - target: {fileID: 5232659655046367733, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Controller
       value: 

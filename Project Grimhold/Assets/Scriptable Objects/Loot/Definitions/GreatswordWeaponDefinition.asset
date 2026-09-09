@@ -23,13 +23,14 @@ MonoBehaviour:
   _offensiveScaling:
     _attribute: 2
     _coefficient: 0.55
-  _attributeRequirements:
-    _minimumStrength: 10
-    _minimumDexterity: 0
-    _minimumIntelligence: 0
   _presentation:
     _stanceOffset: {x: 0, y: -0.0625}
     _gripPoint: {x: -0.125, y: 0.125}
     _angleCorrection: -135
     _swingArc: 180
     _swingDuration: 0.3
+  _attributeRequirements:
+    _minimumStrength: 10
+    _minimumDexterity: 0
+    _minimumIntelligence: 0
+  _audioConfig: {fileID: 11400000, guid: 7eb3d72e654a35649a9e5d79a653d29f, type: 2}

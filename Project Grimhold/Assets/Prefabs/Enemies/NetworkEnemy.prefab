@@ -5202,6 +5202,7 @@ GameObject:
   - component: {fileID: 4177264610414068062}
   - component: {fileID: 2604764590180358513}
   - component: {fileID: 4419076183045921921}
+  - component: {fileID: 4716473767476056966}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5610,6 +5611,7 @@ MonoBehaviour:
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
+  _GenerationState: 0
   _interactionColliders:
   - {fileID: 7201000000000000022}
 --- !u!114 &7201000000000000011
@@ -5753,6 +5755,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
+--- !u!114 &4716473767476056966
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ce31036d6824bb4185fa7f73e4b1103, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAudioPresenter
+  _characterBase: {fileID: 4980760815071069997}
+  _audioConfig: {fileID: 0}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
