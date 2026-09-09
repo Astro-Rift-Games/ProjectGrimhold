@@ -21,8 +21,8 @@ public sealed class PlayerInputReader : MonoBehaviour
     private float _aimPlaneZ;
 
     private PlayerInputActions _inputActions;
-    private InputAction _weaponSlot1Action;
-    private InputAction _weaponSlot2Action;
+    private InputAction _weaponSetAAction;
+    private InputAction _weaponSetBAction;
     private InputAction _sprintAction;
     private InputAction _toggleAttributesAction;
 
@@ -72,8 +72,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         CacheDependencies();
 
         _inputActions = new PlayerInputActions();
-        _weaponSlot1Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot1", true);
-        _weaponSlot2Action = _inputActions.asset.FindAction("Gameplay/SelectWeaponSlot2", true);
+        _weaponSetAAction = _inputActions.asset.FindAction("Gameplay/SelectWeaponSetA", true);
+        _weaponSetBAction = _inputActions.asset.FindAction("Gameplay/SelectWeaponSetB", true);
         _sprintAction = _inputActions.asset.FindAction("Gameplay/Sprint", true);
         _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
     }
@@ -222,14 +222,14 @@ public sealed class PlayerInputReader : MonoBehaviour
             combinedButtons.Set(PlayerInputButton.Interact, true);
         }
 
-        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSlot1))
+        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSetA))
         {
-            combinedButtons.Set(PlayerInputButton.WeaponSlot1, true);
+            combinedButtons.Set(PlayerInputButton.WeaponSetA, true);
         }
 
-        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSlot2))
+        if (_pendingButtons.IsSet(PlayerInputButton.WeaponSetB))
         {
-            combinedButtons.Set(PlayerInputButton.WeaponSlot2, true);
+            combinedButtons.Set(PlayerInputButton.WeaponSetB, true);
         }
 
         PlayerNetworkInput input = new PlayerNetworkInput
@@ -240,8 +240,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         };
 
         _pendingButtons.Set(PlayerInputButton.Interact, false);
-        _pendingButtons.Set(PlayerInputButton.WeaponSlot1, false);
-        _pendingButtons.Set(PlayerInputButton.WeaponSlot2, false);
+        _pendingButtons.Set(PlayerInputButton.WeaponSetA, false);
+        _pendingButtons.Set(PlayerInputButton.WeaponSetB, false);
 
         return input;
     }
@@ -323,19 +323,19 @@ public sealed class PlayerInputReader : MonoBehaviour
     {
         if (IsGameplayInputSuppressed)
         {
-            _pendingButtons.Set(PlayerInputButton.WeaponSlot1, false);
-            _pendingButtons.Set(PlayerInputButton.WeaponSlot2, false);
+            _pendingButtons.Set(PlayerInputButton.WeaponSetA, false);
+            _pendingButtons.Set(PlayerInputButton.WeaponSetB, false);
             return;
         }
 
-        if (_weaponSlot1Action.WasPressedThisFrame())
+        if (_weaponSetAAction.WasPressedThisFrame())
         {
-            _pendingButtons.Set(PlayerInputButton.WeaponSlot1, true);
+            _pendingButtons.Set(PlayerInputButton.WeaponSetA, true);
         }
 
-        if (_weaponSlot2Action.WasPressedThisFrame())
+        if (_weaponSetBAction.WasPressedThisFrame())
         {
-            _pendingButtons.Set(PlayerInputButton.WeaponSlot2, true);
+            _pendingButtons.Set(PlayerInputButton.WeaponSetB, true);
         }
     }
 

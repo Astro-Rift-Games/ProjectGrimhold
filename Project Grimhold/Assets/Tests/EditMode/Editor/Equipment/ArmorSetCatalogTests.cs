@@ -232,8 +232,13 @@ namespace Tests.EditMode.Equipment
 
                 if (definition.Category == LootCategory.Weapon)
                 {
-                    covered.Add(EquipmentSlot.WeaponSlot1);
-                    covered.Add(EquipmentSlot.WeaponSlot2);
+                    covered.Add(EquipmentSlot.WeaponSetAMainHand);
+                    covered.Add(EquipmentSlot.WeaponSetBMainHand);
+                    if (definition.WeaponDefinition.Handedness == WeaponHandedness.OneHanded)
+                    {
+                        covered.Add(EquipmentSlot.WeaponSetAOffHand);
+                        covered.Add(EquipmentSlot.WeaponSetBOffHand);
+                    }
                     continue;
                 }
 

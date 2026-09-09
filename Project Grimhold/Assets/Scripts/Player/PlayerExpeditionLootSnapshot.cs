@@ -2,62 +2,74 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Captures complete Raid loot ownership split between Inventory and the six Equipment slots,
+/// Captures complete Raid loot ownership split between Inventory and the eight Equipment slots,
 /// while exposing an aggregated snapshot to persistence and corpse flows.
 /// </summary>
 public sealed class PlayerExpeditionLootSnapshot
 {
     private PlayerExpeditionLootSnapshot(
         IReadOnlyList<LootEntry> inventory,
-        LootEntry? weaponSlot1,
-        LootEntry? weaponSlot2,
+        LootEntry? weaponSetAMainHand,
+        LootEntry? weaponSetBMainHand,
         LootEntry? helmet,
         LootEntry? armor,
         LootEntry? gloves,
         LootEntry? boots,
+        LootEntry? weaponSetAOffHand,
+        LootEntry? weaponSetBOffHand,
         IReadOnlyList<LootEntry> combined,
         IReadOnlyList<RaidLootOriginEntry> inventoryOrigins,
-        RaidLootOrigin? weaponSlot1Origin,
-        RaidLootOrigin? weaponSlot2Origin,
+        RaidLootOrigin? weaponSetAMainHandOrigin,
+        RaidLootOrigin? weaponSetBMainHandOrigin,
         RaidLootOrigin? helmetOrigin,
         RaidLootOrigin? armorOrigin,
         RaidLootOrigin? glovesOrigin,
         RaidLootOrigin? bootsOrigin,
+        RaidLootOrigin? weaponSetAOffHandOrigin,
+        RaidLootOrigin? weaponSetBOffHandOrigin,
         IReadOnlyList<RaidLootOriginEntry> combinedOrigins)
     {
         Inventory = inventory;
-        WeaponSlot1 = weaponSlot1;
-        WeaponSlot2 = weaponSlot2;
+        WeaponSetAMainHand = weaponSetAMainHand;
+        WeaponSetBMainHand = weaponSetBMainHand;
         Helmet = helmet;
         Armor = armor;
         Gloves = gloves;
         Boots = boots;
+        WeaponSetAOffHand = weaponSetAOffHand;
+        WeaponSetBOffHand = weaponSetBOffHand;
         Combined = combined;
         InventoryOrigins = inventoryOrigins;
-        WeaponSlot1Origin = weaponSlot1Origin;
-        WeaponSlot2Origin = weaponSlot2Origin;
+        WeaponSetAMainHandOrigin = weaponSetAMainHandOrigin;
+        WeaponSetBMainHandOrigin = weaponSetBMainHandOrigin;
         HelmetOrigin = helmetOrigin;
         ArmorOrigin = armorOrigin;
         GlovesOrigin = glovesOrigin;
         BootsOrigin = bootsOrigin;
+        WeaponSetAOffHandOrigin = weaponSetAOffHandOrigin;
+        WeaponSetBOffHandOrigin = weaponSetBOffHandOrigin;
         CombinedOrigins = combinedOrigins;
     }
 
     public IReadOnlyList<LootEntry> Inventory { get; }
-    public LootEntry? WeaponSlot1 { get; }
-    public LootEntry? WeaponSlot2 { get; }
+    public LootEntry? WeaponSetAMainHand { get; }
+    public LootEntry? WeaponSetBMainHand { get; }
     public LootEntry? Helmet { get; }
     public LootEntry? Armor { get; }
     public LootEntry? Gloves { get; }
     public LootEntry? Boots { get; }
+    public LootEntry? WeaponSetAOffHand { get; }
+    public LootEntry? WeaponSetBOffHand { get; }
     public IReadOnlyList<LootEntry> Combined { get; }
     public IReadOnlyList<RaidLootOriginEntry> InventoryOrigins { get; }
-    public RaidLootOrigin? WeaponSlot1Origin { get; }
-    public RaidLootOrigin? WeaponSlot2Origin { get; }
+    public RaidLootOrigin? WeaponSetAMainHandOrigin { get; }
+    public RaidLootOrigin? WeaponSetBMainHandOrigin { get; }
     public RaidLootOrigin? HelmetOrigin { get; }
     public RaidLootOrigin? ArmorOrigin { get; }
     public RaidLootOrigin? GlovesOrigin { get; }
     public RaidLootOrigin? BootsOrigin { get; }
+    public RaidLootOrigin? WeaponSetAOffHandOrigin { get; }
+    public RaidLootOrigin? WeaponSetBOffHandOrigin { get; }
     public IReadOnlyList<RaidLootOriginEntry> CombinedOrigins { get; }
 
     public static bool TryCapture(
@@ -76,28 +88,34 @@ public sealed class PlayerExpeditionLootSnapshot
             return false;
         }
 
-        LootEntry? weaponSlot1 = CaptureSlot(equipment, EquipmentSlot.WeaponSlot1);
-        LootEntry? weaponSlot2 = CaptureSlot(equipment, EquipmentSlot.WeaponSlot2);
+        LootEntry? weaponSetAMainHand = CaptureSlot(equipment, EquipmentSlot.WeaponSetAMainHand);
+        LootEntry? weaponSetBMainHand = CaptureSlot(equipment, EquipmentSlot.WeaponSetBMainHand);
         LootEntry? helmet = CaptureSlot(equipment, EquipmentSlot.Helmet);
         LootEntry? armor = CaptureSlot(equipment, EquipmentSlot.Armor);
         LootEntry? gloves = CaptureSlot(equipment, EquipmentSlot.Gloves);
         LootEntry? boots = CaptureSlot(equipment, EquipmentSlot.Boots);
-        RaidLootOrigin? weaponSlot1Origin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSlot1);
-        RaidLootOrigin? weaponSlot2Origin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSlot2);
+        LootEntry? weaponSetAOffHand = CaptureSlot(equipment, EquipmentSlot.WeaponSetAOffHand);
+        LootEntry? weaponSetBOffHand = CaptureSlot(equipment, EquipmentSlot.WeaponSetBOffHand);
+        RaidLootOrigin? weaponSetAMainHandOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSetAMainHand);
+        RaidLootOrigin? weaponSetBMainHandOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSetBMainHand);
         RaidLootOrigin? helmetOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.Helmet);
         RaidLootOrigin? armorOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.Armor);
         RaidLootOrigin? glovesOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.Gloves);
         RaidLootOrigin? bootsOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.Boots);
+        RaidLootOrigin? weaponSetAOffHandOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSetAOffHand);
+        RaidLootOrigin? weaponSetBOffHandOrigin = CaptureSlotOrigin(equipment, EquipmentSlot.WeaponSetBOffHand);
 
         var combined = new List<LootEntry>(inventory.Count + PlayerWeaponEquipmentNetworkController.AllSlots.Length);
         combined.AddRange(inventory);
 
-        if (!TryMerge(combined, weaponSlot1, out error) ||
-            !TryMerge(combined, weaponSlot2, out error) ||
+        if (!TryMerge(combined, weaponSetAMainHand, out error) ||
+            !TryMerge(combined, weaponSetBMainHand, out error) ||
             !TryMerge(combined, helmet, out error) ||
             !TryMerge(combined, armor, out error) ||
             !TryMerge(combined, gloves, out error) ||
-            !TryMerge(combined, boots, out error))
+            !TryMerge(combined, boots, out error) ||
+            !TryMerge(combined, weaponSetAOffHand, out error) ||
+            !TryMerge(combined, weaponSetBOffHand, out error))
         {
             return false;
         }
@@ -110,12 +128,14 @@ public sealed class PlayerExpeditionLootSnapshot
         var combinedOrigins = new List<RaidLootOriginEntry>(
             inventoryOrigins.Count + PlayerWeaponEquipmentNetworkController.AllSlots.Length);
         combinedOrigins.AddRange(inventoryOrigins);
-        if (!TryMergeOrigin(combinedOrigins, weaponSlot1, weaponSlot1Origin, out error) ||
-            !TryMergeOrigin(combinedOrigins, weaponSlot2, weaponSlot2Origin, out error) ||
+        if (!TryMergeOrigin(combinedOrigins, weaponSetAMainHand, weaponSetAMainHandOrigin, out error) ||
+            !TryMergeOrigin(combinedOrigins, weaponSetBMainHand, weaponSetBMainHandOrigin, out error) ||
             !TryMergeOrigin(combinedOrigins, helmet, helmetOrigin, out error) ||
             !TryMergeOrigin(combinedOrigins, armor, armorOrigin, out error) ||
             !TryMergeOrigin(combinedOrigins, gloves, glovesOrigin, out error) ||
-            !TryMergeOrigin(combinedOrigins, boots, bootsOrigin, out error))
+            !TryMergeOrigin(combinedOrigins, boots, bootsOrigin, out error) ||
+            !TryMergeOrigin(combinedOrigins, weaponSetAOffHand, weaponSetAOffHandOrigin, out error) ||
+            !TryMergeOrigin(combinedOrigins, weaponSetBOffHand, weaponSetBOffHandOrigin, out error))
         {
             return false;
         }
@@ -134,20 +154,24 @@ public sealed class PlayerExpeditionLootSnapshot
 
         snapshot = new PlayerExpeditionLootSnapshot(
             inventory,
-            weaponSlot1,
-            weaponSlot2,
+            weaponSetAMainHand,
+            weaponSetBMainHand,
             helmet,
             armor,
             gloves,
             boots,
+            weaponSetAOffHand,
+            weaponSetBOffHand,
             combined.AsReadOnly(),
             inventoryOrigins,
-            weaponSlot1Origin,
-            weaponSlot2Origin,
+            weaponSetAMainHandOrigin,
+            weaponSetBMainHandOrigin,
             helmetOrigin,
             armorOrigin,
             glovesOrigin,
             bootsOrigin,
+            weaponSetAOffHandOrigin,
+            weaponSetBOffHandOrigin,
             combinedOrigins.AsReadOnly());
         return true;
     }
@@ -163,10 +187,12 @@ public sealed class PlayerExpeditionLootSnapshot
         }
 
         return equipment.TryMatchesExactEquipment(
-                WeaponSlot1, WeaponSlot2, Helmet, Armor, Gloves, Boots, out error) &&
+                WeaponSetAMainHand, WeaponSetBMainHand, Helmet, Armor, Gloves, Boots,
+                WeaponSetAOffHand, WeaponSetBOffHand, out error) &&
             equipment.TryMatchesExactEquipmentOrigins(
-                WeaponSlot1Origin, WeaponSlot2Origin, HelmetOrigin,
-                ArmorOrigin, GlovesOrigin, BootsOrigin, out error);
+                WeaponSetAMainHandOrigin, WeaponSetBMainHandOrigin, HelmetOrigin,
+                ArmorOrigin, GlovesOrigin, BootsOrigin,
+                WeaponSetAOffHandOrigin, WeaponSetBOffHandOrigin, out error);
     }
 
     public bool TryClearExact(
@@ -185,14 +211,16 @@ public sealed class PlayerExpeditionLootSnapshot
         }
 
         if (!equipment.TryClearExactEquipmentOrigins(
-                WeaponSlot1Origin, WeaponSlot2Origin, HelmetOrigin,
-                ArmorOrigin, GlovesOrigin, BootsOrigin, out error))
+                WeaponSetAMainHandOrigin, WeaponSetBMainHandOrigin, HelmetOrigin,
+                ArmorOrigin, GlovesOrigin, BootsOrigin,
+                WeaponSetAOffHandOrigin, WeaponSetBOffHandOrigin, out error))
         {
             throw new InvalidOperationException(error ?? "Validated Equipment provenance could not be cleared.");
         }
 
         return equipment.TryClearExactEquipment(
-            WeaponSlot1, WeaponSlot2, Helmet, Armor, Gloves, Boots, out error);
+            WeaponSetAMainHand, WeaponSetBMainHand, Helmet, Armor, Gloves, Boots,
+            WeaponSetAOffHand, WeaponSetBOffHand, out error);
     }
 
     private static LootEntry? CaptureSlot(

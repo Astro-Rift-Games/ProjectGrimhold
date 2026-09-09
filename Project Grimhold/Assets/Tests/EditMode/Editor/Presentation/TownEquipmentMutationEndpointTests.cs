@@ -36,15 +36,15 @@ namespace Tests.EditMode.Presentation
             LootId recoverySword = new("recovery_sword");
             _service.Loadout = new[] { new StashItem(sword, 1), new StashItem(recoverySword, 1) };
 
-            Assert.That(_endpoint.TryEquip(sword), Is.EqualTo(StashOperationResult.Success));
-            Assert.That(_service.LastAssignedSlot, Is.EqualTo(EquipmentSlot.WeaponSlot1));
-            Assert.That(_endpoint.TryEquip(recoverySword), Is.EqualTo(StashOperationResult.Success));
-            Assert.That(_service.LastAssignedSlot, Is.EqualTo(EquipmentSlot.WeaponSlot2));
+            Assert.That(_endpoint.TryEquip(sword, EquipmentSlot.WeaponSetAMainHand), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_service.LastAssignedSlot, Is.EqualTo(EquipmentSlot.WeaponSetAMainHand));
+            Assert.That(_endpoint.TryEquip(recoverySword, EquipmentSlot.WeaponSetBMainHand), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_service.LastAssignedSlot, Is.EqualTo(EquipmentSlot.WeaponSetBMainHand));
 
-            Assert.That(_endpoint.TryEquip(sword), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_endpoint.TryEquip(sword, EquipmentSlot.WeaponSetAMainHand), Is.EqualTo(StashOperationResult.Success));
             Assert.That(
                 _service.LastAssignedSlot,
-                Is.EqualTo(EquipmentSlot.WeaponSlot1),
+                Is.EqualTo(EquipmentSlot.WeaponSetAMainHand),
                 "A third weapon deterministically replaces the first current weapon slot.");
         }
 
@@ -55,17 +55,17 @@ namespace Tests.EditMode.Presentation
             _service.Loadout = new[] { new StashItem(sword, 1) };
             _canMutate = false;
 
-            Assert.That(_endpoint.CanEquip(sword), Is.False);
-            Assert.That(_endpoint.TryEquip(sword), Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(_endpoint.CanEquip(sword, EquipmentSlot.WeaponSetAMainHand), Is.False);
+            Assert.That(_endpoint.TryEquip(sword, EquipmentSlot.WeaponSetAMainHand), Is.EqualTo(StashOperationResult.InvalidInventory));
             Assert.That(
-                _endpoint.TryUnequip(EquipmentSlot.WeaponSlot1),
+                _endpoint.TryUnequip(EquipmentSlot.WeaponSetAMainHand),
                 Is.EqualTo(StashOperationResult.InvalidInventory));
             Assert.That(_service.AssignmentCalls, Is.Zero);
             Assert.That(_service.ClearCalls, Is.Zero);
 
             _canMutate = true;
-            Assert.That(_endpoint.TryUnequip(EquipmentSlot.WeaponSlot2), Is.EqualTo(StashOperationResult.Success));
-            Assert.That(_service.LastClearedSlot, Is.EqualTo(EquipmentSlot.WeaponSlot2));
+            Assert.That(_endpoint.TryUnequip(EquipmentSlot.WeaponSetBMainHand), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_service.LastClearedSlot, Is.EqualTo(EquipmentSlot.WeaponSetBMainHand));
         }
 
         private sealed class FakeLoadoutService : IPlayerLoadoutService

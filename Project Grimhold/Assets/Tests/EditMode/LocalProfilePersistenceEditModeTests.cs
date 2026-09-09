@@ -107,8 +107,8 @@ public sealed class LocalProfilePersistenceEditModeTests
             out LocalProfileSnapshot restoredActive,
             out _,
             out string activeError), Is.True, activeError);
-        Assert.That(restoredActive.PreparedEquipment.WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(restoredActive.PreparedEquipment.WeaponSlot2, Is.EqualTo(sword));
+        Assert.That(restoredActive.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(restoredActive.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
 
         var pending = new LocalProfileSnapshot { ProfileId = profile };
         pending.PendingReservation = new PendingLoadoutReservation(
@@ -123,8 +123,8 @@ public sealed class LocalProfilePersistenceEditModeTests
             out LocalProfileSnapshot restoredPending,
             out _,
             out string pendingError), Is.True, pendingError);
-        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSlot2, Is.EqualTo(sword));
+        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
     }
 
     [Test]
@@ -140,17 +140,17 @@ public sealed class LocalProfilePersistenceEditModeTests
             store.TryImportItems(new[] { new StashItem(sword, 2) }),
             Is.EqualTo(StashOperationResult.Success));
         Assert.That(
-            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, sword),
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword),
             Is.EqualTo(StashOperationResult.Success));
 
         var equippedReload = new LocalProfileRepository(files, ".");
         Assert.That(equippedReload.Initialize(profile, _catalog), Is.True, equippedReload.LastError);
         Assert.That(equippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 1) }));
-        Assert.That(equippedReload.Snapshot.PreparedEquipment.WeaponSlot1, Is.EqualTo(sword));
+        Assert.That(equippedReload.Snapshot.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
 
         var reloadedStore = new LocalProfileStore(equippedReload, profile, _catalog);
         Assert.That(
-            reloadedStore.TryClearPreparedEquipment(EquipmentSlot.WeaponSlot1),
+            reloadedStore.TryClearPreparedEquipment(EquipmentSlot.WeaponSetAMainHand),
             Is.EqualTo(StashOperationResult.Success));
         var unequippedReload = new LocalProfileRepository(files, ".");
         Assert.That(unequippedReload.Initialize(profile, _catalog), Is.True, unequippedReload.LastError);
@@ -291,7 +291,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             store.TryCommitExtraction(new ExtractionReceipt("raid-next", profile, 1), items, 0, 1, 0),
             Is.EqualTo(StashOperationResult.Success));
         Assert.That(
-            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, new LootId("training_sword")),
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("training_sword")),
             Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(
@@ -300,7 +300,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         CollectionAssert.AreEqual(
             new[] { new StashItem(new LootId("bone"), 2) },
             reservation.Items);
-        Assert.That(reservation.PreparedEquipment.WeaponSlot1, Is.EqualTo(new LootId("training_sword")));
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("training_sword")));
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("next-raid"));
     }
@@ -340,15 +340,15 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(
             store.TryImportItems(new[] { new StashItem(sword, 1) }),
             Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, sword), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot2, sword), Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.InvalidInventory));
 
         Assert.That(
             store.TryImportItems(new[] { new StashItem(sword, 1) }),
             Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot2, sword), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot2, Is.EqualTo(sword));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
     }
 
     [Test]
@@ -362,13 +362,13 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(
             store.TryImportItems(new[] { new StashItem(sword, 2) }),
             Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, sword), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot2, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.TryTransferToStash(sword, 1), Is.EqualTo(StashOperationResult.InvalidInventory));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot2, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
     }
 
     // Mirrors LocalProfilePersistenceConfiguration.RecoveryWeaponLootId.
@@ -410,7 +410,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         LocalProfileStore store = CreatePreparedStore("41414141414141414141414141414141", out _, true);
         LootId sword = new(ConfiguredRecoveryWeapon);
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
         int commits = 0;
         store.ProfileCommitted += _ => commits++;
 
@@ -418,21 +418,21 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         Assert.That(commits, Is.Zero, "An already prepared profile must not commit.");
         Assert.That(store.GetLoadout(), Is.Empty);
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
     }
 
     [Test]
-    public void Store_PreparationNormalizesSelectionTowardsTheOnlyOccupiedSlot()
+    public void Store_PreparationPreservesTheOnlyOccupiedWeaponSet()
     {
         LocalProfileStore store = CreatePreparedStore("42424242424242424242424242424242", out _, true);
         LootId sword = new(ConfiguredRecoveryWeapon);
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot2, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
 
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(store.GetPreparedEquipment().HasWeaponSlot2, Is.False);
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand.IsValid, Is.False);
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
         Assert.That(store.GetLoadout(), Is.Empty);
     }
 
@@ -465,7 +465,7 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
         Assert.That(store.GetLoadout(), Is.Empty);
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(recovery));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(recovery));
 
         int commits = 0;
         store.ProfileCommitted += _ => commits++;
@@ -511,7 +511,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             Is.EqualTo(ExpeditionPreparationResult.InvalidPreparedWeapon));
 
         Assert.That(commits, Is.Zero);
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(new LootId("bone")));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("bone")));
         Assert.That(store.GetLoadout(), Is.EquivalentTo(new[] { new StashItem(new LootId("bone"), 1) }));
     }
 
@@ -521,13 +521,13 @@ public sealed class LocalProfilePersistenceEditModeTests
         LocalProfileStore store = CreatePreparedStore("47474747474747474747474747474747", out _, true);
         LootId sword = new(ConfiguredRecoveryWeapon);
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 2) }), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, sword), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot2, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
 
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(sword));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot2, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
         Assert.That(store.GetLoadout(), Is.Empty);
     }
 
@@ -547,8 +547,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         {
             new StashItem(new LootId("bone"), 3)
         }));
-        Assert.That(reservation.PreparedEquipment.WeaponSlot1, Is.EqualTo(recovery));
-        Assert.That(reservation.PreparedEquipment.HasWeaponSlot2, Is.False);
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(recovery));
+        Assert.That(reservation.PreparedEquipment.HasWeaponSetBMainHand, Is.False);
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
 
@@ -561,7 +561,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         {
             new StashItem(new LootId("bone"), 3)
         }));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(recovery));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(recovery));
     }
 
     [Test]
@@ -577,19 +577,19 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(repository.TrySave(snapshot, out _), Is.True);
         var store = new LocalProfileStore(repository, profile, _catalog);
         Assert.That(
-            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, new LootId("training_sword")),
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("training_sword")),
             Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(store.TryCreateLoadoutReservation("reservation-1", out PendingLoadoutReservation reservation), Is.EqualTo(StashOperationResult.Success));
         Assert.That(reservation.Items, Has.Count.EqualTo(1));
-        Assert.That(reservation.PreparedEquipment.WeaponSlot1, Is.EqualTo(new LootId("training_sword")));
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("training_sword")));
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.TryRollbackLoadoutReservation("reservation-1"), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
         {
             new StashItem(new LootId("bone"), 2)
         }));
-        Assert.That(store.GetPreparedEquipment().WeaponSlot1, Is.EqualTo(new LootId("training_sword")));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("training_sword")));
 
         Assert.That(store.TryCreateLoadoutReservation("reservation-2", out _), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryConfirmLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.Success));
@@ -601,7 +601,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             store.TryImportItems(new[] { new StashItem(new LootId("training_sword"), 1) }),
             Is.EqualTo(StashOperationResult.Success));
         Assert.That(
-            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSlot1, new LootId("training_sword")),
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("training_sword")),
             Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryCreateLoadoutReservation("reservation-3", out _), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("reservation-3"));

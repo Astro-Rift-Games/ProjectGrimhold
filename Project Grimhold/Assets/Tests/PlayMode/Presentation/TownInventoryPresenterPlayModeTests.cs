@@ -69,7 +69,7 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
-        public void TownBinding_ProjectsSixPreparedSlotsAndAppliesReadyGate()
+        public void TownBinding_ProjectsEightPreparedSlotsAndAppliesReadyGate()
         {
             _source.PreparedEquipment = new PreparedEquipmentLoadout(
                 new LootId("training_sword"),
@@ -77,12 +77,16 @@ namespace Tests.PlayMode.Presentation
                 new LootId("light_armor_open_sallet"),
                 new LootId("light_armor_chain_mail_armor"),
                 new LootId("light_armor_gloves"),
-                new LootId("light_armor_chain_mail_trousers"));
+                new LootId("light_armor_chain_mail_trousers"),
+                weaponSetAOffHand: new LootId("wand"),
+                weaponSetBOffHand: new LootId("spellbook"));
             _presenter.BindTown(_source, _source, _source, _reader);
             InvokePresenter("OnInventoryToggleRequested");
 
-            AssertEquipmentSlot("WeaponSlot1", _source.PreparedEquipment.WeaponSlot1, true);
-            AssertEquipmentSlot("WeaponSlot2", _source.PreparedEquipment.WeaponSlot2, true);
+            AssertEquipmentSlot("WeaponSetAMainHand", _source.PreparedEquipment.WeaponSetAMainHand, true);
+            AssertEquipmentSlot("WeaponSetAOffHand", _source.PreparedEquipment.WeaponSetAOffHand, true);
+            AssertEquipmentSlot("WeaponSetBMainHand", _source.PreparedEquipment.WeaponSetBMainHand, true);
+            AssertEquipmentSlot("WeaponSetBOffHand", _source.PreparedEquipment.WeaponSetBOffHand, true);
             AssertEquipmentSlot("Helmet", _source.PreparedEquipment.Helmet, true);
             AssertEquipmentSlot("Armor", _source.PreparedEquipment.Armor, true);
             AssertEquipmentSlot("Gloves", _source.PreparedEquipment.Gloves, true);
@@ -90,13 +94,13 @@ namespace Tests.PlayMode.Presentation
 
             _source.CanMutate = false;
             InvokePresenter("Update");
-            AssertEquipmentSlot("WeaponSlot1", _source.PreparedEquipment.WeaponSlot1, false);
-            InvokePresenter("OnEquipmentUnequipRequested", EquipmentSlot.WeaponSlot1);
+            AssertEquipmentSlot("WeaponSetAMainHand", _source.PreparedEquipment.WeaponSetAMainHand, false);
+            InvokePresenter("OnEquipmentUnequipRequested", EquipmentSlot.WeaponSetAMainHand);
             Assert.That(_source.UnequipCalls, Is.Zero);
 
             _source.CanMutate = true;
             InvokePresenter("Update");
-            InvokePresenter("OnEquipmentUnequipRequested", EquipmentSlot.WeaponSlot1);
+            InvokePresenter("OnEquipmentUnequipRequested", EquipmentSlot.WeaponSetAMainHand);
             Assert.That(_source.UnequipCalls, Is.EqualTo(1));
         }
 
@@ -197,8 +201,8 @@ namespace Tests.PlayMode.Presentation
                 return true;
             }
 
-            public bool CanEquip(LootId lootId) => CanMutate;
-            public StashOperationResult TryEquip(LootId lootId) =>
+            public bool CanEquip(LootId lootId, EquipmentSlot slot) => CanMutate;
+            public StashOperationResult TryEquip(LootId lootId, EquipmentSlot slot) =>
                 CanMutate ? StashOperationResult.Success : StashOperationResult.InvalidInventory;
             public StashOperationResult TryUnequip(EquipmentSlot slot)
             {

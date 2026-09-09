@@ -84,20 +84,27 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    public void PresentWeaponSlot(
-        WeaponSlot slot,
+    public void PresentWeaponSetSlot(
+        WeaponSetSlot slot,
         in RaidInventorySlotData data,
         bool isActive,
         bool canUnequip) =>
-        PresentEquipmentSlot(EquipmentSlotRules.FromWeaponSlot(slot), in data, isActive, canUnequip);
+        PresentEquipmentSlot(EquipmentSlotRules.GetMainHandSlot(slot), in data, isActive, canUnequip);
 
     public void PresentEquipmentSlot(
         EquipmentSlot slot,
         in RaidInventorySlotData data,
         bool isActive,
-        bool canUnequip)
+        bool canUnequip,
+        bool isBlocked = false)
     {
         string slotLabel = ResolveSlotLabel(slot);
+        if (isBlocked)
+        {
+            Clear();
+            if (_nameText != null) _nameText.text = $"{slotLabel}\nBloqueado (arma 2M)";
+            return;
+        }
         if (!data.IsOccupied)
         {
             Clear();
@@ -116,8 +123,10 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     private static string ResolveSlotLabel(EquipmentSlot slot) => slot switch
     {
-        EquipmentSlot.WeaponSlot1 => "Weapon Slot 1",
-        EquipmentSlot.WeaponSlot2 => "Weapon Slot 2",
+        EquipmentSlot.WeaponSetAMainHand => "Set A / Main Hand",
+        EquipmentSlot.WeaponSetBMainHand => "Set B / Main Hand",
+        EquipmentSlot.WeaponSetAOffHand => "Set A / Off Hand",
+        EquipmentSlot.WeaponSetBOffHand => "Set B / Off Hand",
         EquipmentSlot.Helmet => "Casco",
         EquipmentSlot.Armor => "Armadura",
         EquipmentSlot.Gloves => "Guantes",

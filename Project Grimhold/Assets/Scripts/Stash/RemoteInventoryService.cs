@@ -83,7 +83,8 @@ public class RemoteInventoryService : MonoBehaviour
     }
 
     /// <summary>
-    /// Persists the full prepared equipment loadout.
+    /// Persists only the legacy backend projection. Off Hand assignments remain local until the
+    /// backend receives its own Weapon Set migration.
     /// </summary>
     public async Task<(bool success, BackendError error)> UpdatePreparedEquipmentAsync(PreparedEquipmentLoadout equipment)
     {
@@ -95,8 +96,8 @@ public class RemoteInventoryService : MonoBehaviour
 
         var request = new UpdatePreparedEquipmentRequest
         {
-            weaponSlot1 = equipment.WeaponSlot1.IsValid ? equipment.WeaponSlot1.Value : "",
-            weaponSlot2 = equipment.WeaponSlot2.IsValid ? equipment.WeaponSlot2.Value : "",
+            weaponSlot1 = equipment.WeaponSetAMainHand.IsValid ? equipment.WeaponSetAMainHand.Value : "",
+            weaponSlot2 = equipment.WeaponSetBMainHand.IsValid ? equipment.WeaponSetBMainHand.Value : "",
             helmet      = equipment.Helmet.IsValid      ? equipment.Helmet.Value      : "",
             armor       = equipment.Armor.IsValid       ? equipment.Armor.Value       : "",
             gloves      = equipment.Gloves.IsValid      ? equipment.Gloves.Value      : "",
@@ -118,14 +119,27 @@ public class RemoteInventoryService : MonoBehaviour
             return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
         }
 
+        if (reservation.PreparedEquipment.WeaponSetAOffHand.IsValid ||
+            reservation.PreparedEquipment.WeaponSetBOffHand.IsValid)
+        {
+            Debug.LogWarning(
+                $"[{nameof(RemoteInventoryService)}] The current backend cannot persist Off Hand " +
+                "assignments. The local reservation remains authoritative for this application run.");
+            return (false, new BackendError
+            {
+                error = "UNSUPPORTED_EQUIPMENT_LAYOUT",
+                message = "The current backend does not support Weapon Set Off Hand assignments."
+            });
+        }
+
         var request = new SaveReservationRequest
         {
             reservationId = reservation.ReservationId,
             items = MapToDTO(reservation.Items),
             preparedEquipment = new PreparedEquipmentData
             {
-                weaponSlot1 = reservation.PreparedEquipment.WeaponSlot1.IsValid ? reservation.PreparedEquipment.WeaponSlot1.Value : "",
-                weaponSlot2 = reservation.PreparedEquipment.WeaponSlot2.IsValid ? reservation.PreparedEquipment.WeaponSlot2.Value : "",
+                weaponSlot1 = reservation.PreparedEquipment.WeaponSetAMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetAMainHand.Value : "",
+                weaponSlot2 = reservation.PreparedEquipment.WeaponSetBMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetBMainHand.Value : "",
                 helmet      = reservation.PreparedEquipment.Helmet.IsValid      ? reservation.PreparedEquipment.Helmet.Value      : "",
                 armor       = reservation.PreparedEquipment.Armor.IsValid       ? reservation.PreparedEquipment.Armor.Value       : "",
                 gloves      = reservation.PreparedEquipment.Gloves.IsValid      ? reservation.PreparedEquipment.Gloves.Value      : "",

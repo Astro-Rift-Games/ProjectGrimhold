@@ -311,15 +311,40 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        if (FindAmount(current.Loadout, lootId) < 1)
+        if (FindAmount(current.Loadout, lootId) < 1 ||
+            !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null)
         {
             return StashOperationResult.InvalidInventory;
         }
 
         LocalProfileSnapshot next = current.Clone();
-        PreparedEquipmentLoadout candidate = next.PreparedEquipment.With(slot, lootId);
+        PreparedEquipmentLoadout candidate = next.PreparedEquipment;
+        EquipmentSlot displacedSecondSlot = EquipmentSlot.None;
+        if (EquipmentSlotRules.IsHandSlot(slot))
+        {
+            WeaponDefinition weapon = definition.WeaponDefinition;
+            if (weapon == null || !EquipmentSlotRules.IsCompatible(weapon, slot))
+            {
+                return StashOperationResult.InvalidInventory;
+            }
 
-        if (EquipmentSlotRules.IsWeaponSlot(slot) &&
+            WeaponSetSlot set = EquipmentSlotRules.GetWeaponSet(slot);
+            if (EquipmentSlotRules.IsOffHandSlot(slot) &&
+                PreparedEquipmentLoadout.IsOffHandBlocked(candidate, set, _lootCatalog))
+            {
+                return StashOperationResult.InvalidInventory;
+            }
+
+            if (weapon.Handedness == WeaponHandedness.TwoHanded)
+            {
+                displacedSecondSlot = EquipmentSlotRules.GetOffHandSlot(set);
+                candidate = candidate.Without(displacedSecondSlot);
+            }
+        }
+
+        candidate = candidate.With(slot, lootId);
+
+        if (EquipmentSlotRules.IsHandSlot(slot) &&
             !PreparedEquipmentLoadout.TryValidateWeaponRequirements(
                 candidate, current.CharacterAttributes, _lootCatalog, out _))
         {
@@ -341,16 +366,27 @@ public sealed class LocalProfileStore
         }
 
         LootId previousLootId = next.PreparedEquipment.Get(slot);
-        if (previousLootId.IsValid &&
-            ((FindIndex(next.Loadout, previousLootId) < 0 &&
-              next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots) ||
-             !TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) })))
+        if (!TryReturnEquippedUnit(next.Loadout, previousLootId))
+        {
+            return StashOperationResult.PersistenceFailed;
+        }
+
+        if (displacedSecondSlot != EquipmentSlot.None &&
+            !TryReturnEquippedUnit(next.Loadout, next.PreparedEquipment.Get(displacedSecondSlot)))
         {
             return StashOperationResult.PersistenceFailed;
         }
 
         next.PreparedEquipment = candidate;
         return Commit(next);
+    }
+
+    private static bool TryReturnEquippedUnit(List<StashItem> inventory, LootId lootId)
+    {
+        if (!lootId.IsValid) return true;
+        return (FindIndex(inventory, lootId) >= 0 ||
+                inventory.Count < LocalProfileSnapshot.MaxLoadoutSlots) &&
+            TryMerge(inventory, new[] { new StashItem(lootId, 1) });
     }
 
     /// <summary>Moves one equipped unit back into the persistent Inventory atomically.</summary>
@@ -387,7 +423,7 @@ public sealed class LocalProfileStore
 
     /// <summary>
     /// Normalizes the local Loadout and prepared Weapon Equipment so the aggregate holds exactly
-    /// one valid effective weapon in Weapon Slot 1 before a raid reservation is attempted.
+    /// one valid effective Main Hand weapon before a raid reservation is attempted.
     /// The operation is atomic, deterministic and idempotent: a profile that is already prepared
     /// commits nothing, so retrying a launch never grants or duplicates a recovery weapon.
     /// </summary>
@@ -427,23 +463,10 @@ public sealed class LocalProfileStore
             return ExpeditionPreparationResult.AttributeRequirementsNotMet;
         }
 
-        // The effective weapon is already prepared.
-        if (prepared.HasWeaponSlot1)
+        // Admission carries the active Set explicitly, so either valid Main Hand is sufficient.
+        if (prepared.HasAnyMainHand)
         {
             return ExpeditionPreparationResult.Success;
-        }
-
-        // Only the optional slot is occupied: normalize the effective selection towards it.
-        // The equipped unit only changes slots, so no Inventory unit moves.
-        if (prepared.HasWeaponSlot2)
-        {
-            LocalProfileSnapshot normalized = current.Clone();
-            normalized.PreparedEquipment = prepared
-                .Without(EquipmentSlot.WeaponSlot2)
-                .With(EquipmentSlot.WeaponSlot1, prepared.WeaponSlot2);
-            return Commit(normalized) == StashOperationResult.Success
-                ? ExpeditionPreparationResult.Success
-                : ExpeditionPreparationResult.PersistenceFailed;
         }
 
         return TryPrepareRecoveryWeapon(current);
@@ -480,9 +503,9 @@ public sealed class LocalProfileStore
             TryRemove(next.Stash, _recoveryWeaponLootId, 1);
         }
 
-        // Only the weapon slot is granted: prepared armor is untouched by the recovery guarantee.
+        // Only Set A Main Hand is granted: all other prepared Equipment remains untouched.
         next.PreparedEquipment = next.PreparedEquipment
-            .With(EquipmentSlot.WeaponSlot1, _recoveryWeaponLootId);
+            .With(EquipmentSlot.WeaponSetAMainHand, _recoveryWeaponLootId);
         return Commit(next) == StashOperationResult.Success
             ? ExpeditionPreparationResult.Success
             : ExpeditionPreparationResult.PersistenceFailed;

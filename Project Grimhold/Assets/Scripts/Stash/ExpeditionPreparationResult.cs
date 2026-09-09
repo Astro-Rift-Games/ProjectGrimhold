@@ -5,7 +5,7 @@
 /// </summary>
 public enum ExpeditionPreparationResult
 {
-    /// <summary>A valid effective weapon is prepared in Weapon Slot 1.</summary>
+    /// <summary>A valid effective weapon is prepared in at least one Main Hand.</summary>
     Success,
 
     /// <summary>The local profile aggregate is unavailable or misconfigured.</summary>

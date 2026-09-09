@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 /// <summary>
@@ -22,7 +23,9 @@ public sealed class LobbyStashUI : MonoBehaviour
         new("town.equipment.equip-helmet"),
         new("town.equipment.equip-armor"),
         new("town.equipment.equip-gloves"),
-        new("town.equipment.equip-boots")
+        new("town.equipment.equip-boots"),
+        new("town.equipment.equip-set-a-off-hand"),
+        new("town.equipment.equip-set-b-off-hand")
     };
 
     [SerializeField] private RaidLootPanelView _stashPanel;
@@ -32,12 +35,14 @@ public sealed class LobbyStashUI : MonoBehaviour
     [SerializeField] private Button _leaveAllButton;
 
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
-    [SerializeField] private RaidInventorySlotView _weaponSlot1View;
-    [SerializeField] private RaidInventorySlotView _weaponSlot2View;
+    [FormerlySerializedAs("_weaponSlot1View"), SerializeField] private RaidInventorySlotView _weaponSetAMainHandView;
+    [FormerlySerializedAs("_weaponSlot2View"), SerializeField] private RaidInventorySlotView _weaponSetBMainHandView;
     [SerializeField] private RaidInventorySlotView _helmetView;
     [SerializeField] private RaidInventorySlotView _armorView;
     [SerializeField] private RaidInventorySlotView _glovesView;
     [SerializeField] private RaidInventorySlotView _bootsView;
+    [SerializeField] private RaidInventorySlotView _weaponSetAOffHandView;
+    [SerializeField] private RaidInventorySlotView _weaponSetBOffHandView;
 
     [SerializeField] private RaidLootContextMenuView _contextMenu;
 
@@ -49,6 +54,8 @@ public sealed class LobbyStashUI : MonoBehaviour
     private bool _contextIsFromStash;
     private bool _hasReportedStashOverflow;
     private bool _hasReportedLoadoutOverflow;
+    private bool _setAOffHandBlocked;
+    private bool _setBOffHandBlocked;
 
     public event Action<LootId, bool, LootTransferQuantityMode> TransferRequested; // LootId, isFromStash, quantityMode
     public event Action TakeAllRequested;
@@ -141,15 +148,21 @@ public sealed class LobbyStashUI : MonoBehaviour
             ref _hasReportedLoadoutOverflow);
 
     /// <summary>
-    /// Projects the six Equipment slots. Every occupied slot offers the release intention; only the
-    /// weapon slots may become the effective weapon, which the Town does not preview.
+    /// Projects the eight Equipment slots. Every occupied slot offers the release intention; only the
+    /// Main Hand slots may become the effective weapon, which the Town does not preview.
     /// </summary>
-    public void DisplayPreparedEquipment(IReadOnlyList<RaidInventorySlotData> slotData)
+    public void DisplayPreparedEquipment(
+        IReadOnlyList<RaidInventorySlotData> slotData,
+        bool setAOffHandBlocked = false,
+        bool setBOffHandBlocked = false)
     {
         if (slotData == null || _equipmentSlotViews == null)
         {
             return;
         }
+
+        _setAOffHandBlocked = setAOffHandBlocked;
+        _setBOffHandBlocked = setBOffHandBlocked;
 
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         int count = Mathf.Min(slots.Length, slotData.Count);
@@ -162,7 +175,10 @@ public sealed class LobbyStashUI : MonoBehaviour
             }
 
             RaidInventorySlotData data = slotData[index];
-            view.PresentEquipmentSlot(slots[index], in data, false, data.IsOccupied);
+            EquipmentSlot slot = slots[index];
+            bool blocked = slot == EquipmentSlot.WeaponSetAOffHand && setAOffHandBlocked ||
+                           slot == EquipmentSlot.WeaponSetBOffHand && setBOffHandBlocked;
+            view.PresentEquipmentSlot(slot, in data, false, data.IsOccupied, blocked);
         }
     }
 
@@ -219,15 +235,16 @@ public sealed class LobbyStashUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its six
+    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its eight
     /// slots are authored in the prefab so the layout stays fully editable in the Inspector.
     /// </summary>
     private void BindEquipmentSlotViews()
     {
         var views = new[]
         {
-            _weaponSlot1View, _weaponSlot2View, _helmetView,
-            _armorView, _glovesView, _bootsView
+            _weaponSetAMainHandView, _weaponSetBMainHandView, _helmetView,
+            _armorView, _glovesView, _bootsView,
+            _weaponSetAOffHandView, _weaponSetBOffHandView
         };
 
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
@@ -312,15 +329,19 @@ public sealed class LobbyStashUI : MonoBehaviour
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         for (int index = 0; index < slots.Length; index++)
         {
-            if (!EquipmentSlotRules.IsCompatible(category, slots[index]))
+            if (!EquipmentSlotRules.IsCompatible(category, slots[index]) ||
+                category == LootCategory.Weapon &&
+                !IsWeaponCompatibleWithSlot(lootId, slots[index]))
             {
                 continue;
             }
 
+            bool enabled = slots[index] != EquipmentSlot.WeaponSetAOffHand || !_setAOffHandBlocked;
+            enabled &= slots[index] != EquipmentSlot.WeaponSetBOffHand || !_setBOffHandBlocked;
             _contextActions.Add(new LootContextActionDescriptor(
                 EquipActionIds[index],
                 $"Equipar en {ResolveSlotLabel(slots[index])}",
-                true,
+                enabled,
                 null));
         }
 
@@ -383,14 +404,41 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private static string ResolveSlotLabel(EquipmentSlot slot) => slot switch
     {
-        EquipmentSlot.WeaponSlot1 => "Weapon Slot 1",
-        EquipmentSlot.WeaponSlot2 => "Weapon Slot 2",
+        EquipmentSlot.WeaponSetAMainHand => "Set A / Main Hand",
+        EquipmentSlot.WeaponSetBMainHand => "Set B / Main Hand",
+        EquipmentSlot.WeaponSetAOffHand => "Set A / Off Hand",
+        EquipmentSlot.WeaponSetBOffHand => "Set B / Off Hand",
         EquipmentSlot.Helmet => "Casco",
         EquipmentSlot.Armor => "Armadura",
         EquipmentSlot.Gloves => "Guantes",
         EquipmentSlot.Boots => "Botas",
         _ => "Equipment"
     };
+
+    private bool IsWeaponCompatibleWithSlot(LootId lootId, EquipmentSlot slot)
+    {
+        for (int index = 0; index < _loadoutProjection.Count; index++)
+        {
+            RaidInventorySlotData data = _loadoutProjection[index];
+            if (data.IsOccupied && data.LootId == lootId)
+            {
+                return data.HasWeaponDefinition &&
+                    (data.WeaponHandedness == WeaponHandedness.OneHanded || EquipmentSlotRules.IsMainHandSlot(slot));
+            }
+        }
+
+        for (int index = 0; index < _stashProjection.Count; index++)
+        {
+            RaidInventorySlotData data = _stashProjection[index];
+            if (data.IsOccupied && data.LootId == lootId)
+            {
+                return data.HasWeaponDefinition &&
+                    (data.WeaponHandedness == WeaponHandedness.OneHanded || EquipmentSlotRules.IsMainHandSlot(slot));
+            }
+        }
+
+        return false;
+    }
 
     private void ReportMissingView(string fieldName) =>
         Debug.LogError(

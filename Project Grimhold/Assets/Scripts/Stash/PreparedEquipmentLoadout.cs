@@ -1,25 +1,20 @@
-using System.Collections.Generic;
-
-/// <summary>
-/// Non-owning Equipment assignments over units that remain in the Town Loadout. It covers the six
-/// slots of <see cref="EquipmentSlot"/>: the two weapon quick slots plus Helmet, Armor, Gloves and
-/// Boots. Assigning never moves or consumes a unit; the Loadout stays the owner until the raid
-/// reservation transfers it.
-/// </summary>
+/// <summary>Exclusive Equipment assignments for two Weapon Sets and four armor slots.</summary>
 public readonly struct PreparedEquipmentLoadout
 {
-    public LootId WeaponSlot1 { get; }
-    public LootId WeaponSlot2 { get; }
+    public LootId WeaponSetAMainHand { get; }
+    public LootId WeaponSetAOffHand { get; }
+    public LootId WeaponSetBMainHand { get; }
+    public LootId WeaponSetBOffHand { get; }
     public LootId Helmet { get; }
     public LootId Armor { get; }
     public LootId Gloves { get; }
     public LootId Boots { get; }
 
-    public bool HasWeaponSlot1 => WeaponSlot1.IsValid;
-    public bool HasWeaponSlot2 => WeaponSlot2.IsValid;
-    public bool HasAnyWeapon => HasWeaponSlot1 || HasWeaponSlot2;
+    public bool HasAnyMainHand => WeaponSetAMainHand.IsValid || WeaponSetBMainHand.IsValid;
+    public bool HasWeaponSetAMainHand => WeaponSetAMainHand.IsValid;
+    public bool HasWeaponSetBMainHand => WeaponSetBMainHand.IsValid;
+    public bool HasAnyWeapon => HasAnyMainHand || WeaponSetAOffHand.IsValid || WeaponSetBOffHand.IsValid;
 
-    /// <summary>True when any of the six slots holds an assignment.</summary>
     public bool HasAnyEquipment
     {
         get
@@ -27,26 +22,29 @@ public readonly struct PreparedEquipmentLoadout
             EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
             for (int index = 0; index < slots.Length; index++)
             {
-                if (Get(slots[index]).IsValid)
-                {
-                    return true;
-                }
+                if (Get(slots[index]).IsValid) return true;
             }
 
             return false;
         }
     }
 
+    // The first six parameters retain the historical serialized constructor order. New callers
+    // should use named arguments for the two Off Hand values.
     public PreparedEquipmentLoadout(
-        LootId weaponSlot1,
-        LootId weaponSlot2,
+        LootId weaponSetAMainHand,
+        LootId weaponSetBMainHand,
         LootId helmet = default,
         LootId armor = default,
         LootId gloves = default,
-        LootId boots = default)
+        LootId boots = default,
+        LootId weaponSetAOffHand = default,
+        LootId weaponSetBOffHand = default)
     {
-        WeaponSlot1 = weaponSlot1;
-        WeaponSlot2 = weaponSlot2;
+        WeaponSetAMainHand = weaponSetAMainHand;
+        WeaponSetAOffHand = weaponSetAOffHand;
+        WeaponSetBMainHand = weaponSetBMainHand;
+        WeaponSetBOffHand = weaponSetBOffHand;
         Helmet = helmet;
         Armor = armor;
         Gloves = gloves;
@@ -55,8 +53,10 @@ public readonly struct PreparedEquipmentLoadout
 
     public LootId Get(EquipmentSlot slot) => slot switch
     {
-        EquipmentSlot.WeaponSlot1 => WeaponSlot1,
-        EquipmentSlot.WeaponSlot2 => WeaponSlot2,
+        EquipmentSlot.WeaponSetAMainHand => WeaponSetAMainHand,
+        EquipmentSlot.WeaponSetAOffHand => WeaponSetAOffHand,
+        EquipmentSlot.WeaponSetBMainHand => WeaponSetBMainHand,
+        EquipmentSlot.WeaponSetBOffHand => WeaponSetBOffHand,
         EquipmentSlot.Helmet => Helmet,
         EquipmentSlot.Armor => Armor,
         EquipmentSlot.Gloves => Gloves,
@@ -64,24 +64,18 @@ public readonly struct PreparedEquipmentLoadout
         _ => default
     };
 
-    public LootId Get(WeaponSlot slot) => Get(EquipmentSlotRules.FromWeaponSlot(slot));
-
-    public PreparedEquipmentLoadout With(EquipmentSlot slot, LootId lootId) => slot switch
-    {
-        EquipmentSlot.WeaponSlot1 => new PreparedEquipmentLoadout(lootId, WeaponSlot2, Helmet, Armor, Gloves, Boots),
-        EquipmentSlot.WeaponSlot2 => new PreparedEquipmentLoadout(WeaponSlot1, lootId, Helmet, Armor, Gloves, Boots),
-        EquipmentSlot.Helmet => new PreparedEquipmentLoadout(WeaponSlot1, WeaponSlot2, lootId, Armor, Gloves, Boots),
-        EquipmentSlot.Armor => new PreparedEquipmentLoadout(WeaponSlot1, WeaponSlot2, Helmet, lootId, Gloves, Boots),
-        EquipmentSlot.Gloves => new PreparedEquipmentLoadout(WeaponSlot1, WeaponSlot2, Helmet, Armor, lootId, Boots),
-        EquipmentSlot.Boots => new PreparedEquipmentLoadout(WeaponSlot1, WeaponSlot2, Helmet, Armor, Gloves, lootId),
-        _ => this
-    };
+    public PreparedEquipmentLoadout With(EquipmentSlot slot, LootId lootId) => new(
+        slot == EquipmentSlot.WeaponSetAMainHand ? lootId : WeaponSetAMainHand,
+        slot == EquipmentSlot.WeaponSetBMainHand ? lootId : WeaponSetBMainHand,
+        slot == EquipmentSlot.Helmet ? lootId : Helmet,
+        slot == EquipmentSlot.Armor ? lootId : Armor,
+        slot == EquipmentSlot.Gloves ? lootId : Gloves,
+        slot == EquipmentSlot.Boots ? lootId : Boots,
+        slot == EquipmentSlot.WeaponSetAOffHand ? lootId : WeaponSetAOffHand,
+        slot == EquipmentSlot.WeaponSetBOffHand ? lootId : WeaponSetBOffHand);
 
     public PreparedEquipmentLoadout Without(EquipmentSlot slot) => With(slot, default);
 
-    /// <summary>
-    /// Validates every occupied slot against slot compatibility and catalog usability.
-    /// </summary>
     public static bool TryValidate(
         in PreparedEquipmentLoadout loadout,
         LootDefinitionCatalog catalog,
@@ -95,9 +89,9 @@ public readonly struct PreparedEquipmentLoadout
             return false;
         }
 
-        if (requireWeapon && !loadout.HasAnyWeapon)
+        if (requireWeapon && !loadout.HasAnyMainHand)
         {
-            error = "At least one prepared weapon is required.";
+            error = "At least one prepared Main Hand weapon is required.";
             return false;
         }
 
@@ -113,44 +107,38 @@ public readonly struct PreparedEquipmentLoadout
             }
         }
 
+        if (!TryValidateSet(loadout, WeaponSetSlot.SetA, catalog, out error) ||
+            !TryValidateSet(loadout, WeaponSetSlot.SetB, catalog, out error))
+        {
+            return false;
+        }
+
         return true;
     }
 
-    /// <summary>
-    /// Resolves whether a loot identity may occupy <paramref name="slot"/>, independently from
-    /// ownership. Weapon slots additionally require a usable weapon definition.
-    /// </summary>
     public static bool IsUsableEquipmentDefinition(
         LootId lootId,
         EquipmentSlot slot,
         LootDefinitionCatalog catalog)
     {
         if (!lootId.IsValid || catalog == null || !EquipmentSlotRules.IsEquipmentSlot(slot) ||
-            !catalog.TryGet(lootId.Value, out LootDefinition definition) ||
+            !catalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null ||
             !EquipmentSlotRules.IsCompatible(definition.Category, slot))
         {
             return false;
         }
 
-        return !EquipmentSlotRules.IsWeaponSlot(slot) || IsUsableWeaponDefinition(lootId, catalog);
+        return !EquipmentSlotRules.IsHandSlot(slot) ||
+            definition.WeaponDefinition != null && definition.WeaponDefinition.TryValidate(out _) &&
+            EquipmentSlotRules.IsCompatible(definition.WeaponDefinition, slot);
     }
 
-    /// <summary>
-    /// Resolves whether a loot identity is a usable weapon in the catalog, independently from
-    /// ownership. Preparation uses it to validate a configured recovery weapon before granting it.
-    /// </summary>
-    public static bool IsUsableWeaponDefinition(LootId lootId, LootDefinitionCatalog catalog)
-    {
-        return lootId.IsValid && catalog != null &&
-            catalog.TryGet(lootId.Value, out LootDefinition definition) &&
-            definition.Category == LootCategory.Weapon && definition.WeaponDefinition != null &&
-            definition.WeaponDefinition.TryValidate(out _);
-    }
+    public static bool IsUsableWeaponDefinition(LootId lootId, LootDefinitionCatalog catalog) =>
+        lootId.IsValid && catalog != null &&
+        catalog.TryGet(lootId.Value, out LootDefinition definition) && definition != null &&
+        definition.Category == LootCategory.Weapon && definition.WeaponDefinition != null &&
+        definition.WeaponDefinition.TryValidate(out _);
 
-    /// <summary>
-    /// Evaluates every prepared weapon against the same confirmed character-attribute state.
-    /// Armor slots are deliberately outside the MVP requirement contract.
-    /// </summary>
     public static bool TryValidateWeaponRequirements(
         in PreparedEquipmentLoadout loadout,
         in CharacterAttributeState attributes,
@@ -164,21 +152,13 @@ public readonly struct PreparedEquipmentLoadout
             return false;
         }
 
-        EquipmentSlot[] weaponSlots =
+        EquipmentSlot[] slots = EquipmentSlotRules.HandSlots;
+        for (int index = 0; index < slots.Length; index++)
         {
-            EquipmentSlot.WeaponSlot1,
-            EquipmentSlot.WeaponSlot2
-        };
-        for (int index = 0; index < weaponSlots.Length; index++)
-        {
-            LootId lootId = loadout.Get(weaponSlots[index]);
-            if (!lootId.IsValid)
-            {
-                continue;
-            }
-
-            if (!catalog.TryGet(lootId.Value, out LootDefinition definition) ||
-                definition == null || definition.WeaponDefinition == null)
+            LootId lootId = loadout.Get(slots[index]);
+            if (!lootId.IsValid) continue;
+            if (!catalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null ||
+                definition.WeaponDefinition == null)
             {
                 error = $"Prepared weapon '{lootId.Value}' cannot be resolved.";
                 return false;
@@ -194,5 +174,43 @@ public readonly struct PreparedEquipmentLoadout
         return true;
     }
 
+    public static bool IsOffHandBlocked(
+        in PreparedEquipmentLoadout loadout,
+        WeaponSetSlot set,
+        LootDefinitionCatalog catalog)
+    {
+        LootId main = loadout.Get(EquipmentSlotRules.GetMainHandSlot(set));
+        return TryGetWeapon(main, catalog, out WeaponDefinition weapon) &&
+            weapon.Handedness == WeaponHandedness.TwoHanded;
+    }
 
+    private static bool TryValidateSet(
+        in PreparedEquipmentLoadout loadout,
+        WeaponSetSlot set,
+        LootDefinitionCatalog catalog,
+        out string error)
+    {
+        error = null;
+        if (!IsOffHandBlocked(loadout, set, catalog)) return true;
+        EquipmentSlot offHand = EquipmentSlotRules.GetOffHandSlot(set);
+        if (!loadout.Get(offHand).IsValid) return true;
+        error = $"{offHand} is blocked by a two-handed Main Hand weapon.";
+        return false;
+    }
+
+    private static bool TryGetWeapon(
+        LootId lootId,
+        LootDefinitionCatalog catalog,
+        out WeaponDefinition weapon)
+    {
+        weapon = null;
+        if (!lootId.IsValid || catalog == null || !catalog.TryGet(lootId.Value, out LootDefinition definition) ||
+            definition == null || definition.Category != LootCategory.Weapon)
+        {
+            return false;
+        }
+
+        weapon = definition.WeaponDefinition;
+        return weapon != null;
+    }
 }

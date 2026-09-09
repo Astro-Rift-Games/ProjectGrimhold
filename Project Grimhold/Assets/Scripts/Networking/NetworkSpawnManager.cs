@@ -2493,6 +2493,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     loadoutInitialized = equipment.TryInitializePreparedEquipment(
                         admission.ReservedLoadout,
                         admission.EntryIndicesPlusOne,
+                        admission.ActiveWeaponSet,
                         out string equipmentError);
                     if (!loadoutInitialized)
                     {

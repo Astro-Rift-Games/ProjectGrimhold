@@ -85,19 +85,24 @@ their explicit fresh baselines. A spawn restored by `HostMigrationRestoreUtility
 does not overwrite those networked snapshots.
 
 `PlayerWeaponEquipmentNetworkController` is the single authoritative source of the Raid avatar's
-Equipment. It owns exactly six slots — the two quick weapon slots plus `Helmet`, `Armor`, `Gloves`
-and `Boots` — and one active-slot selection that may only reference an occupied weapon slot. Each
+Equipment. It owns two Weapon Sets (`Main Hand + Off Hand`) plus `Helmet`, `Armor`, `Gloves`
+and `Boots`, and one active Set selection that may only reference a Set with an occupied Main Hand. Each
 slot replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty).
-Equip intentions fill Slot 1 and then Slot 2 for weapons and the single matching slot for armor,
-while unequip intentions identify one slot and return exactly one unit to `PlayerLootReceiver`.
+Every Equip intention names its exact `EquipmentSlot`. One-handed weapons may occupy either hand;
+two-handed weapons may occupy only Main Hand and derive the blocked state of the matching Off Hand.
+Equipping a two-handed weapon displaces both hands in that Set, while the other Set is untouched.
+Unequip intentions identify one slot and return exactly one unit to `PlayerLootReceiver`.
 Input Authority expresses those discrete intentions and State Authority validates and commits them
-during `FixedUpdateNetwork`. A rejected operation mutates neither Inventory nor Equipment.
+during `FixedUpdateNetwork`. Before writing, State Authority simulates extraction of the incoming
+unit and return of every displaced unit, validates capacity, ownership, provenance, catalog and
+attribute requirements, then commits the exchange. A rejected operation mutates neither Inventory,
+Equipment, provenance, revision, active Set nor attack strategy.
 
 Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` only classifies the
 unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
-Only the active weapon slot resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
+Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
 with the participant's confirmed `CharacterAttributeState`. Equipment selects the attribute declared
 by `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
@@ -108,7 +113,7 @@ armor slots never reach combat at all: they neither validate the combat dependen
 participate in `HasReplicatedWeaponStateChanged`, so equipping or removing a piece cannot rebuild
 the strategy or disturb the authoritative cooldown. Slot-selection input travels in the normal
 `PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown. Any mutation
-of any of the six slots advances `EquipmentRevision`, which is what presentation observes.
+of any of the eight slots advances `EquipmentRevision`, which is what presentation observes.
 
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
 slot again, rebuilding the strategy and recalculating effective damage from the restored confirmed
@@ -454,7 +459,8 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 ### 5. Placeholder Weapon Content Set
 
 `Assets/Scriptable Objects/Loot/Definitions` ships six placeholder weapons used to validate
-Weapon Equipment, quick slots, switching, world presentation and the Raid HUD icon. They are
+Weapon Equipment, Weapon Set switching, world presentation and the Raid HUD icon. Greatsword and
+Staff declare `TwoHanded`; the remaining placeholder weapons declare `OneHanded`. They are
 content identities only: they add no attack type, no weapon subtype and no presenter branch.
 Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`. Functional differences
 may come from the reused `AttackConfig` plus per-weapon attribute requirements and offensive scaling;
@@ -522,7 +528,8 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
 * **Armor Is Equipment State Only**: `Helmet`, `Armor`, `Gloves` and `Boots` currently carry slot identity and compatibility and nothing else. There is no defence, attribute, requirement, rarity, affix or any other gameplay effect attached to them.
-* **Town preparation covers the six slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry Helmet, Armor, Gloves and Boots alongside the two weapon slots, so armor prepared in Town enters Equipment at spawn exactly like a weapon. Only a weapon is required to launch (`04 - Character Build Design` §15.1); armor is optional and is never granted by the recovery guarantee.
+* **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. Only a valid Main Hand weapon is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
+* **Off Hand combat is deferred**: TASK-330 stores and validates Off Hand equipment, but primary attack still resolves only the active Set's Main Hand. Shield defence and Dual Wield attacks are separate features.
 * **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
 
 ---

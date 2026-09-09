@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 /// <summary>
@@ -35,11 +36,17 @@ public sealed class RaidInventoryView : MonoBehaviour
     private GameObject _equipmentPanelRoot;
 
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
-    [SerializeField]
-    private RaidInventorySlotView _weaponSlot1View;
+    [FormerlySerializedAs("_weaponSlot1View"), SerializeField]
+    private RaidInventorySlotView _weaponSetAMainHandView;
+
+    [FormerlySerializedAs("_weaponSlot2View"), SerializeField]
+    private RaidInventorySlotView _weaponSetBMainHandView;
 
     [SerializeField]
-    private RaidInventorySlotView _weaponSlot2View;
+    private RaidInventorySlotView _weaponSetAOffHandView;
+
+    [SerializeField]
+    private RaidInventorySlotView _weaponSetBOffHandView;
 
     [SerializeField]
     private RaidInventorySlotView _helmetView;
@@ -59,7 +66,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     private float _transferFeedbackRemaining;
 
     /// <summary>
-    /// The six serialized views in <see cref="EquipmentSlotRules.AllSlots"/>
+    /// The eight serialized views in <see cref="EquipmentSlotRules.AllSlots"/>
     /// order. Built once from the named fields so the Inspector mapping cannot be mis-ordered.
     /// </summary>
     private RaidInventorySlotView[] _equipmentSlotViews;
@@ -167,13 +174,15 @@ public sealed class RaidInventoryView : MonoBehaviour
     }
 
     /// <summary>
-    /// Projects the six Equipment slots. Only the two weapon slots carry an active state;
+    /// Projects the eight Equipment slots. Only Main Hand slots carry an active state;
     /// the armor slots show occupancy and offer the unequip intention.
     /// </summary>
     public void PresentEquipmentSlots(
         IReadOnlyList<RaidInventorySlotData> slotData,
-        WeaponSlot activeSlot,
-        bool canUnequip)
+        WeaponSetSlot activeSlot,
+        bool canUnequip,
+        bool setAOffHandBlocked = false,
+        bool setBOffHandBlocked = false)
     {
         if (slotData == null || !EnsureEquipmentSlotViews())
         {
@@ -192,16 +201,19 @@ public sealed class RaidInventoryView : MonoBehaviour
 
             EquipmentSlot slot = slots[index];
             RaidInventorySlotData data = slotData[index];
+            bool blocked = slot == EquipmentSlot.WeaponSetAOffHand && setAOffHandBlocked ||
+                           slot == EquipmentSlot.WeaponSetBOffHand && setBOffHandBlocked;
             view.PresentEquipmentSlot(
                 slot,
                 in data,
-                EquipmentSlotRules.ToWeaponSlot(slot) == activeSlot && activeSlot != WeaponSlot.None,
-                canUnequip);
+                EquipmentSlotRules.GetWeaponSet(slot) == activeSlot && activeSlot != WeaponSetSlot.None,
+                canUnequip,
+                blocked);
         }
     }
 
     /// <summary>
-    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its six
+    /// Binds the serialized Equipment views once. Nothing is instantiated: the panel and its eight
     /// slots are authored in the prefab so the layout stays fully editable in the Inspector.
     /// </summary>
     private bool EnsureEquipmentSlotViews()
@@ -213,8 +225,9 @@ public sealed class RaidInventoryView : MonoBehaviour
 
         var views = new[]
         {
-            _weaponSlot1View, _weaponSlot2View, _helmetView,
-            _armorView, _glovesView, _bootsView
+            _weaponSetAMainHandView, _weaponSetBMainHandView, _helmetView,
+            _armorView, _glovesView, _bootsView,
+            _weaponSetAOffHandView, _weaponSetBOffHandView
         };
 
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;

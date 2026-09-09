@@ -62,7 +62,7 @@ reads the confirmed profile from `LocalProfileStore` and encodes a versioned `Ra
 token containing:
 
 - the Raid code and remote `CharacterId` represented locally as `ProfileId`;
-- the reservation id, reserved Loadout and six prepared Equipment references;
+- the reservation id, reserved Loadout, eight prepared Equipment references and active Weapon Set;
 - the confirmed Level, current Experience and progression-result watermark;
 - the complete confirmed `CharacterAttributeState`, including available attribute points.
 

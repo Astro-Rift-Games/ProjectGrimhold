@@ -15,6 +15,9 @@ public sealed class WeaponDefinition : ScriptableObject
     [SerializeField] private DamageType _damageType = DamageType.Physical;
     [SerializeField, Min(0f)] private float _knockbackForce;
 
+    [SerializeField]
+    private WeaponHandedness _handedness;
+
     [Header("Attack Behavior")]
     [SerializeField]
     private AttackConfig _primaryAttack;
@@ -34,6 +37,7 @@ public sealed class WeaponDefinition : ScriptableObject
     public float StaminaCost => _staminaCost;
     public DamageType DamageType => _damageType;
     public float KnockbackForce => _knockbackForce;
+    public WeaponHandedness Handedness => _handedness;
     public AttackConfig PrimaryAttack => _primaryAttack;
     public WeaponOffensiveScaling OffensiveScaling => _offensiveScaling;
     public PresentationConfig Presentation => _presentation;
@@ -78,6 +82,12 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!System.Enum.IsDefined(typeof(DamageType), _damageType))
         {
             error = $"Weapon definition '{name}' has unsupported damage type '{(int)_damageType}'.";
+            return false;
+        }
+
+        if (!System.Enum.IsDefined(typeof(WeaponHandedness), _handedness))
+        {
+            error = $"Weapon definition '{name}' has unsupported handedness '{(int)_handedness}'.";
             return false;
         }
 

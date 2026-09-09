@@ -14,6 +14,7 @@ public readonly struct RaidAdmissionData
     public long CurrentExperience { get; }
     public int LastAppliedProgressionResultSequence { get; }
     public CharacterAttributeState CharacterAttributes { get; }
+    public WeaponSetSlot ActiveWeaponSet { get; }
     private readonly LootEntry[] _reservedLoadout;
 
     /// <summary>
@@ -26,8 +27,10 @@ public readonly struct RaidAdmissionData
     public IReadOnlyList<int> EntryIndicesPlusOne =>
         _entryIndicesPlusOne ?? EmptyIndices;
 
-    public int WeaponSlot1EntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSlot1);
-    public int WeaponSlot2EntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSlot2);
+    public int WeaponSetAMainHandEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSetAMainHand);
+    public int WeaponSetAOffHandEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSetAOffHand);
+    public int WeaponSetBMainHandEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSetBMainHand);
+    public int WeaponSetBOffHandEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.WeaponSetBOffHand);
     public int HelmetEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Helmet);
     public int ArmorEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Armor);
     public int GlovesEntryIndexPlusOne => GetEntryIndexPlusOne(EquipmentSlot.Gloves);
@@ -42,6 +45,7 @@ public readonly struct RaidAdmissionData
                            PlayerExpeditionProgressionResolver.IsValidBaseline(Level, CurrentExperience) &&
                            LastAppliedProgressionResultSequence >= 0 &&
                            LastAppliedProgressionResultSequence < int.MaxValue &&
+                           IsValidActiveWeaponSet() &&
                            RaidLoadoutRules.TryValidateShape(ReservedLoadout, out _) &&
                            RaidLoadoutRules.TryValidatePreparedEquipmentReferences(
                                ReservedLoadout,
@@ -58,7 +62,8 @@ public readonly struct RaidAdmissionData
         IReadOnlyList<int> entryIndicesPlusOne = null,
         int level = ExperienceCurve.InitialLevel,
         long currentExperience = 0,
-        int lastAppliedProgressionResultSequence = 0)
+        int lastAppliedProgressionResultSequence = 0,
+        WeaponSetSlot activeWeaponSet = WeaponSetSlot.None)
     {
         RaidCode = raidCode;
         ProfileId = profileId;
@@ -69,6 +74,7 @@ public readonly struct RaidAdmissionData
         CharacterAttributes = characterAttributes;
         _reservedLoadout = CopyLoadout(reservedLoadout);
         _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
+        ActiveWeaponSet = NormalizeActiveWeaponSet(activeWeaponSet, _entryIndicesPlusOne);
     }
 
     /// <summary>Resolves the reserved-loadout reference of one Equipment slot.</summary>
@@ -142,7 +148,10 @@ public readonly struct RaidAdmissionData
             indices,
             level,
             currentExperience,
-            lastAppliedProgressionResultSequence);
+            lastAppliedProgressionResultSequence,
+            reservation.PreparedEquipment.HasWeaponSetAMainHand
+                ? WeaponSetSlot.SetA
+                : WeaponSetSlot.SetB);
         return data.IsValid;
     }
 
@@ -202,6 +211,34 @@ public readonly struct RaidAdmissionData
 
         return -1;
     }
+
+    private bool IsValidActiveWeaponSet()
+    {
+        return ActiveWeaponSet switch
+        {
+            WeaponSetSlot.SetA => WeaponSetAMainHandEntryIndexPlusOne > 0,
+            WeaponSetSlot.SetB => WeaponSetBMainHandEntryIndexPlusOne > 0,
+            WeaponSetSlot.None => WeaponSetAMainHandEntryIndexPlusOne == 0 &&
+                                  WeaponSetBMainHandEntryIndexPlusOne == 0,
+            _ => false
+        };
+    }
+
+    private static WeaponSetSlot NormalizeActiveWeaponSet(
+        WeaponSetSlot requested,
+        IReadOnlyList<int> indices)
+    {
+        int setAMainIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetAMainHand);
+        int setBMainIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetBMainHand);
+        bool hasSetA = indices != null && indices.Count > setAMainIndex && indices[setAMainIndex] > 0;
+        bool hasSetB = indices != null && indices.Count > setBMainIndex && indices[setBMainIndex] > 0;
+        if (requested == WeaponSetSlot.SetA && hasSetA || requested == WeaponSetSlot.SetB && hasSetB)
+        {
+            return requested;
+        }
+
+        return hasSetA ? WeaponSetSlot.SetA : hasSetB ? WeaponSetSlot.SetB : WeaponSetSlot.None;
+    }
 }
 
 /// <summary>
@@ -209,7 +246,7 @@ public readonly struct RaidAdmissionData
 /// </summary>
 public static class RaidLoadoutRules
 {
-    public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots + 6; // +6 for equipment slots
+    public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots + 8;
     public const int MaximumAmountPerEntry = 9999;
     public const int MaximumTokenBytes = 512;
     public const int MaximumTextBytes = 64;
@@ -320,7 +357,7 @@ public static class RaidLoadoutRules
                 return false;
             }
 
-            if (reference > 0 && EquipmentSlotRules.IsWeaponSlot(slots[index]))
+            if (reference > 0 && EquipmentSlotRules.IsMainHandSlot(slots[index]))
             {
                 hasWeapon = true;
             }

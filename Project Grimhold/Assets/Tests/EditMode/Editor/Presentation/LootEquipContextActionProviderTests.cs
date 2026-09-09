@@ -21,9 +21,11 @@ namespace Tests.EditMode.Presentation
 
             provider.CollectActions(new LootContextActionContext(entry, weapon), actions);
 
-            Assert.That(actions, Has.Count.EqualTo(1));
-            Assert.That(actions[0].Id, Is.EqualTo(LootEquipContextActionProvider.EquipId));
-            Assert.That(actions[0].Label, Is.EqualTo("Equipar"));
+            Assert.That(actions, Has.Count.EqualTo(4));
+            Assert.That(actions[0].Label, Is.EqualTo("Equipar en Set A / Main Hand"));
+            Assert.That(actions[1].Label, Is.EqualTo("Equipar en Set A / Off Hand"));
+            Assert.That(actions[2].Label, Is.EqualTo("Equipar en Set B / Main Hand"));
+            Assert.That(actions[3].Label, Is.EqualTo("Equipar en Set B / Off Hand"));
         }
 
         [Test]

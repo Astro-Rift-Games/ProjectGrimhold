@@ -13,9 +13,10 @@ public enum EquipmentOperationResult
     // with a different meaning while older clients can still send it.
     ItemNotOwned = 6,
     DependenciesUnavailable = 7,
-    NoFreeWeaponSlot = 8,
+    ReservedLegacyNoFreeWeaponSlot = 8,
     EmptySlot = 9,
     InventoryFull = 10,
     SlotOccupied = 11,
-    AttributeRequirementsNotMet = 12
+    AttributeRequirementsNotMet = 12,
+    IncompatibleHandConfiguration = 13
 }

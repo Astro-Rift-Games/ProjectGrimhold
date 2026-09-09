@@ -726,7 +726,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         return result switch
         {
-            EquipmentOperationResult.NoFreeWeaponSlot => "Los dos slots de arma están ocupados",
+            EquipmentOperationResult.ReservedLegacyNoFreeWeaponSlot => "La solicitud usa un contrato de Equipment obsoleto",
             EquipmentOperationResult.SlotOccupied => "El slot ya está ocupado",
             EquipmentOperationResult.EmptySlot => "El slot está vacío",
             EquipmentOperationResult.InventoryFull => "El inventario está lleno",
@@ -872,16 +872,27 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             (_isRaidBinding
                 ? _equipmentController != null && !_equipmentController.HasRequestInFlight
                 : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate);
-        WeaponSlot activeSlot = WeaponSlot.None;
+        WeaponSetSlot activeSlot = WeaponSetSlot.None;
+        bool setAOffHandBlocked = false;
+        bool setBOffHandBlocked = false;
         if (_isRaidBinding && _equipmentController != null)
         {
             _observedEquipmentRevision = _equipmentController.ObservedEquipmentRevision;
-            activeSlot = _equipmentController.ActiveWeaponSlot;
+            activeSlot = _equipmentController.ActiveWeaponSetSlot;
+            setAOffHandBlocked = _equipmentController.IsOffHandBlocked(WeaponSetSlot.SetA);
+            setBOffHandBlocked = _equipmentController.IsOffHandBlocked(WeaponSetSlot.SetB);
+        }
+        else if (hasPreparedSnapshot)
+        {
+            setAOffHandBlocked = PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetA, _lootCatalog);
+            setBOffHandBlocked = PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetB, _lootCatalog);
         }
         _view.PresentEquipmentSlots(
             _equipmentSlotData,
             activeSlot,
-            canUnequip);
+            canUnequip,
+            setAOffHandBlocked,
+            setBOffHandBlocked);
     }
 
     private RaidInventorySlotData CreateEquipmentSlotData(

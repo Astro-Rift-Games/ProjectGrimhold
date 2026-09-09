@@ -10,9 +10,9 @@ public sealed class PlayerRaidLootOriginState : NetworkBehaviour
     [Networked]
     private RaidLootOriginPackedState InventoryOrigins { get; set; }
 
-    // Six 5-bit stable origin slots, one for each EquipmentSlotRules.AllSlots entry.
+    // Eight 5-bit stable origin slots, one for each EquipmentSlotRules.AllSlots entry.
     [Networked]
-    private int EquipmentOriginSlots { get; set; }
+    private long EquipmentOriginSlots { get; set; }
 
     public bool TryInitializePlayerLoadout(
         IReadOnlyList<LootEntry> entries,
@@ -208,13 +208,13 @@ public sealed class PlayerRaidLootOriginState : NetworkBehaviour
     }
 
     private int GetEquipmentOriginSlot(int equipmentIndex) =>
-        (EquipmentOriginSlots >> (equipmentIndex * 5)) & 31;
+        (int)((EquipmentOriginSlots >> (equipmentIndex * 5)) & 31L);
 
     private void SetEquipmentOriginSlot(int equipmentIndex, int originSlot)
     {
         int shift = equipmentIndex * 5;
-        int mask = 31 << shift;
-        EquipmentOriginSlots = (EquipmentOriginSlots & ~mask) | (originSlot << shift);
+        long mask = 31L << shift;
+        EquipmentOriginSlots = (EquipmentOriginSlots & ~mask) | ((long)originSlot << shift);
     }
 
     private static bool TryGetEquipmentIndex(EquipmentSlot slot, out int equipmentIndex)

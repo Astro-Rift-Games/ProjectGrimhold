@@ -217,7 +217,7 @@ namespace Tests.PlayMode.Presentation
                     : RaidInventorySlotData.Empty);
             }
 
-            _view.PresentEquipmentSlots(slots, WeaponSlot.None, true);
+            _view.PresentEquipmentSlots(slots, WeaponSetSlot.None, true);
             yield return null;
 
             RaidInventorySlotView helmet = null;

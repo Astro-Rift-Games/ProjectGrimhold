@@ -422,8 +422,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
         }
 
-        return equipment.ActiveWeaponSlot ==
-            (expected.HasWeaponSlot1 ? WeaponSlot.Slot1 : WeaponSlot.Slot2);
+        return equipment.ActiveWeaponSetSlot ==
+            (expected.HasWeaponSetAMainHand ? WeaponSetSlot.SetA : WeaponSetSlot.SetB);
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

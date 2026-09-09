@@ -293,8 +293,9 @@ public sealed class SessionCompositionConfigurationTests
 
         string[] equipmentViewFields =
         {
-            "_weaponSlot1View", "_weaponSlot2View", "_helmetView",
-            "_armorView", "_glovesView", "_bootsView"
+            "_weaponSetAMainHandView", "_weaponSetBMainHandView", "_helmetView",
+            "_armorView", "_glovesView", "_bootsView",
+            "_weaponSetAOffHandView", "_weaponSetBOffHandView"
         };
         for (int index = 0; index < equipmentViewFields.Length; index++)
         {
@@ -319,7 +320,7 @@ public sealed class SessionCompositionConfigurationTests
 
         RaidInventorySlotView[] slots =
             sharedPrefab.GetComponentsInChildren<RaidInventorySlotView>(true);
-        Assert.That(slots, Has.Length.EqualTo(38));
+        Assert.That(slots, Has.Length.EqualTo(40));
         for (int index = 0; index < slots.Length; index++)
         {
             Assert.That(SerializedReference(slots[index], "_icon"), Is.Not.Null);

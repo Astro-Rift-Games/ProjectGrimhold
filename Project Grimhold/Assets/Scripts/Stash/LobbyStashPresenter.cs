@@ -153,11 +153,10 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private async void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
+    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
     {
-        if (_loadoutService == null || _remoteInventoryService == null) return;
+        if (_loadoutService == null) return;
 
-        // Optimistic local first so we can read the full prepared equipment layout to send it
         StashOperationResult result = _loadoutService.TryAssignPreparedEquipment(
             _localProfileId,
             slot,
@@ -169,23 +168,11 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
-        var equipment = _loadoutService.GetPreparedEquipment(_localProfileId);
-        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(equipment);
-        
-        if (!success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment assignment failed: {error.message}");
-            // Rollback local change
-            _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
-        }
     }
 
-    private async void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
+    private void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
     {
-        if (_loadoutService == null || _remoteInventoryService == null) return;
-
-        var previousEquipment = _loadoutService.GetPreparedEquipment(_localProfileId);
-        var previousLootId = previousEquipment.Get(slot);
+        if (_loadoutService == null) return;
 
         StashOperationResult result = _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
         if (result != StashOperationResult.Success)
@@ -194,15 +181,6 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
-        var equipment = _loadoutService.GetPreparedEquipment(_localProfileId);
-        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(equipment);
-
-        if (!success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment clear failed: {error.message}");
-            // Rollback
-            _loadoutService.TryAssignPreparedEquipment(_localProfileId, slot, previousLootId);
-        }
     }
 
     private void OnProfileCommitted(ProfileId updatedProfileId)
@@ -238,7 +216,10 @@ public class LobbyStashPresenter : MonoBehaviour
                 _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index])));
             }
 
-            _stashUI.DisplayPreparedEquipment(_preparedProjection);
+            _stashUI.DisplayPreparedEquipment(
+                _preparedProjection,
+                PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetA, _lootCatalog),
+                PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetB, _lootCatalog));
         }
     }
 

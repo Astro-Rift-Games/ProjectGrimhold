@@ -22,7 +22,7 @@ Town: IPlayerLoadoutService -> LocalLoadoutInventoryReadSource -> RaidInventoryP
 ```
 
 Raid retains its replicated `PlayerLootReceiver`, container flows, Equipment, context actions and
-authoritative gameplay controllers. Town projects the confirmed application Loadout and the six
+authoritative gameplay controllers. Town projects the confirmed application Loadout and the eight
 assignments in `PreparedEquipmentLoadout`. Its binding enables the personal panel, Equipment,
 Town-only Equip/Unequip intentions, Tab toggle, Escape close and local gameplay-input suppression.
 Container, Take All, drop, consume and every other Raid mutation remain absent from the Town
@@ -31,25 +31,25 @@ capabilities and listeners.
 `LocalLoadoutInventoryReadSource` implements both inventory and prepared-Equipment read contracts,
 owns the single matching `ProfileCommitted` subscription, and triggers one rebuild of both panels
 after a confirmed commit. `TownEquipmentMutationEndpoint` forwards intentions only through
-`IPlayerLoadoutService`; it does not update either projection optimistically. It resolves armor to
-its fixed `EquipmentSlotRules` destination, weapons to the first empty current weapon slot, and
-when both are occupied deterministically replaces Weapon Slot 1. This is deliberately limited to
-the current six-slot `LootId + Amount` model.
+`IPlayerLoadoutService`; it does not update either projection optimistically. Context actions name
+the exact destination slot. Armor uses its fixed destination; weapons expose compatible Main Hand
+and Off Hand destinations in Set A and Set B.
 
 ## Context and decision
 
 The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. It supports symmetric single-unit and full-stack mouse intentions in both transfer directions, plus a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
-The personal Raid inventory also projects the six replicated Equipment slots: the two quick weapon
-slots plus `Helmet`, `Armor`, `Gloves` and `Boots`. All six views reuse the same existing serialized
+The personal Raid inventory projects all eight replicated Equipment slots: Main Hand and Off Hand
+for Set A and Set B plus `Helmet`, `Armor`, `Gloves` and `Boots`. All eight views reuse the same serialized
 slot prefab inside the existing screen and emit only a typed `EquipmentSlot` unequip intention. Only
-the two weapon slots carry an active state and participate in quick selection; the four armor views
+the two Main Hand views carry an active state and participate in Set selection; Off Hand views derive
+a non-interactable blocked state while their Set's Main Hand contains a two-handed weapon. Armor views
 show nothing but empty/occupied, the piece's icon and metadata, and the unequip intention. They do
 not form a separate Equipment screen or a second inventory, and there is no drag & drop.
 
-The six Equipment views are **authored in the prefab and never created at runtime**.
-`RaidInventoryView` exposes one named serialized field per slot (`_weaponSlot1View`,
-`_weaponSlot2View`, `_helmetView`, `_armorView`, `_glovesView`, `_bootsView`) and only binds and
+The eight Equipment views are **authored in the prefab and never created at runtime**.
+`RaidInventoryView` exposes one named serialized field per slot (Set A/B Main Hand and Off Hand,
+plus `_helmetView`, `_armorView`, `_glovesView`, `_bootsView`) and only binds and
 drives them; it owns no root transform, no slot prefab and no layout maths. Named fields rather than
 an array keep the Inspector mapping impossible to mis-order, and leaving placement entirely to the
 authored hierarchy keeps the panel's design free to change without touching code. An unassigned view
@@ -66,11 +66,11 @@ PlayerLootReceiver
     -> RaidInventoryPresenter
     -> RaidInventoryProjection
     -> RaidLootPanelPresenter / RaidInventoryView
-    -> RaidLootPanelView / six Equipment slot views
+    -> RaidLootPanelView / eight Equipment slot views
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes `Equipar` for any category `EquipmentSlotRules` reports as equippable — Weapon, Helmet, Armor, Gloves, Boots — enabling it only while `CanEquip` reports a free destination slot, and forwards only its `LootId` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount, destination slot and configuration. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
+The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes one action per compatible explicit destination and forwards `LootId + EquipmentSlot` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount and validates the complete exchange. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
 
 Every context request carries the exact originating slot `RectTransform`. The shared context menu
 positions itself from that anchor in Canvas-local space, prefers the slot's right side, falls back
@@ -167,8 +167,8 @@ Player despawn, runner shutdown, scene unload, or reader replacement therefore c
 
 The Town and Lobby Stash screen (`Assets/Prefabs/UI/StashInventory.prefab`) reuses these same
 views instead of owning a parallel inventory implementation. `LobbyStashUI` drives two
-`RaidLootPanelView` panels — the stash and the loadout — plus the six Equipment
-`RaidInventorySlotView`s of its equipment panel, and it creates nothing at runtime. The panels,
+`RaidLootPanelView` panels — the stash and the loadout — plus the eight Equipment
+`RaidInventorySlotView`s of its eight-slot equipment panel, and it creates nothing at runtime. The panels,
 both 16-slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
 authored in the prefab itself.
 
@@ -186,7 +186,7 @@ content beyond the authored pool is reported once as an integration error and th
 existing `Lleno` feedback; scrolling or pagination for a stash larger than its pool is not part of
 this contract.
 
-The Stash equipment panel authors the same six slots as the Raid screen and drives them with the
+The Stash equipment panel authors the same eight slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
 right click on an owned stack opens the contextual menu. Equipment assignment is accepted only for
 units currently in the Loadout/Inventory; Stash-only units must first be transferred. The menu

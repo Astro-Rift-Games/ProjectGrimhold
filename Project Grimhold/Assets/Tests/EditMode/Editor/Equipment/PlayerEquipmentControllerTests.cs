@@ -37,12 +37,13 @@ namespace Tests.EditMode.Equipment
         }
 
         [Test]
-        public void AllSlots_DescribesExactlyTheSixMvpSlots()
+        public void AllSlots_DescribesExactlyTheEightMvpSlots()
         {
             Assert.That(EverySlot, Is.EqualTo(new[]
             {
-                EquipmentSlot.WeaponSlot1, EquipmentSlot.WeaponSlot2, EquipmentSlot.Helmet,
-                EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots
+                EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetBMainHand, EquipmentSlot.Helmet,
+                EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots,
+                EquipmentSlot.WeaponSetAOffHand, EquipmentSlot.WeaponSetBOffHand
             }));
         }
 
@@ -59,7 +60,7 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(_controller.HasAnyEquipment, Is.False);
             Assert.That(_controller.HasAnyWeapon, Is.False);
-            Assert.That(_controller.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
+            Assert.That(_controller.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.None));
             Assert.That(_controller.ObservedEquipmentRevision, Is.Zero);
         }
 
@@ -70,14 +71,14 @@ namespace Tests.EditMode.Equipment
             LootDefinitionCatalog catalog = EquipmentTestContent.CreateCatalog(helmet);
             EquipmentTestContent.SetField(_controller, "_lootCatalog", catalog);
 
-            Assert.That(_controller.CanEquip(helmet.LootId), Is.False);
-            Assert.That(_controller.TryRequestEquip(helmet.LootId), Is.False);
+            Assert.That(_controller.CanEquip(helmet.LootId, EquipmentSlot.Helmet), Is.False);
+            Assert.That(_controller.TryRequestEquip(helmet.LootId, EquipmentSlot.Helmet), Is.False);
             for (int index = 0; index < EverySlot.Length; index++)
             {
                 Assert.That(_controller.TryRequestUnequip(EverySlot[index]), Is.False, EverySlot[index].ToString());
             }
 
-            Assert.That(_controller.TryRequestUnequip(WeaponSlot.Slot1), Is.False);
+            Assert.That(_controller.TryRequestUnequip(WeaponSetSlot.SetA), Is.False);
             Assert.That(_controller.HasAnyEquipment, Is.False);
         }
 
@@ -85,20 +86,20 @@ namespace Tests.EditMode.Equipment
         public void UnequipIntention_RejectsSlotsThatAreNotEquipmentSlots()
         {
             Assert.That(_controller.TryRequestUnequip(EquipmentSlot.None), Is.False);
-            Assert.That(_controller.TryRequestUnequip(WeaponSlot.None), Is.False);
+            Assert.That(_controller.TryRequestUnequip(WeaponSetSlot.None), Is.False);
         }
 
         [Test]
         public void SnapshotComparison_TreatsEverySlotAsEmptyBeforeSpawn()
         {
             Assert.That(
-                _controller.TryMatchesExactEquipment(null, null, null, null, null, null, out string error),
+                _controller.TryMatchesExactEquipment(null, null, null, null, null, null, null, null, out string error),
                 Is.True,
                 error);
 
             Assert.That(
                 _controller.TryMatchesExactEquipment(
-                    new LootEntry(new LootId("test_helmet"), 1), null, null, null, null, null, out _),
+                    new LootEntry(new LootId("test_helmet"), 1), null, null, null, null, null, null, null, out _),
                 Is.False);
         }
     }

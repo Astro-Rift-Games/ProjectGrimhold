@@ -220,6 +220,18 @@ namespace Tests.EditMode.Loot
             }
         }
 
+        [Test]
+        public void Catalog_DeclaresOnlyGreatswordAndStaffAsTwoHanded()
+        {
+            foreach (string lootId in AllWeaponIds())
+            {
+                WeaponHandedness expected = lootId == Greatsword || lootId == Staff
+                    ? WeaponHandedness.TwoHanded
+                    : WeaponHandedness.OneHanded;
+                Assert.That(ResolveWeapon(lootId).Handedness, Is.EqualTo(expected), lootId);
+            }
+        }
+
         /// <summary>
         /// The presenter must stay identity agnostic, so each silhouette needs its own static
         /// presentation triple instead of a branch inside <see cref="PlayerWeaponPresenter"/>.

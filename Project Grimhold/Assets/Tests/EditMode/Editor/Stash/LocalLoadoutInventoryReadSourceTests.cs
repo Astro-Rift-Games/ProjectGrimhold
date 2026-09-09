@@ -86,8 +86,8 @@ public sealed class LocalLoadoutInventoryReadSourceTests
         _loadoutService.PreparedEquipment = expected;
 
         Assert.That(_source.TryGetPreparedEquipment(out PreparedEquipmentLoadout equipment), Is.True);
-        Assert.That(equipment.WeaponSlot1, Is.EqualTo(expected.WeaponSlot1));
-        Assert.That(equipment.WeaponSlot2, Is.EqualTo(expected.WeaponSlot2));
+        Assert.That(equipment.WeaponSetAMainHand, Is.EqualTo(expected.WeaponSetAMainHand));
+        Assert.That(equipment.WeaponSetBMainHand, Is.EqualTo(expected.WeaponSetBMainHand));
         Assert.That(equipment.Helmet, Is.EqualTo(expected.Helmet));
         Assert.That(equipment.Armor, Is.EqualTo(expected.Armor));
         Assert.That(equipment.Gloves, Is.EqualTo(expected.Gloves));

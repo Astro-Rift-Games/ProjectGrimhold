@@ -262,7 +262,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private static string Describe(ExpeditionPreparationResult reason) => reason switch
     {
         ExpeditionPreparationResult.InvalidPreparedWeapon =>
-            "La preparación de arma no es válida. Revisá tus Weapon Slots en el Stash.",
+            "La preparación de arma no es válida. Revisá tus Weapon Sets en el Stash.",
         ExpeditionPreparationResult.AttributeRequirementsNotMet =>
             "Tus atributos actuales no cumplen los requisitos del arma preparada.",
         ExpeditionPreparationResult.RecoveryWeaponUnavailable =>

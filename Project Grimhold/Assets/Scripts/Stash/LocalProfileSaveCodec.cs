@@ -22,6 +22,10 @@ public static class LocalProfileSaveCodec
         public ItemData[] loadout;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
+        public string preparedWeaponSetAMainHand;
+        public string preparedWeaponSetAOffHand;
+        public string preparedWeaponSetBMainHand;
+        public string preparedWeaponSetBOffHand;
         public string preparedHelmet;
         public string preparedArmor;
         public string preparedGloves;
@@ -47,6 +51,10 @@ public static class LocalProfileSaveCodec
         public ItemData[] items;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
+        public string preparedWeaponSetAMainHand;
+        public string preparedWeaponSetAOffHand;
+        public string preparedWeaponSetBMainHand;
+        public string preparedWeaponSetBOffHand;
         public string preparedHelmet;
         public string preparedArmor;
         public string preparedGloves;
@@ -106,8 +114,10 @@ public static class LocalProfileSaveCodec
             appliedProgressionReceipts = ToProgressionReceipts(snapshot.AppliedProgressionReceipts),
             stash = ToItems(snapshot.Stash),
             loadout = ToItems(snapshot.Loadout),
-            preparedWeaponSlot1 = snapshot.PreparedEquipment.WeaponSlot1.Value,
-            preparedWeaponSlot2 = snapshot.PreparedEquipment.WeaponSlot2.Value,
+            preparedWeaponSetAMainHand = snapshot.PreparedEquipment.WeaponSetAMainHand.Value,
+            preparedWeaponSetAOffHand = snapshot.PreparedEquipment.WeaponSetAOffHand.Value,
+            preparedWeaponSetBMainHand = snapshot.PreparedEquipment.WeaponSetBMainHand.Value,
+            preparedWeaponSetBOffHand = snapshot.PreparedEquipment.WeaponSetBOffHand.Value,
             preparedHelmet = snapshot.PreparedEquipment.Helmet.Value,
             preparedArmor = snapshot.PreparedEquipment.Armor.Value,
             preparedGloves = snapshot.PreparedEquipment.Gloves.Value,
@@ -116,8 +126,10 @@ public static class LocalProfileSaveCodec
             {
                 reservationId = snapshot.PendingReservation.ReservationId,
                 items = ToItems(snapshot.PendingReservation.Items),
-                preparedWeaponSlot1 = snapshot.PendingReservation.PreparedEquipment.WeaponSlot1.Value,
-                preparedWeaponSlot2 = snapshot.PendingReservation.PreparedEquipment.WeaponSlot2.Value,
+                preparedWeaponSetAMainHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetAMainHand.Value,
+                preparedWeaponSetAOffHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetAOffHand.Value,
+                preparedWeaponSetBMainHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetBMainHand.Value,
+                preparedWeaponSetBOffHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetBOffHand.Value,
                 preparedHelmet = snapshot.PendingReservation.PreparedEquipment.Helmet.Value,
                 preparedArmor = snapshot.PendingReservation.PreparedEquipment.Armor.Value,
                 preparedGloves = snapshot.PendingReservation.PreparedEquipment.Gloves.Value,
@@ -233,12 +245,14 @@ public static class LocalProfileSaveCodec
         }
 
         candidate.PreparedEquipment = ReadPreparedEquipment(
-            data.preparedWeaponSlot1,
-            data.preparedWeaponSlot2,
+            data.schemaVersion >= 4 ? data.preparedWeaponSetAMainHand : data.preparedWeaponSlot1,
+            data.schemaVersion >= 4 ? data.preparedWeaponSetBMainHand : data.preparedWeaponSlot2,
             data.preparedHelmet,
             data.preparedArmor,
             data.preparedGloves,
-            data.preparedBoots);
+            data.preparedBoots,
+            data.schemaVersion >= 4 ? data.preparedWeaponSetAOffHand : null,
+            data.schemaVersion >= 4 ? data.preparedWeaponSetBOffHand : null);
         if (data.schemaVersion < 3)
         {
             TryMigrateLegacyEquipmentOwnership(candidate.Loadout, candidate.PreparedEquipment);
@@ -260,6 +274,10 @@ public static class LocalProfileSaveCodec
              (data.pendingReservation.items != null && data.pendingReservation.items.Length > 0) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot1) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSlot2) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSetAMainHand) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSetAOffHand) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSetBMainHand) ||
+             !string.IsNullOrWhiteSpace(data.pendingReservation.preparedWeaponSetBOffHand) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedHelmet) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedArmor) ||
              !string.IsNullOrWhiteSpace(data.pendingReservation.preparedGloves) ||
@@ -277,12 +295,14 @@ public static class LocalProfileSaveCodec
                 return false;
             }
             PreparedEquipmentLoadout reservedEquipment = ReadPreparedEquipment(
-                data.pendingReservation.preparedWeaponSlot1,
-                data.pendingReservation.preparedWeaponSlot2,
+                data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetAMainHand : data.pendingReservation.preparedWeaponSlot1,
+                data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetBMainHand : data.pendingReservation.preparedWeaponSlot2,
                 data.pendingReservation.preparedHelmet,
                 data.pendingReservation.preparedArmor,
                 data.pendingReservation.preparedGloves,
-                data.pendingReservation.preparedBoots);
+                data.pendingReservation.preparedBoots,
+                data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetAOffHand : null,
+                data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetBOffHand : null);
             if (data.schemaVersion < 3)
             {
                 TryMigrateLegacyEquipmentOwnership(reservationItems, reservedEquipment);
@@ -564,22 +584,25 @@ public static class LocalProfileSaveCodec
     }
 
     /// <summary>
-    /// Reads the six Equipment assignments. The four armor fields are additive: a profile saved
-    /// before they existed decodes them as empty and keeps its weapons.
+    /// Reads the eight Equipment assignments. Legacy weapon slots map to each Set's Main Hand.
     /// </summary>
     private static PreparedEquipmentLoadout ReadPreparedEquipment(
-        string weaponSlot1,
-        string weaponSlot2,
+        string weaponSetAMainHand,
+        string weaponSetBMainHand,
         string helmet,
         string armor,
         string gloves,
-        string boots) => new(
-            ReadLootId(weaponSlot1),
-            ReadLootId(weaponSlot2),
+        string boots,
+        string weaponSetAOffHand,
+        string weaponSetBOffHand) => new(
+            ReadLootId(weaponSetAMainHand),
+            ReadLootId(weaponSetBMainHand),
             ReadLootId(helmet),
             ReadLootId(armor),
             ReadLootId(gloves),
-            ReadLootId(boots));
+            ReadLootId(boots),
+            ReadLootId(weaponSetAOffHand),
+            ReadLootId(weaponSetBOffHand));
 
     private static LootId ReadLootId(string value) =>
         string.IsNullOrWhiteSpace(value) ? default : new LootId(value);

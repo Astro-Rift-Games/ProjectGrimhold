@@ -3,8 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Adapts Town Equipment intentions to the application Loadout service. It keeps preparation
-/// locking outside persistence and resolves only the six destinations supported by the current
-/// technical model.
+/// locking outside persistence and validates the explicit destination selected by presentation.
 /// </summary>
 public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoint
 {
@@ -32,9 +31,12 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
 
     public bool CanMutate => _canMutate();
 
-    public bool CanEquip(LootId lootId)
+    public bool CanEquip(LootId lootId, EquipmentSlot slot)
     {
-        if (!CanMutate || !TryResolveDefinition(lootId, out _))
+        if (!CanMutate || !TryResolveDefinition(lootId, out LootDefinition definition) ||
+            !EquipmentSlotRules.IsCompatible(definition.Category, slot) ||
+            definition.Category == LootCategory.Weapon &&
+            !EquipmentSlotRules.IsCompatible(definition.WeaponDefinition, slot))
         {
             return false;
         }
@@ -51,17 +53,14 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
         return false;
     }
 
-    public StashOperationResult TryEquip(LootId lootId)
+    public StashOperationResult TryEquip(LootId lootId, EquipmentSlot slot)
     {
-        if (!CanEquip(lootId) || !TryResolveDefinition(lootId, out LootDefinition definition))
+        if (!CanEquip(lootId, slot))
         {
             return StashOperationResult.InvalidInventory;
         }
 
-        EquipmentSlot target = ResolveTargetSlot(definition.Category);
-        return target != EquipmentSlot.None
-            ? _loadoutService.TryAssignPreparedEquipment(_profileId, target, lootId)
-            : StashOperationResult.InvalidInventory;
+        return _loadoutService.TryAssignPreparedEquipment(_profileId, slot, lootId);
     }
 
     public StashOperationResult TryUnequip(EquipmentSlot slot)
@@ -69,30 +68,6 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
         return CanMutate && EquipmentSlotRules.IsEquipmentSlot(slot)
             ? _loadoutService.TryClearPreparedEquipment(_profileId, slot)
             : StashOperationResult.InvalidInventory;
-    }
-
-    private EquipmentSlot ResolveTargetSlot(LootCategory category)
-    {
-        EquipmentSlot fixedSlot = EquipmentSlotRules.ResolveFixedSlot(category);
-        if (fixedSlot != EquipmentSlot.None)
-        {
-            return fixedSlot;
-        }
-
-        if (category != LootCategory.Weapon)
-        {
-            return EquipmentSlot.None;
-        }
-
-        PreparedEquipmentLoadout prepared = _loadoutService.GetPreparedEquipment(_profileId);
-        if (!prepared.HasWeaponSlot1)
-        {
-            return EquipmentSlot.WeaponSlot1;
-        }
-
-        return !prepared.HasWeaponSlot2
-            ? EquipmentSlot.WeaponSlot2
-            : EquipmentSlot.WeaponSlot1;
     }
 
     private bool TryResolveDefinition(LootId lootId, out LootDefinition definition)

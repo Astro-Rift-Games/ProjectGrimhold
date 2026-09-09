@@ -14,8 +14,7 @@ public sealed class RaidAdmissionDataCodecTests
             "reservation-prepared",
             new[]
             {
-                new StashItem(new LootId("coins"), 4),
-                new StashItem(sword, 2)
+                new StashItem(new LootId("coins"), 4)
             },
             new PreparedEquipmentLoadout(sword, sword));
 
@@ -30,8 +29,8 @@ public sealed class RaidAdmissionDataCodecTests
                 0,
                 out RaidAdmissionData data),
             Is.True);
-        Assert.That(data.WeaponSlot1EntryIndexPlusOne, Is.EqualTo(2));
-        Assert.That(data.WeaponSlot2EntryIndexPlusOne, Is.EqualTo(2));
+        Assert.That(data.WeaponSetAMainHandEntryIndexPlusOne, Is.EqualTo(2));
+        Assert.That(data.WeaponSetBMainHandEntryIndexPlusOne, Is.EqualTo(2));
         Assert.That(data.ReservedLoadout[1].Amount, Is.EqualTo(2));
     }
 
@@ -51,7 +50,7 @@ public sealed class RaidAdmissionDataCodecTests
             lastAppliedProgressionResultSequence: 12);
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(8));
+        Assert.That(token[0], Is.EqualTo(9));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
@@ -62,6 +61,7 @@ public sealed class RaidAdmissionDataCodecTests
             Is.EqualTo(source.LastAppliedProgressionResultSequence));
         Assert.That(decoded.CharacterAttributes, Is.EqualTo(CustomAttributes));
         Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
+        Assert.That(decoded.ActiveWeaponSet, Is.EqualTo(WeaponSetSlot.SetA));
     }
 
     [Test]
@@ -119,11 +119,12 @@ public sealed class RaidAdmissionDataCodecTests
             "reservation-a",
             new[]
             {
-                new LootEntry(new LootId("training_sword"), 2),
+                new LootEntry(new LootId("training_sword"), 3),
                 new LootEntry(new LootId("coins"), 4)
             },
             CustomAttributes,
-            new[] { 1, 1, 0, 0, 0, 0 });
+            new[] { 1, 1, 0, 0, 0, 0, 1, 0 },
+            activeWeaponSet: WeaponSetSlot.SetB);
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
@@ -131,8 +132,10 @@ public sealed class RaidAdmissionDataCodecTests
         Assert.That(decoded.ReservationId, Is.EqualTo(source.ReservationId));
         Assert.That(decoded.CharacterAttributes, Is.EqualTo(CustomAttributes));
         Assert.That(decoded.ReservedLoadout, Is.EqualTo(source.ReservedLoadout));
-        Assert.That(decoded.WeaponSlot1EntryIndexPlusOne, Is.EqualTo(1));
-        Assert.That(decoded.WeaponSlot2EntryIndexPlusOne, Is.EqualTo(1));
+        Assert.That(decoded.WeaponSetAMainHandEntryIndexPlusOne, Is.EqualTo(1));
+        Assert.That(decoded.WeaponSetBMainHandEntryIndexPlusOne, Is.EqualTo(1));
+        Assert.That(decoded.WeaponSetAOffHandEntryIndexPlusOne, Is.EqualTo(1));
+        Assert.That(decoded.ActiveWeaponSet, Is.EqualTo(WeaponSetSlot.SetB));
     }
 
     [Test]
@@ -214,7 +217,7 @@ public sealed class RaidAdmissionDataCodecTests
     }
 
     [Test]
-    public void Encode_RejectsMoreThanSixteenEntries()
+    public void Encode_RejectsMoreThanMaximumEntries()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         var entries = new List<LootEntry>();

@@ -15,6 +15,8 @@ public readonly struct RaidInventorySlotData
 
     /// <summary>Catalog classification of the unit, or None when its definition is unresolved.</summary>
     public LootCategory Category { get; }
+    public WeaponHandedness WeaponHandedness { get; }
+    public bool HasWeaponDefinition { get; }
 
     private RaidInventorySlotData(
         bool isOccupied,
@@ -23,7 +25,9 @@ public readonly struct RaidInventorySlotData
         string displayName,
         int amount,
         bool usesFallback,
-        LootCategory category)
+        LootCategory category,
+        WeaponHandedness weaponHandedness,
+        bool hasWeaponDefinition)
     {
         IsOccupied = isOccupied;
         LootId = lootId;
@@ -32,6 +36,8 @@ public readonly struct RaidInventorySlotData
         Amount = amount;
         UsesFallback = usesFallback;
         Category = category;
+        WeaponHandedness = weaponHandedness;
+        HasWeaponDefinition = hasWeaponDefinition;
     }
 
     public static RaidInventorySlotData Empty => default;
@@ -61,6 +67,8 @@ public readonly struct RaidInventorySlotData
             displayName,
             entry.Amount,
             definitionMissing || definition.Icon == null,
-            definitionMissing ? LootCategory.None : definition.Category);
+            definitionMissing ? LootCategory.None : definition.Category,
+            definition?.WeaponDefinition?.Handedness ?? WeaponHandedness.OneHanded,
+            definition?.WeaponDefinition != null);
     }
 }

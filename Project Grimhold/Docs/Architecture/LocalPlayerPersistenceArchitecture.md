@@ -114,8 +114,8 @@ does not imply cross-process durability.
 ## Domain and authority boundaries
 
 Stash and loadout transfers, prepared Equipment assignments, loadout reservations and extraction
-receipt application are complete aggregate transactions. `PreparedEquipmentLoadout` covers the six
-slots of `EquipmentSlot`: the two weapon quick slots plus Helmet, Armor, Gloves and Boots.
+receipt application are complete aggregate transactions. `PreparedEquipmentLoadout` covers eight
+slots: Set A and Set B each own Main Hand and Off Hand, plus Helmet, Armor, Gloves and Boots.
 Inventory and prepared Equipment are mutually exclusive ownership locations. Equip moves one
 `LootId + Amount` unit from Inventory to its Equipment slot, while Unequip moves it back;
 `EquipmentSlotRules` decides which slot an identity may occupy and weapon slots additionally require
@@ -123,22 +123,32 @@ a usable Weapon definition. A weapon assignment also evaluates its `WeaponAttrib
 confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
 rule is rechecked before preparation, reservation and rollback; armors have no attribute
 requirements during the MVP. Equip reads only Inventory, never Stash. Replacement removes the new
-unit before returning the old one so capacity is evaluated against the final state without exposing
-an intermediate state. Unequip rejects atomically when the returned unit would exceed Inventory
+unit before returning up to two displaced hand units so capacity is evaluated against the final state
+without exposing an intermediate state. A two-handed weapon exists only in Main Hand and derives the
+blocked state of its Set's Off Hand. Direct assignment to a blocked Off Hand is rejected and never
+silently removes the two-handed weapon. Unequip rejects atomically when the returned unit would exceed Inventory
 capacity. A rejected operation moves nothing and never creates a Pickup.
 Extraction receipts and the rest of the aggregate remain available only for the current
 application process until backend persistence is connected.
 
-Schema version 3 persists this exclusive-location contract. Earlier schemas did not distinguish
+Schema version 4 persists this Weapon Set contract. Schema 3 maps historical Weapon Slot 1 to Set A
+Main Hand and Weapon Slot 2 to Set B Main Hand; both Off Hands start empty. Pending reservations use
+the same migration. Earlier schemas did not distinguish
 the former exclusive implementation from the temporary non-owning implementation. Decoding treats
 a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
-all-or-nothing, and new saves always write schema 3.
+all-or-nothing, and new saves always write schema 4.
 
-The six-slot structure is a temporary technical limitation, not the complete GD-12 model. It has
-no item instances, Main/Off Hand semantics, handedness, complete Weapon Sets, Dual Wield, shields,
-accessories or additional Quick Slots. Those require a later foundational persistence migration;
-this boundary must not infer them from the current two generic weapon slots.
+TASK-330 keeps this migration local and does not change the backend contract. Backend hydration still
+maps legacy Weapon Slot 1 to Set A Main Hand and Weapon Slot 2 to Set B Main Hand; Off Hands hydrate
+empty. Town Equipment mutations commit against the process-local aggregate and do not wait for or
+roll back on a remote Equipment request. The existing reservation adapter sends only both Main Hands
+and armor through the legacy six-slot DTO. Consequently, Off Hand assignments and their exact remote
+reservation recovery are not durable across application restarts or devices until a separate backend
+migration introduces the four-hand contract.
+
+This structure does not yet implement shield defence, Dual Wield attacks, accessories or Quick Slots.
+Those behaviors require their own rules without adding a competing Equipment source of truth.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.
@@ -158,9 +168,9 @@ place that may normalize the local Loadout and prepared Equipment. Only the weap
 normalized: prepared armor is optional, is never granted and is never rewritten. It is atomic,
 deterministic and idempotent, so retrying a launch never grants or duplicates anything:
 
-* A valid weapon in Weapon Slot 1 is left untouched and commits nothing.
-* When only Weapon Slot 2 is occupied, the effective selection is normalized towards Slot 1.
-  The equipped unit only changes slots, so no Inventory unit moves.
+* A valid weapon in Set A Main Hand is left untouched and commits nothing.
+* When only Set B Main Hand is occupied, preparation leaves both Sets unchanged and admission marks
+  Set B active.
 * When no weapon is prepared, Town grants exactly one configured recovery weapon
   (`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`), reusing a unit the profile
   already owns before minting the guaranteed one. Without that configuration the preparation is
@@ -176,12 +186,12 @@ Raid never grants a recovery weapon. Preparation is inert while a reservation is
 ### Loadout reservation boundary
 
 `TryCreateLoadoutReservation` requires at least one valid prepared weapon and atomically moves
-the complete local Inventory plus its six separately owned prepared assignments into `PendingLoadoutReservation`
+the complete local Inventory plus its eight separately owned prepared assignments into `PendingLoadoutReservation`
 before the Town queue ACK. The active Town Loadout and its assignments are then empty and cannot
 ambiguously reference units already reserved for Raid. The requirement stays enforced here as a
 domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a
 different id is rejected while pending. Pre-admission failure restores items and assignments in
-one rollback. After participant, avatar and exact `Inventory + the six Equipment slots`
+one rollback. After participant, avatar and exact `Inventory + the eight Equipment slots`
 ownership are observed, confirmation consumes the reservation. Closing the application currently
 discards an unfinished reservation; backend persistence must define recovery for remotely stored
 reservations.

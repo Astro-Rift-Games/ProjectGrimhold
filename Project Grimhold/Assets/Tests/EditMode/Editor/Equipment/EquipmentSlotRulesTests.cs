@@ -10,18 +10,21 @@ namespace Tests.EditMode.Equipment
     {
         private static readonly EquipmentSlot[] EverySlot =
         {
-            EquipmentSlot.WeaponSlot1, EquipmentSlot.WeaponSlot2, EquipmentSlot.Helmet,
-            EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots
+            EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetBMainHand, EquipmentSlot.Helmet,
+            EquipmentSlot.Armor, EquipmentSlot.Gloves, EquipmentSlot.Boots,
+            EquipmentSlot.WeaponSetAOffHand, EquipmentSlot.WeaponSetBOffHand
         };
 
-        [TestCase(EquipmentSlot.WeaponSlot1, true)]
-        [TestCase(EquipmentSlot.WeaponSlot2, true)]
+        [TestCase(EquipmentSlot.WeaponSetAMainHand, true)]
+        [TestCase(EquipmentSlot.WeaponSetBMainHand, true)]
+        [TestCase(EquipmentSlot.WeaponSetAOffHand, true)]
+        [TestCase(EquipmentSlot.WeaponSetBOffHand, true)]
         [TestCase(EquipmentSlot.Helmet, false)]
         [TestCase(EquipmentSlot.Armor, false)]
         [TestCase(EquipmentSlot.Gloves, false)]
         [TestCase(EquipmentSlot.Boots, false)]
         [TestCase(EquipmentSlot.None, false)]
-        public void Weapon_IsCompatibleOnlyWithBothQuickSlots(EquipmentSlot slot, bool expected)
+        public void WeaponCategory_IsCompatibleOnlyWithHandSlots(EquipmentSlot slot, bool expected)
         {
             Assert.That(EquipmentSlotRules.IsCompatible(LootCategory.Weapon, slot), Is.EqualTo(expected));
         }
@@ -51,7 +54,7 @@ namespace Tests.EditMode.Equipment
         [TestCase(LootCategory.Material)]
         [TestCase(LootCategory.Quest)]
         [TestCase(LootCategory.Miscellaneous)]
-        public void NonEquippableCategory_IsRejectedBySixSlots(LootCategory category)
+        public void NonEquippableCategory_IsRejectedByEightSlots(LootCategory category)
         {
             Assert.That(EquipmentSlotRules.IsEquippableCategory(category), Is.False);
             for (int index = 0; index < EverySlot.Length; index++)
@@ -89,39 +92,42 @@ namespace Tests.EditMode.Equipment
         [Test]
         public void SlotClassification_SeparatesWeaponFromArmor()
         {
-            Assert.That(EquipmentSlotRules.IsWeaponSlot(EquipmentSlot.WeaponSlot1), Is.True);
-            Assert.That(EquipmentSlotRules.IsWeaponSlot(EquipmentSlot.WeaponSlot2), Is.True);
-            Assert.That(EquipmentSlotRules.IsWeaponSlot(EquipmentSlot.Helmet), Is.False);
-            Assert.That(EquipmentSlotRules.IsArmorSlot(EquipmentSlot.WeaponSlot1), Is.False);
+            Assert.That(EquipmentSlotRules.IsHandSlot(EquipmentSlot.WeaponSetAMainHand), Is.True);
+            Assert.That(EquipmentSlotRules.IsHandSlot(EquipmentSlot.WeaponSetBMainHand), Is.True);
+            Assert.That(EquipmentSlotRules.IsHandSlot(EquipmentSlot.WeaponSetAOffHand), Is.True);
+            Assert.That(EquipmentSlotRules.IsHandSlot(EquipmentSlot.Helmet), Is.False);
+            Assert.That(EquipmentSlotRules.IsArmorSlot(EquipmentSlot.WeaponSetAMainHand), Is.False);
             Assert.That(EquipmentSlotRules.IsArmorSlot(EquipmentSlot.Boots), Is.True);
             Assert.That(EquipmentSlotRules.IsEquipmentSlot(EquipmentSlot.None), Is.False);
         }
 
-        [TestCase(WeaponSlot.Slot1, EquipmentSlot.WeaponSlot1)]
-        [TestCase(WeaponSlot.Slot2, EquipmentSlot.WeaponSlot2)]
-        [TestCase(WeaponSlot.None, EquipmentSlot.None)]
-        public void QuickSlotBridge_RoundTripsWithoutLosingIdentity(
-            WeaponSlot weaponSlot,
+        [TestCase(WeaponSetSlot.SetA, EquipmentSlot.WeaponSetAMainHand)]
+        [TestCase(WeaponSetSlot.SetB, EquipmentSlot.WeaponSetBMainHand)]
+        [TestCase(WeaponSetSlot.None, EquipmentSlot.None)]
+        public void WeaponSetBridge_RoundTripsWithoutLosingIdentity(
+            WeaponSetSlot weaponSlot,
             EquipmentSlot equipmentSlot)
         {
-            Assert.That(EquipmentSlotRules.FromWeaponSlot(weaponSlot), Is.EqualTo(equipmentSlot));
-            Assert.That(EquipmentSlotRules.ToWeaponSlot(equipmentSlot), Is.EqualTo(weaponSlot));
+            Assert.That(EquipmentSlotRules.GetMainHandSlot(weaponSlot), Is.EqualTo(equipmentSlot));
+            Assert.That(EquipmentSlotRules.GetWeaponSet(equipmentSlot), Is.EqualTo(weaponSlot));
         }
 
         [TestCase(EquipmentSlot.Helmet)]
         [TestCase(EquipmentSlot.Armor)]
         [TestCase(EquipmentSlot.Gloves)]
         [TestCase(EquipmentSlot.Boots)]
-        public void ArmorSlots_NeverMapOntoTheQuickSelectionContract(EquipmentSlot slot)
+        public void ArmorSlots_NeverMapOntoTheWeaponSetSelectionContract(EquipmentSlot slot)
         {
-            Assert.That(EquipmentSlotRules.ToWeaponSlot(slot), Is.EqualTo(WeaponSlot.None));
+            Assert.That(EquipmentSlotRules.GetWeaponSet(slot), Is.EqualTo(WeaponSetSlot.None));
         }
 
         [TestCase(-1, false)]
         [TestCase(0, true)]
         [TestCase(6, true)]
-        [TestCase(7, false)]
-        public void SlotValueRange_CoversExactlyTheSixSlotsPlusNone(int value, bool expected)
+        [TestCase(7, true)]
+        [TestCase(8, true)]
+        [TestCase(9, false)]
+        public void SlotValueRange_CoversExactlyTheEightSlotsPlusNone(int value, bool expected)
         {
             Assert.That(EquipmentSlotRules.IsValidSlotValue(value), Is.EqualTo(expected));
         }
@@ -138,11 +144,12 @@ namespace Tests.EditMode.Equipment
             Assert.That((int)EquipmentOperationResult.InvalidEquipment, Is.EqualTo(4));
             Assert.That((int)EquipmentOperationResult.ItemNotOwned, Is.EqualTo(6));
             Assert.That((int)EquipmentOperationResult.DependenciesUnavailable, Is.EqualTo(7));
-            Assert.That((int)EquipmentOperationResult.NoFreeWeaponSlot, Is.EqualTo(8));
+            Assert.That((int)EquipmentOperationResult.ReservedLegacyNoFreeWeaponSlot, Is.EqualTo(8));
             Assert.That((int)EquipmentOperationResult.EmptySlot, Is.EqualTo(9));
             Assert.That((int)EquipmentOperationResult.InventoryFull, Is.EqualTo(10));
             Assert.That((int)EquipmentOperationResult.SlotOccupied, Is.EqualTo(11));
             Assert.That((int)EquipmentOperationResult.AttributeRequirementsNotMet, Is.EqualTo(12));
+            Assert.That((int)EquipmentOperationResult.IncompatibleHandConfiguration, Is.EqualTo(13));
         }
     }
 }

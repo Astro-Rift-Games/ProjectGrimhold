@@ -1,15 +1,16 @@
 /// <summary>
-/// Identifies one Equipment slot of the player. The two weapon values intentionally match
-/// <see cref="WeaponSlot"/> so the value already replicated by the active-weapon selection and
-/// transported by the equipment RPC keeps its meaning.
+/// Identifies one Equipment slot. Historical numeric values are retained for the two former
+/// weapon slots and now represent the Main Hand of Set A and Set B.
 /// </summary>
 public enum EquipmentSlot : byte
 {
     None = 0,
-    WeaponSlot1 = 1,
-    WeaponSlot2 = 2,
+    WeaponSetAMainHand = 1,
+    WeaponSetBMainHand = 2,
     Helmet = 3,
     Armor = 4,
     Gloves = 5,
-    Boots = 6
+    Boots = 6,
+    WeaponSetAOffHand = 7,
+    WeaponSetBOffHand = 8
 }

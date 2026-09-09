@@ -14,7 +14,7 @@ using Object = UnityEngine.Object;
 namespace Tests.PlayMode.Equipment
 {
     /// <summary>
-    /// Exercises the authoritative Equipment invariants over the six MVP slots through the real
+    /// Exercises the authoritative Equipment invariants over the eight MVP slots through the real
     /// request path: Input Authority expresses intent, State Authority validates and commits.
     /// Armor definitions are built in memory because no production armor content exists yet.
     /// </summary>
@@ -75,7 +75,7 @@ namespace Tests.PlayMode.Equipment
 
             var expectations = new (LootDefinition Definition, EquipmentSlot Slot)[]
             {
-                (_meleeWeapon, EquipmentSlot.WeaponSlot1),
+                (_meleeWeapon, EquipmentSlot.WeaponSetAMainHand),
                 (_helmet, EquipmentSlot.Helmet),
                 (_armor, EquipmentSlot.Armor),
                 (_gloves, EquipmentSlot.Gloves),
@@ -141,10 +141,10 @@ namespace Tests.PlayMode.Equipment
                 Is.True);
             Assert.That(actual, Is.EqualTo(expected));
             Assert.That(
-                source.TryGetEquipmentOrigin(EquipmentSlot.WeaponSlot1, out RaidLootOrigin expectedOrigin),
+                source.TryGetEquipmentOrigin(EquipmentSlot.WeaponSetAMainHand, out RaidLootOrigin expectedOrigin),
                 Is.True);
             Assert.That(
-                restored.TryGetEquipmentOrigin(EquipmentSlot.WeaponSlot1, out RaidLootOrigin actualOrigin),
+                restored.TryGetEquipmentOrigin(EquipmentSlot.WeaponSetAMainHand, out RaidLootOrigin actualOrigin),
                 Is.True);
             Assert.That(actualOrigin, Is.EqualTo(expectedOrigin));
         }
@@ -199,7 +199,7 @@ namespace Tests.PlayMode.Equipment
             int inventoryBefore = _receiver.GetLootAmount(_helmet.LootId);
             int revisionBefore = _equipment.ObservedEquipmentRevision;
             Assert.That(inventoryBefore, Is.GreaterThan(0), "The fixture must own a spare helmet.");
-            Assert.That(_equipment.CanEquip(_helmet.LootId), Is.False);
+            Assert.That(_equipment.CanEquip(_helmet.LootId, EquipmentSlot.Helmet), Is.False);
 
             // The client-side guard already refuses, so drive the authority path directly to
             // prove the rejection is authoritative and not merely a UI convenience.
@@ -219,8 +219,8 @@ namespace Tests.PlayMode.Equipment
             int inventoryBefore = _receiver.GetLootAmount(_trinket.LootId);
             int revisionBefore = _equipment.ObservedEquipmentRevision;
 
-            Assert.That(_equipment.CanEquip(_trinket.LootId), Is.False);
-            Assert.That(_equipment.TryRequestEquip(_trinket.LootId), Is.False);
+            Assert.That(_equipment.CanEquip(_trinket.LootId, EquipmentSlot.WeaponSetAMainHand), Is.False);
+            Assert.That(_equipment.TryRequestEquip(_trinket.LootId, EquipmentSlot.WeaponSetAMainHand), Is.False);
             yield return EquipThroughAuthority(_trinket, EquipmentOperationResult.InvalidEquipment);
 
             Assert.That(_receiver.GetLootAmount(_trinket.LootId), Is.EqualTo(inventoryBefore));
@@ -236,8 +236,8 @@ namespace Tests.PlayMode.Equipment
             int inventoryBefore = _receiver.GetLootAmount(_greatsword.LootId);
             int revisionBefore = _equipment.ObservedEquipmentRevision;
 
-            Assert.That(_equipment.CanEquip(_greatsword.LootId), Is.False);
-            Assert.That(_equipment.TryRequestEquip(_greatsword.LootId), Is.False);
+            Assert.That(_equipment.CanEquip(_greatsword.LootId, EquipmentSlot.WeaponSetAMainHand), Is.False);
+            Assert.That(_equipment.TryRequestEquip(_greatsword.LootId, EquipmentSlot.WeaponSetAMainHand), Is.False);
             yield return EquipThroughAuthority(
                 _greatsword,
                 EquipmentOperationResult.AttributeRequirementsNotMet);
@@ -245,7 +245,7 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_receiver.GetLootAmount(_greatsword.LootId), Is.EqualTo(inventoryBefore));
             Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(revisionBefore));
             Assert.That(_equipment.HasAnyEquipment, Is.False);
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.None));
         }
 
         [UnityTest]
@@ -255,7 +255,7 @@ namespace Tests.PlayMode.Equipment
 
             yield return Equip(_greatsword, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot1));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
             Assert.That(
                 _equipment.TryGetEquippedDefinition(out LootDefinition equipped),
                 Is.True);
@@ -269,10 +269,10 @@ namespace Tests.PlayMode.Equipment
             int inventoryBefore = _receiver.GetLootAmount(_greatsword.LootId);
             int revisionBefore = _equipment.ObservedEquipmentRevision;
             var reserved = new[] { new LootEntry(_greatsword.LootId, inventoryBefore) };
-            var indices = new[] { 1, 0, 0, 0, 0, 0 };
+            var indices = new[] { 1, 0, 0, 0, 0, 0, 0, 0 };
 
             Assert.That(
-                _equipment.TryInitializePreparedEquipment(reserved, indices, out string error),
+                _equipment.TryInitializePreparedEquipment(reserved, indices, WeaponSetSlot.SetA, out string error),
                 Is.False);
             Assert.That(error, Does.Contain("attribute requirements"));
             Assert.That(_receiver.GetLootAmount(_greatsword.LootId), Is.EqualTo(inventoryBefore));
@@ -310,26 +310,67 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
-        public IEnumerator SecondWeapon_FillsTheOtherQuickSlotAndKeepsTheActiveOne()
+        public IEnumerator SecondMainHand_FillsTheOtherWeaponSetAndKeepsTheActiveOne()
         {
             yield return StartRaidPlayer();
 
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot1));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
 
             yield return Equip(_rangedWeapon, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSlot1, out LootEntry first), Is.True);
+            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetAMainHand, out LootEntry first), Is.True);
             Assert.That(first.LootId, Is.EqualTo(_meleeWeapon.LootId), "The first weapon was replaced.");
-            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSlot2, out LootEntry second), Is.True);
+            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetBMainHand, out LootEntry second), Is.True);
             Assert.That(second.LootId, Is.EqualTo(_rangedWeapon.LootId));
             Assert.That(
-                _equipment.ActiveWeaponSlot,
-                Is.EqualTo(WeaponSlot.Slot1),
+                _equipment.ActiveWeaponSetSlot,
+                Is.EqualTo(WeaponSetSlot.SetA),
                 "Inserting an inactive weapon must not change the active selection.");
 
-            // Both quick slots are taken, so a third weapon has nowhere to go.
-            yield return EquipThroughAuthority(_meleeWeapon, EquipmentOperationResult.NoFreeWeaponSlot);
+            // Explicit targeting replaces only the requested Set's Main Hand.
+            yield return EquipThroughAuthority(
+                _meleeWeapon,
+                EquipmentSlot.WeaponSetAMainHand,
+                EquipmentOperationResult.Succeeded);
+        }
+
+        [UnityTest]
+        public IEnumerator TwoHandedWeapon_DisplacesBothHandsWithoutChangingTheOtherSet()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+
+            Assert.That(
+                _equipment.TryRequestEquip(_meleeWeapon.LootId, EquipmentSlot.WeaponSetAMainHand),
+                Is.True);
+            yield return AwaitResolution(EquipmentOperationResult.Succeeded);
+            Assert.That(
+                _equipment.TryRequestEquip(_rangedWeapon.LootId, EquipmentSlot.WeaponSetAOffHand),
+                Is.True);
+            yield return AwaitResolution(EquipmentOperationResult.Succeeded);
+            Assert.That(
+                _equipment.TryRequestEquip(_meleeWeapon.LootId, EquipmentSlot.WeaponSetBMainHand),
+                Is.True);
+            yield return AwaitResolution(EquipmentOperationResult.Succeeded);
+
+            yield return EquipThroughAuthority(
+                _greatsword,
+                EquipmentSlot.WeaponSetAMainHand,
+                EquipmentOperationResult.Succeeded);
+
+            Assert.That(
+                _equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetAMainHand, out LootEntry setAMain),
+                Is.True);
+            Assert.That(setAMain.LootId, Is.EqualTo(_greatsword.LootId));
+            Assert.That(_equipment.IsSlotOccupied(EquipmentSlot.WeaponSetAOffHand), Is.False);
+            Assert.That(
+                _equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetBMainHand, out LootEntry setBMain),
+                Is.True);
+            Assert.That(setBMain.LootId, Is.EqualTo(_meleeWeapon.LootId));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
+            Assert.That(ResolveActiveWeapon().LootId, Is.EqualTo(_greatsword.LootId));
+            Assert.That(_receiver.GetLootAmount(_meleeWeapon.LootId), Is.EqualTo(1));
+            Assert.That(_receiver.GetLootAmount(_rangedWeapon.LootId), Is.EqualTo(1));
         }
 
         [UnityTest]
@@ -345,13 +386,13 @@ namespace Tests.PlayMode.Equipment
             yield return Equip(_boots, EquipmentOperationResult.Succeeded);
             yield return Unequip(EquipmentSlot.Helmet, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot1));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
             Assert.That(ResolveActiveWeapon(), Is.SameAs(activeBefore));
             Assert.That(_combat.TryGetPrimaryAttackStatus(out _), Is.True);
         }
 
         [UnityTest]
-        public IEnumerator UnequippingTheActiveWeapon_FallsBackToTheRemainingQuickSlot()
+        public IEnumerator UnequippingTheActiveWeapon_FallsBackToTheOtherValidWeaponSet()
         {
             yield return StartRaidPlayer();
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
@@ -372,9 +413,9 @@ namespace Tests.PlayMode.Equipment
                 0f,
                 0f);
 
-            yield return Unequip(EquipmentSlot.WeaponSlot1, EquipmentOperationResult.Succeeded);
+            yield return Unequip(EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot2));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetB));
             Assert.That(ResolveActiveWeapon().LootId, Is.EqualTo(_rangedWeapon.LootId));
             AssertRuntimeParameters(
                 _equipment.GetComponent<RangedAttack>(),
@@ -384,9 +425,9 @@ namespace Tests.PlayMode.Equipment
                 5f,
                 0f);
 
-            yield return Unequip(EquipmentSlot.WeaponSlot2, EquipmentOperationResult.Succeeded);
+            yield return Unequip(EquipmentSlot.WeaponSetBMainHand, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.None));
             Assert.That(_equipment.HasAnyWeapon, Is.False);
             Assert.That(_combat.TryGetPrimaryAttackStatus(out _), Is.False);
         }
@@ -407,9 +448,9 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus before), Is.True);
             Assert.That(before.IsAvailable, Is.False);
 
-            yield return Unequip(EquipmentSlot.WeaponSlot1, EquipmentOperationResult.Succeeded);
+            yield return Unequip(EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
 
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.Slot2));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetB));
             Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus after), Is.True);
             Assert.That(after.IsAvailable, Is.False);
             Assert.That(after.CooldownDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
@@ -417,7 +458,7 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
-        public IEnumerator ExpeditionSnapshot_AggregatesAndClearsAllSixSlots()
+        public IEnumerator ExpeditionSnapshot_AggregatesAndClearsAllEightSlots()
         {
             yield return StartRaidPlayer();
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
@@ -433,8 +474,8 @@ namespace Tests.PlayMode.Equipment
                 Is.True,
                 error);
 
-            Assert.That(snapshot.WeaponSlot1.HasValue, Is.True);
-            Assert.That(snapshot.WeaponSlot2.HasValue, Is.True);
+            Assert.That(snapshot.WeaponSetAMainHand.HasValue, Is.True);
+            Assert.That(snapshot.WeaponSetBMainHand.HasValue, Is.True);
             Assert.That(snapshot.Helmet.Value.LootId, Is.EqualTo(_helmet.LootId));
             Assert.That(snapshot.Armor.Value.LootId, Is.EqualTo(_armor.LootId));
             Assert.That(snapshot.Gloves.Value.LootId, Is.EqualTo(_gloves.LootId));
@@ -477,7 +518,7 @@ namespace Tests.PlayMode.Equipment
             Assert.That(snapshot.TryClearExact(_receiver, _equipment, out error), Is.True, error);
 
             Assert.That(_equipment.HasAnyEquipment, Is.False, "Every slot must be cleared exactly once.");
-            Assert.That(_equipment.ActiveWeaponSlot, Is.EqualTo(WeaponSlot.None));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.None));
             Assert.That(_receiver.GetLootContent(), Is.Empty);
         }
 
@@ -636,7 +677,7 @@ namespace Tests.PlayMode.Equipment
         private IEnumerator Equip(LootDefinition definition, EquipmentOperationResult expected)
         {
             Assert.That(
-                _equipment.TryRequestEquip(definition.LootId),
+                _equipment.TryRequestEquip(definition.LootId, ResolveTestTarget(definition)),
                 Is.True,
                 $"The equip intention for {definition.Id} was refused before reaching authority.");
             yield return AwaitResolution(expected);
@@ -648,9 +689,24 @@ namespace Tests.PlayMode.Equipment
         private IEnumerator EquipThroughAuthority(
             LootDefinition definition,
             EquipmentOperationResult expected)
+            => EquipThroughAuthority(definition, ResolveTestTarget(definition), expected);
+
+        private IEnumerator EquipThroughAuthority(
+            LootDefinition definition,
+            EquipmentSlot slot,
+            EquipmentOperationResult expected)
         {
             Assert.That(_catalog.TryGetIndex(definition.LootId, out int catalogIndex), Is.True);
-            yield return InvokeAuthorityRequest(kind: 1, catalogIndex, (int)EquipmentSlot.None, expected);
+            yield return InvokeAuthorityRequest(kind: 1, catalogIndex, (int)slot, expected);
+        }
+
+        private EquipmentSlot ResolveTestTarget(LootDefinition definition)
+        {
+            EquipmentSlot fixedSlot = EquipmentSlotRules.ResolveFixedSlot(definition.Category);
+            if (fixedSlot != EquipmentSlot.None) return fixedSlot;
+            return !_equipment.IsSlotOccupied(EquipmentSlot.WeaponSetAMainHand)
+                ? EquipmentSlot.WeaponSetAMainHand
+                : EquipmentSlot.WeaponSetBMainHand;
         }
 
         private IEnumerator Unequip(EquipmentSlot slot, EquipmentOperationResult expected)

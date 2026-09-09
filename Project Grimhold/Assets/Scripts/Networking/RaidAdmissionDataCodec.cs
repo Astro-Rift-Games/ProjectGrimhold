@@ -9,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 8;
+    private const byte CanonicalVersion = 9;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -65,6 +65,7 @@ public static class RaidAdmissionDataCodec
             {
                 writer.Write((byte)indices[index]);
             }
+            writer.Write((byte)data.ActiveWeaponSet);
 
             writer.Flush();
             if (stream.Length > RaidLoadoutRules.MaximumTokenBytes)
@@ -150,6 +151,7 @@ public static class RaidAdmissionDataCodec
             {
                 indices[index] = reader.ReadByte();
             }
+            WeaponSetSlot activeWeaponSet = (WeaponSetSlot)reader.ReadByte();
 
             if (stream.Position != stream.Length)
             {
@@ -165,7 +167,8 @@ public static class RaidAdmissionDataCodec
                 indices,
                 level,
                 currentExperience,
-                lastAppliedProgressionResultSequence);
+                lastAppliedProgressionResultSequence,
+                activeWeaponSet);
             return data.IsValid;
         }
         catch (ArgumentException)
