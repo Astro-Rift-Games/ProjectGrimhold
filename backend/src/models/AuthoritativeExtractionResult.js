@@ -5,10 +5,20 @@ const itemSchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 1 }
 }, { _id: false });
 
+const preparedEquipmentSchema = new mongoose.Schema({
+  weaponSlot1: { type: String, default: '' },
+  weaponSlot2: { type: String, default: '' },
+  helmet:      { type: String, default: '' },
+  armor:       { type: String, default: '' },
+  gloves:      { type: String, default: '' },
+  boots:       { type: String, default: '' }
+}, { _id: false });
+
 const authoritativeExtractionResultSchema = new mongoose.Schema({
   raidId: { type: String, required: true, index: true },
   accountId: { type: String, required: true, index: true },
   items: [itemSchema],
+  preparedEquipment: { type: preparedEquipmentSchema },
   experienceGranted: { type: Number, required: true, default: 0 },
   createdAt: { type: Date, default: Date.now, expires: 86400 } // TTL index: documents expire after 24 hours
 });

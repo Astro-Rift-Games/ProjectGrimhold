@@ -129,6 +129,7 @@ router.post('/me/inventory/extraction', commitExtractionValidator, async (req, r
 // }
 router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (req, res, next) => {
   try {
+    console.log("COMMIT PAYLOAD:", JSON.stringify(req.body, null, 2));
     const result = await ExtractionCommitService.commit(req.accountId, req.body);
     res.status(result.alreadySecured ? 200 : 201).json(result);
   } catch (err) {
@@ -144,11 +145,15 @@ const AuthoritativeExtractionResult = require('../models/AuthoritativeExtraction
 
 router.post('/debug/mock-fusion-result', async (req, res, next) => {
   try {
-    const { raidId, items, experienceGranted } = req.body;
+    const { raidId, items, experienceGranted, preparedEquipment } = req.body;
     
     await AuthoritativeExtractionResult.findOneAndUpdate(
       { raidId, accountId: req.accountId },
-      { items: items || [], experienceGranted: experienceGranted || 100 },
+      { 
+        items: items || [], 
+        experienceGranted: experienceGranted || 100,
+        ...(preparedEquipment ? { preparedEquipment } : {})
+      },
       { upsert: true, new: true }
     );
 

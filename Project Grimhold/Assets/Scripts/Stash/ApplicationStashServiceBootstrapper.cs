@@ -187,7 +187,7 @@ public static class ApplicationStashServiceBootstrapper
             }
         }
 
-        if (data.loadout != null)
+        if (data.loadout != null && snapshot.PendingExtractionCommit == null)
         {
             foreach (var item in data.loadout)
             {
@@ -198,15 +198,18 @@ public static class ApplicationStashServiceBootstrapper
             }
         }
 
-        var eq = data.preparedEquipment;
-        snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
-            string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
-            string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
-            string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
-            string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
-            string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
-            string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
-        );
+        if (snapshot.PendingExtractionCommit == null)
+        {
+            var eq = data.preparedEquipment;
+            snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+                string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
+                string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
+                string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
+                string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
+                string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
+                string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
+            );
+        }
 
         if (data.pendingReservation.reservationId != null)
         {

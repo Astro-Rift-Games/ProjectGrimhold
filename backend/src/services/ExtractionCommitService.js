@@ -21,6 +21,18 @@ const MAX_EXTRACTION_RECEIPTS = 256;
 // Maximum number of progression receipts kept in history.
 const MAX_PROGRESSION_RECEIPTS = 256;
 
+function sanitizePreparedEquipment(eq) {
+  if (!eq) return {};
+  return {
+    weaponSlot1: eq.weaponSlot1 || '',
+    weaponSlot2: eq.weaponSlot2 || '',
+    helmet:      eq.helmet      || '',
+    armor:       eq.armor       || '',
+    gloves:      eq.gloves      || '',
+    boots:       eq.boots       || ''
+  };
+}
+
 class ExtractionCommitService {
   static async commit(accountId, payload) {
     const { raidId, resultSequence } = payload;
@@ -110,8 +122,13 @@ class ExtractionCommitService {
 
     // Prepared Equipment
     // If the authoritative result explicitely gives us the equipped items, we use it.
-    // Otherwise, we fallback to restoring what was reserved before the raid.
-    const newPreparedEquipment = authResult.preparedEquipment || character.inventory.pendingReservation?.preparedEquipment || {};
+    // Otherwise, we use the client payload's prepared equipment (as the server may not track equipment slots).
+    // If both are missing, we fallback to restoring what was reserved before the raid.
+    const newPreparedEquipment = sanitizePreparedEquipment(
+      authResult.preparedEquipment || 
+      payload.preparedEquipment || 
+      character.inventory.pendingReservation?.preparedEquipment
+    );
 
     // ------------------------------------------------------------------
     // 4. Atomic Database Update
