@@ -19,6 +19,8 @@ public sealed class PlayerCharacter : CharacterBase
     private bool _reportedMissingExtractionController;
     private bool _hasCachedMaximumHealth;
     private float _cachedMaximumHealth;
+    private int _cachedAttributeRevision;
+    private int _clampedAttributeRevision = int.MinValue;
     private bool _reportedInvalidDerivedStatistics;
 
     [Networked]
@@ -66,13 +68,16 @@ public sealed class PlayerCharacter : CharacterBase
     }
 
     /// <summary>
-    /// Derives the participant's effective maximum Health from the frozen Raid attributes.
+    /// Derives the participant's effective maximum Health from the effective Raid attributes.
     /// A temporarily unresolved participant link keeps the prefab fallback available without
     /// caching it, so Host Migration remapping can resolve the authoritative snapshot later.
     /// </summary>
     protected override float ResolveMaximumHealth()
     {
-        if (_hasCachedMaximumHealth)
+        int revision = 0;
+        if (_participantLink != null &&
+            _participantLink.TryGetCharacterAttributeRevision(out revision) &&
+            _hasCachedMaximumHealth && _cachedAttributeRevision == revision)
         {
             return _cachedMaximumHealth;
         }
@@ -102,8 +107,22 @@ public sealed class PlayerCharacter : CharacterBase
         }
 
         _cachedMaximumHealth = statistics.MaximumHealth;
+        _cachedAttributeRevision = revision;
         _hasCachedMaximumHealth = true;
         return _cachedMaximumHealth;
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority || _participantLink == null ||
+            !_participantLink.TryGetCharacterAttributeRevision(out int revision) ||
+            revision == _clampedAttributeRevision)
+        {
+            return;
+        }
+
+        ClampCurrentHealthToMaximum(ResolveMaximumHealth());
+        _clampedAttributeRevision = revision;
     }
 
     /// <summary>

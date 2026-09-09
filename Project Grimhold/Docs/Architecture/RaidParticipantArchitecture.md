@@ -12,12 +12,24 @@ Each participant also replicates the `RaidGenerationId` assigned by
 inventory, extraction or lifecycle state.
 
 Each fresh participation also freezes the confirmed `CharacterAttributeState` supplied by the
-current profile source. The flow is `profile source -> participation admission/initialization ->
-NetworkRaidParticipant -> gameplay consumers`. State Authority writes the seven values and then
-publishes the initialization marker; the public try-pattern read therefore never exposes a partial
-snapshot. `NetworkRaidParticipant` remains the only source of truth for these attributes during
-the participation. `RaidAvatarParticipantLink` delegates reads to it and owns no attribute copy.
-Redistribution, profile validation and persistence remain outside the Raid runtime boundary.
+current profile source. State Authority writes the seven values and then publishes the initialization
+marker, so the persistent try-pattern read never exposes a partial snapshot. Raid gameplay uses the
+single effective flow `profile source -> participation admission/initialization -> runtime testing
+override -> NetworkRaidParticipant effective read -> gameplay consumers`.
+
+`RuntimeAttributeOverrideNetworkController` is co-located with the participant and owns only six
+replicated, session-scoped testing offsets plus a change revision. It composes those offsets over the
+frozen admitted snapshot, clamps effective values to the structural non-negative range and always
+preserves admitted `AvailablePoints`. `NetworkRaidParticipant.TryGetCharacterAttributeState` is the
+only public gameplay read and returns that effective snapshot; its separately named persistent read
+exists for developer inspection and composition, not for gameplay consumers.
+
+Only State Authority commits override changes. The participant's Input Authority may send the
+development-only discrete intentions `+1`, `+5`, `-1`, `-5`, reset one and reset all through RPCs;
+State Authority validates and applies them. `RaidAvatarParticipantLink` continues to delegate reads
+without owning an attribute copy. Redistribution, profile validation and persistence remain outside
+the Raid runtime boundary. No override value enters admission data, `LocalProfileStore`, a repository,
+an extraction/progression receipt or a backend request.
 
 The PlayerObject co-locates one `PlayerExpeditionExperienceLedger` that owns the
 participant's provisional Expedition Experience independently from the avatar. Its
@@ -105,8 +117,10 @@ avatar, so its restored body remains without player control.
 candidate, and resolver baseline/history with the participant. None is reinitialized or requires a
 NetworkId remap.
 
-The participant's networked character-attribute snapshot and its initialization marker are restored
-by the same Fusion state copy. Host Migration never reloads or replaces them from persistence.
+The participant's networked character-attribute snapshot, initialization marker and co-located runtime
+override state are restored by the same Fusion state copy. Host Migration therefore preserves testing
+offsets inside the same session, while a fresh participant starts with zero offsets. Host Migration
+never reloads or replaces either value from persistence.
 
 The restored player avatar derives maximum Health again from that restored participant snapshot after
 the participant-link `NetworkId` fixup. Its networked current `Health` is copied with the avatar and
@@ -122,7 +136,8 @@ responsibilities may not change PlayerObject identity or create a parallel parti
 ## Unity prefab composition
 
 `Assets/Prefabs/NetworkRaidParticipant.prefab` is the registered Fusion participant prefab
-and contains its `NetworkObject`, `NetworkRaidParticipant` and exactly one
+and contains its `NetworkObject`, `NetworkRaidParticipant`, exactly one
+`RuntimeAttributeOverrideNetworkController`, one development-only override panel and exactly one
 `PlayerExpeditionExperienceLedger` plus exactly one `PlayerExpeditionProgressionResolver` network
 behaviour.
 `FusionSessionLauncher._raidParticipantPrefab` on `Assets/Prefabs/Systems.prefab` references

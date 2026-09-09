@@ -64,14 +64,21 @@ public sealed class SessionCompositionConfigurationTests
             participantPrefab.GetComponents<PlayerExpeditionExperienceLedger>();
         PlayerExpeditionProgressionResolver[] resolvers =
             participantPrefab.GetComponents<PlayerExpeditionProgressionResolver>();
+        RuntimeAttributeOverrideNetworkController[] overrides =
+            participantPrefab.GetComponents<RuntimeAttributeOverrideNetworkController>();
+        RuntimeAttributeOverrideDeveloperPanel[] developerPanels =
+            participantPrefab.GetComponents<RuntimeAttributeOverrideDeveloperPanel>();
         Assert.That(participantObject, Is.Not.Null);
         Assert.That(participant, Is.Not.Null);
         Assert.That(ledgers, Has.Length.EqualTo(1));
         Assert.That(resolvers, Has.Length.EqualTo(1));
+        Assert.That(overrides, Has.Length.EqualTo(1));
+        Assert.That(developerPanels, Has.Length.EqualTo(1));
         Assert.That(participantPrefab.GetComponent<PlayerCharacter>(), Is.Null);
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(participant));
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(ledgers[0]));
         Assert.That(participantObject.NetworkedBehaviours, Does.Contain(resolvers[0]));
+        Assert.That(participantObject.NetworkedBehaviours, Does.Contain(overrides[0]));
 
         GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
         Assert.That(socialPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null);
@@ -231,6 +238,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidPreparationPresenter>()));
         Assert.That(prefab.GetComponents<TownInventoryBinder>(), Has.Length.EqualTo(1));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownInventoryBinder>()));
+        Assert.That(prefab.GetComponents<RuntimeAttributeOverrideDeveloperPanel>(), Has.Length.EqualTo(1));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(armorSource));
 
         Assert.That(FindChild(prefab.transform, "HelmetVisual"), Is.Not.Null);

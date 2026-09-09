@@ -35,6 +35,8 @@ namespace Tests.PlayMode.Equipment
         private PlayerWeaponEquipmentNetworkController _equipment;
         private PlayerLootReceiver _receiver;
         private PlayerCombatNetworkController _combat;
+        private NetworkRaidParticipant _participant;
+        private RuntimeAttributeOverrideNetworkController _attributeOverride;
 
         private LootDefinition _meleeWeapon;
         private LootDefinition _rangedWeapon;
@@ -260,6 +262,52 @@ namespace Tests.PlayMode.Equipment
                 _equipment.TryGetEquippedDefinition(out LootDefinition equipped),
                 Is.True);
             Assert.That(equipped, Is.SameAs(_greatsword));
+        }
+
+        [UnityTest]
+        public IEnumerator RuntimeAttributeOverride_DrivesRequirementsScalingAndReset()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 5));
+
+            Assert.That(
+                _equipment.CanEquip(_greatsword.LootId, EquipmentSlot.WeaponSetAMainHand),
+                Is.False);
+            Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Strength, 5), Is.True);
+            yield return WaitUntil(
+                () => TryGetEffectiveStrength(out int value) && value == 10,
+                "The first authoritative Strength override was not applied.");
+            Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Strength, 5), Is.True);
+            yield return WaitUntil(
+                () => TryGetEffectiveStrength(out int value) && value == 15,
+                "Persistent Strength 5 plus the runtime +10 did not produce 15.");
+
+            Assert.That(
+                _equipment.CanEquip(_greatsword.LootId, EquipmentSlot.WeaponSetAMainHand),
+                Is.True);
+            yield return Equip(_greatsword, EquipmentOperationResult.Succeeded);
+            AssertRuntimeParameters(
+                _equipment.GetComponent<MeleeAttack>(),
+                53.25f,
+                DamageType.Physical,
+                1.4f,
+                2f,
+                10f);
+
+            Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Strength, 5), Is.True);
+            yield return WaitUntil(
+                () => TryGetRuntimeDamage(_equipment.GetComponent<MeleeAttack>(), out float damage) &&
+                    Mathf.Approximately(damage, 56f),
+                "The active weapon did not rebuild scaling from effective Strength 20.");
+
+            Assert.That(_attributeOverride.RequestReset(CharacterAttribute.Strength), Is.True);
+            yield return WaitUntil(
+                () => TryGetEffectiveStrength(out int value) && value == 5 &&
+                    _equipment.ActiveWeaponSetSlot == WeaponSetSlot.None,
+                "Reset did not restore persistent Strength and invalidate the active weapon.");
+            Assert.That(
+                _participant.TryGetPersistentCharacterAttributeState(out CharacterAttributeState persistent),
+                Is.True);
+            Assert.That(persistent.Strength, Is.EqualTo(5));
         }
 
         [UnityTest]
@@ -533,6 +581,8 @@ namespace Tests.PlayMode.Equipment
             CharacterAttributeState attributes = admittedAttributes ??
                 ProgressionBalanceDefaults.InitialCharacterAttributeState;
             NetworkObject participantObject = SpawnParticipant(attributes);
+            _participant = participantObject.GetComponent<NetworkRaidParticipant>();
+            _attributeOverride = participantObject.GetComponent<RuntimeAttributeOverrideNetworkController>();
             NetworkObject playerObject = SpawnPlayer(participantObject);
             _equipment = playerObject.GetComponent<PlayerWeaponEquipmentNetworkController>();
             _receiver = playerObject.GetComponent<PlayerLootReceiver>();
@@ -540,6 +590,8 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_equipment, Is.Not.Null);
             Assert.That(_receiver, Is.Not.Null);
             Assert.That(_combat, Is.Not.Null);
+            Assert.That(_participant, Is.Not.Null);
+            Assert.That(_attributeOverride, Is.Not.Null);
             Assert.That(_equipment.HasStateAuthority, Is.True);
             Assert.That(_equipment.HasInputAuthority, Is.True);
 
@@ -807,6 +859,34 @@ namespace Tests.PlayMode.Equipment
             Assert.That(actual.CooldownSeconds, Is.EqualTo(cooldown).Within(0.0001f));
             Assert.That(actual.Range, Is.EqualTo(range).Within(0.0001f));
             Assert.That(actual.KnockbackForce, Is.EqualTo(knockback).Within(0.0001f));
+        }
+
+        private bool TryGetEffectiveStrength(out int strength)
+        {
+            strength = 0;
+            return _participant != null &&
+                _participant.TryGetCharacterAttributeState(out CharacterAttributeState attributes) &&
+                attributes.TryGetValue(CharacterAttribute.Strength, out strength);
+        }
+
+        private static bool TryGetRuntimeDamage(MonoBehaviour attack, out float damage)
+        {
+            damage = 0f;
+            if (attack == null)
+            {
+                return false;
+            }
+
+            FieldInfo field = attack.GetType().GetField(
+                "_runtimeParameters",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+            {
+                return false;
+            }
+
+            damage = ((AttackExecutionParameters)field.GetValue(attack)).Damage;
+            return true;
         }
 
         private static int TotalIn(IReadOnlyList<LootEntry> entries, LootId lootId)

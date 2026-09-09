@@ -103,7 +103,7 @@ unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may r
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
 Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
-with the participant's confirmed `CharacterAttributeState`. Equipment selects the attribute declared
+with the participant's effective `CharacterAttributeState`. Equipment selects the attribute declared
 by `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
 interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
@@ -115,8 +115,14 @@ the strategy or disturb the authoritative cooldown. Slot-selection input travels
 `PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown. Any mutation
 of any of the eight slots advances `EquipmentRevision`, which is what presentation observes.
 
+Equipment also observes the participant's effective-attribute revision. A testing override therefore
+revalidates the active weapon requirement and rebuilds its local attack parameters under State Authority;
+the same effective snapshot supplies both the requirement and the scaling calculation. If a decrease
+makes the active weapon invalid, the existing authoritative invalid-active-weapon path clears the active
+selection without removing the equipped unit.
+
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
-slot again, rebuilding the strategy and recalculating effective damage from the restored confirmed
+slot again, rebuilding the strategy and recalculating effective damage from the restored effective
 attributes without replaying equipment requests. Effective damage is derived runtime state and is
 not replicated or persisted. The armor slots need no
 dedicated restore logic — they are ordinary `[Networked]` properties. ScriptableObjects and
@@ -231,7 +237,7 @@ configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack
 runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their
 own `AttackExecutionParameters`, keeping their existing behavior independent from Equipment.
 Scaling grades remain Game Design concepts and are represented in runtime configuration only by their
-resolved coefficient.
+    resolved coefficient.
 
 ---
 

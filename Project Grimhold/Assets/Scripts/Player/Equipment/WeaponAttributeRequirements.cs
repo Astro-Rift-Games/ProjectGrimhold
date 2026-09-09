@@ -37,7 +37,7 @@ public struct WeaponAttributeRequirements : IEquatable<WeaponAttributeRequiremen
         return true;
     }
 
-    /// <summary>Evaluates every configured minimum against one confirmed attribute state.</summary>
+    /// <summary>Evaluates every configured minimum against one effective attribute state.</summary>
     public bool IsSatisfiedBy(in CharacterAttributeState attributes) =>
         TryValidate(out _) &&
         attributes.Strength >= _minimumStrength &&

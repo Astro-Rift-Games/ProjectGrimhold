@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Owns the player's networked Stamina state and advances its temporal rules.
-/// Maximum Stamina is derived from the admitted Raid attribute snapshot and is not replicated.
+/// Maximum Stamina is derived from the effective Raid attribute snapshot and is not replicated.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-11)]
@@ -114,7 +114,7 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
     }
 
     /// <summary>
-    /// Resolves Max Stamina from the frozen Raid attributes without creating another RES source.
+    /// Resolves Max Stamina from the effective Raid attributes without creating another RES source.
     /// </summary>
     public bool TryGetMaximumStamina(out float maximumStamina)
     {

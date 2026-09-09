@@ -55,12 +55,22 @@ snapshot used to reconstruct committed history.
 
 ## Derived character statistics
 
-`CharacterDerivedStatisticsCalculator` is a pure C# projection over the confirmed
-`CharacterAttributeState`. During a Raid, consumers obtain that frozen state from
-`NetworkRaidParticipant`; the calculator does not query persistence, UI or an avatar-owned copy.
+`CharacterDerivedStatisticsCalculator` is a pure C# projection over the effective
+`CharacterAttributeState`. During a Raid, consumers obtain that single snapshot from
+`NetworkRaidParticipant`; the participant composes its frozen admitted state with any
+session-only developer override before exposing it. The calculator does not query persistence,
+testing UI or an avatar-owned copy.
 Its immutable configuration supplies the current balance values for maximum Health, maximum
 Stamina and additional-Loot probability. Probabilities use integer basis points so deterministic
 consumers can preserve fractional percentages without floating-point state.
+
+In development, `ApplicationStashContext` owns one process-local
+`RuntimeAttributeOverrideSession`. The local Town player can configure that state without mutating
+`LocalProfileStore`; the same state is submitted to the Raid participant after the runner transition,
+where State Authority validates and replicates it through
+`RuntimeAttributeOverrideNetworkController`. Town is configuration-only: its persistent assignment
+and prepared-Equipment commits keep their normal profile rules. The developer panel is attached only
+to the local Town or Raid player presentation and can be collapsed without changing its state.
 
 The projection owns no runtime or persistent state and is not separately replicated. Strength,
 Dexterity and Intelligence remain raw competencies read from `CharacterAttributeState`; they are
@@ -68,8 +78,10 @@ not copied into a parallel offensive-statistics model. Current Health, current S
 scaling and the authoritative Loot roll remain owned by their respective consuming systems.
 
 `PlayerCharacter` consumes the projection through its `RaidAvatarParticipantLink`. It lazily derives
-and caches maximum Health only after the linked `NetworkRaidParticipant` exposes its complete frozen
-attribute snapshot. `CharacterBase.Health` remains the single networked current-Health value, while
+and caches maximum Health against the participant's effective-attribute revision only after the linked
+`NetworkRaidParticipant` exposes a complete snapshot. A runtime maximum increase does not heal; a
+decrease clamps current Health authoritatively to the new maximum. `CharacterBase.Health` remains the
+single networked current-Health value, while
 `CharacterBase.MaxHealth` is a local projection and is not separately replicated. Fresh State
 Authority player spawns initialize current Health from that effective maximum and the existing healing
 pipeline uses the same value as its cap. Non-player characters continue to use their authored prefab

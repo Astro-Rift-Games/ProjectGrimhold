@@ -61,6 +61,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private int _appliedOffHandA = int.MinValue;
     private int _appliedOffHandB = int.MinValue;
     private int _appliedActiveSlot = int.MinValue;
+    private int _appliedAttributeRevision = int.MinValue;
     private bool _initializedBeforeSpawn;
     private bool _reportedUnavailableWeaponAttributes;
     private readonly Queue<EquipmentOperationResult> _pendingPresentationResults = new();
@@ -1233,7 +1234,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _appliedSlot2 != WeaponSetBMainHandCatalogIndexPlusOne ||
         _appliedOffHandA != WeaponSetAOffHandCatalogIndexPlusOne ||
         _appliedOffHandB != WeaponSetBOffHandCatalogIndexPlusOne ||
-        _appliedActiveSlot != ActiveWeaponSetSlotValue;
+        _appliedActiveSlot != ActiveWeaponSetSlotValue ||
+        _participantLink == null ||
+        !_participantLink.TryGetCharacterAttributeRevision(out int attributeRevision) ||
+        _appliedAttributeRevision != attributeRevision;
 
     private void CaptureAppliedState()
     {
@@ -1242,6 +1246,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _appliedOffHandA = WeaponSetAOffHandCatalogIndexPlusOne;
         _appliedOffHandB = WeaponSetBOffHandCatalogIndexPlusOne;
         _appliedActiveSlot = ActiveWeaponSetSlotValue;
+        _appliedAttributeRevision = _participantLink != null &&
+            _participantLink.TryGetCharacterAttributeRevision(out int revision)
+                ? revision
+                : int.MinValue;
     }
 
     private void CacheDependencies()

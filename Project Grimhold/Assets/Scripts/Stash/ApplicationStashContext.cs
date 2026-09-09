@@ -16,6 +16,9 @@ public sealed class ApplicationStashContext : MonoBehaviour
     public bool IsAvailable => Store != null && Store.IsAvailable;
     public LocalProfilePersistenceStatus PersistenceStatus => Store?.Status ?? LocalProfilePersistenceStatus.Unavailable;
     public string PersistenceError => Store?.LastError;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    public RuntimeAttributeOverrideSession RuntimeAttributeOverrides { get; } = new();
+#endif
 
     public event System.Action<ProfileId> ProfileCommitted;
 

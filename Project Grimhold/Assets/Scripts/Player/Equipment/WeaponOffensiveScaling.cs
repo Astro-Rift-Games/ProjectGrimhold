@@ -45,7 +45,7 @@ public struct WeaponOffensiveScaling
     }
 
     /// <summary>
-    /// Resolves the selected confirmed attribute, or zero when this configuration has no scaling.
+    /// Resolves the selected effective attribute, or zero when this configuration has no scaling.
     /// </summary>
     public bool TryResolveAttributeValue(in CharacterAttributeState attributes, out int value)
     {

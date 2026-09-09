@@ -83,14 +83,29 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
     private PlayerExpeditionProgressionResolver _progressionResolver;
     private ApplicationStashContext _localStashContext;
+    private RuntimeAttributeOverrideNetworkController _runtimeAttributeOverride;
     private int _localProgressionResultSequence;
     private float _nextProgressionCommitRetryAt;
 
     /// <summary>
-    /// Reads the immutable attribute snapshot admitted for this participation.
-    /// No persistent source is consulted after participant initialization.
+    /// Reads the single effective attribute snapshot consumed by Raid gameplay.
+    /// It composes the frozen admitted state with session-only testing offsets.
     /// </summary>
     public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
+    {
+        state = default;
+        if (!TryGetPersistentCharacterAttributeState(out CharacterAttributeState persistent))
+        {
+            return false;
+        }
+
+        _runtimeAttributeOverride ??= GetComponent<RuntimeAttributeOverrideNetworkController>();
+        return _runtimeAttributeOverride != null &&
+            _runtimeAttributeOverride.TryGetEffectiveState(persistent, out state);
+    }
+
+    /// <summary>Reads the immutable snapshot admitted from the persistent profile.</summary>
+    public bool TryGetPersistentCharacterAttributeState(out CharacterAttributeState state)
     {
         state = default;
         if (Object == null || !Object.IsValid)
@@ -108,6 +123,24 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             CharacterLuck,
             CharacterAvailableAttributePoints,
             out state);
+    }
+
+    public bool TryGetCharacterAttributeRevision(out int revision)
+    {
+        revision = 0;
+        if (Object == null || !Object.IsValid)
+        {
+            return false;
+        }
+
+        _runtimeAttributeOverride ??= GetComponent<RuntimeAttributeOverrideNetworkController>();
+        if (_runtimeAttributeOverride == null)
+        {
+            return false;
+        }
+
+        revision = _runtimeAttributeOverride.ObservedRevision;
+        return true;
     }
 
     internal static bool TryBuildCharacterAttributeState(
@@ -202,6 +235,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     private void Awake()
     {
         _progressionResolver = GetComponent<PlayerExpeditionProgressionResolver>();
+        _runtimeAttributeOverride = GetComponent<RuntimeAttributeOverrideNetworkController>();
     }
 
     public override void FixedUpdateNetwork()

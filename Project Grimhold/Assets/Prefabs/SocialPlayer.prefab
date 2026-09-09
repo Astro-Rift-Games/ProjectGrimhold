@@ -504,6 +504,7 @@ GameObject:
   - component: {fileID: 6766885198686593445}
   - component: {fileID: 8056183654169602884}
   - component: {fileID: 6500000000000000010}
+  - component: {fileID: 6500000000000000011}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -897,6 +898,18 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::SocialPlayerArmorEquipmentNetworkSource
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+--- !u!114 &6500000000000000011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6056049a812d4e13a474a4fda3b74874, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RuntimeAttributeOverrideDeveloperPanel
 --- !u!1 &5000000000000000001
 GameObject:
   m_ObjectHideFlags: 0

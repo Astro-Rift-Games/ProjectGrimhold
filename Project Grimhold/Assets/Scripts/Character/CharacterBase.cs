@@ -236,6 +236,15 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
         return _maxHealth;
     }
 
+    /// <summary>Clamps current Health after an authoritative maximum decrease without healing.</summary>
+    protected void ClampCurrentHealthToMaximum(float maximumHealth)
+    {
+        if (HasStateAuthority && maximumHealth >= 0f && Health > maximumHealth)
+        {
+            Health = maximumHealth;
+        }
+    }
+
     /// <summary>
     /// Method called when character health reaches 0 on the State Authority.
     /// </summary>
