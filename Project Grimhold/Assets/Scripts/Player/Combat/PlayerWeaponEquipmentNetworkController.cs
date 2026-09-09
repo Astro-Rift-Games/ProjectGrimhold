@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-9)]
-public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour
+public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, IEquipmentVisualSource
 {
     private enum EquipmentRequestKind : byte
     {

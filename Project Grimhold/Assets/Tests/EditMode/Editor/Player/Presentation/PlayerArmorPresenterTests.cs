@@ -124,6 +124,26 @@ public class PlayerArmorPresenterTests
     }
 
     [Test]
+    public void SocialPrefab_ReusesArmorPresenterWithCompleteModularRendererContract()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/SocialPlayer.prefab");
+        Assert.That(prefab, Is.Not.Null);
+
+        PlayerArmorPresenter presenter = prefab.GetComponentInChildren<PlayerArmorPresenter>(true);
+        Assert.That(presenter, Is.Not.Null);
+
+        var serialized = new SerializedObject(presenter);
+        Assert.That(
+            serialized.FindProperty("_equipmentSource").objectReferenceValue,
+            Is.SameAs(prefab.GetComponent<SocialPlayerArmorEquipmentNetworkSource>()));
+        AssertRendererAboveSource(serialized, "_headBase", "_helmetVisual");
+        AssertRendererAboveSource(serialized, "_bodyBase", "_armorVisual");
+        AssertRendererAboveSource(serialized, "_leftHandBase", "_leftGloveVisual");
+        AssertRendererAboveSource(serialized, "_rightHandBase", "_rightGloveVisual");
+        AssertRendererAboveSource(serialized, "_legsBase", "_bootsVisual");
+    }
+
+    [Test]
     public void SyncSprite_WhenConfigIsNull_DoesNotCopySprite()
     {
         // Arrange

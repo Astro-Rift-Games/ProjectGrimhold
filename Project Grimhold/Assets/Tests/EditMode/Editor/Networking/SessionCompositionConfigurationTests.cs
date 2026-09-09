@@ -179,6 +179,13 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab.GetComponent<PlayerInteractionNetworkController>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalInteractionCandidateSource>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<SocialPlayerIdentity>(), Is.Not.Null);
+        SocialPlayerArmorEquipmentNetworkSource armorSource =
+            prefab.GetComponent<SocialPlayerArmorEquipmentNetworkSource>();
+        Assert.That(armorSource, Is.Not.Null);
+        PlayerArmorPresenter armorPresenter =
+            prefab.GetComponentInChildren<PlayerArmorPresenter>(true);
+        Assert.That(armorPresenter, Is.Not.Null);
+        Assert.That(SerializedReference(armorPresenter, "_equipmentSource"), Is.SameAs(armorSource));
         Assert.That(prefab.GetComponent<TownRaidPreparationPresenter>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<LocalPlayerCameraBinder>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<PlayerLootReceiver>(), Is.Null);
@@ -188,6 +195,12 @@ public sealed class SessionCompositionConfigurationTests
         {
             typeof(PlayerCharacter),
             typeof(PlayerCombatNetworkController),
+            typeof(PlayerWeaponEquipmentNetworkController),
+            typeof(PlayerWeaponPresenter),
+            typeof(PlayerCombatPresenter),
+            typeof(MeleeAttack),
+            typeof(RangedAttack),
+            typeof(FusionProjectileSpawner),
             typeof(DamageResolver),
             typeof(PlayerLootTransferNetworkController),
             typeof(PlayerLootDropNetworkController),
@@ -218,6 +231,13 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidPreparationPresenter>()));
         Assert.That(prefab.GetComponents<TownInventoryBinder>(), Has.Length.EqualTo(1));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownInventoryBinder>()));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(armorSource));
+
+        Assert.That(FindChild(prefab.transform, "HelmetVisual"), Is.Not.Null);
+        Assert.That(FindChild(prefab.transform, "ArmorVisual"), Is.Not.Null);
+        Assert.That(FindChild(prefab.transform, "LeftGloveVisual"), Is.Not.Null);
+        Assert.That(FindChild(prefab.transform, "RightGloveVisual"), Is.Not.Null);
+        Assert.That(FindChild(prefab.transform, "BootsVisual"), Is.Not.Null);
     }
 
     [Test]

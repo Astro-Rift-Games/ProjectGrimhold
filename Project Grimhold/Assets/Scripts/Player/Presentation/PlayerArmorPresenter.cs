@@ -1,16 +1,15 @@
-using Fusion;
 using UnityEngine;
 
 /// <summary>
 /// Presents the player's equipped armor visually by layering copies of the base modular sprites.
-/// Driven by the authoritative EquipmentRevision from PlayerWeaponEquipmentNetworkController.
+/// Driven through the same read-only visual contract in Raid and Town.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerArmorPresenter : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField]
-    private PlayerWeaponEquipmentNetworkController _equipmentSource;
+    private MonoBehaviour _equipmentSource;
 
     [Header("Base Renderers (Source)")]
     [SerializeField] private SpriteRenderer _headBase;
@@ -27,6 +26,7 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
     [SerializeField] private SpriteRenderer _bootsVisual;
 
     private int _lastEquipmentRevision = -1;
+    private IEquipmentVisualSource _visualSource;
 
     // Cache the resolved definitions so we don't fetch them every frame
     private EquipmentVisualDefinition _helmetConfig;
@@ -49,12 +49,12 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_equipmentSource == null || _equipmentSource.Object == null || !_equipmentSource.Object.IsValid)
+        if (_visualSource == null)
         {
             return;
         }
 
-        int currentRevision = _equipmentSource.ObservedEquipmentRevision;
+        int currentRevision = _visualSource.ObservedEquipmentRevision;
         if (_lastEquipmentRevision != currentRevision)
         {
             ResolveEquipmentVisualConfigs();
@@ -99,7 +99,7 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
 
     private EquipmentVisualDefinition GetVisualConfig(EquipmentSlot slot)
     {
-        if (_equipmentSource.TryGetSlotDefinition(slot, out LootDefinition definition))
+        if (_visualSource != null && _visualSource.TryGetSlotDefinition(slot, out LootDefinition definition))
         {
             return definition.EquipmentVisualDefinition;
         }
@@ -145,9 +145,23 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
 
     private void CacheDependencies()
     {
-        if (_equipmentSource == null)
+        _visualSource = _equipmentSource as IEquipmentVisualSource;
+        if (_visualSource != null)
         {
-            _equipmentSource = GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+            return;
+        }
+
+        MonoBehaviour[] candidates = GetComponentsInParent<MonoBehaviour>(true);
+        for (int index = 0; index < candidates.Length; index++)
+        {
+            if (candidates[index] is not IEquipmentVisualSource source)
+            {
+                continue;
+            }
+
+            _equipmentSource = candidates[index];
+            _visualSource = source;
+            return;
         }
     }
 
