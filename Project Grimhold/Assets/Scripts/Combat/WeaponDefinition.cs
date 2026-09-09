@@ -31,6 +31,11 @@ public sealed class WeaponDefinition : ScriptableObject
     [SerializeField]
     private WeaponAttributeRequirements _attributeRequirements;
 
+    [Header("Audio Configuration")]
+    [SerializeField]
+    [Tooltip("Optional. Audio configuration defining sound variations (Swing, Hit, etc.) for this weapon.")]
+    private WeaponAudioConfig _audioConfig;
+
     public float BaseDamage => _baseDamage;
     public float AttackIntervalSeconds => _attackIntervalSeconds;
     public float Range => _range;
@@ -42,6 +47,7 @@ public sealed class WeaponDefinition : ScriptableObject
     public WeaponOffensiveScaling OffensiveScaling => _offensiveScaling;
     public PresentationConfig Presentation => _presentation;
     public WeaponAttributeRequirements AttributeRequirements => _attributeRequirements;
+    public WeaponAudioConfig AudioConfig => _audioConfig;
 
     /// <summary>Uses the shared Equipment eligibility rule for this weapon definition.</summary>
     public bool AreAttributeRequirementsSatisfiedBy(in CharacterAttributeState attributes) =>

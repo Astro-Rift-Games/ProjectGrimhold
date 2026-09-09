@@ -13,10 +13,19 @@ MonoBehaviour:
   m_Name: MusicConfig
   m_EditorClassIdentifier: Assembly-CSharp::MusicAudioConfig
   _entries:
-  - Key: BackgroundNoise
+  - Key: Town
     Clip:
       _clips:
       - {fileID: 8300000, guid: c53d52b6903e77342963b7b627f126fb, type: 3}
+      _volume: 0
+      _pitch: 0
+      _spatialBlend: 0
+      _loop: 0
+  - Key: Raid
+    Clip:
+      _clips:
+      - {fileID: 8300000, guid: c267a09e073fb494bb30346229c66cab, type: 3}
+      - {fileID: 8300000, guid: 104aff2a688094c6593e4f6cc5ebbb7e, type: 3}
       _volume: 0
       _pitch: 0
       _spatialBlend: 0

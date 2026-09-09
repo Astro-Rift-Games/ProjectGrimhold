@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb35458a130e6954eb2023a1a348791e, type: 3}
+  m_Name: SlimeAudioConfig
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAudioConfig
+  _entries:
+  - Key: Attack
+    Clip:
+      _clips:
+      - {fileID: 8300000, guid: ac6034ade498bb94b87620cdf6eac48b, type: 3}
+      - {fileID: 8300000, guid: 8ebcb6234d419344daa712ba65bb3798, type: 3}
+      _volume: 0
+      _pitch: 0
+      _spatialBlend: 0
+      _loop: 0
+  - Key: TakeDamage
+    Clip:
+      _clips:
+      - {fileID: 8300000, guid: a37f44cbf8c2a7443a3c361efa2f233a, type: 3}
+      - {fileID: 8300000, guid: e1a75776f005439469f89a17a986c567, type: 3}
+      _volume: 0
+      _pitch: 0
+      _spatialBlend: 0
+      _loop: 0
