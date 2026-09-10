@@ -16,12 +16,26 @@ public sealed class PlayerCharacter : CharacterBase
 
     [SerializeField]
     private RaidAvatarParticipantLink _participantLink;
+
+    [SerializeField]
+    private PlayerWeaponEquipmentNetworkController _equipmentController;
+
+    [SerializeField, Min(0.0001f)]
+    private float _defenseMitigationConstant = 100f;
+
     private bool _reportedMissingExtractionController;
-    private bool _hasCachedMaximumHealth;
-    private float _cachedMaximumHealth;
-    private int _cachedAttributeRevision;
+    private bool _hasCachedEquipmentStatistics;
+    private EquipmentStatisticsModifiers _cachedEquipmentStatistics;
+    private int _cachedEquipmentRevision = int.MinValue;
+    private bool _hasCachedRuntimeStatistics;
+    private PlayerRuntimeStatistics _cachedRuntimeStatistics;
+    private int _cachedRuntimeAttributeRevision = int.MinValue;
+    private int _cachedRuntimeEquipmentRevision = int.MinValue;
     private int _clampedAttributeRevision = int.MinValue;
-    private bool _reportedInvalidDerivedStatistics;
+    private int _clampedEquipmentRevision = int.MinValue;
+    private bool _reportedInvalidEquipmentStatistics;
+    private bool _reportedInvalidRuntimeStatistics;
+    private bool _reportedInvalidMitigation;
 
     [Networked]
     public NetworkString<_32> ProfileIdString { get; set; }
@@ -68,61 +82,134 @@ public sealed class PlayerCharacter : CharacterBase
     }
 
     /// <summary>
-    /// Derives the participant's effective maximum Health from the effective Raid attributes.
+    /// Derives the participant's effective maximum Health from Raid attributes and Equipment.
     /// A temporarily unresolved participant link keeps the prefab fallback available without
     /// caching it, so Host Migration remapping can resolve the authoritative snapshot later.
     /// </summary>
     protected override float ResolveMaximumHealth()
     {
-        int revision = 0;
-        if (_participantLink != null &&
-            _participantLink.TryGetCharacterAttributeRevision(out revision) &&
-            _hasCachedMaximumHealth && _cachedAttributeRevision == revision)
+        if (TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
         {
-            return _cachedMaximumHealth;
+            return statistics.MaximumHealth;
         }
 
-        if (_participantLink == null ||
-            !_participantLink.TryGetCharacterAttributeState(out CharacterAttributeState attributes))
+        return base.ResolveMaximumHealth();
+    }
+
+    /// <summary>Gets the effective local projection without duplicating authoritative state.</summary>
+    public bool TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics)
+    {
+        statistics = default;
+        if (_participantLink == null || _equipmentController == null ||
+            !_participantLink.TryGetCharacterAttributeState(out CharacterAttributeState attributes) ||
+            !_participantLink.TryGetCharacterAttributeRevision(out int attributeRevision) ||
+            !TryGetEquipmentStatistics(out EquipmentStatisticsModifiers equipment, out int equipmentRevision))
         {
-            return base.ResolveMaximumHealth();
+            return false;
         }
 
-        if (!CharacterDerivedStatisticsCalculator.TryCalculate(
+        if (_hasCachedRuntimeStatistics &&
+            _cachedRuntimeAttributeRevision == attributeRevision &&
+            _cachedRuntimeEquipmentRevision == equipmentRevision)
+        {
+            statistics = _cachedRuntimeStatistics;
+            return true;
+        }
+
+        if (!PlayerRuntimeStatisticsCalculator.TryCalculate(
                 attributes,
                 ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
-                out CharacterDerivedStatistics statistics,
+                equipment,
+                out statistics,
                 out CharacterDerivedStatisticsCalculationFailure failure))
         {
-            if (!_reportedInvalidDerivedStatistics)
+            if (!_reportedInvalidRuntimeStatistics)
             {
                 Debug.LogError(
-                    $"{nameof(PlayerCharacter)} could not derive maximum Health from the admitted " +
-                    $"character attributes. Failure={failure}.",
+                    $"{nameof(PlayerCharacter)} could not derive runtime statistics. Failure={failure}.",
                     this);
-                _reportedInvalidDerivedStatistics = true;
+                _reportedInvalidRuntimeStatistics = true;
             }
 
-            return base.ResolveMaximumHealth();
+            return false;
         }
 
-        _cachedMaximumHealth = statistics.MaximumHealth;
-        _cachedAttributeRevision = revision;
-        _hasCachedMaximumHealth = true;
-        return _cachedMaximumHealth;
+        _cachedRuntimeStatistics = statistics;
+        _cachedRuntimeAttributeRevision = attributeRevision;
+        _cachedRuntimeEquipmentRevision = equipmentRevision;
+        _hasCachedRuntimeStatistics = true;
+        _reportedInvalidRuntimeStatistics = false;
+        return true;
     }
 
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority || _participantLink == null ||
             !_participantLink.TryGetCharacterAttributeRevision(out int revision) ||
-            revision == _clampedAttributeRevision)
+            _equipmentController == null)
         {
             return;
         }
 
-        ClampCurrentHealthToMaximum(ResolveMaximumHealth());
+        int equipmentRevision = _equipmentController.ObservedEquipmentRevision;
+        if (revision == _clampedAttributeRevision &&
+            equipmentRevision == _clampedEquipmentRevision)
+        {
+            return;
+        }
+
+        if (!TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
+        {
+            return;
+        }
+
+        ClampCurrentHealthToMaximum(statistics.MaximumHealth);
         _clampedAttributeRevision = revision;
+        _clampedEquipmentRevision = equipmentRevision;
+    }
+
+    protected override float CalculateMitigatedDamage(float amount, DamageType damageType)
+    {
+        if (damageType == DamageType.TrueDamage)
+        {
+            return amount;
+        }
+
+        if (!TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
+        {
+            return amount;
+        }
+
+        int defense;
+        switch (damageType)
+        {
+            case DamageType.Physical:
+                defense = statistics.PhysicalDefense;
+                break;
+            case DamageType.Magical:
+                defense = statistics.MagicalDefense;
+                break;
+            default:
+                return amount;
+        }
+        if (EquipmentDamageMitigationCalculator.TryCalculate(
+                amount,
+                defense,
+                _defenseMitigationConstant,
+                out float mitigatedDamage))
+        {
+            return mitigatedDamage;
+        }
+
+        if (!_reportedInvalidMitigation)
+        {
+            Debug.LogError(
+                $"{nameof(PlayerCharacter)} could not calculate Equipment damage mitigation.",
+                this);
+            _reportedInvalidMitigation = true;
+        }
+
+        return amount;
     }
 
     /// <summary>
@@ -170,6 +257,80 @@ public sealed class PlayerCharacter : CharacterBase
         {
             _participantLink = GetComponent<RaidAvatarParticipantLink>();
         }
+
+        if (_equipmentController == null)
+        {
+            _equipmentController = GetComponent<PlayerWeaponEquipmentNetworkController>();
+        }
+    }
+
+    private bool TryGetEquipmentStatistics(
+        out EquipmentStatisticsModifiers statistics,
+        out int revision)
+    {
+        statistics = default;
+        revision = 0;
+        if (_equipmentController == null)
+        {
+            return false;
+        }
+
+        revision = _equipmentController.ObservedEquipmentRevision;
+        if (_hasCachedEquipmentStatistics && _cachedEquipmentRevision == revision)
+        {
+            statistics = _cachedEquipmentStatistics;
+            return true;
+        }
+
+        EquipmentStatisticsCalculationFailure failure =
+            EquipmentStatisticsCalculationFailure.InvalidArmorDefinition;
+        if (!TryResolveArmorDefinition(EquipmentSlot.Helmet, out ArmorDefinition helmet) ||
+            !TryResolveArmorDefinition(EquipmentSlot.Armor, out ArmorDefinition armor) ||
+            !TryResolveArmorDefinition(EquipmentSlot.Gloves, out ArmorDefinition gloves) ||
+            !TryResolveArmorDefinition(EquipmentSlot.Boots, out ArmorDefinition boots) ||
+            !EquipmentStatisticsCalculator.TryCalculate(
+                helmet,
+                armor,
+                gloves,
+                boots,
+                out statistics,
+                out failure))
+        {
+            if (!_reportedInvalidEquipmentStatistics)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerCharacter)} could not project Equipment statistics. " +
+                    $"Failure={failure}.",
+                    this);
+                _reportedInvalidEquipmentStatistics = true;
+            }
+
+            return false;
+        }
+
+        _cachedEquipmentStatistics = statistics;
+        _cachedEquipmentRevision = revision;
+        _hasCachedEquipmentStatistics = true;
+        _reportedInvalidEquipmentStatistics = false;
+        return true;
+    }
+
+    private bool TryResolveArmorDefinition(EquipmentSlot slot, out ArmorDefinition armorDefinition)
+    {
+        armorDefinition = null;
+        if (!_equipmentController.IsSlotOccupied(slot))
+        {
+            return true;
+        }
+
+        if (!_equipmentController.TryGetSlotDefinition(slot, out LootDefinition lootDefinition) ||
+            lootDefinition?.ArmorDefinition == null)
+        {
+            return false;
+        }
+
+        armorDefinition = lootDefinition.ArmorDefinition;
+        return true;
     }
 
 #if UNITY_EDITOR

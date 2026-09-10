@@ -9,6 +9,14 @@ public static class CharacterDerivedStatisticsCalculator
         in CharacterAttributeState attributes,
         CharacterDerivedStatisticsConfiguration configuration,
         out CharacterDerivedStatistics statistics,
+        out CharacterDerivedStatisticsCalculationFailure failure) =>
+        TryCalculate(attributes, configuration, default, out statistics, out failure);
+
+    public static bool TryCalculate(
+        in CharacterAttributeState attributes,
+        CharacterDerivedStatisticsConfiguration configuration,
+        in EquipmentStatisticsModifiers externalModifiers,
+        out CharacterDerivedStatistics statistics,
         out CharacterDerivedStatisticsCalculationFailure failure)
     {
         statistics = default;
@@ -23,6 +31,7 @@ public static class CharacterDerivedStatisticsCalculator
                 configuration.BaseMaximumHealth,
                 configuration.MaximumHealthPerVitality,
                 attributes.Vitality,
+                externalModifiers.MaximumHealthModifier,
                 out int maximumHealth))
         {
             failure = CharacterDerivedStatisticsCalculationFailure.MaximumHealthOverflow;
@@ -33,9 +42,21 @@ public static class CharacterDerivedStatisticsCalculator
                 configuration.BaseMaximumStamina,
                 configuration.MaximumStaminaPerResistance,
                 attributes.Resistance,
+                externalModifiers.MaximumStaminaModifier,
                 out int maximumStamina))
         {
             failure = CharacterDerivedStatisticsCalculationFailure.MaximumStaminaOverflow;
+            return false;
+        }
+
+        if (!TryCalculateMaximum(
+                configuration.BaseMaximumMana,
+                0,
+                0,
+                externalModifiers.MaximumManaModifier,
+                out int maximumMana))
+        {
+            failure = CharacterDerivedStatisticsCalculationFailure.MaximumManaOverflow;
             return false;
         }
 
@@ -48,13 +69,19 @@ public static class CharacterDerivedStatisticsCalculator
         statistics = new CharacterDerivedStatistics(
             maximumHealth,
             maximumStamina,
+            maximumMana,
             additionalLootChanceBasisPoints);
         return true;
     }
 
-    private static bool TryCalculateMaximum(int baseValue, int valuePerAttribute, int attribute, out int result)
+    private static bool TryCalculateMaximum(
+        int baseValue,
+        int valuePerAttribute,
+        int attribute,
+        int externalModifier,
+        out int result)
     {
-        long candidate = baseValue + (long)valuePerAttribute * attribute;
+        long candidate = baseValue + (long)valuePerAttribute * attribute + externalModifier;
         if (candidate > int.MaxValue)
         {
             result = 0;

@@ -146,19 +146,21 @@ namespace Tests.EditMode.Loot
         {
             WeaponDefinition trainingSword = ResolveWeapon(TrainingSword);
             WeaponDefinition longsword = ResolveWeapon(Longsword);
+            Assert.That(CharacterAttributeState.TryCreate(
+                0, 0, 10, 0, 0, 0, 0, out CharacterAttributeState attributes), Is.True);
 
-            Assert.That(
-                WeaponDamageCalculator.Calculate(
-                    trainingSword.BaseDamage,
-                    999,
-                    trainingSword.OffensiveScaling.Coefficient),
-                Is.EqualTo(trainingSword.BaseDamage));
-            Assert.That(
-                WeaponDamageCalculator.Calculate(
-                    longsword.BaseDamage,
-                    10,
-                    longsword.OffensiveScaling.Coefficient),
-                Is.EqualTo(longsword.BaseDamage + 10f * 0.7f));
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                trainingSword.OffensiveScaling, out WeaponScalingContributions trainingScaling), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                trainingSword.BaseDamage, attributes, trainingScaling, out float trainingDamage), Is.True);
+            Assert.That(trainingDamage, Is.EqualTo(Mathf.Floor(trainingSword.BaseDamage)));
+
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                longsword.OffensiveScaling, out WeaponScalingContributions longswordScaling), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                longsword.BaseDamage, attributes, longswordScaling, out float longswordDamage), Is.True);
+            Assert.That(longswordDamage,
+                Is.EqualTo(Mathf.Floor(longsword.BaseDamage * (1f + 10f / 100f * 0.7f))));
         }
 
         [Test]

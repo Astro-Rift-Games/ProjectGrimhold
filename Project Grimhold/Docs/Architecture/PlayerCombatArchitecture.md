@@ -103,15 +103,15 @@ unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may r
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
 Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
-with the participant's effective `CharacterAttributeState`. Equipment selects the attribute declared
-by the legacy `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
+with the participant's effective `CharacterAttributeState`. Equipment adapts the current legacy
+`WeaponOffensiveScaling` to resolved runtime contributions, calculates effective damage through the
+single canonical `WeaponDamageCalculator`, and builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
 interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
 executor, and assigns it
-through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor, and the four
-armor slots never reach combat at all: they neither validate the combat dependencies nor
-participate in `HasReplicatedWeaponStateChanged`, so equipping or removing a piece cannot rebuild
-the strategy or disturb the authoritative cooldown. Slot-selection input travels in the normal
+through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor.
+Armor changes do not rebuild the weapon strategy or disturb the authoritative cooldown; their
+`EquipmentRevision` change invalidates the separate local armor-statistics projection. Slot-selection input travels in the normal
 `PlayerNetworkInput` buttons; it uses no RPC and preserves the authoritative cooldown. Any mutation
 of any of the eight slots advances `EquipmentRevision`, which is what presentation observes.
 
@@ -123,10 +123,11 @@ selection without removing the equipped unit.
 
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
 slot again, rebuilding the strategy and recalculating effective damage from the restored effective
-attributes without replaying equipment requests. Effective damage is derived runtime state and is
-not replicated or persisted. The armor slots need no
-dedicated restore logic — they are ordinary `[Networked]` properties. ScriptableObjects and
-presentation state are never replicated.
+attributes without replaying equipment requests. Effective damage, equipment modifiers and final
+player runtime statistics are derived local state and are not replicated or persisted. The armor
+slots need no dedicated restore logic — they are ordinary `[Networked]` properties. Restored slots,
+`EquipmentRevision`, effective attributes and active Weapon Set reconstruct the same projections.
+ScriptableObjects and presentation state are never replicated.
 
 `TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
 When presence is authoritative, the query does not require a local `IAttack`; it derives
@@ -226,8 +227,10 @@ separate `EquipmentVisualDefinition` concern.
 `WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, effective `Range`,
 `StaminaCost`, `DamageType`, `KnockbackForce`, handedness, requirements and natural scaling
 attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and one flat maximum
-Health, Stamina or Mana modifier. TASK-321 configures these armor values but no Raid consumer applies
-them yet. `StaminaCost` is validated weapon configuration but is not consumed yet. Spellbook uses
+Health, Stamina or Mana modifier. `EquipmentStatisticsCalculator` rebuilds a complete immutable
+`EquipmentStatisticsModifiers` snapshot from the four equipped armor definitions whenever
+`EquipmentRevision` changes; it never accumulates deltas. `StaminaCost` is validated weapon
+configuration but is not consumed yet. Spellbook uses
 the shared ranged behavior; proximity or area manifestation is outside this contract.
 
 The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
@@ -241,23 +244,35 @@ item identity is integrated end to end.
 `WeaponOffensiveScaling` remains only the legacy runtime representation for the current
 `LootId`-based model. It is not the canonical instance contract and must not evolve as a parallel
 source of truth. A zero coefficient means no legacy scaling. A positive coefficient accepts only
-Strength, Dexterity or Intelligence and resolves its value from the confirmed
-`CharacterAttributeState` already owned by the Raid participant. Until TASK-322 introduces the
-compatibility projection, the runtime rule remains:
+Strength, Dexterity or Intelligence. `WeaponScalingContributionsResolver` adapts it to zero or one
+resolved `(CharacterAttribute, Coefficient)` contribution without converting arbitrary legacy
+coefficients into grades. A separate pure resolver can translate `WeaponInstanceModifiers` into up
+to two contributions for tests and future integration, but instances are not an active runtime
+source until unique Item Instances exist end to end. Both forms resolve values from the confirmed
+`CharacterAttributeState` already owned by the Raid participant. The canonical runtime rule is:
 
 ```text
-EffectiveDamage = WeaponDefinition.BaseDamage + (AttributeValue * ScalingCoefficient)
+EffectiveDamage = floor(BaseDamage * (1 + sum((AttributeValue / 100) * Coefficient)))
 ```
 
-`WeaponDamageCalculator` owns only this pure arithmetic. Equipment performs the calculation when it
+`WeaponDamageCalculator` is the only implementation of this pure arithmetic. Equipment performs the calculation when it
 configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
 runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their
 own `AttackExecutionParameters`, keeping their existing behavior independent from Equipment.
-The compatibility projection introduced by TASK-322 is the removal boundary for this legacy path;
-the complete Template/Instance migration remains separate from US-36.
-TASK-322 must preserve current Health and Stamina when applying equipment maximums: increasing a
-maximum does not recover the current resource, while decreasing it authoritatively applies
-`NewCurrent = min(PreviousCurrent, NewMaximum)`. Any recovery is a separate explicit operation.
+The common runtime representation is the removal boundary for the legacy source; the complete
+Template/Instance migration remains separate from US-36.
+
+`PlayerRuntimeStatistics` combines character-derived maximums with the current equipment defenses.
+Its resource formulas add the aggregated equipment modifiers to maximum Health, Stamina and Mana.
+The final projection invalidates on either effective-attribute revision or equipment projection
+invalidation. Increasing maximum Health or Stamina does not recover the current resource, while
+decreasing it authoritatively applies `NewCurrent = min(PreviousCurrent, NewMaximum)`. Maximum Mana
+is projected only; there is no current-Mana runtime state yet.
+
+`PlayerCharacter` applies compatible armor defense in the existing State-Authority damage pipeline.
+Physical and Magical damage use their matching defense and the configured positive mitigation
+constant `K` (initially 100): `floor(IncomingDamage * K / (Defense + K))`. Zero defense returns the
+incoming amount exactly, and True Damage bypasses mitigation. No calculation mutates shared assets.
 
 ---
 

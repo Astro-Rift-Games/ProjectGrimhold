@@ -74,6 +74,31 @@ namespace Tests.EditMode.Equipment
             Assert.That(modifiers.HasSecondary, Is.True);
         }
 
+        [TestCase(CharacterAttribute.Vitality)]
+        [TestCase(CharacterAttribute.Resistance)]
+        [TestCase(CharacterAttribute.Luck)]
+        public void Resolver_TranslatesPrimaryAndSecondaryToRuntimeContributions(
+            CharacterAttribute secondaryAttribute)
+        {
+            WeaponScalingModifier primary = CreateModifier(CharacterAttribute.Strength, WeaponScalingGrade.B);
+            WeaponScalingModifier secondary = CreateModifier(secondaryAttribute, WeaponScalingGrade.D);
+            Assert.That(WeaponInstanceModifiers.TryCreate(
+                primary,
+                secondary,
+                CharacterAttribute.Strength,
+                out WeaponInstanceModifiers modifiers,
+                out string error), Is.True, error);
+
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                modifiers,
+                CharacterAttribute.Strength,
+                out WeaponScalingContributions contributions), Is.True);
+            Assert.That(contributions.Primary.Attribute, Is.EqualTo(CharacterAttribute.Strength));
+            Assert.That(contributions.Primary.Coefficient, Is.EqualTo(0.70f));
+            Assert.That(contributions.Secondary.Attribute, Is.EqualTo(secondaryAttribute));
+            Assert.That(contributions.Secondary.Coefficient, Is.EqualTo(0.40f));
+        }
+
         [Test]
         public void TryCreate_WithPrimaryDifferentFromNaturalAttribute_IsRejected()
         {

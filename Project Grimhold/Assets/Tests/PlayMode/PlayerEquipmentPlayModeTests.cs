@@ -35,6 +35,8 @@ namespace Tests.PlayMode.Equipment
         private PlayerWeaponEquipmentNetworkController _equipment;
         private PlayerLootReceiver _receiver;
         private PlayerCombatNetworkController _combat;
+        private PlayerCharacter _character;
+        private PlayerStaminaNetworkController _stamina;
         private NetworkRaidParticipant _participant;
         private RuntimeAttributeOverrideNetworkController _attributeOverride;
 
@@ -287,7 +289,7 @@ namespace Tests.PlayMode.Equipment
             yield return Equip(_greatsword, EquipmentOperationResult.Succeeded);
             AssertRuntimeParameters(
                 _equipment.GetComponent<MeleeAttack>(),
-                53.25f,
+                48f,
                 DamageType.Physical,
                 1.4f,
                 2f,
@@ -296,7 +298,7 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Strength, 5), Is.True);
             yield return WaitUntil(
                 () => TryGetRuntimeDamage(_equipment.GetComponent<MeleeAttack>(), out float damage) &&
-                    Mathf.Approximately(damage, 56f),
+                    Mathf.Approximately(damage, 49f),
                 "The active weapon did not rebuild scaling from effective Strength 20.");
 
             Assert.That(_attributeOverride.RequestReset(CharacterAttribute.Strength), Is.True);
@@ -440,6 +442,87 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator ArmorMutations_RebuildRuntimeStatisticsAndPreserveCurrentResources()
+        {
+            yield return StartRaidPlayer();
+
+            AssertRuntimeStatistics(100, 100, 100, 0, 0);
+            Assert.That(_character.Health, Is.EqualTo(100f));
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(100f));
+
+            yield return Equip(_helmet, EquipmentOperationResult.Succeeded);
+            AssertRuntimeStatistics(120, 100, 100, 10, 1);
+            Assert.That(_character.Health, Is.EqualTo(100f), "Increasing Max Health must not heal.");
+
+            HealResult heal = _character.ApplyHealing(new HealRequest(20f));
+            Assert.That(heal.Success, Is.True);
+            Assert.That(_character.Health, Is.EqualTo(120f));
+
+            yield return Unequip(EquipmentSlot.Helmet, EquipmentOperationResult.Succeeded);
+            yield return WaitUntil(
+                () => Mathf.Approximately(_character.Health, 100f),
+                "Removing a Health bonus did not clamp current Health.");
+            AssertRuntimeStatistics(100, 100, 100, 0, 0);
+
+            yield return Equip(_armor, EquipmentOperationResult.Succeeded);
+            AssertRuntimeStatistics(100, 130, 100, 20, 2);
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(100f), "Increasing Max Stamina must not recover.");
+
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 10_000f);
+            EquipmentTestContent.SetField(_stamina, "_regenerationDelaySeconds", 0f);
+            yield return WaitUntil(
+                () => Mathf.Approximately(_stamina.CurrentStamina, 130f),
+                "The fixture could not raise current Stamina to the equipment-adjusted maximum.");
+
+            yield return Unequip(EquipmentSlot.Armor, EquipmentOperationResult.Succeeded);
+            yield return WaitUntil(
+                () => Mathf.Approximately(_stamina.CurrentStamina, 100f),
+                "Removing a Stamina bonus did not clamp current Stamina.");
+
+            yield return Equip(_gloves, EquipmentOperationResult.Succeeded);
+            AssertRuntimeStatistics(100, 100, 140, 3, 30);
+        }
+
+        [UnityTest]
+        public IEnumerator EquippedArmor_MitigatesOnlyCompatibleDamageTypes()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_helmet, EquipmentOperationResult.Succeeded);
+
+            DamageResult physical = ApplyDamage(50f, DamageType.Physical);
+            DamageResult magical = ApplyDamage(25f, DamageType.Magical);
+            DamageResult trueDamage = ApplyDamage(1f, DamageType.TrueDamage);
+
+            Assert.That(physical.AppliedDamage, Is.EqualTo(45f));
+            Assert.That(magical.AppliedDamage, Is.EqualTo(24f));
+            Assert.That(trueDamage.AppliedDamage, Is.EqualTo(1f));
+            Assert.That(_character.Health, Is.EqualTo(30f));
+        }
+
+        [UnityTest]
+        public IEnumerator EffectiveAttributeRevision_InvalidatesFinalStatisticsWithoutEquipmentChange()
+        {
+            yield return StartRaidPlayer();
+            int equipmentRevision = _equipment.ObservedEquipmentRevision;
+
+            Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Vitality, 5), Is.True);
+            yield return WaitUntil(
+                () => TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics) &&
+                    statistics.MaximumHealth == 125,
+                "A Vitality revision did not invalidate final runtime statistics.");
+
+            Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Resistance, 5), Is.True);
+            yield return WaitUntil(
+                () => TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics) &&
+                    statistics.MaximumStamina == 125,
+                "A Resistance revision did not invalidate final runtime statistics.");
+
+            Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(equipmentRevision));
+            Assert.That(_character.Health, Is.EqualTo(100f), "Increasing Vitality must not heal.");
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(100f), "Increasing Resistance must not recover Stamina.");
+        }
+
+        [UnityTest]
         public IEnumerator UnequippingTheActiveWeapon_FallsBackToTheOtherValidWeaponSet()
         {
             yield return StartRaidPlayer();
@@ -467,7 +550,7 @@ namespace Tests.PlayMode.Equipment
             Assert.That(ResolveActiveWeapon().LootId, Is.EqualTo(_rangedWeapon.LootId));
             AssertRuntimeParameters(
                 _equipment.GetComponent<RangedAttack>(),
-                25.5f,
+                22f,
                 DamageType.Magical,
                 0.7f,
                 5f,
@@ -587,9 +670,13 @@ namespace Tests.PlayMode.Equipment
             _equipment = playerObject.GetComponent<PlayerWeaponEquipmentNetworkController>();
             _receiver = playerObject.GetComponent<PlayerLootReceiver>();
             _combat = playerObject.GetComponent<PlayerCombatNetworkController>();
+            _character = playerObject.GetComponent<PlayerCharacter>();
+            _stamina = playerObject.GetComponent<PlayerStaminaNetworkController>();
             Assert.That(_equipment, Is.Not.Null);
             Assert.That(_receiver, Is.Not.Null);
             Assert.That(_combat, Is.Not.Null);
+            Assert.That(_character, Is.Not.Null);
+            Assert.That(_stamina, Is.Not.Null);
             Assert.That(_participant, Is.Not.Null);
             Assert.That(_attributeOverride, Is.Not.Null);
             Assert.That(_equipment.HasStateAuthority, Is.True);
@@ -621,10 +708,14 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_rangedWeapon, Is.Not.Null, RangedWeaponPath);
             Assert.That(_greatsword, Is.Not.Null, GreatswordPath);
 
-            _helmet = EquipmentTestContent.CreateArmorDefinition("test_helmet", LootCategory.Helmet);
-            _armor = EquipmentTestContent.CreateArmorDefinition("test_armor", LootCategory.Armor);
-            _gloves = EquipmentTestContent.CreateArmorDefinition("test_gloves", LootCategory.Gloves);
-            _boots = EquipmentTestContent.CreateArmorDefinition("test_boots", LootCategory.Boots);
+            _helmet = EquipmentTestContent.CreateArmorDefinition(
+                "test_helmet", LootCategory.Helmet, 10, 1, MaximumResourceType.Health, 20);
+            _armor = EquipmentTestContent.CreateArmorDefinition(
+                "test_armor", LootCategory.Armor, 20, 2, MaximumResourceType.Stamina, 30);
+            _gloves = EquipmentTestContent.CreateArmorDefinition(
+                "test_gloves", LootCategory.Gloves, 3, 30, MaximumResourceType.Mana, 40);
+            _boots = EquipmentTestContent.CreateArmorDefinition(
+                "test_boots", LootCategory.Boots, 4, 40, MaximumResourceType.Health, 5);
             _trinket = EquipmentTestContent.CreateNonEquippableDefinition("test_trinket");
 
             _catalog = EquipmentTestContent.CreateCatalog(
@@ -859,6 +950,41 @@ namespace Tests.PlayMode.Equipment
             Assert.That(actual.CooldownSeconds, Is.EqualTo(cooldown).Within(0.0001f));
             Assert.That(actual.Range, Is.EqualTo(range).Within(0.0001f));
             Assert.That(actual.KnockbackForce, Is.EqualTo(knockback).Within(0.0001f));
+        }
+
+        private void AssertRuntimeStatistics(
+            int maximumHealth,
+            int maximumStamina,
+            int maximumMana,
+            int physicalDefense,
+            int magicalDefense)
+        {
+            Assert.That(_character.TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics), Is.True);
+            Assert.That(statistics.MaximumHealth, Is.EqualTo(maximumHealth));
+            Assert.That(statistics.MaximumStamina, Is.EqualTo(maximumStamina));
+            Assert.That(statistics.MaximumMana, Is.EqualTo(maximumMana));
+            Assert.That(statistics.PhysicalDefense, Is.EqualTo(physicalDefense));
+            Assert.That(statistics.MagicalDefense, Is.EqualTo(magicalDefense));
+        }
+
+        private DamageResult ApplyDamage(float amount, DamageType damageType)
+        {
+            DamageResult result = _character.ApplyDamage(new DamageRequest(
+                new EntityId(-1),
+                _character.Id,
+                amount,
+                damageType,
+                Vector2.right,
+                _character.transform.position,
+                _runner.Tick));
+            Assert.That(result.IsApplied, Is.True, result.FailureReason.ToString());
+            return result;
+        }
+
+        private bool TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics)
+        {
+            statistics = default;
+            return _character != null && _character.TryGetRuntimeStatistics(out statistics);
         }
 
         private bool TryGetEffectiveStrength(out int strength)

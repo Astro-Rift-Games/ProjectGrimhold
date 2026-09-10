@@ -98,8 +98,11 @@ namespace Tests.EditMode.Progression
             Assert.That(requirements.IsSatisfiedBy(effective), Is.True);
             Assert.That(scaling.TryResolveAttributeValue(effective, out int scalingValue), Is.True);
             Assert.That(scalingValue, Is.EqualTo(15));
-            Assert.That(WeaponDamageCalculator.Calculate(30f, scalingValue, scaling.Coefficient),
-                Is.EqualTo(40.5f).Within(0.0001f));
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                scaling, out WeaponScalingContributions contributions), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                30f, effective, contributions, out float effectiveDamage), Is.True);
+            Assert.That(effectiveDamage, Is.EqualTo(33f));
         }
 
         [Test]

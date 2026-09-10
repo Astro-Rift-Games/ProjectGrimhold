@@ -25,6 +25,8 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
     [SerializeField]
     private RaidAvatarParticipantLink _participantLink;
 
+    private PlayerCharacter _playerCharacter;
+
     [Networked]
     public float CurrentStamina { get; private set; }
 
@@ -39,7 +41,6 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
 
     private bool _isRestoreSpawn;
     private bool _reportedMissingParticipantLink;
-    private bool _reportedInvalidDerivedStatistics;
     private bool _reportedUnresolvedAttributeSource;
     private float _unresolvedAttributeSourceSeconds;
 
@@ -53,10 +54,11 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
         CacheDependencies();
         _isRestoreSpawn = HostMigrationRestoreUtility.IsRestoreSpawn(this);
 
-        if (_participantLink == null && !_reportedMissingParticipantLink)
+        if ((_participantLink == null || _playerCharacter == null) && !_reportedMissingParticipantLink)
         {
             Debug.LogError(
-                $"{nameof(PlayerStaminaNetworkController)} requires {nameof(RaidAvatarParticipantLink)}.",
+                $"{nameof(PlayerStaminaNetworkController)} requires {nameof(RaidAvatarParticipantLink)} " +
+                $"and {nameof(PlayerCharacter)}.",
                 this);
             _reportedMissingParticipantLink = true;
         }
@@ -119,27 +121,9 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
     public bool TryGetMaximumStamina(out float maximumStamina)
     {
         maximumStamina = 0f;
-        if (_participantLink == null ||
-            !_participantLink.TryGetCharacterAttributeState(out CharacterAttributeState attributes))
+        if (_playerCharacter == null ||
+            !_playerCharacter.TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
         {
-            return false;
-        }
-
-        if (!CharacterDerivedStatisticsCalculator.TryCalculate(
-                attributes,
-                ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
-                out CharacterDerivedStatistics statistics,
-                out CharacterDerivedStatisticsCalculationFailure failure))
-        {
-            if (!_reportedInvalidDerivedStatistics)
-            {
-                Debug.LogError(
-                    $"{nameof(PlayerStaminaNetworkController)} could not derive maximum Stamina " +
-                    $"from the admitted character attributes. Failure={failure}.",
-                    this);
-                _reportedInvalidDerivedStatistics = true;
-            }
-
             return false;
         }
 
@@ -304,6 +288,8 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
         {
             _participantLink = GetComponent<RaidAvatarParticipantLink>();
         }
+
+        _playerCharacter ??= GetComponent<PlayerCharacter>();
     }
 
 #if UNITY_EDITOR

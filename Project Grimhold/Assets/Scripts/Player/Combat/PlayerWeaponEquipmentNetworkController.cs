@@ -1138,18 +1138,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         effectiveDamage = 0f;
         if (weaponDefinition == null ||
-            !weaponDefinition.OffensiveScaling.TryResolveAttributeValue(attributes, out int attributeValue))
+            !WeaponScalingContributionsResolver.TryResolve(
+                weaponDefinition.OffensiveScaling,
+                out WeaponScalingContributions contributions))
         {
             return false;
         }
 
-        effectiveDamage = WeaponDamageCalculator.Calculate(
+        return WeaponDamageCalculator.TryCalculate(
             weaponDefinition.BaseDamage,
-            attributeValue,
-            weaponDefinition.OffensiveScaling.Coefficient);
-        return effectiveDamage > 0f &&
-            !float.IsNaN(effectiveDamage) &&
-            !float.IsInfinity(effectiveDamage);
+            attributes,
+            contributions,
+            out effectiveDamage) && effectiveDamage > 0f;
     }
 
     private bool CanApplyInventoryExchange(LootId equippedLootId, LootEntry?[] displaced)

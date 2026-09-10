@@ -31,9 +31,26 @@ namespace Tests.EditMode.Equipment
             Assert.That(scaling.TryResolveAttributeValue(first, out int firstValue), Is.True);
             Assert.That(scaling.TryResolveAttributeValue(second, out int secondValue), Is.True);
             Assert.That(secondValue, Is.EqualTo(firstValue));
-            Assert.That(
-                WeaponDamageCalculator.Calculate(10f, secondValue, scaling.Coefficient),
-                Is.EqualTo(WeaponDamageCalculator.Calculate(10f, firstValue, scaling.Coefficient)));
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                scaling, out WeaponScalingContributions contributions), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                10f, first, contributions, out float firstDamage), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                10f, second, contributions, out float secondDamage), Is.True);
+            Assert.That(secondDamage, Is.EqualTo(firstDamage));
+        }
+
+        [Test]
+        public void ArbitraryValidLegacyCoefficient_ResolvesWithoutGradeConversion()
+        {
+            var scaling = new WeaponOffensiveScaling(CharacterAttribute.Strength, 0.333f);
+
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                scaling, out WeaponScalingContributions contributions), Is.True);
+            Assert.That(contributions.HasPrimary, Is.True);
+            Assert.That(contributions.Primary.Attribute, Is.EqualTo(CharacterAttribute.Strength));
+            Assert.That(contributions.Primary.Coefficient, Is.EqualTo(0.333f));
+            Assert.That(contributions.HasSecondary, Is.False);
         }
 
         [TestCase(CharacterAttribute.Vitality)]

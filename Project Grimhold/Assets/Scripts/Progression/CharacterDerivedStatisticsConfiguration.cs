@@ -5,6 +5,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
     public int MaximumHealthPerVitality { get; }
     public int BaseMaximumStamina { get; }
     public int MaximumStaminaPerResistance { get; }
+    public int BaseMaximumMana { get; }
     public int AdditionalLootChanceBasisPointsPerLuck { get; }
     public int MaximumAdditionalLootChanceBasisPoints { get; }
 
@@ -13,6 +14,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
         int maximumHealthPerVitality,
         int baseMaximumStamina,
         int maximumStaminaPerResistance,
+        int baseMaximumMana,
         int additionalLootChanceBasisPointsPerLuck,
         int maximumAdditionalLootChanceBasisPoints)
     {
@@ -20,6 +22,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
         MaximumHealthPerVitality = maximumHealthPerVitality;
         BaseMaximumStamina = baseMaximumStamina;
         MaximumStaminaPerResistance = maximumStaminaPerResistance;
+        BaseMaximumMana = baseMaximumMana;
         AdditionalLootChanceBasisPointsPerLuck = additionalLootChanceBasisPointsPerLuck;
         MaximumAdditionalLootChanceBasisPoints = maximumAdditionalLootChanceBasisPoints;
     }
@@ -29,6 +32,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
         int maximumHealthPerVitality,
         int baseMaximumStamina,
         int maximumStaminaPerResistance,
+        int baseMaximumMana,
         int additionalLootChanceBasisPointsPerLuck,
         int maximumAdditionalLootChanceBasisPoints,
         out CharacterDerivedStatisticsConfiguration configuration)
@@ -38,6 +42,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
             maximumHealthPerVitality < 0 ||
             baseMaximumStamina < 0 ||
             maximumStaminaPerResistance < 0 ||
+            baseMaximumMana < 0 ||
             additionalLootChanceBasisPointsPerLuck < 0 ||
             maximumAdditionalLootChanceBasisPoints < 0 ||
             maximumAdditionalLootChanceBasisPoints > CharacterDerivedStatisticsCalculator.BasisPointsDenominator)
@@ -50,6 +55,7 @@ public sealed class CharacterDerivedStatisticsConfiguration
             maximumHealthPerVitality,
             baseMaximumStamina,
             maximumStaminaPerResistance,
+            baseMaximumMana,
             additionalLootChanceBasisPointsPerLuck,
             maximumAdditionalLootChanceBasisPoints);
         return true;
