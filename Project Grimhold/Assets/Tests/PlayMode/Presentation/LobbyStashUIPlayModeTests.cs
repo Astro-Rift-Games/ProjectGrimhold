@@ -52,12 +52,53 @@ namespace Tests.PlayMode.Presentation
             _stashPanel = GetSerializedField<RaidLootPanelView>("_stashPanel");
             _loadoutPanel = GetSerializedField<RaidLootPanelView>("_loadoutPanel");
             _contextMenu = GetSerializedField<RaidLootContextMenuView>("_contextMenu");
+            Assert.That(_view.TooltipView, Is.Not.Null);
+            Assert.That(
+                _view.GetComponentsInChildren<EquipmentTooltipView>(true),
+                Has.Length.EqualTo(1));
         }
 
         [TearDown]
         public void TearDown()
         {
             Object.DestroyImmediate(_canvasObject);
+        }
+
+        [UnityTest]
+        public IEnumerator StashLoadoutAndEquipmentSlotsShareOneTooltip()
+        {
+            LootDefinition definition = CreateTooltipDefinition("Mineral", LootCategory.Material);
+            RaidInventorySlotData material = RaidInventorySlotData.Create(
+                new LootEntry(new LootId("mineral"), 2),
+                definition,
+                null);
+            Object.DestroyImmediate(definition);
+
+            _view.DisplayStash(new[] { material });
+            _view.DisplayLoadout(new[] { material });
+            var equipment = new RaidInventorySlotData[EquipmentSlotRules.AllSlots.Length];
+            equipment[2] = material;
+            _view.DisplayPreparedEquipment(equipment);
+            yield return null;
+
+            RaidInventorySlotView stashSlot = FindOccupiedSlot(_stashPanel);
+            stashSlot.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.True);
+            Assert.That(_view.TooltipView.CurrentAnchor, Is.SameAs(stashSlot.transform));
+
+            RaidInventorySlotView loadoutSlot = FindOccupiedSlot(_loadoutPanel);
+            loadoutSlot.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.CurrentAnchor, Is.SameAs(loadoutSlot.transform));
+
+            RaidInventorySlotView helmet = Array.Find(
+                _view.GetComponentsInChildren<RaidInventorySlotView>(true),
+                candidate => candidate.name == "Helmet");
+            Assert.That(helmet, Is.Not.Null);
+            helmet.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.CurrentAnchor, Is.SameAs(helmet.transform));
+
+            _instance.SetActive(false);
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
         }
 
         [UnityTest]
@@ -128,15 +169,42 @@ namespace Tests.PlayMode.Presentation
 
         private void OpenContextMenu(RaidLootPanelView panel)
         {
-            RaidInventorySlotView[] slots = panel.GetComponentsInChildren<RaidInventorySlotView>(true);
-            RaidInventorySlotView occupied = Array.Find(slots, slot => slot.IsOccupied);
+            RaidInventorySlotView occupied = FindOccupiedSlot(panel);
             Assert.That(occupied, Is.Not.Null);
+
+            occupied.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.False,
+                "Un unresolved definition must not invent tooltip content.");
 
             occupied.OnPointerClick(new PointerEventData(null)
             {
                 button = PointerEventData.InputButton.Right
             });
             Assert.That(_contextMenu.IsOpen, Is.True);
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
+        }
+
+        private static RaidInventorySlotView FindOccupiedSlot(RaidLootPanelView panel)
+        {
+            RaidInventorySlotView[] slots = panel.GetComponentsInChildren<RaidInventorySlotView>(true);
+            return Array.Find(slots, slot => slot.IsOccupied);
+        }
+
+        private static LootDefinition CreateTooltipDefinition(string displayName, LootCategory category)
+        {
+            LootDefinition definition = ScriptableObject.CreateInstance<LootDefinition>();
+            SetPrivateField(definition, "_displayName", displayName);
+            SetPrivateField(definition, "_category", category);
+            return definition;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(target, value);
         }
 
         private RaidLootContextActionButton GetFirstVisibleContextAction()

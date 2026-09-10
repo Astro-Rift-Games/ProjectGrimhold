@@ -12,6 +12,7 @@ public readonly struct RaidInventorySlotData
     public string DisplayName { get; }
     public int Amount { get; }
     public bool UsesFallback { get; }
+    public EquipmentTooltipPresentation Tooltip { get; }
 
     /// <summary>Catalog classification of the unit, or None when its definition is unresolved.</summary>
     public LootCategory Category { get; }
@@ -25,6 +26,7 @@ public readonly struct RaidInventorySlotData
         string displayName,
         int amount,
         bool usesFallback,
+        EquipmentTooltipPresentation tooltip,
         LootCategory category,
         WeaponHandedness weaponHandedness,
         bool hasWeaponDefinition)
@@ -35,6 +37,7 @@ public readonly struct RaidInventorySlotData
         DisplayName = displayName;
         Amount = amount;
         UsesFallback = usesFallback;
+        Tooltip = tooltip;
         Category = category;
         WeaponHandedness = weaponHandedness;
         HasWeaponDefinition = hasWeaponDefinition;
@@ -67,6 +70,7 @@ public readonly struct RaidInventorySlotData
             displayName,
             entry.Amount,
             definitionMissing || definition.Icon == null,
+            EquipmentTooltipPresentationBuilder.Build(definition),
             definitionMissing ? LootCategory.None : definition.Category,
             definition?.WeaponDefinition?.Handedness ?? WeaponHandedness.OneHanded,
             definition?.WeaponDefinition != null);

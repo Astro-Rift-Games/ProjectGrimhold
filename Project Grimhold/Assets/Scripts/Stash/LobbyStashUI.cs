@@ -45,6 +45,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     [SerializeField] private RaidInventorySlotView _weaponSetBOffHandView;
 
     [SerializeField] private RaidLootContextMenuView _contextMenu;
+    [SerializeField] private EquipmentTooltipView _tooltipView;
 
     private readonly List<RaidInventorySlotData> _stashProjection = new();
     private readonly List<RaidInventorySlotData> _loadoutProjection = new();
@@ -69,6 +70,7 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     /// <summary>The shared fallback icon authored on the stash panel, for unresolved definitions.</summary>
     public Sprite PlaceholderIcon => _stashPanel != null ? _stashPanel.PlaceholderIcon : null;
+    public EquipmentTooltipView TooltipView => _tooltipView;
 
     private void Awake()
     {
@@ -80,6 +82,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             _stashPanel.SelectionRequested += OnStashSelectionRequested;
             _stashPanel.ContextRequested += OnStashContextRequested;
+            BindPanelTooltipEvents(_stashPanel);
         }
         else
         {
@@ -90,6 +93,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             _loadoutPanel.SelectionRequested += OnLoadoutSelectionRequested;
             _loadoutPanel.ContextRequested += OnLoadoutContextRequested;
+            BindPanelTooltipEvents(_loadoutPanel);
         }
         else
         {
@@ -109,12 +113,14 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             _stashPanel.SelectionRequested -= OnStashSelectionRequested;
             _stashPanel.ContextRequested -= OnStashContextRequested;
+            UnbindPanelTooltipEvents(_stashPanel);
         }
 
         if (_loadoutPanel != null)
         {
             _loadoutPanel.SelectionRequested -= OnLoadoutSelectionRequested;
             _loadoutPanel.ContextRequested -= OnLoadoutContextRequested;
+            UnbindPanelTooltipEvents(_loadoutPanel);
         }
 
         if (_equipmentSlotViews == null)
@@ -127,6 +133,7 @@ public sealed class LobbyStashUI : MonoBehaviour
             if (_equipmentSlotViews[index] != null)
             {
                 _equipmentSlotViews[index].SelectionRequested -= OnEquipmentSlotSelected;
+                UnbindEquipmentTooltipEvents(_equipmentSlotViews[index]);
             }
         }
     }
@@ -265,6 +272,7 @@ public sealed class LobbyStashUI : MonoBehaviour
             }
 
             views[index].SelectionRequested += OnEquipmentSlotSelected;
+            BindEquipmentTooltipEvents(views[index]);
         }
 
         _equipmentSlotViews = views;
@@ -312,6 +320,7 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private void OpenPanelContext(LootId lootId, RectTransform anchor, bool isFromStash)
     {
+        _tooltipView?.Hide();
         if (_contextMenu == null || !lootId.IsValid)
         {
             return;
@@ -346,6 +355,45 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
 
         _contextMenu.Show(_contextActions, anchor);
+    }
+
+    private void OnDisable() => _tooltipView?.Hide();
+
+    private void BindPanelTooltipEvents(RaidLootPanelView panel)
+    {
+        panel.TooltipRequested += OnTooltipRequested;
+        panel.TooltipDismissRequested += OnTooltipDismissRequested;
+    }
+
+    private void UnbindPanelTooltipEvents(RaidLootPanelView panel)
+    {
+        panel.TooltipRequested -= OnTooltipRequested;
+        panel.TooltipDismissRequested -= OnTooltipDismissRequested;
+    }
+
+    private void BindEquipmentTooltipEvents(RaidInventorySlotView view)
+    {
+        view.TooltipRequested += OnTooltipRequested;
+        view.TooltipDismissRequested += OnTooltipDismissRequested;
+    }
+
+    private void UnbindEquipmentTooltipEvents(RaidInventorySlotView view)
+    {
+        view.TooltipRequested -= OnTooltipRequested;
+        view.TooltipDismissRequested -= OnTooltipDismissRequested;
+    }
+
+    private void OnTooltipRequested(
+        EquipmentTooltipPresentation presentation,
+        RectTransform anchor) =>
+        _tooltipView?.Show(in presentation, anchor);
+
+    private void OnTooltipDismissRequested(RectTransform anchor)
+    {
+        if (_tooltipView != null && _tooltipView.CurrentAnchor == anchor)
+        {
+            _tooltipView.Hide();
+        }
     }
 
     private void OnContextActionRequested(LootContextActionId actionId)

@@ -33,6 +33,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     private RaidLootContextMenuView _contextMenu;
 
     [SerializeField]
+    private EquipmentTooltipView _tooltipView;
+
+    [SerializeField]
     private GameObject _equipmentPanelRoot;
 
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
@@ -87,6 +90,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     /// <summary>Gets the container take-all control for presentation verification.</summary>
     public Button TakeAllButton => _takeAllButton;
     public RaidLootContextMenuView ContextMenu => _contextMenu;
+    public EquipmentTooltipView TooltipView => _tooltipView;
 
     private void Awake()
     {
@@ -94,6 +98,8 @@ public sealed class RaidInventoryView : MonoBehaviour
         {
             _takeAllButton.onClick.AddListener(OnTakeAllClicked);
         }
+        BindPanelTooltipEvents(_playerPanel);
+        BindPanelTooltipEvents(_containerPanel);
         EnsureEquipmentSlotViews();
     }
 
@@ -114,6 +120,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     private void OnDisable()
     {
         HideTransferFeedback();
+        _tooltipView?.Hide();
     }
 
     private void OnDestroy()
@@ -122,10 +129,24 @@ public sealed class RaidInventoryView : MonoBehaviour
         {
             _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
         }
+        UnbindPanelTooltipEvents(_playerPanel);
+        UnbindPanelTooltipEvents(_containerPanel);
+
+        if (_equipmentSlotViews != null)
+        {
+            for (int index = 0; index < _equipmentSlotViews.Length; index++)
+            {
+                UnbindEquipmentTooltipEvents(_equipmentSlotViews[index]);
+            }
+        }
     }
 
     public void SetScreenVisible(bool visible)
     {
+        if (!visible)
+        {
+            _tooltipView?.Hide();
+        }
         if (_screenRoot != null && _screenRoot.activeSelf != visible)
         {
             _screenRoot.SetActive(visible);
@@ -134,6 +155,10 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     public void SetContainerPanelVisible(bool visible)
     {
+        if (!visible)
+        {
+            _tooltipView?.Hide();
+        }
         _containerPanel?.SetVisible(visible);
         if (!visible)
         {
@@ -143,6 +168,10 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     public void SetEquipmentPanelVisible(bool visible)
     {
+        if (!visible)
+        {
+            _tooltipView?.Hide();
+        }
         if (_equipmentPanelRoot != null && _equipmentPanelRoot.activeSelf != visible)
         {
             _equipmentPanelRoot.SetActive(visible);
@@ -163,6 +192,7 @@ public sealed class RaidInventoryView : MonoBehaviour
         _playerPanel?.ClearContent();
         _containerPanel?.ClearContent();
         _contextMenu?.Hide();
+        _tooltipView?.Hide();
         if (EnsureEquipmentSlotViews())
         {
             for (int index = 0; index < _equipmentSlotViews.Length; index++)
@@ -247,11 +277,73 @@ public sealed class RaidInventoryView : MonoBehaviour
 
             EquipmentSlot slot = slots[index];
             views[index].SelectionRequested += (_, __) => EquipmentUnequipRequested?.Invoke(slot);
-            views[index].ContextRequested += (_, anchor) => EquipmentContextRequested?.Invoke(slot, anchor);
+            views[index].ContextRequested += (_, anchor) =>
+            {
+                _tooltipView?.Hide();
+                EquipmentContextRequested?.Invoke(slot, anchor);
+            };
+            BindEquipmentTooltipEvents(views[index]);
         }
 
         _equipmentSlotViews = views;
         return true;
+    }
+
+    private void BindPanelTooltipEvents(RaidLootPanelView panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        panel.TooltipRequested += OnTooltipRequested;
+        panel.TooltipDismissRequested += OnTooltipDismissRequested;
+    }
+
+    private void UnbindPanelTooltipEvents(RaidLootPanelView panel)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        panel.TooltipRequested -= OnTooltipRequested;
+        panel.TooltipDismissRequested -= OnTooltipDismissRequested;
+    }
+
+    private void BindEquipmentTooltipEvents(RaidInventorySlotView view)
+    {
+        if (view == null)
+        {
+            return;
+        }
+
+        view.TooltipRequested += OnTooltipRequested;
+        view.TooltipDismissRequested += OnTooltipDismissRequested;
+    }
+
+    private void UnbindEquipmentTooltipEvents(RaidInventorySlotView view)
+    {
+        if (view == null)
+        {
+            return;
+        }
+
+        view.TooltipRequested -= OnTooltipRequested;
+        view.TooltipDismissRequested -= OnTooltipDismissRequested;
+    }
+
+    private void OnTooltipRequested(
+        EquipmentTooltipPresentation presentation,
+        RectTransform anchor) =>
+        _tooltipView?.Show(in presentation, anchor);
+
+    private void OnTooltipDismissRequested(RectTransform anchor)
+    {
+        if (_tooltipView != null && _tooltipView.CurrentAnchor == anchor)
+        {
+            _tooltipView.Hide();
+        }
     }
 
     private void ReportMissingEquipmentViews(EquipmentSlot slot)

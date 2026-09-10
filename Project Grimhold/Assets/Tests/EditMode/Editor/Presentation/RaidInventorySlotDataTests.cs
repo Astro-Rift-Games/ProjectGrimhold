@@ -42,6 +42,10 @@ namespace Tests.EditMode.Presentation
             Assert.That(data.Icon, Is.SameAs(_sprite));
             Assert.That(data.Amount, Is.EqualTo(3));
             Assert.That(data.UsesFallback, Is.False);
+            Assert.That(data.Tooltip.Title, Is.EqualTo("Coin"));
+            Assert.That(
+                data.Tooltip.Status,
+                Is.EqualTo(EquipmentTooltipPresentationStatus.NoEquipmentStatistics));
         }
 
         [Test]
@@ -72,6 +76,7 @@ namespace Tests.EditMode.Presentation
             Assert.That(data.DisplayName, Is.EqualTo("unknown_loot"));
             Assert.That(data.Amount, Is.EqualTo(7));
             Assert.That(data.UsesFallback, Is.True);
+            Assert.That(data.Tooltip.CanShow, Is.False);
             Assert.That(RaidInventorySlotData.Empty.IsOccupied, Is.False);
         }
 

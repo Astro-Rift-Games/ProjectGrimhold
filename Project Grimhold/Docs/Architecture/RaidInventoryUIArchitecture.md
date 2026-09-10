@@ -91,6 +91,24 @@ outside attribute requirements during the MVP.
 
 `PlayerLootReceiver.TryGetLootContent` already emits catalog-index order. `RaidInventoryProjection` preserves that order, rejects content beyond gameplay capacity, and appends empty entries until the projection length equals `SlotCapacity`.
 
+Every occupied slot whose `LootDefinition` resolves carries an immutable equipment-tooltip
+presentation built from definition-owned data. Weapons expose base damage/type, interval, range,
+Stamina cost, handedness, requirements and the currently consumed legacy scaling; armor exposes
+Physical Defense, Magical Defense and its direct maximum-resource bonus. The tooltip never combines
+those values with character attributes, runtime statistics or equipped totals. Canonical legacy
+coefficients are displayed with their matching grade, while any other valid coefficient remains a
+numeric multiplier. A resolved non-equipment definition reports that it has no Equipment statistics;
+an invalid weapon/armor configuration reports unavailable statistics without masquerading as a
+non-equipment item. An unresolved catalog definition shows no tooltip and retains the existing slot
+fallback behavior.
+
+`RaidInventoryUI.prefab` and `StashInventory.prefab` each author exactly one non-raycast tooltip
+view. Panel slots forward hover intentions through `RaidLootPanelView`; the direct Equipment slots
+bind to the same screen-local view. The tooltip prefers the anchor's right side, falls back to the
+left and clamps to the Canvas. Pointer exit, content replacement, screen close/disable and opening a
+context menu clear it. This local presentation has no networking, mutation or simulation role and is
+shared by Town/Raid Inventory, Equipment, Stash, Loadout and an open container panel.
+
 The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
 
 `PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
@@ -202,7 +220,7 @@ or hides it; it never adds components or configures the Canvas at runtime.
 
 ## Validation strategy
 
-Pure tests cover projection order/capacity, slot fallback data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
+Pure tests cover projection order/capacity, slot fallback and tooltip data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity, tooltip hover/clamping/lifecycle and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
 
 The defeated-player integration reuses these contracts without adding a new
 screen mode or target type. Focused Single Runner tests use the co-located

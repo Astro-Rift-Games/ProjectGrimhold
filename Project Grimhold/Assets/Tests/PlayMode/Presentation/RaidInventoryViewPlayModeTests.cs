@@ -1,6 +1,7 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -48,12 +49,153 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_view.ContainerPanel, Is.Not.Null);
             Assert.That(_view.TakeAllButton, Is.Not.Null);
             Assert.That(_view.ContextMenu, Is.Not.Null);
+            Assert.That(_view.TooltipView, Is.Not.Null);
+            Assert.That(
+                _view.GetComponentsInChildren<EquipmentTooltipView>(true),
+                Has.Length.EqualTo(1));
         }
 
         [TearDown]
         public void TearDown()
         {
             Object.DestroyImmediate(_canvasObject);
+        }
+
+        [UnityTest]
+        public IEnumerator InventoryAndContainerSlots_ShowAndDismissSharedTooltip()
+        {
+            LootDefinition definition = CreateTooltipDefinition("Mineral", LootCategory.Material);
+            RaidInventorySlotData data = RaidInventorySlotData.Create(
+                new LootEntry(new LootId("mineral"), 2),
+                definition,
+                null);
+            Object.DestroyImmediate(definition);
+
+            RaidLootPanelView[] panels = { _view.PlayerPanel, _view.ContainerPanel };
+            for (int index = 0; index < panels.Length; index++)
+            {
+                RaidLootPanelView panel = panels[index];
+                panel.SetVisible(true);
+                Assert.That(panel.EnsureSlotCount(1), Is.True);
+                Assert.That(panel.Present(new[] { data }, null, false, false, default), Is.True);
+                yield return null;
+
+                RaidInventorySlotView slot = GetFirstActiveSlot(panel);
+                slot.OnPointerEnter(new PointerEventData(null));
+                yield return null;
+
+                Assert.That(_view.TooltipView.IsOpen, Is.True);
+                Assert.That(_view.TooltipView.CurrentAnchor, Is.SameAs(slot.transform));
+                Assert.That(_view.TooltipView.ContentText.text, Does.Contain("<b>Mineral</b>"));
+                Assert.That(_view.TooltipView.ContentText.text, Does.Contain("Sin estadísticas de equipamiento"));
+
+                slot.OnPointerExit(new PointerEventData(null));
+                Assert.That(_view.TooltipView.IsOpen, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentSlot_HoverShowsTooltipAndContextRequestHidesIt()
+        {
+            LootDefinition definition = CreateTooltipDefinition("Casco roto", LootCategory.Helmet);
+            RaidInventorySlotData helmetData = RaidInventorySlotData.Create(
+                new LootEntry(new LootId("broken_helmet"), 1),
+                definition,
+                null);
+            Object.DestroyImmediate(definition);
+            var slots = new List<RaidInventorySlotData>();
+            for (int index = 0; index < EquipmentSlotRules.AllSlots.Length; index++)
+            {
+                slots.Add(index == 2 ? helmetData : RaidInventorySlotData.Empty);
+            }
+
+            _view.SetScreenVisible(true);
+            _view.SetEquipmentPanelVisible(true);
+            _view.PresentEquipmentSlots(slots, WeaponSetSlot.None, true);
+            yield return null;
+
+            RaidInventorySlotView helmet = System.Array.Find(
+                _view.GetComponentsInChildren<RaidInventorySlotView>(true),
+                candidate => candidate.name == "Helmet");
+            Assert.That(helmet, Is.Not.Null);
+            helmet.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.True);
+            Assert.That(_view.TooltipView.ContentText.text, Does.Contain("Casco roto"));
+            Assert.That(_view.TooltipView.ContentText.text, Does.Contain("configuración inválida"));
+
+            helmet.OnPointerClick(new PointerEventData(null)
+            {
+                button = PointerEventData.InputButton.Right
+            });
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Tooltip_ClampsToCanvasAndClearRemovesState()
+        {
+            _instance.SetActive(true);
+            _view.SetScreenVisible(true);
+            yield return null;
+
+            var presentation = new EquipmentTooltipPresentation(
+                EquipmentTooltipPresentationStatus.FunctionalStatistics,
+                "Objeto",
+                "Daño base: 30\nIntervalo: 0,75 s");
+            RectTransform canvasRect = (RectTransform)_instance.transform;
+            Vector2[] edgePositions =
+            {
+                new(-300f, -220f),
+                new(-300f, 220f),
+                new(300f, -220f),
+                new(300f, 220f)
+            };
+            for (int index = 0; index < edgePositions.Length; index++)
+            {
+                RectTransform anchor = CreateAnchor($"TooltipEdge{index}", edgePositions[index]);
+                Assert.That(_view.TooltipView.Show(in presentation, anchor), Is.True);
+                yield return null;
+
+                Bounds tooltipBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    canvasRect,
+                    _view.TooltipView.transform as RectTransform);
+                Assert.That(tooltipBounds.min.x, Is.GreaterThanOrEqualTo(canvasRect.rect.xMin - 0.01f));
+                Assert.That(tooltipBounds.max.x, Is.LessThanOrEqualTo(canvasRect.rect.xMax + 0.01f));
+                Assert.That(tooltipBounds.min.y, Is.GreaterThanOrEqualTo(canvasRect.rect.yMin - 0.01f));
+                Assert.That(tooltipBounds.max.y, Is.LessThanOrEqualTo(canvasRect.rect.yMax + 0.01f));
+            }
+
+            _view.ClearContent();
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
+            Assert.That(_view.TooltipView.CurrentAnchor, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ReplacingSlotContentAndClosingScreenDismissTooltip()
+        {
+            LootDefinition firstDefinition = CreateTooltipDefinition("Mineral", LootCategory.Material);
+            LootDefinition secondDefinition = CreateTooltipDefinition("Madera", LootCategory.Material);
+            RaidInventorySlotData first = RaidInventorySlotData.Create(
+                new LootEntry(new LootId("mineral"), 1), firstDefinition, null);
+            RaidInventorySlotData second = RaidInventorySlotData.Create(
+                new LootEntry(new LootId("wood"), 1), secondDefinition, null);
+            Object.DestroyImmediate(firstDefinition);
+            Object.DestroyImmediate(secondDefinition);
+
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.EnsureSlotCount(1), Is.True);
+            Assert.That(panel.Present(new[] { first }, null, false, false, default), Is.True);
+            RaidInventorySlotView slot = GetFirstActiveSlot(panel);
+            slot.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.True);
+
+            Assert.That(panel.Present(new[] { second }, null, false, false, default), Is.True);
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
+
+            slot.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.True);
+            _view.SetScreenVisible(false);
+            Assert.That(_view.TooltipView.IsOpen, Is.False);
+            yield return null;
         }
 
         [UnityTest]
@@ -401,6 +543,23 @@ namespace Tests.PlayMode.Presentation
             anchor.sizeDelta = new Vector2(40f, 40f);
             anchor.anchoredPosition = anchoredPosition;
             return anchor;
+        }
+
+        private static LootDefinition CreateTooltipDefinition(string displayName, LootCategory category)
+        {
+            LootDefinition definition = ScriptableObject.CreateInstance<LootDefinition>();
+            SetPrivateField(definition, "_displayName", displayName);
+            SetPrivateField(definition, "_category", category);
+            return definition;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(target, value);
         }
 
         private sealed class NoOpContextActionProvider : ILootContextActionProvider
