@@ -27,6 +27,11 @@ public sealed class DialogueView : MonoBehaviour, IDialogueView
 
     public bool IsVisible => _panelRoot != null && _panelRoot.activeSelf;
 
+    private void Awake()
+    {
+        Hide();
+    }
+
     public void Show(string speakerName, Sprite portrait)
     {
         if (_panelRoot != null)
