@@ -46,6 +46,10 @@ public sealed class LootDefinition : ScriptableObject
     private WeaponDefinition _weaponDefinition;
 
     [SerializeField]
+    [Tooltip("Opcional. Configuración funcional cuando este loot es una pieza de armadura equipable.")]
+    private ArmorDefinition _armorDefinition;
+
+    [SerializeField]
     [Tooltip("Opcional. Configuración visual cuando este loot es una armadura o equipo visualizable.")]
     private EquipmentVisualDefinition _equipmentVisualDefinition;
 
@@ -62,6 +66,7 @@ public sealed class LootDefinition : ScriptableObject
     public int DefaultPickupQuantity => _defaultPickupQuantity;
     public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
     public WeaponDefinition WeaponDefinition => _weaponDefinition;
+    public ArmorDefinition ArmorDefinition => _armorDefinition;
     public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
 
     private void OnValidate()
@@ -153,10 +158,35 @@ public sealed class LootDefinition : ScriptableObject
                 error = $"Loot definition '{_id}' has an invalid WeaponDefinition: {weaponError}";
                 return false;
             }
+
+            if (_armorDefinition != null)
+            {
+                error = $"Loot definition '{_id}' is a Weapon but also has an ArmorDefinition.";
+                return false;
+            }
         }
         else if (_weaponDefinition != null)
         {
             error = $"Loot definition '{_id}' has a WeaponDefinition but its category is {_category}.";
+            return false;
+        }
+        else if (IsArmorCategory(_category))
+        {
+            if (_armorDefinition == null)
+            {
+                error = $"Loot definition '{_id}' is {_category} but has no ArmorDefinition.";
+                return false;
+            }
+
+            if (!_armorDefinition.TryValidate(out string armorError))
+            {
+                error = $"Loot definition '{_id}' has an invalid ArmorDefinition: {armorError}";
+                return false;
+            }
+        }
+        else if (_armorDefinition != null)
+        {
+            error = $"Loot definition '{_id}' has an ArmorDefinition but its category is {_category}.";
             return false;
         }
 
@@ -168,4 +198,10 @@ public sealed class LootDefinition : ScriptableObject
 
         return true;
     }
+
+    private static bool IsArmorCategory(LootCategory category) =>
+        category == LootCategory.Helmet ||
+        category == LootCategory.Armor ||
+        category == LootCategory.Gloves ||
+        category == LootCategory.Boots;
 }

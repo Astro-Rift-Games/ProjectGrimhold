@@ -104,6 +104,52 @@ namespace Tests.EditMode.Equipment
             }
         }
 
+        [Test]
+        public void WeaponDefinition_LegacyScalingMustMatchNaturalAttribute()
+        {
+            WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            MeleeAttackConfig attack = CreateValidMeleeConfig();
+            try
+            {
+                SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
+                SetPrivateField(weapon, "_naturalScalingAttribute", CharacterAttribute.Strength);
+                SetPrivateField(
+                    weapon,
+                    "_offensiveScaling",
+                    new WeaponOffensiveScaling(CharacterAttribute.Dexterity, 0.5f));
+
+                Assert.That(weapon.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("must match natural scaling attribute"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(attack);
+                Object.DestroyImmediate(weapon);
+            }
+        }
+
+        [Test]
+        public void WeaponDefinition_NaturalAttributeMustBeOffensive()
+        {
+            WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            MeleeAttackConfig attack = CreateValidMeleeConfig();
+            try
+            {
+                SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
+                SetPrivateField(weapon, "_naturalScalingAttribute", CharacterAttribute.Vitality);
+
+                Assert.That(weapon.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("unsupported natural scaling attribute"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(attack);
+                Object.DestroyImmediate(weapon);
+            }
+        }
+
         private static CharacterAttributeState CreateAttributes(
             int vitality,
             int resistance,

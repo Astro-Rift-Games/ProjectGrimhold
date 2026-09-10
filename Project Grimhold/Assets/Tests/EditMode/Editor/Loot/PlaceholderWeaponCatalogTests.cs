@@ -99,6 +99,18 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void WeaponAssets_ExposeTheirNaturalScalingAttribute()
+        {
+            AssertNaturalAttribute(RecoverySword, CharacterAttribute.Strength);
+            AssertNaturalAttribute(TrainingSword, CharacterAttribute.Strength);
+            AssertNaturalAttribute(Longsword, CharacterAttribute.Strength);
+            AssertNaturalAttribute(Greatsword, CharacterAttribute.Strength);
+            AssertNaturalAttribute(Wand, CharacterAttribute.Intelligence);
+            AssertNaturalAttribute(Spellbook, CharacterAttribute.Intelligence);
+            AssertNaturalAttribute(Staff, CharacterAttribute.Intelligence);
+        }
+
+        [Test]
         public void WeaponAssets_ExposeTheConfiguredMvpCombatStatistics()
         {
             AssertCombatStats(RecoverySword, 22f, 1f, 1.5f, 15f, DamageType.Physical, 5f);
@@ -404,6 +416,11 @@ namespace Tests.EditMode.Loot
                 actual,
                 Is.EqualTo(new WeaponAttributeRequirements(strength, dexterity, intelligence)),
                 lootId);
+        }
+
+        private void AssertNaturalAttribute(string lootId, CharacterAttribute expected)
+        {
+            Assert.That(ResolveWeapon(lootId).NaturalScalingAttribute, Is.EqualTo(expected), lootId);
         }
 
         private void AssertNoScaling(string lootId)

@@ -224,6 +224,71 @@ namespace Tests.EditMode.Loot
             Assert.That(typeof(LootDefinition).GetProperty("ExtractionValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("SellValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("DefaultPickupQuantity").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("ArmorDefinition").CanWrite, Is.False);
+        }
+
+        [Test]
+        public void ArmorCategory_WithoutArmorDefinition_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_category", LootCategory.Helmet);
+
+            Assert.That(_loot.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain("no ArmorDefinition"));
+        }
+
+        [Test]
+        public void NonEquipmentCategory_WithArmorDefinition_FailsValidation()
+        {
+            ArmorDefinition armor = CreateValidArmorDefinition();
+            try
+            {
+                SetValidDefaults();
+                SetField("_armorDefinition", armor);
+
+                Assert.That(_loot.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("has an ArmorDefinition"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(armor);
+            }
+        }
+
+        [Test]
+        public void ArmorCategory_WithValidArmorDefinition_PassesValidation()
+        {
+            ArmorDefinition armor = CreateValidArmorDefinition();
+            try
+            {
+                SetValidDefaults();
+                SetField("_category", LootCategory.Helmet);
+                SetField("_armorDefinition", armor);
+
+                Assert.That(_loot.TryValidate(out string error), Is.True, error);
+            }
+            finally
+            {
+                Object.DestroyImmediate(armor);
+            }
+        }
+
+        private static ArmorDefinition CreateValidArmorDefinition()
+        {
+            ArmorDefinition armor = ScriptableObject.CreateInstance<ArmorDefinition>();
+            SetPrivateField(armor, "_physicalDefense", 1);
+            SetPrivateField(
+                armor,
+                "_maximumResourceModifier",
+                new MaximumResourceModifier(MaximumResourceType.Health, 1));
+            return armor;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Field {target.GetType().Name}.{fieldName} was not found.");
+            field.SetValue(target, value);
         }
     }
 }

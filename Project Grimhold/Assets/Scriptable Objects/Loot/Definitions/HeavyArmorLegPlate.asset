@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 11400000, guid: c4be7cf4c6734e92ab3fdfb2de7e82c0, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0
     _tint: {r: 1, g: 1, b: 1, a: 1}

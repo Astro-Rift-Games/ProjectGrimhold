@@ -23,6 +23,10 @@ public sealed class WeaponDefinition : ScriptableObject
     private AttackConfig _primaryAttack;
 
     [SerializeField]
+    private CharacterAttribute _naturalScalingAttribute = CharacterAttribute.Strength;
+
+    [SerializeField]
+    [Tooltip("Legacy LootId-based runtime scaling. Instance modifiers are the canonical future contract.")]
     private WeaponOffensiveScaling _offensiveScaling;
 
     [SerializeField]
@@ -44,6 +48,9 @@ public sealed class WeaponDefinition : ScriptableObject
     public float KnockbackForce => _knockbackForce;
     public WeaponHandedness Handedness => _handedness;
     public AttackConfig PrimaryAttack => _primaryAttack;
+    public CharacterAttribute NaturalScalingAttribute => _naturalScalingAttribute;
+
+    /// <summary>Legacy LootId-based runtime scaling retained until instance identity is integrated.</summary>
     public WeaponOffensiveScaling OffensiveScaling => _offensiveScaling;
     public PresentationConfig Presentation => _presentation;
     public WeaponAttributeRequirements AttributeRequirements => _attributeRequirements;
@@ -121,9 +128,26 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
+        if (_naturalScalingAttribute != CharacterAttribute.Strength &&
+            _naturalScalingAttribute != CharacterAttribute.Dexterity &&
+            _naturalScalingAttribute != CharacterAttribute.Intelligence)
+        {
+            error = $"Weapon definition '{name}' has unsupported natural scaling attribute '{_naturalScalingAttribute}'.";
+            return false;
+        }
+
         if (!_offensiveScaling.TryValidate(out string scalingError))
         {
             error = $"Weapon definition '{name}' has invalid offensive scaling: {scalingError}";
+            return false;
+        }
+
+        if (_offensiveScaling.HasScaling &&
+            _offensiveScaling.Attribute != _naturalScalingAttribute)
+        {
+            error = $"Weapon definition '{name}' legacy offensive scaling attribute " +
+                $"'{_offensiveScaling.Attribute}' must match natural scaling attribute " +
+                $"'{_naturalScalingAttribute}'.";
             return false;
         }
 

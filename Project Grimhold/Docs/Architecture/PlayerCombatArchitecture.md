@@ -104,7 +104,7 @@ Equipment rule. `PlayerLootReceiver` is never the source of truth for what is eq
 
 Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
 with the participant's effective `CharacterAttributeState`. Equipment selects the attribute declared
-by `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
+by the legacy `WeaponOffensiveScaling`, calculates effective damage through `WeaponDamageCalculator`, builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
 interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
 executor, and assigns it
@@ -216,17 +216,34 @@ Inherits the input mode and owns only reusable projectile behavior:
 * **`_projectilePrefab`** (NetworkPrefabRef): Fusion registered prefab reference.
 * **`_impactLayerMask`** (LayerMask): Collision mask including both target characters and blocking obstacle walls.
 
-### 3. `WeaponDefinition`, runtime parameters and scaling
+### 3. Equipment template configuration, runtime parameters and scaling
 
-`WeaponDefinition` is the single source of truth for player weapon `BaseDamage`,
-`AttackIntervalSeconds`, effective `Range`, `StaminaCost`, `DamageType`, `KnockbackForce`,
-requirements and scaling. `StaminaCost` is validated configuration but is not consumed yet.
-Spellbook uses the shared ranged behavior; proximity or area manifestation is outside this contract.
+`LootDefinition` is the static template and catalog identity of an item. A weapon template
+references `WeaponDefinition`; an armor template references `ArmorDefinition`. These referenced
+objects are functional configurations, not competing template identities. Presentation remains a
+separate `EquipmentVisualDefinition` concern.
 
-`WeaponOffensiveScaling` stores one `CharacterAttribute` and one non-negative coefficient. A zero
-coefficient means no scaling and contributes zero without reading an attribute. A positive
-coefficient accepts only Strength, Dexterity or Intelligence and resolves its value from the
-confirmed `CharacterAttributeState` already owned by the Raid participant. The provisional rule is:
+`WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, effective `Range`,
+`StaminaCost`, `DamageType`, `KnockbackForce`, handedness, requirements and natural scaling
+attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and one flat maximum
+Health, Stamina or Mana modifier. TASK-321 configures these armor values but no Raid consumer applies
+them yet. `StaminaCost` is validated weapon configuration but is not consumed yet. Spellbook uses
+the shared ranged behavior; proximity or area manifestation is outside this contract.
+
+The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
+`WeaponScalingModifier` slots using grades E through S. `WeaponScalingGrade.None` is only the default
+serialization sentinel and normalizes to an absent slot. A present primary must match the weapon's
+natural Strength, Dexterity or Intelligence attribute. A present secondary requires a primary and may
+use any other character attribute. Coefficients are fixed by grade: E=0.25, D=0.40, C=0.55, B=0.70,
+A=0.85 and S=1.00. These values are not stored in `LootEntry`, Equipment or persistence until unique
+item identity is integrated end to end.
+
+`WeaponOffensiveScaling` remains only the legacy runtime representation for the current
+`LootId`-based model. It is not the canonical instance contract and must not evolve as a parallel
+source of truth. A zero coefficient means no legacy scaling. A positive coefficient accepts only
+Strength, Dexterity or Intelligence and resolves its value from the confirmed
+`CharacterAttributeState` already owned by the Raid participant. Until TASK-322 introduces the
+compatibility projection, the runtime rule remains:
 
 ```text
 EffectiveDamage = WeaponDefinition.BaseDamage + (AttributeValue * ScalingCoefficient)
@@ -236,8 +253,11 @@ EffectiveDamage = WeaponDefinition.BaseDamage + (AttributeValue * ScalingCoeffic
 configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
 runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their
 own `AttackExecutionParameters`, keeping their existing behavior independent from Equipment.
-Scaling grades remain Game Design concepts and are represented in runtime configuration only by their
-    resolved coefficient.
+The compatibility projection introduced by TASK-322 is the removal boundary for this legacy path;
+the complete Template/Instance migration remains separate from US-36.
+TASK-322 must preserve current Health and Stamina when applying equipment maximums: increasing a
+maximum does not recover the current resource, while decreasing it authoritatively applies
+`NewCurrent = min(PreviousCurrent, NewMaximum)`. Any recovery is a separate explicit operation.
 
 ---
 
@@ -533,7 +553,8 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
-* **Armor Is Equipment State Only**: `Helmet`, `Armor`, `Gloves` and `Boots` currently carry slot identity and compatibility and nothing else. There is no defence, attribute, requirement, rarity, affix or any other gameplay effect attached to them.
+* **Armor Statistics Are Not Applied Yet**: armor templates now reference functional Physical Defense, Magical Defense and maximum-resource modifier data. Raid Equipment still carries only `LootId` slot identity and no gameplay consumer applies these values until the dedicated follow-up tasks.
+* **No Unique Equipment Instances Yet**: current inventory, Equipment, world and persistence paths identify items by `LootId` plus quantity. `WeaponInstanceModifiers` defines the canonical scaling payload but is not transported or stored yet, so multiple runtime variants of one template do not exist.
 * **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. Only a valid Main Hand weapon is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
 * **Off Hand combat is deferred**: TASK-330 stores and validates Off Hand equipment, but primary attack still resolves only the active Set's Main Hand. Shield defence and Dual Wield attacks are separate features.
 * **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
