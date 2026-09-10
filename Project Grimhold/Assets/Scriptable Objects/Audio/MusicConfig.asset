@@ -20,7 +20,7 @@ MonoBehaviour:
       _volume: 0
       _pitch: 0
       _spatialBlend: 0
-      _loop: 0
+      _loop: 1
   - Key: Raid
     Clip:
       _clips:
@@ -29,4 +29,4 @@ MonoBehaviour:
       _volume: 0
       _pitch: 0
       _spatialBlend: 0
-      _loop: 0
+      _loop: 1

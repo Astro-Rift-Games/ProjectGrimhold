@@ -6027,6 +6027,8 @@ GameObject:
   - component: {fileID: 8300000000000000005}
   - component: {fileID: 176522636574861152}
   - component: {fileID: 7062006960257999095}
+  - component: {fileID: 7997196603447741410}
+  - component: {fileID: 2234995063959400674}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6117,8 +6119,6 @@ MonoBehaviour:
   _participantLink: {fileID: 5489547608340585132}
   _CurrentStamina: 0
   _IsExhausted:
-    RawValue: 0
-  _IsInitialized:
     RawValue: 0
 --- !u!114 &7201000000000000005
 MonoBehaviour:
@@ -6621,6 +6621,7 @@ MonoBehaviour:
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
+  _GenerationState: 0
   _interactionColliders:
   - {fileID: 4100000000000000106}
 --- !u!114 &4100000000000000103
@@ -6874,6 +6875,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeAttack
   _config: {fileID: 0}
+  _defaultParameters:
+    _damage: 0
+    _damageType: 0
+    _cooldownSeconds: 0
+    _range: 0
+    _knockbackForce: 0
   _targetQuerySource: {fileID: 8300000000000000001}
   _damageResolverSource: {fileID: 438361259854513489}
 --- !u!114 &8300000000000000003
@@ -6889,6 +6896,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RangedAttack
   _config: {fileID: 0}
+  _defaultParameters:
+    _damage: 0
+    _damageType: 0
+    _cooldownSeconds: 0
+    _range: 0
+    _knockbackForce: 0
   _projectileSpawnerSource: {fileID: 8300000000000000004}
 --- !u!114 &8300000000000000004
 MonoBehaviour:
@@ -6949,6 +6962,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
+--- !u!114 &7997196603447741410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42dd968681257994194151e2748a378d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponAudioPresenter
+  _combatControllerSource: {fileID: 2769229401594790361}
+  _equipmentSource: {fileID: 8300000000000000005}
+  _fallbackAudioConfig: {fileID: 0}
+  _reloadDelaySeconds: 0.25
+  _obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 2112
+  _sceneryCheckRadius: 0.8
+--- !u!114 &2234995063959400674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9645c9ac7d44e1b4080886e527ecf7ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAudioPresenter
+  _characterBase: {fileID: 729366679366126330}
+  _movementStateSource: {fileID: 7201000000000000005}
+  _audioConfig: {fileID: 11400000, guid: d16126c841c8f7b48bf9c193111c5da1, type: 2}
+  _stepInterval: 0.35
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

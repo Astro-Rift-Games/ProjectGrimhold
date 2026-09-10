@@ -31,8 +31,24 @@ El orquestador central es el **AudioManager**:
 
 ## AudioPresenters (Conectores)
 
-Los scripts que disparan el audio (`WeaponAudioPresenter`, `EnemyAudioPresenter`) se rigen por la arquitectura de presentación pasiva:
+Los scripts que disparan el audio se rigen por la arquitectura de presentación pasiva:
 
-1. **Armas**: Dado que las armas son `ScriptableObjects` (`WeaponDefinition`) y no prefabs instanciados, `WeaponDefinition` almacena su propio `WeaponAudioConfig`. El `WeaponAudioPresenter` reside en el prefab del Jugador, suscrito a `ICombatController.AttackPerformed`, y resuelve el arma actualmente equipada en `PlayerWeaponEquipmentNetworkController` para disparar el sonido `"Swing"`. Si el arma no tiene audio o clave `"Swing"`, se omite silenciosamente.
-2. **Enemigos**: `EnemyAudioPresenter` se ubica en el prefab del enemigo y utiliza **Polling a estado de simulación** en `LateUpdate()` sobre `CharacterBase.Health` y `CharacterBase.IsAlive` (siguiendo el mismo patrón de `DamageFeedbackPresenter`) para disparar `"TakeDamage"` y `"Death"`.
+1. **Armas (`WeaponAudioPresenter`)**:
+   - Reside en el prefab del Jugador.
+   - Resuelve el arma equipada vía `PlayerWeaponEquipmentNetworkController`.
+   - Dispara `"Swing"` (melee) o `"Shoot"` (rango) al recibir `ICombatController.AttackPerformed`.
+   - Para rango, temporiza el disparo de `"Reload"` al entrar en cooldown.
+   - Escucha `CombatFeedbackResolved`: si confirma impacto contra un personaje reproduce `"Attack"`, y si impacta contra un destructible (`BreakableObject`) o el escenario (`WorldCollision`/`Obstacles`) reproduce `"Block"`.
+2. **Enemigos (`EnemyAudioPresenter`)**:
+   - Ubicado en el prefab del enemigo.
+   - Escucha `ICombatController.AttackPerformed` para disparar `"Attack"` (melee) o `"Shoot"` y `"Reload"` (rango).
+   - Utiliza **Polling a estado de simulación** en `LateUpdate()` sobre `CharacterBase.Health` para reproducir `"TakeDamage"` y `"Death"`.
+   - Observa `IMovementState.IsMoving` para emitir `"Movement"` según el intervalo de pasos.
+3. **Jugador (`PlayerAudioPresenter`)**:
+   - Ubicado en el prefab del Jugador.
+   - Monitorea `CharacterBase.Health` para reproducir `"TakeDamage"` y `"Death"`.
+   - Monitorea `IMovementState.IsMoving` para reproducir pasos `"Movement"`.
+4. **Música (`SceneMusicPresenter`)**:
+   - Componente colocado en la raíz de cada escena (`Lobby-Town`, `Gameplay`).
+   - Dispara en `Start()` la reproducción en loop de la pista correspondiente (`"Town"`, `"Raid"`) al `AudioManager.Instance`.
 

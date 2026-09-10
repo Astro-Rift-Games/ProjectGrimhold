@@ -1,43 +1,33 @@
-using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Observa el estado de salud, combate y locomoción de un enemigo para reproducir audios de
-/// ataque (Attack/Shoot), recarga (Reload), daño (TakeDamage), muerte (Death) y pasos (Movement),
-/// sin interferir en la simulación.
+/// Observa el estado del personaje jugador (PlayerCharacter) para reproducir efectos de sonido
+/// de daño (TakeDamage), muerte (Death) y locomoción (Movement) sin acoplarse a la simulación ni a la red.
 /// </summary>
 [DisallowMultipleComponent]
-public class EnemyAudioPresenter : MonoBehaviour
+public class PlayerAudioPresenter : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField]
     private CharacterBase _characterBase;
 
     [SerializeField]
-    private MonoBehaviour _combatControllerSource;
+    private MonoBehaviour _movementStateSource;
 
     [Header("Configuration")]
     [SerializeField]
-    private EnemyAudioConfig _audioConfig;
-
-    [Header("Ranged Configuration")]
-    [SerializeField, Min(0f)]
-    [Tooltip("Retardo en segundos antes de disparar el sonido de Reload tras un disparo a distancia.")]
-    private float _reloadDelaySeconds = 0.25f;
+    private PlayerAudioConfig _audioConfig;
 
     [Header("Movement Configuration")]
     [SerializeField, Min(0.1f)]
-    [Tooltip("Intervalo en segundos entre cada sonido de paso mientras el enemigo se desplaza.")]
+    [Tooltip("Intervalo en segundos entre cada sonido de paso mientras el jugador se desplaza.")]
     private float _stepInterval = 0.35f;
 
-    private ICombatController _combatController;
     private IMovementState _movementState;
     private float _lastObservedHealth;
     private bool _isInitialized;
     private bool _isDead;
-    private bool _isSubscribed;
     private float _stepTimer;
-    private Coroutine _reloadCoroutine;
 
     private void Awake()
     {
@@ -47,21 +37,14 @@ public class EnemyAudioPresenter : MonoBehaviour
     private void OnEnable()
     {
         CacheDependencies();
-        Subscribe();
         InitializeHealthTracking();
         _stepTimer = 0f;
     }
 
     private void OnDisable()
     {
-        Unsubscribe();
         _isInitialized = false;
         _isDead = false;
-        if (_reloadCoroutine != null)
-        {
-            StopCoroutine(_reloadCoroutine);
-            _reloadCoroutine = null;
-        }
     }
 
     private void CacheDependencies()
@@ -71,86 +54,15 @@ public class EnemyAudioPresenter : MonoBehaviour
             _characterBase = GetComponentInParent<CharacterBase>();
         }
 
-        if (_combatControllerSource != null)
+        if (_movementStateSource != null)
         {
-            _combatController = _combatControllerSource as ICombatController;
-        }
-
-        if (_combatController == null)
-        {
-            _combatController = GetComponentInParent<ICombatController>();
+            _movementState = _movementStateSource as IMovementState;
         }
 
         if (_movementState == null)
         {
             _movementState = GetComponentInParent<IMovementState>();
         }
-    }
-
-    private void Subscribe()
-    {
-        if (_isSubscribed) return;
-
-        if (_combatController != null)
-        {
-            _combatController.AttackPerformed += OnAttackPerformed;
-            _isSubscribed = true;
-        }
-    }
-
-    private void Unsubscribe()
-    {
-        if (!_isSubscribed) return;
-
-        if (_combatController != null)
-        {
-            _combatController.AttackPerformed -= OnAttackPerformed;
-            _isSubscribed = false;
-        }
-    }
-
-    private void OnAttackPerformed(AttackPerformedEvent attackEvent)
-    {
-        if (_audioConfig == null || AudioManager.Instance == null) return;
-
-        if (attackEvent.AttackType == AttackType.Melee)
-        {
-            if (_audioConfig.TryGetClip("Attack", out var attackClip))
-            {
-                AudioManager.Instance.PlaySfx(attackClip, transform.position);
-            }
-        }
-        else if (attackEvent.AttackType == AttackType.Ranged)
-        {
-            if (_audioConfig.TryGetClip("Shoot", out var shootClip))
-            {
-                AudioManager.Instance.PlaySfx(shootClip, transform.position);
-            }
-
-            if (_audioConfig.TryGetClip("Reload", out var reloadClip))
-            {
-                if (_reloadCoroutine != null)
-                {
-                    StopCoroutine(_reloadCoroutine);
-                }
-                _reloadCoroutine = StartCoroutine(PlayDelayedReload(reloadClip, _reloadDelaySeconds));
-            }
-        }
-    }
-
-    private IEnumerator PlayDelayedReload(CustomClip reloadClip, float delay)
-    {
-        if (delay > 0f)
-        {
-            yield return new WaitForSeconds(delay);
-        }
-
-        if (AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySfx(reloadClip, transform.position);
-        }
-
-        _reloadCoroutine = null;
     }
 
     private void LateUpdate()
@@ -182,7 +94,7 @@ public class EnemyAudioPresenter : MonoBehaviour
             return;
         }
 
-        // 2. Verificación de daño
+        // 2. Verificación de recepción de daño (TakeDamage)
         float currentHealth = _characterBase.Health;
         if (currentHealth < _lastObservedHealth - 0.001f) // Health epsilon
         {

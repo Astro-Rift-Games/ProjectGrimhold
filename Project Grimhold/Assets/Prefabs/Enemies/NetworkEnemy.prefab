@@ -5768,7 +5768,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAudioPresenter
   _characterBase: {fileID: 4980760815071069997}
+  _combatControllerSource: {fileID: 3988879926097982634}
   _audioConfig: {fileID: 0}
+  _reloadDelaySeconds: 0.25
+  _stepInterval: 0.35
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
