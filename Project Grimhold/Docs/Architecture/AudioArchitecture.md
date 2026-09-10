@@ -44,11 +44,11 @@ Los scripts que disparan el audio se rigen por la arquitectura de presentación 
    - Escucha `ICombatController.AttackPerformed` para disparar `"Attack"` (melee) o `"Shoot"` y `"Reload"` (rango).
    - Utiliza **Polling a estado de simulación** en `LateUpdate()` sobre `CharacterBase.Health` para reproducir `"TakeDamage"` y `"Death"`.
    - Observa `IMovementState.IsMoving` para emitir `"Movement"` según el intervalo de pasos.
-3. **Jugador (`PlayerAudioPresenter`)**:
-   - Ubicado en el prefab del Jugador.
-   - Monitorea `CharacterBase.Health` para reproducir `"TakeDamage"` y `"Death"`.
-   - Monitorea `IMovementState.IsMoving` para reproducir pasos `"Movement"`.
+3. **Jugador (`PlayerAudioPresenter` y `PlayerAnimationAudioListener`)**:
+   - `PlayerAudioPresenter`: Ubicado en el prefab raíz del Jugador. Monitorea `CharacterBase.Health` para `"TakeDamage"`/`"Death"`, y expone `PlayAudio(key)` para llamadas manuales.
+   - `PlayerAnimationAudioListener`: Ubicado en el GameObject hijo junto al `Animator`. Actúa como puente para los `AnimationEvents` (`PlayAudioEvent(string)` o `PlayFootstep()`), delegando la reproducción hacia el `PlayerAudioPresenter` del padre.
 4. **Música (`SceneMusicPresenter`)**:
    - Componente colocado en la raíz de cada escena (`Lobby-Town`, `Gameplay`).
    - Dispara en `Start()` la reproducción en loop de la pista correspondiente (`"Town"`, `"Raid"`) al `AudioManager.Instance`.
+
 

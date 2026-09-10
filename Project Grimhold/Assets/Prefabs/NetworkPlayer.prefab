@@ -6997,6 +6997,7 @@ MonoBehaviour:
   _characterBase: {fileID: 729366679366126330}
   _movementStateSource: {fileID: 7201000000000000005}
   _audioConfig: {fileID: 11400000, guid: d16126c841c8f7b48bf9c193111c5da1, type: 2}
+  _enableTimerFootsteps: 1
   _stepInterval: 0.35
 --- !u!1 &6258069994273772255
 GameObject:
@@ -7165,6 +7166,7 @@ GameObject:
   - component: {fileID: 7572879158521877428}
   - component: {fileID: 5232659655046367733}
   - component: {fileID: 9066079641277163365}
+  - component: {fileID: 8818675422456697411}
   m_Layer: 7
   m_Name: VisualRoot
   m_TagString: Untagged
@@ -7253,6 +7255,19 @@ MonoBehaviour:
   _leftGloveVisual: {fileID: 7406105074040529449}
   _rightGloveVisual: {fileID: 2008647062728199361}
   _bootsVisual: {fileID: 1188225742804442066}
+--- !u!114 &8818675422456697411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7397229956843810000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a00c69280b9b9c41aaedef498f5a957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimationAudioListener
+  _presenter: {fileID: 2234995063959400674}
 --- !u!1 &7397229956843810010
 GameObject:
   m_ObjectHideFlags: 0

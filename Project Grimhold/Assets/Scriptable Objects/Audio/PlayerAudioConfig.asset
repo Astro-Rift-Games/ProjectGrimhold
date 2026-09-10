@@ -22,3 +22,20 @@ MonoBehaviour:
       _pitch: 0
       _spatialBlend: 0
       _loop: 0
+  - Key: Step
+    Clip:
+      _clips:
+      - {fileID: 8300000, guid: 5461cae585b64f64089805f0d313bc84, type: 3}
+      - {fileID: 8300000, guid: 2b3fc7e56f2686b48b9445e48c7db2c9, type: 3}
+      - {fileID: 8300000, guid: 87d51f07abec0584d805bbe3708a7c71, type: 3}
+      - {fileID: 8300000, guid: 9f96c8d3fef6ab440bdc9bd4ad3d08fe, type: 3}
+      - {fileID: 8300000, guid: 61abfb7bb17151f458862ef823ac0932, type: 3}
+      - {fileID: 8300000, guid: 2e14b3cc9c6906b42885675f3572d4b3, type: 3}
+      - {fileID: 8300000, guid: 846819fd62ca22b478d33e537cd61c8c, type: 3}
+      - {fileID: 8300000, guid: 6eee7f295d5ff8b4f934dec7f44eaf97, type: 3}
+      - {fileID: 8300000, guid: 9b1f6289334342841afe6a5a8349e7ec, type: 3}
+      - {fileID: 8300000, guid: afeb90013e6764449ae1616f47705ff7, type: 3}
+      _volume: 0
+      _pitch: 0
+      _spatialBlend: 0
+      _loop: 0
