@@ -7014,7 +7014,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DialoguePresenter
   _maxDialogueDistance: 3.5
-  _dialogueUiPrefab: {fileID: 0}
+  _dialogueUiPrefab: {fileID: 6931621086179854635, guid: 0c7123f71ba189342a05da3d6d38c212, type: 3}
   _dialogueController: {fileID: 0}
   _dialogueViewBehaviour: {fileID: 0}
   _interactionController: {fileID: 2425433471524800765}

@@ -1145,6 +1145,7 @@ GameObject:
   - component: {fileID: 641145273}
   - component: {fileID: 641145272}
   - component: {fileID: 641145271}
+  - component: {fileID: 641145274}
   m_Layer: 8
   m_Name: NPC
   m_TagString: Untagged
@@ -1170,7 +1171,8 @@ MonoBehaviour:
   Flags: 262146
   NestedObjects:
   - {fileID: 1599939434}
-  NetworkedBehaviours: []
+  NetworkedBehaviours:
+  - {fileID: 641145274}
   ForceRemoteRenderTimeframe: 0
 --- !u!61 &641145272
 BoxCollider2D:
@@ -1234,6 +1236,20 @@ Transform:
   - {fileID: 1599939431}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &641145274
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 641145270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee891b92c07007943974a31a9581e34a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueInteractable
+  _primarySequence: {fileID: 11400000, guid: 8b52e2c1943aa434dba139c1c7e956b5, type: 2}
+  _secondarySequence: {fileID: 11400000, guid: 60cdffbd6d494b14d82ca61d1fc8c608, type: 2}
 --- !u!1 &690677641
 GameObject:
   m_ObjectHideFlags: 0
@@ -1833,7 +1849,6 @@ GameObject:
   - component: {fileID: 1599939431}
   - component: {fileID: 1599939432}
   - component: {fileID: 1599939434}
-  - component: {fileID: 1599939433}
   m_Layer: 8
   m_Name: View
   m_TagString: Untagged
@@ -1916,20 +1931,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
---- !u!114 &1599939433
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1599939430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee891b92c07007943974a31a9581e34a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DialogueInteractable
-  _primarySequence: {fileID: 11400000, guid: 8b52e2c1943aa434dba139c1c7e956b5, type: 2}
-  _secondarySequence: {fileID: 11400000, guid: 60cdffbd6d494b14d82ca61d1fc8c608, type: 2}
 --- !u!114 &1599939434
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1947,8 +1948,7 @@ MonoBehaviour:
   EnableInterpolation: 1
   Flags: 262146
   NestedObjects: []
-  NetworkedBehaviours:
-  - {fileID: 1599939433}
+  NetworkedBehaviours: []
   ForceRemoteRenderTimeframe: 0
 --- !u!1 &1646141114
 GameObject:
