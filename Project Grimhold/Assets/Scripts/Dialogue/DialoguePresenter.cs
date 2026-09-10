@@ -134,8 +134,8 @@ public sealed class DialoguePresenter : NetworkBehaviour
             }
         }
 
-        // If still missing and a prefab is provided, instantiate it
-        if ((_controller == null || _view == null) && _dialogueUiPrefab != null && _instantiatedUiInstance == null)
+        // If still missing and a prefab is provided, instantiate it (only at runtime)
+        if (Application.isPlaying && (_controller == null || _view == null) && _dialogueUiPrefab != null && _instantiatedUiInstance == null)
         {
             _instantiatedUiInstance = Instantiate(_dialogueUiPrefab, transform, false);
             _instantiatedUiInstance.name = "DialogueUI";

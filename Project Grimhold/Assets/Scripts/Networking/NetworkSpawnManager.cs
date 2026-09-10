@@ -1863,6 +1863,20 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         NetworkRunnerCallbackArgs.ConnectRequest request,
         byte[] token)
     {
+        // [AUDIT] Log every connect request received by the Host
+        RaidAdmissionData auditAdmission = default;
+        bool tokenValid = _launchContext != null && TryValidateRaidAdmissionToken(token, out auditAdmission);
+        string auditProfileId = tokenValid ? auditAdmission.ProfileId.Value : "n/a";
+        Debug.Log(
+            $"[AUDIT][NetworkSpawnManager.OnConnectRequest] RemoteAddress={request.RemoteAddress}. " +
+            $"IsServer={runner.IsServer}. LaunchContextPresent={_launchContext != null}. " +
+            $"TokenValid={tokenValid}. " +
+            $"AdmittedProfileId={auditProfileId}. " +
+            $"MatchPhase={_matchController?.Phase}. " +
+            $"MatchControllerPresent={_matchController != null}.",
+            this);
+
+
         if (!runner.IsServer || runner != _runner)
             return;
 

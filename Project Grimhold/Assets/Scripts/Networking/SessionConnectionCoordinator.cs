@@ -1102,6 +1102,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private async Task<SessionTransitionResult> RecoverTownAfterRaidFailureAsync(
         SessionTransitionResult failure)
     {
+        // [AUDIT] Log entry conditions for recovery
+        ApplicationStashContext auditStash = FindAnyObjectByType<ApplicationStashContext>();
+        Debug.LogError(
+            $"[AUDIT][SessionConnectionCoordinator] RecoverTownAfterRaidFailureAsync entered. " +
+            $"Failure={failure}. RaidAdmissionConfirmed={_raidAdmissionConfirmed}. " +
+            $"HasTicket={_activeTicket.HasValue}. " +
+            $"HasReservation={(_activeTicket.HasValue && _activeTicket.Value.HasLoadoutReservation)}. " +
+            $"StashContext={(auditStash != null ? "found" : "NULL")}. " +
+            $"LoadoutService={(auditStash?.LoadoutService != null ? "ok" : "null")}.",
+            this);
+
         if (!TryRollbackActiveReservation())
         {
             TransitionTo(SessionConnectionState.Failed);
@@ -1158,12 +1169,27 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         if (!_activeTicket.HasValue || !_activeTicket.Value.HasLoadoutReservation)
         {
+            // [AUDIT] No reservation to roll back — this is OK
+            Debug.Log($"[AUDIT][SessionConnectionCoordinator] TryRollbackActiveReservation: no active reservation. HasValue={_activeTicket.HasValue}.", this);
             return true;
         }
 
         ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+
+        // [AUDIT] Log state of ApplicationStashContext at rollback time
+        Debug.Log(
+            $"[AUDIT][SessionConnectionCoordinator] TryRollbackActiveReservation. " +
+            $"StashContext={(stashContext != null ? "found" : "NULL")}. " +
+            $"LoadoutService={(stashContext?.LoadoutService != null ? "ok" : "null")}. " +
+            $"ReservationId={_activeTicket.Value.LoadoutReservation.ReservationId}.",
+            this);
+
         if (stashContext == null || stashContext.LoadoutService == null)
         {
+            Debug.LogError(
+                "[AUDIT][SessionConnectionCoordinator] TryRollbackActiveReservation FAILED: " +
+                $"ApplicationStashContext is {(stashContext == null ? "null" : "present but LoadoutService is null")}",
+                this);
             return false;
         }
 
@@ -1172,6 +1198,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             localProfile,
             _activeTicket.Value.LoadoutReservation.ReservationId);
             
+        Debug.Log($"[AUDIT][SessionConnectionCoordinator] Rollback result: {result}.", this);
+
+        // InvalidInventory means the reservation is already gone (rolled back on a prior attempt).
+        // Treat this as success — the reservation state is already clean.
+        if (result == StashOperationResult.InvalidInventory)
+        {
+            Debug.Log("[AUDIT][SessionConnectionCoordinator] Reservation already absent — treating rollback as success (idempotent).", this);
+            return true;
+        }
+
         if (result == StashOperationResult.Success)
         {
             var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();

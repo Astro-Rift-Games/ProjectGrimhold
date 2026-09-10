@@ -121,6 +121,18 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
             ApplicationStashContext profileContext =
                 FindAnyObjectByType<ApplicationStashContext>();
+
+            // [AUDIT] Validate ApplicationStashContext before building admission token
+            Debug.Log(
+                $"[AUDIT][FusionSessionLauncher] Building admission token. " +
+                $"StashContext={(profileContext != null ? "found" : "NULL")}. " +
+                $"StoreProfileId={(profileContext?.Store != null ? profileContext.Store.ProfileId.Value : "null")}. " +
+                $"LocalProfileId={profileId.Value}. " +
+                $"ProfileInManifest={RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId)}. " +
+                $"LoadoutReservationId={(loadoutReservation?.ReservationId ?? "null")}. " +
+                $"Mode={mode}.",
+                this);
+
             if (profileContext?.Store == null ||
                 profileContext.Store.ProfileId != profileId ||
                 !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
@@ -137,8 +149,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     out RaidAdmissionData admissionData) ||
                 !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
             {
+                Debug.LogError(
+                    $"[AUDIT][FusionSessionLauncher] Admission token build FAILED. " +
+                    $"Store={(profileContext?.Store != null ? "ok" : "null")}. " +
+                    $"StoreIdMatch={(profileContext?.Store?.ProfileId == profileId)}. " +
+                    $"ProfileInManifest={RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId)}.",
+                    this);
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }
+            Debug.Log($"[AUDIT][FusionSessionLauncher] Admission token built successfully.", this);
         }
         else if (!PlayerJoinDataCodec.TryEncode(joinData, out token))
         {
@@ -217,13 +236,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             if (!result.Ok)
             {
                 LastStartShutdownReason = result.ShutdownReason;
-                if (mode != GameMode.Client || launchContext == null ||
-                    !IsSessionAvailabilityPending(result.ShutdownReason))
-                {
-                    Debug.LogError(
-                        $"Fusion failed to start. Reason: {result.ShutdownReason}",
-                        this);
-                }
+
+                // [AUDIT] Log full failure details for clients to distinguish ConnectionRefused causes
+                Debug.LogError(
+                    $"[AUDIT][FusionSessionLauncher] Fusion StartGame FAILED. " +
+                    $"Mode={mode}. Reason={result.ShutdownReason}. " +
+                    $"ErrorMessage={(result.ErrorMessage ?? "none")}. " +
+                    $"SessionName={sessionName}. " +
+                    $"IsSessionAvailabilityPending={IsSessionAvailabilityPending(result.ShutdownReason)}.",
+                    this);
 
                 await ShutdownAndDestroyRunnerAsync();
                 return false;

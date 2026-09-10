@@ -9,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 9;
+    private const byte CanonicalVersion = 10;  // bumped: GUID binary + short attributes
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -31,22 +31,29 @@ public static class RaidAdmissionDataCodec
                 return false;
             }
 
-            if (!TryWriteText(writer, data.ProfileId.Value) ||
-                !TryWriteText(writer, data.ReservationId))
+            if (!TryWriteText(writer, data.ProfileId.Value))
             {
                 return false;
             }
 
+            // Write ReservationId as raw GUID bytes (16 bytes) instead of 32-char string
+            if (!Guid.TryParseExact(data.ReservationId, "N", out Guid reservationGuid))
+            {
+                return false;
+            }
+            writer.Write(reservationGuid.ToByteArray());
+
             writer.Write(data.Level);
             writer.Write(data.CurrentExperience);
             writer.Write(data.LastAppliedProgressionResultSequence);
-            writer.Write(data.CharacterAttributes.Vitality);
-            writer.Write(data.CharacterAttributes.Resistance);
-            writer.Write(data.CharacterAttributes.Strength);
-            writer.Write(data.CharacterAttributes.Dexterity);
-            writer.Write(data.CharacterAttributes.Intelligence);
-            writer.Write(data.CharacterAttributes.Luck);
-            writer.Write(data.CharacterAttributes.AvailablePoints);
+            // Write CharacterAttributes as shorts (max value is well under 32767)
+            writer.Write((short)data.CharacterAttributes.Vitality);
+            writer.Write((short)data.CharacterAttributes.Resistance);
+            writer.Write((short)data.CharacterAttributes.Strength);
+            writer.Write((short)data.CharacterAttributes.Dexterity);
+            writer.Write((short)data.CharacterAttributes.Intelligence);
+            writer.Write((short)data.CharacterAttributes.Luck);
+            writer.Write((short)data.CharacterAttributes.AvailablePoints);
 
             writer.Write((byte)data.ReservedLoadout.Count);
             for (int index = 0; index < data.ReservedLoadout.Count; index++)
@@ -106,23 +113,31 @@ public static class RaidAdmissionDataCodec
                 return false;
             }
 
-            if (!TryReadText(reader, out string profileId) ||
-                !TryReadText(reader, out string reservationId))
+            if (!TryReadText(reader, out string profileId))
             {
                 return false;
             }
 
+            // Read ReservationId from raw GUID bytes
+            byte[] guidBytes = reader.ReadBytes(16);
+            if (guidBytes.Length != 16)
+            {
+                return false;
+            }
+            string reservationId = new Guid(guidBytes).ToString("N");
+
             int level = reader.ReadInt32();
             long currentExperience = reader.ReadInt64();
             int lastAppliedProgressionResultSequence = reader.ReadInt32();
+            // Read CharacterAttributes as shorts
             if (!CharacterAttributeState.TryCreate(
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadInt32(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
+                    reader.ReadInt16(),
                     out CharacterAttributeState characterAttributes))
             {
                 return false;
