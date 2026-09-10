@@ -6029,6 +6029,7 @@ GameObject:
   - component: {fileID: 7062006960257999095}
   - component: {fileID: 7997196603447741410}
   - component: {fileID: 2234995063959400674}
+  - component: {fileID: 4758981447037605228}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6454,6 +6455,7 @@ MonoBehaviour:
   - {fileID: 8300000000000000005}
   - {fileID: 176522636574861152}
   - {fileID: 7062006960257999095}
+  - {fileID: 4758981447037605228}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -6999,6 +7001,23 @@ MonoBehaviour:
   _audioConfig: {fileID: 11400000, guid: d16126c841c8f7b48bf9c193111c5da1, type: 2}
   _enableTimerFootsteps: 1
   _stepInterval: 0.35
+--- !u!114 &4758981447037605228
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d90d634aa7b8e77499b7ae332a7bf8a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DialoguePresenter
+  _maxDialogueDistance: 3.5
+  _dialogueUiPrefab: {fileID: 0}
+  _dialogueController: {fileID: 0}
+  _dialogueViewBehaviour: {fileID: 0}
+  _interactionController: {fileID: 2425433471524800765}
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
