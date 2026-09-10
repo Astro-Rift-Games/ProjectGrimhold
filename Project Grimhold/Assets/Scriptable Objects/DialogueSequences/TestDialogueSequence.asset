@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d824222c91c655c46bc9cb8a11b1b6ab, type: 3}
+  m_Name: TestDialogueSequence
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueSequence
+  CharactersPerSecond: 40
+  TypingSound:
+    _clips: []
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
+  Lines:
+  - SpeakerName: "Tom\xE1s"
+    Text: Este es un test del dialogue manager
+    SpeakerPortrait: {fileID: 3114823817450990062, guid: c1caf6a30cc19234cac1b84fd0d916f0, type: 3}
+    AutoAdvance: 0
+    AutoAdvanceDelay: 0
+  - SpeakerName: NPC Slime
+    Text: Confirmo
+    SpeakerPortrait: {fileID: -748208283416728894, guid: 1779548aec3b34d448b835732e98bb31, type: 3}
+    AutoAdvance: 0
+    AutoAdvanceDelay: 0
