@@ -4940,6 +4940,7 @@ GameObject:
   - component: {fileID: 1066720069559603162}
   - component: {fileID: 4438265232833103325}
   - component: {fileID: 5232659655046367733}
+  - component: {fileID: 3016428964478573372}
   m_Layer: 7
   m_Name: Body
   m_TagString: Untagged
@@ -5059,6 +5060,19 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &3016428964478573372
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1221760144332657486}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e896c456d2ab04e4ca7ac119b193a51b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAnimationAudioListener
+  _presenter: {fileID: 4716473767476056966}
 --- !u!1 &2408805181285633772
 GameObject:
   m_ObjectHideFlags: 0
@@ -5771,6 +5785,7 @@ MonoBehaviour:
   _combatControllerSource: {fileID: 3988879926097982634}
   _audioConfig: {fileID: 0}
   _reloadDelaySeconds: 0.25
+  _enableTimerFootsteps: 0
   _stepInterval: 0.35
 --- !u!1 &6258069994273772255
 GameObject:

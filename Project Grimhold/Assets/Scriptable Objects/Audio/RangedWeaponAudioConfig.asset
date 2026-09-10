@@ -23,7 +23,7 @@ MonoBehaviour:
       - {fileID: 8300000, guid: a764377339b869e459f5e53fb9258f73, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0
   - Key: Reload
     Clip:
@@ -31,5 +31,5 @@ MonoBehaviour:
       - {fileID: 8300000, guid: 8fd2d73dfe9e846679cfdf508258512f, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0

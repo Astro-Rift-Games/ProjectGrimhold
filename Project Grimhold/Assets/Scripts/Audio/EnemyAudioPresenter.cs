@@ -26,8 +26,12 @@ public class EnemyAudioPresenter : MonoBehaviour
     private float _reloadDelaySeconds = 0.25f;
 
     [Header("Movement Configuration")]
+    [SerializeField]
+    [Tooltip("Habilita la reproducción de pasos basada en temporizador en LateUpdate. Desmarcar si se usan AnimationEvents para evitar sonidos duplicados.")]
+    private bool _enableTimerFootsteps = false;
+
     [SerializeField, Min(0.1f)]
-    [Tooltip("Intervalo en segundos entre cada sonido de paso mientras el enemigo se desplaza.")]
+    [Tooltip("Intervalo en segundos entre cada sonido de paso mientras el enemigo se desplaza (solo si _enableTimerFootsteps está activo).")]
     private float _stepInterval = 0.35f;
 
     private ICombatController _combatController;
@@ -61,6 +65,23 @@ public class EnemyAudioPresenter : MonoBehaviour
         {
             StopCoroutine(_reloadCoroutine);
             _reloadCoroutine = null;
+        }
+    }
+
+    /// <summary>
+    /// Reproduce cualquier sonido configurado en el EnemyAudioConfig mediante su clave (ej: "Step", "Attack", "TakeDamage").
+    /// Útil para llamadas directas desde listeners de eventos de animación (AnimationEvents).
+    /// </summary>
+    public void PlayAudio(string soundKey)
+    {
+        if (AudioManager.Instance == null || _audioConfig == null || string.IsNullOrEmpty(soundKey))
+        {
+            return;
+        }
+
+        if (_audioConfig.TryGetClip(soundKey, out CustomClip clip))
+        {
+            AudioManager.Instance.PlaySfx(clip, transform.position);
         }
     }
 
@@ -174,10 +195,7 @@ public class EnemyAudioPresenter : MonoBehaviour
             if (!_isDead)
             {
                 _isDead = true;
-                if (_audioConfig.TryGetClip("Death", out var clip))
-                {
-                    AudioManager.Instance.PlaySfx(clip, transform.position);
-                }
+                PlayAudio("Death");
             }
             return;
         }
@@ -186,24 +204,18 @@ public class EnemyAudioPresenter : MonoBehaviour
         float currentHealth = _characterBase.Health;
         if (currentHealth < _lastObservedHealth - 0.001f) // Health epsilon
         {
-            if (_audioConfig.TryGetClip("TakeDamage", out var clip))
-            {
-                AudioManager.Instance.PlaySfx(clip, transform.position);
-            }
+            PlayAudio("TakeDamage");
         }
         _lastObservedHealth = currentHealth;
 
-        // 3. Verificación de locomoción (Movement)
-        if (_movementState != null && _movementState.IsMoving)
+        // 3. Verificación de locomoción por temporizador (opcional si se usan AnimationEvents)
+        if (_enableTimerFootsteps && _movementState != null && _movementState.IsMoving)
         {
             _stepTimer -= Time.deltaTime;
             if (_stepTimer <= 0f)
             {
                 _stepTimer = _stepInterval;
-                if (_audioConfig.TryGetClip("Movement", out var stepClip))
-                {
-                    AudioManager.Instance.PlaySfx(stepClip, transform.position);
-                }
+                PlayAudio("Step");
             }
         }
         else

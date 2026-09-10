@@ -39,11 +39,9 @@ Los scripts que disparan el audio se rigen por la arquitectura de presentación 
    - Dispara `"Swing"` (melee) o `"Shoot"` (rango) al recibir `ICombatController.AttackPerformed`.
    - Para rango, temporiza el disparo de `"Reload"` al entrar en cooldown.
    - Escucha `CombatFeedbackResolved`: si confirma impacto contra un personaje reproduce `"Attack"`, y si impacta contra un destructible (`BreakableObject`) o el escenario (`WorldCollision`/`Obstacles`) reproduce `"Block"`.
-2. **Enemigos (`EnemyAudioPresenter`)**:
-   - Ubicado en el prefab del enemigo.
-   - Escucha `ICombatController.AttackPerformed` para disparar `"Attack"` (melee) o `"Shoot"` y `"Reload"` (rango).
-   - Utiliza **Polling a estado de simulación** en `LateUpdate()` sobre `CharacterBase.Health` para reproducir `"TakeDamage"` y `"Death"`.
-   - Observa `IMovementState.IsMoving` para emitir `"Movement"` según el intervalo de pasos.
+2. **Enemigos (`EnemyAudioPresenter` y `EnemyAnimationAudioListener`)**:
+   - `EnemyAudioPresenter`: Ubicado en el prefab del enemigo. Escucha `ICombatController.AttackPerformed` para disparar `"Attack"` (melee) o `"Shoot"` y `"Reload"` (rango), y monitorea salud en `LateUpdate()` para `"TakeDamage"` y `"Death"`. Expone `PlayAudio(key)`.
+   - `EnemyAnimationAudioListener`: Ubicado en el GameObject hijo junto al `Animator` del enemigo. Sirve de puente para los `AnimationEvents` (`PlayAudioEvent(string)` o `PlayFootstep()`), delegando al `EnemyAudioPresenter` del padre.
 3. **Jugador (`PlayerAudioPresenter` y `PlayerAnimationAudioListener`)**:
    - `PlayerAudioPresenter`: Ubicado en el prefab raíz del Jugador. Monitorea `CharacterBase.Health` para `"TakeDamage"`/`"Death"`, y expone `PlayAudio(key)` para llamadas manuales.
    - `PlayerAnimationAudioListener`: Ubicado en el GameObject hijo junto al `Animator`. Actúa como puente para los `AnimationEvents` (`PlayAudioEvent(string)` o `PlayFootstep()`), delegando la reproducción hacia el `PlayerAudioPresenter` del padre.

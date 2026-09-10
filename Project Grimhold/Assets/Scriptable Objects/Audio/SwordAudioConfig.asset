@@ -20,7 +20,7 @@ MonoBehaviour:
       - {fileID: 8300000, guid: b76357a42d03a4722afcba74c3073136, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0
   - Key: Hit
     Clip:
@@ -33,7 +33,7 @@ MonoBehaviour:
       - {fileID: 8300000, guid: 72de2a353cacc46d3aad1d65f2599d2a, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0
   - Key: Block
     Clip:
@@ -41,5 +41,5 @@ MonoBehaviour:
       - {fileID: 8300000, guid: ebcbb664018f947728cb9b67468b0f48, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0

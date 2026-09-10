@@ -20,7 +20,7 @@ MonoBehaviour:
       - {fileID: 8300000, guid: e1a75776f005439469f89a17a986c567, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0
   - Key: Step
     Clip:
@@ -37,5 +37,5 @@ MonoBehaviour:
       - {fileID: 8300000, guid: afeb90013e6764449ae1616f47705ff7, type: 3}
       _volume: 0
       _pitch: 0
-      _spatialBlend: 0
+      _spatialBlend: 1
       _loop: 0
