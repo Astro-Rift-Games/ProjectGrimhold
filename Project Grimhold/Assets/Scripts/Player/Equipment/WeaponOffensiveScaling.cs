@@ -1,7 +1,9 @@
 using System;
 using UnityEngine;
 
-/// <summary>Static offensive attribute scaling configured by one weapon definition.</summary>
+/// <summary>
+/// Legacy LootId-based runtime projection retained until weapon instance identity is available end-to-end.
+/// </summary>
 [Serializable]
 public struct WeaponOffensiveScaling
 {

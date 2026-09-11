@@ -4,5 +4,6 @@ public enum CharacterDerivedStatisticsCalculationFailure : byte
     None = 0,
     MissingConfiguration = 1,
     MaximumHealthOverflow = 2,
-    MaximumStaminaOverflow = 3
+    MaximumStaminaOverflow = 3,
+    MaximumManaOverflow = 4
 }

@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// Renders one reusable occupied or empty raid-inventory slot.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
+public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [SerializeField]
     private Image _icon;
@@ -34,9 +34,12 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
     private LootId _lootId;
     private bool _isOccupied;
     private RaidLootSlotInteractionMode _interactionMode;
+    private EquipmentTooltipPresentation _tooltip;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
+    public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
+    public event Action<RectTransform> TooltipDismissRequested;
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
 
@@ -64,8 +67,14 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
             return;
         }
 
+        if (_isOccupied && _lootId != data.LootId)
+        {
+            TooltipDismissRequested?.Invoke(transform as RectTransform);
+        }
+
         _lootId = data.LootId;
         _isOccupied = true;
+        _tooltip = data.Tooltip;
 
         if (_icon != null)
         {
@@ -136,8 +145,13 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
 
     public void Clear()
     {
+        if (_isOccupied)
+        {
+            TooltipDismissRequested?.Invoke(transform as RectTransform);
+        }
         _lootId = default;
         _isOccupied = false;
+        _tooltip = default;
         if (_icon != null)
         {
             _icon.sprite = null;
@@ -204,6 +218,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         if (_interactionMode == RaidLootSlotInteractionMode.ContextMenu ||
             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu)
         {
+            TooltipDismissRequested?.Invoke(transform as RectTransform);
             ContextRequested?.Invoke(_lootId, transform as RectTransform);
             return;
         }
@@ -212,5 +227,18 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler
         {
             SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
         }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (_isOccupied && _tooltip.CanShow)
+        {
+            TooltipRequested?.Invoke(_tooltip, transform as RectTransform);
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        TooltipDismissRequested?.Invoke(transform as RectTransform);
     }
 }

@@ -134,8 +134,13 @@ public sealed class DialoguePresenter : NetworkBehaviour
             }
         }
 
-        // If still missing and a prefab is provided, instantiate it (only at runtime)
-        if (Application.isPlaying && (_controller == null || _view == null) && _dialogueUiPrefab != null && _instantiatedUiInstance == null)
+        bool canInstantiateRuntimeUi = Application.isPlaying;
+#if UNITY_EDITOR
+        canInstantiateRuntimeUi &= !UnityEditor.EditorUtility.IsPersistent(this);
+#endif
+
+        // If still missing and a prefab is provided, instantiate it only for a runtime scene instance.
+        if (canInstantiateRuntimeUi && (_controller == null || _view == null) && _dialogueUiPrefab != null && _instantiatedUiInstance == null)
         {
             _instantiatedUiInstance = Instantiate(_dialogueUiPrefab, transform, false);
             _instantiatedUiInstance.name = "DialogueUI";

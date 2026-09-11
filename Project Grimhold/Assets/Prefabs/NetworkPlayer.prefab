@@ -6079,6 +6079,8 @@ MonoBehaviour:
   _corpseGenerationController: {fileID: 4100000000000000101}
   _extractionController: {fileID: 8121909954639136856}
   _participantLink: {fileID: 5489547608340585132}
+  _equipmentController: {fileID: 7201000000000000005}
+  _defenseMitigationConstant: 100
   _ProfileIdString:
     _length: 0
     _data:

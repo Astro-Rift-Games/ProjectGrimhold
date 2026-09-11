@@ -14,7 +14,13 @@ public static class EquipmentTestContent
 
     private static readonly List<UnityEngine.Object> Created = new();
 
-    public static LootDefinition CreateArmorDefinition(string id, LootCategory category)
+    public static LootDefinition CreateArmorDefinition(
+        string id,
+        LootCategory category,
+        int physicalDefense = 1,
+        int magicalDefense = 1,
+        MaximumResourceType resource = MaximumResourceType.Health,
+        int resourceAmount = 1)
     {
         LootDefinition definition = ScriptableObject.CreateInstance<LootDefinition>();
         Created.Add(definition);
@@ -27,6 +33,20 @@ public static class EquipmentTestContent
         SetField(definition, "_defaultPickupQuantity", 1);
         SetField(definition, "_worldSprite", CreateSprite());
         SetField(definition, "_icon", CreateSprite());
+
+        if (IsArmorCategory(category))
+        {
+            ArmorDefinition armorDefinition = ScriptableObject.CreateInstance<ArmorDefinition>();
+            Created.Add(armorDefinition);
+            SetField(armorDefinition, "_physicalDefense", physicalDefense);
+            SetField(armorDefinition, "_magicalDefense", magicalDefense);
+            SetField(
+                armorDefinition,
+                "_maximumResourceModifier",
+                new MaximumResourceModifier(resource, resourceAmount));
+            SetField(definition, "_armorDefinition", armorDefinition);
+        }
+
         return definition;
     }
 
@@ -79,5 +99,11 @@ public static class EquipmentTestContent
         Created.Add(sprite);
         return sprite;
     }
+
+    private static bool IsArmorCategory(LootCategory category) =>
+        category == LootCategory.Helmet ||
+        category == LootCategory.Armor ||
+        category == LootCategory.Gloves ||
+        category == LootCategory.Boots;
 }
 #endif

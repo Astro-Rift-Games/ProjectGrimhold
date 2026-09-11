@@ -56,12 +56,14 @@ snapshot used to reconstruct committed history.
 ## Derived character statistics
 
 `CharacterDerivedStatisticsCalculator` is a pure C# projection over the effective
-`CharacterAttributeState`. During a Raid, consumers obtain that single snapshot from
+`CharacterAttributeState` plus aggregated external equipment resource modifiers. During a Raid,
+consumers obtain the attribute snapshot from
 `NetworkRaidParticipant`; the participant composes its frozen admitted state with any
 session-only developer override before exposing it. The calculator does not query persistence,
 testing UI or an avatar-owned copy.
 Its immutable configuration supplies the current balance values for maximum Health, maximum
-Stamina and additional-Loot probability. Probabilities use integer basis points so deterministic
+Stamina, maximum Mana and additional-Loot probability. Equipment bonuses are added directly to
+their matching maximum and do not modify Vitality, Resistance or Intelligence. Probabilities use integer basis points so deterministic
 consumers can preserve fractional percentages without floating-point state.
 
 In development, `ApplicationStashContext` owns one process-local
@@ -72,19 +74,27 @@ where State Authority validates and replicates it through
 and prepared-Equipment commits keep their normal profile rules. The developer panel is attached only
 to the local Town or Raid player presentation and can be collapsed without changing its state.
 
-The projection owns no runtime or persistent state and is not separately replicated. Strength,
+The projections own no runtime or persistent state and are not separately replicated. Strength,
 Dexterity and Intelligence remain raw competencies read from `CharacterAttributeState`; they are
-not copied into a parallel offensive-statistics model. Current Health, current Stamina, equipment
-scaling and the authoritative Loot roll remain owned by their respective consuming systems.
+not copied into a parallel offensive-statistics model. `CharacterDerivedStatistics` includes
+maximum Health, Stamina and Mana plus Luck, but excludes equipment defense because defense is not
+derived from character attributes. `PlayerRuntimeStatistics` is the final immutable view that adds
+Physical and Magical Defense from `EquipmentStatisticsModifiers`. Current Health, current Stamina,
+equipment scaling and the authoritative Loot roll remain owned by their respective consuming systems.
 
-`PlayerCharacter` consumes the projection through its `RaidAvatarParticipantLink`. It lazily derives
-and caches maximum Health against the participant's effective-attribute revision only after the linked
-`NetworkRaidParticipant` exposes a complete snapshot. A runtime maximum increase does not heal; a
+`PlayerCharacter` consumes the final view through its `RaidAvatarParticipantLink` and co-located
+Equipment controller. It caches the equipment-only projection against `EquipmentRevision`, then
+caches the final view against both that revision and the participant's effective-attribute revision.
+An attribute change therefore invalidates maximum Health and Stamina even when Equipment is unchanged.
+A runtime maximum increase does not heal; a
 decrease clamps current Health authoritatively to the new maximum. `CharacterBase.Health` remains the
 single networked current-Health value, while
 `CharacterBase.MaxHealth` is a local projection and is not separately replicated. Fresh State
 Authority player spawns initialize current Health from that effective maximum and the existing healing
-pipeline uses the same value as its cap. Non-player characters continue to use their authored prefab
+pipeline uses the same value as its cap. `PlayerStaminaNetworkController` consumes the same final
+view, initializes fresh Stamina to its equipment-adjusted maximum and clamps decreases without
+recovering increases. Maximum Mana is exposed only as a calculated maximum because no Current Mana
+owner exists yet. Non-player characters continue to use their authored prefab
 maximum. A temporarily unresolved link uses the authored fallback without caching it so restored
 participant/avatar references can resolve after Host Migration fixup.
 

@@ -20,6 +20,7 @@ MonoBehaviour:
   _knockbackForce: 5
   _handedness: 0
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _naturalScalingAttribute: 2
   _offensiveScaling:
     _attribute: 2
     _coefficient: 0

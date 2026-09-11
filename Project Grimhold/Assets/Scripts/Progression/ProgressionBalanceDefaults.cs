@@ -13,6 +13,7 @@ public static class ProgressionBalanceDefaults
     public const int InitialMaximumHealthPerVitality = 5;
     public const int InitialBaseMaximumStamina = 75;
     public const int InitialMaximumStaminaPerResistance = 5;
+    public const int InitialBaseMaximumMana = 100;
     public const int InitialAdditionalLootChanceBasisPointsPerLuck = 100;
     public const int InitialMaximumAdditionalLootChanceBasisPoints = 3_000;
 
@@ -52,6 +53,7 @@ public static class ProgressionBalanceDefaults
                 InitialMaximumHealthPerVitality,
                 InitialBaseMaximumStamina,
                 InitialMaximumStaminaPerResistance,
+                InitialBaseMaximumMana,
                 InitialAdditionalLootChanceBasisPointsPerLuck,
                 InitialMaximumAdditionalLootChanceBasisPoints,
                 out CharacterDerivedStatisticsConfiguration configuration))

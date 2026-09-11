@@ -31,9 +31,26 @@ namespace Tests.EditMode.Equipment
             Assert.That(scaling.TryResolveAttributeValue(first, out int firstValue), Is.True);
             Assert.That(scaling.TryResolveAttributeValue(second, out int secondValue), Is.True);
             Assert.That(secondValue, Is.EqualTo(firstValue));
-            Assert.That(
-                WeaponDamageCalculator.Calculate(10f, secondValue, scaling.Coefficient),
-                Is.EqualTo(WeaponDamageCalculator.Calculate(10f, firstValue, scaling.Coefficient)));
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                scaling, out WeaponScalingContributions contributions), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                10f, first, contributions, out float firstDamage), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                10f, second, contributions, out float secondDamage), Is.True);
+            Assert.That(secondDamage, Is.EqualTo(firstDamage));
+        }
+
+        [Test]
+        public void ArbitraryValidLegacyCoefficient_ResolvesWithoutGradeConversion()
+        {
+            var scaling = new WeaponOffensiveScaling(CharacterAttribute.Strength, 0.333f);
+
+            Assert.That(WeaponScalingContributionsResolver.TryResolve(
+                scaling, out WeaponScalingContributions contributions), Is.True);
+            Assert.That(contributions.HasPrimary, Is.True);
+            Assert.That(contributions.Primary.Attribute, Is.EqualTo(CharacterAttribute.Strength));
+            Assert.That(contributions.Primary.Coefficient, Is.EqualTo(0.333f));
+            Assert.That(contributions.HasSecondary, Is.False);
         }
 
         [TestCase(CharacterAttribute.Vitality)]
@@ -96,6 +113,52 @@ namespace Tests.EditMode.Equipment
 
                 Assert.That(weapon.TryValidate(out string error), Is.False);
                 Assert.That(error, Does.Contain("invalid offensive scaling"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(attack);
+                Object.DestroyImmediate(weapon);
+            }
+        }
+
+        [Test]
+        public void WeaponDefinition_LegacyScalingMustMatchNaturalAttribute()
+        {
+            WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            MeleeAttackConfig attack = CreateValidMeleeConfig();
+            try
+            {
+                SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
+                SetPrivateField(weapon, "_naturalScalingAttribute", CharacterAttribute.Strength);
+                SetPrivateField(
+                    weapon,
+                    "_offensiveScaling",
+                    new WeaponOffensiveScaling(CharacterAttribute.Dexterity, 0.5f));
+
+                Assert.That(weapon.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("must match natural scaling attribute"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(attack);
+                Object.DestroyImmediate(weapon);
+            }
+        }
+
+        [Test]
+        public void WeaponDefinition_NaturalAttributeMustBeOffensive()
+        {
+            WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
+            MeleeAttackConfig attack = CreateValidMeleeConfig();
+            try
+            {
+                SetPrivateField(weapon, "_primaryAttack", attack);
+                SetValidWeaponStats(weapon);
+                SetPrivateField(weapon, "_naturalScalingAttribute", CharacterAttribute.Vitality);
+
+                Assert.That(weapon.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("unsupported natural scaling attribute"));
             }
             finally
             {

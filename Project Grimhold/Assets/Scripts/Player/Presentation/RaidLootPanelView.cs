@@ -52,6 +52,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
+    public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
+    public event Action<RectTransform> TooltipDismissRequested;
 
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
@@ -171,6 +173,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
         {
             _authoredSlots[index].SelectionRequested += OnSlotSelectionRequested;
             _authoredSlots[index].ContextRequested += OnSlotContextRequested;
+            _authoredSlots[index].TooltipRequested += OnSlotTooltipRequested;
+            _authoredSlots[index].TooltipDismissRequested += OnSlotTooltipDismissRequested;
             _authoredSlots[index].Clear();
         }
 
@@ -317,6 +321,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
             {
                 _authoredSlots[i].SelectionRequested -= OnSlotSelectionRequested;
                 _authoredSlots[i].ContextRequested -= OnSlotContextRequested;
+                _authoredSlots[i].TooltipRequested -= OnSlotTooltipRequested;
+                _authoredSlots[i].TooltipDismissRequested -= OnSlotTooltipDismissRequested;
             }
         }
     }
@@ -330,6 +336,14 @@ public sealed class RaidLootPanelView : MonoBehaviour
     {
         ContextRequested?.Invoke(lootId, anchor);
     }
+
+    private void OnSlotTooltipRequested(
+        EquipmentTooltipPresentation presentation,
+        RectTransform anchor) =>
+        TooltipRequested?.Invoke(presentation, anchor);
+
+    private void OnSlotTooltipDismissRequested(RectTransform anchor) =>
+        TooltipDismissRequested?.Invoke(anchor);
 
     private static void SetState(GameObject root, bool active)
     {

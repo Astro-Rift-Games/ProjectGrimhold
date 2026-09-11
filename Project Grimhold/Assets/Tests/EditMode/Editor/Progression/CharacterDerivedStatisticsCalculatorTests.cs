@@ -4,16 +4,17 @@ namespace Tests.EditMode.Progression
 {
     public sealed class CharacterDerivedStatisticsCalculatorTests
     {
-        [TestCase(0, 0, 0, 75, 75, 0)]
-        [TestCase(5, 5, 5, 100, 100, 500)]
-        [TestCase(25, 25, 25, 200, 200, 2_500)]
-        [TestCase(30, 30, 30, 225, 225, 3_000)]
+        [TestCase(0, 0, 0, 75, 75, 100, 0)]
+        [TestCase(5, 5, 5, 100, 100, 100, 500)]
+        [TestCase(25, 25, 25, 200, 200, 100, 2_500)]
+        [TestCase(30, 30, 30, 225, 225, 100, 3_000)]
         public void Calculate_UsesDocumentedInitialFormulas(
             int vitality,
             int resistance,
             int luck,
             int expectedMaximumHealth,
             int expectedMaximumStamina,
+            int expectedMaximumMana,
             int expectedAdditionalLootChanceBasisPoints)
         {
             CharacterAttributeState attributes = CreateAttributes(vitality, resistance, 0, 0, 0, luck, 0);
@@ -26,6 +27,7 @@ namespace Tests.EditMode.Progression
             Assert.That(failure, Is.EqualTo(CharacterDerivedStatisticsCalculationFailure.None));
             Assert.That(statistics.MaximumHealth, Is.EqualTo(expectedMaximumHealth));
             Assert.That(statistics.MaximumStamina, Is.EqualTo(expectedMaximumStamina));
+            Assert.That(statistics.MaximumMana, Is.EqualTo(expectedMaximumMana));
             Assert.That(statistics.AdditionalLootChanceBasisPoints,
                 Is.EqualTo(expectedAdditionalLootChanceBasisPoints));
         }
@@ -47,13 +49,15 @@ namespace Tests.EditMode.Progression
         public void Calculate_UsesAlternativeValidConfiguration()
         {
             Assert.That(CharacterDerivedStatisticsConfiguration.TryCreate(
-                10, 2, 20, 3, 25, 1_000, out CharacterDerivedStatisticsConfiguration configuration), Is.True);
+                10, 2, 20, 3, 30, 25, 1_000,
+                out CharacterDerivedStatisticsConfiguration configuration), Is.True);
             CharacterAttributeState attributes = CreateAttributes(4, 5, 0, 0, 0, 6, 0);
 
             Assert.That(TryCalculate(attributes, configuration, out CharacterDerivedStatistics statistics, out _),
                 Is.True);
             Assert.That(statistics.MaximumHealth, Is.EqualTo(18));
             Assert.That(statistics.MaximumStamina, Is.EqualTo(35));
+            Assert.That(statistics.MaximumMana, Is.EqualTo(30));
             Assert.That(statistics.AdditionalLootChanceBasisPoints, Is.EqualTo(150));
         }
 
@@ -98,7 +102,7 @@ namespace Tests.EditMode.Progression
         public void Calculate_MaximumHealthOverflowIsRejectedWithoutPartialResult()
         {
             CharacterDerivedStatisticsConfiguration configuration = CreateConfiguration(
-                0, int.MaxValue, 0, 0, 0, 0);
+                0, int.MaxValue, 0, 0, 0, 0, 0);
             CharacterAttributeState attributes = CreateAttributes(int.MaxValue, 0, 0, 0, 0, 0, 0);
 
             AssertFailure(
@@ -111,7 +115,7 @@ namespace Tests.EditMode.Progression
         public void Calculate_MaximumStaminaOverflowIsRejectedWithoutPartialResult()
         {
             CharacterDerivedStatisticsConfiguration configuration = CreateConfiguration(
-                0, 0, 0, int.MaxValue, 0, 0);
+                0, 0, 0, int.MaxValue, 0, 0, 0);
             CharacterAttributeState attributes = CreateAttributes(0, int.MaxValue, 0, 0, 0, 0, 0);
 
             AssertFailure(
@@ -120,18 +124,78 @@ namespace Tests.EditMode.Progression
                 CharacterDerivedStatisticsCalculationFailure.MaximumStaminaOverflow);
         }
 
-        [TestCase(-1, 0, 0, 0, 0, 0)]
-        [TestCase(0, -1, 0, 0, 0, 0)]
-        [TestCase(0, 0, -1, 0, 0, 0)]
-        [TestCase(0, 0, 0, -1, 0, 0)]
-        [TestCase(0, 0, 0, 0, -1, 0)]
-        [TestCase(0, 0, 0, 0, 0, -1)]
-        [TestCase(0, 0, 0, 0, 0, 10_001)]
+        [Test]
+        public void Calculate_AppliesExternalResourceModifiersWithoutChangingDefensesOrLuck()
+        {
+            CharacterAttributeState attributes = CreateAttributes(5, 5, 30, 30, 30, 5, 0);
+            Assert.That(EquipmentStatisticsModifiers.TryCreate(
+                40, 50, 20, 30, 40, out EquipmentStatisticsModifiers equipment), Is.True);
+
+            Assert.That(CharacterDerivedStatisticsCalculator.TryCalculate(
+                attributes,
+                InitialConfiguration,
+                equipment,
+                out CharacterDerivedStatistics statistics,
+                out CharacterDerivedStatisticsCalculationFailure failure), Is.True);
+            Assert.That(failure, Is.EqualTo(CharacterDerivedStatisticsCalculationFailure.None));
+            Assert.That(statistics.MaximumHealth, Is.EqualTo(120));
+            Assert.That(statistics.MaximumStamina, Is.EqualTo(130));
+            Assert.That(statistics.MaximumMana, Is.EqualTo(140));
+            Assert.That(statistics.AdditionalLootChanceBasisPoints, Is.EqualTo(500));
+        }
+
+        [Test]
+        public void Calculate_ExternalHealthModifierOverflowIsRejected()
+        {
+            CharacterDerivedStatisticsConfiguration configuration = CreateConfiguration(
+                int.MaxValue, 0, 0, 0, 0, 0, 0);
+            CharacterAttributeState attributes = CreateAttributes(0, 0, 0, 0, 0, 0, 0);
+            Assert.That(EquipmentStatisticsModifiers.TryCreate(
+                0, 0, 1, 0, 0, out EquipmentStatisticsModifiers equipment), Is.True);
+
+            Assert.That(CharacterDerivedStatisticsCalculator.TryCalculate(
+                attributes,
+                configuration,
+                equipment,
+                out CharacterDerivedStatistics statistics,
+                out CharacterDerivedStatisticsCalculationFailure failure), Is.False);
+            Assert.That(failure, Is.EqualTo(CharacterDerivedStatisticsCalculationFailure.MaximumHealthOverflow));
+            Assert.That(statistics, Is.EqualTo(default(CharacterDerivedStatistics)));
+        }
+
+        [Test]
+        public void Calculate_MaximumManaOverflowIsRejectedWithoutPartialResult()
+        {
+            CharacterDerivedStatisticsConfiguration configuration = CreateConfiguration(
+                0, 0, 0, 0, int.MaxValue, 0, 0);
+            CharacterAttributeState attributes = CreateAttributes(0, 0, 0, 0, int.MaxValue, 0, 0);
+            Assert.That(EquipmentStatisticsModifiers.TryCreate(
+                0, 0, 0, 0, 1, out EquipmentStatisticsModifiers equipment), Is.True);
+
+            Assert.That(CharacterDerivedStatisticsCalculator.TryCalculate(
+                attributes,
+                configuration,
+                equipment,
+                out CharacterDerivedStatistics statistics,
+                out CharacterDerivedStatisticsCalculationFailure failure), Is.False);
+            Assert.That(failure, Is.EqualTo(CharacterDerivedStatisticsCalculationFailure.MaximumManaOverflow));
+            Assert.That(statistics, Is.EqualTo(default(CharacterDerivedStatistics)));
+        }
+
+        [TestCase(-1, 0, 0, 0, 0, 0, 0)]
+        [TestCase(0, -1, 0, 0, 0, 0, 0)]
+        [TestCase(0, 0, -1, 0, 0, 0, 0)]
+        [TestCase(0, 0, 0, -1, 0, 0, 0)]
+        [TestCase(0, 0, 0, 0, -1, 0, 0)]
+        [TestCase(0, 0, 0, 0, 0, -1, 0)]
+        [TestCase(0, 0, 0, 0, 0, 0, -1)]
+        [TestCase(0, 0, 0, 0, 0, 0, 10_001)]
         public void Configuration_InvalidValueIsRejected(
             int baseMaximumHealth,
             int maximumHealthPerVitality,
             int baseMaximumStamina,
             int maximumStaminaPerResistance,
+            int baseMaximumMana,
             int additionalLootChanceBasisPointsPerLuck,
             int maximumAdditionalLootChanceBasisPoints)
         {
@@ -140,6 +204,7 @@ namespace Tests.EditMode.Progression
                 maximumHealthPerVitality,
                 baseMaximumStamina,
                 maximumStaminaPerResistance,
+                baseMaximumMana,
                 additionalLootChanceBasisPointsPerLuck,
                 maximumAdditionalLootChanceBasisPoints,
                 out CharacterDerivedStatisticsConfiguration configuration), Is.False);
@@ -186,6 +251,7 @@ namespace Tests.EditMode.Progression
             int maximumHealthPerVitality,
             int baseMaximumStamina,
             int maximumStaminaPerResistance,
+            int baseMaximumMana,
             int additionalLootChanceBasisPointsPerLuck,
             int maximumAdditionalLootChanceBasisPoints)
         {
@@ -194,6 +260,7 @@ namespace Tests.EditMode.Progression
                 maximumHealthPerVitality,
                 baseMaximumStamina,
                 maximumStaminaPerResistance,
+                baseMaximumMana,
                 additionalLootChanceBasisPointsPerLuck,
                 maximumAdditionalLootChanceBasisPoints,
                 out CharacterDerivedStatisticsConfiguration configuration), Is.True);
