@@ -305,7 +305,7 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
-    public void DirectionalAttackRotations_AreRelativeToTheFacingOwnedGripPose()
+    public void DirectionalAttackRotations_PreserveTheSourceSwingAcrossAllFacings()
     {
         string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
@@ -325,16 +325,53 @@ public sealed class PlayerAnimatorViewTests
                 EditorCurveBinding rotationBinding = AnimationUtility.GetCurveBindings(clip)
                     .Single(binding => binding.propertyName == "localEulerAnglesRaw.z");
                 Keyframe[] keys = AnimationUtility.GetEditorCurve(clip, rotationBinding).keys;
-                float sign = direction == "NW" || direction == "SW" ? -1f : 1f;
-
                 Assert.That(keys, Has.Length.EqualTo(sourceKeys.Length), clip.name);
                 for (int index = 0; index < keys.Length; index++)
                 {
                     Assert.That(keys[index].time, Is.EqualTo(sourceKeys[index].time), clip.name);
                     Assert.That(
                         keys[index].value,
-                        Is.EqualTo(sourceKeys[index].value * sign).Within(0.0001f),
+                        Is.EqualTo(sourceKeys[index].value).Within(0.0001f),
                         $"{clip.name} rotation key {index}");
+                }
+            }
+        }
+    }
+
+    [Test]
+    public void DirectionalAttackClips_KeepTheDirectionalIdleGripPose()
+    {
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        const string gripPath = "RightHandPivot/RightHand/MainHandGrip";
+        string[] positionProperties =
+        {
+            "m_LocalPosition.x",
+            "m_LocalPosition.y",
+            "m_LocalPosition.z"
+        };
+
+        foreach (string direction in directions)
+        {
+            AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Player/Idle/Idle_{direction}.anim");
+
+            foreach (string property in positionProperties)
+            {
+                EditorCurveBinding idleBinding = AnimationUtility.GetCurveBindings(idle)
+                    .Single(binding => binding.path == gripPath && binding.propertyName == property);
+                float expected = AnimationUtility.GetEditorCurve(idle, idleBinding).Evaluate(0f);
+
+                foreach (string weapon in weapons)
+                {
+                    AnimationClip attack = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                        $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim");
+                    EditorCurveBinding attackBinding = AnimationUtility.GetCurveBindings(attack)
+                        .Single(binding => binding.path == gripPath && binding.propertyName == property);
+                    AnimationCurve curve = AnimationUtility.GetEditorCurve(attack, attackBinding);
+
+                    Assert.That(curve.Evaluate(0f), Is.EqualTo(expected).Within(0.0001f), attack.name);
+                    Assert.That(curve.Evaluate(attack.length), Is.EqualTo(expected).Within(0.0001f), attack.name);
                 }
             }
         }
