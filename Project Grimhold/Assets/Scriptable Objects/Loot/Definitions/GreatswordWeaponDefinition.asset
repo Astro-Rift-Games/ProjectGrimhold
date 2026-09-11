@@ -28,8 +28,7 @@ MonoBehaviour:
     _stanceOffset: {x: 0, y: -0.0625}
     _gripPoint: {x: -0.125, y: 0.125}
     _angleCorrection: -135
-    _swingArc: 180
-    _swingDuration: 0.3
+    _animationCategory: 5
   _attributeRequirements:
     _minimumStrength: 10
     _minimumDexterity: 0

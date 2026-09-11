@@ -13,6 +13,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private Animator _animator;
 
     protected Animator AnimatorInstance => _animator;
+    protected virtual bool StopsLocomotionDuringTemporalFacing => true;
 
     [SerializeField]
     private MonoBehaviour _movementControllerSource;
@@ -66,7 +67,9 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         else if (_temporalFacingDirection.HasValue)
         {
             rawFacing = _temporalFacingDirection.Value;
-            isMoving = false;
+            isMoving = StopsLocomotionDuringTemporalFacing
+                ? false
+                : _movementState.IsMoving;
         }
         else
         {
@@ -74,13 +77,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
             isMoving = _movementState.IsMoving;
         }
 
-        _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(rawFacing, _safeFacing);
-        CharacterVisualDirection visualDirection = CharacterVisualDirectionResolver.Resolve(_safeFacing);
-        Vector2 canonicalFacing = CharacterVisualDirectionResolver.GetCanonicalVector(visualDirection);
-
-        _animator.SetFloat(_moveXHash, canonicalFacing.x);
-        _animator.SetFloat(_moveYHash, canonicalFacing.y);
-        _animator.SetBool(_isMovingHash, isMoving);
+        ApplyFacingParameters(rawFacing, isMoving);
     }
 
     /// <summary>
@@ -113,6 +110,10 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
             return;
         }
         _temporalFacingDirection = direction.normalized;
+        bool isMoving = !StopsLocomotionDuringTemporalFacing &&
+            _movementState != null &&
+            _movementState.IsMoving;
+        ApplyFacingParameters(_temporalFacingDirection.Value, isMoving);
     }
 
     /// <summary>
@@ -132,6 +133,27 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         {
             _animator.SetTrigger(_onAttackHash);
         }
+    }
+
+    private void ApplyFacingParameters(Vector2 rawFacing, bool isMoving)
+    {
+        if (_animator == null)
+        {
+            return;
+        }
+
+        if (!_hashesInitialized)
+        {
+            InitializeHashes();
+        }
+
+        _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(rawFacing, _safeFacing);
+        CharacterVisualDirection visualDirection = CharacterVisualDirectionResolver.Resolve(_safeFacing);
+        Vector2 canonicalFacing = CharacterVisualDirectionResolver.GetCanonicalVector(visualDirection);
+
+        _animator.SetFloat(_moveXHash, canonicalFacing.x);
+        _animator.SetFloat(_moveYHash, canonicalFacing.y);
+        _animator.SetBool(_isMovingHash, isMoving);
     }
 
     private void InitializeHashes()

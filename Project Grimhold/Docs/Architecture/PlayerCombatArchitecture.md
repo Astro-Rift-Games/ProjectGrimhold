@@ -418,13 +418,12 @@ destruction. See `Docs/Architecture/BreakableLootArchitecture.md`.
 
 The combat system coordinates gameplay state with the visual presentation layer through decoupled events and synchronized networked variables. This ensures visual changes have zero impact on the simulation's determinism.
 
-### Modular Character Composition and Procedural Weapon Presentation
+### Modular Character Composition and Animator-Owned Weapon Presentation
 
-`NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and coordinates the modular visual
-hierarchy under `VisualRoot` alongside the procedural weapon presentation under
-`CombatVisuals/WeaponPivot/WeaponSprite`. `NetworkPlayer.prefab` is the productive Raid
-avatar; the legacy `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` remain only
-as historical references. Weapon-specific grip point, angular correction and swing arc
+`NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and one `PlayerAnimatorView` over the
+modular hierarchy under `VisualRoot`. `NetworkPlayer.prefab` is the productive Raid avatar;
+the legacy `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` remain only as
+historical references. Weapon-specific grip point, angular correction and animation category
 belong to `WeaponDefinition.Presentation`, while the sprite remains sourced from the linked
 `LootDefinition`. Player prefabs do not select or override those values.
 
@@ -432,60 +431,46 @@ The character visual structure is modularized under `VisualRoot`:
 * **`VisualRoot`**: Houses the single common `Animator` and `PlayerAnimatorView` for the character.
 * **Modular Slots**: Contains independent `SpriteRenderer` components for `Legs`, `Body`, `Head`, `LeftHand`, and `RightHand`, sharing a uniform 96x96 canvas and local position origin `(0, 0, 0)`. `LeftHand` and `RightHand` are the sole visual hands of the character and are driven exclusively by the modular Animator clips.
 * **Single Animator**: A single common `Animator` on `VisualRoot` acts as the ancestor for all modular slots, driving coordinated animation clips across the six visual directions.
-* **`RightHandGrip`**: Located directly under `VisualRoot` and animated by every modular locomotion clip. It provides the live hand position used as the weapon pivot origin without making the weapon a child of the hand renderer.
+* **Held visual hierarchy**: `RightHand/MainHandGrip/MainHandWeaponVisual/WeaponSprite` and `LeftHand/OffHandGrip/OffHandVisual` make each visual inherit the corresponding animated hand transform. A two-handed weapon remains a single visual owned by `MainHandGrip`; authored clips may move both hands without giving the weapon two parents.
 
-The inherited attack-driven `PlayerCombatPresenter` is disabled on the base
-composition, so equipped weapons do not run an attack swing or alter the visual
-Animator. Weapon visuals remain enabled continuously during idle,
-movement, and ordinary combat presentation rather than appearing only when an
-attack is executed.
+`PlayerWeaponPresenter` owns only Equipment presentation. It resolves the replicated active
+Set through `PlayerWeaponEquipmentNetworkController`, assigns or clears Main Hand and shield
+sprites, applies the weapon's static grip alignment and angular correction, and derives
+front/back sorting from the six-direction facing bucket. It does not subscribe to attacks,
+track swing time, rotate a combat pivot, capture input, add networked state, or write gameplay.
 
-`PlayerWeaponPresenter` owns exclusively the procedural weapon presentation
-(`CombatVisuals/WeaponPivot/WeaponSprite`). It reads the existing finite,
-normalized `PlayerMovementNetworkController.FacingDirection` through `IMovementState`. It
-resolves the replicated active slot and its catalog identity through
-`PlayerWeaponEquipmentNetworkController`, then follows `LootDefinition -> WeaponDefinition`
-to obtain the local static sprite and pose configuration. It does not capture input, add
-networked state, or write back to movement or combat.
-Every peer, including proxies, derives the same local presentation pose from the
-replicated facing. Invalid or zero presentation samples retain the presenter's
-last safe direction via `CharacterVisualDirectionResolver.SanitizeFacing`, with
-`Vector2.down` as its initial fallback. Unity may enable the visual hierarchy while Fusion
-is still instantiating the prefab; during that pre-spawn window the presenter applies the
-fallback pose and does not read the networked property until its source `NetworkBehaviour.Object` is valid.
-
-`RightHandGrip` is presentation-only and follows the animated right hand under
-`VisualRoot`. Because `VisualRoot/RightHandGrip` and `CombatVisuals` are separate branches, the presenter
-converts the anchor world position into the local space of `WeaponPivot.parent` (`CombatVisuals`).
-It then composes the pose in this order:
+Attack presentation follows one path:
 
 ```text
-animated RightHandGrip (under VisualRoot)
--> conversion to WeaponPivot parent space (CombatVisuals)
--> visual direction resolution via CharacterVisualDirectionResolver (S, SE, NE, N, NW, SW)
--> continuous 360-degree facing rotation and left-hemisphere reflection
--> weapon grip aligned to the weapon pivot
--> bucket-driven sorting order (Front: S, SE, SW; Back: N, NE, NW)
+PlayerCombatNetworkController.AttackSequence
+-> AttackPerformed during Render
+-> PlayerAnimatorView.OnAttack trigger + static WeaponAnimationCategory
+-> Main Hand Combat Animator layer
+-> RightHand transform
+-> MainHandGrip
+-> MainHandWeaponVisual
 ```
 
-The body origin and sprite bounds are not presentation centers. Moving the
-anchor moves the complete orbit without introducing a second center. Within any
-visual direction bucket, `WeaponPivot.localPosition` remains discrete and anchored
-to the character's hand position for that directional frame, while `WeaponPivot.localRotation`
-smoothly tracks the continuous 360° aim direction.
+The trigger represents an already accepted gameplay execution; local mouse input never starts
+the animation. Proxies observe the same replicated sequence and therefore reproduce it. Attack
+clips are one-shot presentation only. They do not apply damage or emit gameplay decisions, and
+Animation Events are not part of hit timing. The attack direction from the confirmed event is
+held as the temporary visual facing until the Animator leaves its tagged attack state, while the
+Base Layer preserves the replicated locomotion state so movement animation can continue.
 
 Visual authoring keeps those responsibilities explicit. The presentation grip point is
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the
-point inside the visible handle that must coincide with `WeaponPivot`, so grip tuning
+point inside the visible handle that must coincide with `MainHandGrip`, so grip tuning
 remains per-weapon static configuration instead of a player-prefab override or code
-constant. The animated `RightHandGrip` moves the complete weapon pose; the internal grip
+constant. The animated hand moves the complete weapon pose; the internal grip
 point must not be used to compensate for an incorrect hand animation.
 
-The continuous weapon rotation does not require adding East or West body clips;
 the six discrete visual directions (N, NE, NW, S, SE, SW) resolved by `CharacterVisualDirectionResolver`
-serve as the common facing buckets for both character animation and weapon positioning.
-The weapon renderer stays on the existing `Characters` Sorting Layer and derives its front/back
-relative orders (`SortingOrderFront` / `SortingOrderBack`) directly from the resolved visual bucket.
+serve as the common facing buckets for body, hands and held visuals. The shield remains under
+`OffHandGrip`, ready for separately authored defense clips; this integration does not fabricate
+missing shield animation content. The Animator never owns mitigation or coverage rules. Both held
+renderers stay on the existing `Characters` Sorting Layer and derive front/back order from the
+resolved visual bucket.
 
 ### 1. Damage Feedback Visuals
 When a character takes damage (authoritatively confirmed by `Health` changes on State Authority):
@@ -549,7 +534,7 @@ Staff declare `TwoHanded`; the remaining placeholder weapons declare `OneHanded`
 content identities only: they add no attack type, no weapon subtype and no presenter branch.
 Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`. Functional differences
 may come from the reused `AttackConfig` plus per-weapon attribute requirements and offensive scaling;
-visual differences remain in the static presentation triple.
+visual differences remain in the static presentation configuration.
 
 Sprites come from `Assets/Placeholder/RPG Items 16x16 Pack 1` at the project pixel-art
 convention (16 PPU, Point filter, no mipmaps, Tight mesh). Sword and staff cells use a
@@ -557,17 +542,17 @@ BottomRight sprite pivot and their art points up-left, which the `-135` angle co
 onto the presenter's `+X` forward axis. Spell-book cells use a Center pivot and an upright,
 non blade-aligned silhouette, so their angle correction is `0`.
 
-| Loot id | Sprite cell | Attack config | Stance offset | Grip point | Angle |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `recovery_sword` | `swords-16x16_0` | `PlayerMeleeAttackConfig` | `(0, 0)` | `(-0.1875, 0.1875)` | `-135` |
-| `longsword` | `swords-16x16_7` | `PlayerMeleeAttackConfig` | `(0, 0)` | `(-0.25, 0.1875)` | `-135` |
-| `greatsword` | `swords-16x16_15` | `PlayerMeleeAttackConfig` | `(0, -0.0625)` | `(-0.125, 0.125)` | `-135` |
-| `wand` | `staves-16x16_37` | `RangePlayerAttackConfig` | `(0, 0)` | `(-0.1875, 0.0625)` | `-135` |
-| `staff` | `staves-16x16_30` | `RangePlayerAttackConfig` | `(0, 0.0625)` | `(-0.1875, 0.125)` | `-135` |
-| `spellbook` | `spell-books-16x16_13` | `RangePlayerAttackConfig` | `(0, 0.125)` | `(0, -0.3125)` | `0` |
+| Loot id | Sprite cell | Attack config | Animation | Stance offset | Grip point | Angle |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `recovery_sword` | `swords-16x16_0` | `PlayerMeleeAttackConfig` | `ArmingSword` | `(0, 0)` | `(-0.1875, 0.1875)` | `-135` |
+| `longsword` | `swords-16x16_7` | `PlayerMeleeAttackConfig` | `ArmingSword` | `(0, 0)` | `(0, 0)` | `-135` |
+| `greatsword` | `swords-16x16_15` | `PlayerMeleeAttackConfig` | `TwoHanded` | `(0, -0.0625)` | `(-0.125, 0.125)` | `-135` |
+| `wand` | `staves-16x16_37` | `RangePlayerAttackConfig` | `MagicWand` | `(0, 0)` | `(-0.1875, 0.0625)` | `-135` |
+| `staff` | `staves-16x16_30` | `RangePlayerAttackConfig` | `TwoHanded` | `(0, 0.0625)` | `(-0.1875, 0.125)` | `-135` |
+| `spellbook` | `spell-books-16x16_13` | `RangePlayerAttackConfig` | `MagicWand` | `(0, 0.125)` | `(0, -0.3125)` | `0` |
 
 Grip points are expressed in weapon-sprite local units as the offset from the sprite pivot to
-the point that must coincide with `WeaponPivot`. The greatsword grips near the end of its
+the point that must coincide with `MainHandGrip`. The greatsword grips near the end of its
 longer hilt instead of its visual center, the wand grips at the base of its short shaft so it
 stays at the hand, the staff grips low on the shaft so most of its length extends forward, and
 the spellbook grips below its lower edge so the tome is carried above the hand.

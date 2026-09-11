@@ -183,26 +183,26 @@ public sealed class WeaponDefinition : ScriptableObject
         private float _angleCorrection;
 
         [SerializeField]
-        [Tooltip("The total angle distance the weapon covers during a melee swing.")]
-        private float _swingArc;
-
-        [SerializeField]
-        [Tooltip("The duration in seconds of the procedural swing animation.")]
-        private float _swingDuration;
+        private WeaponAnimationCategory _animationCategory;
 
         public Vector2 StanceOffset => _stanceOffset;
         public Vector2 GripPoint => _gripPoint;
         public float AngleCorrection => _angleCorrection;
-        public float SwingArc => _swingArc == 0f ? 90f : _swingArc;
-        public float SwingDuration => _swingDuration == 0f ? 0.15f : _swingDuration;
+        public WeaponAnimationCategory AnimationCategory => _animationCategory;
 
         public bool TryValidate(out string error)
         {
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
-                !IsFinite(_angleCorrection) || !IsFinite(_swingArc))
+                !IsFinite(_angleCorrection))
             {
                 error = "stance offset, grip point and angle correction must be finite.";
+                return false;
+            }
+
+            if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))
+            {
+                error = $"animation category '{(int)_animationCategory}' is unsupported.";
                 return false;
             }
 

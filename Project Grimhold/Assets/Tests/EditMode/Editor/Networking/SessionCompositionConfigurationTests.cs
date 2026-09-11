@@ -204,7 +204,6 @@ public sealed class SessionCompositionConfigurationTests
             typeof(PlayerCombatNetworkController),
             typeof(PlayerWeaponEquipmentNetworkController),
             typeof(PlayerWeaponPresenter),
-            typeof(PlayerCombatPresenter),
             typeof(MeleeAttack),
             typeof(RangedAttack),
             typeof(FusionProjectileSpawner),

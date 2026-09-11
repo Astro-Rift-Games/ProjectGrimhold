@@ -2,12 +2,8 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Continuously composes the local weapon visual around
-/// the player's synchronized facing direction.
-///
-/// This presentation component owns no gameplay or networked state. It reads
-/// <see cref="IMovementState.FacingDirection"/> and derives a local visual pose
-/// for the weapon for the player and all proxies without modifying the body Animator.
+/// Presents the active Weapon Set without owning attack motion.
+/// The Animator moves the hands; held visuals inherit those transforms through their grips.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
@@ -16,243 +12,145 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private const int SortingOrderBack = -10;
 
     [Header("References")]
-    [SerializeField]
-    private MonoBehaviour _movementStateSource;
-
-    [SerializeField]
-    private Transform _weaponPivot;
-
-    [SerializeField]
-    private Transform _weaponOrbitAnchor;
-
-    [SerializeField]
-    private Transform _weaponVisual;
-
-    [SerializeField]
-    private SpriteRenderer _weaponSpriteRenderer;
-
-    [SerializeField]
-    private PlayerWeaponEquipmentNetworkController _equipmentSource;
-
-    [Header("Weapon Orbit Presets")]
-    [SerializeField]
-    private WeaponDirectionPresetTable _directionPresets;
-
-    [Header("Swing Configuration")]
-    [SerializeField]
-    
-
-    private PlayerCombatNetworkController _combatController;
-    private float _swingTimer;
-    private bool _isSwinging;
-    private Vector2 _swingFacingDirection;
+    [SerializeField] private MonoBehaviour _movementStateSource;
+    [SerializeField] private PlayerWeaponEquipmentNetworkController _equipmentSource;
+    [SerializeField] private Transform _mainHandGrip;
+    [SerializeField] private Transform _mainHandWeaponVisual;
+    [SerializeField] private SpriteRenderer _mainHandRenderer;
+    [SerializeField] private Transform _offHandGrip;
+    [SerializeField] private Transform _offHandVisual;
+    [SerializeField] private SpriteRenderer _offHandRenderer;
 
     private IMovementState _movementState;
     private NetworkBehaviour _movementNetworkBehaviour;
-    private LootDefinition _equippedDefinition;
-    private WeaponDefinition.PresentationConfig _equippedPresentation;
+    private LootDefinition _mainHandDefinition;
+    private LootDefinition _offHandDefinition;
     private Vector2 _safeFacing = Vector2.down;
-    private Vector3 _weaponPivotBaseScale;
-    private Vector3 _weaponVisualBaseScale;
-    private bool _hasCapturedBaseState;
-    private bool _hasAppliedEquipment;
 
     private void Awake()
     {
         CacheDependencies();
-        CaptureBaseState();
     }
 
     private void OnEnable()
     {
         CacheDependencies();
-        CaptureBaseState();
-
         if (!ValidateDependencies())
         {
             enabled = false;
             return;
         }
 
-        if (_combatController != null)
-        {
-            _combatController.AttackPerformed -= OnAttackPerformed;
-            _combatController.AttackPerformed += OnAttackPerformed;
-        }
-
-        UpdateWeaponSprite();
-        ApplyPose();
+        RefreshEquipment(force: true);
+        RefreshSorting();
     }
 
     private void OnDisable()
     {
-        if (_combatController != null)
-        {
-            _combatController.AttackPerformed -= OnAttackPerformed;
-        }
-        
-        _isSwinging = false;
-        _swingTimer = 0f;
         _safeFacing = Vector2.down;
-    }
-
-    private void OnAttackPerformed(AttackPerformedEvent evt)
-    {
-        if (evt.AttackType == AttackType.Melee)
-        {
-            _isSwinging = true;
-            float duration = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null ? _equippedDefinition.WeaponDefinition.Presentation.SwingDuration : _equippedPresentation.SwingDuration;
-            _swingTimer = Mathf.Max(0.001f, duration);
-            _swingFacingDirection = evt.Direction;
-        }
+        _mainHandDefinition = null;
+        _offHandDefinition = null;
+        SetRendererSprite(_mainHandRenderer, null);
+        SetRendererSprite(_offHandRenderer, null);
     }
 
     private void LateUpdate()
     {
-        if (_isSwinging)
+        RefreshEquipment(force: false);
+        RefreshSorting();
+    }
+
+    private void RefreshEquipment(bool force)
+    {
+        LootDefinition mainHand = null;
+        LootDefinition offHand = null;
+
+        if (CanReadEquipmentState())
         {
-            _swingTimer -= Time.deltaTime;
-            if (_swingTimer <= 0f)
+            _equipmentSource.TryGetEquippedDefinition(out mainHand);
+
+            WeaponSetSlot activeSet = _equipmentSource.ActiveWeaponSetSlot;
+            EquipmentSlot offHandSlot = EquipmentSlotRules.GetOffHandSlot(activeSet);
+            if (offHandSlot != EquipmentSlot.None)
             {
-                _isSwinging = false;
+                _equipmentSource.TryGetSlotDefinition(offHandSlot, out offHand);
             }
         }
 
-        UpdateWeaponSprite();
-        if (!_weaponSpriteRenderer.enabled)
+        if (force || !ReferenceEquals(_mainHandDefinition, mainHand))
         {
+            _mainHandDefinition = mainHand;
+            ApplyMainHandDefinition(mainHand);
+        }
+
+        if (force || !ReferenceEquals(_offHandDefinition, offHand))
+        {
+            _offHandDefinition = offHand;
+            ApplyOffHandDefinition(offHand);
+        }
+    }
+
+    private void ApplyMainHandDefinition(LootDefinition definition)
+    {
+        WeaponDefinition weapon = definition != null ? definition.WeaponDefinition : null;
+        SetRendererSprite(
+            _mainHandRenderer,
+            weapon != null ? definition.WorldSprite ?? definition.Icon : null);
+
+        if (weapon == null)
+        {
+            _mainHandWeaponVisual.localPosition = Vector3.zero;
+            _mainHandWeaponVisual.localRotation = Quaternion.identity;
             return;
         }
 
-        ApplyPose();
+        WeaponDefinition.PresentationConfig presentation = weapon.Presentation;
+        Vector2 gripAlignedPosition =
+            PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+                presentation.GripPoint,
+                Vector2.one,
+                presentation.AngleCorrection) + presentation.StanceOffset;
+
+        _mainHandWeaponVisual.localPosition = new Vector3(
+            gripAlignedPosition.x,
+            gripAlignedPosition.y,
+            _mainHandWeaponVisual.localPosition.z);
+        _mainHandWeaponVisual.localRotation = Quaternion.Euler(
+            0f,
+            0f,
+            presentation.AngleCorrection);
     }
 
-    private void UpdateWeaponSprite()
+    private void ApplyOffHandDefinition(LootDefinition definition)
     {
-        _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
-        LootDefinition definition = null;
-        _equipmentSource?.TryGetEquippedDefinition(out definition);
-        if (_hasAppliedEquipment && ReferenceEquals(_equippedDefinition, definition))
-        {
-            return;
-        }
+        bool isShield = definition != null && definition.Category == LootCategory.Shield;
+        SetRendererSprite(
+            _offHandRenderer,
+            isShield ? definition.WorldSprite ?? definition.Icon : null);
 
-        ApplyEquippedDefinition(definition);
+        _offHandVisual.localPosition = Vector3.zero;
+        _offHandVisual.localRotation = Quaternion.identity;
     }
 
-    private void ApplyEquippedDefinition(LootDefinition definition)
-    {
-        WeaponDefinition weaponDefinition = definition != null
-            ? definition.WeaponDefinition
-            : null;
-        _equippedDefinition = definition;
-        _hasAppliedEquipment = true;
-        _equippedPresentation = weaponDefinition != null
-            ? weaponDefinition.Presentation
-            : default;
-        _weaponSpriteRenderer.sprite = weaponDefinition != null
-            ? definition.WorldSprite ?? definition.Icon
-            : null;
-        _weaponSpriteRenderer.enabled = _weaponSpriteRenderer.sprite != null;
-    }
-
-    private void ApplyPose()
+    private void RefreshSorting()
     {
         Vector2 facing = CanReadMovementState()
             ? _movementState.FacingDirection
             : _safeFacing;
-
-        if (_isSwinging)
-        {
-            facing = _swingFacingDirection;
-        }
-
-        _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(
-            facing,
-            _safeFacing);
-
-        CharacterVisualDirection visualDirection =
-            CharacterVisualDirectionResolver.Resolve(_safeFacing);
-        Vector2 canonicalFacing =
-            CharacterVisualDirectionResolver.GetCanonicalVector(visualDirection);
-        WeaponDirectionPreset preset =
-            _directionPresets.GetPreset(visualDirection);
-
-        Vector2 anchorLocalPosition =
-            PlayerWeaponPresentationMath.CalculateAnchorLocalPosition(
-                _weaponOrbitAnchor,
-                _weaponPivot.parent);
-        Vector2 weaponPivotPosition = anchorLocalPosition;
-        float facingAngle =
-            PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(_safeFacing);
-        bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(_safeFacing);
-
-        float swingOffset = 0f;
-        if (_isSwinging)
-        {
-            float duration = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null ? _equippedDefinition.WeaponDefinition.Presentation.SwingDuration : _equippedPresentation.SwingDuration;
-            float t = 1f - Mathf.Clamp01(_swingTimer / Mathf.Max(0.001f, duration));
-            float currentArc;
-            float swingArc = _equippedDefinition != null && _equippedDefinition.WeaponDefinition != null
-                ? _equippedDefinition.WeaponDefinition.Presentation.SwingArc
-                : _equippedPresentation.SwingArc;
-            float startAngle = swingArc * (2f / 3f);
-            float followThroughAngle = -swingArc * (1f / 3f);
-
-            // Barrido principal: 0 a 0.7f (Start -> FollowThrough)
-            // Recovery: 0.7f a 1.0f (FollowThrough -> 0)
-            if (t < 0.7f)
-            {
-                float sweepT = t / 0.7f;
-                currentArc = Mathf.Lerp(startAngle, followThroughAngle, sweepT);
-            }
-            else
-            {
-                float recoveryT = (t - 0.7f) / 0.3f;
-                currentArc = Mathf.Lerp(followThroughAngle, 0f, recoveryT);
-            }
-            
-            swingOffset = currentArc * preset.SwingSign;
-        }
-        else
-        {
-            swingOffset = preset.StanceAngle;
-        }
-
-        _weaponPivot.localPosition = new Vector3(
-            weaponPivotPosition.x,
-            weaponPivotPosition.y,
-            _weaponPivot.localPosition.z);
-        _weaponPivot.localRotation = Quaternion.Euler(0f, 0f, facingAngle + swingOffset);
-        _weaponPivot.localScale = new Vector3(
-            _weaponPivotBaseScale.x,
-            Mathf.Abs(_weaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
-            _weaponPivotBaseScale.z);
-
-        Vector2 weaponPosition =
-            PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
-                _equippedPresentation.GripPoint,
-                new Vector2(_weaponVisualBaseScale.x, _weaponVisualBaseScale.y),
-                _equippedPresentation.AngleCorrection);
-        _weaponVisual.localPosition = new Vector3(
-            weaponPosition.x,
-            weaponPosition.y,
-            _weaponVisual.localPosition.z);
-        _weaponVisual.localRotation = Quaternion.Euler(
-            0f,
-            0f,
-            _equippedPresentation.AngleCorrection);
-        _weaponVisual.localScale = _weaponVisualBaseScale;
-
-        int sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(
-            visualDirection,
+        _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(facing, _safeFacing);
+        CharacterVisualDirection direction = CharacterVisualDirectionResolver.Resolve(_safeFacing);
+        int order = CharacterVisualDirectionResolver.CalculateSortingOrder(
+            direction,
             SortingOrderFront,
             SortingOrderBack);
-        _weaponSpriteRenderer.sortingOrder = sortingOrder;
+
+        _mainHandRenderer.sortingOrder = order;
+        _offHandRenderer.sortingOrder = order;
     }
 
     private void CacheDependencies()
     {
+        _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
         if (_movementStateSource == null)
         {
             _movementStateSource = GetComponentInParent<PlayerMovementNetworkController>();
@@ -260,53 +158,54 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _movementState = _movementStateSource as IMovementState;
         _movementNetworkBehaviour = _movementStateSource as NetworkBehaviour;
-
-        if (_combatController == null)
-        {
-            _combatController = GetComponentInParent<PlayerCombatNetworkController>();
-        }
     }
 
     private bool CanReadMovementState()
     {
-        return _movementNetworkBehaviour == null
-            || (_movementNetworkBehaviour.Object != null
-                && _movementNetworkBehaviour.Object.IsValid);
+        return _movementState != null &&
+            (_movementNetworkBehaviour == null ||
+             _movementNetworkBehaviour.Object != null && _movementNetworkBehaviour.Object.IsValid);
     }
 
-    private void CaptureBaseState()
+    private bool CanReadEquipmentState()
     {
-        if (_hasCapturedBaseState
-            || _weaponPivot == null
-            || _weaponVisual == null)
-        {
-            return;
-        }
-
-        _weaponPivotBaseScale = _weaponPivot.localScale;
-        _weaponVisualBaseScale = _weaponVisual.localScale;
-        _hasCapturedBaseState = true;
+        return _equipmentSource != null &&
+            _equipmentSource.Object != null &&
+            _equipmentSource.Object.IsValid;
     }
 
     private bool ValidateDependencies()
     {
-        if (_movementState != null
-            && _weaponPivot != null
-            && _weaponPivot.parent != null
-            && _weaponOrbitAnchor != null
-            && _weaponVisual != null
-            && _weaponSpriteRenderer != null
-            && _hasCapturedBaseState)
+        if (_movementState != null &&
+            _equipmentSource != null &&
+            _mainHandGrip != null &&
+            _mainHandWeaponVisual != null &&
+            _mainHandRenderer != null &&
+            _offHandGrip != null &&
+            _offHandVisual != null &&
+            _offHandRenderer != null &&
+            _mainHandWeaponVisual.IsChildOf(_mainHandGrip) &&
+            _offHandVisual.IsChildOf(_offHandGrip))
         {
             return true;
         }
 
         Debug.LogError(
-            $"{nameof(PlayerWeaponPresenter)} on '{name}' requires a movement state, "
-            + "weapon pivot with a parent, weapon orbit anchor, weapon visual, "
-            + "and weapon sprite renderer.",
+            $"{nameof(PlayerWeaponPresenter)} on '{name}' requires movement, Equipment, " +
+            "and held visuals parented beneath their matching hand grips.",
             this);
         return false;
+    }
+
+    private static void SetRendererSprite(SpriteRenderer renderer, Sprite sprite)
+    {
+        if (renderer == null)
+        {
+            return;
+        }
+
+        renderer.sprite = sprite;
+        renderer.enabled = sprite != null;
     }
 
 #if UNITY_EDITOR
@@ -315,72 +214,4 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         CacheDependencies();
     }
 #endif
-
-    [System.Serializable]
-    internal struct WeaponDirectionPreset
-    {
-        [SerializeField] private Vector2 _orbit;
-        [SerializeField] private Vector2 _stanceOffset;
-        [SerializeField] private float _swingSign;
-        [SerializeField] private float _stanceAngle;
-
-        public Vector2 Orbit
-        {
-            get => _orbit;
-            set => _orbit = value;
-        }
-
-        public Vector2 StanceOffset
-        {
-            get => _stanceOffset;
-            set => _stanceOffset = value;
-        }
-
-        public float StanceAngle { get => _stanceAngle; set => _stanceAngle = value; }
-        public float SwingSign
-        {
-            get => _swingSign;
-            set => _swingSign = value;
-        }
-
-        public WeaponDirectionPreset(Vector2 orbit, Vector2 stanceOffset, float swingSign, float stanceAngle)
-        {
-            _orbit = orbit;
-            _stanceOffset = stanceOffset;
-            _swingSign = swingSign;
-            _stanceAngle = stanceAngle;
-        }
-    }
-
-    [System.Serializable]
-    internal struct WeaponDirectionPresetTable
-    {
-        [SerializeField] private WeaponDirectionPreset _south;
-        [SerializeField] private WeaponDirectionPreset _southEast;
-        [SerializeField] private WeaponDirectionPreset _northEast;
-        [SerializeField] private WeaponDirectionPreset _north;
-        [SerializeField] private WeaponDirectionPreset _northWest;
-        [SerializeField] private WeaponDirectionPreset _southWest;
-
-        public WeaponDirectionPreset South { get => _south; set => _south = value; }
-        public WeaponDirectionPreset SouthEast { get => _southEast; set => _southEast = value; }
-        public WeaponDirectionPreset NorthEast { get => _northEast; set => _northEast = value; }
-        public WeaponDirectionPreset North { get => _north; set => _north = value; }
-        public WeaponDirectionPreset NorthWest { get => _northWest; set => _northWest = value; }
-        public WeaponDirectionPreset SouthWest { get => _southWest; set => _southWest = value; }
-
-        public WeaponDirectionPreset GetPreset(CharacterVisualDirection direction)
-        {
-            switch (direction)
-            {
-                case CharacterVisualDirection.South: return _south;
-                case CharacterVisualDirection.SouthEast: return _southEast;
-                case CharacterVisualDirection.NorthEast: return _northEast;
-                case CharacterVisualDirection.North: return _north;
-                case CharacterVisualDirection.NorthWest: return _northWest;
-                case CharacterVisualDirection.SouthWest: return _southWest;
-                default: return _south;
-            }
-        }
-    }
 }

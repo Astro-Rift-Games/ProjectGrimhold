@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 32
+      value: 33
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -183,17 +183,21 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[28]'
       value: 
-      objectReference: {fileID: 5946922757480525914}
+      objectReference: {fileID: 2622888994270353215}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[29]'
       value: 
-      objectReference: {fileID: 3672084271533635533}
+      objectReference: {fileID: 5946922757480525914}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[30]'
       value: 
-      objectReference: {fileID: 1369051075169337942}
+      objectReference: {fileID: 3672084271533635533}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[31]'
+      value: 
+      objectReference: {fileID: 1369051075169337942}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[32]'
       value: 
       objectReference: {fileID: 481970610349468446}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -335,6 +339,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89ecf39554d337d40bf16888806e485b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConsumableNetworkController
+--- !u!114 &2622888994270353215 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8400000000000000005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 5833451083347531578}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7806615118508775566}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e67952f415ac4dc79541af210a97e3ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerShieldDefenseNetworkController
 --- !u!114 &3092695012236597048 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8800000000000000002, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
