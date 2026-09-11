@@ -411,6 +411,45 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
+    public void DirectionalAttackClips_SortRightHandBehindBodyOnlyForNorthAndNorthEast()
+    {
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        const string handPath = "RightHandPivot/RightHand";
+        const string sortingOrderProperty = "m_SortingOrder";
+        const float expectedBackOrder = -2f;
+
+        foreach (string weapon in weapons)
+        {
+            foreach (string direction in directions)
+            {
+                AnimationClip attack = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim");
+                EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(attack)
+                    .Where(binding =>
+                        binding.path == handPath &&
+                        binding.propertyName == sortingOrderProperty)
+                    .ToArray();
+
+                bool shouldRenderBehindBody = direction == "N" || direction == "NE";
+                Assert.That(
+                    bindings.Length,
+                    Is.EqualTo(shouldRenderBehindBody ? 1 : 0),
+                    attack.name);
+
+                if (!shouldRenderBehindBody)
+                {
+                    continue;
+                }
+
+                AnimationCurve curve = AnimationUtility.GetEditorCurve(attack, bindings[0]);
+                Assert.That(curve.Evaluate(0f), Is.EqualTo(expectedBackOrder), attack.name);
+                Assert.That(curve.Evaluate(attack.length), Is.EqualTo(expectedBackOrder), attack.name);
+            }
+        }
+    }
+
+    [Test]
     public void NetworkPlayer_RestoresHandPivotsAndExplicitMovementSource()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkPlayerPath);
