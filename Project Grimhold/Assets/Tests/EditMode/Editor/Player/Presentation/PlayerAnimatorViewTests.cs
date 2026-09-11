@@ -231,6 +231,36 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
+    public void BodyLocomotionClips_AnimateTheNestedMainHandGrip()
+    {
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        string[] states = { "Idle", "Walk" };
+
+        foreach (string state in states)
+        {
+            foreach (string direction in directions)
+            {
+                string path = $"Assets/Animations/Player/{state}/{state}_{direction}.anim";
+                AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                Assert.That(clip, Is.Not.Null, path);
+
+                EditorCurveBinding[] positionBindings = AnimationUtility.GetCurveBindings(clip)
+                    .Where(binding =>
+                        binding.type == typeof(Transform) &&
+                        binding.propertyName.StartsWith("m_LocalPosition", StringComparison.Ordinal))
+                    .ToArray();
+
+                Assert.That(positionBindings, Is.Not.Empty, path);
+                Assert.That(
+                    positionBindings.All(binding =>
+                        binding.path == "RightHandPivot/RightHand/MainHandGrip"),
+                    Is.True,
+                    $"{path} must keep the weapon grip aligned with the authored hand pose.");
+            }
+        }
+    }
+
+    [Test]
     public void CharacterController_EachWeaponAttackUsesSixDirectionalOneShotClips()
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
