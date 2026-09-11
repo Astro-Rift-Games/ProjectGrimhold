@@ -262,7 +262,7 @@ public sealed class SessionConnectionStateMachineTests
             code,
             profile,
             "old-reservation",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             ProgressionBalanceDefaults.InitialCharacterAttributeState,
             new[] { 1, 0, 0, 0, 0, 0 });
 

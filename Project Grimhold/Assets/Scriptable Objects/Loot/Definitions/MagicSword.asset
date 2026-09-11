@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: MagicSword
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: magic_sword
+  _displayName: Magic Sword
+  _description: A balanced one-handed magical sword.
+  _icon: {fileID: 21300000, guid: 514bc944987bb6644be42e30de09f21b, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 514bc944987bb6644be42e30de09f21b, type: 3}
+  _category: 5
+  _rarity: 0
+  _extractionValuePerUnit: 10
+  _sellValuePerUnit: 0
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 11400000, guid: b31f0000000000000000000000000101, type: 2}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}

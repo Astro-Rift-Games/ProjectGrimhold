@@ -10,14 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: Staff
+  m_Name: MagicStaff
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: staff
-  _displayName: Staff
-  _description: Placeholder ranged weapon with a long silhouette used to validate
-    per-weapon grip and stance.
-  _icon: {fileID: -5765247588330983694, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
-  _worldSprite: {fileID: -5765247588330983694, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
+  _id: magic_staff
+  _displayName: Magic Staff
+  _description: A two-handed magical weapon with long range.
+  _icon: {fileID: 21300000, guid: 954272e7ed3864c498005f79c264ab43, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 954272e7ed3864c498005f79c264ab43, type: 3}
   _category: 5
   _rarity: 0
   _extractionValuePerUnit: 10
@@ -25,7 +24,3 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 11400000, guid: 70b73b7279424c69bd4a092055c87680, type: 2}
-  _equipmentVisualDefinition:
-    _usesBaseSpritesAsPlaceholder: 1
-    _tint: {r: 1, g: 1, b: 1, a: 1}
-    _spriteMappings: []

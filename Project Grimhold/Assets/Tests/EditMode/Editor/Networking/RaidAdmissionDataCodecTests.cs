@@ -9,7 +9,7 @@ public sealed class RaidAdmissionDataCodecTests
     public void TryCreate_UsesCompactPreparedEquipmentReferences()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
-        LootId sword = new("training_sword");
+        LootId sword = new("arming_sword");
         var reservation = new PendingLoadoutReservation(
             "reservation-prepared",
             new[]
@@ -42,7 +42,7 @@ public sealed class RaidAdmissionDataCodecTests
             code,
             new ProfileId("profile-code"),
             "reservation-code",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             CustomAttributes,
             new[] { 1, 0, 0, 0, 0, 0 },
             level: 2,
@@ -73,7 +73,7 @@ public sealed class RaidAdmissionDataCodecTests
             first,
             new ProfileId("profile-code"),
             "reservation-code",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
 
@@ -86,7 +86,7 @@ public sealed class RaidAdmissionDataCodecTests
     public void Encode_RejectsInvalidProgressionBaselineOrWatermark()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
-        LootEntry[] loadout = { new(new LootId("training_sword"), 1) };
+        LootEntry[] loadout = { new(new LootId("arming_sword"), 1) };
         int[] equipment = { 1, 0, 0, 0, 0, 0 };
         var invalidBaseline = new RaidAdmissionData(
             code,
@@ -119,7 +119,7 @@ public sealed class RaidAdmissionDataCodecTests
             "reservation-a",
             new[]
             {
-                new LootEntry(new LootId("training_sword"), 3),
+                new LootEntry(new LootId("arming_sword"), 3),
                 new LootEntry(new LootId("coins"), 4)
             },
             CustomAttributes,
@@ -146,7 +146,7 @@ public sealed class RaidAdmissionDataCodecTests
             code,
             new ProfileId("profile"),
             "reservation",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
@@ -209,7 +209,7 @@ public sealed class RaidAdmissionDataCodecTests
             code,
             new ProfileId("profile"),
             "reservation",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 1, 0, 0, 0, 0 });
 
@@ -244,7 +244,7 @@ public sealed class RaidAdmissionDataCodecTests
             code,
             new ProfileId("profile"),
             "reservation",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
@@ -266,7 +266,7 @@ public sealed class RaidAdmissionDataCodecTests
             code,
             new ProfileId("profile-invalid-attribute"),
             "reservation",
-            new[] { new LootEntry(new LootId("training_sword"), 1) },
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
@@ -292,7 +292,7 @@ public sealed class RaidAdmissionDataCodecTests
     public void TryCreate_PreservesConfirmedCharacterAttributesExactly()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
-        LootId sword = new("training_sword");
+        LootId sword = new("arming_sword");
         var reservation = new PendingLoadoutReservation(
             "reservation-attributes",
             new[] { new StashItem(sword, 1) },

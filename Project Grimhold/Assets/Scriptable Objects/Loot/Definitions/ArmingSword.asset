@@ -10,17 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: RecoverySword
+  m_Name: ArmingSword
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: recovery_sword
-  _displayName: Espada de Recuperacion
-  _description: Arma base garantizada por el Pueblo. Sin especializacion ni valor
-    economico; existe solo para volver a iniciar una expedicion.
-  _icon: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
-  _worldSprite: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
+  _id: arming_sword
+  _displayName: Arming Sword
+  _description: A balanced one-handed physical sword.
+  _icon: {fileID: 21300000, guid: 49ab516f7d9dd704aa0df27722bd8248, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 49ab516f7d9dd704aa0df27722bd8248, type: 3}
   _category: 5
   _rarity: 0
-  _extractionValuePerUnit: 0
+  _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}

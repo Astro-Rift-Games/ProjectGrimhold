@@ -8,6 +8,5 @@ public enum WeaponAnimationCategory
     ArmingSword = 1,
     Rapier = 2,
     RondelDagger = 3,
-    MagicWand = 4,
-    TwoHanded = 5
+    MagicWand = 4
 }

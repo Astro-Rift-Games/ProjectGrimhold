@@ -26,27 +26,27 @@ MonoBehaviour:
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 6f4e8f3a2c1b49d8a7e65013fcbd9421, type: 2}
-    _weight: 1
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 43c94e930aa64f27afcd4fe41a706f07, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 516a3b1c179d42ebbc63e82246d783e0, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 8081524fb32548bdbbc8c9e27641e5da, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 735d695f2bdf492cbeb02c9ec587d595, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: d813853221354d3cbf3e891b46a7bffd, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: a1b2c3d400014e7f9a0b0c0d0e0f1001, type: 2}
@@ -146,6 +146,26 @@ MonoBehaviour:
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: aa2f2df86dcf46519cdab6be7dc6362c, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: 3d7f2a91c4b845e6b0d18e37a5c92f04, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000001, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000002, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000003, type: 2}
+    _weight: 6
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000004, type: 2}
     _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1

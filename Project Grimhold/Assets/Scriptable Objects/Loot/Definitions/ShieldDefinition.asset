@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4d26a3b51e1d4e8da971a112e9457c31, type: 3}
-  m_Name: TrainingShieldDefinition
+  m_Name: ShieldDefinition
   m_EditorClassIdentifier: Assembly-CSharp::ShieldDefinition
   _damageReduction: 0.5
   _defensiveConeDegrees: 120

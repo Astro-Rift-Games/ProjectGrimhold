@@ -77,8 +77,8 @@ public sealed class LocalLoadoutInventoryReadSourceTests
     public void Read_ProjectsConfirmedPreparedEquipment()
     {
         var expected = new PreparedEquipmentLoadout(
-            new LootId("training_sword"),
-            new LootId("recovery_sword"),
+            new LootId("rapier"),
+            new LootId("arming_sword"),
             new LootId("helmet"),
             new LootId("armor"),
             new LootId("gloves"),

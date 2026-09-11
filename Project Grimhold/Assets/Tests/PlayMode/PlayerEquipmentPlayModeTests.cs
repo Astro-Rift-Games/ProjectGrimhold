@@ -23,11 +23,11 @@ namespace Tests.PlayMode.Equipment
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
         private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string MeleeWeaponPath =
-            "Assets/Scriptable Objects/Loot/Definitions/TrainingSword.asset";
+            "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
         private const string RangedWeaponPath =
-            "Assets/Scriptable Objects/Loot/Definitions/Wand.asset";
+            "Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset";
         private const string GreatswordPath =
-            "Assets/Scriptable Objects/Loot/Definitions/Greatsword.asset";
+            "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
 
         private NetworkRunner _runner;
         private PlayerEquipmentSimulationDriver _driver;

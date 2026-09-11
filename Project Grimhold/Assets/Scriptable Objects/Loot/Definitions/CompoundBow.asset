@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: TrainingSword
+  m_Name: CompoundBow
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: training_sword
-  _displayName: Training Sword
-  _description: A basic sword used for development loot validation.
-  _icon: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
-  _worldSprite: {fileID: 2367107257886515543, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
+  _id: compound_bow
+  _displayName: Compound Bow
+  _description: A powerful two-handed physical bow with extended range.
+  _icon: {fileID: 21300000, guid: f9ee15061bbd4304abee8fc147d10314, type: 3}
+  _worldSprite: {fileID: 21300000, guid: f9ee15061bbd4304abee8fc147d10314, type: 3}
   _category: 5
   _rarity: 0
-  _extractionValuePerUnit: 0
+  _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
-  _weaponDefinition: {fileID: 11400000, guid: 93b52591b50c4a1e8fb64a65fc31f8f2, type: 2}
+  _weaponDefinition: {fileID: 11400000, guid: 33a8998fa9a04d6bb4788cd456ed88b1, type: 2}

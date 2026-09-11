@@ -72,14 +72,14 @@ namespace Tests.PlayMode.Presentation
         public void TownBinding_ProjectsEightPreparedSlotsAndAppliesReadyGate()
         {
             _source.PreparedEquipment = new PreparedEquipmentLoadout(
-                new LootId("training_sword"),
-                new LootId("recovery_sword"),
+                new LootId("rapier"),
+                new LootId("arming_sword"),
                 new LootId("light_armor_open_sallet"),
                 new LootId("light_armor_chain_mail_armor"),
                 new LootId("light_armor_gloves"),
                 new LootId("light_armor_chain_mail_trousers"),
-                weaponSetAOffHand: new LootId("wand"),
-                weaponSetBOffHand: new LootId("spellbook"));
+                weaponSetAOffHand: new LootId("magic_wand"),
+                weaponSetBOffHand: new LootId("magic_sword"));
             _presenter.BindTown(_source, _source, _source, _reader);
             InvokePresenter("OnInventoryToggleRequested");
 

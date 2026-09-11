@@ -32,8 +32,8 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void Equip_UsesDeterministicCurrentSlotsAndSupportsReplacement()
         {
-            LootId sword = new("training_sword");
-            LootId recoverySword = new("recovery_sword");
+            LootId sword = new("rapier");
+            LootId recoverySword = new("arming_sword");
             _service.Loadout = new[] { new StashItem(sword, 1), new StashItem(recoverySword, 1) };
 
             Assert.That(_endpoint.TryEquip(sword, EquipmentSlot.WeaponSetAMainHand), Is.EqualTo(StashOperationResult.Success));
@@ -51,7 +51,7 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void ReadyGate_BlocksEquipAndExactUnequipWithoutCallingPersistence()
         {
-            LootId sword = new("training_sword");
+            LootId sword = new("rapier");
             _service.Loadout = new[] { new StashItem(sword, 1) };
             _canMutate = false;
 

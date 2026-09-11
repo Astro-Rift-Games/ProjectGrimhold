@@ -10,27 +10,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
-  m_Name: WandWeaponDefinition
+  m_Name: MagicSwordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
-  _baseDamage: 22
-  _attackIntervalSeconds: 0.7
-  _range: 5
-  _staminaCost: 10
+  _baseDamage: 30
+  _attackIntervalSeconds: 1
+  _range: 1.5
+  _staminaCost: 15
   _damageType: 1
-  _knockbackForce: 0
+  _knockbackForce: 5
   _handedness: 0
-  _primaryAttack: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
-  _naturalScalingAttribute: 4
+  _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
+  _naturalScalingAttribute: 2
   _offensiveScaling:
-    _attribute: 4
-    _coefficient: 0.7
+    _attribute: 2
+    _coefficient: 0
   _presentation:
     _stanceOffset: {x: 0, y: 0}
-    _gripPoint: {x: -0.1875, y: 0.0625}
-    _angleCorrection: -135
-    _animationCategory: 4
+    _gripPoint: {x: 0, y: -0.5625}
+    _angleCorrection: -90
+    _animationCategory: 1
   _attributeRequirements:
-    _minimumStrength: 0
+    _minimumStrength: 5
     _minimumDexterity: 0
-    _minimumIntelligence: 5
-  _audioConfig: {fileID: 11400000, guid: 2b993c9d3b0ffe04bb76ce96c315935a, type: 2}
+    _minimumIntelligence: 0
+  _audioConfig: {fileID: 11400000, guid: 7eb3d72e654a35649a9e5d79a653d29f, type: 2}

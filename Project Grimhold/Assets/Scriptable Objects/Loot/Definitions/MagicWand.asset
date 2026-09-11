@@ -10,21 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: Longsword
+  m_Name: MagicWand
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: longsword
-  _displayName: Longsword
-  _description: Placeholder melee weapon used to validate weapon equipment and presentation.
-  _icon: {fileID: 6481744139066714265, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
-  _worldSprite: {fileID: 6481744139066714265, guid: aa9c4fa7cd37db3469cd79ff7593f6c9, type: 3}
+  _id: magic_wand
+  _displayName: Magic Wand
+  _description: A flexible one-handed magical ranged weapon.
+  _icon: {fileID: 21300000, guid: 8544f68e1f741774fb5d1dcd851150c7, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 8544f68e1f741774fb5d1dcd851150c7, type: 3}
   _category: 5
   _rarity: 0
   _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
-  _weaponDefinition: {fileID: 11400000, guid: fc39f5d0ac774df1825dfd7624ffb3ca, type: 2}
-  _equipmentVisualDefinition:
-    _usesBaseSpritesAsPlaceholder: 1
-    _tint: {r: 1, g: 1, b: 1, a: 1}
-    _spriteMappings: []
+  _weaponDefinition: {fileID: 11400000, guid: 3c5626000bf14878911f62059c517d9c, type: 2}

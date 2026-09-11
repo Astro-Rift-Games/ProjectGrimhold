@@ -12,6 +12,11 @@
 const Character = require('../models/Character');
 const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
 const {
+  normalizeCharacterInventory,
+  normalizeItems,
+  normalizePreparedEquipment
+} = require('./InventoryLootIdNormalizer');
+const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
 } = require('../config/progressionBalance');
@@ -23,14 +28,14 @@ const MAX_PROGRESSION_RECEIPTS = 256;
 
 function sanitizePreparedEquipment(eq) {
   if (!eq) return {};
-  return {
+  return normalizePreparedEquipment({
     weaponSlot1: eq.weaponSlot1 || '',
     weaponSlot2: eq.weaponSlot2 || '',
     helmet:      eq.helmet      || '',
     armor:       eq.armor       || '',
     gloves:      eq.gloves      || '',
     boots:       eq.boots       || ''
-  };
+  });
 }
 
 class ExtractionCommitService {
@@ -64,6 +69,10 @@ class ExtractionCommitService {
       };
     }
 
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
     const lootAlreadyApplied = extractionReceipts.some(
       r => r.raidId === raidId && r.resultSequence === resultSequence
@@ -93,8 +102,9 @@ class ExtractionCommitService {
     
     // Loot
     const newLoadout = [];
-    if (authResult.items && authResult.items.length > 0) {
-      for (const item of authResult.items) {
+    const normalizedItems = normalizeItems(authResult.items);
+    if (normalizedItems.length > 0) {
+      for (const item of normalizedItems) {
         const existing = newLoadout.find(i => i.lootId === item.lootId);
         if (existing) {
           existing.amount += item.amount;

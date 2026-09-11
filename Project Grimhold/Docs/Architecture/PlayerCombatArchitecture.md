@@ -274,8 +274,8 @@ attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and 
 Health, Stamina or Mana modifier. `EquipmentStatisticsCalculator` rebuilds a complete immutable
 `EquipmentStatisticsModifiers` snapshot from the four equipped armor definitions whenever
 `EquipmentRevision` changes; it never accumulates deltas. `StaminaCost` is validated weapon
-configuration but is not consumed yet. Spellbook uses
-the shared ranged behavior; proximity or area manifestation is outside this contract.
+configuration but is not consumed yet. Bow, wand and staff templates reuse the shared ranged
+behavior; weapon-specific projectile manifestation remains outside this contract.
 
 The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
 `WeaponScalingModifier` slots using grades E through S. `WeaponScalingGrade.None` is only the default
@@ -526,47 +526,43 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 * **`MeleeAttackConfig`** asset: Saved as a scriptable object, referenced in the character's `MeleeAttack` component.
 * **`RangedAttackConfig`** asset: Saved as a scriptable object, referenced in `RangedAttack` and `FusionProjectileSpawner` components.
 
-### 5. Placeholder Weapon Content Set
+### 5. Weapon Content Set
 
-`Assets/Scriptable Objects/Loot/Definitions` ships six placeholder weapons used to validate
-Weapon Equipment, Weapon Set switching, world presentation and the Raid HUD icon. Greatsword and
-Staff declare `TwoHanded`; the remaining placeholder weapons declare `OneHanded`. They are
-content identities only: they add no attack type, no weapon subtype and no presenter branch.
-Each one owns a dedicated `LootDefinition` and a dedicated `WeaponDefinition`. Functional differences
-may come from the reused `AttackConfig` plus per-weapon attribute requirements and offensive scaling;
-visual differences remain in the static presentation configuration.
+`Assets/Scriptable Objects/Loot/Definitions` contains one `LootDefinition` and one
+`WeaponDefinition` for each weapon currently represented in `Assets/Art/Weapons`. The Shield
+uses its own `ShieldDefinition`. Every identity is registered in `LootDefinitionCatalog` and is
+reachable through `DefaultLootContainerContentTable`; `arming_sword` is additionally the Town
+recovery weapon configured by `LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
 
-Sprites come from `Assets/Placeholder/RPG Items 16x16 Pack 1` at the project pixel-art
-convention (16 PPU, Point filter, no mipmaps, Tight mesh). Sword and staff cells use a
-BottomRight sprite pivot and their art points up-left, which the `-135` angle correction maps
-onto the presenter's `+X` forward axis. Spell-book cells use a Center pivot and an upright,
-non blade-aligned silhouette, so their angle correction is `0`.
+The base templates have no offensive scaling coefficient. Their configured requirements, damage,
+interval, range and Stamina cost are static playtest baselines. Weapon instances remain the owner
+of future scaling variation.
 
-| Loot id | Sprite cell | Attack config | Animation | Stance offset | Grip point | Angle |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `recovery_sword` | `swords-16x16_0` | `PlayerMeleeAttackConfig` | `ArmingSword` | `(0, 0)` | `(-0.1875, 0.1875)` | `-135` |
-| `longsword` | `swords-16x16_7` | `PlayerMeleeAttackConfig` | `ArmingSword` | `(0, 0)` | `(0, 0)` | `-135` |
-| `greatsword` | `swords-16x16_15` | `PlayerMeleeAttackConfig` | `TwoHanded` | `(0, -0.0625)` | `(-0.125, 0.125)` | `-135` |
-| `wand` | `staves-16x16_37` | `RangePlayerAttackConfig` | `MagicWand` | `(0, 0)` | `(-0.1875, 0.0625)` | `-135` |
-| `staff` | `staves-16x16_30` | `RangePlayerAttackConfig` | `TwoHanded` | `(0, 0.0625)` | `(-0.1875, 0.125)` | `-135` |
-| `spellbook` | `spell-books-16x16_13` | `RangePlayerAttackConfig` | `MagicWand` | `(0, 0.125)` | `(0, -0.3125)` | `0` |
+| Loot id | Hands | Attack config | Attack animation |
+| :--- | :---: | :--- | :--- |
+| `arming_sword` | 1 | `PlayerMeleeAttackConfig` | `ArmingSword` |
+| `rapier` | 1 | `PlayerMeleeAttackConfig` | `Rapier` |
+| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | `ArmingSword` |
+| `long_sword` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
+| `zweihander` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
+| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | `RondelDagger` |
+| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | `RondelDagger` |
+| `long_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
+| `compound_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
+| `magic_wand` | 1 | `RangePlayerAttackConfig` | `MagicWand` |
+| `magic_staff` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
 
-Grip points are expressed in weapon-sprite local units as the offset from the sprite pivot to
-the point that must coincide with `MainHandGrip`. The greatsword grips near the end of its
-longer hilt instead of its visual center, the wand grips at the base of its short shaft so it
-stays at the hand, the staff grips low on the shaft so most of its length extends forward, and
-the spellbook grips below its lower edge so the tome is carried above the hand.
+Grip points are expressed in sprite-local units from the centered pivot to the point that must
+coincide with `MainHandGrip`. Vertical weapon art uses a `-90` degree correction to align its
+forward axis with the presenter's `+X`; horizontal bow art is already aligned. These values are
+static per-weapon presentation data and do not introduce LootId branches in the presenter.
 
-The five equippable weapon placeholders are reachable during development through
-`DefaultLootContainerContentTable`, the same route that already exposes Training Sword; loot
-containers and breakable objects roll them. `recovery_sword` stays out of loot distribution and
-out of the merchant stock, and keeps its single source: the Town recovery grant configured by
-`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
+The fallback assignments make every weapon use an authored Animator transition. They do not claim
+to be final two-handed, bow or staff animation content. `WeaponAnimationCategory` therefore exposes
+only the four currently supported families: `ArmingSword`, `Rapier`, `RondelDagger` and `MagicWand`.
 
-`training_shield` is the initial shield identity registered in `LootDefinitionCatalog`. It reuses
-the existing shield sprite for inventory and world presentation and references its own
-`ShieldDefinition` with `0.5` reduction and a `120` degree total defensive cone. Its six-direction
-equipped pose and art mapping remain outside this combat task.
+`shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
+independent from attack animation categories.
 
 `LootDefinitionCatalog` derives network indices by ordinal-sorting loot ids, not by serialized
 list order, so appending content shifts the indices of existing entries by design. This is safe

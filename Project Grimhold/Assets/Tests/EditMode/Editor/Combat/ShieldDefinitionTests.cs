@@ -9,12 +9,12 @@ namespace Tests.EditMode.Combat
     public sealed class ShieldDefinitionTests
     {
         private const string ShieldLootPath =
-            "Assets/Scriptable Objects/Loot/Definitions/TrainingShield.asset";
+            "Assets/Scriptable Objects/Loot/Definitions/Shield.asset";
         private const string LootContentTablePath =
             "Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset";
 
         [Test]
-        public void TrainingShield_HasValidatedTaskConfiguration()
+        public void Shield_HasValidatedTaskConfiguration()
         {
             LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(ShieldLootPath);
 
@@ -28,7 +28,7 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
-        public void TrainingShield_IsObtainableFromRaidLootContainers()
+        public void Shield_IsObtainableFromRaidLootContainers()
         {
             LootDefinition shield = AssetDatabase.LoadAssetAtPath<LootDefinition>(ShieldLootPath);
             LootContainerContentTable table =
@@ -52,7 +52,7 @@ namespace Tests.EditMode.Combat
                 return;
             }
 
-            Assert.Fail("Training Shield is not present in the Raid loot container table.");
+            Assert.Fail("Shield is not present in the Raid loot container table.");
         }
 
         [TestCase(0f, 120f)]

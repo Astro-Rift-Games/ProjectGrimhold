@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
+  m_Name: CompoundBowWeaponDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
+  _baseDamage: 56
+  _attackIntervalSeconds: 1.8
+  _range: 12
+  _staminaCost: 28
+  _damageType: 0
+  _knockbackForce: 0
+  _handedness: 1
+  _primaryAttack: {fileID: 11400000, guid: 9b6a0e7f48c668340b0959ba0ec24663, type: 2}
+  _naturalScalingAttribute: 3
+  _offensiveScaling:
+    _attribute: 3
+    _coefficient: 0
+  _presentation:
+    _stanceOffset: {x: 0, y: 0}
+    _gripPoint: {x: 0, y: 0}
+    _angleCorrection: 0
+    _animationCategory: 4
+  _attributeRequirements:
+    _minimumStrength: 0
+    _minimumDexterity: 10
+    _minimumIntelligence: 0
+  _audioConfig: {fileID: 11400000, guid: 2b993c9d3b0ffe04bb76ce96c315935a, type: 2}

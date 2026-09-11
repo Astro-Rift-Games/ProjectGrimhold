@@ -1,5 +1,11 @@
 // src/services/InventoryService.js
 const Character = require('../models/Character');
+const {
+  normalizeCharacterInventory,
+  normalizeItems,
+  normalizeLootId,
+  normalizePreparedEquipment
+} = require('./InventoryLootIdNormalizer');
 
 /**
  * Serializes an item array from Mongoose documents to plain DTOs.
@@ -52,6 +58,10 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
     const lastExtraction = extractionReceipts.length > 0
       ? {
@@ -80,6 +90,11 @@ class InventoryService {
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
+
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+    lootId = normalizeLootId(lootId);
 
     const stash   = character.inventory.stash;
     const loadout = character.inventory.loadout;
@@ -130,6 +145,11 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+    lootId = normalizeLootId(lootId);
+
     const stash   = character.inventory.stash;
     const loadout = character.inventory.loadout;
 
@@ -179,6 +199,11 @@ class InventoryService {
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
+
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+    normalizePreparedEquipment(slots);
 
     const slotNames = ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots'];
 
@@ -265,6 +290,12 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+    items = normalizeItems(items);
+    normalizePreparedEquipment(preparedEquipment);
+
     character.inventory.pendingReservation = {
       reservationId,
       items: items || [],
@@ -294,6 +325,10 @@ class InventoryService {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
     }
 
     character.inventory.pendingReservation = null;
@@ -328,6 +363,11 @@ class InventoryService {
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
+
+    if (normalizeCharacterInventory(character)) {
+      await character.save();
+    }
+    items = normalizeItems(items);
 
     // Idempotency check: has this exact extraction already been applied?
     const receipts = character.inventory.appliedExtractionReceipts || [];

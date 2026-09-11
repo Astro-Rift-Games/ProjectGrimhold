@@ -10,27 +10,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
-  m_Name: GreatswordWeaponDefinition
+  m_Name: MagicCinquedeaWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
-  _baseDamage: 45
-  _attackIntervalSeconds: 1.4
-  _range: 2
-  _staminaCost: 22
-  _damageType: 0
-  _knockbackForce: 10
-  _handedness: 1
+  _baseDamage: 18
+  _attackIntervalSeconds: 0.55
+  _range: 1
+  _staminaCost: 10
+  _damageType: 1
+  _knockbackForce: 0
+  _handedness: 0
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
-  _naturalScalingAttribute: 2
+  _naturalScalingAttribute: 3
   _offensiveScaling:
-    _attribute: 2
-    _coefficient: 0.55
+    _attribute: 3
+    _coefficient: 0
   _presentation:
-    _stanceOffset: {x: 0, y: -0.0625}
-    _gripPoint: {x: -0.125, y: 0.125}
-    _angleCorrection: -135
-    _animationCategory: 5
+    _stanceOffset: {x: 0, y: 0}
+    _gripPoint: {x: 0, y: -0.4375}
+    _angleCorrection: -90
+    _animationCategory: 3
   _attributeRequirements:
-    _minimumStrength: 10
-    _minimumDexterity: 0
+    _minimumStrength: 0
+    _minimumDexterity: 5
     _minimumIntelligence: 0
   _audioConfig: {fileID: 11400000, guid: 7eb3d72e654a35649a9e5d79a653d29f, type: 2}

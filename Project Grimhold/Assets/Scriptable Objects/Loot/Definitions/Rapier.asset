@@ -10,22 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: Wand
+  m_Name: Rapier
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: wand
-  _displayName: Wand
-  _description: Placeholder ranged weapon with a short silhouette used to validate
-    weapon presentation.
-  _icon: {fileID: 240872464, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
-  _worldSprite: {fileID: 240872464, guid: 5b4ca41e171bbe944a8b4a3f2e2b6f57, type: 3}
+  _id: rapier
+  _displayName: Rapier
+  _description: A precise one-handed physical sword.
+  _icon: {fileID: 21300000, guid: 7d2dafaa30e42c44cb986ca50e7d3491, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 7d2dafaa30e42c44cb986ca50e7d3491, type: 3}
   _category: 5
   _rarity: 0
   _extractionValuePerUnit: 10
   _sellValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
-  _weaponDefinition: {fileID: 11400000, guid: 3c5626000bf14878911f62059c517d9c, type: 2}
-  _equipmentVisualDefinition:
-    _usesBaseSpritesAsPlaceholder: 1
-    _tint: {r: 1, g: 1, b: 1, a: 1}
-    _spriteMappings: []
+  _weaponDefinition: {fileID: 11400000, guid: 93b52591b50c4a1e8fb64a65fc31f8f2, type: 2}

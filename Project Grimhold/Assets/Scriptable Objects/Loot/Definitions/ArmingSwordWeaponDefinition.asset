@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
-  m_Name: LongswordWeaponDefinition
+  m_Name: ArmingSwordWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   _baseDamage: 30
   _attackIntervalSeconds: 1
@@ -23,11 +23,11 @@ MonoBehaviour:
   _naturalScalingAttribute: 2
   _offensiveScaling:
     _attribute: 2
-    _coefficient: 0.7
+    _coefficient: 0
   _presentation:
     _stanceOffset: {x: 0, y: 0}
-    _gripPoint: {x: 0, y: 0}
-    _angleCorrection: -135
+    _gripPoint: {x: 0, y: -0.625}
+    _angleCorrection: -90
     _animationCategory: 1
   _attributeRequirements:
     _minimumStrength: 5

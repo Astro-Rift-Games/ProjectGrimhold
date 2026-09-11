@@ -13,10 +13,10 @@ namespace Tests.EditMode.Equipment
     {
         private const string CatalogPath =
             "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset";
-        private static readonly LootId Sword = new("training_sword");
-        private static readonly LootId Greatsword = new("greatsword");
-        private static readonly LootId RecoverySword = new("recovery_sword");
-        private static readonly LootId TrainingShield = new("training_shield");
+        private static readonly LootId Sword = new("rapier");
+        private static readonly LootId Greatsword = new("long_sword");
+        private static readonly LootId RecoverySword = new("arming_sword");
+        private static readonly LootId TrainingShield = new("shield");
         private static readonly LootId Helmet = new("placeholder_helmet");
         private static readonly LootId Boots = new("placeholder_boots");
 
@@ -571,11 +571,11 @@ namespace Tests.EditMode.Equipment
             string json =
                 $"{{\"schemaVersion\":3,\"profileId\":\"{profile.Value}\",\"level\":1," +
                 "\"loadout\":[{\"lootId\":\"bone\",\"amount\":2}]," +
-                "\"preparedWeaponSlot1\":\"training_sword\"," +
-                "\"preparedWeaponSlot2\":\"recovery_sword\"," +
+                "\"preparedWeaponSlot1\":\"rapier\"," +
+                "\"preparedWeaponSlot2\":\"arming_sword\"," +
                 "\"pendingReservation\":{\"reservationId\":\"legacy-reservation\"," +
                 "\"items\":[{\"lootId\":\"bone\",\"amount\":1}]," +
-                "\"preparedWeaponSlot2\":\"recovery_sword\"}}";
+                "\"preparedWeaponSlot2\":\"arming_sword\"}}";
 
             Assert.That(
                 LocalProfileSaveCodec.TryDecode(
@@ -608,9 +608,9 @@ namespace Tests.EditMode.Equipment
             var profile = new ProfileId("49494949494949494949494949494949");
             string json =
                 $"{{\"schemaVersion\":2,\"profileId\":\"{profile.Value}\",\"level\":1," +
-                "\"loadout\":[{\"lootId\":\"training_sword\",\"amount\":2}," +
+                "\"loadout\":[{\"lootId\":\"rapier\",\"amount\":2}," +
                 "{\"lootId\":\"placeholder_helmet\",\"amount\":1}]," +
-                "\"preparedWeaponSlot1\":\"training_sword\"," +
+                "\"preparedWeaponSlot1\":\"rapier\"," +
                 "\"preparedHelmet\":\"placeholder_helmet\"}";
 
             Assert.That(
@@ -637,7 +637,7 @@ namespace Tests.EditMode.Equipment
             string json =
                 $"{{\"schemaVersion\":2,\"profileId\":\"{profile.Value}\",\"level\":1," +
                 "\"loadout\":[{\"lootId\":\"bone\",\"amount\":2}]," +
-                "\"preparedWeaponSlot1\":\"training_sword\"}";
+                "\"preparedWeaponSlot1\":\"rapier\"}";
 
             Assert.That(
                 LocalProfileSaveCodec.TryDecode(

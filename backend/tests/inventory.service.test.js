@@ -180,16 +180,16 @@ test('InventoryService', async (t) => {
 
   await t.test('updatePreparedEquipment() - assigns slots from loadout successfully', async () => {
     const mockChar = makeCharacter();
-    mockChar.inventory.loadout = [makeItem('training_sword', 1)];
+    mockChar.inventory.loadout = [makeItem('arming_sword', 1)];
     Character.findOne = async () => mockChar;
 
     const result = await InventoryService.updatePreparedEquipment('acc123', {
-      weaponSlot1: 'training_sword',
+      weaponSlot1: 'arming_sword',
       weaponSlot2: '',
       helmet: '', armor: '', gloves: '', boots: ''
     });
 
-    assert.strictEqual(result.preparedEquipment.weaponSlot1, 'training_sword');
+    assert.strictEqual(result.preparedEquipment.weaponSlot1, 'arming_sword');
     assert.strictEqual(result.preparedEquipment.weaponSlot2, '');
   });
 
@@ -254,5 +254,75 @@ test('InventoryService', async (t) => {
 
     const result = await InventoryService.clearPendingReservation('acc123');
     assert.strictEqual(result.pendingReservation, null);
+  });
+
+  await t.test('getInventory() - migrates aliases, merges stacks, slots, and reservation idempotently', async () => {
+    const mockChar = makeCharacter();
+    let saveCount = 0;
+    mockChar.save = async function () { saveCount += 1; return this; };
+    mockChar.inventory.stash = [
+      makeItem('recovery_sword', 1),
+      makeItem('training_sword', 2),
+      makeItem('arming_sword', 3),
+      makeItem('greatsword', 1)
+    ];
+    mockChar.inventory.loadout = [makeItem('wand', 1), makeItem('spellbook', 2)];
+    mockChar.inventory.preparedEquipment = {
+      weaponSlot1: 'longsword', weaponSlot2: 'staff', helmet: '', armor: '', gloves: '', boots: ''
+    };
+    mockChar.inventory.pendingReservation = {
+      reservationId: 'legacy-reservation',
+      items: [makeItem('training_shield', 1), makeItem('wand', 1)],
+      preparedEquipment: {
+        weaponSlot1: 'greatsword', weaponSlot2: 'spellbook', helmet: '', armor: '', gloves: '', boots: ''
+      }
+    };
+    Character.findOne = async () => mockChar;
+
+    const first = await InventoryService.getInventory('acc123');
+    assert.deepStrictEqual(first.stash, [
+      { lootId: 'arming_sword', amount: 6 },
+      { lootId: 'long_sword', amount: 1 }
+    ]);
+    assert.deepStrictEqual(first.loadout, [{ lootId: 'magic_wand', amount: 3 }]);
+    assert.strictEqual(first.preparedEquipment.weaponSlot1, 'arming_sword');
+    assert.strictEqual(first.preparedEquipment.weaponSlot2, 'magic_staff');
+    assert.deepStrictEqual(first.pendingReservation.items, [
+      { lootId: 'shield', amount: 1 },
+      { lootId: 'magic_wand', amount: 1 }
+    ]);
+    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot1, 'long_sword');
+    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot2, 'magic_wand');
+    assert.strictEqual(saveCount, 1);
+
+    const second = await InventoryService.getInventory('acc123');
+    assert.deepStrictEqual(second, first);
+    assert.strictEqual(saveCount, 1);
+  });
+
+  await t.test('moveToLoadout() - accepts a canonical id after persisted aliases are migrated', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.stash = [makeItem('recovery_sword', 1), makeItem('training_sword', 2)];
+    Character.findOne = async () => mockChar;
+
+    const result = await InventoryService.moveToLoadout('acc123', 'arming_sword', 2);
+
+    assert.deepStrictEqual(result.stash, [{ lootId: 'arming_sword', amount: 1 }]);
+    assert.deepStrictEqual(result.loadout, [{ lootId: 'arming_sword', amount: 2 }]);
+  });
+
+  await t.test('updatePreparedEquipment() - canonicalizes persisted and requested aliases', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.loadout = [makeItem('training_sword', 1)];
+    Character.findOne = async () => mockChar;
+
+    const result = await InventoryService.updatePreparedEquipment('acc123', {
+      weaponSlot1: 'recovery_sword',
+      weaponSlot2: '',
+      helmet: '', armor: '', gloves: '', boots: ''
+    });
+
+    assert.strictEqual(result.preparedEquipment.weaponSlot1, 'arming_sword');
+    assert.deepStrictEqual(mockChar.inventory.loadout, []);
   });
 });

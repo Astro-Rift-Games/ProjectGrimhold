@@ -24,7 +24,7 @@ public sealed class RaidAdmissionRulesTests
             1,
             out RaidLaunchContext context);
 
-        var loadout = new[] { new LootEntry(new LootId("training_sword"), 1) };
+        var loadout = new[] { new LootEntry(new LootId("arming_sword"), 1) };
         CharacterAttributeState attributes =
             ProgressionBalanceDefaults.InitialCharacterAttributeState;
         var valid = new RaidAdmissionData(

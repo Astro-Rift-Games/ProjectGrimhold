@@ -411,7 +411,7 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
-    public void DirectionalAttackClips_SortRightHandBehindBodyOnlyForNorthAndNorthEast()
+    public void DirectionalAttackClips_SortRightHandBehindBodyForEveryNorthDirection()
     {
         string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
@@ -431,7 +431,8 @@ public sealed class PlayerAnimatorViewTests
                         binding.propertyName == sortingOrderProperty)
                     .ToArray();
 
-                bool shouldRenderBehindBody = direction == "N" || direction == "NE";
+                bool shouldRenderBehindBody =
+                    direction == "N" || direction == "NE" || direction == "NW";
                 Assert.That(
                     bindings.Length,
                     Is.EqualTo(shouldRenderBehindBody ? 1 : 0),
@@ -447,6 +448,27 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(curve.Evaluate(attack.length), Is.EqualTo(expectedBackOrder), attack.name);
             }
         }
+    }
+
+    [Test]
+    public void NorthWestIdleClip_SortsRightHandBehindBody()
+    {
+        const string clipPath =
+            "Assets/Animations/Player/Idle/RightHand/RightHand_Idle_NW.anim";
+        const string handPath = "RightHandPivot/RightHand";
+        const string sortingOrderProperty = "m_SortingOrder";
+        const float expectedBackOrder = -2f;
+
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+        Assert.That(clip, Is.Not.Null);
+        EditorCurveBinding binding = AnimationUtility.GetCurveBindings(clip)
+            .Single(candidate =>
+                candidate.path == handPath &&
+                candidate.propertyName == sortingOrderProperty);
+        AnimationCurve curve = AnimationUtility.GetEditorCurve(clip, binding);
+
+        Assert.That(curve.Evaluate(0f), Is.EqualTo(expectedBackOrder));
+        Assert.That(curve.Evaluate(clip.length), Is.EqualTo(expectedBackOrder));
     }
 
     [Test]

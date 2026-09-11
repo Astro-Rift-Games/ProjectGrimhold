@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: LongSword
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: long_sword
+  _displayName: Long Sword
+  _description: A two-handed physical sword with extended reach.
+  _icon: {fileID: 21300000, guid: 0cd9fe24d4ef2934fb7f98bb147ab77e, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 0cd9fe24d4ef2934fb7f98bb147ab77e, type: 3}
+  _category: 5
+  _rarity: 0
+  _extractionValuePerUnit: 10
+  _sellValuePerUnit: 0
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 11400000, guid: fc39f5d0ac774df1825dfd7624ffb3ca, type: 2}

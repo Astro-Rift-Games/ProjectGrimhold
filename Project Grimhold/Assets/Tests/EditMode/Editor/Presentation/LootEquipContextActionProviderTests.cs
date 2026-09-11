@@ -11,7 +11,7 @@ namespace Tests.EditMode.Presentation
         public void ValidWeapon_AddsEquipActionThroughExistingProviderContract()
         {
             LootDefinition weapon = AssetDatabase.LoadAssetAtPath<LootDefinition>(
-                "Assets/Scriptable Objects/Loot/Definitions/TrainingSword.asset");
+                "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
             Assert.That(weapon, Is.Not.Null);
             Assert.That(weapon.TryValidate(out string error), Is.True, error);
 

@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
-  m_Name: TrainingShield
+  m_Name: Shield
   m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
-  _id: training_shield
-  _displayName: Training Shield
-  _description: Basic Off Hand shield used to validate sustained frontal defense.
+  _id: shield
+  _displayName: Shield
+  _description: A one-handed shield for sustained frontal defense.
   _icon: {fileID: 21300000, guid: 8288bc3704768c841886553d22023d54, type: 3}
   _worldSprite: {fileID: 21300000, guid: 8288bc3704768c841886553d22023d54, type: 3}
   _category: 10
@@ -26,7 +26,3 @@ MonoBehaviour:
   _weaponDefinition: {fileID: 0}
   _shieldDefinition: {fileID: 11400000, guid: ef219d3389bb478282828b58911456bd, type: 2}
   _armorDefinition: {fileID: 0}
-  _equipmentVisualDefinition:
-    _usesBaseSpritesAsPlaceholder: 1
-    _tint: {r: 1, g: 1, b: 1, a: 1}
-    _spriteMappings: []

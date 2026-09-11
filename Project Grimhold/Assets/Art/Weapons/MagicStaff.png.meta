@@ -109,7 +109,7 @@ TextureImporter:
         x: 0
         y: 0
         width: 13
-        height: 23
+        height: 24
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -120,28 +120,6 @@ TextureImporter:
       bones: []
       spriteID: 3faf004c4e80abe60800000000000000
       internalID: 7978699468474219251
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Weapons-MagicStaff_1
-      rect:
-        serializedVersion: 2
-        x: 1
-        y: 16
-        width: 9
-        height: 8
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 38f9268542969f770800000000000000
-      internalID: 8645056564536975235
       vertices: []
       indices: 
       edges: []
@@ -161,7 +139,6 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       Weapons-MagicStaff_0: 7978699468474219251
-      Weapons-MagicStaff_1: 8645056564536975235
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

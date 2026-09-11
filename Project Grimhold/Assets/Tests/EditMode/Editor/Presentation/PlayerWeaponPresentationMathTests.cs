@@ -15,7 +15,7 @@ namespace Tests.EditMode.Presentation
         private const string RangedPlayerPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string ControllerPath = "Assets/Animations/Player/Character.controller";
         private const string TrainingSwordPath =
-            "Assets/Scriptable Objects/Loot/Definitions/TrainingSword.asset";
+            "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
 
         private static readonly string[] AttackClipPaths =
         {
@@ -160,7 +160,7 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void TrainingSword_UsesArmingSwordPresentationWithoutNetworkState()
+        public void ArmingSword_UsesArmingSwordPresentationWithoutNetworkState()
         {
             LootDefinition definition = AssetDatabase.LoadAssetAtPath<LootDefinition>(TrainingSwordPath);
             Assert.That(definition, Is.Not.Null);
