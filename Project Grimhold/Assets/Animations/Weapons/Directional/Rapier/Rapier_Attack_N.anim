@@ -137,7 +137,16 @@ AnimationClip:
     path: RightHandPivot/RightHand/MainHandGrip
   m_ScaleCurves: []
   m_FloatCurves: []
-  m_PPtrCurves: []
+  m_PPtrCurves:
+  - serializedVersion: 2
+    curve:
+    - time: 0
+      value: {fileID: 5620975677985662519, guid: 180cc6cbe5d06b34eb209675380a358c, type: 3}
+    attribute: m_Sprite
+    path: RightHandPivot/RightHand
+    classID: 212
+    script: {fileID: 0}
+    flags: 2
   m_SampleRate: 20
   m_WrapMode: 0
   m_Bounds:
@@ -165,7 +174,18 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
       metaData: 0
-    pptrCurveMapping: []
+    - serializedVersion: 2
+      path: 1129145546
+      attribute: 0
+      script: {fileID: 0}
+      typeID: 212
+      customType: 23
+      isPPtrCurve: 1
+      isIntCurve: 0
+      isSerializeReferenceCurve: 0
+      metaData: 0
+    pptrCurveMapping:
+    - {fileID: 5620975677985662519, guid: 180cc6cbe5d06b34eb209675380a358c, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}

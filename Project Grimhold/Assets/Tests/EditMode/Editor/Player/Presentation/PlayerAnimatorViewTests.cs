@@ -378,6 +378,39 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
+    public void DirectionalAttackClips_KeepTheDirectionalRightHandSprite()
+    {
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        const string handPath = "RightHandPivot/RightHand";
+
+        foreach (string direction in directions)
+        {
+            AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Player/Idle/RightHand/RightHand_Idle_{direction}.anim");
+            EditorCurveBinding idleBinding = AnimationUtility.GetObjectReferenceCurveBindings(idle)
+                .Single(binding => binding.path == handPath && binding.propertyName == "m_Sprite");
+            UnityEngine.Object expected =
+                AnimationUtility.GetObjectReferenceCurve(idle, idleBinding)[0].value;
+
+            foreach (string weapon in weapons)
+            {
+                AnimationClip attack = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim");
+                EditorCurveBinding attackBinding =
+                    AnimationUtility.GetObjectReferenceCurveBindings(attack)
+                        .Single(binding => binding.path == handPath && binding.propertyName == "m_Sprite");
+                ObjectReferenceKeyframe[] keys =
+                    AnimationUtility.GetObjectReferenceCurve(attack, attackBinding);
+
+                Assert.That(keys, Has.Length.EqualTo(1), attack.name);
+                Assert.That(keys[0].time, Is.Zero, attack.name);
+                Assert.That(keys[0].value, Is.SameAs(expected), attack.name);
+            }
+        }
+    }
+
+    [Test]
     public void NetworkPlayer_RestoresHandPivotsAndExplicitMovementSource()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkPlayerPath);
