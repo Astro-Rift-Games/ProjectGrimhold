@@ -26,6 +26,13 @@ public sealed class TownLootEquipContextActionProvider : ILootContextActionProvi
             return;
         }
 
+        if (context.Definition.Category == LootCategory.Shield)
+        {
+            Add(actions, SetAOffId, "Equipar en Set A / Off Hand", context.Entry.LootId, EquipmentSlot.WeaponSetAOffHand);
+            Add(actions, SetBOffId, "Equipar en Set B / Off Hand", context.Entry.LootId, EquipmentSlot.WeaponSetBOffHand);
+            return;
+        }
+
         if (context.Definition.Category != LootCategory.Weapon)
         {
             EquipmentSlot fixedSlot = EquipmentSlotRules.ResolveFixedSlot(context.Definition.Category);

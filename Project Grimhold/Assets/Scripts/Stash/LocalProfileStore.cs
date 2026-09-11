@@ -320,31 +320,31 @@ public sealed class LocalProfileStore
         LocalProfileSnapshot next = current.Clone();
         PreparedEquipmentLoadout candidate = next.PreparedEquipment;
         EquipmentSlot displacedSecondSlot = EquipmentSlot.None;
-        if (EquipmentSlotRules.IsHandSlot(slot))
+        if (!EquipmentSlotRules.IsCompatible(definition, slot))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        WeaponSetSlot targetSet = EquipmentSlotRules.GetWeaponSet(slot);
+        if (EquipmentSlotRules.IsOffHandSlot(slot) &&
+            PreparedEquipmentLoadout.IsOffHandBlocked(candidate, targetSet, _lootCatalog))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (definition.Category == LootCategory.Weapon)
         {
             WeaponDefinition weapon = definition.WeaponDefinition;
-            if (weapon == null || !EquipmentSlotRules.IsCompatible(weapon, slot))
-            {
-                return StashOperationResult.InvalidInventory;
-            }
-
-            WeaponSetSlot set = EquipmentSlotRules.GetWeaponSet(slot);
-            if (EquipmentSlotRules.IsOffHandSlot(slot) &&
-                PreparedEquipmentLoadout.IsOffHandBlocked(candidate, set, _lootCatalog))
-            {
-                return StashOperationResult.InvalidInventory;
-            }
-
             if (weapon.Handedness == WeaponHandedness.TwoHanded)
             {
-                displacedSecondSlot = EquipmentSlotRules.GetOffHandSlot(set);
+                displacedSecondSlot = EquipmentSlotRules.GetOffHandSlot(targetSet);
                 candidate = candidate.Without(displacedSecondSlot);
             }
         }
 
         candidate = candidate.With(slot, lootId);
 
-        if (EquipmentSlotRules.IsHandSlot(slot) &&
+        if (definition.Category == LootCategory.Weapon &&
             !PreparedEquipmentLoadout.TryValidateWeaponRequirements(
                 candidate, current.CharacterAttributes, _lootCatalog, out _))
         {

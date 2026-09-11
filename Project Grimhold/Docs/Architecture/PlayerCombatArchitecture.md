@@ -33,6 +33,8 @@ FusionInputProvider (Transport)
 PlayerCombatNetworkController (Network Boundary)
    │
    ├── [AttackSequence, Cooldown Timer, HasActiveAttack]
+   ├── PlayerShieldDefenseNetworkController
+   │      └── [IsDefending, active Off Hand shield, frontal coverage]
    ▼
 Optional Active Strategy (IAttack: MeleeAttack / RangedAttack)
    │
@@ -99,7 +101,7 @@ attribute requirements, then commits the exchange. A rejected operation mutates 
 Equipment, provenance, revision, active Set nor attack strategy.
 
 Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` only classifies the
-unit (`Weapon`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
+unit (`Weapon`, `Shield`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
 Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
@@ -137,21 +139,62 @@ proxies to present the same cooldown without knowing strategy identity. `RaidHud
 clears its attack presentation whenever the query returns `false`, so a neutral player cannot
 retain a stale weapon cooldown in the HUD.
 
-### 3. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
+### 3. Sustained shield defense (`PlayerShieldDefenseNetworkController`)
+
+`SecondaryAction` is a continuous local intention bound to the right mouse button and transported
+inside the normal `PlayerNetworkInput.Buttons` snapshot. State Authority derives the replicated
+`IsDefending` value every simulation tick; clients never request or author defensive state through
+an RPC. Missing input clears the state.
+
+Equipment remains the only source of truth for shield availability. `Shield` is an equippable Loot
+category compatible exclusively with the Off Hand slots. A valid shield is not a weapon, has no
+`WeaponDefinition`, never resolves an `IAttack`, and has no attribute-requirement check. Only the
+active Weapon Set's Off Hand can sustain defense. The state also requires a living character and an
+active gameplay phase, so releasing input, changing Set, removing or displacing the shield, defeat,
+phase exit, or loss of input cancels defense on the next authoritative tick. Host Migration keeps a
+restored state only when those reconstructed conditions remain compatible.
+
+Defense has priority over attack when both intentions are present in the same tick. Movement and
+the normal continuous aim-to-facing flow continue while defending. `PlayerCombatNetworkController`
+does not execute either Press or Hold attacks while the current conditions accept the
+secondary-action intention.
+
+`ShieldDefenseMath` owns the deterministic coverage calculation. It safely normalizes the player's
+logical `IMovementState.FacingDirection` and the direction from the player toward the impact origin,
+which is the inverse of `DamageRequest.Direction`. The impact is covered when their dot product is
+at least the cosine of half the configured cone. The Training Shield configures a `120` degree total
+cone, therefore `+60` and `-60` degrees are included. A zero, non-finite, or otherwise unsafe input
+direction fails open and receives no shield mitigation.
+
+`PlayerCharacter` applies mitigation in this order:
+
+```text
+DamageRequest.Amount
+   -> passive Equipment armor mitigation
+   -> active directional shield reduction
+   -> final Health subtraction
+```
+
+Physical and Magical damage covered by the Training Shield are reduced by `50%` after armor. True
+Damage returns before both passive armor and shield evaluation. Shield defense does not modify the
+`DamageRequest`, knockback, damage feedback, or presentation contracts. `IsDefending` is the stable
+replicated read model reserved for the separate six-direction shield presentation work.
+
+### 4. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
 * Reads radius, maximum targets and target mask from `MeleeAttackConfig`.
 * Receives damage, type, interval, effective range and knockback through `AttackExecutionParameters`.
 * Converts effective weapon range into the query's circle-center offset as `Range - Radius` and rejects `Range < Radius`.
 * Passes damage requests directly to the centralized `IDamageResolver`.
 
-### 4. Ranged Attack Strategy (`RangedAttack` & `RangedAttackConfig`)
+### 5. Ranged Attack Strategy (`RangedAttack` & `RangedAttackConfig`)
 Generates physical projectiles that traverse the world:
 * Reads projectile prefab, speed, lifetime, spawn offset and impact mask from `RangedAttackConfig`.
 * Receives damage, type, interval, maximum range and knockback through `AttackExecutionParameters`.
 * Integrates a configurable **`ProjectileSpawnOffset`**, configured according to the combined collision bounds of the shooter and projectile, which offsets the initial projectile spawn coordinate in the direction of the aim vector to clear the shooter's own collider bounds.
 * Delegates spawning requests to an `IProjectileSpawner` instance.
 
-### 5. Projectile Simulation (`NetworkProjectile`)
+### 6. Projectile Simulation (`NetworkProjectile`)
 Represents a networked projectile whose gameplay simulation is executed exclusively by State Authority.
 * **Authority-only simulation**: Movement, collision queries, damage resolution, range validation, lifetime expiration, and despawn decisions occur only on State Authority. Proxy instances receive replicated state for presentation.
 * **Kinematic movement**: Uses a kinematic `Rigidbody2D` and advances using `Runner.DeltaTime`, avoiding non-authoritative collision responses or forces.
@@ -164,13 +207,13 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 * **Obstacle behavior**: A collider without a registered damageable entity still blocks and despawns the projectile but does not produce a damage request. A wall blocks/despawns the projectile without damage.
 * **Collision volume**: The projectile prefab defines a gameplay collider whose effective world-space size is independent from unintended visual scaling. The current implementation validates or adjusts the CircleCollider2D radius during initialization to prevent prefab scale from producing an oversized world-space collision volume.
 
-### 6. Entity Identity (`EntityRegistry`)
+### 7. Entity Identity (`EntityRegistry`)
 A fast-lookup database mapping physical colliders (`Collider2D`) to gameplay entity identities (`EntityId`) and damageable contracts (`IDamageable`):
 * Allows the projectile simulation to instantly identify targets without expensive `GetComponent` searches.
 * Enables precise owner filtering by checking `BelongsToOwner(Collider2D)`, ensuring a projectile never collides with its shooter or any of its child-objects, while allowing impacts against other players/enemies.
 * Keeps explicit damage-collider registration separate from general collider identity. Damage queries use the explicit set when present and retain all-collider fallback behavior for legacy or non-character damageables.
 
-### 7. Fatal PvE Kill Experience
+### 8. Fatal PvE Kill Experience
 
 An authoritative `DamageResult` with both `IsApplied` and `IsFatal` identifies the unique Last
 Hit used by the PvE Kill Experience producer. `DamageResolver` resolves the target's independent
@@ -188,6 +231,7 @@ PvP remains blocked until networking provides an authoritative ally/enemy affili
 | :--- | :--- | :--- | :--- |
 | **`PlayerInputReader`** | Fully Implemented | Captures local buttons/aim and packs into `PlayerNetworkInput`. | Relies on local Unity input wrappers. |
 | **`PlayerCombatNetworkController`** | Fully Implemented | Handles network input, authoritative optional strategy presence, TickTimer cooldowns, and local strategies. | Structural dependencies remain required; an attack strategy is optional. |
+| **`PlayerShieldDefenseNetworkController`** | Implemented | Derives replicated sustained defense and evaluates the active shield's frontal coverage. | Six-direction shield presentation remains in TASK-329. |
 | **`MeleeAttack`** | Fully Implemented | Melee execution strategy, queries targets, resolves damage. | Behavior comes from `MeleeAttackConfig`; resolved statistics come from `AttackExecutionParameters`. |
 | **`Physics2DAttackTargetQuery`** | Fully Implemented | Circular target query with `Physics2D.OverlapCircle`. | Uses `_colliderBuffer` to avoid heap allocations. |
 | **`RangedAttack`** | Fully Implemented | Ranged execution strategy, spawns projectile via `IProjectileSpawner`. | Translates input to `ProjectileSpawnRequest`. |
@@ -528,11 +572,16 @@ longer hilt instead of its visual center, the wand grips at the base of its shor
 stays at the hand, the staff grips low on the shaft so most of its length extends forward, and
 the spellbook grips below its lower edge so the tome is carried above the hand.
 
-The five equippable placeholders are reachable during development through
+The five equippable weapon placeholders are reachable during development through
 `DefaultLootContainerContentTable`, the same route that already exposes Training Sword; loot
 containers and breakable objects roll them. `recovery_sword` stays out of loot distribution and
 out of the merchant stock, and keeps its single source: the Town recovery grant configured by
 `LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
+
+`training_shield` is the initial shield identity registered in `LootDefinitionCatalog`. It reuses
+the existing shield sprite for inventory and world presentation and references its own
+`ShieldDefinition` with `0.5` reduction and a `120` degree total defensive cone. Its six-direction
+equipped pose and art mapping remain outside this combat task.
 
 `LootDefinitionCatalog` derives network indices by ordinal-sorting loot ids, not by serialized
 list order, so appending content shifts the indices of existing entries by design. This is safe
@@ -571,7 +620,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Equipment Instances Remain Template-Based**: armor statistics and maximum-resource modifiers are applied through the equipped `LootId` definitions, and inventory tooltips expose those same definition-owned values. Unique per-instance armor modifiers remain unavailable until instance identity is transported end to end.
 * **No Unique Equipment Instances Yet**: current inventory, Equipment, world and persistence paths identify items by `LootId` plus quantity. `WeaponInstanceModifiers` defines the canonical scaling payload but is not transported or stored yet, so multiple runtime variants of one template do not exist.
 * **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. Only a valid Main Hand weapon is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
-* **Off Hand combat is deferred**: TASK-330 stores and validates Off Hand equipment, but primary attack still resolves only the active Set's Main Hand. Shield defence and Dual Wield attacks are separate features.
+* **Off Hand attacks are deferred**: primary attack still resolves only the active Set's Main Hand. Sustained shield defense is implemented, while Dual Wield attacks remain a separate feature.
 * **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
 
 ---

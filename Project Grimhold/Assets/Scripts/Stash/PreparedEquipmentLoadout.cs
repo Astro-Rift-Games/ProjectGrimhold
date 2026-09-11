@@ -123,14 +123,12 @@ public readonly struct PreparedEquipmentLoadout
     {
         if (!lootId.IsValid || catalog == null || !EquipmentSlotRules.IsEquipmentSlot(slot) ||
             !catalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null ||
-            !EquipmentSlotRules.IsCompatible(definition.Category, slot))
+            !EquipmentSlotRules.IsCompatible(definition, slot))
         {
             return false;
         }
 
-        return !EquipmentSlotRules.IsHandSlot(slot) ||
-            definition.WeaponDefinition != null && definition.WeaponDefinition.TryValidate(out _) &&
-            EquipmentSlotRules.IsCompatible(definition.WeaponDefinition, slot);
+        return true;
     }
 
     public static bool IsUsableWeaponDefinition(LootId lootId, LootDefinitionCatalog catalog) =>
@@ -157,8 +155,18 @@ public readonly struct PreparedEquipmentLoadout
         {
             LootId lootId = loadout.Get(slots[index]);
             if (!lootId.IsValid) continue;
-            if (!catalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null ||
-                definition.WeaponDefinition == null)
+            if (!catalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null)
+            {
+                error = $"Prepared hand equipment '{lootId.Value}' cannot be resolved.";
+                return false;
+            }
+
+            if (definition.Category == LootCategory.Shield)
+            {
+                continue;
+            }
+
+            if (definition.Category != LootCategory.Weapon || definition.WeaponDefinition == null)
             {
                 error = $"Prepared weapon '{lootId.Value}' cannot be resolved.";
                 return false;

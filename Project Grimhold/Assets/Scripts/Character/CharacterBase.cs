@@ -135,7 +135,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             return new DamageResult(Id, false, 0f, Health, false, DamageFailureReason.InvalidAmount);
         }
 
-        float finalDamage = CalculateMitigatedDamage(request.Amount, request.DamageType);
+        float finalDamage = CalculateMitigatedDamage(request);
 
         float previousHealth = Health;
         Health = Mathf.Max(0f, Health - finalDamage);
@@ -219,12 +219,11 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     /// Allows calculation of specific damage mitigations.
     /// Can be overridden by derived classes to incorporate armor, resistances, etc.
     /// </summary>
-    /// <param name="amount">Original damage amount.</param>
-    /// <param name="damageType">Damage type of the request.</param>
+    /// <param name="request">Original damage request.</param>
     /// <returns>The final damage amount after mitigations have been applied.</returns>
-    protected virtual float CalculateMitigatedDamage(float amount, DamageType damageType)
+    protected virtual float CalculateMitigatedDamage(in DamageRequest request)
     {
-        return amount;
+        return request.Amount;
     }
 
     /// <summary>

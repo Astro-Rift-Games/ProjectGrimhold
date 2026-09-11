@@ -195,6 +195,8 @@ namespace Tests.EditMode.Loot
             NetworkLootContainerInteractable interactable = prefab.GetComponent<NetworkLootContainerInteractable>();
             PlayerWeaponEquipmentNetworkController equipment =
                 prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            PlayerShieldDefenseNetworkController shieldDefense =
+                prefab.GetComponent<PlayerShieldDefenseNetworkController>();
             PlayerRaidLootOriginState playerOrigins = prefab.GetComponent<PlayerRaidLootOriginState>();
             ContainerRaidLootOriginState corpseOrigins = prefab.GetComponent<ContainerRaidLootOriginState>();
 
@@ -205,6 +207,7 @@ namespace Tests.EditMode.Loot
             Assert.That(container, Is.Not.Null);
             Assert.That(interactable, Is.Not.Null);
             Assert.That(equipment, Is.Not.Null);
+            Assert.That(shieldDefense, Is.Not.Null);
             Assert.That(playerOrigins, Is.Not.Null);
             Assert.That(corpseOrigins, Is.Not.Null);
             Assert.That(character.gameObject, Is.SameAs(networkObject.gameObject));
@@ -240,6 +243,7 @@ namespace Tests.EditMode.Loot
             AssertNetworkBehaviourIsBaked(networkObject, container);
             AssertNetworkBehaviourIsBaked(networkObject, interactable);
             AssertNetworkBehaviourIsBaked(networkObject, equipment);
+            AssertNetworkBehaviourIsBaked(networkObject, shieldDefense);
             AssertNetworkBehaviourIsBaked(networkObject, playerOrigins);
             AssertNetworkBehaviourIsBaked(networkObject, corpseOrigins);
         }

@@ -110,6 +110,7 @@ namespace Tests.EditMode.Presentation
         }
 
         [TestCase(LootCategory.Weapon)]
+        [TestCase(LootCategory.Shield)]
         [TestCase(LootCategory.Armor)]
         public void Build_MissingFunctionalDefinitionKeepsTitleAndReportsInvalidConfiguration(
             LootCategory category)
@@ -122,6 +123,21 @@ namespace Tests.EditMode.Presentation
             Assert.That(presentation.Title, Is.EqualTo("Objeto roto"));
             Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.InvalidEquipmentConfiguration));
             Assert.That(presentation.Body, Is.EqualTo("Estadísticas no disponibles por configuración inválida"));
+        }
+
+        [Test]
+        public void Build_ShieldShowsReductionAndDefensiveCone()
+        {
+            ShieldDefinition shield = Create<ShieldDefinition>();
+            LootDefinition loot = CreateLoot("Escudo de entrenamiento", LootCategory.Shield);
+            SetPrivateField(loot, "_shieldDefinition", shield);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot);
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+            Assert.That(presentation.Body, Does.Contain("Reducción al defender: 50%"));
+            Assert.That(presentation.Body, Does.Contain("Cono frontal: 120°"));
         }
 
         [Test]

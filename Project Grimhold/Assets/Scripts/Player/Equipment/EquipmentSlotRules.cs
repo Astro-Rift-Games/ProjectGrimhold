@@ -33,7 +33,8 @@ public static class EquipmentSlotRules
     public static bool IsEquipmentSlot(EquipmentSlot slot) => IsHandSlot(slot) || IsArmorSlot(slot);
 
     public static bool IsEquippableCategory(LootCategory category) =>
-        category == LootCategory.Weapon || ResolveFixedSlot(category) != EquipmentSlot.None;
+        category == LootCategory.Weapon || category == LootCategory.Shield ||
+        ResolveFixedSlot(category) != EquipmentSlot.None;
 
     public static EquipmentSlot ResolveFixedSlot(LootCategory category) => category switch
     {
@@ -45,9 +46,28 @@ public static class EquipmentSlotRules
     };
 
     public static bool IsCompatible(LootCategory category, EquipmentSlot slot) =>
-        category == LootCategory.Weapon
-            ? IsHandSlot(slot)
-            : slot != EquipmentSlot.None && ResolveFixedSlot(category) == slot;
+        category switch
+        {
+            LootCategory.Weapon => IsHandSlot(slot),
+            LootCategory.Shield => IsOffHandSlot(slot),
+            _ => slot != EquipmentSlot.None && ResolveFixedSlot(category) == slot
+        };
+
+    public static bool IsCompatible(LootDefinition definition, EquipmentSlot slot)
+    {
+        if (definition == null || !IsCompatible(definition.Category, slot))
+        {
+            return false;
+        }
+
+        return definition.Category switch
+        {
+            LootCategory.Weapon => IsCompatible(definition.WeaponDefinition, slot),
+            LootCategory.Shield => definition.ShieldDefinition != null &&
+                definition.ShieldDefinition.TryValidate(out _),
+            _ => true
+        };
+    }
 
     public static bool IsCompatible(WeaponDefinition weapon, EquipmentSlot slot) =>
         weapon != null && IsHandSlot(slot) &&

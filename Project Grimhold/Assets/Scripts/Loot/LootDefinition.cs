@@ -46,6 +46,10 @@ public sealed class LootDefinition : ScriptableObject
     private WeaponDefinition _weaponDefinition;
 
     [SerializeField]
+    [Tooltip("Optional functional configuration when this loot is an equippable shield.")]
+    private ShieldDefinition _shieldDefinition;
+
+    [SerializeField]
     [Tooltip("Opcional. Configuración funcional cuando este loot es una pieza de armadura equipable.")]
     private ArmorDefinition _armorDefinition;
 
@@ -66,6 +70,7 @@ public sealed class LootDefinition : ScriptableObject
     public int DefaultPickupQuantity => _defaultPickupQuantity;
     public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
     public WeaponDefinition WeaponDefinition => _weaponDefinition;
+    public ShieldDefinition ShieldDefinition => _shieldDefinition;
     public ArmorDefinition ArmorDefinition => _armorDefinition;
     public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
 
@@ -164,10 +169,41 @@ public sealed class LootDefinition : ScriptableObject
                 error = $"Loot definition '{_id}' is a Weapon but also has an ArmorDefinition.";
                 return false;
             }
+
+            if (_shieldDefinition != null)
+            {
+                error = $"Loot definition '{_id}' is a Weapon but also has a ShieldDefinition.";
+                return false;
+            }
         }
         else if (_weaponDefinition != null)
         {
             error = $"Loot definition '{_id}' has a WeaponDefinition but its category is {_category}.";
+            return false;
+        }
+        else if (_category == LootCategory.Shield)
+        {
+            if (_shieldDefinition == null)
+            {
+                error = $"Loot definition '{_id}' is a Shield but has no ShieldDefinition.";
+                return false;
+            }
+
+            if (!_shieldDefinition.TryValidate(out string shieldError))
+            {
+                error = $"Loot definition '{_id}' has an invalid ShieldDefinition: {shieldError}";
+                return false;
+            }
+
+            if (_armorDefinition != null)
+            {
+                error = $"Loot definition '{_id}' is a Shield but also has an ArmorDefinition.";
+                return false;
+            }
+        }
+        else if (_shieldDefinition != null)
+        {
+            error = $"Loot definition '{_id}' has a ShieldDefinition but its category is {_category}.";
             return false;
         }
         else if (IsArmorCategory(_category))

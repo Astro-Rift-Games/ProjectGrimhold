@@ -29,6 +29,11 @@ public static class EquipmentTooltipPresentationBuilder
             return BuildWeapon(title, definition.WeaponDefinition);
         }
 
+        if (definition.Category == LootCategory.Shield)
+        {
+            return BuildShield(title, definition.ShieldDefinition);
+        }
+
         if (IsArmorCategory(definition.Category))
         {
             return BuildArmor(title, definition.ArmorDefinition);
@@ -77,6 +82,22 @@ public static class EquipmentTooltipPresentationBuilder
         AppendLine(body, $"Defensa Mágica: {armor.MagicalDefense}");
         body.Append(FormatResourceBonus(modifier));
 
+        return new EquipmentTooltipPresentation(
+            EquipmentTooltipPresentationStatus.FunctionalStatistics,
+            title,
+            body.ToString());
+    }
+
+    private static EquipmentTooltipPresentation BuildShield(string title, ShieldDefinition shield)
+    {
+        if (shield == null || !shield.TryValidate(out _))
+        {
+            return Invalid(title);
+        }
+
+        var body = new StringBuilder(64);
+        AppendLine(body, $"Reducción al defender: {FormatNumber(shield.DamageReduction * 100f)}%");
+        body.Append($"Cono frontal: {FormatNumber(shield.DefensiveConeDegrees)}°");
         return new EquipmentTooltipPresentation(
             EquipmentTooltipPresentationStatus.FunctionalStatistics,
             title,

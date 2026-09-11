@@ -29,6 +29,17 @@ namespace Tests.EditMode.Equipment
             Assert.That(EquipmentSlotRules.IsCompatible(LootCategory.Weapon, slot), Is.EqualTo(expected));
         }
 
+        [TestCase(EquipmentSlot.WeaponSetAMainHand, false)]
+        [TestCase(EquipmentSlot.WeaponSetBMainHand, false)]
+        [TestCase(EquipmentSlot.WeaponSetAOffHand, true)]
+        [TestCase(EquipmentSlot.WeaponSetBOffHand, true)]
+        [TestCase(EquipmentSlot.Helmet, false)]
+        [TestCase(EquipmentSlot.None, false)]
+        public void ShieldCategory_IsCompatibleOnlyWithOffHandSlots(EquipmentSlot slot, bool expected)
+        {
+            Assert.That(EquipmentSlotRules.IsCompatible(LootCategory.Shield, slot), Is.EqualTo(expected));
+        }
+
         [TestCase(LootCategory.Helmet, EquipmentSlot.Helmet)]
         [TestCase(LootCategory.Armor, EquipmentSlot.Armor)]
         [TestCase(LootCategory.Gloves, EquipmentSlot.Gloves)]
@@ -71,7 +82,8 @@ namespace Tests.EditMode.Equipment
         [TestCase(LootCategory.Armor)]
         [TestCase(LootCategory.Gloves)]
         [TestCase(LootCategory.Boots)]
-        public void EquippableCategories_AreExactlyTheFiveSupportedOnes(LootCategory category)
+        [TestCase(LootCategory.Shield)]
+        public void EquippableCategories_AreExactlyTheSixSupportedOnes(LootCategory category)
         {
             Assert.That(EquipmentSlotRules.IsEquippableCategory(category), Is.True);
         }

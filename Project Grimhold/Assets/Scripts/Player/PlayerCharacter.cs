@@ -20,6 +20,9 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField]
     private PlayerWeaponEquipmentNetworkController _equipmentController;
 
+    [SerializeField]
+    private PlayerShieldDefenseNetworkController _shieldDefenseController;
+
     [SerializeField, Min(0.0001f)]
     private float _defenseMitigationConstant = 100f;
 
@@ -168,48 +171,53 @@ public sealed class PlayerCharacter : CharacterBase
         _clampedEquipmentRevision = equipmentRevision;
     }
 
-    protected override float CalculateMitigatedDamage(float amount, DamageType damageType)
+    protected override float CalculateMitigatedDamage(in DamageRequest request)
     {
-        if (damageType == DamageType.TrueDamage)
+        if (request.DamageType == DamageType.TrueDamage)
         {
-            return amount;
+            return request.Amount;
         }
 
-        if (!TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
-        {
-            return amount;
-        }
-
-        int defense;
-        switch (damageType)
+        bool usesPhysicalDefense;
+        switch (request.DamageType)
         {
             case DamageType.Physical:
-                defense = statistics.PhysicalDefense;
+                usesPhysicalDefense = true;
                 break;
             case DamageType.Magical:
-                defense = statistics.MagicalDefense;
+                usesPhysicalDefense = false;
                 break;
             default:
-                return amount;
-        }
-        if (EquipmentDamageMitigationCalculator.TryCalculate(
-                amount,
-                defense,
-                _defenseMitigationConstant,
-                out float mitigatedDamage))
-        {
-            return mitigatedDamage;
+                return request.Amount;
         }
 
-        if (!_reportedInvalidMitigation)
+        float mitigatedDamage = request.Amount;
+        if (TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
         {
-            Debug.LogError(
-                $"{nameof(PlayerCharacter)} could not calculate Equipment damage mitigation.",
-                this);
-            _reportedInvalidMitigation = true;
+            int defense = usesPhysicalDefense
+                ? statistics.PhysicalDefense
+                : statistics.MagicalDefense;
+            if (EquipmentDamageMitigationCalculator.TryCalculate(
+                    request.Amount,
+                    defense,
+                    _defenseMitigationConstant,
+                    out float armorMitigatedDamage))
+            {
+                mitigatedDamage = armorMitigatedDamage;
+            }
+            else if (!_reportedInvalidMitigation)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerCharacter)} could not calculate Equipment damage mitigation.",
+                    this);
+                _reportedInvalidMitigation = true;
+            }
         }
 
-        return amount;
+        return _shieldDefenseController != null &&
+            _shieldDefenseController.TryMitigateDamage(request, mitigatedDamage, out float shieldMitigatedDamage)
+                ? shieldMitigatedDamage
+                : mitigatedDamage;
     }
 
     /// <summary>
@@ -261,6 +269,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_equipmentController == null)
         {
             _equipmentController = GetComponent<PlayerWeaponEquipmentNetworkController>();
+        }
+
+        if (_shieldDefenseController == null)
+        {
+            _shieldDefenseController = GetComponent<PlayerShieldDefenseNetworkController>();
         }
     }
 

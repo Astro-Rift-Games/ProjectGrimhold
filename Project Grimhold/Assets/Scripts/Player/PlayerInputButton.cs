@@ -4,5 +4,6 @@ public enum PlayerInputButton
     Interact = 1,
     WeaponSetA = 2,
     WeaponSetB = 3,
-    Sprint = 4
+    Sprint = 4,
+    SecondaryAction = 5
 }

@@ -242,6 +242,13 @@ namespace Tests.EditMode.Equipment
                     continue;
                 }
 
+                if (definition.Category == LootCategory.Shield)
+                {
+                    covered.Add(EquipmentSlot.WeaponSetAOffHand);
+                    covered.Add(EquipmentSlot.WeaponSetBOffHand);
+                    continue;
+                }
+
                 covered.Add(EquipmentSlotRules.ResolveFixedSlot(definition.Category));
             }
 

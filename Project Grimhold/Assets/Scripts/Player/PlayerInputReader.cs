@@ -24,6 +24,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private InputAction _weaponSetAAction;
     private InputAction _weaponSetBAction;
     private InputAction _sprintAction;
+    private InputAction _secondaryAction;
     private InputAction _toggleAttributesAction;
 
     private Vector2 _moveDirection;
@@ -34,6 +35,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private bool _resetAccumulatedButtons;
     private int _gameplaySuppressionCount;
     private bool _primaryAttackRequiresRelease;
+    private bool _secondaryActionRequiresRelease;
     private bool _interactRequiresRelease;
 
     /// <summary>
@@ -75,6 +77,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _weaponSetAAction = _inputActions.asset.FindAction("Gameplay/SelectWeaponSetA", true);
         _weaponSetBAction = _inputActions.asset.FindAction("Gameplay/SelectWeaponSetB", true);
         _sprintAction = _inputActions.asset.FindAction("Gameplay/Sprint", true);
+        _secondaryAction = _inputActions.asset.FindAction("Gameplay/SecondaryAction", true);
         _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
     }
 
@@ -83,6 +86,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.Gameplay.Interact.performed += OnInteractPerformed;
         _inputActions.Gameplay.Interact.canceled += OnInteractCanceled;
         _inputActions.Gameplay.PrimaryAttack.canceled += OnPrimaryAttackCanceled;
+        _secondaryAction.canceled += OnSecondaryActionCanceled;
         _inputActions.LocalUI.ToggleInventory.performed += OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed += OnCloseInventoryPerformed;
         _toggleAttributesAction.performed += OnToggleAttributesPerformed;
@@ -96,6 +100,7 @@ public sealed class PlayerInputReader : MonoBehaviour
 
         UpdateDiscreteButtonRearm();
         ReadPrimaryAttack();
+        ReadSecondaryAction();
         ReadSprint();
         ReadWeaponSelection();
     }
@@ -105,6 +110,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.Gameplay.Interact.performed -= OnInteractPerformed;
         _inputActions.Gameplay.Interact.canceled -= OnInteractCanceled;
         _inputActions.Gameplay.PrimaryAttack.canceled -= OnPrimaryAttackCanceled;
+        _secondaryAction.canceled -= OnSecondaryActionCanceled;
         _inputActions.LocalUI.ToggleInventory.performed -= OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed -= OnCloseInventoryPerformed;
         _toggleAttributesAction.performed -= OnToggleAttributesPerformed;
@@ -175,6 +181,11 @@ public sealed class PlayerInputReader : MonoBehaviour
     private void OnPrimaryAttackCanceled(InputAction.CallbackContext context)
     {
         _primaryAttackRequiresRelease = false;
+    }
+
+    private void OnSecondaryActionCanceled(InputAction.CallbackContext context)
+    {
+        _secondaryActionRequiresRelease = false;
     }
 
     /// <summary>
@@ -319,6 +330,31 @@ public sealed class PlayerInputReader : MonoBehaviour
             primaryAttackAction.WasPressedThisFrame());
     }
 
+    private void ReadSecondaryAction()
+    {
+        if (IsGameplayInputSuppressed)
+        {
+            _buttons.Set(PlayerInputButton.SecondaryAction, false);
+            return;
+        }
+
+        if (_secondaryActionRequiresRelease)
+        {
+            if (!_secondaryAction.IsPressed())
+            {
+                _secondaryActionRequiresRelease = false;
+            }
+
+            _buttons.Set(PlayerInputButton.SecondaryAction, false);
+            return;
+        }
+
+        AccumulateButton(
+            PlayerInputButton.SecondaryAction,
+            _secondaryAction.IsPressed(),
+            _secondaryAction.WasPressedThisFrame());
+    }
+
     private void ReadWeaponSelection()
     {
         if (IsGameplayInputSuppressed)
@@ -420,6 +456,7 @@ public sealed class PlayerInputReader : MonoBehaviour
 
         ResetGameplayIntent();
         _primaryAttackRequiresRelease = _inputActions.Gameplay.PrimaryAttack.IsPressed();
+        _secondaryActionRequiresRelease = _secondaryAction.IsPressed();
         _interactRequiresRelease = _inputActions.Gameplay.Interact.IsPressed();
     }
 

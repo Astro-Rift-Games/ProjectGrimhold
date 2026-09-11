@@ -34,9 +34,7 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
     public bool CanEquip(LootId lootId, EquipmentSlot slot)
     {
         if (!CanMutate || !TryResolveDefinition(lootId, out LootDefinition definition) ||
-            !EquipmentSlotRules.IsCompatible(definition.Category, slot) ||
-            definition.Category == LootCategory.Weapon &&
-            !EquipmentSlotRules.IsCompatible(definition.WeaponDefinition, slot))
+            !EquipmentSlotRules.IsCompatible(definition, slot))
         {
             return false;
         }
@@ -75,7 +73,6 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
         definition = null;
         return lootId.IsValid && _lootCatalog.TryGet(lootId.Value, out definition) &&
             definition != null && EquipmentSlotRules.IsEquippableCategory(definition.Category) &&
-            (definition.Category != LootCategory.Weapon ||
-                definition.WeaponDefinition != null && definition.WeaponDefinition.TryValidate(out _));
+            definition.TryValidate(out _);
     }
 }

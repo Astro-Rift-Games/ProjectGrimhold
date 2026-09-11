@@ -12,5 +12,6 @@ public enum LootCategory
     Helmet = 6,
     Armor = 7,
     Gloves = 8,
-    Boots = 9
+    Boots = 9,
+    Shield = 10
 }

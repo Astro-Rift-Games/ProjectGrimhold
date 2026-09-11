@@ -18,6 +18,13 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
         List<LootContextActionDescriptor> actions)
     {
         if (!IsValidEquipment(context) || actions == null) return;
+        if (context.Definition.Category == LootCategory.Shield)
+        {
+            Add(actions, SetAOffId, "Equipar en Set A / Off Hand", context.Entry.LootId, EquipmentSlot.WeaponSetAOffHand);
+            Add(actions, SetBOffId, "Equipar en Set B / Off Hand", context.Entry.LootId, EquipmentSlot.WeaponSetBOffHand);
+            return;
+        }
+
         if (context.Definition.Category != LootCategory.Weapon)
         {
             EquipmentSlot fixedSlot = EquipmentSlotRules.ResolveFixedSlot(context.Definition.Category);
@@ -61,6 +68,11 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
 
     private static bool IsValidEquipment(in LootContextActionContext context) =>
         context.IsValid && EquipmentSlotRules.IsEquippableCategory(context.Definition.Category) &&
-        (context.Definition.Category != LootCategory.Weapon ||
-         context.Definition.WeaponDefinition != null && context.Definition.WeaponDefinition.TryValidate(out _));
+        EquipmentSlotRules.IsCompatible(
+            context.Definition,
+            context.Definition.Category == LootCategory.Shield
+                ? EquipmentSlot.WeaponSetAOffHand
+                : context.Definition.Category == LootCategory.Weapon
+                    ? EquipmentSlot.WeaponSetAMainHand
+                    : EquipmentSlotRules.ResolveFixedSlot(context.Definition.Category));
 }

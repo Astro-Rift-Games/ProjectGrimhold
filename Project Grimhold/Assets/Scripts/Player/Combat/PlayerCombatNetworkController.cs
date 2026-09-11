@@ -32,6 +32,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     [SerializeField]
     private PlayerMovementNetworkController _movementController;
 
+    [SerializeField]
+    private PlayerShieldDefenseNetworkController _shieldDefenseController;
+
     private ICharacter _character;
     private IAttack _activeAttack;
     private bool _dependenciesValid;
@@ -146,12 +149,14 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
 
         NetworkButtons currentButtons = input.Buttons;
+        bool defenseRequested = _shieldDefenseController != null &&
+            _shieldDefenseController.CanDefend(currentButtons);
         bool attackPressedThisTick = currentButtons.WasPressed(
             PreviousButtons,
             PlayerInputButton.PrimaryAttack);
         bool attackPressed = false;
 
-        if (HasActiveAttack && _activeAttack != null)
+        if (!defenseRequested && HasActiveAttack && _activeAttack != null)
         {
             if (_activeAttack.InputMode == AttackInputMode.Press)
             {
@@ -474,6 +479,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (_movementController == null)
         {
             _movementController = GetComponent<PlayerMovementNetworkController>();
+        }
+
+        if (_shieldDefenseController == null)
+        {
+            _shieldDefenseController = GetComponent<PlayerShieldDefenseNetworkController>();
         }
     }
 

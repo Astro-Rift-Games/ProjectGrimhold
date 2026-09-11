@@ -6025,6 +6025,7 @@ GameObject:
   - component: {fileID: 8300000000000000003}
   - component: {fileID: 8300000000000000004}
   - component: {fileID: 8300000000000000005}
+  - component: {fileID: 8400000000000000005}
   - component: {fileID: 176522636574861152}
   - component: {fileID: 7062006960257999095}
   - component: {fileID: 7997196603447741410}
@@ -6079,7 +6080,8 @@ MonoBehaviour:
   _corpseGenerationController: {fileID: 4100000000000000101}
   _extractionController: {fileID: 8121909954639136856}
   _participantLink: {fileID: 5489547608340585132}
-  _equipmentController: {fileID: 7201000000000000005}
+  _equipmentController: {fileID: 8300000000000000005}
+  _shieldDefenseController: {fileID: 8400000000000000005}
   _defenseMitigationConstant: 100
   _ProfileIdString:
     _length: 0
@@ -6163,7 +6165,25 @@ MonoBehaviour:
   _attackOrigin: {fileID: 5496709202239764530}
   _activeAttackSource: {fileID: 0}
   _movementController: {fileID: 7201000000000000005}
+  _shieldDefenseController: {fileID: 8400000000000000005}
   _IsAttackEnabled:
+    RawValue: 0
+--- !u!114 &8400000000000000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e67952f415ac4dc79541af210a97e3ef, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerShieldDefenseNetworkController
+  _equipmentController: {fileID: 8300000000000000005}
+  _characterSource: {fileID: 729366679366126330}
+  _movementStateSource: {fileID: 7201000000000000005}
+  _IsDefending:
     RawValue: 0
 --- !u!114 &2425433471524800765
 MonoBehaviour:
@@ -6455,6 +6475,7 @@ MonoBehaviour:
   - {fileID: 8300000000000000001}
   - {fileID: 8300000000000000004}
   - {fileID: 8300000000000000005}
+  - {fileID: 8400000000000000005}
   - {fileID: 176522636574861152}
   - {fileID: 7062006960257999095}
   - {fileID: 4758981447037605228}

@@ -199,8 +199,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     /// </summary>
     public bool CanEquip(LootId lootId, EquipmentSlot slot)
     {
-        return TryResolveTargetSlot(lootId, slot, out int catalogIndex, out _) &&
-            (!EquipmentSlotRules.IsHandSlot(slot) ||
+        return TryResolveTargetSlot(lootId, slot, out int catalogIndex, out LootDefinition definition) &&
+            (definition.Category != LootCategory.Weapon ||
                 TryResolveEligibleWeapon(catalogIndex, out _, out _, out _) ==
                 WeaponEligibilityFailure.None);
     }
@@ -212,8 +212,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return false;
         }
 
-        if (!TryResolveTargetSlot(lootId, slot, out int catalogIndex, out _) ||
-            EquipmentSlotRules.IsHandSlot(slot) &&
+        if (!TryResolveTargetSlot(lootId, slot, out int catalogIndex, out LootDefinition definition) ||
+            definition.Category == LootCategory.Weapon &&
             TryResolveEligibleWeapon(catalogIndex, out _, out _, out _) !=
             WeaponEligibilityFailure.None)
         {
@@ -281,6 +281,23 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     /// <summary>Resolves only the active weapon for combat and presentation consumers.</summary>
     public bool TryGetEquippedDefinition(out LootDefinition definition) =>
         TryGetSlotDefinition(ActiveWeaponSetSlot, out definition);
+
+    /// <summary>Resolves the active Set's valid Off Hand shield without duplicating Equipment state.</summary>
+    public bool TryGetActiveShieldDefinition(out ShieldDefinition shieldDefinition)
+    {
+        shieldDefinition = null;
+        EquipmentSlot offHand = EquipmentSlotRules.GetOffHandSlot(ActiveWeaponSetSlot);
+        if (offHand == EquipmentSlot.None ||
+            !TryGetSlotDefinition(offHand, out LootDefinition definition) ||
+            definition.Category != LootCategory.Shield ||
+            !EquipmentSlotRules.IsCompatible(definition, offHand))
+        {
+            return false;
+        }
+
+        shieldDefinition = definition.ShieldDefinition;
+        return true;
+    }
 
     /// <summary>
     /// Initializes all Equipment slots from compact references into an already initialized admission inventory.
@@ -626,7 +643,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
 
         if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null ||
-            !EquipmentSlotRules.IsCompatible(definition.Category, targetSlot))
+            !EquipmentSlotRules.IsCompatible(definition, targetSlot))
         {
             return EquipmentOperationResult.InvalidEquipment;
         }
@@ -642,10 +659,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return EquipmentOperationResult.IncompatibleHandConfiguration;
         }
 
-        // Only weapons reach the combat strategies. Armor never depends on them, so their
-        // dependencies are validated exclusively on this branch.
+        // Only weapons reach combat strategies. Non-weapon equipment never depends on them,
+        // so those dependencies are validated exclusively on this branch.
         bool becomesActive = false;
-        if (EquipmentSlotRules.IsHandSlot(targetSlot))
+        if (definition.Category == LootCategory.Weapon)
         {
             if (!ValidateWeaponDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
             WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(
@@ -814,7 +831,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         if (!IsEquipmentReadable || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(lootId, out catalogIndex) ||
             !_lootCatalog.TryGetByIndex(catalogIndex, out definition) || definition == null ||
-            !EquipmentSlotRules.IsCompatible(definition.Category, targetSlot))
+            !EquipmentSlotRules.IsCompatible(definition, targetSlot))
         {
             return false;
         }
@@ -824,8 +841,6 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return !IsSlotOccupied(targetSlot);
         }
 
-        WeaponDefinition weapon = definition.WeaponDefinition;
-        if (!EquipmentSlotRules.IsCompatible(weapon, targetSlot)) return false;
         if (!EquipmentSlotRules.IsOffHandSlot(targetSlot)) return true;
         EquipmentSlot mainHand = EquipmentSlotRules.GetMainHandSlot(targetSlot);
         return !TryGetSlotDefinition(mainHand, out LootDefinition mainDefinition) ||
@@ -961,13 +976,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         LootEntry entry = reservedLoadout[entryIndex];
         if (!_lootCatalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
             !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) ||
-            !EquipmentSlotRules.IsCompatible(definition.Category, slot))
+            !EquipmentSlotRules.IsCompatible(definition, slot))
         {
             error = $"Prepared '{entry.LootId.Value}' cannot occupy {slot}.";
             return false;
         }
 
-        if (EquipmentSlotRules.IsHandSlot(slot))
+        if (definition.Category == LootCategory.Weapon)
         {
             WeaponEligibilityFailure failure = TryResolveEligibleWeapon(
                 catalogIndex, attributes, out _, out _);

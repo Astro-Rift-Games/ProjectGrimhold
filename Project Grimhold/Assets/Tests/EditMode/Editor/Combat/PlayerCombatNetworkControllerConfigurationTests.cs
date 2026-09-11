@@ -38,6 +38,11 @@ namespace Tests.EditMode.Combat
                 prefab.GetComponent<PlayerWeaponEquipmentNetworkController>();
             Assert.That(equipment, Is.Not.Null);
             AssertEquipmentReferences(equipment, prefab);
+
+            PlayerShieldDefenseNetworkController shieldDefense =
+                prefab.GetComponent<PlayerShieldDefenseNetworkController>();
+            Assert.That(shieldDefense, Is.Not.Null);
+            AssertShieldDefenseReferences(shieldDefense, prefab);
         }
 
         [TestCase(MeleePrefabPath, typeof(MeleeAttack))]
@@ -109,6 +114,10 @@ namespace Tests.EditMode.Combat
                 serializedController.FindProperty("_movementController").objectReferenceValue,
                 Is.Not.Null,
                 prefabPath);
+            Assert.That(
+                serializedController.FindProperty("_shieldDefenseController").objectReferenceValue,
+                Is.Not.Null,
+                prefabPath);
         }
 
         private static void AssertNoMissingScripts(GameObject prefab, string prefabPath)
@@ -136,6 +145,23 @@ namespace Tests.EditMode.Combat
                 Is.SameAs(prefab.GetComponent<RangedAttack>()));
             Assert.That(serializedEquipment.FindProperty("_projectileSpawner").objectReferenceValue,
                 Is.SameAs(prefab.GetComponent<FusionProjectileSpawner>()));
+        }
+
+        private static void AssertShieldDefenseReferences(
+            PlayerShieldDefenseNetworkController shieldDefense,
+            GameObject prefab)
+        {
+            var serializedDefense = new SerializedObject(shieldDefense);
+            Assert.That(serializedDefense.FindProperty("_equipmentController").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<PlayerWeaponEquipmentNetworkController>()));
+            Assert.That(serializedDefense.FindProperty("_characterSource").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<PlayerCharacter>()));
+            Assert.That(serializedDefense.FindProperty("_movementStateSource").objectReferenceValue,
+                Is.SameAs(prefab.GetComponent<PlayerMovementNetworkController>()));
+
+            var serializedCharacter = new SerializedObject(prefab.GetComponent<PlayerCharacter>());
+            Assert.That(serializedCharacter.FindProperty("_shieldDefenseController").objectReferenceValue,
+                Is.SameAs(shieldDefense));
         }
 
         private static void AssertNeutralExecutor(MonoBehaviour executor, string prefabPath)

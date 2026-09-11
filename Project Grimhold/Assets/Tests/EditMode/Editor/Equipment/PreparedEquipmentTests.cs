@@ -16,6 +16,7 @@ namespace Tests.EditMode.Equipment
         private static readonly LootId Sword = new("training_sword");
         private static readonly LootId Greatsword = new("greatsword");
         private static readonly LootId RecoverySword = new("recovery_sword");
+        private static readonly LootId TrainingShield = new("training_shield");
         private static readonly LootId Helmet = new("placeholder_helmet");
         private static readonly LootId Boots = new("placeholder_boots");
 
@@ -57,6 +58,34 @@ namespace Tests.EditMode.Equipment
                 PreparedEquipmentLoadout.TryValidate(loadout, _catalog, true, out string error),
                 Is.True,
                 error);
+        }
+
+        [Test]
+        public void Loadout_AcceptsShieldOnlyInOffHandWithoutWeaponRequirements()
+        {
+            var loadout = new PreparedEquipmentLoadout(
+                Sword,
+                default,
+                weaponSetAOffHand: TrainingShield);
+
+            Assert.That(
+                PreparedEquipmentLoadout.TryValidate(loadout, _catalog, true, out string error),
+                Is.True,
+                error);
+            Assert.That(
+                PreparedEquipmentLoadout.TryValidateWeaponRequirements(
+                    loadout,
+                    ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                    _catalog,
+                    out error),
+                Is.True,
+                error);
+            Assert.That(
+                PreparedEquipmentLoadout.IsUsableEquipmentDefinition(
+                    TrainingShield,
+                    EquipmentSlot.WeaponSetAMainHand,
+                    _catalog),
+                Is.False);
         }
 
         [Test]
@@ -174,6 +203,32 @@ namespace Tests.EditMode.Equipment
             Assert.That(prepared.WeaponSetBMainHand, Is.EqualTo(Sword));
             Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1)));
             Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(RecoverySword, 1)));
+        }
+
+        [Test]
+        public void Store_EquippingTwoHandedWeaponReturnsDisplacedShieldAtomically()
+        {
+            LocalProfileStore store = CreateStore(
+                "53535353535353535353535353535357",
+                CreateAttributes(strength: 10),
+                snapshot =>
+                {
+                    snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+                        Sword,
+                        default,
+                        weaponSetAOffHand: TrainingShield);
+                    snapshot.Loadout.Add(new StashItem(Greatsword, 1));
+                });
+
+            Assert.That(
+                store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, Greatsword),
+                Is.EqualTo(StashOperationResult.Success));
+
+            PreparedEquipmentLoadout prepared = store.GetPreparedEquipment();
+            Assert.That(prepared.WeaponSetAMainHand, Is.EqualTo(Greatsword));
+            Assert.That(prepared.WeaponSetAOffHand.IsValid, Is.False);
+            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1)));
+            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(TrainingShield, 1)));
         }
 
         [Test]
