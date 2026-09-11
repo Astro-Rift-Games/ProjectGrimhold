@@ -31,6 +31,11 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private bool _isDefeated;
     private Vector2 _safeFacing = Vector2.down;
 
+    /// <summary>
+    /// Gets the canonical six-direction facing currently presented by the Animator.
+    /// </summary>
+    public Vector2 VisualFacingDirection { get; private set; } = Vector2.down;
+
     protected virtual void Awake()
     {
         InitializeHashes();
@@ -40,6 +45,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     protected virtual void OnDisable()
     {
         _safeFacing = Vector2.down;
+        VisualFacingDirection = Vector2.down;
         _temporalFacingDirection = null;
         _isDefeated = false;
     }
@@ -150,6 +156,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         _safeFacing = CharacterVisualDirectionResolver.SanitizeFacing(rawFacing, _safeFacing);
         CharacterVisualDirection visualDirection = CharacterVisualDirectionResolver.Resolve(_safeFacing);
         Vector2 canonicalFacing = CharacterVisualDirectionResolver.GetCanonicalVector(visualDirection);
+        VisualFacingDirection = canonicalFacing;
 
         _animator.SetFloat(_moveXHash, canonicalFacing.x);
         _animator.SetFloat(_moveYHash, canonicalFacing.y);

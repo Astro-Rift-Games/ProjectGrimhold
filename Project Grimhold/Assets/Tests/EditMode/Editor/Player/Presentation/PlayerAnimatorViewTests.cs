@@ -305,6 +305,42 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
+    public void DirectionalAttackRotations_AreRelativeToTheFacingOwnedGripPose()
+    {
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+
+        foreach (string weapon in weapons)
+        {
+            AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Weapons/{weapon}_Attack.anim");
+            EditorCurveBinding sourceRotationBinding = AnimationUtility.GetCurveBindings(source)
+                .Single(binding => binding.propertyName == "localEulerAnglesRaw.z");
+            Keyframe[] sourceKeys = AnimationUtility.GetEditorCurve(source, sourceRotationBinding).keys;
+
+            foreach (string direction in directions)
+            {
+                AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim");
+                EditorCurveBinding rotationBinding = AnimationUtility.GetCurveBindings(clip)
+                    .Single(binding => binding.propertyName == "localEulerAnglesRaw.z");
+                Keyframe[] keys = AnimationUtility.GetEditorCurve(clip, rotationBinding).keys;
+                float sign = direction == "NW" || direction == "SW" ? -1f : 1f;
+
+                Assert.That(keys, Has.Length.EqualTo(sourceKeys.Length), clip.name);
+                for (int index = 0; index < keys.Length; index++)
+                {
+                    Assert.That(keys[index].time, Is.EqualTo(sourceKeys[index].time), clip.name);
+                    Assert.That(
+                        keys[index].value,
+                        Is.EqualTo(sourceKeys[index].value * sign).Within(0.0001f),
+                        $"{clip.name} rotation key {index}");
+                }
+            }
+        }
+    }
+
+    [Test]
     public void NetworkPlayer_RestoresHandPivotsAndExplicitMovementSource()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(NetworkPlayerPath);

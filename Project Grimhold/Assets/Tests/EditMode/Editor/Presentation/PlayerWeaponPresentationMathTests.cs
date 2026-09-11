@@ -45,6 +45,30 @@ namespace Tests.EditMode.Presentation
             AssertVector(transformedGrip, Vector2.zero);
         }
 
+        [TestCase(0f, -1f, -90f)]
+        [TestCase(1f, -1f, -45f)]
+        [TestCase(1f, 1f, 45f)]
+        [TestCase(0f, 1f, 90f)]
+        [TestCase(-1f, 1f, 135f)]
+        [TestCase(-1f, -1f, -135f)]
+        public void FacingAngle_MatchesSixDirectionBodyPose(float x, float y, float expected)
+        {
+            float angle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(
+                new Vector2(x, y));
+
+            Assert.That(angle, Is.EqualTo(expected).Within(Tolerance));
+        }
+
+        [TestCase(1f, false)]
+        [TestCase(0f, false)]
+        [TestCase(-1f, true)]
+        public void WeaponMirror_FollowsBodySide(float x, bool expected)
+        {
+            Assert.That(
+                PlayerWeaponPresentationMath.ShouldMirror(new Vector2(x, 0f)),
+                Is.EqualTo(expected));
+        }
+
         [Test]
         public void PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy()
         {
@@ -72,6 +96,8 @@ namespace Tests.EditMode.Presentation
 
             SerializedObject serializedPresenter = new SerializedObject(basePresenter);
             Transform mainGrip = Reference<Transform>(serializedPresenter, "_mainHandGrip");
+            PlayerAnimatorView animatorView = Reference<PlayerAnimatorView>(serializedPresenter, "_animatorView");
+            Transform mainPivot = Reference<Transform>(serializedPresenter, "_mainHandWeaponPivot");
             Transform mainVisual = Reference<Transform>(serializedPresenter, "_mainHandWeaponVisual");
             SpriteRenderer mainRenderer = Reference<SpriteRenderer>(serializedPresenter, "_mainHandRenderer");
             Transform offGrip = Reference<Transform>(serializedPresenter, "_offHandGrip");
@@ -79,9 +105,11 @@ namespace Tests.EditMode.Presentation
             SpriteRenderer offRenderer = Reference<SpriteRenderer>(serializedPresenter, "_offHandRenderer");
 
             Assert.That(mainGrip.name, Is.EqualTo("MainHandGrip"));
+            Assert.That(animatorView, Is.SameAs(basePrefab.GetComponentInChildren<PlayerAnimatorView>(true)));
             Assert.That(mainGrip.parent.name, Is.EqualTo("RightHand"));
-            Assert.That(mainVisual.parent, Is.SameAs(mainGrip));
-            Assert.That(mainRenderer.transform.IsChildOf(mainVisual), Is.True);
+            Assert.That(mainPivot.parent, Is.SameAs(mainGrip));
+            Assert.That(mainVisual.parent, Is.SameAs(mainPivot));
+            Assert.That(mainRenderer.transform, Is.SameAs(mainVisual));
             Assert.That(offGrip.name, Is.EqualTo("OffHandGrip"));
             Assert.That(offGrip.parent.name, Is.EqualTo("LeftHand"));
             Assert.That(offVisual.parent, Is.SameAs(offGrip));
@@ -159,7 +187,8 @@ namespace Tests.EditMode.Presentation
                 "_swingFacingDirection",
                 "_weaponPivot",
                 "_directionPresets",
-                "_combatController"
+                "_combatController",
+                "_movementStateSource"
             };
 
             const BindingFlags flags = BindingFlags.Instance |

@@ -5420,10 +5420,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 124ae180c5c64661bf20452a005090fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWeaponPresenter
-  _movementStateSource: {fileID: 7201000000000000005}
+  _animatorView: {fileID: 7572879158521877428}
   _equipmentSource: {fileID: 8300000000000000005}
   _mainHandGrip: {fileID: 2222222222222222222}
-  _mainHandWeaponVisual: {fileID: 6727737383359403759}
+  _mainHandWeaponPivot: {fileID: 6727737383359403759}
+  _mainHandWeaponVisual: {fileID: 1771784473681192027}
   _mainHandRenderer: {fileID: 4522316450052852347}
   _offHandGrip: {fileID: 8500043976574553798}
   _offHandVisual: {fileID: 726070400954003540}

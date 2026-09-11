@@ -6,6 +6,16 @@ using UnityEngine;
 /// </summary>
 internal static class PlayerWeaponPresentationMath
 {
+    internal static float CalculateFacingAngleDegrees(Vector2 facing)
+    {
+        return Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg;
+    }
+
+    internal static bool ShouldMirror(Vector2 facing)
+    {
+        return facing.x < 0f;
+    }
+
     internal static Vector2 CalculateGripAlignedWeaponPosition(
         Vector2 weaponGripPoint,
         Vector2 weaponScale,
