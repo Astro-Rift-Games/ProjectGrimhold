@@ -5,6 +5,8 @@ using System.Collections.Generic;
 /// </summary>
 public static class TownRaidPreparationRules
 {
+    public const int MaxMembers = 2;
+
     /// <summary>Validates one complete preparation observation.</summary>
     public static bool IsValidSnapshot(in TownRaidPreparationSnapshot snapshot)
     {
@@ -32,7 +34,7 @@ public static class TownRaidPreparationRules
         IReadOnlyList<TownRaidPreparationMember> members)
     {
         if (!hostProfileId.IsValid || members == null ||
-            members.Count < 1 || members.Count > RaidSessionRules.MaxParticipants)
+            members.Count < 1 || members.Count > MaxMembers)
         {
             return false;
         }
@@ -68,7 +70,7 @@ public static class TownRaidPreparationRules
     {
         return snapshot.State == TownRaidPreparationState.Waiting &&
                IsValidSnapshot(snapshot) && profileId.IsValid &&
-               snapshot.Members.Count < RaidSessionRules.MaxParticipants &&
+               snapshot.Members.Count < MaxMembers &&
                FindMember(snapshot.Members, profileId) < 0;
     }
 
@@ -246,10 +248,40 @@ public static class TownRaidPreparationRules
                RaidSessionRules.IsValidLaunchRevision(snapshot.LaunchRevision) &&
                snapshot.FrozenMemberCount == snapshot.Members.Count &&
                snapshot.FrozenMemberCount >= 1 &&
-               snapshot.FrozenMemberCount <= RaidSessionRules.MaxParticipants &&
+               snapshot.FrozenMemberCount <= MaxMembers &&
                IsValidMembership(snapshot.HostProfileId, snapshot.Members) &&
                AreAllMembersReady(snapshot.Members) &&
                MembersHaveLaunchRevision(snapshot.Members, snapshot.LaunchRevision);
+    }
+
+    public static bool IsValidProfileRoster(
+        ProfileId hostProfileId,
+        IReadOnlyList<ProfileId> members)
+    {
+        if (!hostProfileId.IsValid || members == null || members.Count < 1 || members.Count > MaxMembers)
+        {
+            return false;
+        }
+
+        bool containsHost = false;
+        for (int index = 0; index < members.Count; index++)
+        {
+            if (!members[index].IsValid)
+            {
+                return false;
+            }
+
+            containsHost |= members[index] == hostProfileId;
+            for (int other = index + 1; other < members.Count; other++)
+            {
+                if (members[index] == members[other])
+                {
+                    return false;
+                }
+            }
+        }
+
+        return containsHost;
     }
 
     /// <summary>

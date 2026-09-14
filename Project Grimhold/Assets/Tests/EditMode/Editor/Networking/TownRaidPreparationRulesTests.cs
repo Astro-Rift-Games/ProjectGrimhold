@@ -4,10 +4,7 @@ using Assert = NUnit.Framework.Assert;
 public sealed class TownRaidPreparationRulesTests
 {
     [TestCase(1)]
-    [TestCase(4)]
-    [TestCase(5)]
-    [TestCase(15)]
-    [TestCase(16)]
+    [TestCase(2)]
     public void WaitingSnapshot_AcceptsSupportedMemberCounts(int count)
     {
         TownRaidPreparationSnapshot snapshot = CreateWaiting("100001", count, false);
@@ -16,9 +13,9 @@ public sealed class TownRaidPreparationRulesTests
     }
 
     [Test]
-    public void WaitingSnapshot_RejectsSeventeenInvalidDuplicateAndMissingHost()
+    public void WaitingSnapshot_RejectsThreeInvalidDuplicateAndMissingHost()
     {
-        TownRaidPreparationSnapshot seventeen = CreateWaiting("100001", 17, false);
+        TownRaidPreparationSnapshot three = CreateWaiting("100001", 3, false);
         TownRaidPreparationSnapshot valid = CreateWaiting("100002", 2, false);
         var invalidMembers = new[]
         {
@@ -28,7 +25,7 @@ public sealed class TownRaidPreparationRulesTests
         var duplicateMembers = new[] { valid.Members[0], valid.Members[0] };
         var missingHostMembers = new[] { new TownRaidPreparationMember(new ProfileId("other")) };
 
-        Assert.That(TownRaidPreparationRules.IsValidSnapshot(seventeen), Is.False);
+        Assert.That(TownRaidPreparationRules.IsValidSnapshot(three), Is.False);
         Assert.That(TownRaidPreparationRules.IsValidSnapshot(CreateSnapshot(valid, invalidMembers)), Is.False);
         Assert.That(TownRaidPreparationRules.IsValidSnapshot(CreateSnapshot(valid, duplicateMembers)), Is.False);
         Assert.That(TownRaidPreparationRules.IsValidSnapshot(CreateSnapshot(valid, missingHostMembers)), Is.False);
@@ -115,8 +112,7 @@ public sealed class TownRaidPreparationRulesTests
         var members = new[]
         {
             new TownRaidPreparationMember(host, true),
-            new TownRaidPreparationMember(new ProfileId("client-a"), true),
-            new TownRaidPreparationMember(new ProfileId("client-m"), true)
+            new TownRaidPreparationMember(new ProfileId("client-a"), true)
         };
         var waiting = new TownRaidPreparationSnapshot(
             code, host, TownRaidPreparationState.Waiting, members, 1);
@@ -124,9 +120,9 @@ public sealed class TownRaidPreparationRulesTests
 
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, members[1].ProfileId, out RaidLaunchContext first), Is.True);
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, members[1].ProfileId, out RaidLaunchContext second), Is.True);
-        Assert.That(first.ParticipantProfileIds, Is.EqualTo(new[] { host, members[1].ProfileId, members[2].ProfileId }));
+        Assert.That(first.ParticipantProfileIds, Is.EqualTo(new[] { host, members[1].ProfileId }));
         Assert.That(second.ParticipantProfileIds, Is.EqualTo(first.ParticipantProfileIds));
-        Assert.That(first.Participants, Has.Count.EqualTo(3));
+        Assert.That(first.Participants, Has.Count.EqualTo(2));
         Assert.That(first.Participants, Has.All.Matches<RaidLaunchParticipant>(
             participant => participant.TeamId.IsValid && participant.TeamId.Value == 1));
         Assert.That(first.LaunchRevision, Is.EqualTo(3));

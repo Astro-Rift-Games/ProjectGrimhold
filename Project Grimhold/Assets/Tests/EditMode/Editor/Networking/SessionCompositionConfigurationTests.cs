@@ -50,6 +50,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(File.ReadAllText(SystemsPath), Does.Contain($"RawGuidValue: {participantGuid}"));
         Assert.That(File.ReadAllText(SystemsPath), Does.Not.Contain("_maxPlayers:"));
         Assert.That(RaidSessionRules.MaxParticipants, Is.EqualTo(16));
+        Assert.That(TownRaidPreparationRules.MaxMembers, Is.EqualTo(2));
     }
 
     [Test]

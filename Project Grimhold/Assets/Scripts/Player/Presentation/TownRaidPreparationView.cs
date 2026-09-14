@@ -168,7 +168,47 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         if (_copyButton != null) _copyButton.gameObject.SetActive(false);
         if (_readyButton != null) _readyButton.gameObject.SetActive(false);
         if (_startButton != null) _startButton.gameObject.SetActive(false);
-        if (_leaveButton != null) _leaveButton.gameObject.SetActive(false);
+        if (_leaveButton != null)
+        {
+            _leaveButton.gameObject.SetActive(false);
+            TMP_Text label = _leaveButton.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                label.text = "Abandonar preparación";
+            }
+        }
+    }
+
+    public void PresentPendingContinuation(TownPartyContinuationContext context)
+    {
+        _localReady = false;
+        if (_codeInput != null)
+        {
+            _codeInput.text = string.Empty;
+            _codeInput.interactable = false;
+        }
+
+        var status = new System.Text.StringBuilder("Party pendiente — esperando al compañero");
+        for (int index = 0; index < context.Members.Count; index++)
+        {
+            status.AppendLine().Append(context.Members[index].Value);
+        }
+
+        ShowStatus(status.ToString());
+        if (_createButton != null) _createButton.gameObject.SetActive(false);
+        if (_joinButton != null) _joinButton.gameObject.SetActive(false);
+        if (_copyButton != null) _copyButton.gameObject.SetActive(false);
+        if (_readyButton != null) _readyButton.gameObject.SetActive(false);
+        if (_startButton != null) _startButton.gameObject.SetActive(false);
+        if (_leaveButton != null)
+        {
+            _leaveButton.gameObject.SetActive(true);
+            TMP_Text label = _leaveButton.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                label.text = "Abandonar Party";
+            }
+        }
     }
 
     public void Close()
@@ -210,7 +250,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         var status = new System.Text.StringBuilder();
         status.Append("Código: ").Append(snapshot.RaidCode.Value)
             .Append("  Jugadores: ").Append(snapshot.Members.Count)
-            .Append(" / ").Append(RaidSessionRules.MaxParticipants).AppendLine();
+            .Append(" / ").Append(TownRaidPreparationRules.MaxMembers).AppendLine();
         for (int index = 0; index < snapshot.Members.Count; index++)
         {
             TownRaidPreparationMember member = snapshot.Members[index];
@@ -234,7 +274,15 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             _startButton.gameObject.SetActive(presentation.IsHost);
             _startButton.interactable = presentation.CanStart;
         }
-        if (_leaveButton != null) _leaveButton.gameObject.SetActive(true);
+        if (_leaveButton != null)
+        {
+            _leaveButton.gameObject.SetActive(true);
+            TMP_Text label = _leaveButton.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                label.text = "Abandonar preparación";
+            }
+        }
     }
 
     public void ShowInvalidCode()

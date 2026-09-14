@@ -51,6 +51,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _operationActive;
     private bool _isQuitting;
     private RaidTransitionTicket? _activeTicket;
+    private TownPartyContinuationContext _pendingPartyContinuation;
     private int _acknowledgedLaunchSequence;
     private bool _launchDispatchActive;
     private bool _raidAdmissionConfirmed;
@@ -66,9 +67,61 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
+    public TownPartyContinuationContext PendingPartyContinuation => _pendingPartyContinuation;
+    public bool HasPendingPartyContinuation => _pendingPartyContinuation != null;
     public bool IsTransitioning => _operationActive;
 
     public event Action<SessionConnectionState> StateChanged;
+
+    public bool TryGetPendingPartyContinuation(out TownPartyContinuationContext context)
+    {
+        context = _pendingPartyContinuation;
+        return context != null && context.Contains(LocalProfileProvider.GetOrCreateLocalProfile());
+    }
+
+    /// <summary>
+    /// Preserves one validated frozen Town roster across runner replacement. Repeating the same
+    /// launch is idempotent; a different launch cannot replace an unresolved continuation.
+    /// </summary>
+    public bool TryPreservePartyContinuation(RaidLaunchContext launchContext)
+    {
+        if (!TownPartyContinuationContext.TryCreate(launchContext, out TownPartyContinuationContext continuation))
+        {
+            return false;
+        }
+
+        if (_pendingPartyContinuation == null)
+        {
+            _pendingPartyContinuation = continuation;
+            return true;
+        }
+
+        return _pendingPartyContinuation.Equals(continuation);
+    }
+
+    public bool ConfirmPartyContinuationRestored(in TownRaidPreparationSnapshot snapshot)
+    {
+        if (_pendingPartyContinuation == null ||
+            !_pendingPartyContinuation.MatchesRoster(snapshot.HostProfileId, snapshot.Members))
+        {
+            return false;
+        }
+
+        _pendingPartyContinuation = null;
+        return true;
+    }
+
+    public bool AbandonPartyContinuation(TownPartyContinuationContext expectedContext)
+    {
+        if (_pendingPartyContinuation == null || expectedContext == null ||
+            !_pendingPartyContinuation.Equals(expectedContext))
+        {
+            return false;
+        }
+
+        _pendingPartyContinuation = null;
+        return true;
+    }
 
     /// <summary>
     /// Stores the canonical context observed from a complete replicated frozen preparation.
@@ -699,6 +752,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return SessionTransitionResult.InvalidState;
         }
 
+        if (!continuationAttempt && !TryPreservePartyContinuation(ticket.LaunchContext))
+        {
+            return SessionTransitionResult.InvalidRequest;
+        }
+
         _operationActive = true;
         CancellationToken cancellationToken = BeginTransitionCancellation();
         _activeTicket = ticket.WithState(SessionConnectionState.PreparingRaid);
@@ -867,6 +925,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             CompleteTownEntry();
+            _pendingPartyContinuation = null;
             return SessionTransitionResult.Succeeded;
         }
         finally

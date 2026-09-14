@@ -25,6 +25,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private PlayerInputReader _inputReader;
     private int _presentedRevision = -1;
     private bool _showingNoPreparation;
+    private TownPartyContinuationContext _presentedContinuation;
 
     private void Awake()
     {
@@ -132,13 +133,41 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private void RefreshPreparationPresentation(bool force)
     {
         ProfileId localProfile = GetLocalProfile();
-        if (_directory == null || !_directory.TryGetPreparation(localProfile, out TownRaidPreparationNetworkController preparation) ||
+        TownRaidPreparationNetworkController preparation = null;
+        bool hasPreparation = _directory != null && _directory.TryGetPreparation(localProfile, out preparation);
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null &&
+            coordinator.TryGetPendingPartyContinuation(out TownPartyContinuationContext continuation))
+        {
+            if (hasPreparation &&
+                continuation.MatchesRoster(preparation.HostProfileId, preparation.Snapshot.Members))
+            {
+                coordinator.ConfirmPartyContinuationRestored(preparation.Snapshot);
+            }
+            else
+            {
+                if (force || !_showingNoPreparation || _presentedContinuation == null ||
+                    !_presentedContinuation.Equals(continuation))
+                {
+                    _view.PresentPendingContinuation(continuation);
+                    _showingNoPreparation = true;
+                    _presentedContinuation = continuation;
+                    _presentedPreparation = null;
+                    _presentedRevision = -1;
+                }
+
+                return;
+            }
+        }
+
+        if (!hasPreparation ||
             !TownRaidPreparationPresentation.TryCreate(preparation.Snapshot, localProfile, out TownRaidPreparationPresentation presentation))
         {
             if (force || !_showingNoPreparation)
             {
                 _view.PresentNoPreparation();
                 _showingNoPreparation = true;
+                _presentedContinuation = null;
                 _presentedPreparation = null;
                 _presentedRevision = -1;
             }
@@ -153,6 +182,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         }
 
         _showingNoPreparation = false;
+        _presentedContinuation = null;
         _presentedPreparation = preparation;
         _presentedRevision = preparation.SnapshotRevision;
         _view.PresentPreparation(presentation);
@@ -160,7 +190,18 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 
     private void CreateRaid(string _) => _directory?.RequestCreate();
     private void JoinRaid(string code) => _directory?.RequestJoin(code);
-    private void LeaveRaid() => _directory?.RequestLeave();
+    private void LeaveRaid()
+    {
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null && coordinator.HasPendingPartyContinuation)
+        {
+            _directory?.RequestAbandonContinuation();
+            RefreshPreparationPresentation(true);
+            return;
+        }
+
+        _directory?.RequestLeave();
+    }
     private void SetReady(bool ready) => _directory?.RequestSetReady(ready);
     private void StartRaid() => _directory?.RequestStart();
 
@@ -239,6 +280,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         _presentedPreparation = null;
         _presentedRevision = -1;
         _showingNoPreparation = false;
+        _presentedContinuation = null;
     }
 
     private void CacheDependencies()

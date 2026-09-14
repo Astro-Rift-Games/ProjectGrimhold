@@ -49,7 +49,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     [Networked]
     public int ReleaseRevision { get; private set; }
 
-    [Networked, Capacity(RaidSessionRules.MaxParticipants)]
+    [Networked, Capacity(TownRaidPreparationRules.MaxMembers)]
     private NetworkArray<MemberNetwork> Members => default;
 
     private readonly HashSet<ProfileId> _expectedDepartures = new();
@@ -67,6 +67,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private NetworkId _initialDirectoryId;
     private RaidCode _initialRaidCode;
     private ProfileId _initialHostProfileId;
+    private ProfileId[] _initialMembers;
     private bool _hasSpawnInitialization;
     private int _authorityRebuildTicks;
 
@@ -172,9 +173,27 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         RaidCode raidCode,
         ProfileId hostProfileId)
     {
+        return TrySetSpawnInitialization(
+            runner,
+            expectedObject,
+            directoryId,
+            raidCode,
+            hostProfileId,
+            new[] { hostProfileId });
+    }
+
+    public bool TrySetSpawnInitialization(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        NetworkId directoryId,
+        RaidCode raidCode,
+        ProfileId hostProfileId,
+        IReadOnlyList<ProfileId> members)
+    {
         if (_hasSpawnInitialization || runner == null || expectedObject == null ||
             expectedObject.gameObject != gameObject || expectedObject.GetComponent<TownRaidPreparationNetworkController>() != this ||
-            directoryId.Raw == 0 || !raidCode.IsValid || !hostProfileId.IsValid)
+            directoryId.Raw == 0 || !raidCode.IsValid ||
+            !TownRaidPreparationRules.IsValidProfileRoster(hostProfileId, members))
         {
             return false;
         }
@@ -182,6 +201,11 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _initialDirectoryId = directoryId;
         _initialRaidCode = raidCode;
         _initialHostProfileId = hostProfileId;
+        _initialMembers = new ProfileId[members.Count];
+        for (int index = 0; index < members.Count; index++)
+        {
+            _initialMembers[index] = members[index];
+        }
         _hasSpawnInitialization = true;
         return true;
     }
@@ -200,14 +224,19 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         LaunchRevision = 0;
         FrozenMemberCount = 0;
         ReleaseRevision = 0;
-        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        for (int index = 0; index < TownRaidPreparationRules.MaxMembers; index++)
         {
             Members.Set(index, default);
         }
 
-        Members.Set(0, new MemberNetwork { ProfileId = _initialHostProfileId.Value, IsReady = false });
+        for (int index = 0; index < _initialMembers.Length; index++)
+        {
+            Members.Set(index, new MemberNetwork { ProfileId = _initialMembers[index].Value, IsReady = false });
+        }
+
         SnapshotRevision = 1;
         _hasSpawnInitialization = false;
+        _initialMembers = null;
     }
 
     public bool AuthorityTryAddMember(ProfileId profileId)
@@ -241,12 +270,12 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return false;
         }
 
-        for (int index = memberIndex; index < RaidSessionRules.MaxParticipants - 1; index++)
+        for (int index = memberIndex; index < TownRaidPreparationRules.MaxMembers - 1; index++)
         {
             Members.Set(index, Members[index + 1]);
         }
 
-        Members.Set(RaidSessionRules.MaxParticipants - 1, default);
+        Members.Set(TownRaidPreparationRules.MaxMembers - 1, default);
         MarkSnapshotChanged();
         return true;
     }
@@ -554,8 +583,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private TownRaidPreparationSnapshot BuildSnapshot()
     {
-        var members = new List<TownRaidPreparationMember>(RaidSessionRules.MaxParticipants);
-        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        var members = new List<TownRaidPreparationMember>(TownRaidPreparationRules.MaxMembers);
+        for (int index = 0; index < TownRaidPreparationRules.MaxMembers; index++)
         {
             MemberNetwork member = Members[index];
             if (!member.IsOccupied)
@@ -583,7 +612,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private int CountMembers()
     {
         int count = 0;
-        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        for (int index = 0; index < TownRaidPreparationRules.MaxMembers; index++)
         {
             if (!Members[index].IsOccupied)
             {
@@ -598,7 +627,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private int FindMember(ProfileId profileId)
     {
-        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        for (int index = 0; index < TownRaidPreparationRules.MaxMembers; index++)
         {
             MemberNetwork member = Members[index];
             if (!member.IsOccupied)
@@ -617,7 +646,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private int FindEmptyMemberSlot()
     {
-        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        for (int index = 0; index < TownRaidPreparationRules.MaxMembers; index++)
         {
             if (!Members[index].IsOccupied)
             {

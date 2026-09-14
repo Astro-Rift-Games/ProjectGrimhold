@@ -62,6 +62,7 @@ the explicit development entry point. Invalid transitions do not mutate state.
 | Transition concurrency | Coordinator operation flag | Coordinator |
 | Selected build | Coordinator field | Coordinator |
 | Active raid request, reservation and progress | `RaidTransitionTicket` | Coordinator |
+| Pending Party continuity across runner replacement | `TownPartyContinuationContext` claim | Coordinator |
 | Active Town runner identity | `HubSessionLauncher.Runner` | Hub launcher |
 | Active raid runner identity | `FusionSessionLauncher.Runner` | Raid launcher |
 | Town spawn positions | `HubSpawnSceneConfiguration` in `Lobby-Town` | Town scene |
@@ -73,6 +74,12 @@ the explicit development entry point. Invalid transitions do not mutate state.
 The coordinator never stores references to objects owned by a unloadable gameplay scene.
 The transition ticket is local lifecycle data; it is not replicated state and does not add a
 second gameplay source of truth.
+
+The Party continuation context follows the same runner-independent restriction. It is a local
+claim, not an authoritative roster. The Town preparation snapshot becomes the sole roster again
+only after every Solo/Duo member submits the same origin descriptor and the Town directory
+recreates the preparation. A pending Duo survives an absent or still-loading member without a
+timeout-based dissolution. Explicit abandonment withdraws and invalidates that profile's claim.
 
 ## Requests and results
 

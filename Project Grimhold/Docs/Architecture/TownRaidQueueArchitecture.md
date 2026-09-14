@@ -8,8 +8,8 @@ Dungeon/Gameplay runner is not created by the NPC Create or Join actions.
 
 ```text
 TownRaidNpcInteractable
-  -> TownRaidQueuePresenter / TownRaidQueueView
-  -> TownRaidQueueNetworkController (State Authority)
+  -> TownRaidPreparationPresenter / TownRaidPreparationView
+  -> TownRaidPreparationDirectory / TownRaidPreparationNetworkController (State Authority)
   -> Ready cohort freeze and launch envelope
   -> SessionConnectionCoordinator (single runner transition)
   -> Raid runner with the frozen profiles only
@@ -18,7 +18,8 @@ TownRaidNpcInteractable
 The State Authority generates one six-digit `RaidCode` at creation and replicates
 it with the cohort. Joining requires that exact code. The replicated snapshot is
 the presentation source of truth for the code, members, capacity and Ready flags;
-there is no second client roster.
+there is no second client roster. A preparation contains one or two members only.
+The Raid-wide capacity remains a separate sixteen-participant technical limit.
 
 ## Lifecycle
 
@@ -43,6 +44,24 @@ already exists but no longer accepts joins. `GameFull`, authentication,
 token, version, scene and generic failures are terminal; Host
 `GameIdAlreadyExists` is terminal and never generates another code.
 
+The coordinator also derives an immutable `TownPartyContinuationContext` from the
+frozen preparation. It survives runner replacement and Results without owning the
+Town roster. After returning, every member claims only its own stable profile. The
+new Town directory recreates the preparation with a fresh code and all members Not
+Ready only after all matching claims are present and ungrouped in the current Shared
+session. Until then, the UI reports a pending Party and blocks Create, Join, Ready
+and Start. Absence and loading time never dissolve the continuation.
+
+Claims are submitted or resubmitted only at lifecycle boundaries: Town directory
+spawn, directory readiness, player join, or State Authority reconstruction. Render
+observes those triggers but never emits a recurring per-frame or timer-based RPC.
+
+Explicit abandonment withdraws the local claim and tombstones that profile for the
+origin preparation, so a later compatible claim from the other member cannot restore
+the Party. Successful restoration or explicit abandonment clears the local context.
+This continuity is application-session state only; global presence and durable Party
+persistence remain outside this architecture.
+
 An admission or departure racing Start is resolved by State Authority ordering:
 only members present in the frozen envelope participate. A member whose launch
 acknowledgement cannot be completed is rolled back and returned to Town; no
@@ -66,13 +85,14 @@ architecture documents.
 ## Presentation
 
 The Town presenter owns only local UI and input suppression. It observes the
-replicated `TownRaidQueueSnapshot` and forwards typed intentions (`Create`,
+replicated `TownRaidPreparationSnapshot` and forwards typed intentions (`Create`,
 `Join`, `Ready`, `Start`) to the network controller. It does not call the session
 coordinator during Create/Join and does not mutate simulation state.
 
 ## Validation
 
-EditMode tests cover create/join code matching, capacity, Ready/all-Ready rules,
-Host-only Start and deterministic freeze ordering. Integration validation must
-cover solo Host, multi-client preparation, a simultaneous Join/Start race,
-transition failure rollback, and a second Town-to-Raid cycle.
+EditMode tests cover create/join code matching, Duo capacity, Ready/all-Ready rules,
+Host-only Start, deterministic freeze ordering, matching continuation claims and
+irreversible claim withdrawal. Integration validation must cover Solo, Duo preparation,
+a simultaneous Join/Start race, transition failure rollback, a Client returning before
+the Host, restoration in Town and a second Town-to-Raid cycle.
