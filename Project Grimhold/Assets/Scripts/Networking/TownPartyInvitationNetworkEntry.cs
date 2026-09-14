@@ -5,9 +5,10 @@ public struct TownPartyInvitationNetworkEntry : INetworkStruct
     public int InvitationId;
     public NetworkString<_32> InviterProfileId;
     public NetworkString<_32> RecipientProfileId;
-    public NetworkString<_32> HostProfileId;
-    public NetworkId PreparationNetworkId;
-    public int MembershipRevision;
+    public int InviterPartyId;
+    public int InviterPartyRevision;
+    public int RecipientPartyId;
+    public int RecipientPartyRevision;
     public TickTimer ExpiresAt;
 
     public bool IsPending => InvitationId > 0;

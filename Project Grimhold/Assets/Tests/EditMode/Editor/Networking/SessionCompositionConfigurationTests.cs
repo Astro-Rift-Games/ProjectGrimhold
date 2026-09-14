@@ -37,19 +37,23 @@ public sealed class SessionCompositionConfigurationTests
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
         SocialPlayerInteractable interactable = prefab.GetComponent<SocialPlayerInteractable>();
         TownPartyInvitationPresenter presenter = prefab.GetComponent<TownPartyInvitationPresenter>();
+        TownPartyHudPresenter partyHudPresenter = prefab.GetComponent<TownPartyHudPresenter>();
         SocialPlayerIdentity identity = prefab.GetComponent<SocialPlayerIdentity>();
         Transform trigger = FindChild(prefab.transform, "PartyInteractionTrigger");
 
         Assert.That(interactable, Is.Not.Null);
         Assert.That(presenter, Is.Not.Null);
+        Assert.That(partyHudPresenter, Is.Not.Null);
         Assert.That(identity, Is.Not.Null);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(interactable));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(presenter));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(partyHudPresenter));
         Assert.That(trigger, Is.Not.Null);
         Assert.That(trigger.gameObject.layer, Is.EqualTo(8));
         Assert.That(trigger.GetComponent<Collider2D>().isTrigger, Is.True);
         Assert.That(prefab.GetComponentsInChildren<InteractionHudPresenter>(true), Has.Length.EqualTo(1));
         Assert.That(prefab.GetComponentsInChildren<TownPartyInvitationView>(true), Has.Length.EqualTo(1));
+        Assert.That(prefab.GetComponentsInChildren<TownPartyHudView>(true), Has.Length.EqualTo(1));
         Assert.That(prefab.GetComponentInChildren<TownPartyInvitationView>(true).GetComponentInParent<Canvas>(true), Is.Not.Null);
     }
 
@@ -75,7 +79,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(File.ReadAllText(SystemsPath), Does.Contain($"RawGuidValue: {participantGuid}"));
         Assert.That(File.ReadAllText(SystemsPath), Does.Not.Contain("_maxPlayers:"));
         Assert.That(RaidSessionRules.MaxParticipants, Is.EqualTo(16));
-        Assert.That(TownRaidPreparationRules.MaxMembers, Is.EqualTo(2));
+        Assert.That(TownRaidPreparationRules.MaxMembers, Is.EqualTo(16));
     }
 
     [Test]
@@ -472,14 +476,17 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab, Is.Not.Null);
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
         TownRaidPreparationDirectory directory = prefab.GetComponent<TownRaidPreparationDirectory>();
+        TownPartyDirectory partyDirectory = prefab.GetComponent<TownPartyDirectory>();
         TownRaidNpcInteractable interactable = prefab.GetComponent<TownRaidNpcInteractable>();
         Assert.That(networkObject, Is.Not.Null);
         Assert.That(directory, Is.Not.Null);
+        Assert.That(partyDirectory, Is.Not.Null);
         Assert.That(interactable, Is.Not.Null);
         Assert.That(prefab.GetComponent<InteractionPromptMetadata>(), Is.Not.Null);
         Assert.That(prefab.GetComponent<Collider2D>(), Is.Not.Null);
         Assert.That(networkObject.Flags.HasFlag(NetworkObjectFlags.MasterClientObject), Is.True);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(directory));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(partyDirectory));
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(interactable));
         Assert.That(interactable.PreparationDirectory, Is.SameAs(directory));
     }
@@ -511,9 +518,11 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(prefab, Is.Not.Null);
         Assert.That(prefab.GetComponent<TownRaidPreparationView>(), Is.Not.Null);
         Assert.That(prefab.transform.Find("RaidCodePanel/Abandonar preparacion"), Is.Not.Null);
-        TMP_Text status = prefab.transform.Find("RaidCodePanel/Status")?.GetComponent<TMP_Text>();
+        Transform statusViewport = prefab.transform.Find("RaidCodePanel/StatusViewport");
+        TMP_Text status = statusViewport?.Find("Status")?.GetComponent<TMP_Text>();
         Assert.That(status, Is.Not.Null);
-        Assert.That(status.GetComponent<LayoutElement>().preferredHeight, Is.GreaterThanOrEqualTo(300f));
+        Assert.That(statusViewport.GetComponent<ScrollRect>(), Is.Not.Null);
+        Assert.That(statusViewport.GetComponent<LayoutElement>().preferredHeight, Is.GreaterThanOrEqualTo(300f));
     }
 
     [Test]

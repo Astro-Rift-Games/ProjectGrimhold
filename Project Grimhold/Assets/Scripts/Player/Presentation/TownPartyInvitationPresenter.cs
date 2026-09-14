@@ -22,7 +22,7 @@ public sealed class TownPartyInvitationPresenter : NetworkBehaviour
     [SerializeField]
     private TownPartyInvitationView _view;
 
-    private TownRaidPreparationDirectory _directory;
+    private TownPartyDirectory _directory;
     private IDisposable _inputSuppression;
     private int _visibleInvitationId;
     private bool _bound;
@@ -99,8 +99,8 @@ public sealed class TownPartyInvitationPresenter : NetworkBehaviour
 
     private void EnsureDirectory()
     {
-        TownRaidPreparationDirectory resolved = Runner != null
-            ? Runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Directory
+        TownPartyDirectory resolved = Runner != null
+            ? Runner.GetComponent<TownPartyDirectoryContext>()?.Directory
             : null;
         if (_directory == resolved)
         {

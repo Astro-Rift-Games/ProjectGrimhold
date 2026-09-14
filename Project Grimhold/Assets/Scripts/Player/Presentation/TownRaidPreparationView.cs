@@ -15,6 +15,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private TMP_Text _promptText;
     private GameObject _panelRoot;
     private TMP_Text _statusText;
+    private ScrollRect _statusScroll;
     private TMP_InputField _codeInput;
     private Button _createButton;
     private Button _joinButton;
@@ -89,7 +90,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _promptRoot = FindChild("InteractionPrompt");
         _promptText = FindText("InteractionPrompt/PromptText");
         _panelRoot = FindChild("RaidCodePanel");
-        _statusText = FindText("RaidCodePanel/Status");
+        _statusText = FindText("RaidCodePanel/StatusViewport/Status");
+        _statusScroll = FindComponent<ScrollRect>("RaidCodePanel/StatusViewport");
         _codeInput = FindComponent<TMP_InputField>("RaidCodePanel/RaidCodeInput");
         _createButton = FindComponent<Button>("RaidCodePanel/Crear raid");
         _joinButton = FindComponent<Button>("RaidCodePanel/Unirse con este código");
@@ -175,38 +177,6 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             if (label != null)
             {
                 label.text = "Abandonar preparación";
-            }
-        }
-    }
-
-    public void PresentPendingContinuation(TownPartyContinuationContext context)
-    {
-        _localReady = false;
-        if (_codeInput != null)
-        {
-            _codeInput.text = string.Empty;
-            _codeInput.interactable = false;
-        }
-
-        var status = new System.Text.StringBuilder("Party pendiente — esperando al compañero");
-        for (int index = 0; index < context.Members.Count; index++)
-        {
-            status.AppendLine().Append(context.Members[index].Value);
-        }
-
-        ShowStatus(status.ToString());
-        if (_createButton != null) _createButton.gameObject.SetActive(false);
-        if (_joinButton != null) _joinButton.gameObject.SetActive(false);
-        if (_copyButton != null) _copyButton.gameObject.SetActive(false);
-        if (_readyButton != null) _readyButton.gameObject.SetActive(false);
-        if (_startButton != null) _startButton.gameObject.SetActive(false);
-        if (_leaveButton != null)
-        {
-            _leaveButton.gameObject.SetActive(true);
-            TMP_Text label = _leaveButton.GetComponentInChildren<TMP_Text>();
-            if (label != null)
-            {
-                label.text = "Abandonar Party";
             }
         }
     }
@@ -402,6 +372,11 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _statusText.text = string.IsNullOrEmpty(_rejectionNotice) || status == _rejectionNotice
             ? status
             : $"{_rejectionNotice}\n{status}";
+        if (_statusScroll != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            _statusScroll.verticalNormalizedPosition = 1f;
+        }
     }
 
     private static TMP_InputField CreateCodeInput(Transform parent)

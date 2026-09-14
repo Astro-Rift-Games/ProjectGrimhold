@@ -5,8 +5,10 @@ public readonly struct TownPartyInvitationSnapshot
     public int InvitationId { get; }
     public ProfileId InviterProfileId { get; }
     public ProfileId RecipientProfileId { get; }
-    public NetworkId PreparationNetworkId { get; }
-    public int MembershipRevision { get; }
+    public int InviterPartyId { get; }
+    public int InviterPartyRevision { get; }
+    public int RecipientPartyId { get; }
+    public int RecipientPartyRevision { get; }
     public TickTimer ExpiresAt { get; }
 
     public TownPartyInvitationSnapshot(in TownPartyInvitationNetworkEntry entry)
@@ -14,8 +16,10 @@ public readonly struct TownPartyInvitationSnapshot
         InvitationId = entry.InvitationId;
         InviterProfileId = new ProfileId(entry.InviterProfileId.ToString());
         RecipientProfileId = new ProfileId(entry.RecipientProfileId.ToString());
-        PreparationNetworkId = entry.PreparationNetworkId;
-        MembershipRevision = entry.MembershipRevision;
+        InviterPartyId = entry.InviterPartyId;
+        InviterPartyRevision = entry.InviterPartyRevision;
+        RecipientPartyId = entry.RecipientPartyId;
+        RecipientPartyRevision = entry.RecipientPartyRevision;
         ExpiresAt = entry.ExpiresAt;
     }
 }

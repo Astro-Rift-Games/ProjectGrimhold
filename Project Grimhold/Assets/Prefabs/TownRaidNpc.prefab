@@ -104,6 +104,7 @@ GameObject:
   - component: {fileID: 2154561761751089268}
   - component: {fileID: 2234728297665594424}
   - component: {fileID: 5063217787893318300}
+  - component: {fileID: 7934271809461283650}
   - component: {fileID: 439343322531755603}
   - component: {fileID: 8510896767280737593}
   m_Layer: 8
@@ -149,6 +150,7 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 2234728297665594424}
   - {fileID: 5063217787893318300}
+  - {fileID: 7934271809461283650}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &2234728297665594424
 MonoBehaviour:
@@ -177,6 +179,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownRaidNpcInteractable
   _directory: {fileID: 2234728297665594424}
+--- !u!114 &7934271809461283650
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7290314261216576876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4318e950a8854f8ab9fc870db5ff374a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownPartyDirectory
 --- !u!114 &439343322531755603
 MonoBehaviour:
   m_ObjectHideFlags: 0

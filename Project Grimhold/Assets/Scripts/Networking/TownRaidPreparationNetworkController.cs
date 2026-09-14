@@ -442,12 +442,13 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
-        if (coordinator == null)
+        if (coordinator == null || _directory == null ||
+            !_directory.TryGetLocalPartyContinuation(localProfile, out TownPartyContinuationContext partyContinuation))
         {
             return;
         }
 
-        RaidLaunchPreparationResult preparation = coordinator.TryStoreRaidLaunchContext(context);
+        RaidLaunchPreparationResult preparation = coordinator.TryStoreRaidLaunchContext(context, partyContinuation);
         if (preparation == RaidLaunchPreparationResult.NotReady)
         {
             return;

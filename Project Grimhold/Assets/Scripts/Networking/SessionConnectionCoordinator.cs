@@ -80,12 +80,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 
     /// <summary>
-    /// Preserves one validated frozen Town roster across runner replacement. Repeating the same
-    /// launch is idempotent; a different launch cannot replace an unresolved continuation.
+    /// Preserves one validated Party descriptor across runner replacement. Repeating the same
+    /// descriptor is idempotent; a different Party cannot replace an unresolved continuation.
     /// </summary>
-    public bool TryPreservePartyContinuation(RaidLaunchContext launchContext)
+    public bool TryPreservePartyContinuation(TownPartyContinuationContext continuation)
     {
-        if (!TownPartyContinuationContext.TryCreate(launchContext, out TownPartyContinuationContext continuation))
+        if (continuation == null || !continuation.Contains(LocalProfileProvider.GetOrCreateLocalProfile()))
         {
             return false;
         }
@@ -99,10 +99,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return _pendingPartyContinuation.Equals(continuation);
     }
 
-    public bool ConfirmPartyContinuationRestored(in TownRaidPreparationSnapshot snapshot)
+    public bool ConfirmPartyContinuationRestored(in TownPartySnapshot snapshot)
     {
         if (_pendingPartyContinuation == null ||
-            !_pendingPartyContinuation.MatchesRoster(snapshot.HostProfileId, snapshot.Members))
+            !_pendingPartyContinuation.Matches(snapshot))
         {
             return false;
         }
@@ -130,7 +130,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// other failure is permanent for this launch revision and exposes a player-facing reason
     /// through <see cref="TryConsumeLastLaunchRejection"/>.
     /// </summary>
-    public RaidLaunchPreparationResult TryStoreRaidLaunchContext(RaidLaunchContext launchContext)
+    public RaidLaunchPreparationResult TryStoreRaidLaunchContext(
+        RaidLaunchContext launchContext,
+        TownPartyContinuationContext partyContinuation)
     {
         if (launchContext == null || State != SessionConnectionState.Town || _operationActive)
         {
@@ -138,7 +140,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        if (launchContext.LocalProfileId != localProfile ||
+        if (launchContext.LocalProfileId != localProfile || partyContinuation == null ||
+            !partyContinuation.Contains(localProfile) ||
             !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile))
         {
             return RaidLaunchPreparationResult.NotReady;
@@ -189,12 +192,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 RaidLaunchPreparationResult.Rejected);
         }
 
-        var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
-        if (remoteInventoryService != null)
-        {
-            _ = remoteInventoryService.SavePendingReservationAsync(reservation);
-        }
-
         RaidConnectionRole role = launchContext.HostProfileId == localProfile
             ? RaidConnectionRole.Host
             : RaidConnectionRole.Client;
@@ -204,6 +201,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             reservation,
             SessionConnectionState.Town,
             launchContext);
+        if (!TryPreservePartyContinuation(partyContinuation))
+        {
+            _activeTicket = null;
+            stashContext.LoadoutService.TryRollbackLoadoutReservation(localProfile, reservation.ReservationId);
+            return RaidLaunchPreparationResult.Rejected;
+        }
+        var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
+        if (remoteInventoryService != null)
+        {
+            _ = remoteInventoryService.SavePendingReservationAsync(reservation);
+        }
         return RaidLaunchPreparationResult.Success;
     }
 
@@ -298,6 +306,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _activeTicket = null;
+        _pendingPartyContinuation = null;
     }
 
     /// <summary>
@@ -750,11 +759,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             (!continuationAttempt && _hubLauncher.Runner == null))
         {
             return SessionTransitionResult.InvalidState;
-        }
-
-        if (!continuationAttempt && !TryPreservePartyContinuation(ticket.LaunchContext))
-        {
-            return SessionTransitionResult.InvalidRequest;
         }
 
         _operationActive = true;

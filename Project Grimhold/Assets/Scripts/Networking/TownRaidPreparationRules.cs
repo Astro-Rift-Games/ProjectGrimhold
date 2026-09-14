@@ -5,7 +5,7 @@ using System.Collections.Generic;
 /// </summary>
 public static class TownRaidPreparationRules
 {
-    public const int MaxMembers = 2;
+    public const int MaxMembers = RaidSessionRules.MaxParticipants;
 
     /// <summary>Validates one complete preparation observation.</summary>
     public static bool IsValidSnapshot(in TownRaidPreparationSnapshot snapshot)

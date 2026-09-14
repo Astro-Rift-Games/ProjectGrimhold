@@ -13,7 +13,7 @@ public sealed class TownRaidPreparationPresentationTests
     }
 
     [Test]
-    public void Member_SeesOnlyResolvedPreparationAndDuoCapacitySource()
+    public void Member_SeesOnlyResolvedPreparationAndRaidCapacitySource()
     {
         TownRaidPreparationSnapshot snapshotA = CreateSnapshot("host-a", "client-a", true);
         TownRaidPreparationSnapshot snapshotB = CreateSnapshot("host-b", "client-b", false);
@@ -25,7 +25,7 @@ public sealed class TownRaidPreparationPresentationTests
         Assert.That(presentation.IsHost, Is.False);
         Assert.That(TownRaidPreparationPresentation.TryCreate(
             snapshotB, new ProfileId("client-a"), out _), Is.False);
-        Assert.That(TownRaidPreparationRules.MaxMembers, Is.EqualTo(2));
+        Assert.That(TownRaidPreparationRules.MaxMembers, Is.EqualTo(16));
         Assert.That(RaidSessionRules.MaxParticipants, Is.EqualTo(16));
     }
 

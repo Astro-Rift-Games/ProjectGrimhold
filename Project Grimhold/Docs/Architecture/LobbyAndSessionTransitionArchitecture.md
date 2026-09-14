@@ -63,6 +63,8 @@ the explicit development entry point. Invalid transitions do not mutate state.
 | Selected build | Coordinator field | Coordinator |
 | Active raid request, reservation and progress | `RaidTransitionTicket` | Coordinator |
 | Pending Party continuity across runner replacement | `TownPartyContinuationContext` claim | Coordinator |
+| Authoritative Town Solo/Duo Party roster | `TownPartyDirectory` replicated entry | Town Shared runner / State Authority |
+| Authoritative Raid preparation roster and Ready state | `TownRaidPreparationNetworkController` snapshot | Town Shared runner / State Authority |
 | Active Town runner identity | `HubSessionLauncher.Runner` | Hub launcher |
 | Active raid runner identity | `FusionSessionLauncher.Runner` | Raid launcher |
 | Town spawn positions | `HubSpawnSceneConfiguration` in `Lobby-Town` | Town scene |
@@ -76,10 +78,11 @@ The transition ticket is local lifecycle data; it is not replicated state and do
 second gameplay source of truth.
 
 The Party continuation context follows the same runner-independent restriction. It is a local
-claim, not an authoritative roster. The Town preparation snapshot becomes the sole roster again
-only after every Solo/Duo member submits the same origin descriptor and the Town directory
-recreates the preparation. A pending Duo survives an absent or still-loading member without a
-timeout-based dissolution. Explicit abandonment withdraws and invalidates that profile's claim.
+claim containing only Party Host and the ordered Solo/Duo roster, not an authoritative roster and
+not a Raid descriptor. `TownPartyDirectory` confirms an existing matching Party or reconstructs only
+the Party after matching member claims. If the local profile already belongs to a changed Party, the
+current authoritative roster wins and the stale claim is discarded. Return never recreates a Raid
+preparation or generates a RaidCode.
 
 ## Requests and results
 
@@ -104,8 +107,10 @@ path as the Town queue. The coded token carries `RaidCode`; the previous
 
 ## Coded Raid preparation and technical waiting
 
-Create and Join remain in the Town Shared runner. The replicated Town preparation
-owns the six-digit code, ProfileId members, Ready flags and Host Start boundary.
+Create and Join remain in the Town Shared runner. Explicit Create copies the creator's current
+Solo/Duo Party into a new, independent preparation and makes the creator Raid Host. Join by code
+adds only the requester and never changes Party. The replicated Town preparation owns the
+six-digit code, one through sixteen ProfileId members, Ready flags and Host Start boundary.
 Start freezes the cohort and the coordinator copies a runner-independent launch
 context before Town shutdown. Its canonical members are immutable
 `RaidLaunchParticipant(ProfileId, RaidTeamId)` values; the current Town flow assigns
@@ -333,7 +338,8 @@ and must be reported independently.
 
 ## Scope limits
 
-The Town preparation owns the temporary cohort, Ready state and launch boundary. It does
-not replace persistent inventory, extraction receipts, backend, stores or saving. The
+The Town Party directory owns only the social Solo/Duo roster. The Town preparation owns the
+independent temporary 1-16 Raid cohort, Ready state and launch boundary. Neither mutates the other
+after explicit creation, and neither replaces persistent inventory, extraction receipts, backend, stores or saving. The
 coordinator remains the single runner-transition owner, and Host Migration consumes the
 same frozen context without introducing a second membership source.

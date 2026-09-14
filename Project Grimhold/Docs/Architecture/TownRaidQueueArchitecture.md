@@ -1,111 +1,73 @@
-# Town Raid Preparation Architecture
+# Town Party and Raid Preparation Architecture
 
 ## Decision
 
-Raid preparation is a replicated cohort owned by the Town Shared Mode runner. The
-Host and Clients remain in Town until the Host explicitly starts the raid. The
-Dungeon/Gameplay runner is not created by the NPC Create or Join actions.
+Town Party and Raid Preparation are independent replicated domains inside the Town Shared runner.
 
 ```text
-TownRaidNpcInteractable
-  -> TownRaidPreparationPresenter / TownRaidPreparationView
-  -> TownRaidPreparationDirectory / TownRaidPreparationNetworkController (State Authority)
-  -> Ready cohort freeze and launch envelope
-  -> SessionConnectionCoordinator (single runner transition)
-  -> Raid runner with the frozen profiles only
+SocialPlayer interaction -> TownPartyDirectory -> Solo/Duo Party (max 2)
+TownRaidNpc interaction -> TownRaidPreparationDirectory -> Raid preparation (max 16)
+Ready/Start -> frozen RaidLaunchContext -> SessionConnectionCoordinator -> Raid runner
 ```
 
-The State Authority generates one six-digit `RaidCode` at creation and replicates
-it with the cohort. Joining requires that exact code. The replicated snapshot is
-the presentation source of truth for the code, members, capacity and Ready flags;
-there is no second client roster. A preparation contains one or two members only.
-The Raid-wide capacity remains a separate sixteen-participant technical limit.
+`TownPartyDirectory` is the sole authoritative source for the social roster. Every registered Town
+profile receives a Solo Party. A direct invitation references the inviter and recipient Parties plus
+their revisions. Acceptance revalidates both Solo rosters and merges them with the inviter as Party
+Host. Leaving a Duo splits it into two Solo Parties. Invitation expiry and pair cooldown remain
+State-Authority `TickTimer` state. Party entries, invitations and continuation contain no RaidCode,
+Ready state, preparation identity or launch revision.
 
-Direct player invitations are replicated state owned by `TownRaidPreparationDirectory`.
-Each pending invitation identifies one preparation by its `NetworkId` and captures that
-preparation's membership-only revision. It never adds a provisional member: the
-preparation snapshot remains the sole roster source of truth. Acceptance revalidates the
-same preparation, Host, editable state, membership revision, connectivity, capacity and
-both participants before adding the recipient. Ready, Start and joining that preparation
-are blocked while its invitation is pending; Leave cancels it first.
+`TownRaidPreparationDirectory` owns only concrete expeditions. Explicit Create generates the
+six-digit `RaidCode` and copies the creator's current Party roster, with the creator first and as Raid
+Host, into a new preparation. Every copied participant starts Not Ready. The preparation thereafter
+owns an independent roster of one through `RaidSessionRules.MaxParticipants` (16) profiles.
 
-Invitation expiry (20 seconds) and pair cooldown (5 seconds) are replicated `TickTimer`
-state advanced only by State Authority. Presentation reconstructs pending UI from the
-directory snapshot; result events are transient feedback only. RaidCode remains a
-presentational/manual-join value and is not invitation identity.
+Join by code adds only the requesting profile to that preparation. It neither imports the requester's
+Party nor mutates any Party. Party merge/split never changes, cancels or populates an existing
+preparation; preparation Join/Leave/Cancel never changes Party. Pending social invitations do not
+block Join, Ready or Start.
 
-## Lifecycle
+## Launch and runner transition
 
-1. Create: Host is added to an `Empty` preparation and receives a fixed code.
-2. Join: Clients validate the supplied code and are admitted to the Town cohort.
-3. Ready: every current member, including the Host, explicitly sets Ready.
-4. Start: only the Host may start and only when all current members are Ready.
-   The authoritative controller changes to `Launching`, freezes membership and
-   delivers one launch envelope. Create/Join/Ready do not reserve loadout data.
-5. Transition: each frozen member acknowledges the envelope; the coordinator
-   first creates its local Loadout reservation. That aggregate mutation requires
-   at least one valid prepared Main Hand weapon and captures the eight Equipment assignments with
-   the items. Only then does it shut down Town and create or join the exact
-   code-derived Raid session.
+Each preparation member controls only its own Ready flag. Only the Raid Host may Start, and only
+when every current member is Ready. Start freezes the full preparation snapshot and the current ACK,
+release and deadline workflow operates exclusively on that frozen roster. `RaidLaunchContext`
+contains the code, Raid Host and up to 16 frozen profiles. `SessionConnectionCoordinator` remains
+the only owner of Town/Raid runner replacement and local loadout reservation.
 
-Before Town shutdown, each member stores a `RaidLaunchContext` containing the
-code, frozen profile identities, Host profile and local profile. It contains no
-Town `NetworkObject`, `NetworkBehaviour`, `PlayerRef` or UI reference. A Client
-may retry the same session name/code at most five times only for Fusion's typed
-`GameNotFound` availability result. `GameClosed` is terminal because the session
-already exists but no longer accepts joins. `GameFull`, authentication,
-token, version, scene and generic failures are terminal; Host
-`GameIdAlreadyExists` is terminal and never generates another code.
+At local launch materialization, each application separately captures its current Party as a
+`TownPartyContinuationContext` containing only Party Host and ordered Solo/Duo roster. Party members
+do not need to belong to the Raid. The context is runner-independent and has no RaidCode,
+preparation or launch revision.
 
-The coordinator also derives an immutable `TownPartyContinuationContext` from the
-frozen preparation. It survives runner replacement and Results without owning the
-Town roster. After returning, every member claims only its own stable profile. The
-new Town directory recreates the preparation with a fresh code and all members Not
-Ready only after all matching claims are present and ungrouped in the current Shared
-session. Until then, the UI reports a pending Party and blocks Create, Join, Ready
-and Start. Absence and loading time never dissolve the continuation.
+## Return continuity
 
-Claims are submitted or resubmitted only at lifecycle boundaries: Town directory
-spawn, directory readiness, player join, or State Authority reconstruction. Render
-observes those triggers but never emits a recurring per-frame or timer-based RPC.
+On Town return, `TownPartyDirectory` first treats an already-existing matching Party as authoritative.
+If the local profile already belongs to a changed Party, that current roster wins and the stale local
+context is discarded. Otherwise matching claims from every Solo/Duo member may reconstruct only the
+Party. Restoration never creates a preparation or a RaidCode. A player consequently returns without
+a preparation and the next NPC interaction presents Create/Join again.
 
-Explicit abandonment withdraws the local claim and tombstones that profile for the
-origin preparation, so a later compatible claim from the other member cannot restore
-the Party. Successful restoration or explicit abandonment clears the local context.
-This continuity is application-session state only; global presence and durable Party
-persistence remain outside this architecture.
-
-An admission or departure racing Start is resolved by State Authority ordering:
-only members present in the frozen envelope participate. A member whose launch
-acknowledgement cannot be completed is rolled back and returned to Town; no
-partially admitted participant is retained.
-
-## Identity and admission
-
-`RaidCode` is the canonical identity. It deterministically derives `SessionName`
-and `RaidId`; the old manifest remains only as a compatibility transport for the
-frozen cohort and must use those same identities. Raid admission validates the
-frozen profile list, not an open late-join roster. A code is never regenerated
-after session creation or collision; failure is recovered through the normal
-transition cleanup path.
-
-Once the Raid runner exists, `WaitingForPlayers` is only a technical connecting
-phase. The frozen cohort is admitted automatically; there is no second player-
-facing Start button in Gameplay. Deferred PvPvE bootstrap, gameplay guards,
-BootstrapFailure closure and Host Migration remain owned by their respective
-architecture documents.
+Continuation claims are emitted only at lifecycle/replicated-state observation boundaries. Explicit
+abandonment tombstones the local claim. This is application-session continuity; backend Party
+persistence and global presence remain out of scope.
 
 ## Presentation
 
-The Town presenter owns only local UI and input suppression. It observes the
-replicated `TownRaidPreparationSnapshot` and forwards typed intentions (`Create`,
-`Join`, `Ready`, `Start`) to the network controller. It does not call the session
-coordinator during Create/Join and does not mutate simulation state.
+`TownRaidPreparationPresenter` projects only the local profile's preparation. Without one it always
+shows the initial `Crear raid` / code-join state, regardless of Party or pending continuity. The
+existing panel presents the 1-16 roster in its bounded scroll area.
 
-## Validation
+`TownPartyHudPresenter` projects the authoritative Party only for `HasInputAuthority`. The preauthored
+`TownPartyHudView` always shows the local display name, shows the companion and `Abandonar Party`
+only for Duo, and resolves names from `SocialPlayerIdentity` with `ProfileId` as a temporary fallback.
+Presentation does not mutate Party or preparation state directly.
 
-EditMode tests cover create/join code matching, Duo capacity, Ready/all-Ready rules,
-Host-only Start, deterministic freeze ordering, matching continuation claims and
-irreversible claim withdrawal. Integration validation must cover Solo, Duo preparation,
-a simultaneous Join/Start race, transition failure rollback, a Client returning before
-the Host, restoration in Town and a second Town-to-Raid cycle.
+## Validation boundaries
+
+Pure/EditMode coverage owns Party validity/merge/roster-copy rules, invitation contract separation,
+16-member preparation capacity, Ready/Start/freeze, continuation matching and HUD projection.
+Serialized composition tests own the single Party directory and local HUD wiring. PlayMode must cover
+Solo initialization and Input-Authority-only HUD activation. Manual multi-application validation must
+cover independent Party/preparation mutations, cross-Party join by code, 16-member capacity, launch,
+staggered return and a fresh Create state after return.

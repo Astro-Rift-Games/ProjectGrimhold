@@ -80,8 +80,14 @@ In Town, `SocialPlayerInteractable` shares the avatar `EntityId` and registers o
 dedicated layer-8 trigger. Its replicated `SocialPlayerIdentity.DisplayName` supplies the
 small dynamic prompt `Invitar a Grupo a <Nombre>`; the existing nearest-valid-candidate
 policy is unchanged. `TownPartyInvitationPresenter` binds the single preauthored Town
-`InteractionHudPresenter` and projects replicated invitation state into its serialized
-modal. Only an incoming modal suppresses gameplay input.
+`InteractionHudPresenter` and projects invitation state replicated by `TownPartyDirectory` into
+its serialized modal. Invitations mutate only the authoritative Solo/Duo Party roster and never
+create or join a Raid preparation. Only an incoming modal suppresses gameplay input.
+
+`TownPartyHudPresenter` is a separate local projection on `SocialPlayer.prefab`. Its preauthored
+view is enabled only for `HasInputAuthority`, resolves member names through replicated
+`SocialPlayerIdentity` values with `ProfileId` fallback, and exposes `Abandonar Party` only for a
+Duo. The HUD forwards that explicit intent to `TownPartyDirectory`; it does not own roster state.
 
 Every interaction press processed by State Authority increments `InteractionSequence`, including disabled control, unavailable interactor (dead or `Extracted`), and missing-target failures. The result retains target, tick, success, consumption, and its typed failure reason.
 

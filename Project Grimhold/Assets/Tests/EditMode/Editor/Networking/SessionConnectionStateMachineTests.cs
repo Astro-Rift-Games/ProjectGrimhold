@@ -89,44 +89,21 @@ public sealed class SessionConnectionStateMachineTests
         SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
         var host = new ProfileId("11111111111111111111111111111111");
         var client = new ProfileId("22222222222222222222222222222222");
-        RaidCode.TryParse("123456", out RaidCode originCode);
-        RaidCode.TryParse("654321", out RaidCode restoredCode);
-        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
-        RaidLaunchContext.TryCreate(
-            originCode,
-            host,
-            new[]
-            {
-                new RaidLaunchParticipant(host, teamId),
-                new RaidLaunchParticipant(client, teamId)
-            },
-            host,
-            7,
-            out RaidLaunchContext launchContext);
-        var restoredSnapshot = new TownRaidPreparationSnapshot(
-            restoredCode,
-            host,
-            TownRaidPreparationState.Waiting,
-            new[]
-            {
-                new TownRaidPreparationMember(host),
-                new TownRaidPreparationMember(client)
-            },
-            1);
+        TownPartyContinuationContext.TryCreate(host, new[] { host, client }, out TownPartyContinuationContext continuation);
+        var restoredSnapshot = new TownPartySnapshot(19, host, new[] { host, client }, 3);
 
         try
         {
-            Assert.That(coordinator.TryPreservePartyContinuation(launchContext), Is.True);
-            Assert.That(coordinator.TryPreservePartyContinuation(launchContext), Is.True);
+            Assert.That(coordinator.TryPreservePartyContinuation(continuation), Is.True);
+            Assert.That(coordinator.TryPreservePartyContinuation(continuation), Is.True);
 
             InvokePrivateMethod(coordinator, "CompleteTownEntry", new object[] { null });
 
             Assert.That(coordinator.HasPendingPartyContinuation, Is.True);
-            Assert.That(restoredSnapshot.Members, Has.All.Matches<TownRaidPreparationMember>(member => !member.IsReady));
             Assert.That(coordinator.ConfirmPartyContinuationRestored(restoredSnapshot), Is.True);
             Assert.That(coordinator.HasPendingPartyContinuation, Is.False);
 
-            Assert.That(coordinator.TryPreservePartyContinuation(launchContext), Is.True);
+            Assert.That(coordinator.TryPreservePartyContinuation(continuation), Is.True);
             TownPartyContinuationContext pending = coordinator.PendingPartyContinuation;
             Assert.That(coordinator.AbandonPartyContinuation(pending), Is.True);
             Assert.That(coordinator.HasPendingPartyContinuation, Is.False);

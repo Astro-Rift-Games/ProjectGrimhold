@@ -10,7 +10,7 @@ public enum TownPartyContinuationClaimResult
 
 /// <summary>
 /// Pure authority-side aggregation for matching continuation claims. A withdrawn claim is a
-/// tombstone for that origin and profile and can never contribute to later restoration.
+/// tombstone for that exact Party descriptor and profile and cannot contribute later.
 /// </summary>
 public sealed class TownPartyContinuationClaimRegistry
 {
@@ -112,6 +112,10 @@ public sealed class TownPartyContinuationClaimRegistry
         return true;
     }
 
-    private static string GetKey(TownPartyContinuationContext context) =>
-        $"{context.OriginRaidCode.Value}:{context.OriginLaunchRevision}";
+    private static string GetKey(TownPartyContinuationContext context)
+    {
+        string key = context.HostProfileId.Value;
+        for (int index = 0; index < context.Members.Count; index++) key += $"|{context.Members[index].Value}";
+        return key;
+    }
 }
