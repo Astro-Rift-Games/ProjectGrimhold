@@ -1,104 +1,199 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Spawning;
 
 /// <summary>
-/// Deterministic Raid player-spawn rules. Stable ProfileId order selects a spawn;
-/// PlayerRef is intentionally absent because it belongs only to the current runner.
+/// Deterministic fresh-Raid player-spawn rules. Stable team appearance order selects an area,
+/// and stable profile order inside that team selects a position. PlayerRef is intentionally
+/// absent because it belongs only to the current runner.
 /// </summary>
 public static class RaidParticipantSpawnRules
 {
-    public static bool ValidateSpawnPoints(
-        IReadOnlyList<Transform> spawnPoints,
-        int expectedParticipants,
+    public static bool ValidateFreshSpawnPreflight(
+        RaidLaunchContext launchContext,
+        IReadOnlyList<PlayerSpawnAreaDefinition> spawnAreas,
         out string failure)
     {
         failure = null;
-        if (spawnPoints == null)
+        if (launchContext == null)
         {
-            failure = "Player spawn group is missing.";
+            failure = "Canonical launch context is missing.";
             return false;
         }
 
-        var positions = new List<Vector3>(spawnPoints.Count);
-        for (int index = 0; index < spawnPoints.Count; index++)
+        if (!launchContext.RaidCode.IsValid ||
+            !RaidSessionRules.IsValidLaunchRevision(launchContext.LaunchRevision) ||
+            !RaidSessionRules.IsValidParticipantCohort(
+                launchContext.HostProfileId,
+                launchContext.ParticipantProfileIds) ||
+            !RaidSessionRules.ContainsProfile(
+                launchContext.ParticipantProfileIds,
+                launchContext.LocalProfileId))
         {
-            if (spawnPoints[index] == null)
+            failure = "Canonical launch context identity or revision is invalid.";
+            return false;
+        }
+
+        IReadOnlyList<RaidLaunchParticipant> participants = launchContext.Participants;
+        if (participants == null || !RaidSessionRules.IsValidParticipantCount(participants.Count))
+        {
+            failure = "Frozen Raid participant count is invalid.";
+            return false;
+        }
+
+        if (spawnAreas == null || spawnAreas.Count == 0)
+        {
+            failure = "Player spawn areas are missing.";
+            return false;
+        }
+
+        var seenTransforms = new HashSet<Transform>();
+        var seenPositions = new HashSet<Vector3>();
+        for (int areaIndex = 0; areaIndex < spawnAreas.Count; areaIndex++)
+        {
+            PlayerSpawnAreaDefinition area = spawnAreas[areaIndex];
+            if (area == null || area.SpawnPoints == null || area.SpawnPoints.Count == 0)
             {
-                failure = $"Player spawn point {index} is null.";
+                failure = $"Player spawn area {areaIndex} is missing or empty.";
                 return false;
             }
 
-            positions.Add(spawnPoints[index].position);
+            for (int pointIndex = 0; pointIndex < area.SpawnPoints.Count; pointIndex++)
+            {
+                Transform spawnPoint = area.SpawnPoints[pointIndex];
+                if (spawnPoint == null)
+                {
+                    failure = $"Player spawn area {areaIndex} point {pointIndex} is null.";
+                    return false;
+                }
+
+                if (!seenTransforms.Add(spawnPoint))
+                {
+                    failure = $"Player spawn transform '{spawnPoint.name}' is configured more than once.";
+                    return false;
+                }
+
+                if (!seenPositions.Add(spawnPoint.position))
+                {
+                    failure = $"Player spawn position {spawnPoint.position} is configured more than once.";
+                    return false;
+                }
+            }
         }
 
-        return ValidateSpawnPositions(positions, expectedParticipants, out failure);
-    }
-
-    public static bool TryGetSpawnIndex(
-        IReadOnlyList<ProfileId> frozenProfiles,
-        ProfileId profileId,
-        out int spawnIndex)
-    {
-        spawnIndex = -1;
-        if (!profileId.IsValid || frozenProfiles == null ||
-            frozenProfiles.Count < 1 || frozenProfiles.Count > RaidSessionRules.MaxParticipants)
+        var seenAssignments = new HashSet<(int AreaIndex, int PointIndex)>();
+        for (int index = 0; index < participants.Count; index++)
         {
-            return false;
-        }
-
-        for (int index = 0; index < frozenProfiles.Count; index++)
-        {
-            if (!frozenProfiles[index].IsValid)
+            if (!TryResolveSpawnAssignment(
+                    participants,
+                    participants[index].ProfileId,
+                    spawnAreas,
+                    out int areaIndex,
+                    out int pointIndex,
+                    out failure))
             {
                 return false;
             }
 
-            if (frozenProfiles[index] == profileId)
+            if (!seenAssignments.Add((areaIndex, pointIndex)))
             {
-                if (spawnIndex >= 0)
-                {
-                    spawnIndex = -1;
-                    return false;
-                }
-
-                spawnIndex = index;
-            }
-        }
-
-        return spawnIndex >= 0;
-    }
-
-    public static bool ValidateSpawnPositions(
-        IReadOnlyList<Vector3> positions,
-        int expectedParticipants,
-        out string failure)
-    {
-        failure = null;
-        if (!RaidSessionRules.IsValidParticipantCount(expectedParticipants))
-        {
-            failure = "Expected participant count is outside Raid capacity.";
-            return false;
-        }
-
-        if (positions == null || positions.Count < expectedParticipants)
-        {
-            failure = $"Player spawn group requires {expectedParticipants} valid points.";
-            return false;
-        }
-
-        for (int index = 0; index < expectedParticipants; index++)
-        {
-            Vector3 position = positions[index];
-            for (int other = index + 1; other < expectedParticipants; other++)
-            {
-                if (position == positions[other])
-                {
-                    failure = $"Player spawn points {index} and {other} share the same position.";
-                    return false;
-                }
+                failure = $"Participants resolve to the same player spawn assignment {areaIndex}:{pointIndex}.";
+                return false;
             }
         }
 
         return true;
+    }
+
+    public static bool TryResolveSpawnAssignment(
+        IReadOnlyList<RaidLaunchParticipant> participants,
+        ProfileId profileId,
+        IReadOnlyList<PlayerSpawnAreaDefinition> spawnAreas,
+        out int areaIndex,
+        out int pointIndex,
+        out string failure)
+    {
+        areaIndex = -1;
+        pointIndex = -1;
+        failure = null;
+        if (!profileId.IsValid || participants == null ||
+            !RaidSessionRules.IsValidParticipantCount(participants.Count))
+        {
+            failure = "Player profile or frozen Raid participants are invalid.";
+            return false;
+        }
+
+        var orderedTeams = new List<RaidTeamId>();
+        var teamMemberCounts = new List<int>();
+        var seenProfiles = new HashSet<ProfileId>();
+        bool found = false;
+        int resolvedAreaIndex = -1;
+        int resolvedPointIndex = -1;
+        for (int index = 0; index < participants.Count; index++)
+        {
+            RaidLaunchParticipant participant = participants[index];
+            if (!participant.IsValid || !seenProfiles.Add(participant.ProfileId))
+            {
+                failure = "Frozen Raid participants contain an invalid or duplicate entry.";
+                return false;
+            }
+
+            int teamIndex = IndexOf(orderedTeams, participant.TeamId);
+            if (teamIndex < 0)
+            {
+                teamIndex = orderedTeams.Count;
+                orderedTeams.Add(participant.TeamId);
+                teamMemberCounts.Add(0);
+            }
+
+            if (participant.ProfileId == profileId)
+            {
+                found = true;
+                resolvedAreaIndex = teamIndex;
+                resolvedPointIndex = teamMemberCounts[teamIndex];
+            }
+
+            teamMemberCounts[teamIndex]++;
+        }
+
+        if (!found)
+        {
+            areaIndex = -1;
+            pointIndex = -1;
+            failure = $"Profile '{profileId}' does not belong to the frozen Raid roster.";
+            return false;
+        }
+
+        if (spawnAreas == null || resolvedAreaIndex < 0 || resolvedAreaIndex >= spawnAreas.Count)
+        {
+            failure = $"No player spawn area is available for team ordinal {resolvedAreaIndex}.";
+            return false;
+        }
+
+        PlayerSpawnAreaDefinition area = spawnAreas[resolvedAreaIndex];
+        if (area == null || area.SpawnPoints == null ||
+            resolvedPointIndex < 0 || resolvedPointIndex >= area.SpawnPoints.Count ||
+            area.SpawnPoints[resolvedPointIndex] == null)
+        {
+            failure = $"Player spawn area {resolvedAreaIndex} has no valid position {resolvedPointIndex}.";
+            return false;
+        }
+
+        areaIndex = resolvedAreaIndex;
+        pointIndex = resolvedPointIndex;
+        return true;
+    }
+
+    private static int IndexOf(IReadOnlyList<RaidTeamId> teams, RaidTeamId teamId)
+    {
+        for (int index = 0; index < teams.Count; index++)
+        {
+            if (teams[index] == teamId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 }

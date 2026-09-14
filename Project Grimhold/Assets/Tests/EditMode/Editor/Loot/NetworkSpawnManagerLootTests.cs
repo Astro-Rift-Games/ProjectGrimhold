@@ -23,7 +23,7 @@ namespace Tests.EditMode.Loot
         public void InitialPolicy_UsesExplicitIntegrationsAndRejectsEnemyFallbacks()
         {
             Assert.That(InitialSpawnGroupPolicy.Resolve(SpawnGroupType.Players),
-                Is.EqualTo(InitialSpawnGroupPolicy.SpawnKind.Players));
+                Is.EqualTo(InitialSpawnGroupPolicy.SpawnKind.Unsupported));
             Assert.That(InitialSpawnGroupPolicy.Resolve(SpawnGroupType.Enemies),
                 Is.EqualTo(InitialSpawnGroupPolicy.SpawnKind.Enemies));
             Assert.That(InitialSpawnGroupPolicy.Resolve(SpawnGroupType.Loot),

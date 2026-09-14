@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Serialization;
+using System.Collections.Generic;
 
 namespace Spawning
 {
@@ -11,9 +12,13 @@ namespace Spawning
         private SceneSpawnPointPolicy _spawnPointPolicy = SceneSpawnPointPolicy.Required;
 
         [SerializeField]
+        private PlayerSpawnAreaDefinition[] _playerSpawnAreas;
+
+        [SerializeField]
         private SpawnGroupDefinition[] _spawnGroups;
 
         public SceneSpawnPointPolicy SpawnPointPolicy => _spawnPointPolicy;
+        public IReadOnlyList<PlayerSpawnAreaDefinition> PlayerSpawnAreas => _playerSpawnAreas;
         public SpawnGroupDefinition[] SpawnGroups => _spawnGroups;
 
         public bool Validate(out string error)
@@ -23,15 +28,22 @@ namespace Spawning
             // No spawn points allowed when policy is NotRequired
             if (_spawnPointPolicy == SceneSpawnPointPolicy.NotRequired)
             {
-                if (_spawnGroups != null && _spawnGroups.Length > 0)
+                if ((_playerSpawnAreas != null && _playerSpawnAreas.Length > 0) ||
+                    (_spawnGroups != null && _spawnGroups.Length > 0))
                 {
-                    error = "Spatial spawn groups are not allowed when SceneSpawnPointPolicy is NotRequired.";
+                    error = "Spatial player areas and spawn groups are not allowed when SceneSpawnPointPolicy is NotRequired.";
                     return false;
                 }
                 return true;
             }
 
-            // Required requires valid groups
+            if (_playerSpawnAreas == null || _playerSpawnAreas.Length == 0)
+            {
+                error = "Player spawn areas must be configured when SceneSpawnPointPolicy is Required.";
+                return false;
+            }
+
+            // Required requires valid non-player groups.
             if (_spawnGroups == null || _spawnGroups.Length == 0)
             {
                 error = "Spatial spawn groups must be configured when SceneSpawnPointPolicy is Required.";
@@ -44,6 +56,11 @@ namespace Spawning
                 if (definition == null)
                 {
                     error = "SpawnGroupDefinition element is null.";
+                    return false;
+                }
+                if (definition.Group == SpawnGroupType.Players)
+                {
+                    error = "Players must be configured through player spawn areas, not SpawnGroupDefinition.";
                     return false;
                 }
                 if (seenGroups.Contains(definition.Group))

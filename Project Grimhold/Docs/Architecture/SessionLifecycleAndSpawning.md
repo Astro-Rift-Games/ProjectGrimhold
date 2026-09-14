@@ -128,16 +128,22 @@ spawns, which occur before initial world-entity bootstrap.
 explicit-transform spawning uses its separate authority check and does not consume configured
 points.
 
+Player positions are configured separately from generic initial world groups. The scene
+configuration owns an ordered collection of player spawn areas, each containing an ordered
+collection of transforms. `SpawnGroupType.Players` is invalid inside the generic spawn groups;
+Enemies, Loot, Breakables and the remaining world categories retain `SpawnGroupDefinition`.
+These areas are spatial configuration only and have no dependency on extraction entities,
+sanctuaries or their identifiers.
+
 ## 6. Initial world spawning
 
-Initial scene groups use explicit dispatch:
+Generic initial scene groups use explicit dispatch:
 
 ```text
-Players    -> SpawnPlayer
 Enemies    -> SpawnEnemy
 Loot       -> SpawnLootContainer
 Breakables -> SpawnBreakable
-NPCs / Bosses / Misc -> warning and skip
+Players / NPCs / Bosses / Misc -> unsupported
 ```
 
 Unsupported groups never fall back to an enemy prefab. Missing or invalid Loot configuration skips
@@ -166,9 +172,19 @@ generation and shutdown clear only the runner-local point records.
 - the match phase is `WaitingForPlayers`, `Starting` or `InProgress`.
 
 Admission additionally requires a valid token and frozen-cohort membership. The spawn index and
-stable `RaidParticipantId` are derived from the frozen profile ordering. `PlayerRef` is reusable by
-Fusion and is never treated as durable identity; `ProfileId` owns logical identity across the Raid
-and Host Migration.
+stable `RaidParticipantId` are derived from the frozen profile ordering. Before any pending fresh
+player spawn is processed, the complete `RaidLaunchContext` is validated atomically against the
+configured player areas: every participant and team must be valid, there must be enough areas and
+capacity, all transforms and positions must be non-null and unique, and every roster member must
+resolve to one unique assignment. A failed preflight blocks the generation before any participant
+or avatar is created.
+
+For an individual fresh spawn, `ProfileId` must belong to `RaidLaunchContext.Participants`. Distinct
+teams select areas by order of first appearance in that participant sequence; members of a team
+select positions by their order inside that team. `RaidTeamId.Value` is used only for equality and
+is never interpreted as an array index, priority or ordering. `PlayerRef` is reusable by Fusion and
+is never treated as durable identity; `ProfileId` owns logical identity across the Raid and Host
+Migration.
 
 ## 8. Admission closure and Raid start
 
@@ -191,6 +207,10 @@ selected. Town Create/Join/Ready and the player-facing Host Start remain owned b
   admission and initial scene-entity bootstrap.
 - `HostMigrationResume` suppresses every fresh bootstrap path. Scene loading reaches
   `AwaitingHostMigrationRestore`, spawning stays blocked and no new session seed is generated.
+
+Player spawn-area resolution belongs exclusively to `FreshSession`. During
+`HostMigrationResume`, recovered objects retain the `NetworkTRSP` restored from their snapshots;
+the replacement Host never resolves an initial area or repositions them from scene configuration.
 
 Only the replacement `GameMode.Host && IsServer` executes snapshot restoration. Dynamic objects are
 recreated from the Fusion snapshot, use snapshot `NetworkTRSP` for their initial transform, receive

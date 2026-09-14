@@ -9,7 +9,6 @@ public static class InitialSpawnGroupPolicy
 {
     public enum SpawnKind
     {
-        Players,
         Enemies,
         LootContainers,
         Breakables,
@@ -20,7 +19,6 @@ public static class InitialSpawnGroupPolicy
     {
         return group switch
         {
-            SpawnGroupType.Players => SpawnKind.Players,
             SpawnGroupType.Enemies => SpawnKind.Enemies,
             SpawnGroupType.Loot => SpawnKind.LootContainers,
             SpawnGroupType.Breakables => SpawnKind.Breakables,

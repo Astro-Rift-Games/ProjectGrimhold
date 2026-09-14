@@ -182,26 +182,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Spawning.NetworkSpawnSceneConfiguration
   _spawnPointPolicy: 1
-  _spawnGroups:
-  - Group: 0
-    SpawnPoints:
+  _playerSpawnAreas:
+  - _spawnPoints:
     - {fileID: 2103019812}
     - {fileID: 9100000000000000012}
     - {fileID: 9100000000000000022}
     - {fileID: 9100000000000000032}
+  - _spawnPoints:
     - {fileID: 1420707863}
     - {fileID: 1420707862}
     - {fileID: 1420707861}
     - {fileID: 1420707860}
+  - _spawnPoints:
     - {fileID: 1484100960}
     - {fileID: 1484100959}
     - {fileID: 1484100958}
     - {fileID: 1484100957}
+  - _spawnPoints:
     - {fileID: 925598928}
     - {fileID: 925598927}
     - {fileID: 925598926}
     - {fileID: 925598925}
-    Amount: 0
+  _spawnGroups:
   - Group: 1
     SpawnPoints:
     - {fileID: 1364172901}

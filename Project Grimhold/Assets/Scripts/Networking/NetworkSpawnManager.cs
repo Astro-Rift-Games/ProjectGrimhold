@@ -111,6 +111,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private bool _hasLootSessionSeed;
 
     private readonly Dictionary<SpawnGroupType, Transform[]> _spawnPointLookup = new();
+    private IReadOnlyList<PlayerSpawnAreaDefinition> _playerSpawnAreas;
 
     private NetworkRunner _runner;
     private NetworkMatchController _matchController;
@@ -345,6 +346,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _lootSessionSeed = 0;
         _hasLootSessionSeed = false;
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = null;
         _matchController = null;
         _runner = null;
         _sceneSpawnPointConfiguration = null;
@@ -412,6 +414,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _lootSessionSeed = 0;
         _hasLootSessionSeed = false;
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = null;
         _matchController = null;
         _sceneSpawnPointConfiguration = null;
 
@@ -512,7 +515,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        // Validate that all spawn points belong strictly to the config's scene
+        // Validate that all spawn points belong strictly to the config's scene.
+        if (config.PlayerSpawnAreas != null)
+        {
+            foreach (PlayerSpawnAreaDefinition area in config.PlayerSpawnAreas)
+            {
+                if (area?.SpawnPoints == null)
+                {
+                    continue;
+                }
+
+                foreach (Transform spawnPoint in area.SpawnPoints)
+                {
+                    if (spawnPoint != null && spawnPoint.gameObject.scene != config.gameObject.scene)
+                    {
+                        Debug.LogError($"[NetworkSpawnManager] Player spawn point '{spawnPoint.name}' does not belong to scene '{config.gameObject.scene.name}'. Spawning aborted.");
+                        return;
+                    }
+                }
+            }
+        }
+
         if (config.SpawnGroups != null)
         {
             foreach (var definition in config.SpawnGroups)
@@ -533,6 +556,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _sceneSpawnPointConfiguration = config;
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = config.PlayerSpawnAreas;
 
         if (config.SpawnGroups != null)
         {
@@ -557,6 +581,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         // Invalidate previous scene configs and transforms immediately
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = null;
         _sceneSpawnPointConfiguration = null;
         _lootSpawnState.Clear();
         _breakableSpawnState.Clear();
@@ -708,6 +733,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             _sceneSpawnStatus = SceneSpawnConfigurationStatus.SpawnPointsNotRequired;
             _spawnPointLookup.Clear();
+            _playerSpawnAreas = null;
             _sceneSpawnPointConfiguration = null;
             Debug.Log($"[NetworkSpawnManager] Scene '{runnerScene.name}' loaded. Scene does not require configured spawn points.");
         }
@@ -715,7 +741,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             _sceneSpawnStatus = SceneSpawnConfigurationStatus.SpawnPointsReady;
             ConfigureForScene(sceneConfig);
-            if (!TryValidatePlayerSpawnPreflight(out string playerSpawnFailure))
+            if (_startupContext.Mode == SessionStartupMode.FreshSession &&
+                !TryValidatePlayerSpawnPreflight(out string playerSpawnFailure))
             {
                 Debug.LogError($"[NetworkSpawnManager] Player spawn preflight failed: {playerSpawnFailure}");
                 FailSceneLoadPipeline();
@@ -728,7 +755,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             // Scene loading prepares spatial state and admits already-registered players.
             // Initial PvPvE content is deliberately deferred until Start Raid.
-            if (_sceneSpawnStatus == SceneSpawnConfigurationStatus.SpawnPointsReady)
+            if (_startupContext.Mode == SessionStartupMode.FreshSession &&
+                _sceneSpawnStatus == SceneSpawnConfigurationStatus.SpawnPointsReady)
             {
                 foreach (PlayerRef player in runner.ActivePlayers)
                 {
@@ -829,8 +857,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
                 switch (InitialSpawnGroupPolicy.Resolve(group.Group))
                 {
-                    case InitialSpawnGroupPolicy.SpawnKind.Players:
-                        break;
                     case InitialSpawnGroupPolicy.SpawnKind.Enemies:
                         for (int index = 0; index < group.Amount; index++)
                         {
@@ -885,6 +911,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.Failed;
         _spawnsBlocked = true;
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = null;
         _sceneSpawnPointConfiguration = null;
         CompleteHostMigration(
             HostMigrationCompletionStatus.Failure,
@@ -2395,6 +2422,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             Debug.LogWarning(
                 $"[HM-MULTI] Fresh SpawnPlayer rejected during recovery. PlayerRef={player}.",
                 this);
+            return false;
         }
 
         if (!CanSpawnPlayer(runner, player))
@@ -2414,13 +2442,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         bool loadoutInitialized = !hasAdmission;
 
         if (_launchContext == null ||
-            !RaidParticipantSpawnRules.TryGetSpawnIndex(
-                _launchContext.ParticipantProfileIds,
+            !RaidParticipantSpawnRules.TryResolveSpawnAssignment(
+                _launchContext.Participants,
                 joinData.ProfileId,
-                out int spawnIndex) ||
-            !TryGetSpawnTransformByIndex(
-                SpawnGroupType.Players,
-                spawnIndex,
+                _playerSpawnAreas,
+                out int areaIndex,
+                out int pointIndex,
+                out _) ||
+            !TryGetPlayerSpawnTransform(
+                areaIndex,
+                pointIndex,
                 out Vector3 position,
                 out Quaternion rotation))
         {
@@ -2626,6 +2657,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _lootSessionSeed = 0;
         _hasLootSessionSeed = false;
         _spawnPointLookup.Clear();
+        _playerSpawnAreas = null;
         _sceneSpawnPointConfiguration = null;
         _sceneSpawnStatus = SceneSpawnConfigurationStatus.None;
         _sceneLoadState = SceneLoadProcessingState.None;
@@ -3532,6 +3564,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _lootSessionSeed = 0;
             _hasLootSessionSeed = false;
             _spawnPointLookup.Clear();
+            _playerSpawnAreas = null;
             _matchController = null;
             _runner = null;
             _sceneSpawnPointConfiguration = null;
@@ -3705,39 +3738,37 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return spawnPoint;
     }
 
-    private bool TryGetSpawnTransformByIndex(
-        SpawnGroupType group,
-        int index,
+    private bool TryGetPlayerSpawnTransform(
+        int areaIndex,
+        int pointIndex,
         out Vector3 position,
         out Quaternion rotation)
     {
         position = default;
         rotation = Quaternion.identity;
-        if (!_spawnPointLookup.TryGetValue(group, out Transform[] spawnPoints) ||
-            spawnPoints == null || index < 0 || index >= spawnPoints.Length || spawnPoints[index] == null)
+        if (_playerSpawnAreas == null || areaIndex < 0 || areaIndex >= _playerSpawnAreas.Count)
         {
             return false;
         }
 
-        position = spawnPoints[index].position;
-        rotation = spawnPoints[index].rotation;
+        PlayerSpawnAreaDefinition area = _playerSpawnAreas[areaIndex];
+        if (area?.SpawnPoints == null || pointIndex < 0 || pointIndex >= area.SpawnPoints.Count ||
+            area.SpawnPoints[pointIndex] == null)
+        {
+            return false;
+        }
+
+        Transform spawnPoint = area.SpawnPoints[pointIndex];
+        position = spawnPoint.position;
+        rotation = spawnPoint.rotation;
         return true;
     }
 
     private bool TryValidatePlayerSpawnPreflight(out string failure)
     {
-        failure = null;
-        if (_launchContext == null ||
-            !_spawnPointLookup.TryGetValue(SpawnGroupType.Players, out Transform[] spawnPoints) ||
-            spawnPoints == null)
-        {
-            failure = "Canonical launch context or Players spawn group is missing.";
-            return false;
-        }
-
-        return RaidParticipantSpawnRules.ValidateSpawnPoints(
-            spawnPoints,
-            _launchContext.ParticipantProfileIds.Count,
+        return RaidParticipantSpawnRules.ValidateFreshSpawnPreflight(
+            _launchContext,
+            _playerSpawnAreas,
             out failure);
     }
 }

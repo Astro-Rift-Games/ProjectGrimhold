@@ -626,7 +626,7 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
-    public void GameplayScene_HasSixteenValidUniquePlayerSpawnPoints()
+    public void GameplayScene_HasFourValidUniquePlayerSpawnAreasAndNoGenericPlayerGroup()
     {
         Scene scene = SceneManager.GetSceneByPath(GameplayScenePath);
         bool openedForTest = !scene.IsValid() || !scene.isLoaded;
@@ -644,22 +644,30 @@ public sealed class SessionCompositionConfigurationTests
             SpawnGroupDefinition players = System.Array.Find(
                 configurations[0].SpawnGroups,
                 group => group.Group == SpawnGroupType.Players);
-            Assert.That(players, Is.Not.Null);
-            Assert.That(players.SpawnPoints, Has.Length.EqualTo(RaidSessionRules.MaxParticipants));
+            Assert.That(players, Is.Null);
+            Assert.That(configurations[0].PlayerSpawnAreas.Count, Is.EqualTo(4));
 
-            var positions = new List<Vector3>(players.SpawnPoints.Length);
-            for (int index = 0; index < players.SpawnPoints.Length; index++)
+            var transforms = new HashSet<Transform>();
+            var positions = new HashSet<Vector3>();
+            int spawnPointCount = 0;
+            for (int areaIndex = 0; areaIndex < configurations[0].PlayerSpawnAreas.Count; areaIndex++)
             {
-                positions.Add(players.SpawnPoints[index].position);
+                PlayerSpawnAreaDefinition area = configurations[0].PlayerSpawnAreas[areaIndex];
+                Assert.That(area, Is.Not.Null);
+                Assert.That(area.SpawnPoints.Count, Is.EqualTo(4));
+                for (int pointIndex = 0; pointIndex < area.SpawnPoints.Count; pointIndex++)
+                {
+                    Transform spawnPoint = area.SpawnPoints[pointIndex];
+                    Assert.That(spawnPoint, Is.Not.Null);
+                    Assert.That(transforms.Add(spawnPoint), Is.True,
+                        $"Player spawn transform repeated at {areaIndex}:{pointIndex}.");
+                    Assert.That(positions.Add(spawnPoint.position), Is.True,
+                        $"Player spawn position repeated at {areaIndex}:{pointIndex}.");
+                    spawnPointCount++;
+                }
             }
 
-            Assert.That(
-                RaidParticipantSpawnRules.ValidateSpawnPositions(
-                    positions,
-                    RaidSessionRules.MaxParticipants,
-                    out failure),
-                Is.True,
-                failure);
+            Assert.That(spawnPointCount, Is.EqualTo(RaidSessionRules.MaxParticipants));
         }
         finally
         {
