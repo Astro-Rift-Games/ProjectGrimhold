@@ -138,7 +138,7 @@ For concrete attribute formulas, limits and derived statistics, read `08 - Estad
 
 For visual character identity, modularity and the composition of body/hands/equipment, read `GD-11 — Dirección Visual Modular del Personaje sin Clases`.
 
-For specific equipment slots, main hand/off hand structure, weapon sets or equipment structural compatibilities, read `GD-12 — Estructura de Equipamiento del Personaje`.
+For current MVP equipment slots, Main Hand / Off Hand, Weapon Sets and concrete compatibility rules, read `09 - Diseño de Equipamiento` together with `GD-12 — Estructura de Equipamiento del Personaje` for structural categories not redefined by `09`.
 
 For concrete equipment catalog, attribute requirements, weapon scaling, equipment statistics and training weapons, read `09 - Diseño de Equipamiento`.
 
@@ -153,7 +153,7 @@ Read when the task affects:
 * Character Level or Experience.
 * Initial or maximum level.
 * Expedition XP generation and individual reward ownership.
-* Kill, Assist, exploration, extracted Loot or Mission XP.
+* Creature defeat, PvP Last Hit / Assist, eligible extracted Loot or Mission XP.
 * XP consolidation after extraction, defeat, abandonment or disconnect.
 * Progression shown in Results.
 * Level requirements and the progression curve.
@@ -176,7 +176,11 @@ Read when the task affects:
 * Rituals.
 * Extraction zones.
 * Successful extraction.
-* Individual extraction behavior.
+* Solo and Duo extraction behavior.
+* Required active or recoverable Duo members.
+* Disconnect behavior that can block normal Duo extraction.
+
+In Duo, extraction follows the document's rules for every member who remains active or recoverable. A disconnected teammate can block the normal extraction conditions while still part of that set. Keep the detailed state matrix, reconnection budget and continuation rules in the Extraction document rather than duplicating them here.
 
 #### 07 - Sistema de Loot
 
@@ -204,15 +208,17 @@ Defines how the attributes established by Character Build Design become concrete
 Read when the task affects:
 
 * Derived statistics from character attributes.
-* Maximum Health from Vitality.
+* Maximum Health (HP) from Vitality.
 * Maximum Stamina from Resistance.
-* Luck and additional-loot probability.
+* Maximum Mana.
+* Luck, Effective Luck and additional-loot probability.
+* Solo and Duo rules for Effective Luck.
 * Strength, Dexterity or Intelligence values exposed to consuming systems.
 * Initial, minimum or maximum attribute values.
 * Total attribute-point pools and points gained per level.
 * Attribute redistribution limits.
 * Numerical rounding rules for character statistics.
-* Current Health or Stamina behavior when their maximum changes.
+* Current Health, Stamina or Mana behavior when their maximum changes.
 * Separation between character statistics and properties owned by equipment.
 
 This document does not own XP generation or the level progression curve. It also does not define concrete equipment requirements, weapon scaling grades or equipment scaling formulas.
@@ -223,33 +229,121 @@ For concrete equipment requirements, weapon scaling grades, equipment values and
 
 https://docs.google.com/document/d/1otmwGRyMe4ZWQOb-fEY1cCGzrb7zIq995qvv__xkx0Y
 
-The document is named `09 - Diseño de Equipamiento` in Drive and may refer to itself
-internally as `GD-15`.
-
 Defines the concrete Equipment Design and initial MVP equipment catalog.
 
 Read when the task affects:
 
+* Equipment slots.
+* Weapon Sets A/B.
+* Main Hand / Off Hand.
+* Dual Wield.
 * Concrete weapon definitions.
 * Concrete armor definitions and sets.
 * Weapon attribute requirements.
 * Weapon attribute scaling and scaling grades.
 * Base weapon damage, attack interval, range and Stamina cost.
+* Execution Window.
 * Weapon-specific baseline behaviors.
 * Training weapons.
 * Concrete armor Physical Defense and Magical Defense values.
 * Armor resource bonuses.
-* Equipment evolution data structure.
+* Equipment Template / Instance data.
+* Gem Slots and Gems.
 * Item Value.
-* Equipment definition and instance data fields.
 
-`GD-12 — Estructura de Equipamiento del Personaje` remains the source of truth for
-structural equipment rules such as slots, Weapon Sets, Main Hand / Off Hand,
-one-handed/two-handed compatibility, Dual Wield, accessories and Quick Slots.
+`GD-12 — Estructura de Equipamiento del Personaje` remains relevant for structural
+compatibilities and categories not redefined by the current `09`, including accessories
+and Quick Slots. When both documents cover a rule, read both and resolve the overlap by
+responsibility and currentness instead of allowing an older contract to override `09`.
 
 `08 - Estadísticas Derivadas y Fórmulas de Atributos` remains the source of truth for
 character attribute formulas and limits. This document consumes those rules when defining
 equipment requirements and scaling; it does not redefine them.
+
+#### 10 - Reglas de Sesión de Dungeon
+
+https://docs.google.com/document/d/12FTnbozUauIVRiyBDnLf6ewll-o7SYX-MTRULlF_NeY
+
+Defines the functional rules of a Dungeon expedition from initial spawn through instance closure.
+
+Read when the task affects:
+
+* Initial spawn and spawn safety.
+* Dungeon duration and Collapse.
+* Friendly Fire and player collisions.
+* POIs, interiors and submaps.
+* Encounter generation, resolution and reactivation.
+* Threat Budget and population budgets.
+* Dungeon-level enemy leash and proximity activation.
+* Room-associated Loot source activation.
+* Instance closure conditions.
+* Solo and Duo coexistence within the same Dungeon.
+
+This document integrates but does not replace the documents that own Extraction, Loot or player states.
+
+#### 11 - Diseño de Habilidades
+
+https://docs.google.com/document/d/14pw5-NsV_lw4_YGj5AuPg5wJUXqg1TWm6YEozcr1sMY
+
+Defines the functional design and initial MVP catalog of active abilities.
+
+Read when the task affects:
+
+* Persistent ability acquisition and unlocking.
+* The two universal ability slots.
+* Attribute requirements.
+* Mana or Stamina costs.
+* Cooldowns.
+* Execution and interruption.
+* Targeting and validation.
+* Persistent effects.
+* Assist contribution.
+* Status purification.
+* The initial MVP ability catalog.
+
+In the current MVP design, attributes are access requirements. There is no global ability-power scaling from Vitality, Resistance, Strength, Dexterity, Intelligence or Luck.
+
+#### 12 - Sistema de Misiones
+
+https://docs.google.com/document/d/1pSCMkxg4swENRM9PIO5AHEuREdPVTrF2ZpOD17KxdSE
+
+Defines the functional mission lifecycle and the initial MVP mission structure.
+
+Read when the task affects:
+
+* Mission acquisition, acceptance and abandonment.
+* Phases, objectives and conditions.
+* Persistent mission progress.
+* Teammate contribution in Duo.
+* Reward claim.
+* Guild reputation and ranks.
+* Daily, Unique and Weekly missions.
+* Mission templates.
+* Atomic claim.
+
+Missions belong individually to each player. A teammate may contribute to eligible objectives, but the Party does not own the mission. Missions consume events from other systems without becoming the owner of Combat, Loot, Extraction or Progression rules.
+
+#### UI - Auditoría Funcional de Interfaces MVP
+
+https://docs.google.com/document/d/1NLSRWTtQL1KrEvxhv0vyceuhdOfg5fVT6i8Tr1xLy8M
+
+Defines functional UI decisions that precede wireframes and visual production.
+
+Read when the task affects interfaces for:
+
+* Main Menu and authentication.
+* Inventory and Equipment.
+* Stash.
+* Commerce.
+* Expedition Preparation.
+* Containers.
+* Results.
+* Slots and grids.
+* Tooltips.
+* Drag & Drop.
+* Contextual quick actions.
+
+This document does not by itself define final visual layout, art direction, typography, iconography or production assets.
 
 #### GD-11 — Dirección Visual Modular del Personaje sin Clases
 
@@ -301,14 +395,26 @@ Examples:
 * Character combat identity:
   `03 - Player Design` + `04 - Character Build Design` + relevant combat architecture.
 
-* Town preparation and Raid entry:
-  `01 - Game Flow Principal` + `02 - Estados del Juego` + `04 - Character Build Design` + relevant session architecture.
+* Party, Town and Raid entry:
+  `01 - Game Flow Principal` + `02 - Estados del Juego` + `10 - Reglas de Sesión de Dungeon` + `Docs/Architecture/LobbyAndSessionTransitionArchitecture.md` + the current Town Preparation and Session Transition implementation, according to the responsibility affected.
 
 * Persistent Level and XP behavior:
   `04 - Character Build Design` for build consequences + `05 - Progresión Persistente, Experiencia y Niveles` for XP and Level rules + relevant persistence architecture when storage is involved.
 
 * Attribute and derived-stat implementation:
   `04 - Character Build Design` for attribute responsibilities + `08 - Estadísticas Derivadas y Fórmulas de Atributos` for formulas and numerical rules + the architecture of the consuming gameplay system.
+
+* Abilities:
+  `04 - Character Build Design` + `08 - Estadísticas Derivadas y Fórmulas de Atributos` + `11 - Diseño de Habilidades` + the relevant Combat, Input, Status Effects or Presentation architecture for the task.
+
+* Missions:
+  `12 - Sistema de Misiones` + the document that owns each consumed event + persistence architecture when applicable. Missions observe qualifying events; they do not own Combat, Extraction, Loot or Progression rules.
+
+* Dungeon lifecycle and encounters:
+  `10 - Reglas de Sesión de Dungeon` + relevant Enemy, Pathfinding, Session or Raid Generation architecture. Add `02 - Estados del Juego`, `06 - Sistema de Extracción` or `07 - Sistema de Loot` only when the task actually crosses those systems.
+
+* Functional UI:
+  `UI - Auditoría Funcional de Interfaces MVP` + the Game Design document that owns the displayed system + the relevant UI architecture when one exists.
 
 * Visual equipment representation:
   `GD-12 — Estructura de Equipamiento del Personaje` for the slots and rules + `GD-11 — Dirección Visual Modular del Personaje sin Clases` for the visual composition + relevant presentation architecture.
@@ -510,6 +616,12 @@ Do not use RPCs for continuous movement or state that belongs in regular simulat
 Do not emit ordinary gameplay events from predicted ticks unless resimulation has been accounted for.
 
 Proxies consume replicated state and must not execute local player input.
+
+### Host Migration routing
+
+Host Migration is exclusively a recovery mechanism for abrupt Host loss during an active Raid. Before changing migration eligibility, snapshot restoration, participant rebind, migration deadlines or post-recovery closure, read `Docs/Architecture/HostMigrationRecoveryArchitecture.md`.
+
+Do not treat normal Return, Abandon, completed Extraction, voluntary cancellation or normal session shutdown as Host Migration.
 
 ### Local input flow
 
