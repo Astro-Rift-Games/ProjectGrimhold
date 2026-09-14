@@ -64,6 +64,8 @@ namespace Tests.PlayMode.Presentation
             Assert.That(prefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponentsInChildren<RaidHudPresenter>(true), Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponentsInChildren<RaidHudView>(true), Has.Length.EqualTo(1));
+            Assert.That(prefab.GetComponentsInChildren<RaidTeammateHudPresenter>(true), Has.Length.EqualTo(1));
+            Assert.That(prefab.GetComponentsInChildren<RaidTeammateHudView>(true), Has.Length.EqualTo(1));
 
             RaidHudPresenter presenter = prefab.GetComponentInChildren<RaidHudPresenter>(true);
             RaidHudView view = prefab.GetComponentInChildren<RaidHudView>(true);
@@ -79,6 +81,20 @@ namespace Tests.PlayMode.Presentation
             Assert.That(presenter.transform.IsChildOf(view.MainHudRoot.transform), Is.False);
             AssertViewReferences(view);
 
+            RaidTeammateHudPresenter teammatePresenter =
+                prefab.GetComponentInChildren<RaidTeammateHudPresenter>(true);
+            RaidTeammateHudView teammateView =
+                prefab.GetComponentInChildren<RaidTeammateHudView>(true);
+            var serializedTeammatePresenter = new SerializedObject(teammatePresenter);
+            Assert.That(
+                serializedTeammatePresenter.FindProperty("_view").objectReferenceValue,
+                Is.SameAs(teammateView));
+            Assert.That(teammateView.Root, Is.Not.Null);
+            Assert.That(teammateView.Root.name, Is.EqualTo("RaidDuoHud"));
+            Assert.That(teammateView.Root.activeSelf, Is.False);
+            Assert.That(teammateView.HealthText, Is.Not.Null);
+            Assert.That(teammateView.HealthFill, Is.Not.Null);
+
             RaidInventoryView inventoryView = prefab.GetComponentInChildren<RaidInventoryView>(true);
             Assert.That(inventoryView.PlayerPanel.TotalValueText, Is.Not.Null);
             Assert.That(inventoryView.TransferFeedbackText, Is.Not.Null);
@@ -92,6 +108,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(binder, Is.Not.Null);
             var serializedBinder = new SerializedObject(binder);
             AssertObjectReference(serializedBinder, "_raidHudPresenter");
+            AssertObjectReference(serializedBinder, "_teammateHudPresenter");
             AssertObjectReference(serializedBinder, "_menuPresenter");
             AssertObjectReference(serializedBinder, "_playerCharacter");
             AssertObjectReference(serializedBinder, "_staminaController");
@@ -410,6 +427,123 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_proxyPlayer.InputAuthority.IsNone, Is.True);
             Assert.That(inventoryPresenter.GameplayMutationsBlocked, Is.True);
             Assert.That(inventoryPresenter.IsOpen, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator SingleRunnerResolvesDuoPlaceholderAvatarChangesAndDefeat()
+        {
+            yield return StartRunner();
+
+            NetworkObject playerPrefab = LoadPrefab(MeleePrefabGuid);
+            NetworkObject participantPrefab = LoadPrefab(ParticipantPrefabGuid);
+            NetworkObject localParticipantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (_, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("local-profile", CreateParticipantId(1),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
+            _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
+
+            ExpectIncompletePlayerFixtureLogs();
+            _localPlayer = _runner.Spawn(
+                playerPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(localParticipantObject));
+            Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
+            _runner.SetPlayerObject(_runner.LocalPlayer, localParticipantObject);
+
+            LocalPlayerHudBinder binder = _localPlayer.GetComponent<LocalPlayerHudBinder>();
+            RaidTeammateHudPresenter teammatePresenter =
+                _localPlayer.GetComponentInChildren<RaidTeammateHudPresenter>(true);
+            RaidTeammateHudView teammateView =
+                _localPlayer.GetComponentInChildren<RaidTeammateHudView>(true);
+            GameObject localHud = teammateView.GetComponentInParent<Canvas>(true).gameObject;
+            yield return WaitUntil(
+                () => localHud.activeSelf,
+                "The local HUD did not bind after CurrentAvatarId was assigned.");
+
+            RaidTeamId.TryCreate(9, out RaidTeamId duoTeam);
+            Assert.That(
+                RaidInitialAffiliationSnapshot.TryCreate(
+                    new[]
+                    {
+                        new RaidLaunchParticipant(new ProfileId("local-profile"), duoTeam),
+                        new RaidLaunchParticipant(new ProfileId("remote-profile"), duoTeam)
+                    },
+                    out RaidInitialAffiliationSnapshot affiliations),
+                Is.True);
+            teammatePresenter.Bind(_runner, _localParticipant, affiliations);
+            yield return WaitUntil(
+                () => teammateView.Root.activeSelf &&
+                    teammateView.HealthText.text == "Compañero: — / —",
+                "The absent frozen teammate did not keep the visible placeholder.");
+
+            NetworkObject proxyParticipantObject = _runner.Spawn(
+                participantPrefab,
+                new Vector3(3f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (_, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("remote-profile", CreateParticipantId(2),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
+            _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
+
+            ExpectIncompletePlayerFixtureLogs();
+            _proxyPlayer = _runner.Spawn(
+                playerPrefab,
+                new Vector3(3f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(proxyParticipantObject));
+            Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
+            yield return WaitUntil(
+                () => teammateView.HealthText.text == "Compañero: 100 / 100",
+                "The teammate HUD did not resolve the materialized frozen profile.");
+
+            ExpectIncompletePlayerFixtureLogs();
+            NetworkObject replacementAvatar = _runner.Spawn(
+                playerPrefab,
+                new Vector3(4f, 0f, 0f),
+                Quaternion.identity,
+                inputAuthority: null,
+                (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(proxyParticipantObject));
+            _proxyParticipant.SetRestoredCurrentAvatar(replacementAvatar.Id);
+            _proxyPlayer = replacementAvatar;
+
+            PlayerCharacter replacementCharacter = replacementAvatar.GetComponent<PlayerCharacter>();
+            _defeatDriver.Target = replacementCharacter;
+            _defeatDriver.Receiver = replacementAvatar.GetComponent<PlayerLootReceiver>();
+            _defeatDriver.RequestedDamageAmount = 25f;
+            _defeatDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => !_defeatDriver.IsRequested &&
+                    teammateView.HealthText.text == "Compañero: 75 / 100",
+                "The teammate HUD retained the stale avatar after CurrentAvatarId changed.");
+
+            _defeatDriver.RequestedDamageAmount = 1000f;
+            _defeatDriver.IsRequested = true;
+            yield return WaitUntil(
+                () => _proxyParticipant.State == RaidParticipantState.Defeated &&
+                    !_proxyParticipant.CurrentAvatarId.IsValid &&
+                    teammateView.HealthText.text == "Compañero: 0 / 100" &&
+                    teammateView.HealthFill.fillAmount == 0f,
+                "The teammate HUD did not project terminal defeat from the participant.");
+
+            binder.enabled = false;
+            yield return null;
+            Assert.That(teammateView.Root.activeSelf, Is.False);
+            binder.enabled = true;
+            yield return null;
+            Assert.That(teammateView.Root.activeSelf, Is.False);
         }
 
         [UnityTest]
@@ -741,6 +875,16 @@ namespace Tests.PlayMode.Presentation
             SerializedProperty property = owner.FindProperty(propertyName);
             Assert.That(property, Is.Not.Null);
             Assert.That(property.objectReferenceValue, Is.Not.Null);
+        }
+
+        private static void ExpectIncompletePlayerFixtureLogs()
+        {
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
+            LogAssert.Expect(
+                UnityEngine.LogType.Error,
+                "PlayerWeaponEquipmentNetworkController has missing weapon dependencies.");
         }
 
         private static RaidParticipantId CreateParticipantId(int value)

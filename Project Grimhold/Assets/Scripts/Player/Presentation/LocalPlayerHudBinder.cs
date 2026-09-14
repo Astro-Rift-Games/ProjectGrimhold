@@ -25,6 +25,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidHudPresenter _raidHudPresenter;
 
     [SerializeField]
+    private RaidTeammateHudPresenter _teammateHudPresenter;
+
+    [SerializeField]
     private RaidMinimapPresenter _raidMinimapPresenter;
 
     [SerializeField]
@@ -161,7 +164,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         }
 
         if (_hudRoot == null || _interactionPresenter == null || _lootPresenter == null ||
-            _inventoryPresenter == null || _raidHudPresenter == null || _combatFeedbackPresenter == null ||
+            _inventoryPresenter == null || _raidHudPresenter == null || _teammateHudPresenter == null ||
+            _combatFeedbackPresenter == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null || _consumableController == null ||
             _weaponEquipmentController == null ||
@@ -208,6 +212,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _extractionProgressController,
             _assignmentService,
             _entityRegistry);
+        BindTeammateHud();
         if (_raidMinimapPresenter != null)
         {
             _raidMinimapPresenter.Bind(
@@ -246,6 +251,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidHudPresenter != null)
         {
             _raidHudPresenter.Unbind();
+        }
+
+        if (_teammateHudPresenter != null)
+        {
+            _teammateHudPresenter.Unbind();
         }
 
         if (_raidMinimapPresenter != null)
@@ -341,6 +351,26 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 this);
             _missingJoinContextReported = true;
         }
+    }
+
+    private void BindTeammateHud()
+    {
+        _teammateHudPresenter.Unbind();
+        if (_participantLink == null ||
+            !_participantLink.TryResolveParticipant(out NetworkRaidParticipant localParticipant))
+        {
+            return;
+        }
+
+        NetworkSpawnManager spawnManager = _boundRunner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null ||
+            !spawnManager.TryGetRaidInitialAffiliations(
+                out RaidInitialAffiliationSnapshot affiliations))
+        {
+            return;
+        }
+
+        _teammateHudPresenter.Bind(_boundRunner, localParticipant, affiliations);
     }
 
     private void ClearRunnerReferences()

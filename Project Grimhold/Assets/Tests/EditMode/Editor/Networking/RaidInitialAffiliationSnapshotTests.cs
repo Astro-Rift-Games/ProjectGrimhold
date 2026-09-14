@@ -97,4 +97,52 @@ public sealed class RaidInitialAffiliationSnapshotTests
                 out _),
             Is.False);
     }
+
+    [Test]
+    public void Snapshot_ResolvesOnlyFrozenDuoTeammateByProfileIdentity()
+    {
+        RaidTeamId.TryCreate(16, out RaidTeamId duoTeam);
+        RaidTeamId.TryCreate(1, out RaidTeamId otherTeam);
+        var local = new ProfileId("local");
+        var teammate = new ProfileId("teammate");
+        var opponent = new ProfileId("opponent");
+        RaidLaunchParticipant[] participants =
+        {
+            new(opponent, otherTeam),
+            new(teammate, duoTeam),
+            new(local, duoTeam)
+        };
+
+        Assert.That(
+            RaidInitialAffiliationSnapshot.TryCreate(
+                participants,
+                out RaidInitialAffiliationSnapshot snapshot),
+            Is.True);
+        Assert.That(snapshot.TryGetTeammateProfileId(local, out ProfileId resolved), Is.True);
+        Assert.That(resolved, Is.EqualTo(teammate));
+        Assert.That(snapshot.TryGetTeammateProfileId(teammate, out resolved), Is.True);
+        Assert.That(resolved, Is.EqualTo(local));
+        Assert.That(snapshot.TryGetTeammateProfileId(opponent, out _), Is.False);
+        Assert.That(snapshot.TryGetTeammateProfileId(new ProfileId("missing"), out _), Is.False);
+    }
+
+    [Test]
+    public void Snapshot_RejectsAmbiguousTeamInsteadOfSelectingAnArbitraryMember()
+    {
+        RaidTeamId.TryCreate(7, out RaidTeamId team);
+        var local = new ProfileId("local");
+        RaidLaunchParticipant[] participants =
+        {
+            new(local, team),
+            new(new ProfileId("first"), team),
+            new(new ProfileId("second"), team)
+        };
+
+        Assert.That(
+            RaidInitialAffiliationSnapshot.TryCreate(
+                participants,
+                out RaidInitialAffiliationSnapshot snapshot),
+            Is.True);
+        Assert.That(snapshot.TryGetTeammateProfileId(local, out _), Is.False);
+    }
 }

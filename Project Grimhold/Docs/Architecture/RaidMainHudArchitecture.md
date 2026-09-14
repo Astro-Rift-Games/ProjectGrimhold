@@ -13,11 +13,16 @@ Input Authority NetworkPlayer
   -> LocalPlayerHudBinder
       -> RaidHudPresenter
           -> RaidHudView
+      -> RaidTeammateHudPresenter
+          -> RaidTeammateHudView
 ```
 
 - `LocalPlayerHudBinder` remains the only local HUD binding boundary. A player without Input Authority keeps `LocalGameplayHud` inactive.
 - `RaidHudPresenter` is a local `MonoBehaviour`. It caches gameplay references, reads them without side effects, performs section-level dirty checking, and owns no clock.
 - `RaidHudView` contains only uGUI/TMP references and explicit presentation or clearing operations.
+- `RaidTeammateHudPresenter` resolves the one frozen teammate by stable `ProfileId`, observes
+  replicated participant/avatar state and performs section-local dirty checking. Its view owns only
+  visibility, text and fill rendering.
 - `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. The presenter and view remain on `LocalGameplayHud`, outside the visual root they control.
 - `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the active weapon's `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
 
@@ -30,6 +35,10 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Current health | `CharacterBase.Health` |
 | Maximum health | `CharacterBase.MaxHealth` |
 | Defeat | `!CharacterBase.IsAlive` |
+| Teammate identity | immutable `RaidInitialAffiliationSnapshot` from the frozen `RaidLaunchParticipant` roster |
+| Teammate current health | current teammate avatar `PlayerCharacter.Health` |
+| Teammate maximum health | current teammate avatar `PlayerCharacter.MaxHealth` |
+| Teammate defeat | teammate `NetworkRaidParticipant.State == Defeated` |
 | Current Stamina and Exhaustion | `PlayerStaminaNetworkController` replicated state |
 | Maximum Stamina | `PlayerStaminaNetworkController.TryGetMaximumStamina` from the admitted attributes |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
@@ -47,6 +56,33 @@ the `CharacterAttributeState` frozen on its linked `NetworkRaidParticipant`. A t
 unresolved participant link uses the authored player-prefab value only as a non-cached fallback,
 so Host Migration reference fixup can later resolve and cache the admitted value. The HUD consumes
 this same effective maximum and never derives or stores another health cap.
+
+## Duo teammate projection
+
+`RaidInitialAffiliationSnapshot` remains an immutable projection of the frozen launch roster. It
+resolves the local profile's only teammate by `RaidTeamId` equality and a distinct `ProfileId`;
+the numeric team value has no ordering or indexing meaning. `ProfileId` is retained as the logical
+identity used to re-resolve a runtime participant. `RaidParticipantId` remains Raid-generation
+identity and is not promoted to durable identity.
+
+`NetworkSpawnManager.TryGetRaidInitialAffiliations` is the current public boundary for projecting
+its private `RaidLaunchContext`. `LocalPlayerHudBinder` obtains a fresh snapshot once per bind and
+Raid generation, then passes the snapshot to `RaidTeammateHudPresenter`; the presenter has no
+dependency on the spawning service and creates no participant registry.
+
+The presenter resolves the matching `NetworkRaidParticipant` from the runner's existing
+PlayerObjects and replicated objects. A reusable buffer is used only while a reference is absent or
+invalid. The cached avatar is invalidated whenever `CurrentAvatarId` changes, the object becomes
+invalid, or the runner/generation changes. An unresolved known Duo member displays
+`Compañero: — / —` and is retried during the normal presentation update; no RPC, scene search,
+network polling or event-based state copy is introduced.
+
+While an avatar is current, the presenter reads its replicated `Health` and derived `MaxHealth`
+directly. A `Defeated` participant displays zero Health from that terminal participant state; the
+lootable corpse is never a Health source. If a participant is `Extracted` after its avatar becomes
+unavailable, the last displayed Health pair may remain as a local presentation cache. That cache is
+not authoritative or replicated and is cleared by unbind, runner replacement or generation change.
+`Aborted` and other unavailable-avatar cases display the placeholder.
 
 ## Combat evaluation and authority
 
@@ -76,6 +112,9 @@ active slot replaces the icon without changing combat or equipment state.
 
 Health/defeat, Stamina/Exhaustion, attack/cooldown, and inventory capacity maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
 
+The teammate section independently dirty-checks its visible mode, Health and maximum. It follows
+the existing presentation `Update` pattern and never advances simulation state.
+
 Attack status may be queried each presentation frame so enablement, defeat, and timer expiry are observed. Loot value is not recalculated each frame after a successful read.
 
 ## Lifecycle
@@ -83,6 +122,11 @@ Attack status may be queried each presentation frame so enablement, defeat, and 
 `OnEnable` before binding is valid and has no effect. Bind starts from an idempotent unbind, clears placeholders, caches the current sources, and requests initial reads.
 
 `Unbind`, Fusion despawn, destroy, and session replacement remove the `LocalInputContext.ReaderChanged` listener, clear cached dependencies, feedback and late-resolution state, clear the presenter/view, and deactivate `LocalGameplayHud`. Disabling `RaidHudPresenter` itself clears visual observations and baselines but keeps its sources so re-enable can rebuild without a second binder subscription. Re-enable performs a fresh bind only for a valid player with Input Authority. Defeat keeps the persistent HUD visible but immediately clears transient combat feedback.
+
+The teammate presenter participates in the same binder lifecycle. Its `Unbind` clears participant,
+avatar, logical identity, generation and extracted-Health cache so no projection can survive into a
+second Raid. Host Migration and rebind reuse the existing participant/avatar lifecycle; this HUD
+does not implement reconnection or recovery.
 
 ## Extraction presentation
 
@@ -174,9 +218,16 @@ EditMode tests cover equipped-weapon icon resolution and clearing, safe cooldown
 
 PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, unresolved participant links, local and remote ownership, equipped-icon changes, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and local participant defeat without hiding the HUD after avatar authority is removed.
 
+Teammate HUD EditMode coverage includes frozen Solo/Duo resolution, ambiguous membership,
+sanitization, terminal/cache projections and dirty writes. Single Runner PlayMode covers prefab
+composition, local teammate resolution, Health observation, placeholder/lifecycle behavior and
+terminal defeat. It does not prove Host/Client isolation, disconnect handling or Host Migration.
+
 Manual validation remains necessary for:
 
 - real Host/Client isolation and observed replication of health and cooldown;
+- teammate placeholder while the participant/avatar is absent and re-resolution when an already
+  supported lifecycle such as Host Migration/rebind materializes the same `ProfileId`;
 - complete session restart;
 - layout, anchors, contrast, radial fill, target resolutions, and coexistence with inventory and the interaction prompt;
 - defeat, loot collection/transfer, equipped weapon icons, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.
