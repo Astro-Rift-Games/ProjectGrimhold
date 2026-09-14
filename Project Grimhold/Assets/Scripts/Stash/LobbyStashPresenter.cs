@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
@@ -153,7 +154,7 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
+    private async void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
     {
         if (_loadoutService == null) return;
 
@@ -168,9 +169,10 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
+        await SyncPreparedEquipmentAsync();
     }
 
-    private void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
+    private async void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
     {
         if (_loadoutService == null) return;
 
@@ -181,6 +183,29 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
+        await SyncPreparedEquipmentAsync();
+    }
+
+    /// <summary>
+    /// Pushes the current local prepared-equipment state to the backend so it survives
+    /// logout/login. The local mutation has already been committed by the time this runs;
+    /// on remote failure we log rather than roll back, since the local operation is an
+    /// atomic multi-slot swap that isn't safely reversible from here.
+    /// </summary>
+    private async Task SyncPreparedEquipmentAsync()
+    {
+        if (_remoteInventoryService == null)
+        {
+            Debug.LogWarning("[LobbyStashPresenter] No RemoteInventoryService available; prepared equipment change will not persist across sessions.");
+            return;
+        }
+
+        PreparedEquipmentLoadout prepared = _loadoutService.GetPreparedEquipment(_localProfileId);
+        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(prepared);
+        if (!success)
+        {
+            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment sync failed: {error.message}");
+        }
     }
 
     private void OnProfileCommitted(ProfileId updatedProfileId)
