@@ -4,5 +4,5 @@
 public enum TownRaidPreparationState
 {
     Waiting = 0,
-    Starting = 1
+    Launching = 1
 }

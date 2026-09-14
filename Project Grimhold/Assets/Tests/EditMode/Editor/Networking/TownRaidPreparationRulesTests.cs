@@ -96,7 +96,7 @@ public sealed class TownRaidPreparationRulesTests
                 new TownRaidPreparationSnapshot(
                     frozen.RaidCode,
                     new ProfileId("missing-host"),
-                    TownRaidPreparationState.Starting,
+                    TownRaidPreparationState.Launching,
                     frozen.Members,
                     frozen.SnapshotRevision,
                     frozen.LaunchRevision,
@@ -185,7 +185,7 @@ public sealed class TownRaidPreparationRulesTests
         return new TownRaidPreparationSnapshot(
             source.RaidCode,
             source.HostProfileId,
-            TownRaidPreparationState.Starting,
+            TownRaidPreparationState.Launching,
             members,
             source.SnapshotRevision,
             source.LaunchRevision,

@@ -143,7 +143,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
             return;
         }
 
-        if (preparation.State == TownRaidPreparationState.Starting)
+        if (preparation.State == TownRaidPreparationState.Launching)
         {
             preparation.AuthorityHandlePlayerLeft(profileId);
             return;

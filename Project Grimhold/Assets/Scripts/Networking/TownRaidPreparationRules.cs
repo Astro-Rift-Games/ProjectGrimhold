@@ -21,7 +21,7 @@ public static class TownRaidPreparationRules
             case TownRaidPreparationState.Waiting:
                 return snapshot.LaunchRevision >= 0 && snapshot.FrozenMemberCount == 0 &&
                        MembersHaveLaunchRevision(snapshot.Members, 0);
-            case TownRaidPreparationState.Starting:
+            case TownRaidPreparationState.Launching:
                 return IsCompleteFrozenSnapshot(snapshot);
             default:
                 return false;
@@ -230,7 +230,7 @@ public static class TownRaidPreparationRules
         frozen = new TownRaidPreparationSnapshot(
             snapshot.RaidCode,
             snapshot.HostProfileId,
-            TownRaidPreparationState.Starting,
+            TownRaidPreparationState.Launching,
             members,
             snapshot.SnapshotRevision + 1,
             launchRevision,
@@ -244,7 +244,7 @@ public static class TownRaidPreparationRules
     public static bool IsCompleteFrozenSnapshot(in TownRaidPreparationSnapshot snapshot)
     {
         return snapshot.RaidCode.IsValid && snapshot.SnapshotRevision > 0 &&
-               snapshot.State == TownRaidPreparationState.Starting &&
+               snapshot.State == TownRaidPreparationState.Launching &&
                RaidSessionRules.IsValidLaunchRevision(snapshot.LaunchRevision) &&
                snapshot.FrozenMemberCount == snapshot.Members.Count &&
                snapshot.FrozenMemberCount >= 1 &&

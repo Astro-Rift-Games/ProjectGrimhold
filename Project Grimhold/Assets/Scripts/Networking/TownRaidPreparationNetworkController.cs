@@ -108,7 +108,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         if (_authorityRebuildTicks > 0)
         {
             _authorityRebuildTicks--;
-            if (_authorityRebuildTicks == 0 && State == TownRaidPreparationState.Starting &&
+            if (_authorityRebuildTicks == 0 && State == TownRaidPreparationState.Launching &&
                 TownRaidPreparationRules.AreAllLaunchAcknowledged(Snapshot))
             {
                 PrepareCoordinatedRelease(Snapshot);
@@ -118,14 +118,14 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         // A launch revision that never collects every ACK must not wait forever. The release
         // deadline only covers the phase after PrepareCoordinatedRelease, so the ACK phase owns
         // its own deadline inside the same coordinated preparation.
-        if (State == TownRaidPreparationState.Starting && !_releaseDispatched &&
+        if (State == TownRaidPreparationState.Launching && !_releaseDispatched &&
             _acknowledgeDeadline > 0f && Time.time >= _acknowledgeDeadline)
         {
             _cancelLaunchRequested = true;
             _acknowledgeDeadline = 0f;
         }
 
-        if (State == TownRaidPreparationState.Starting && _releaseDispatched && !_hostReleaseRequested &&
+        if (State == TownRaidPreparationState.Launching && _releaseDispatched && !_hostReleaseRequested &&
             _releaseDeadline > 0f && Time.time >= _releaseDeadline)
         {
             _cancelLaunchRequested = true;
@@ -138,7 +138,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         _cancelLaunchRequested = false;
-        if (State == TownRaidPreparationState.Starting)
+        if (State == TownRaidPreparationState.Launching)
         {
             CancelLaunchingPreparation();
         }
@@ -153,7 +153,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public void StateAuthorityChanged()
     {
-        if (HasStateAuthority && State == TownRaidPreparationState.Starting)
+        if (HasStateAuthority && State == TownRaidPreparationState.Launching)
         {
             ResetReleaseRuntime();
             ArmAcknowledgeDeadline();
@@ -321,7 +321,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
         LaunchRevision = nextRevision;
         FrozenMemberCount = frozen.FrozenMemberCount;
-        State = TownRaidPreparationState.Starting;
+        State = TownRaidPreparationState.Launching;
         for (int index = 0; index < frozen.Members.Count; index++)
         {
             MemberNetwork member = Members[index];
@@ -343,7 +343,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public void AuthorityHandlePlayerLeft(ProfileId profileId)
     {
-        if (!HasStateAuthority || State != TownRaidPreparationState.Starting || !profileId.IsValid)
+        if (!HasStateAuthority || State != TownRaidPreparationState.Launching || !profileId.IsValid)
         {
             return;
         }
@@ -375,7 +375,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
     private void RPC_AcknowledgeLaunch(int sequence, RpcInfo info = default)
     {
-        if (State != TownRaidPreparationState.Starting || sequence != LaunchRevision ||
+        if (State != TownRaidPreparationState.Launching || sequence != LaunchRevision ||
             !TryResolveSender(info.Source, out ProfileId profileId))
         {
             return;
@@ -489,7 +489,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private void AuthorityHandleLaunchRejected(int sequence)
     {
-        if (!HasStateAuthority || State != TownRaidPreparationState.Starting || sequence != LaunchRevision)
+        if (!HasStateAuthority || State != TownRaidPreparationState.Launching || sequence != LaunchRevision)
         {
             return;
         }
