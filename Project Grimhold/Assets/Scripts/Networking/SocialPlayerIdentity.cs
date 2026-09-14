@@ -12,6 +12,12 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
 
+    [Networked]
+    public NetworkString<_32> DisplayName { get; private set; }
+
+    [Networked]
+    public NetworkBool HasPendingPartyContinuation { get; private set; }
+
     public override void Spawned()
     {
         if (!HasStateAuthority)
@@ -27,5 +33,27 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
         }
 
         ProfileId = context.JoinData.ProfileId.Value;
+        string displayName = ApplicationAuthContext.Instance != null
+            ? ApplicationAuthContext.Instance.CharacterName
+            : null;
+        DisplayName = string.IsNullOrWhiteSpace(displayName) ? context.JoinData.ProfileId.Value : displayName.Trim();
+        RefreshContinuationState();
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (HasStateAuthority)
+        {
+            RefreshContinuationState();
+        }
+    }
+
+    private void RefreshContinuationState()
+    {
+        bool hasPending = SessionConnectionCoordinator.Instance?.HasPendingPartyContinuation ?? false;
+        if ((bool)HasPendingPartyContinuation != hasPending)
+        {
+            HasPendingPartyContinuation = hasPending;
+        }
     }
 }

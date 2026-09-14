@@ -29,6 +29,31 @@ public sealed class SessionCompositionConfigurationTests
     private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
 
     [Test]
+    public void SocialPlayer_HasPreauthorizedDirectPartyInvitationComposition()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+        Assert.That(prefab, Is.Not.Null);
+
+        NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+        SocialPlayerInteractable interactable = prefab.GetComponent<SocialPlayerInteractable>();
+        TownPartyInvitationPresenter presenter = prefab.GetComponent<TownPartyInvitationPresenter>();
+        SocialPlayerIdentity identity = prefab.GetComponent<SocialPlayerIdentity>();
+        Transform trigger = FindChild(prefab.transform, "PartyInteractionTrigger");
+
+        Assert.That(interactable, Is.Not.Null);
+        Assert.That(presenter, Is.Not.Null);
+        Assert.That(identity, Is.Not.Null);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(interactable));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(presenter));
+        Assert.That(trigger, Is.Not.Null);
+        Assert.That(trigger.gameObject.layer, Is.EqualTo(8));
+        Assert.That(trigger.GetComponent<Collider2D>().isTrigger, Is.True);
+        Assert.That(prefab.GetComponentsInChildren<InteractionHudPresenter>(true), Has.Length.EqualTo(1));
+        Assert.That(prefab.GetComponentsInChildren<TownPartyInvitationView>(true), Has.Length.EqualTo(1));
+        Assert.That(prefab.GetComponentInChildren<TownPartyInvitationView>(true).GetComponentInParent<Canvas>(true), Is.Not.Null);
+    }
+
+    [Test]
     public void NetworkScenes_AreEnabledAndResolvableByConfiguredName()
     {
         Assert.That(NetworkSceneBuildIndexResolver.Resolve("Lobby-Town"), Is.GreaterThanOrEqualTo(0));

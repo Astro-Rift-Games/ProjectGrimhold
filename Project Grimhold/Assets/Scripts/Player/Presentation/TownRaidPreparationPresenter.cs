@@ -53,9 +53,6 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             return;
         }
 
-        _view.SetPrompt(
-            _candidateSource != null && _candidateSource.HasCandidate,
-            _candidateSource?.CurrentPromptText);
         RefreshPreparationPresentation(false);
 
         // Consumed once, so a rejected launch revision reports to the player exactly one time.

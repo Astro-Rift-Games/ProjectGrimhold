@@ -32,6 +32,7 @@ public static class HubRunnerFactory
         var sceneManager = runnerObject.AddComponent<NetworkSceneManagerDefault>();
         runnerObject.AddComponent<EntityRegistry>();
         runnerObject.AddComponent<LocalInputContext>();
+        runnerObject.AddComponent<TownRaidPreparationDirectoryContext>();
         
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         joinContext.Initialize(in joinData);

@@ -195,6 +195,14 @@ public sealed class InteractionHudPresenter : MonoBehaviour
         _feedbackRemaining = _feedbackDuration;
     }
 
+    public void ShowStatusFeedback(string message)
+    {
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            ShowFeedback(message);
+        }
+    }
+
     private void HideFeedback()
     {
         _feedbackRemaining = 0f;

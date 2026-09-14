@@ -27,6 +27,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
     private bool _dependenciesValid;
     private EntityId _metadataTargetId;
     private NetworkObject _metadataNetworkObject;
+    private SocialPlayerInteractable _socialPlayerInteractable;
     private string _currentPromptText;
 
     public bool HasCandidate { get; private set; }
@@ -116,19 +117,27 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
 
         if (_metadataTargetId == targetId && ReferenceEquals(_metadataNetworkObject, networkObject))
         {
+            if (_socialPlayerInteractable != null)
+            {
+                _currentPromptText = _socialPlayerInteractable.PromptText;
+            }
             return;
         }
 
         _metadataTargetId = targetId;
         _metadataNetworkObject = networkObject;
         InteractionPromptMetadata metadata = networkObject.GetComponent<InteractionPromptMetadata>();
-        _currentPromptText = metadata != null ? metadata.PromptText : null;
+        _socialPlayerInteractable = networkObject.GetComponent<SocialPlayerInteractable>();
+        _currentPromptText = _socialPlayerInteractable != null
+            ? _socialPlayerInteractable.PromptText
+            : metadata != null ? metadata.PromptText : null;
     }
 
     private void ClearPromptMetadata()
     {
         _metadataTargetId = default;
         _metadataNetworkObject = null;
+        _socialPlayerInteractable = null;
         _currentPromptText = null;
     }
 

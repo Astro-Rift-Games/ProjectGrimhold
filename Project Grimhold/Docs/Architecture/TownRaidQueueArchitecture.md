@@ -21,6 +21,19 @@ the presentation source of truth for the code, members, capacity and Ready flags
 there is no second client roster. A preparation contains one or two members only.
 The Raid-wide capacity remains a separate sixteen-participant technical limit.
 
+Direct player invitations are replicated state owned by `TownRaidPreparationDirectory`.
+Each pending invitation identifies one preparation by its `NetworkId` and captures that
+preparation's membership-only revision. It never adds a provisional member: the
+preparation snapshot remains the sole roster source of truth. Acceptance revalidates the
+same preparation, Host, editable state, membership revision, connectivity, capacity and
+both participants before adding the recipient. Ready, Start and joining that preparation
+are blocked while its invitation is pending; Leave cancels it first.
+
+Invitation expiry (20 seconds) and pair cooldown (5 seconds) are replicated `TickTimer`
+state advanced only by State Authority. Presentation reconstructs pending UI from the
+directory snapshot; result events are transient feedback only. RaidCode remains a
+presentational/manual-join value and is not invitation identity.
+
 ## Lifecycle
 
 1. Create: Host is added to an `Empty` preparation and receives a fixed code.

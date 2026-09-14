@@ -41,6 +41,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     public int SnapshotRevision { get; private set; }
 
     [Networked]
+    public int MembershipRevision { get; private set; }
+
+    [Networked]
     public int LaunchRevision { get; private set; }
 
     [Networked]
@@ -235,6 +238,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         SnapshotRevision = 1;
+        MembershipRevision = 1;
         _hasSpawnInitialization = false;
         _initialMembers = null;
     }
@@ -253,6 +257,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         Members.Set(slot, new MemberNetwork { ProfileId = profileId.Value, IsReady = false });
+        MembershipRevision++;
         MarkSnapshotChanged();
         return true;
     }
@@ -276,8 +281,14 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         Members.Set(TownRaidPreparationRules.MaxMembers - 1, default);
+        MembershipRevision++;
         MarkSnapshotChanged();
         return true;
+    }
+
+    public bool ContainsMember(ProfileId profileId)
+    {
+        return profileId.IsValid && FindMember(profileId) >= 0;
     }
 
     public bool AuthorityTrySetReady(ProfileId profileId, bool isReady)

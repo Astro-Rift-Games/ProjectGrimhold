@@ -13,6 +13,8 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
 {
     private const int AuthorityRebuildDelayTicks = 2;
     private const int RandomCodeAttempts = 128;
+    private const float InvitationTimeoutSeconds = 20f;
+    private const float InvitationCooldownSeconds = 5f;
 
     [SerializeField]
     private NetworkPrefabRef _preparationPrefab;
@@ -21,6 +23,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
     private readonly TownRaidPreparationDirectoryCache<TownRaidPreparationNetworkController> _cache = new();
     private readonly Dictionary<PlayerRef, ProfileId> _profileByPlayer = new();
     private readonly TownPartyContinuationClaimRegistry _continuationClaims = new();
+    private readonly Queue<TownPartyInvitationResultEvent> _invitationResultEvents = new();
     private bool _interactionRequested;
     private bool _indexReady;
     private bool _conflictLogged;
@@ -33,7 +36,17 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
     [Networked]
     public int ContinuationClaimEpoch { get; private set; }
 
+    [Networked]
+    private int NextInvitationId { get; set; }
+
+    [Networked, Capacity(RaidSessionRules.MaxParticipants)]
+    private NetworkArray<TownPartyInvitationNetworkEntry> Invitations => default;
+
+    [Networked, Capacity(RaidSessionRules.MaxParticipants)]
+    private NetworkArray<TownPartyInvitationCooldownEntry> InvitationCooldowns => default;
+
     public event Action PreparationInteractionRequested;
+    public event Action<TownPartyInvitationResultEvent> InvitationResultReceived;
 
     public bool IsIndexReady => _indexReady;
     public int PreparationCount => _preparations.Count;
@@ -44,6 +57,10 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
     public bool RequestLeave() => CanSendRequest && TrySend(RPC_RequestLeave());
     public bool RequestSetReady(bool isReady) => CanSendOrdinaryPartyRequest && TrySend(RPC_RequestSetReady(isReady));
     public bool RequestStart() => CanSendOrdinaryPartyRequest && TrySend(RPC_RequestStart());
+    public bool RequestInvite(ProfileId recipient) =>
+        CanSendRequest && recipient.IsValid && TrySend(RPC_RequestInvite(recipient.Value));
+    public bool RequestRespondToInvitation(int invitationId, bool accept) =>
+        CanSendRequest && invitationId > 0 && TrySend(RPC_RequestInvitationResponse(invitationId, accept));
 
     public bool RequestAbandonContinuation()
     {
@@ -78,6 +95,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
 
     public override void Spawned()
     {
+        Runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Register(this);
         _indexReady = !HasStateAuthority;
         if (HasStateAuthority)
         {
@@ -88,6 +106,11 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
     public override void Render()
     {
         ObserveLocalContinuation();
+
+        while (_invitationResultEvents.Count > 0)
+        {
+            InvitationResultReceived?.Invoke(_invitationResultEvents.Dequeue());
+        }
 
         if (!_interactionRequested)
         {
@@ -100,7 +123,13 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority || _rebuildTicksRemaining <= 0)
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        ExpireInvitationsAndCooldowns();
+        if (_rebuildTicksRemaining <= 0)
         {
             return;
         }
@@ -114,11 +143,13 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Unregister(this);
         _interactionRequested = false;
         _indexReady = false;
         _preparations.Clear();
         _profileByPlayer.Clear();
         _continuationClaims.Clear();
+        _invitationResultEvents.Clear();
         ResetLocalContinuationClaim();
     }
 
@@ -137,8 +168,13 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
 
     public void PlayerLeft(PlayerRef player)
     {
-        if (!HasStateAuthority || !_profileByPlayer.Remove(player, out ProfileId profileId) || !profileId.IsValid ||
-            !_cache.TryResolve(profileId, out TownRaidPreparationNetworkController preparation))
+        if (!HasStateAuthority || !_profileByPlayer.Remove(player, out ProfileId profileId) || !profileId.IsValid)
+        {
+            return;
+        }
+
+        CancelInvitationsFor(profileId, TownPartyInvitationResult.Unavailable);
+        if (!_cache.TryResolve(profileId, out TownRaidPreparationNetworkController preparation))
         {
             return;
         }
@@ -247,6 +283,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
             return false;
         }
 
+        CancelInvitationsFor(preparation.Object.Id, TownPartyInvitationResult.Busy);
         UnregisterPreparation(preparation);
         Runner.Despawn(preparation.Object);
         return true;
@@ -297,8 +334,18 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
     {
         if (!CanMutate || !RaidCode.TryParse(requestedCode.ToString(), out RaidCode code) ||
             !TryResolveSender(info.Source, out ProfileId profileId) || _cache.TryResolve(profileId, out _) ||
-            !_cache.TryResolve(code, out TownRaidPreparationNetworkController preparation) ||
-            !preparation.HasStateAuthority || !preparation.AuthorityTryAddMember(profileId))
+            !_cache.TryResolve(code, out TownRaidPreparationNetworkController preparation))
+        {
+            return default;
+        }
+
+        if (HasPendingInvitation(preparation.Object.Id))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Busy);
+            return default;
+        }
+
+        if (!preparation.HasStateAuthority || !preparation.AuthorityTryAddMember(profileId))
         {
             return default;
         }
@@ -318,6 +365,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
         }
 
         _profileByPlayer[info.Source] = profileId;
+        CancelInvitationsFor(preparation.Object.Id, TownPartyInvitationResult.Busy);
         if (profileId == preparation.HostProfileId)
         {
             AuthorityDissolvePreparation(preparation);
@@ -340,6 +388,12 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
             return default;
         }
 
+        if (HasPendingInvitation(preparation.Object.Id))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Busy);
+            return default;
+        }
+
         _profileByPlayer[info.Source] = profileId;
         preparation.AuthorityTrySetReady(profileId, isReady);
         return default;
@@ -355,8 +409,119 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
             return default;
         }
 
+        if (HasPendingInvitation(preparation.Object.Id))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Busy);
+            return default;
+        }
+
         _profileByPlayer[info.Source] = profileId;
         preparation.AuthorityTryStart(profileId);
+        return default;
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private RpcInvokeInfo RPC_RequestInvite(NetworkString<_32> requestedRecipient, RpcInfo info = default)
+    {
+        ProfileId recipient = new(requestedRecipient.ToString());
+        if (!CanMutate || !TryResolveSender(info.Source, out ProfileId inviter) || !recipient.IsValid || inviter == recipient ||
+            !TryResolvePlayer(recipient, out _) || !TryGetIdentity(inviter, out SocialPlayerIdentity inviterIdentity) ||
+            !TryGetIdentity(recipient, out SocialPlayerIdentity recipientIdentity))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Unavailable);
+            return default;
+        }
+
+        _profileByPlayer[info.Source] = inviter;
+        if (inviterIdentity.HasPendingPartyContinuation || recipientIdentity.HasPendingPartyContinuation ||
+            HasPendingInvitation(inviter) || HasPendingInvitation(recipient))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Busy);
+            return default;
+        }
+
+        if (_cache.TryResolve(recipient, out _))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.AlreadyGrouped);
+            return default;
+        }
+
+        if (HasActiveCooldown(inviter, recipient))
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Cooldown);
+            return default;
+        }
+
+        if (!HasReservedCooldownCapacity())
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Busy);
+            return default;
+        }
+
+        bool createdPreparation = false;
+        if (!_cache.TryResolve(inviter, out TownRaidPreparationNetworkController preparation))
+        {
+            if (!TrySpawnSoloPreparation(inviter, out preparation))
+            {
+                SendInvitationResult(info.Source, TownPartyInvitationResult.Unavailable);
+                return default;
+            }
+
+            createdPreparation = true;
+        }
+
+        TownPartyInvitationResult validation = ValidateInviterPreparation(preparation, inviter);
+        if (validation != TownPartyInvitationResult.Accepted || !TryCreatePendingInvitation(inviter, recipient, preparation))
+        {
+            if (createdPreparation)
+            {
+                AuthorityDissolvePreparation(preparation);
+            }
+
+            SendInvitationResult(info.Source, validation == TownPartyInvitationResult.Accepted
+                ? TownPartyInvitationResult.Busy
+                : validation);
+        }
+
+        return default;
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private RpcInvokeInfo RPC_RequestInvitationResponse(int invitationId, NetworkBool accept, RpcInfo info = default)
+    {
+        if (!CanMutate || !TryResolveSender(info.Source, out ProfileId recipient) ||
+            !TryFindInvitation(invitationId, out int index, out TownPartyInvitationNetworkEntry invitation) ||
+            invitation.RecipientProfileId.ToString() != recipient.Value)
+        {
+            SendInvitationResult(info.Source, TownPartyInvitationResult.Unavailable);
+            return default;
+        }
+
+        if (invitation.ExpiresAt.Expired(Runner))
+        {
+            ResolveInvitation(index, invitation, TownPartyInvitationResult.Expired);
+            return default;
+        }
+
+        if (!accept)
+        {
+            ResolveInvitation(index, invitation, TownPartyInvitationResult.Rejected);
+            return default;
+        }
+
+        TownPartyInvitationResult validation = ValidateAcceptance(invitation);
+        if (validation != TownPartyInvitationResult.Accepted ||
+            !Runner.TryFindObject(invitation.PreparationNetworkId, out NetworkObject preparationObject) ||
+            !preparationObject.TryGetBehaviour(out TownRaidPreparationNetworkController preparation) ||
+            !preparation.AuthorityTryAddMember(recipient))
+        {
+            ResolveInvitation(index, invitation, validation == TownPartyInvitationResult.Accepted
+                ? TownPartyInvitationResult.Unavailable
+                : validation);
+            return default;
+        }
+
+        ResolveInvitation(index, invitation, TownPartyInvitationResult.Accepted);
         return default;
     }
 
@@ -607,6 +772,361 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
         return true;
     }
 
+    private bool TrySpawnSoloPreparation(ProfileId host, out TownRaidPreparationNetworkController preparation)
+    {
+        preparation = null;
+        if (!_preparationPrefab.IsValid || !TryGenerateUniqueRaidCode(out RaidCode raidCode))
+        {
+            return false;
+        }
+
+        bool initialized = false;
+        NetworkObject spawned = Runner.Spawn(
+            _preparationPrefab,
+            Vector3.zero,
+            Quaternion.identity,
+            null,
+            (callbackRunner, networkObject) =>
+            {
+                if (networkObject.TryGetBehaviour(out TownRaidPreparationNetworkController controller))
+                {
+                    initialized = controller.TrySetSpawnInitialization(
+                        callbackRunner,
+                        networkObject,
+                        Object.Id,
+                        raidCode,
+                        host);
+                }
+            });
+
+        if (spawned != null && initialized && spawned.TryGetBehaviour(out preparation))
+        {
+            RegisterPreparation(preparation);
+            return true;
+        }
+
+        if (spawned != null && spawned.IsValid)
+        {
+            Runner.Despawn(spawned);
+        }
+
+        preparation = null;
+        return false;
+    }
+
+    private TownPartyInvitationResult ValidateInviterPreparation(
+        TownRaidPreparationNetworkController preparation,
+        ProfileId inviter)
+    {
+        if (preparation == null || preparation.Object == null || !preparation.Object.IsValid ||
+            !preparation.HasStateAuthority || !preparation.ContainsMember(inviter) || preparation.HostProfileId != inviter)
+        {
+            return TownPartyInvitationResult.Unavailable;
+        }
+
+        if (preparation.State != TownRaidPreparationState.Waiting)
+        {
+            return TownPartyInvitationResult.Busy;
+        }
+
+        return preparation.MemberCount >= TownRaidPreparationRules.MaxMembers
+            ? TownPartyInvitationResult.PartyFull
+            : TownPartyInvitationResult.Accepted;
+    }
+
+    private TownPartyInvitationResult ValidateAcceptance(in TownPartyInvitationNetworkEntry invitation)
+    {
+        ProfileId inviter = new(invitation.InviterProfileId.ToString());
+        ProfileId recipient = new(invitation.RecipientProfileId.ToString());
+        if (!TryResolvePlayer(inviter, out _) || !TryResolvePlayer(recipient, out _) ||
+            !TryGetIdentity(inviter, out SocialPlayerIdentity inviterIdentity) ||
+            !TryGetIdentity(recipient, out SocialPlayerIdentity recipientIdentity))
+        {
+            return TownPartyInvitationResult.Unavailable;
+        }
+
+        if (inviterIdentity.HasPendingPartyContinuation || recipientIdentity.HasPendingPartyContinuation ||
+            HasOtherPendingInvitation(inviter, invitation.InvitationId) ||
+            HasOtherPendingInvitation(recipient, invitation.InvitationId))
+        {
+            return TownPartyInvitationResult.Busy;
+        }
+
+        if (_cache.TryResolve(recipient, out _))
+        {
+            return TownPartyInvitationResult.AlreadyGrouped;
+        }
+
+        if (!Runner.TryFindObject(invitation.PreparationNetworkId, out NetworkObject preparationObject) ||
+            preparationObject == null ||
+            !preparationObject.TryGetBehaviour(out TownRaidPreparationNetworkController preparation) ||
+            preparation.HostProfileIdValue.ToString() != invitation.HostProfileId.ToString() ||
+            preparation.HostProfileId != inviter || !preparation.ContainsMember(inviter) ||
+            preparation.MembershipRevision != invitation.MembershipRevision)
+        {
+            return TownPartyInvitationResult.Unavailable;
+        }
+
+        if (preparation.State != TownRaidPreparationState.Waiting)
+        {
+            return TownPartyInvitationResult.Busy;
+        }
+
+        return preparation.MemberCount >= TownRaidPreparationRules.MaxMembers
+            ? TownPartyInvitationResult.PartyFull
+            : TownPartyInvitationResult.Accepted;
+    }
+
+    private bool TryCreatePendingInvitation(
+        ProfileId inviter,
+        ProfileId recipient,
+        TownRaidPreparationNetworkController preparation)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            if (Invitations[index].IsPending)
+            {
+                continue;
+            }
+
+            int invitationId = NextInvitationId == int.MaxValue ? 1 : NextInvitationId + 1;
+            NextInvitationId = invitationId;
+            Invitations.Set(index, new TownPartyInvitationNetworkEntry
+            {
+                InvitationId = invitationId,
+                InviterProfileId = inviter.Value,
+                RecipientProfileId = recipient.Value,
+                HostProfileId = preparation.HostProfileIdValue,
+                PreparationNetworkId = preparation.Object.Id,
+                MembershipRevision = preparation.MembershipRevision,
+                ExpiresAt = TickTimer.CreateFromSeconds(Runner, InvitationTimeoutSeconds)
+            });
+            return Invitations[index].IsPending;
+        }
+
+        return false;
+    }
+
+    private void ExpireInvitationsAndCooldowns()
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry invitation = Invitations[index];
+            if (invitation.IsPending && invitation.ExpiresAt.Expired(Runner))
+            {
+                ResolveInvitation(index, invitation, TownPartyInvitationResult.Expired);
+            }
+
+            TownPartyInvitationCooldownEntry cooldown = InvitationCooldowns[index];
+            if (cooldown.IsActive && cooldown.ExpiresAt.Expired(Runner))
+            {
+                InvitationCooldowns.Set(index, default);
+            }
+        }
+    }
+
+    private void ResolveInvitation(
+        int index,
+        in TownPartyInvitationNetworkEntry invitation,
+        TownPartyInvitationResult result)
+    {
+        Invitations.Set(index, default);
+        AddCooldown(new ProfileId(invitation.InviterProfileId.ToString()), new ProfileId(invitation.RecipientProfileId.ToString()));
+        SendInvitationResult(new ProfileId(invitation.InviterProfileId.ToString()), result);
+        SendInvitationResult(new ProfileId(invitation.RecipientProfileId.ToString()), result);
+    }
+
+    private void AddCooldown(ProfileId first, ProfileId second)
+    {
+        NormalizePair(first, second, out ProfileId normalizedFirst, out ProfileId normalizedSecond);
+        int freeIndex = -1;
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationCooldownEntry entry = InvitationCooldowns[index];
+            if (entry.IsActive && entry.FirstProfileId.ToString() == normalizedFirst.Value &&
+                entry.SecondProfileId.ToString() == normalizedSecond.Value)
+            {
+                freeIndex = index;
+                break;
+            }
+
+            if ((!entry.IsActive || entry.ExpiresAt.Expired(Runner)) && freeIndex < 0)
+            {
+                freeIndex = index;
+            }
+        }
+
+        if (freeIndex >= 0)
+        {
+            InvitationCooldowns.Set(freeIndex, new TownPartyInvitationCooldownEntry
+            {
+                FirstProfileId = normalizedFirst.Value,
+                SecondProfileId = normalizedSecond.Value,
+                ExpiresAt = TickTimer.CreateFromSeconds(Runner, InvitationCooldownSeconds)
+            });
+        }
+    }
+
+    private bool HasActiveCooldown(ProfileId first, ProfileId second)
+    {
+        NormalizePair(first, second, out ProfileId normalizedFirst, out ProfileId normalizedSecond);
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationCooldownEntry entry = InvitationCooldowns[index];
+            if (entry.IsActive && !entry.ExpiresAt.Expired(Runner) &&
+                entry.FirstProfileId.ToString() == normalizedFirst.Value &&
+                entry.SecondProfileId.ToString() == normalizedSecond.Value)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasReservedCooldownCapacity()
+    {
+        int freeCooldownSlots = 0;
+        int pendingInvitations = 0;
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            if (!InvitationCooldowns[index].IsActive || InvitationCooldowns[index].ExpiresAt.Expired(Runner))
+            {
+                freeCooldownSlots++;
+            }
+
+            if (Invitations[index].IsPending)
+            {
+                pendingInvitations++;
+            }
+        }
+
+        return freeCooldownSlots > pendingInvitations;
+    }
+
+    private static void NormalizePair(ProfileId first, ProfileId second, out ProfileId normalizedFirst, out ProfileId normalizedSecond)
+    {
+        if (string.CompareOrdinal(first.Value, second.Value) <= 0)
+        {
+            normalizedFirst = first;
+            normalizedSecond = second;
+        }
+        else
+        {
+            normalizedFirst = second;
+            normalizedSecond = first;
+        }
+    }
+
+    private bool HasPendingInvitation(ProfileId profileId) => HasOtherPendingInvitation(profileId, 0);
+
+    private bool HasOtherPendingInvitation(ProfileId profileId, int exceptInvitationId)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry entry = Invitations[index];
+            if (entry.IsPending && entry.InvitationId != exceptInvitationId &&
+                (entry.InviterProfileId.ToString() == profileId.Value ||
+                 entry.RecipientProfileId.ToString() == profileId.Value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasPendingInvitation(NetworkId preparationId)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry entry = Invitations[index];
+            if (entry.IsPending && entry.PreparationNetworkId.Raw == preparationId.Raw)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryFindInvitation(
+        int invitationId,
+        out int invitationIndex,
+        out TownPartyInvitationNetworkEntry invitation)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry candidate = Invitations[index];
+            if (candidate.IsPending && candidate.InvitationId == invitationId)
+            {
+                invitationIndex = index;
+                invitation = candidate;
+                return true;
+            }
+        }
+
+        invitationIndex = -1;
+        invitation = default;
+        return false;
+    }
+
+    private void CancelInvitationsFor(ProfileId profileId, TownPartyInvitationResult result)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry invitation = Invitations[index];
+            if (invitation.IsPending &&
+                (invitation.InviterProfileId.ToString() == profileId.Value ||
+                 invitation.RecipientProfileId.ToString() == profileId.Value))
+            {
+                ResolveInvitation(index, invitation, result);
+            }
+        }
+    }
+
+    private void CancelInvitationsFor(NetworkId preparationId, TownPartyInvitationResult result)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry invitation = Invitations[index];
+            if (invitation.IsPending && invitation.PreparationNetworkId.Raw == preparationId.Raw)
+            {
+                ResolveInvitation(index, invitation, result);
+            }
+        }
+    }
+
+    private bool TryGetIdentity(ProfileId profileId, out SocialPlayerIdentity identity)
+    {
+        identity = null;
+        return TryResolvePlayer(profileId, out PlayerRef player) &&
+            Runner.GetPlayerObject(player) != null &&
+            Runner.GetPlayerObject(player).TryGetBehaviour(out identity);
+    }
+
+    private void SendInvitationResult(ProfileId profileId, TownPartyInvitationResult result)
+    {
+        if (TryResolvePlayer(profileId, out PlayerRef player))
+        {
+            SendInvitationResult(player, result);
+        }
+    }
+
+    private void SendInvitationResult(PlayerRef player, TownPartyInvitationResult result)
+    {
+        if (!player.IsNone)
+        {
+            RPC_ReceiveInvitationResult(player, result);
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ReceiveInvitationResult([RpcTarget] PlayerRef target, TownPartyInvitationResult result)
+    {
+        _invitationResultEvents.Enqueue(new TownPartyInvitationResultEvent(result));
+    }
+
     private bool TrySpawnPreparation(TownPartyContinuationContext context)
     {
         if (!_preparationPrefab.IsValid || !TryGenerateUniqueRaidCode(out RaidCode raidCode))
@@ -645,6 +1165,42 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerJoin
         }
 
         return false;
+    }
+
+    public bool TryGetPendingInvitation(ProfileId profileId, out TownPartyInvitationSnapshot invitation)
+    {
+        for (int index = 0; index < RaidSessionRules.MaxParticipants; index++)
+        {
+            TownPartyInvitationNetworkEntry entry = Invitations[index];
+            if (entry.IsPending &&
+                (entry.InviterProfileId.ToString() == profileId.Value ||
+                 entry.RecipientProfileId.ToString() == profileId.Value))
+            {
+                invitation = new TownPartyInvitationSnapshot(entry);
+                return true;
+            }
+        }
+
+        invitation = default;
+        return false;
+    }
+
+    public bool TryGetDisplayName(ProfileId profileId, out string displayName)
+    {
+        displayName = null;
+        if (!TryResolvePlayer(profileId, out PlayerRef player))
+        {
+            return false;
+        }
+
+        NetworkObject playerObject = Runner.GetPlayerObject(player);
+        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity))
+        {
+            return false;
+        }
+
+        displayName = identity.DisplayName.ToString();
+        return !string.IsNullOrWhiteSpace(displayName);
     }
 
     private static bool TryDecodeContinuation(
