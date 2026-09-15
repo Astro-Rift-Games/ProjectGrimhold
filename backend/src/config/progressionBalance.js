@@ -23,6 +23,7 @@ const XP_REQUIREMENTS = [
 ];
 
 const MAX_LEVEL = INITIAL_LEVEL + XP_REQUIREMENTS.length; // 30
+const MAX_ATTRIBUTE_VALUE = 25;
 
 // ---------------------------------------------------------------------------
 // Pure computation functions
@@ -81,6 +82,7 @@ function computeAttributePointsGranted(previousLevel, resultingLevel) {
 module.exports = {
   INITIAL_LEVEL,
   MAX_LEVEL,
+  MAX_ATTRIBUTE_VALUE,
   ATTRIBUTE_POINTS_PER_LEVEL,
   XP_REQUIREMENTS,
   computeLevelAndExperience,

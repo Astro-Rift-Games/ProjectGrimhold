@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth.routes');
 const characterRoutes = require('./routes/character.routes');
 const inventoryRoutes = require('./routes/inventory.routes');
 const progressionRoutes = require('./routes/progression.routes');
+const raidRoutes = require('./routes/raid.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use('/auth', authRoutes);
 app.use('/character', characterRoutes);
 app.use('/character', inventoryRoutes);
 app.use('/character', progressionRoutes);
+app.use('/character/raid', raidRoutes);
 
 // Health check endpoint.
 app.get('/health', (_req, res) => {

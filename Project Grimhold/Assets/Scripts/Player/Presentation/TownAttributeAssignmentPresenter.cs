@@ -126,24 +126,22 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
                 var remoteService = _profileContext != null ? _profileContext.GetComponent<RemoteInventoryService>() : null;
                 if (remoteService != null)
                 {
-                    var dto = new Grimhold.Backend.CharacterAttributesData
-                    {
-                        vitality = state.Vitality,
-                        resistance = state.Resistance,
-                        strength = state.Strength,
-                        dexterity = state.Dexterity,
-                        intelligence = state.Intelligence,
-                        luck = state.Luck,
-                        availablePoints = state.AvailablePoints
-                    };
-                    var (success, error) = await remoteService.CommitProgressionAsync(dto);
+                    var attributeName = attribute.ToString();
+                    var (success, data, error) = await remoteService.CommitProgressionAsync(attributeName);
                     if (success)
                     {
-                        Debug.Log($"[TownAttributeAssignmentPresenter] Attributes committed to backend successfully.");
+                        Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed to backend successfully.");
+                        if (CharacterAttributeState.TryCreate(
+                            data.vitality, data.resistance, data.strength,
+                            data.dexterity, data.intelligence, data.luck, data.availablePoints,
+                            out CharacterAttributeState authoritativeState))
+                        {
+                            _store.ForceCharacterAttributeState(authoritativeState);
+                        }
                     }
                     else
                     {
-                        Debug.LogError($"[TownAttributeAssignmentPresenter] Failed to commit attributes: {error.error} - {error.message}");
+                        Debug.LogError($"[TownAttributeAssignmentPresenter] Failed to commit attribute {attributeName}: {error.error} - {error.message}");
                     }
                 }
                 else

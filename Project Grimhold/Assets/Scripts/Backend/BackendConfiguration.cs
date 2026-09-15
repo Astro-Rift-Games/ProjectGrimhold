@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Grimhold.Backend
 {
@@ -10,5 +10,8 @@ namespace Grimhold.Backend
 
         [Tooltip("Timeout in seconds for HTTP requests")]
         public int TimeoutSeconds = 5;
+
+        [Tooltip("Secret used by the Host to sign authoritative raid results")]
+        public string WebhookSecret = "dev-webhook-secret-do-not-use-in-prod";
     }
 }

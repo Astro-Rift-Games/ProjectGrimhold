@@ -284,7 +284,7 @@ class InventoryService {
    * The reservation captures the loadout state so it can be restored after a disconnection.
    * @throws 404 if no character found.
    */
-  static async savePendingReservation(accountId, reservationId, items, preparedEquipment) {
+  static async savePendingReservation(accountId, reservationId) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -293,13 +293,22 @@ class InventoryService {
     if (normalizeCharacterInventory(character)) {
       await character.save();
     }
-    items = normalizeItems(items);
-    normalizePreparedEquipment(preparedEquipment);
+
+    // Idempotency: if already reserved with the same reservationId, return without mutating
+    if (character.inventory.pendingReservation && character.inventory.pendingReservation.reservationId === reservationId) {
+      return {
+        pendingReservation: serializePendingReservation(character.inventory.pendingReservation)
+      };
+    }
+
+    // Derive the reservation from the current persisted loadout and preparedEquipment
+    const items = serializeItems(character.inventory.loadout);
+    const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment);
 
     character.inventory.pendingReservation = {
       reservationId,
-      items: items || [],
-      preparedEquipment: preparedEquipment || {}
+      items,
+      preparedEquipment
     };
 
     // Mirror what the Unity client does: the loadout travels inside the reservation.

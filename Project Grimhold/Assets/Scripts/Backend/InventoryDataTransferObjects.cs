@@ -90,9 +90,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct SaveReservationRequest
     {
-        public string               reservationId;
-        public InventoryItemData[]  items;
-        public PreparedEquipmentData preparedEquipment;
+        public string reservationId;
     }
 
     // ---------------------------------------------------------------------------
@@ -179,5 +177,22 @@ namespace Grimhold.Backend
         public int                   level;
         public long                  experience;
         public CharacterAttributesData characterAttributes;
+    }
+
+    [Serializable]
+    public struct PublishExtractionResultRequest
+    {
+        public string raidId;
+        public int resultSequence;
+        public InventoryItemData[] items;
+        public PreparedEquipmentData preparedEquipment;
+        public long experienceGranted;
+        public string hostSignature;
+    }
+
+    [Serializable]
+    public struct PublishExtractionResultResponse
+    {
+        public string status;
     }
 }

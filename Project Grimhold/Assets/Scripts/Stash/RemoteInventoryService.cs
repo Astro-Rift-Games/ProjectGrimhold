@@ -35,21 +35,21 @@ public class RemoteInventoryService : MonoBehaviour
     /// <summary>
     /// Persists character progression and attribute allocations.
     /// </summary>
-    public async Task<(bool success, BackendError error)> CommitProgressionAsync(CharacterAttributesData attributes)
+    public async Task<(bool success, CharacterAttributesData data, BackendError error)> CommitProgressionAsync(string attributeName)
     {
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitProgressionAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
         }
 
         var request = new CommitProgressionRequest
         {
-            characterAttributes = attributes
+            attribute = attributeName
         };
 
-        var (success, _, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
-        return (success, error);
+        var (success, result, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
+        return (success, result.characterAttributes, error);
     }
 
     /// <summary>
@@ -134,17 +134,7 @@ public class RemoteInventoryService : MonoBehaviour
 
         var request = new SaveReservationRequest
         {
-            reservationId = reservation.ReservationId,
-            items = MapToDTO(reservation.Items),
-            preparedEquipment = new PreparedEquipmentData
-            {
-                weaponSlot1 = reservation.PreparedEquipment.WeaponSetAMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetAMainHand.Value : "",
-                weaponSlot2 = reservation.PreparedEquipment.WeaponSetBMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetBMainHand.Value : "",
-                helmet      = reservation.PreparedEquipment.Helmet.IsValid      ? reservation.PreparedEquipment.Helmet.Value      : "",
-                armor       = reservation.PreparedEquipment.Armor.IsValid       ? reservation.PreparedEquipment.Armor.Value       : "",
-                gloves      = reservation.PreparedEquipment.Gloves.IsValid      ? reservation.PreparedEquipment.Gloves.Value      : "",
-                boots       = reservation.PreparedEquipment.Boots.IsValid       ? reservation.PreparedEquipment.Boots.Value       : ""
-            }
+            reservationId = reservation.ReservationId
         };
 
         var (success, _, error) = await InventoryClient.SavePendingReservationAsync(_backendConfig, AuthToken, request);
@@ -239,6 +229,49 @@ public class RemoteInventoryService : MonoBehaviour
                       $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
         }
 
+        return (success, error);
+    }
+
+    public async Task<(bool success, BackendError error)> PublishExtractionResultAsync(
+        ExtractionReceipt receipt,
+        System.Collections.Generic.IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
+        long experienceGranted)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] PublishExtractionResultAsync: Not authenticated.");
+            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        }
+
+        string messageToSign = $"{receipt.RaidId}:{receipt.ResultSequence}";
+        string hostSignature = "";
+
+        using (var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(_backendConfig.WebhookSecret)))
+        {
+            byte[] hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(messageToSign));
+            hostSignature = System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        }
+
+        var request = new PublishExtractionResultRequest
+        {
+            raidId         = receipt.RaidId,
+            resultSequence = receipt.ResultSequence,
+            items          = MapToDTO(items),
+            preparedEquipment = new PreparedEquipmentData
+            {
+                weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
+                weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
+                helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
+                armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
+                gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
+                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+            },
+            experienceGranted = experienceGranted,
+            hostSignature = hostSignature
+        };
+
+        var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
         return (success, error);
     }
 

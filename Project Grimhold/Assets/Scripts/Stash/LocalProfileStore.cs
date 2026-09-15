@@ -99,7 +99,19 @@ public sealed class LocalProfileStore
         }
     }
 
+    public void ForceCharacterAttributeState(CharacterAttributeState state)
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+                return;
 
+            LocalProfileSnapshot next = current.Clone();
+            next.CharacterAttributes = state;
+            Commit(next);
+        }
+    }
 
     public StashOperationResult TryCreditCurrency(long amount)
     {

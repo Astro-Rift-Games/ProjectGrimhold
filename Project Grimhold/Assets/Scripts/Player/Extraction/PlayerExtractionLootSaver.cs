@@ -516,6 +516,19 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
+        if (HasStateAuthority)
+        {
+            var (pubSuccess, pubError) = await remoteInventoryService.PublishExtractionResultAsync(
+                receipt, items, preparedEquipment, consolidatedExperience);
+
+            if (!pubSuccess)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerExtractionLootSaver)}: Failed to publish authoritative extraction result. " +
+                    $"Error={pubError.error}: {pubError.message}. The commit will likely fail.");
+            }
+        }
+
         var (success, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
             receipt, items, preparedEquipment, consolidatedExperience, resultingLevel);
             

@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const InventoryService = require('../services/InventoryService');
 const ExtractionCommitService = require('../services/ExtractionCommitService');
+const env = require('../config/env');
 const authenticate = require('../middleware/authenticate');
 const {
   moveItemValidator,
@@ -75,12 +76,12 @@ router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async
 
 // POST /character/me/inventory/reservation
 // Persists a raid reservation snapshot to survive disconnection.
-// Body: { reservationId: string, items: ItemData[], preparedEquipment?: PreparedEquipmentData }
+// Body: { reservationId: string }
 router.post('/me/inventory/reservation', pendingReservationValidator, async (req, res, next) => {
   try {
-    const { reservationId, items, preparedEquipment } = req.body;
+    const { reservationId } = req.body;
     const result = await InventoryService.savePendingReservation(
-      req.accountId, reservationId, items, preparedEquipment
+      req.accountId, reservationId
     );
     res.status(201).json(result);
   } catch (err) {
@@ -105,6 +106,9 @@ router.delete('/me/inventory/reservation', async (req, res, next) => {
 // Body: { raidId: string, resultSequence: number, items: [{ lootId, amount }] }
 router.post('/me/inventory/extraction', commitExtractionValidator, async (req, res, next) => {
   try {
+    if (env.nodeEnv === 'production') {
+      return res.status(404).json({ message: 'Legacy extraction endpoint is disabled in production.' });
+    }
     const { raidId, resultSequence, items } = req.body;
     const result = await InventoryService.commitExtraction(
       req.accountId,
@@ -145,6 +149,9 @@ const AuthoritativeExtractionResult = require('../models/AuthoritativeExtraction
 
 router.post('/debug/mock-fusion-result', async (req, res, next) => {
   try {
+    if (env.nodeEnv === 'production') {
+      return res.status(404).json({ message: 'Mock endpoint is disabled in production. This endpoint is necessary in dev/staging because there is no dedicated Fusion server yet.' });
+    }
     const { raidId, items, experienceGranted, preparedEquipment } = req.body;
     
     await AuthoritativeExtractionResult.findOneAndUpdate(
