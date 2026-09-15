@@ -90,9 +90,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct SaveReservationRequest
     {
-        public string               reservationId;
-        public InventoryItemData[]  items;
-        public PreparedEquipmentData preparedEquipment;
+        public string reservationId;
     }
 
     // ---------------------------------------------------------------------------

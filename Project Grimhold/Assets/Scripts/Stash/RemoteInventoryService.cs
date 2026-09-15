@@ -134,17 +134,7 @@ public class RemoteInventoryService : MonoBehaviour
 
         var request = new SaveReservationRequest
         {
-            reservationId = reservation.ReservationId,
-            items = MapToDTO(reservation.Items),
-            preparedEquipment = new PreparedEquipmentData
-            {
-                weaponSlot1 = reservation.PreparedEquipment.WeaponSetAMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetAMainHand.Value : "",
-                weaponSlot2 = reservation.PreparedEquipment.WeaponSetBMainHand.IsValid ? reservation.PreparedEquipment.WeaponSetBMainHand.Value : "",
-                helmet      = reservation.PreparedEquipment.Helmet.IsValid      ? reservation.PreparedEquipment.Helmet.Value      : "",
-                armor       = reservation.PreparedEquipment.Armor.IsValid       ? reservation.PreparedEquipment.Armor.Value       : "",
-                gloves      = reservation.PreparedEquipment.Gloves.IsValid      ? reservation.PreparedEquipment.Gloves.Value      : "",
-                boots       = reservation.PreparedEquipment.Boots.IsValid       ? reservation.PreparedEquipment.Boots.Value       : ""
-            }
+            reservationId = reservation.ReservationId
         };
 
         var (success, _, error) = await InventoryClient.SavePendingReservationAsync(_backendConfig, AuthToken, request);
