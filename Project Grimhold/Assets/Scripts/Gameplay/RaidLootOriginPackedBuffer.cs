@@ -6,7 +6,7 @@ public static class RaidLootOriginPackedBuffer
     public const int MaximumCatalogEntries = 64;
     public const int MaximumPlayerOrigins = RaidSessionRules.MaxParticipants;
     public const int OriginsPerLoot = MaximumPlayerOrigins + 1;
-    public const int MaximumStacks = 16;
+    public const int MaximumStacks = 30;
     public const int MaximumBuckets = MaximumStacks * OriginsPerLoot;
     public const int KeyBits = 11;
     public const int AmountBits = 32;

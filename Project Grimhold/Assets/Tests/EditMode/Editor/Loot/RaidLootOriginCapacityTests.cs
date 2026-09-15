@@ -6,7 +6,7 @@ namespace Tests.EditMode.Loot
     public sealed class RaidLootOriginCapacityTests
     {
         [Test]
-        public void CompactEndpoint_HoldsSixteenLootIdsWithAllSeventeenOrigins()
+        public void CompactEndpoint_HoldsThirtyLootIdsWithAllSeventeenOrigins()
         {
             var state = new RaidLootOriginPackedState();
             IReadOnlyList<RaidLootOriginBucket> allOrigins = CreateAllOrigins();
@@ -22,7 +22,7 @@ namespace Tests.EditMode.Loot
                     $"catalog index {catalogIndex}");
             }
 
-            Assert.That(state.BucketCount, Is.EqualTo(272));
+            Assert.That(state.BucketCount, Is.EqualTo(510));
             Assert.That(RaidLootOriginIndexedStateUtility.TryValidateState(state), Is.True);
             for (int catalogIndex = 0; catalogIndex < RaidLootOriginPackedBuffer.MaximumStacks; catalogIndex++)
             {
@@ -70,10 +70,10 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void RaidDistinctLootCapacity_AcceptsSixteenAndRejectsSeventeen()
+        public void RaidDistinctLootCapacity_AcceptsThirtyAndRejectsThirtyOne()
         {
-            Assert.That(LootInventoryRules.IsValidSlotCapacity(16, PlayerLootReceiver.MaxDistinctLootTypes), Is.True);
-            Assert.That(LootInventoryRules.IsValidSlotCapacity(17, PlayerLootReceiver.MaxDistinctLootTypes), Is.False);
+            Assert.That(LootInventoryRules.IsValidSlotCapacity(30, PlayerLootReceiver.MaxDistinctLootTypes), Is.True);
+            Assert.That(LootInventoryRules.IsValidSlotCapacity(31, PlayerLootReceiver.MaxDistinctLootTypes), Is.False);
         }
 
         [Test]

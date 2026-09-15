@@ -19,6 +19,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     IRaidLootOriginSource,
     IRaidLootOriginReceiver
 {
+    public const int DefaultWorldSlotCapacity = 6;
+
     private enum InitialContentOverrideState
     {
         NotRequested,
@@ -34,10 +36,14 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     private LootDefinitionCatalog _lootCatalog;
 
     [SerializeField, Range(1, MaxDistinctLootTypes)]
-    private int _slotCapacity = 16;
+    private int _slotCapacity = DefaultWorldSlotCapacity;
 
     [SerializeField]
     private bool _startsAvailable = true;
+
+    [Tooltip("Allows this container to preserve the complete 30-slot player inventory after defeat.")]
+    [SerializeField]
+    private bool _supportsFullPlayerInventory;
 
     [SerializeField]
     private LootContainerInitialEntry[] _initialContent = Array.Empty<LootContainerInitialEntry>();
@@ -89,6 +95,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public int SlotCapacity => _slotCapacity;
     public LootDefinitionCatalog LootCatalog => _lootCatalog;
     public bool StartsAvailable => _startsAvailable;
+    public bool SupportsFullPlayerInventory => _supportsFullPlayerInventory;
     public int OccupiedSlotCount => LootInventory.Count;
     public bool IsEmpty => LootInventory.Count == 0;
     public bool IsRaidLootOriginAware => _raidOriginState != null;
@@ -126,7 +133,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     Array.Empty<LootEntry>(),
                     _lootCatalog,
                     _slotCapacity,
-                    MaxDistinctLootTypes,
+                    MaximumConfiguredSlotCapacity,
                     out resolvedEntries,
                     out error);
             }
@@ -136,7 +143,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     _initialContentOverride,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxDistinctLootTypes,
+                    MaximumConfiguredSlotCapacity,
                     out resolvedEntries,
                     out error);
             }
@@ -146,7 +153,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     _initialContent,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxDistinctLootTypes,
+                    MaximumConfiguredSlotCapacity,
                     out resolvedEntries,
                     out error);
             }
@@ -305,7 +312,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     randomConfig.Table,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxDistinctLootTypes,
+                    MaximumConfiguredSlotCapacity,
                     out ValidatedLootContainerContentSnapshot snapshot,
                     out error) ||
                 !LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error) ||
@@ -319,7 +326,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     rolledContent,
                     _lootCatalog,
                     _slotCapacity,
-                    MaxDistinctLootTypes,
+                    MaximumConfiguredSlotCapacity,
                     out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
                     out error) ||
                 !TryCommitNaturalContent(resolvedEntries, out error))
@@ -557,7 +564,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.InvalidAmount;
         }
 
-        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxDistinctLootTypes) ||
+        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaximumConfiguredSlotCapacity) ||
             index < 0 || index >= MaxCatalogEntries)
         {
             return LootTransferFailureReason.ContainerUnavailable;
@@ -832,7 +839,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 entries,
                 _lootCatalog,
                 _slotCapacity,
-                MaxDistinctLootTypes,
+                MaximumConfiguredSlotCapacity,
                 out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
                 out error))
         {
@@ -1105,7 +1112,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        _slotCapacity = Mathf.Clamp(_slotCapacity, 1, MaxDistinctLootTypes);
+        _slotCapacity = Mathf.Clamp(_slotCapacity, 1, MaximumConfiguredSlotCapacity);
     }
 #endif
+
+    private int MaximumConfiguredSlotCapacity =>
+        _supportsFullPlayerInventory ? MaxDistinctLootTypes : DefaultWorldSlotCapacity;
 }

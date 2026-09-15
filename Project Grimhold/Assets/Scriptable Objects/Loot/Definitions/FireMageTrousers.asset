@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: fire_mage_trousers
   _displayName: Fire Mage Trousers
   _description: Fire Mage Trousers equipment for the 9 category.
-  _icon: {fileID: -8563194897795670729, guid: 77048bcd52b2e47468abdb1d26493f76, type: 3}
+  _icon: {fileID: 21300000, guid: 9b9529feff314293aa3057ec5fbf6263, type: 3}
   _worldSprite: {fileID: -8563194897795670729, guid: 77048bcd52b2e47468abdb1d26493f76, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 7288f9de97004e72970c4403b4379941, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

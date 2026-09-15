@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: placeholder_gloves
   _displayName: Arcane Mage Gloves
   _description: Arcane Mage Gloves equipment for the 8 category.
-  _icon: {fileID: 2581783277843919619, guid: b186c8aaaf2b920468cbdaecfdc7296e, type: 3}
+  _icon: {fileID: 21300000, guid: 3539d311baef40719f08ca9a29534a25, type: 3}
   _worldSprite: {fileID: 2581783277843919619, guid: b186c8aaaf2b920468cbdaecfdc7296e, type: 3}
   _category: 8
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: b7e8369c5a004e93be1ae022c9e68912, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

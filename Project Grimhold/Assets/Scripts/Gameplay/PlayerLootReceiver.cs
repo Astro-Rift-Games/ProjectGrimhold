@@ -27,7 +27,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private LootDefinitionCatalog _lootCatalog;
 
     [SerializeField, Range(1, MaxDistinctLootTypes)]
-    private int _slotCapacity = 16;
+    private int _slotCapacity = 30;
 
     [Networked, Capacity(MaxDistinctLootTypes)]
     private NetworkDictionary<int, int> LootInventory => default;

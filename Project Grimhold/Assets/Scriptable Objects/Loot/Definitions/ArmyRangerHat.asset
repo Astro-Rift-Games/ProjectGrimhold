@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: army_ranger_hat
   _displayName: Army Ranger Hat
   _description: Army Ranger Hat equipment for the 6 category.
-  _icon: {fileID: 4797063115989812277, guid: db7a75e51bc8aea429c9dbe49ace787b, type: 3}
+  _icon: {fileID: 21300000, guid: cfabda96bdf84795ae861b19ddf82167, type: 3}
   _worldSprite: {fileID: 4797063115989812277, guid: db7a75e51bc8aea429c9dbe49ace787b, type: 3}
   _category: 6
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 5518576266d34ab5920e2845c296f28c, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

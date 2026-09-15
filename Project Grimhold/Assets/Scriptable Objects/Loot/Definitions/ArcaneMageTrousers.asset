@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: placeholder_boots
   _displayName: Arcane Mage Trousers
   _description: Arcane Mage Trousers equipment for the 9 category.
-  _icon: {fileID: 6803721106326053892, guid: 2857d1b47967437478cd70a65a60d1d7, type: 3}
+  _icon: {fileID: 21300000, guid: 8d5ee55fdb7c41efa17d1a7da4c53da0, type: 3}
   _worldSprite: {fileID: 6803721106326053892, guid: 2857d1b47967437478cd70a65a60d1d7, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 51d9401f3790428aaedb1a2d824e01ca, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

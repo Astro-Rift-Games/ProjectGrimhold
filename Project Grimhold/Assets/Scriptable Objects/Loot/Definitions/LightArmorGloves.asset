@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: light_armor_gloves
   _displayName: Light Armor Gloves
   _description: Light Armor Gloves equipment for the 8 category.
-  _icon: {fileID: 5865638910748667014, guid: a2f3a3cf94f76a54d97fcbd2a0f51297, type: 3}
+  _icon: {fileID: 21300000, guid: 6104eafd513d4e569663c936a4cb7f43, type: 3}
   _worldSprite: {fileID: 5865638910748667014, guid: a2f3a3cf94f76a54d97fcbd2a0f51297, type: 3}
   _category: 8
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 3a0cb586957841b2926eb9b4be8adf08, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

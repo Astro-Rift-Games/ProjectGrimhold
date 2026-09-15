@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: heavy_armor_gauntlets
   _displayName: Heavy Armor Gauntlets
   _description: Heavy Armor Gauntlets equipment for the 8 category.
-  _icon: {fileID: 5633322760710229666, guid: 8c2cb389e79814e4986ea20edd39cdaa, type: 3}
+  _icon: {fileID: 21300000, guid: f879a8b4943a4876a2c281d81e955559, type: 3}
   _worldSprite: {fileID: 5633322760710229666, guid: 8c2cb389e79814e4986ea20edd39cdaa, type: 3}
   _category: 8
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 4fec79805d4e4d18a785dbffb0934354, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

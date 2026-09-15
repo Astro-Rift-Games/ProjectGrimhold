@@ -18,7 +18,7 @@ namespace Tests.EditMode.Loot
         [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab")]
-        public void ProductiveRaidContainerCapacity_IsAtMostSixteen(string prefabPath)
+        public void ProductiveWorldContainerCapacity_IsSix(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             Assert.That(prefab, Is.Not.Null, prefabPath);
@@ -28,20 +28,21 @@ namespace Tests.EditMode.Loot
             Assert.That(container, Is.Not.Null, prefabPath);
             Assert.That(origins, Is.Not.Null, prefabPath);
             Assert.That(networkObject, Is.Not.Null, prefabPath);
-            Assert.That(container.SlotCapacity, Is.InRange(1, NetworkLootContainer.MaxDistinctLootTypes), prefabPath);
+            Assert.That(container.SlotCapacity, Is.EqualTo(NetworkLootContainer.DefaultWorldSlotCapacity), prefabPath);
+            Assert.That(container.SupportsFullPlayerInventory, Is.False, prefabPath);
             AssertNetworkBehaviourIsBaked(networkObject, origins);
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
         [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
-        public void ProductivePlayerReceiverCapacity_IsAtMostSixteen(string prefabPath)
+        public void ProductivePlayerReceiverCapacity_IsThirty(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             Assert.That(prefab, Is.Not.Null, prefabPath);
             PlayerLootReceiver receiver = prefab.GetComponent<PlayerLootReceiver>();
             Assert.That(receiver, Is.Not.Null, prefabPath);
-            Assert.That(receiver.SlotCapacity, Is.InRange(1, PlayerLootReceiver.MaxDistinctLootTypes), prefabPath);
+            Assert.That(receiver.SlotCapacity, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots), prefabPath);
         }
 
         [Test]
@@ -217,6 +218,8 @@ namespace Tests.EditMode.Loot
             Assert.That(interactable.gameObject, Is.SameAs(networkObject.gameObject));
 
             Assert.That(container.StartsAvailable, Is.False);
+            Assert.That(container.SlotCapacity, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+            Assert.That(container.SupportsFullPlayerInventory, Is.True);
             var serializedContainer = new SerializedObject(container);
             Assert.That(serializedContainer.FindProperty("_initialContent").arraySize, Is.Zero);
 

@@ -5,13 +5,15 @@ using Assert = NUnit.Framework.Assert;
 [Category("TASK143")]
 public sealed class RaidAdmissionDataCodecTests
 {
+    private const string ReservationId = "0123456789abcdef0123456789abcdef";
+
     [Test]
     public void TryCreate_UsesCompactPreparedEquipmentReferences()
     {
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         LootId sword = new("arming_sword");
         var reservation = new PendingLoadoutReservation(
-            "reservation-prepared",
+            ReservationId,
             new[]
             {
                 new StashItem(new LootId("coins"), 4)
@@ -41,7 +43,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile-code"),
-            "reservation-code",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             CustomAttributes,
             new[] { 1, 0, 0, 0, 0, 0 },
@@ -50,7 +52,7 @@ public sealed class RaidAdmissionDataCodecTests
             lastAppliedProgressionResultSequence: 12);
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(9));
+        Assert.That(token[0], Is.EqualTo(10));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
@@ -72,7 +74,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             first,
             new ProfileId("profile-code"),
-            "reservation-code",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
@@ -91,7 +93,7 @@ public sealed class RaidAdmissionDataCodecTests
         var invalidBaseline = new RaidAdmissionData(
             code,
             new ProfileId("profile-invalid-baseline"),
-            "reservation",
+            ReservationId,
             loadout,
             InitialAttributes,
             equipment,
@@ -99,7 +101,7 @@ public sealed class RaidAdmissionDataCodecTests
         var invalidWatermark = new RaidAdmissionData(
             code,
             new ProfileId("profile-invalid-watermark"),
-            "reservation",
+            ReservationId,
             loadout,
             InitialAttributes,
             equipment,
@@ -116,7 +118,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile-a"),
-            "reservation-a",
+            ReservationId,
             new[]
             {
                 new LootEntry(new LootId("arming_sword"), 3),
@@ -145,7 +147,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
@@ -167,7 +169,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile-empty"),
-            "reservation-empty",
+            ReservationId,
             new List<LootEntry>(),
             InitialAttributes);
 
@@ -181,7 +183,7 @@ public sealed class RaidAdmissionDataCodecTests
         var duplicate = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             new[]
             {
                 new LootEntry(new LootId("coins"), 1),
@@ -192,7 +194,7 @@ public sealed class RaidAdmissionDataCodecTests
         var oversized = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             new[] { new LootEntry(new LootId("coins"), 10000) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
@@ -208,7 +210,7 @@ public sealed class RaidAdmissionDataCodecTests
         var invalid = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 1, 0, 0, 0, 0 });
@@ -229,11 +231,39 @@ public sealed class RaidAdmissionDataCodecTests
         var tooMany = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             entries,
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(tooMany, out _), Is.False);
+    }
+
+    [Test]
+    public void ThirtyEntryInventory_RoundTripsWithinExpandedTokenBudget()
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var entries = new List<LootEntry>
+        {
+            new(new LootId("arming_sword"), 1)
+        };
+        for (int index = 1; index < LocalProfileSnapshot.MaxLoadoutSlots; index++)
+        {
+            entries.Add(new LootEntry(new LootId($"inventory_item_{index:D2}"), 1));
+        }
+
+        var source = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-capacity"),
+            ReservationId,
+            entries,
+            InitialAttributes,
+            new[] { 1, 0, 0, 0, 0, 0 });
+
+        Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
+        Assert.That(token.Length, Is.GreaterThan(512));
+        Assert.That(token.Length, Is.LessThanOrEqualTo(RaidLoadoutRules.MaximumTokenBytes));
+        Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
+        Assert.That(decoded.ReservedLoadout, Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
     }
 
     [Test]
@@ -243,7 +273,7 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile"),
-            "reservation",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
@@ -265,25 +295,26 @@ public sealed class RaidAdmissionDataCodecTests
         var source = new RaidAdmissionData(
             code,
             new ProfileId("profile-invalid-attribute"),
-            "reservation",
+            ReservationId,
             new[] { new LootEntry(new LootId("arming_sword"), 1) },
             InitialAttributes,
             new[] { 1, 0, 0, 0, 0, 0 });
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
 
         int offset = 1;
-        for (int textIndex = 0; textIndex < 3; textIndex++)
+        for (int textIndex = 0; textIndex < 2; textIndex++)
         {
             offset += 1 + token[offset];
         }
 
+        offset += 16;
         offset += sizeof(int) + sizeof(long) + sizeof(int);
         System.Buffer.BlockCopy(
-            System.BitConverter.GetBytes(-1),
+            System.BitConverter.GetBytes((short)-1),
             0,
             token,
             offset,
-            sizeof(int));
+            sizeof(short));
 
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out _), Is.False);
     }
@@ -294,7 +325,7 @@ public sealed class RaidAdmissionDataCodecTests
         Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
         LootId sword = new("arming_sword");
         var reservation = new PendingLoadoutReservation(
-            "reservation-attributes",
+            ReservationId,
             new[] { new StashItem(sword, 1) },
             new PreparedEquipmentLoadout(sword, default));
 

@@ -11,7 +11,7 @@ namespace Tests.PlayMode.Presentation
 {
     public sealed class TownInventoryPresenterPlayModeTests
     {
-        private const string SharedPrefabPath = "Assets/Prefabs/UI/RaidInventoryUI.prefab";
+        private const string SharedPrefabPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
 
         private GameObject _instance;
         private GameObject _readerObject;
@@ -51,6 +51,7 @@ namespace Tests.PlayMode.Presentation
             InvokePresenter("OnInventoryToggleRequested");
             Assert.That(_presenter.IsOpen, Is.True);
             Assert.That(_view.IsOpen, Is.True);
+            Assert.That(_view.PlayerPanel.SlotCount, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
             Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
             Assert.That(_view.ContainerPanel.gameObject.activeSelf, Is.False);
             Assert.That(FindDescendant(_instance.transform, "EquipmentPanel").gameObject.activeSelf, Is.True);

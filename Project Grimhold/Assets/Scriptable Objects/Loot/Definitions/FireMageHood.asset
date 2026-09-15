@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: fire_mage_hood
   _displayName: Fire Mage Hood
   _description: Fire Mage Hood equipment for the 6 category.
-  _icon: {fileID: 7239861564996483058, guid: 63218e469fd080c4d803e85ee9b35583, type: 3}
+  _icon: {fileID: 21300000, guid: a8774315575a4a8dba7a2e49e09039a9, type: 3}
   _worldSprite: {fileID: 7239861564996483058, guid: 63218e469fd080c4d803e85ee9b35583, type: 3}
   _category: 6
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 45898605525a4e0581aac8d4f604fdc4, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

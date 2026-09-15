@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: heavy_armor_leg_plate
   _displayName: Heavy Armor Leg Plate
   _description: Heavy Armor Leg Plate equipment for the 9 category.
-  _icon: {fileID: 4070702473656160846, guid: 0c22e33ca3a74cb428cdb500f6283fb3, type: 3}
+  _icon: {fileID: 21300000, guid: 9555fedd2ad848d6a0da1df5a582a41f, type: 3}
   _worldSprite: {fileID: 4070702473656160846, guid: 0c22e33ca3a74cb428cdb500f6283fb3, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: c4be7cf4c6734e92ab3fdfb2de7e82c0, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

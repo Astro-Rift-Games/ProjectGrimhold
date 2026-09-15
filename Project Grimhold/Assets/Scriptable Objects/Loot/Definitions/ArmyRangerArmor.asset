@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: army_ranger_armor
   _displayName: Army Ranger Armor
   _description: Army Ranger Armor equipment for the 7 category.
-  _icon: {fileID: -6237967476079544834, guid: f23c341271484f648b826be59f1cb049, type: 3}
+  _icon: {fileID: 21300000, guid: 5574edfa9db741508eab81086e28c908, type: 3}
   _worldSprite: {fileID: -6237967476079544834, guid: f23c341271484f648b826be59f1cb049, type: 3}
   _category: 7
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 0340823f4c5b4b8898cacfa15eb0ec6e, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

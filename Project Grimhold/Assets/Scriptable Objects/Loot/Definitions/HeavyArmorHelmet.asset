@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: heavy_armor_helmet
   _displayName: Heavy Armor Helmet
   _description: Heavy Armor Helmet equipment for the 6 category.
-  _icon: {fileID: 7996058771228443672, guid: 7bda0f0d2afa25443a08d747b199fb3e, type: 3}
+  _icon: {fileID: 21300000, guid: 572adab016f74725ae4e121c34efe242, type: 3}
   _worldSprite: {fileID: 7996058771228443672, guid: 7bda0f0d2afa25443a08d747b199fb3e, type: 3}
   _category: 6
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: ae37b4dba42d411c80a304e1ffadc02e, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

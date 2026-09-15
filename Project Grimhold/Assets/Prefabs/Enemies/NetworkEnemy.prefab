@@ -5617,7 +5617,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkLootContainer
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
-  _slotCapacity: 16
+  _slotCapacity: 6
   _startsAvailable: 0
   _initialContent: []
   _IsInitialized:

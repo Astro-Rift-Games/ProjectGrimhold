@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: army_ranger_gloves
   _displayName: Army Ranger Gloves
   _description: Army Ranger Gloves equipment for the 8 category.
-  _icon: {fileID: 6051605788040213204, guid: b4db2dac4e1d88847b45a5d6ff1f35b9, type: 3}
+  _icon: {fileID: 21300000, guid: 0e299d9ae8ae47d08f10eba78ef9d81e, type: 3}
   _worldSprite: {fileID: 6051605788040213204, guid: b4db2dac4e1d88847b45a5d6ff1f35b9, type: 3}
   _category: 8
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 374be8fb091248fba88e70a55f4b4d93, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

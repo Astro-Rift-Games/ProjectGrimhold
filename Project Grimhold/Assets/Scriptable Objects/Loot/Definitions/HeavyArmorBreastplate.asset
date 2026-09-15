@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: heavy_armor_breastplate
   _displayName: Heavy Armor Breastplate
   _description: Heavy Armor Breastplate equipment for the 7 category.
-  _icon: {fileID: -3155528620477580874, guid: 797805809cd3e9b43a25c86d60ec8d3a, type: 3}
+  _icon: {fileID: 21300000, guid: d7470fd1b7294fd6bfc53356972ffbaf, type: 3}
   _worldSprite: {fileID: -3155528620477580874, guid: 797805809cd3e9b43a25c86d60ec8d3a, type: 3}
   _category: 7
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 46d8c11f683c4aa5b2c5180e87b357f6, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

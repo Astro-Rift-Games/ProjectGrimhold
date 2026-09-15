@@ -275,9 +275,9 @@ Reading must not expose a mutable backing collection. A caller may retain or enu
 
 Gameplay slots count distinct loot IDs with positive quantities. Increasing an existing ID does not consume another slot; receiving a new ID requires a free slot. There is no automatic splitting, weight capacity, or per-stack maximum in the current contract.
 
-The `NetworkDictionary` capacity of 64 used by `PlayerLootReceiver` and `NetworkLootContainer` is a Fusion representation limit, not gameplay slot capacity. Reaching a technical representation constraint must not be reported as `InventoryFull`.
+The shared `NetworkDictionary` capacity of 30 used by `PlayerLootReceiver` and `NetworkLootContainer` is a Fusion representation limit, not necessarily gameplay slot capacity. Reaching a technical representation constraint must not be reported as `InventoryFull`.
 
-`PlayerLootReceiver` implements content reading, quantity queries, configurable gameplay slots, reception, and extraction. Its serialized slot capacity is positive, cannot exceed the `NetworkDictionary` representation limit, and is configured to 16 on the base network-player prefab. The value is local static configuration rather than replicated state.
+`PlayerLootReceiver` implements content reading, quantity queries, configurable gameplay slots, reception, and extraction. Its serialized slot capacity is positive, cannot exceed the `NetworkDictionary` representation limit, and is configured to 30 on the base network-player prefab. World and enemy `NetworkLootContainer` prefabs are configured to six; the co-located defeated-player container is configured to 30 so it can preserve the complete player inventory. These values are local static configuration rather than replicated state.
 
 State Authority is the only writer. Reception stacks an existing ID regardless of occupied-slot count and rejects a new ID with `InventoryFull` only when the configured gameplay capacity is full. Extraction requires the complete requested quantity, removes an entry when its remainder reaches zero, and never stores zero or negative quantities. Both successful commits increment `LootChangeSequence`, allowing Input Authority presentation to refresh from the replicated read-only snapshot.
 
