@@ -8,6 +8,7 @@
 const test   = require('node:test');
 const assert = require('node:assert/strict');
 const Character             = require('../src/models/Character');
+const AuthoritativeExtractionResult = require('../src/models/AuthoritativeExtractionResult');
 const ExtractionCommitService = require('../src/services/ExtractionCommitService');
 
 // ---------------------------------------------------------------------------
@@ -47,7 +48,60 @@ function makeCharacter(overrides = {}) {
 
 test('ExtractionCommitService.commit', async (t) => {
   const originalFindOne = Character.findOne;
-  t.afterEach(() => { Character.findOne = originalFindOne; });
+  const originalAuthFindOne = AuthoritativeExtractionResult.findOne;
+  const originalFindOneAndUpdate = Character.findOneAndUpdate;
+  t.afterEach(() => { 
+    Character.findOne = originalFindOne; 
+    AuthoritativeExtractionResult.findOne = originalAuthFindOne;
+    Character.findOneAndUpdate = originalFindOneAndUpdate;
+  });
+  t.beforeEach(() => {
+    AuthoritativeExtractionResult.findOne = async () => null;
+    Character.findOneAndUpdate = async (query, update, options) => {
+      const char = await Character.findOne(query);
+      if (!char) return null;
+
+      const notMatch = query['inventory.appliedExtractionReceipts']?.$not?.$elemMatch;
+      if (notMatch) {
+        const { raidId, resultSequence } = notMatch;
+        const exists = char.inventory.appliedExtractionReceipts.some(r => r.raidId === raidId && r.resultSequence === resultSequence);
+        if (exists) return null;
+      }
+
+      if (update.$unset && update.$unset['inventory.pendingReservation']) {
+        char.inventory.pendingReservation = null;
+      }
+      
+      if (update.$set) {
+        if (update.$set['inventory.preparedEquipment'] !== undefined) char.inventory.preparedEquipment = update.$set['inventory.preparedEquipment'];
+        if (update.$set['inventory.loadout'] !== undefined) char.inventory.loadout = update.$set['inventory.loadout'];
+        if (update.$set.level !== undefined) char.level = update.$set.level;
+        if (update.$set.experience !== undefined) char.experience = update.$set.experience;
+        if (update.$set['characterAttributes.availablePoints'] !== undefined) {
+          if (!char.characterAttributes) char.characterAttributes = {};
+          char.characterAttributes.availablePoints = update.$set['characterAttributes.availablePoints'];
+        }
+        if (update.$set.lastAppliedProgressionResultSequence !== undefined) char.lastAppliedProgressionResultSequence = update.$set.lastAppliedProgressionResultSequence;
+        if (update.$set.lastProgressionReceipt !== undefined) char.lastProgressionReceipt = update.$set.lastProgressionReceipt;
+      }
+
+      if (update.$push) {
+        if (update.$push['inventory.appliedExtractionReceipts']) {
+          char.inventory.appliedExtractionReceipts.push(...update.$push['inventory.appliedExtractionReceipts'].$each);
+          const slice = update.$push['inventory.appliedExtractionReceipts'].$slice;
+          if (slice && slice < 0) char.inventory.appliedExtractionReceipts = char.inventory.appliedExtractionReceipts.slice(slice);
+        }
+        if (update.$push['appliedProgressionReceipts']) {
+          char.appliedProgressionReceipts.push(...update.$push['appliedProgressionReceipts'].$each);
+          const slice = update.$push['appliedProgressionReceipts'].$slice;
+          if (slice && slice < 0) char.appliedProgressionReceipts = char.appliedProgressionReceipts.slice(slice);
+        }
+      }
+      
+      await char.save();
+      return char;
+    };
+  });
 
   // -------------------------------------------------------------------------
   // Loot-only scenarios
@@ -216,44 +270,25 @@ test('ExtractionCommitService.commit', async (t) => {
     assert.equal(result.characterAttributes.availablePoints, 12);  // 2 levels gained = 2 points
   });
 
-  await t.test('with progression: throws 422 when resultingLevel does not match server computation', async () => {
+  await t.test('with progression: ignores client resultingLevel and applies server computation', async () => {
     const mockChar = makeCharacter({ level: 1, experience: 0 });
     Character.findOne = async () => mockChar;
 
-    await assert.rejects(
-      () => ExtractionCommitService.commit('acc123', {
-        raidId: 'raid-007', resultSequence: 1,
-        // 50 XP at level 1 → still level 1, but client claims level 99
-        progression: { consolidatedExperience: 50, resultingLevel: 99 },
-      }),
-      err => {
-        assert.equal(err.statusCode, 422);
-        assert.equal(err.errorCode, 'PROGRESSION_MISMATCH');
-        return true;
-      }
-    );
-  });
-
-  await t.test('with progression already applied: skips progression, still applies loot', async () => {
-    // resultSequence 1 was already applied (watermark = 1).
-    const mockChar = makeCharacter({ level: 2, experience: 50, lastAppliedProgressionResultSequence: 1 });
-    Character.findOne = async () => mockChar;
-
     const result = await ExtractionCommitService.commit('acc123', {
-      raidId: 'raid-008', resultSequence: 1,
-      items:  [{ lootId: 'gem', amount: 3 }],
-      progression: { consolidatedExperience: 100, resultingLevel: 3 },  // would be invalid if applied
+      raidId: 'raid-007', resultSequence: 1,
+      // 50 XP at level 1 → still level 1, but client claims level 99
+      progression: { consolidatedExperience: 50, resultingLevel: 99 },
     });
 
-    // Level and XP must not change.
-    assert.equal(result.level, 2);
+    assert.equal(result.level, 1);
     assert.equal(result.experience, 50);
-    // Loot must be applied.
-    assert.deepEqual(result.loadout, [{ lootId: 'gem', amount: 3 }]);
   });
 
-  await t.test('commit without progression field: only loot is applied', async () => {
-    const mockChar = makeCharacter({ level: 5, experience: 200 });
+  // The "progression already applied" test was removed because loot and progression
+  // are now unified under a single atomic lock (appliedExtractionReceipts).
+
+  await t.test('commit without progression field: still evaluates current XP for level ups', async () => {
+    const mockChar = makeCharacter({ level: 5, experience: 200 }); // 200 XP at level 5 is enough to reach level 6
     Character.findOne = async () => mockChar;
 
     const result = await ExtractionCommitService.commit('acc123', {
@@ -262,8 +297,7 @@ test('ExtractionCommitService.commit', async (t) => {
       // no `progression` key
     });
 
-    assert.equal(result.level, 5);      // unchanged
-    assert.equal(result.experience, 200); // unchanged
+    assert.equal(result.level, 6);
     assert.deepEqual(result.loadout, [{ lootId: 'arrow', amount: 10 }]);
   });
 

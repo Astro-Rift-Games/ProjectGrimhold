@@ -75,12 +75,12 @@ router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async
 
 // POST /character/me/inventory/reservation
 // Persists a raid reservation snapshot to survive disconnection.
-// Body: { reservationId: string, items: ItemData[], preparedEquipment?: PreparedEquipmentData }
+// Body: { reservationId: string }
 router.post('/me/inventory/reservation', pendingReservationValidator, async (req, res, next) => {
   try {
-    const { reservationId, items, preparedEquipment } = req.body;
+    const { reservationId } = req.body;
     const result = await InventoryService.savePendingReservation(
-      req.accountId, reservationId, items, preparedEquipment
+      req.accountId, reservationId
     );
     res.status(201).json(result);
   } catch (err) {

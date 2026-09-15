@@ -44,15 +44,6 @@ const pendingReservationValidator = [
     .isString().withMessage('must be a string')
     .trim()
     .notEmpty().withMessage('must not be empty'),
-  body('items')
-    .isArray().withMessage('must be an array'),
-  body('items.*.lootId')
-    .isString().withMessage('must be a string')
-    .trim()
-    .notEmpty().withMessage('must not be empty'),
-  body('items.*.amount')
-    .isInt({ min: 1 }).withMessage('must be a positive integer'),
-  body('preparedEquipment').optional().isObject().withMessage('must be an object'),
   handleValidationErrors
 ];
 

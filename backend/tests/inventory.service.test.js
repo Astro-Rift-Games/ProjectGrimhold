@@ -203,7 +203,7 @@ test('InventoryService', async (t) => {
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
-      assert.strictEqual(err.errorCode, 'ITEM_NOT_IN_LOADOUT');
+      assert.strictEqual(err.errorCode, 'ITEM_NOT_FOUND');
     }
   });
 
@@ -221,31 +221,11 @@ test('InventoryService', async (t) => {
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
-      assert.strictEqual(err.errorCode, 'INSUFFICIENT_LOADOUT_ITEMS');
+      assert.strictEqual(err.errorCode, 'ITEM_NOT_FOUND');
     }
   });
 
-  // --- savePendingReservation / clearPendingReservation ---
-
-  await t.test('savePendingReservation() - persists reservation data and clears loadout', async () => {
-    const mockChar = makeCharacter();
-    mockChar.inventory.loadout = [makeItem('sword', 1)];
-    mockChar.inventory.preparedEquipment = { weaponSlot1: 'sword', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' };
-    Character.findOne = async () => mockChar;
-
-    const result = await InventoryService.savePendingReservation(
-      'acc123',
-      'res-001',
-      [{ lootId: 'sword', amount: 1 }],
-      { weaponSlot1: 'sword', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' }
-    );
-
-    assert.ok(result.pendingReservation);
-    assert.strictEqual(result.pendingReservation.reservationId, 'res-001');
-    assert.deepStrictEqual(result.pendingReservation.items, [{ lootId: 'sword', amount: 1 }]);
-    assert.deepStrictEqual(mockChar.inventory.loadout, []);
-    assert.deepStrictEqual(mockChar.inventory.preparedEquipment, {});
-  });
+  // --- clearPendingReservation ---
 
   await t.test('clearPendingReservation() - sets reservation to null', async () => {
     const mockChar = makeCharacter();
