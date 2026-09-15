@@ -74,12 +74,6 @@ public sealed class MainMenuController : MonoBehaviour
         lobbyPanel.SetActive(false);
         menuPanel.SetActive(true);
 
-        TMP_Text createButtonLabel = createRoomButton.GetComponentInChildren<TMP_Text>(true);
-        if (createButtonLabel != null)
-        {
-            createButtonLabel.text = "Enter Town";
-        }
-
         createRoomButton.interactable = true;
 
         if (_characterCreationPanel != null)
