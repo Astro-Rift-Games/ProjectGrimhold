@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: forest_ranger_hood
   _displayName: Forest Ranger Hood
   _description: Forest Ranger Hood equipment for the 6 category.
-  _icon: {fileID: -2026503870975797054, guid: 7a05c40754dc58841b0c19eae54be9e0, type: 3}
+  _icon: {fileID: 21300000, guid: b8bdf44815c64dbe91ffe9942a5542aa, type: 3}
   _worldSprite: {fileID: -2026503870975797054, guid: 7a05c40754dc58841b0c19eae54be9e0, type: 3}
   _category: 6
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: bc2b8bde222a4f9095e700b56fd5e5ab, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

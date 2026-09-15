@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: light_armor_chain_mail_armor
   _displayName: Light Armor Chain Mail Armor
   _description: Light Armor Chain Mail Armor equipment for the 7 category.
-  _icon: {fileID: 6009345146314361225, guid: b7fd3764e9f34184d82cbdef441ca000, type: 3}
+  _icon: {fileID: 21300000, guid: cabd3aef834f4f5fa9b2d9dc43c0718f, type: 3}
   _worldSprite: {fileID: 6009345146314361225, guid: b7fd3764e9f34184d82cbdef441ca000, type: 3}
   _category: 7
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: a471aa7c6cb44232ae9d1072761ee218, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: forest_ranger_leather_armor
   _displayName: Forest Ranger Leather Armor
   _description: Forest Ranger Leather Armor equipment for the 7 category.
-  _icon: {fileID: 3996225201261225284, guid: 020218360019d7e4da3c7aabc6bf035c, type: 3}
+  _icon: {fileID: 21300000, guid: d6ee8813ee1d41c4b8ca1ea469095071, type: 3}
   _worldSprite: {fileID: 3996225201261225284, guid: 020218360019d7e4da3c7aabc6bf035c, type: 3}
   _category: 7
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 197a6b94fd1947498904153a59eb31b9, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: army_ranger_trousers
   _displayName: Army Ranger Trousers
   _description: Army Ranger Trousers equipment for the 9 category.
-  _icon: {fileID: 7394094342472884665, guid: cf7008977ddfa774aa075def75a257ec, type: 3}
+  _icon: {fileID: 21300000, guid: e21340331a874d5692dd16488be474d7, type: 3}
   _worldSprite: {fileID: 7394094342472884665, guid: cf7008977ddfa774aa075def75a257ec, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: e041ed3b2a8e400c874d73b1a768d719, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: forest_ranger_trousers
   _displayName: Forest Ranger Trousers
   _description: Forest Ranger Trousers equipment for the 9 category.
-  _icon: {fileID: -3151334026747018423, guid: 487d81e214b85ac48880b2e1ce798e26, type: 3}
+  _icon: {fileID: 21300000, guid: 212be704d95e4de4ac475ba5449652dc, type: 3}
   _worldSprite: {fileID: -3151334026747018423, guid: 487d81e214b85ac48880b2e1ce798e26, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 4f6804a1544b4624a09105a0d16f96fc, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

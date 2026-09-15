@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: light_armor_chain_mail_trousers
   _displayName: Light Armor Chain Mail Trousers
   _description: Light Armor Chain Mail Trousers equipment for the 9 category.
-  _icon: {fileID: -4792637694280038286, guid: ecf16b378db5a9d45a23794e7f4a90e2, type: 3}
+  _icon: {fileID: 21300000, guid: 8094e7f42fcb42c6a52095659a156233, type: 3}
   _worldSprite: {fileID: -4792637694280038286, guid: ecf16b378db5a9d45a23794e7f4a90e2, type: 3}
   _category: 9
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 01b34341c171419096aa1b585328877b, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

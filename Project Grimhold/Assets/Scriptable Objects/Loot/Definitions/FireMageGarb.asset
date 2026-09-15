@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: fire_mage_garb
   _displayName: Fire Mage Garb
   _description: Fire Mage Garb equipment for the 7 category.
-  _icon: {fileID: -140042364172447891, guid: 56c1495bead1e544e84859ce5fad41af, type: 3}
+  _icon: {fileID: 21300000, guid: de12126c187b4f218e2a0531fd6fe92f, type: 3}
   _worldSprite: {fileID: -140042364172447891, guid: 56c1495bead1e544e84859ce5fad41af, type: 3}
   _category: 7
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 8e58d53a6c8548a5be3b856ab54bf070, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

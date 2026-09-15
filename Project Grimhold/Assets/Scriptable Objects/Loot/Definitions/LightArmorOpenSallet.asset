@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: light_armor_open_sallet
   _displayName: Light Armor Open Sallet
   _description: Light Armor Open Sallet equipment for the 6 category.
-  _icon: {fileID: 7915636925484401375, guid: 3995723faffc49540a1b78faa225b356, type: 3}
+  _icon: {fileID: 21300000, guid: 3e12b9e393cd46db973d99a98eea1fea, type: 3}
   _worldSprite: {fileID: 7915636925484401375, guid: 3995723faffc49540a1b78faa225b356, type: 3}
   _category: 6
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: bf4d3832a91d48ca81c544fd31ed3a14, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0

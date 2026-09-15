@@ -15,7 +15,7 @@ MonoBehaviour:
   _id: fire_mage_gloves
   _displayName: Fire Mage Gloves
   _description: Fire Mage Gloves equipment for the 8 category.
-  _icon: {fileID: -6648749237742138495, guid: a5afe1b49529a4b4ea6825bb3bbac3c5, type: 3}
+  _icon: {fileID: 21300000, guid: b8ae74b3cbb04367b5a3b174c84a3ba6, type: 3}
   _worldSprite: {fileID: -6648749237742138495, guid: a5afe1b49529a4b4ea6825bb3bbac3c5, type: 3}
   _category: 8
   _rarity: 0
@@ -24,6 +24,7 @@ MonoBehaviour:
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
   _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 11400000, guid: 046012d6571448f0b6607c5f954f4f0c, type: 2}
   _equipmentVisualDefinition:
     _usesBaseSpritesAsPlaceholder: 0
