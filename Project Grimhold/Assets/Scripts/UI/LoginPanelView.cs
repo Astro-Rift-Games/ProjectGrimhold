@@ -12,6 +12,7 @@ public sealed class LoginPanelView : MonoBehaviour
     [SerializeField] private TMP_InputField _passwordInput;
     [SerializeField] private Button _loginButton;
     [SerializeField] private Button _registerButton;
+    [SerializeField] private Button _backButton;
     [SerializeField] private TextMeshProUGUI _statusText;
 
     public string Username => _usernameInput.text.Trim();
@@ -23,6 +24,7 @@ public sealed class LoginPanelView : MonoBehaviour
         _passwordInput.interactable = interactable;
         _loginButton.interactable = interactable;
         if (_registerButton != null) _registerButton.interactable = interactable;
+        if (_backButton != null) _backButton.interactable = interactable;
     }
 
     public void ClearFields()
@@ -51,5 +53,15 @@ public sealed class LoginPanelView : MonoBehaviour
     public void RemoveRegisterListener(UnityEngine.Events.UnityAction action)
     {
         if (_registerButton != null) _registerButton.onClick.RemoveListener(action);
+    }
+
+    public void AddBackListener(UnityEngine.Events.UnityAction action)
+    {
+        if (_backButton != null) _backButton.onClick.AddListener(action);
+    }
+
+    public void RemoveBackListener(UnityEngine.Events.UnityAction action)
+    {
+        if (_backButton != null) _backButton.onClick.RemoveListener(action);
     }
 }

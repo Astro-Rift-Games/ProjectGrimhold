@@ -72,6 +72,7 @@ public sealed class MainMenuController : MonoBehaviour
         roomCodeInput.gameObject.SetActive(false);
         joinRoomButton.gameObject.SetActive(false);
         lobbyPanel.SetActive(false);
+        menuPanel.SetActive(true);
 
         TMP_Text createButtonLabel = createRoomButton.GetComponentInChildren<TMP_Text>(true);
         if (createButtonLabel != null)
@@ -79,8 +80,7 @@ public sealed class MainMenuController : MonoBehaviour
             createButtonLabel.text = "Enter Town";
         }
 
-        // "Enter Town" is locked until the login flow completes successfully.
-        createRoomButton.interactable = false;
+        createRoomButton.interactable = true;
 
         if (_characterCreationPanel != null)
         {
@@ -90,17 +90,15 @@ public sealed class MainMenuController : MonoBehaviour
 
         if (_loginPanel != null)
         {
-            _loginPanel.gameObject.SetActive(true);
+            _loginPanel.gameObject.SetActive(false);
             _loginPanel.SetStatus(string.Empty);
-            _loginPanel.ClearFields();
             _loginPanel.AddLoginListener(OnLoginButtonClicked);
             _loginPanel.AddRegisterListener(OnRegisterButtonClicked);
+            _loginPanel.AddBackListener(OnLoginBackButtonClicked);
         }
         else
         {
-            // No login panel assigned: allow access for Editor development workflows.
-            Debug.LogWarning($"[{nameof(MainMenuController)}] No LoginPanelView assigned. Enter Town enabled without authentication.");
-            createRoomButton.interactable = true;
+            Debug.LogError($"[{nameof(MainMenuController)}] No LoginPanelView assigned.");
         }
     }
 
@@ -113,6 +111,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             _loginPanel.RemoveLoginListener(OnLoginButtonClicked);
             _loginPanel.RemoveRegisterListener(OnRegisterButtonClicked);
+            _loginPanel.RemoveBackListener(OnLoginBackButtonClicked);
         }
 
         if (_characterCreationPanel != null)
@@ -166,6 +165,7 @@ public sealed class MainMenuController : MonoBehaviour
             _loginPanel.SetStatus("Success.");
             _loginPanel.gameObject.SetActive(false);
             createRoomButton.interactable = true;
+            CreateRoom();
         }
         else if (result.Status == LoginFlowStatus.NeedsCharacterCreation)
         {
@@ -204,6 +204,7 @@ public sealed class MainMenuController : MonoBehaviour
             _characterCreationPanel.SetStatus("Success.");
             _characterCreationPanel.gameObject.SetActive(false);
             createRoomButton.interactable = true;
+            CreateRoom();
         }
         else
         {
@@ -235,6 +236,12 @@ public sealed class MainMenuController : MonoBehaviour
 
     public async void CreateRoom()
     {
+        if (ApplicationAuthContext.Instance?.IsAuthenticated != true)
+        {
+            ShowLoginPanel();
+            return;
+        }
+
         SetUIInteractable(false);
         _statusText.text = "Connecting to Town...";
 
@@ -252,6 +259,7 @@ public sealed class MainMenuController : MonoBehaviour
             if (result != SessionTransitionResult.Succeeded)
             {
                 _statusText.text = $"Failed to enter Town: {result}.";
+                menuPanel.SetActive(true);
                 SetUIInteractable(true);
             }
         }
@@ -259,8 +267,34 @@ public sealed class MainMenuController : MonoBehaviour
         {
             Debug.LogError($"Error entering Town: {ex.Message}");
             _statusText.text = $"Failed to enter Town: {ex.Message}";
+            menuPanel.SetActive(true);
             SetUIInteractable(true);
         }
+    }
+
+    private void ShowLoginPanel()
+    {
+        if (_loginPanel == null)
+        {
+            _statusText.text = "Login is unavailable.";
+            Debug.LogError($"[{nameof(MainMenuController)}] Cannot continue without a LoginPanelView.");
+            return;
+        }
+
+        menuPanel.SetActive(false);
+        _loginPanel.ClearFields();
+        _loginPanel.SetStatus(string.Empty);
+        _loginPanel.SetInteractable(true);
+        _loginPanel.gameObject.SetActive(true);
+    }
+
+    private void OnLoginBackButtonClicked()
+    {
+        _loginPanel.ClearFields();
+        _loginPanel.SetStatus(string.Empty);
+        _loginPanel.gameObject.SetActive(false);
+        menuPanel.SetActive(true);
+        createRoomButton.interactable = true;
     }
 
     public async void JoinRoom()
