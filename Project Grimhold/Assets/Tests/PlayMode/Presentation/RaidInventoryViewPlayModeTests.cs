@@ -14,7 +14,7 @@ namespace Tests.PlayMode.Presentation
 {
     public sealed class RaidInventoryViewPlayModeTests
     {
-        private const string SharedInventoryPrefabPath = "Assets/Prefabs/UI/RaidInventoryUI.prefab";
+        private const string SharedInventoryPrefabPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
 
         private GameObject _canvasObject;
         private GameObject _instance;
@@ -245,6 +245,24 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_view.IsOpen, Is.True);
             Assert.That(panel.SlotCount, Is.EqualTo(3));
             Assert.That(panel.gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerPanelSupportsThirtyLogicalSlots()
+        {
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.AuthoredSlotCount, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+            Assert.That(panel.EnsureSlotCount(LocalProfileSnapshot.MaxLoadoutSlots), Is.True);
+            yield return null;
+
+            Transform slots = panel.transform.Find("SlotsGrid");
+            Assert.That(slots, Is.Not.Null);
+            Assert.That(panel.SlotCount, Is.EqualTo(30));
+            Assert.That(slots.childCount, Is.EqualTo(30));
+            for (int index = 0; index < slots.childCount; index++)
+            {
+                Assert.That(slots.GetChild(index).gameObject.activeSelf, Is.True, $"Slot {index + 1}");
+            }
         }
 
         [UnityTest]

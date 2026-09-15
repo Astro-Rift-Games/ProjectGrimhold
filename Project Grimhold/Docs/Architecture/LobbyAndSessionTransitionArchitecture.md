@@ -93,8 +93,9 @@ the code and are not independently supplied by the coded access path.
 `RaidTransitionTicket` captures the validated request, selected build, immutable
 `PendingLoadoutReservation` snapshot (reserved items plus the eight prepared Equipment references)
 and current transition state. The admission token encodes those slots as compact one-based
-references into `ReservedLoadout`, in `EquipmentSlotRules.AllSlots` order, preserving its existing
-byte bound. State Authority initializes the receiver, rechecks slot compatibility against the
+references into `ReservedLoadout`, in `EquipmentSlotRules.AllSlots` order. Its 1024-byte bound
+supports the 30-slot Inventory and eight Equipment references with the current catalog identifiers.
+State Authority initializes the receiver, rechecks slot compatibility against the
 catalog, moves exactly the referenced units into the eight replicated Equipment slots, and restores
 the admitted active Weapon Set. A reference that no longer resolves to a piece compatible with its
 slot rejects the admission instead of silently dropping the piece. Admission is complete only when participant, avatar, `CurrentAvatarId` and

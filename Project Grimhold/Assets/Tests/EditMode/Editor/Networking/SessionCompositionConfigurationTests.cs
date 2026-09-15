@@ -13,6 +13,8 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class SessionCompositionConfigurationTests
 {
+    private const int ContainerInventoryAuthoredSlotCount = 16;
+    private const int PlayerInventoryAuthoredSlotCount = 30;
     private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
     private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
     private const string TownRaidNpcPath = "Assets/Prefabs/TownRaidNpc.prefab";
@@ -21,7 +23,7 @@ public sealed class SessionCompositionConfigurationTests
     private const string TownRaidPreparationViewPath = "Assets/Resources/TownRaidPreparationView.prefab";
     private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
     private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
-    private const string SharedInventoryPath = "Assets/Prefabs/UI/RaidInventoryUI.prefab";
+    private const string SharedInventoryPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
     private const string MeleeRaidAvatarPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
     private const string RangedRaidAvatarPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
     private const string MainMenuCanvasPath = "Assets/Prefabs/MainMenu Canvas.prefab";
@@ -352,12 +354,22 @@ public sealed class SessionCompositionConfigurationTests
             Is.SameAs(sharedPrefab.transform as RectTransform));
         Assert.That(contextMenu.IsOpen, Is.False);
 
-        AssertLootPanelContract(view.PlayerPanel, expectsTotalValue: true, expectsEmptyState: false);
-        AssertLootPanelContract(view.ContainerPanel, expectsTotalValue: false, expectsEmptyState: true);
+        AssertLootPanelContract(
+            view.PlayerPanel,
+            expectsTotalValue: true,
+            expectsEmptyState: false,
+            expectedAuthoredSlotCount: PlayerInventoryAuthoredSlotCount);
+        AssertLootPanelContract(
+            view.ContainerPanel,
+            expectsTotalValue: false,
+            expectsEmptyState: true,
+            expectedAuthoredSlotCount: ContainerInventoryAuthoredSlotCount);
 
         RaidInventorySlotView[] slots =
             sharedPrefab.GetComponentsInChildren<RaidInventorySlotView>(true);
-        Assert.That(slots, Has.Length.EqualTo(40));
+        Assert.That(
+            slots,
+            Has.Length.EqualTo(PlayerInventoryAuthoredSlotCount + ContainerInventoryAuthoredSlotCount + 8));
         for (int index = 0; index < slots.Length; index++)
         {
             Assert.That(SerializedReference(slots[index], "_icon"), Is.Not.Null);
@@ -748,7 +760,8 @@ public sealed class SessionCompositionConfigurationTests
     private static void AssertLootPanelContract(
         RaidLootPanelView panel,
         bool expectsTotalValue,
-        bool expectsEmptyState)
+        bool expectsEmptyState,
+        int expectedAuthoredSlotCount)
     {
         Assert.That(SerializedReference(panel, "_panelRoot"), Is.Not.Null);
         Assert.That(SerializedReference(panel, "_slotContainer"), Is.Not.Null);
@@ -762,7 +775,7 @@ public sealed class SessionCompositionConfigurationTests
         var serializedPanel = new SerializedObject(panel);
         SerializedProperty authoredSlots = serializedPanel.FindProperty("_authoredSlots");
         Assert.That(authoredSlots, Is.Not.Null);
-        Assert.That(authoredSlots.arraySize, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+        Assert.That(authoredSlots.arraySize, Is.EqualTo(expectedAuthoredSlotCount));
         for (int index = 0; index < authoredSlots.arraySize; index++)
         {
             Assert.That(authoredSlots.GetArrayElementAtIndex(index).objectReferenceValue, Is.Not.Null);

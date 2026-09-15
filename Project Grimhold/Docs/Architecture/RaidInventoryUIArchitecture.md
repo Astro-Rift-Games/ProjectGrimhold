@@ -109,7 +109,7 @@ left and clamps to the Canvas. Pointer exit, content replacement, screen close/d
 context menu clear it. This local presentation has no networking, mutation or simulation role and is
 shared by Town/Raid Inventory, Equipment, Stash, Loadout and an open container panel.
 
-The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
+The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching both `LocalProfileSnapshot.MaxLoadoutSlots` in Town and `PlayerLootReceiver.SlotCapacity` in Raid, so initialization keeps all 30 active and usable. World and enemy container projections request six logical slots and hide the unused remainder of their authored pool. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
 
 `PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
 panel appropriate to the bound context; Town Equipment is mutable only through its explicit local
@@ -198,8 +198,9 @@ panel's `_authoredSlots`; the code only shows, hides and drives what the prefab 
 
 `LobbyStashPresenter` remains the only owner of the profile services and of the stash, loadout and
 prepared-weapon intentions. The view pads each received stack list with empty entries up to its
-authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both pools hold 16
-slots, matching `LocalProfileSnapshot.MaxLoadoutSlots`. The stash has no service-side capacity, so
+authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both Stash-screen pools
+currently hold 16 slots; unlike the shared personal Inventory prefab, that legacy Loadout panel does
+not yet visualize the full 30-slot `LocalProfileSnapshot.MaxLoadoutSlots` capacity. The stash has no service-side capacity, so
 content beyond the authored pool is reported once as an integration error and the panel shows its
 existing `Lleno` feedback; scrolling or pagination for a stash larger than its pool is not part of
 this contract.

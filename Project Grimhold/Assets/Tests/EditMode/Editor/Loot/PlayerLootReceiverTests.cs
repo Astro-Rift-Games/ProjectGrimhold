@@ -17,9 +17,9 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void RaidDistinctLootCapacity_IsExplicitlySixteen()
+        public void RaidDistinctLootCapacity_IsExplicitlyThirty()
         {
-            Assert.That(PlayerLootReceiver.MaxDistinctLootTypes, Is.EqualTo(16));
+            Assert.That(PlayerLootReceiver.MaxDistinctLootTypes, Is.EqualTo(30));
             Assert.That(PlayerLootReceiver.MaxCatalogEntries, Is.EqualTo(64));
         }
 
@@ -29,7 +29,7 @@ namespace Tests.EditMode.Loot
             var holder = new GameObject(nameof(DefaultSlotCapacity_IsExplicitGameplayConfiguration));
             var receiver = holder.AddComponent<PlayerLootReceiver>();
 
-            Assert.That(receiver.SlotCapacity, Is.EqualTo(16));
+            Assert.That(receiver.SlotCapacity, Is.EqualTo(30));
 
             Object.DestroyImmediate(holder);
         }

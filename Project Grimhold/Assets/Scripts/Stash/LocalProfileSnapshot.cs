@@ -7,7 +7,7 @@ using System.Collections.Generic;
 public sealed class LocalProfileSnapshot
 {
     public const int CurrentSchemaVersion = 4;
-    public const int MaxLoadoutSlots = 16;
+    public const int MaxLoadoutSlots = 30;
     public const int MaxAppliedExtractionReceipts = 256;
     public const int MaxAppliedShopTransactionReceipts = 256;
     public const int MaxAppliedProgressionReceipts = 256;

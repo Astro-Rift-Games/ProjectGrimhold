@@ -6,7 +6,8 @@ namespace Tests.EditMode.Loot
     {
         [TestCase(1, true)]
         [TestCase(16, true)]
-        [TestCase(17, false)]
+        [TestCase(30, true)]
+        [TestCase(31, false)]
         [TestCase(64, false)]
         [TestCase(0, false)]
         [TestCase(-1, false)]

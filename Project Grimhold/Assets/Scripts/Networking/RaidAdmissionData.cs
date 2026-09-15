@@ -248,7 +248,7 @@ public static class RaidLoadoutRules
 {
     public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots + 8;
     public const int MaximumAmountPerEntry = 9999;
-    public const int MaximumTokenBytes = 512;
+    public const int MaximumTokenBytes = 1024;
     public const int MaximumTextBytes = 64;
 
     public static bool TryValidateShape(IReadOnlyList<LootEntry> entries, out string error)
