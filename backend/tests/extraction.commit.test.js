@@ -56,7 +56,12 @@ test('ExtractionCommitService.commit', async (t) => {
     Character.findOneAndUpdate = originalFindOneAndUpdate;
   });
   t.beforeEach(() => {
-    AuthoritativeExtractionResult.findOne = async () => null;
+    // Default auth result if not overridden
+    AuthoritativeExtractionResult.findOne = async () => ({
+      items: [],
+      experienceGranted: 0,
+    });
+    
     Character.findOneAndUpdate = async (query, update, options) => {
       const char = await Character.findOne(query);
       if (!char) return null;
@@ -104,16 +109,38 @@ test('ExtractionCommitService.commit', async (t) => {
   });
 
   // -------------------------------------------------------------------------
+  // Hardening scenarios
+  // -------------------------------------------------------------------------
+
+  await t.test('throws 422 if no AuthoritativeExtractionResult is found', async () => {
+    AuthoritativeExtractionResult.findOne = async () => null; // Missing result
+    
+    await assert.rejects(
+      () => ExtractionCommitService.commit('acc123', { raidId: 'r', resultSequence: 1 }),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'NO_AUTHORITATIVE_RESULT');
+        return true;
+      }
+    );
+  });
+
+  // -------------------------------------------------------------------------
   // Loot-only scenarios
   // -------------------------------------------------------------------------
 
   await t.test('first commit: persists items to loadout and records receipt', async () => {
     const mockChar = makeCharacter();
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({
+      items: [{ lootId: 'sword', amount: 2 }, { lootId: 'potion', amount: 5 }],
+      experienceGranted: 0
+    });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-001', resultSequence: 1,
-      items: [{ lootId: 'sword', amount: 2 }, { lootId: 'potion', amount: 5 }],
+      // items sent in payload are ignored now, but we'll include them to show they don't matter
+      items: [{ lootId: 'wrong', amount: 99 }]
     });
 
     assert.equal(result.alreadySecured, false);
@@ -133,10 +160,12 @@ test('ExtractionCommitService.commit', async (t) => {
     let saveCalled = false;
     mockChar.save = async () => { saveCalled = true; return mockChar; };
     Character.findOne = async () => mockChar;
+    
+    // Auth result doesn't even need to matter here as long as it exists (returns early)
+    AuthoritativeExtractionResult.findOne = async () => ({ items: [{ lootId: 'sword', amount: 2 }] });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-001', resultSequence: 1,
-      items: [{ lootId: 'sword', amount: 2 }],
     });
 
     assert.equal(result.alreadySecured, true);
@@ -147,10 +176,10 @@ test('ExtractionCommitService.commit', async (t) => {
   await t.test('zero-loot extraction: records receipt, leaves loadout empty', async () => {
     const mockChar = makeCharacter();
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ items: [], experienceGranted: 0 });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-002', resultSequence: 1,
-      items: [],
     });
 
     assert.equal(result.alreadySecured, false);
@@ -192,6 +221,7 @@ test('ExtractionCommitService.commit', async (t) => {
       mockChar.inventory.appliedExtractionReceipts.push({ raidId: `raid-${i}`, resultSequence: i });
     }
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ items: [], experienceGranted: 0 });
 
     await ExtractionCommitService.commit('acc123', { raidId: 'raid-999', resultSequence: 999 });
 
@@ -200,7 +230,7 @@ test('ExtractionCommitService.commit', async (t) => {
     assert.equal(mockChar.inventory.appliedExtractionReceipts[255].raidId, 'raid-999');
   });
 
-  await t.test('clears pendingReservation and restores preparedEquipment', async () => {
+  await t.test('clears pendingReservation and restores preparedEquipment from authResult', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.pendingReservation = {
       reservationId: 'res-1',
@@ -208,14 +238,41 @@ test('ExtractionCommitService.commit', async (t) => {
       preparedEquipment: { weaponSlot1: 'sword_epic', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' },
     };
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ 
+      items: [{ lootId: 'gem', amount: 1 }],
+      experienceGranted: 0,
+      preparedEquipment: { weaponSlot1: 'sword_epic', weaponSlot2: 'shield', helmet: '', armor: '', gloves: '', boots: '' }
+    });
 
     await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-003', resultSequence: 1,
-      items:  [{ lootId: 'gem', amount: 1 }],
     });
 
     assert.equal(mockChar.inventory.pendingReservation, null);
     assert.equal(mockChar.inventory.preparedEquipment.weaponSlot1, 'sword_epic');
+    assert.equal(mockChar.inventory.preparedEquipment.weaponSlot2, 'shield');
+  });
+
+  await t.test('clears pendingReservation and restores preparedEquipment from pendingReservation if authResult is missing it', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.pendingReservation = {
+      reservationId: 'res-1',
+      items: [],
+      preparedEquipment: { weaponSlot1: 'sword_epic', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' },
+    };
+    Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ 
+      items: [{ lootId: 'gem', amount: 1 }],
+      experienceGranted: 0,
+    });
+
+    await ExtractionCommitService.commit('acc123', {
+      raidId: 'raid-003', resultSequence: 1,
+    });
+
+    assert.equal(mockChar.inventory.pendingReservation, null);
+    assert.equal(mockChar.inventory.preparedEquipment.weaponSlot1, 'sword_epic');
+    assert.equal(mockChar.inventory.preparedEquipment.weaponSlot2, '');
   });
 
   // -------------------------------------------------------------------------
@@ -223,13 +280,15 @@ test('ExtractionCommitService.commit', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('with progression: applies XP gain and levels up', async () => {
-    // Level 1, 0 XP. Earn 100 XP → should reach level 2.
     const mockChar = makeCharacter({ level: 1, experience: 0 });
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ 
+      items: [],
+      experienceGranted: 100
+    });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-004', resultSequence: 1,
-      progression: { consolidatedExperience: 100, resultingLevel: 2 },
     });
 
     assert.equal(result.alreadySecured, false);
@@ -244,10 +303,13 @@ test('ExtractionCommitService.commit', async (t) => {
   await t.test('with progression: partial XP gain with no level-up', async () => {
     const mockChar = makeCharacter({ level: 1, experience: 0 });
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ 
+      items: [],
+      experienceGranted: 50
+    });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-005', resultSequence: 1,
-      progression: { consolidatedExperience: 50, resultingLevel: 1 },
     });
 
     assert.equal(result.level, 1);
@@ -256,13 +318,15 @@ test('ExtractionCommitService.commit', async (t) => {
   });
 
   await t.test('with progression: multi-level-up grants correct attribute points', async () => {
-    // Level 1, 0 XP. Earn 210 XP → level 1→2 needs 100, level 2→3 needs 105: 205 total → level 3, 5 XP left.
     const mockChar = makeCharacter({ level: 1, experience: 0 });
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ 
+      items: [],
+      experienceGranted: 205
+    });
 
     const result = await ExtractionCommitService.commit('acc123', {
       raidId: 'raid-006', resultSequence: 1,
-      progression: { consolidatedExperience: 205, resultingLevel: 3 },
     });
 
     assert.equal(result.level, 3);
@@ -270,46 +334,15 @@ test('ExtractionCommitService.commit', async (t) => {
     assert.equal(result.characterAttributes.availablePoints, 12);  // 2 levels gained = 2 points
   });
 
-  await t.test('with progression: ignores client resultingLevel and applies server computation', async () => {
-    const mockChar = makeCharacter({ level: 1, experience: 0 });
-    Character.findOne = async () => mockChar;
-
-    const result = await ExtractionCommitService.commit('acc123', {
-      raidId: 'raid-007', resultSequence: 1,
-      // 50 XP at level 1 → still level 1, but client claims level 99
-      progression: { consolidatedExperience: 50, resultingLevel: 99 },
-    });
-
-    assert.equal(result.level, 1);
-    assert.equal(result.experience, 50);
-  });
-
-  // The "progression already applied" test was removed because loot and progression
-  // are now unified under a single atomic lock (appliedExtractionReceipts).
-
-  await t.test('commit without progression field: still evaluates current XP for level ups', async () => {
-    const mockChar = makeCharacter({ level: 5, experience: 200 }); // 200 XP at level 5 is enough to reach level 6
-    Character.findOne = async () => mockChar;
-
-    const result = await ExtractionCommitService.commit('acc123', {
-      raidId: 'raid-009', resultSequence: 1,
-      items: [{ lootId: 'arrow', amount: 10 }],
-      // no `progression` key
-    });
-
-    assert.equal(result.level, 6);
-    assert.deepEqual(result.loadout, [{ lootId: 'arrow', amount: 10 }]);
-  });
-
   await t.test('save failure: error propagates, no partial state visible', async () => {
     const mockChar = makeCharacter();
     mockChar.save = async () => { throw new Error('DB unavailable'); };
     Character.findOne = async () => mockChar;
+    AuthoritativeExtractionResult.findOne = async () => ({ items: [{ lootId: 'shield', amount: 1 }] });
 
     await assert.rejects(
       () => ExtractionCommitService.commit('acc123', {
         raidId: 'raid-010', resultSequence: 1,
-        items: [{ lootId: 'shield', amount: 1 }],
       }),
       /DB unavailable/
     );

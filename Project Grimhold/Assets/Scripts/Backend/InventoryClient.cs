@@ -143,6 +143,16 @@ namespace Grimhold.Backend
             return await PostJson<CommitExtractionUnifiedRequest, CommitExtractionUnifiedResult>(config, token, url, request);
         }
 
+        /// <summary>
+        /// Host-only: Publishes the authoritative extraction result signed with an HMAC.
+        /// </summary>
+        public static async Task<(bool success, PublishExtractionResultResponse data, BackendError error)>
+            PublishExtractionResultAsync(BackendConfiguration config, string token, PublishExtractionResultRequest request)
+        {
+            var url = $"{config.BaseUrl}/character/raid/extraction-result";
+            return await PostJson<PublishExtractionResultRequest, PublishExtractionResultResponse>(config, token, url, request);
+        }
+
         // ------------------------------------------------------------------
         // Shared helpers (mirror the pattern in CharacterClient)
         // ------------------------------------------------------------------

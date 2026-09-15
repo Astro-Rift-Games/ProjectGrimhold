@@ -232,6 +232,49 @@ public class RemoteInventoryService : MonoBehaviour
         return (success, error);
     }
 
+    public async Task<(bool success, BackendError error)> PublishExtractionResultAsync(
+        ExtractionReceipt receipt,
+        System.Collections.Generic.IReadOnlyList<StashItem> items,
+        PreparedEquipmentLoadout preparedEquipment,
+        long experienceGranted)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] PublishExtractionResultAsync: Not authenticated.");
+            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        }
+
+        string messageToSign = $"{receipt.RaidId}:{receipt.ResultSequence}";
+        string hostSignature = "";
+
+        using (var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(_backendConfig.WebhookSecret)))
+        {
+            byte[] hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(messageToSign));
+            hostSignature = System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        }
+
+        var request = new PublishExtractionResultRequest
+        {
+            raidId         = receipt.RaidId,
+            resultSequence = receipt.ResultSequence,
+            items          = MapToDTO(items),
+            preparedEquipment = new PreparedEquipmentData
+            {
+                weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
+                weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
+                helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
+                armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
+                gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
+                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+            },
+            experienceGranted = experienceGranted,
+            hostSignature = hostSignature
+        };
+
+        var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
+        return (success, error);
+    }
+
     private InventoryItemData[] MapToDTO(System.Collections.Generic.IReadOnlyList<StashItem> items)
     {
         var result = new InventoryItemData[items.Count];

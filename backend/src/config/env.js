@@ -1,4 +1,4 @@
-﻿// src/config/env.js
+// src/config/env.js
 require('dotenv').config();
 
 const REQUIRED = ['MONGODB_URI', 'JWT_SECRET', 'PORT'];
@@ -14,4 +14,6 @@ module.exports = {
   mongodbUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '3600',
+  nodeEnv: process.env.NODE_ENV || 'development',
+  webhookSecret: process.env.WEBHOOK_SECRET || 'dev-webhook-secret-do-not-use-in-prod',
 };

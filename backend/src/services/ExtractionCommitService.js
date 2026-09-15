@@ -49,11 +49,10 @@ class ExtractionCommitService {
     // but in Stage 1 we fallback to the client payload if the mock webhook isn't used.
     let authResult = await AuthoritativeExtractionResult.findOne({ raidId, accountId });
     if (!authResult) {
-      console.warn(`[ExtractionCommitService] No authResult found for raid ${raidId}. Falling back to client payload (Stage 1).`);
-      authResult = {
-        items: payload.items || [],
-        preparedEquipment: payload.preparedEquipment,
-        experienceGranted: payload.progression ? payload.progression.consolidatedExperience : 0
+      throw {
+        statusCode: 422,
+        errorCode: 'NO_AUTHORITATIVE_RESULT',
+        message: 'No authoritative extraction result found for this raid. Client payloads are no longer trusted.',
       };
     }
 
@@ -132,11 +131,10 @@ class ExtractionCommitService {
 
     // Prepared Equipment
     // If the authoritative result explicitely gives us the equipped items, we use it.
-    // Otherwise, we use the client payload's prepared equipment (as the server may not track equipment slots).
-    // If both are missing, we fallback to restoring what was reserved before the raid.
+    // Otherwise, we fallback to restoring what was reserved before the raid.
+    // Client payloads are no longer trusted.
     const newPreparedEquipment = sanitizePreparedEquipment(
       authResult.preparedEquipment || 
-      payload.preparedEquipment || 
       character.inventory.pendingReservation?.preparedEquipment
     );
 
