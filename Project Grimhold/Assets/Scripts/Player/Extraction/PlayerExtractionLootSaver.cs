@@ -529,7 +529,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             }
         }
 
-        var (success, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
+        var (success, result, error) = await remoteInventoryService.CommitExtractionUnifiedAsync(
             receipt, items, preparedEquipment, consolidatedExperience, resultingLevel);
             
         if (!success)
@@ -541,6 +541,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
         else
         {
+            store.TrySyncProgression(
+                result.level,
+                result.experience,
+                result.characterAttributes);
             store.ClearPendingExtractionCommit();
         }
     }

@@ -187,7 +187,7 @@ public class RemoteInventoryService : MonoBehaviour
         return (success, error);
     }
 
-    public async Task<(bool success, BackendError error)> CommitExtractionUnifiedAsync(
+    public async Task<(bool success, CommitExtractionUnifiedResult result, BackendError error)> CommitExtractionUnifiedAsync(
         ExtractionReceipt receipt,
         System.Collections.Generic.IReadOnlyList<StashItem> items,
         PreparedEquipmentLoadout preparedEquipment,
@@ -197,7 +197,7 @@ public class RemoteInventoryService : MonoBehaviour
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitExtractionUnifiedAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
         }
 
         var request = new CommitExtractionUnifiedRequest
@@ -229,7 +229,7 @@ public class RemoteInventoryService : MonoBehaviour
                       $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
         }
 
-        return (success, error);
+        return (success, result, error);
     }
 
     public async Task<(bool success, BackendError error)> PublishExtractionResultAsync(

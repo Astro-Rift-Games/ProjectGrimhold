@@ -680,6 +680,27 @@ public sealed class LocalProfileStore
         Commit(next);
     }
 
+    public StashOperationResult TrySyncProgression(int level, long experience, Grimhold.Backend.CharacterAttributesData attributes)
+    {
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (current == null) return StashOperationResult.InvalidInventory;
+
+        LocalProfileSnapshot next = current.Clone();
+        next.Level = level;
+        next.CurrentExperience = experience;
+
+        if (CharacterAttributeState.TryCreate(
+                attributes.vitality, attributes.resistance, attributes.strength,
+                attributes.dexterity, attributes.intelligence, attributes.luck,
+                attributes.availablePoints,
+                out var state))
+        {
+            next.CharacterAttributes = state;
+        }
+
+        return Commit(next);
+    }
+
     private StashOperationResult Commit(LocalProfileSnapshot next)
     {
         lock (_sync)
