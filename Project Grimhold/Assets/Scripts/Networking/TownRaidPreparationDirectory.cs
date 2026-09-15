@@ -139,7 +139,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
 
         TownPartyDirectory partyDirectory = Runner.GetComponent<TownPartyDirectoryContext>()?.Directory;
         if (partyDirectory == null || !partyDirectory.TryGetParty(creator, out TownPartySnapshot party) ||
-            !TownPartyRules.TryCreateInitialRaidRoster(party, creator, out IReadOnlyList<ProfileId> roster)) return default;
+            !TownPartyRules.TryCreateRaidCreatorRoster(party, creator, out IReadOnlyList<ProfileId> roster)) return default;
 
         _profileByPlayer[info.Source] = creator;
         TrySpawnPreparation(code, creator, roster);

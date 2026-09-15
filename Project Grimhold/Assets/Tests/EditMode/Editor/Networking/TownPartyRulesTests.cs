@@ -27,12 +27,12 @@ public sealed class TownPartyRulesTests
     }
 
     [Test]
-    public void RaidCreation_CopiesPartyWithCreatorFirstAndDoesNotReusePartyHost()
+    public void RaidCreation_AdmitsOnlyCreatorEvenWhenPartyIsDuo()
     {
         var partyHost = new ProfileId("party-host");
         var creator = new ProfileId("creator");
         var party = new TownPartySnapshot(10, partyHost, new[] { partyHost, creator }, 4);
-        Assert.That(TownPartyRules.TryCreateInitialRaidRoster(party, creator, out var roster), Is.True);
-        Assert.That(roster, Is.EqualTo(new[] { creator, partyHost }));
+        Assert.That(TownPartyRules.TryCreateRaidCreatorRoster(party, creator, out var roster), Is.True);
+        Assert.That(roster, Is.EqualTo(new[] { creator }));
     }
 }

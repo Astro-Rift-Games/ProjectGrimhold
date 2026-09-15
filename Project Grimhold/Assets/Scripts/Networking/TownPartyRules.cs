@@ -32,22 +32,14 @@ public static class TownPartyRules
         IsSolo(inviter) && IsSolo(recipient) && inviter.PartyId != recipient.PartyId &&
         inviter.Members[0] != recipient.Members[0];
 
-    public static bool TryCreateInitialRaidRoster(
+    public static bool TryCreateRaidCreatorRoster(
         in TownPartySnapshot party,
         ProfileId creator,
         out IReadOnlyList<ProfileId> roster)
     {
         roster = null;
         if (!IsValid(party) || !party.Contains(creator)) return false;
-
-        var members = new ProfileId[party.Members.Count];
-        members[0] = creator;
-        int destination = 1;
-        for (int index = 0; index < party.Members.Count; index++)
-        {
-            if (party.Members[index] != creator) members[destination++] = party.Members[index];
-        }
-        roster = members;
+        roster = new[] { creator };
         return true;
     }
 }

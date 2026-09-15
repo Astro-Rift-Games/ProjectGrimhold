@@ -107,9 +107,9 @@ path as the Town queue. The coded token carries `RaidCode`; the previous
 
 ## Coded Raid preparation and technical waiting
 
-Create and Join remain in the Town Shared runner. Explicit Create copies the creator's current
-Solo/Duo Party into a new, independent preparation and makes the creator Raid Host. Join by code
-adds only the requester and never changes Party. The replicated Town preparation owns the
+Create and Join remain in the Town Shared runner. Explicit Create admits only the creator into a new,
+independent preparation and makes that profile Raid Host. Every other profile, including a Party
+companion, enters through Join by code; joining never changes Party. The replicated Town preparation owns the
 six-digit code, one through sixteen ProfileId members, Ready flags and Host Start boundary.
 Start freezes the cohort and the coordinator copies a runner-independent launch
 context before Town shutdown. Its canonical members are immutable
@@ -134,6 +134,15 @@ The coordinated preparation owns two deadlines within the same lifecycle: the AC
 armed when the cohort freezes, and the existing release deadline armed by
 `PrepareCoordinatedRelease`. A launch revision therefore cannot wait for a missing ACK
 indefinitely, and a cancelled revision leaves Town usable for a new preparation.
+
+Release order is based on Town network ownership, not social ownership. The profile holding State
+Authority for the `TownRaidPreparation` Master Client object is the terminal Town departure, so the
+frozen preparation remains authoritative while every other participant replaces its runner. When
+the Raid Host is a different profile, it is released first to create the Host/Client session; the
+remaining non-authority participants follow and the Town authority leaves last. When both roles
+coincide, Clients leave first and that same profile creates the Raid after their departures. Party
+Host never participates in this decision, and `SessionConnectionCoordinator` remains the only owner
+of each local runner replacement.
 
 ### Raid runner lifecycle
 

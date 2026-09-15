@@ -172,6 +172,72 @@ public sealed class TownRaidPreparationRulesTests
         Assert.That(allAck.Members, Has.All.Matches<TownRaidPreparationMember>(member => member.LaunchAcknowledged));
     }
 
+    [Test]
+    public void ReleaseOrder_WithRaidHostAsTownAuthority_ReleasesClientsFirst()
+    {
+        TownRaidPreparationSnapshot frozen = CreateFrozenForRelease(3);
+
+        Assert.That(
+            TownRaidPreparationRules.TryCreateReleaseOrder(
+                frozen,
+                frozen.HostProfileId,
+                out var departures),
+            Is.True);
+        Assert.That(departures, Is.EqualTo(new[]
+        {
+            frozen.Members[1].ProfileId,
+            frozen.Members[2].ProfileId
+        }));
+    }
+
+    [Test]
+    public void ReleaseOrder_WithDifferentTownAuthority_ReleasesRaidHostFirstAndAuthorityLast()
+    {
+        TownRaidPreparationSnapshot frozen = CreateFrozenForRelease(4);
+        ProfileId townAuthority = frozen.Members[1].ProfileId;
+
+        Assert.That(
+            TownRaidPreparationRules.TryCreateReleaseOrder(
+                frozen,
+                townAuthority,
+                out var departures),
+            Is.True);
+        Assert.That(departures, Is.EqualTo(new[]
+        {
+            frozen.HostProfileId,
+            frozen.Members[2].ProfileId,
+            frozen.Members[3].ProfileId
+        }));
+        Assert.That(ContainsProfile(departures, townAuthority), Is.False);
+    }
+
+    [Test]
+    public void ReleaseOrder_RejectsAuthorityOutsideFrozenRoster()
+    {
+        TownRaidPreparationSnapshot frozen = CreateFrozenForRelease(2);
+
+        Assert.That(
+            TownRaidPreparationRules.TryCreateReleaseOrder(
+                frozen,
+                new ProfileId("not-in-preparation"),
+                out _),
+            Is.False);
+    }
+
+    [Test]
+    public void ReleaseOrder_PreservesAllSixteenProfilesWithoutDuplicatesAndIsRepeatable()
+    {
+        TownRaidPreparationSnapshot frozen = CreateFrozenForRelease(RaidSessionRules.MaxParticipants);
+        ProfileId townAuthority = frozen.Members[7].ProfileId;
+
+        Assert.That(TownRaidPreparationRules.TryCreateReleaseOrder(frozen, townAuthority, out var first), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateReleaseOrder(frozen, townAuthority, out var second), Is.True);
+        Assert.That(first, Has.Count.EqualTo(RaidSessionRules.MaxParticipants - 1));
+        Assert.That(first, Is.Unique);
+        Assert.That(first, Is.EqualTo(second));
+        Assert.That(ContainsProfile(first, townAuthority), Is.False);
+    }
+
     private static TownRaidPreparationSnapshot CreateWaiting(string codeValue, int count, bool ready)
     {
         RaidCode.TryParse(codeValue, out RaidCode code);
@@ -213,5 +279,43 @@ public sealed class TownRaidPreparationRulesTests
             source.SnapshotRevision,
             source.LaunchRevision,
             frozenMemberCount);
+    }
+
+    private static TownRaidPreparationSnapshot CreateFrozenForRelease(int count)
+    {
+        RaidCode.TryParse("654321", out RaidCode code);
+        var members = new TownRaidPreparationMember[count];
+        for (int index = 0; index < count; index++)
+        {
+            members[index] = new TownRaidPreparationMember(
+                new ProfileId($"release-profile-{index}"),
+                true,
+                9,
+                true);
+        }
+
+        return new TownRaidPreparationSnapshot(
+            code,
+            members[0].ProfileId,
+            TownRaidPreparationState.Launching,
+            members,
+            4,
+            9,
+            count);
+    }
+
+    private static bool ContainsProfile(
+        System.Collections.Generic.IReadOnlyList<ProfileId> profiles,
+        ProfileId expected)
+    {
+        for (int index = 0; index < profiles.Count; index++)
+        {
+            if (profiles[index] == expected)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

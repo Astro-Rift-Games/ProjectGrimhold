@@ -64,7 +64,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private int _rejectedLocalRevision;
     private bool _cancelLaunchRequested;
     private bool _releaseDispatched;
-    private bool _hostReleaseRequested;
+    private bool _terminalAuthorityReleaseRequested;
+    private ProfileId _terminalTownAuthorityProfileId;
     private float _releaseDeadline;
     private float _acknowledgeDeadline;
     private NetworkId _initialDirectoryId;
@@ -128,7 +129,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             _acknowledgeDeadline = 0f;
         }
 
-        if (State == TownRaidPreparationState.Launching && _releaseDispatched && !_hostReleaseRequested &&
+        if (State == TownRaidPreparationState.Launching && _releaseDispatched && !_terminalAuthorityReleaseRequested &&
             _releaseDeadline > 0f && Time.time >= _releaseDeadline)
         {
             _cancelLaunchRequested = true;
@@ -359,9 +360,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return;
         }
 
-        if (profileId == HostProfileId)
+        if (profileId == _terminalTownAuthorityProfileId)
         {
-            if (_hostReleaseRequested)
+            if (_terminalAuthorityReleaseRequested)
             {
                 _directory?.AuthorityDissolvePreparation(this);
             }
@@ -380,7 +381,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         }
 
         _departedProfiles.Add(profileId);
-        TryReleaseHostAfterRemoteDepartures();
+        TryReleaseTerminalTownAuthority();
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -517,22 +518,30 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return;
         }
 
+        if (!TryResolveSender(Object.StateAuthority, out ProfileId townStateAuthorityProfileId) ||
+            !TownRaidPreparationRules.TryCreateReleaseOrder(
+                snapshot,
+                townStateAuthorityProfileId,
+                out IReadOnlyList<ProfileId> initialDepartures))
+        {
+            _cancelLaunchRequested = true;
+            return;
+        }
+
         _expectedDepartures.Clear();
         _releasedProfiles.Clear();
         _departedProfiles.Clear();
+        _terminalTownAuthorityProfileId = townStateAuthorityProfileId;
         _releaseDispatched = true;
         bool resumingRelease = ReleaseRevision == snapshot.LaunchRevision;
         ReleaseRevision = snapshot.LaunchRevision;
         _releaseDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
         _acknowledgeDeadline = 0f;
 
-        for (int index = 0; index < snapshot.Members.Count; index++)
+        var releaseTargets = new List<KeyValuePair<ProfileId, PlayerRef>>(initialDepartures.Count);
+        for (int index = 0; index < initialDepartures.Count; index++)
         {
-            ProfileId profileId = snapshot.Members[index].ProfileId;
-            if (profileId == snapshot.HostProfileId)
-            {
-                continue;
-            }
+            ProfileId profileId = initialDepartures[index];
 
             if (_directory == null || !_directory.TryResolvePlayer(profileId, out PlayerRef player))
             {
@@ -550,29 +559,38 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
             _expectedDepartures.Add(profileId);
             _releasedProfiles.Add(profileId);
-            RPC_ReleaseLaunch(player, snapshot.RaidCode.Value, snapshot.LaunchRevision);
+            releaseTargets.Add(new KeyValuePair<ProfileId, PlayerRef>(profileId, player));
         }
 
-        TryReleaseHostAfterRemoteDepartures();
+        for (int index = 0; index < releaseTargets.Count; index++)
+        {
+            RPC_ReleaseLaunch(
+                releaseTargets[index].Value,
+                snapshot.RaidCode.Value,
+                snapshot.LaunchRevision);
+        }
+
+        TryReleaseTerminalTownAuthority();
     }
 
-    private void TryReleaseHostAfterRemoteDepartures()
+    private void TryReleaseTerminalTownAuthority()
     {
-        if (!_releaseDispatched || _hostReleaseRequested ||
+        if (!_releaseDispatched || _terminalAuthorityReleaseRequested ||
             _departedProfiles.Count < _expectedDepartures.Count)
         {
             return;
         }
 
-        if (_directory == null || !_directory.TryResolvePlayer(HostProfileId, out PlayerRef hostPlayer))
+        if (!_terminalTownAuthorityProfileId.IsValid || _directory == null ||
+            !_directory.TryResolvePlayer(_terminalTownAuthorityProfileId, out PlayerRef terminalPlayer))
         {
             _cancelLaunchRequested = true;
             return;
         }
 
-        _hostReleaseRequested = true;
+        _terminalAuthorityReleaseRequested = true;
         _releaseDeadline = 0f;
-        RPC_ReleaseLaunch(hostPlayer, RaidCode.Value, LaunchRevision);
+        RPC_ReleaseLaunch(terminalPlayer, RaidCode.Value, LaunchRevision);
     }
 
     private void CancelLaunchingPreparation()
@@ -730,7 +748,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _departedProfiles.Clear();
         _cancelLaunchRequested = false;
         _releaseDispatched = false;
-        _hostReleaseRequested = false;
+        _terminalAuthorityReleaseRequested = false;
+        _terminalTownAuthorityProfileId = default;
         _releaseDeadline = 0f;
         _acknowledgeDeadline = 0f;
     }

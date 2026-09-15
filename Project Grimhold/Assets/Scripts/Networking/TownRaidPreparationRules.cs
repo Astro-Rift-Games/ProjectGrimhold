@@ -317,6 +317,50 @@ public static class TownRaidPreparationRules
     }
 
     /// <summary>
+    /// Builds the initial Town departure order while reserving the current Town State Authority
+    /// as the terminal departure. A distinct Raid Host is first so it can create the Raid session.
+    /// </summary>
+    public static bool TryCreateReleaseOrder(
+        in TownRaidPreparationSnapshot snapshot,
+        ProfileId townStateAuthorityProfileId,
+        out IReadOnlyList<ProfileId> initialDepartures)
+    {
+        initialDepartures = null;
+        if (!IsCompleteFrozenSnapshot(snapshot) ||
+            !townStateAuthorityProfileId.IsValid ||
+            FindMember(snapshot.Members, townStateAuthorityProfileId) < 0)
+        {
+            return false;
+        }
+
+        var departures = new ProfileId[snapshot.Members.Count - 1];
+        int destination = 0;
+        if (snapshot.HostProfileId != townStateAuthorityProfileId)
+        {
+            departures[destination++] = snapshot.HostProfileId;
+        }
+
+        for (int index = 0; index < snapshot.Members.Count; index++)
+        {
+            ProfileId profileId = snapshot.Members[index].ProfileId;
+            if (profileId == snapshot.HostProfileId || profileId == townStateAuthorityProfileId)
+            {
+                continue;
+            }
+
+            departures[destination++] = profileId;
+        }
+
+        if (destination != departures.Length)
+        {
+            return false;
+        }
+
+        initialDepartures = System.Array.AsReadOnly(departures);
+        return true;
+    }
+
+    /// <summary>
     /// Records an acknowledgement only for the matching frozen profile and revision.
     /// Duplicate acknowledgements are idempotent.
     /// </summary>

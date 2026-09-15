@@ -18,9 +18,10 @@ State-Authority `TickTimer` state. Party entries, invitations and continuation c
 Ready state, preparation identity or launch revision.
 
 `TownRaidPreparationDirectory` owns only concrete expeditions. Explicit Create generates the
-six-digit `RaidCode` and copies the creator's current Party roster, with the creator first and as Raid
-Host, into a new preparation. Every copied participant starts Not Ready. The preparation thereafter
-owns an independent roster of one through `RaidSessionRules.MaxParticipants` (16) profiles.
+six-digit `RaidCode` and admits only the creator, as Raid Host and Not Ready. Party membership never
+grants automatic Raid admission: every additional participant, including the creator's Party
+companion, must explicitly Join with the code. The preparation thereafter owns an independent roster
+of one through `RaidSessionRules.MaxParticipants` (16) profiles.
 
 Join by code adds only the requesting profile to that preparation. It neither imports the requester's
 Party nor mutates any Party. Party merge/split never changes, cancels or populates an existing
@@ -34,6 +35,12 @@ when every current member is Ready. Start freezes the full preparation snapshot 
 release and deadline workflow operates exclusively on that frozen roster. `RaidLaunchContext`
 contains the code, Raid Host and up to 16 frozen profiles. `SessionConnectionCoordinator` remains
 the only owner of Town/Raid runner replacement and local loadout reservation.
+
+The staged release keeps the profile that owns State Authority for the Town preparation as the final
+Town departure. If that profile is not the Raid Host, the Raid Host is released first so it can create
+the Raid session, followed by every other non-authority participant; the Town authority leaves only
+after those departures are observed. If both roles coincide, the Clients remain the initial
+departures. Party Host is unrelated to both choices and never controls the release order.
 
 At local launch materialization, each application separately captures its current Party as a
 `TownPartyContinuationContext` containing only Party Host and ordered Solo/Duo roster. Party members
@@ -65,8 +72,9 @@ Presentation does not mutate Party or preparation state directly.
 
 ## Validation boundaries
 
-Pure/EditMode coverage owns Party validity/merge/roster-copy rules, invitation contract separation,
-16-member preparation capacity, Ready/Start/freeze, continuation matching and HUD projection.
+Pure/EditMode coverage owns Party validity/merge/creator-only admission rules, invitation contract separation,
+16-member preparation capacity, Ready/Start/freeze, State-Authority-terminal release ordering,
+continuation matching and HUD projection.
 Serialized composition tests own the single Party directory and local HUD wiring. PlayMode must cover
 Solo initialization and Input-Authority-only HUD activation. Manual multi-application validation must
 cover independent Party/preparation mutations, cross-Party join by code, 16-member capacity, launch,
