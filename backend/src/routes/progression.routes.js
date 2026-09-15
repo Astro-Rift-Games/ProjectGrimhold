@@ -4,6 +4,8 @@ const router = express.Router();
 const ProgressionService = require('../services/ProgressionService');
 const authenticate = require('../middleware/authenticate');
 
+const { commitProgressionValidator } = require('../validators/progression.validators');
+
 // All progression routes require a valid JWT token.
 router.use(authenticate);
 
@@ -19,7 +21,7 @@ router.get('/me/progression', async (req, res, next) => {
 });
 
 // POST /character/me/progression/commit
-router.post('/me/progression/commit', async (req, res, next) => {
+router.post('/me/progression/commit', commitProgressionValidator, async (req, res, next) => {
   console.log(`[Progression Route] Hit POST /me/progression/commit for accountId: ${req.accountId}`);
   try {
     console.log('[Progression Route] commitProgression payload:', req.body);
