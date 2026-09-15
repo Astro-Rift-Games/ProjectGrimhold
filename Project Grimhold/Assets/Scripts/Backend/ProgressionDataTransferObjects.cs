@@ -30,9 +30,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct CommitProgressionResult
     {
-        public bool alreadyApplied;
-        public int  level;
-        public long experience;
+        public CharacterAttributesData characterAttributes;
     }
 
     // ---------------------------------------------------------------------------
@@ -42,12 +40,6 @@ namespace Grimhold.Backend
     [Serializable]
     public struct CommitProgressionRequest
     {
-        public string raidId;
-        public int    resultSequence;
-        public long   consolidatedExperience;
-        public int    resultingLevel;
-        public int    newLevel;
-        public long   newExperience;
-        public CharacterAttributesData characterAttributes;
+        public string attribute;
     }
 }

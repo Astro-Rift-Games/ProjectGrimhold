@@ -35,21 +35,21 @@ public class RemoteInventoryService : MonoBehaviour
     /// <summary>
     /// Persists character progression and attribute allocations.
     /// </summary>
-    public async Task<(bool success, BackendError error)> CommitProgressionAsync(CharacterAttributesData attributes)
+    public async Task<(bool success, CharacterAttributesData data, BackendError error)> CommitProgressionAsync(string attributeName)
     {
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitProgressionAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
         }
 
         var request = new CommitProgressionRequest
         {
-            characterAttributes = attributes
+            attribute = attributeName
         };
 
-        var (success, _, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
-        return (success, error);
+        var (success, result, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
+        return (success, result.characterAttributes, error);
     }
 
     /// <summary>
