@@ -21,6 +21,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
+    private readonly Dictionary<EntityId, ICombatContributionTracker> _combatContributionTrackers = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
@@ -43,6 +44,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressDefeatSources.Clear();
         _killExperienceSources.Clear();
         _extractionSanctuaries.Clear();
+        _combatContributionTrackers.Clear();
         _colliders.Clear();
         _damageColliderRegistrations.Clear();
         _damageColliders.Clear();
@@ -497,6 +499,21 @@ public sealed class EntityRegistry : MonoBehaviour
         return _killExperienceSources.TryGetValue(id, out source);
     }
 
+    public bool TryRegisterCombatContributionTracker(EntityId id, ICombatContributionTracker tracker)
+    {
+        return TryRegisterIndependentCapability(id, tracker, _combatContributionTrackers);
+    }
+
+    public bool TryUnregisterCombatContributionTracker(EntityId id, ICombatContributionTracker expectedTracker)
+    {
+        return TryUnregisterIndependentCapability(id, expectedTracker, _combatContributionTrackers);
+    }
+
+    public bool TryGetCombatContributionTracker(EntityId id, out ICombatContributionTracker tracker)
+    {
+        return _combatContributionTrackers.TryGetValue(id, out tracker);
+    }
+
     /// <summary>Registers a sanctuary capability independently from other capabilities.</summary>
     public bool TryRegisterExtractionSanctuary(EntityId id, IExtractionSanctuary sanctuary)
     {
@@ -729,7 +746,8 @@ public sealed class EntityRegistry : MonoBehaviour
             _extractionProgressReaders.ContainsKey(id) ||
             _extractionProgressDefeatSources.ContainsKey(id) ||
             _killExperienceSources.ContainsKey(id) ||
-            _extractionSanctuaries.ContainsKey(id);
+            _extractionSanctuaries.ContainsKey(id) ||
+            _combatContributionTrackers.ContainsKey(id);
     }
 
     private static bool TryRegisterIndependentCapability<TCapability>(

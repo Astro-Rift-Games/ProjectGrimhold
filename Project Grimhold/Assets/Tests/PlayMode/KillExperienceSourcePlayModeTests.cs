@@ -69,6 +69,25 @@ namespace Tests.PlayMode.Progression
         }
 
         [UnityTest]
+        public IEnumerator AssistExperienceIsAwardedToContributorsExceptKiller()
+        {
+            yield return StartRunnerAndSpawnParticipants();
+            NetworkObject slime = SpawnEnemy(GreenSlimePrefabGuid, Vector3.zero);
+            
+            // First player contributes (non-fatal)
+            yield return ResolveDamage(slime, _firstPlayer, 1f);
+            
+            // Second player delivers fatal blow
+            yield return ResolveDamage(slime, _secondPlayer, 1000f);
+
+            // GreenSlime has 10 Kill Experience.
+            AssertLedger(_firstParticipant, expectedKill: 0, expectedAssist: 5);
+            AssertLedger(_secondParticipant, expectedKill: 10, expectedAssist: 0);
+            
+            Assert.That((bool)slime.GetComponent<KillExperienceSource>().IsAssistGranted, Is.True);
+        }
+
+        [UnityTest]
         public IEnumerator NonFatalAndInvalidAttackerPreserveReward()
         {
             yield return StartRunnerAndSpawnParticipants();
@@ -338,13 +357,13 @@ namespace Tests.PlayMode.Progression
             NetworkRaidParticipant participant) =>
             participant.GetComponent<PlayerExpeditionExperienceLedger>();
 
-        private static void AssertLedger(NetworkRaidParticipant participant, long expectedKill)
+        private static void AssertLedger(NetworkRaidParticipant participant, long expectedKill, long expectedAssist = 0)
         {
             PlayerExpeditionExperienceLedger ledger = GetLedger(participant);
             ExpeditionExperienceSnapshot snapshot = ledger.Snapshot;
             Assert.That(snapshot.KillExperience, Is.EqualTo(expectedKill));
-            Assert.That(snapshot.TotalExperience, Is.EqualTo(expectedKill));
-            Assert.That(ledger.PveKillCount, Is.EqualTo(expectedKill > 0 ? 1 : 0));
+            Assert.That(snapshot.AssistExperience, Is.EqualTo(expectedAssist));
+            Assert.That(snapshot.TotalExperience, Is.EqualTo(expectedKill + expectedAssist));
             Assert.That(ledger.PvpKillCount, Is.Zero);
         }
 

@@ -5217,6 +5217,7 @@ GameObject:
   - component: {fileID: 2604764590180358513}
   - component: {fileID: 4419076183045921921}
   - component: {fileID: 4716473767476056966}
+  - component: {fileID: -977575455703964601}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5563,6 +5564,7 @@ MonoBehaviour:
   - {fileID: 7872507663536347850}
   - {fileID: 8300000000000000001}
   - {fileID: 4419076183045921921}
+  - {fileID: -977575455703964601}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -5619,6 +5621,7 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _slotCapacity: 6
   _startsAvailable: 0
+  _supportsFullPlayerInventory: 0
   _initialContent: []
   _IsInitialized:
     RawValue: 0
@@ -5707,6 +5710,8 @@ MonoBehaviour:
   _killExperience: 0
   _IsGranted:
     RawValue: 0
+  _IsAssistGranted:
+    RawValue: 0
 --- !u!114 &3762208006993684416
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5787,6 +5792,19 @@ MonoBehaviour:
   _reloadDelaySeconds: 0.25
   _enableTimerFootsteps: 0
   _stepInterval: 0.35
+--- !u!114 &-977575455703964601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28c98c465dab6884c83492bb739197b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatContributionTracker
+  _assistWindowSeconds: 10
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

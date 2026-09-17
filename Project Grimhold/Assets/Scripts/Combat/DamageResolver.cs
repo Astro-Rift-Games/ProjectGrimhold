@@ -110,9 +110,76 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             aggroReceiver.ReceiveAggroAlert(request.AttackerId, attackerTransform);
         }
 
+        if (result.IsApplied && HasStateAuthority && request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
+        {
+            if (_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
+            {
+                if (_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) &&
+                    attacker is PlayerCharacter player)
+                {
+                    RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+                    if (participantLink != null &&
+                        participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+                        participant.RaidParticipantId.IsValid)
+                    {
+                        tracker.TryRecordContribution(participant.RaidParticipantId, request.SimulationTick);
+                    }
+                }
+            }
+        }
+
         TryAwardFatalProgress(request, result);
+        TryAwardFatalAssistExperience(request, result);
         TryAwardFatalKillExperience(request, result);
         return CompleteResolution(request, result);
+    }
+
+    private void TryAwardFatalAssistExperience(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null ||
+            !_registry.TryGetKillExperienceSource(request.TargetId, out IKillExperienceSource source) ||
+            source.IsAssistGranted ||
+            !_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
+        {
+            return;
+        }
+
+        RaidParticipantId killerParticipantId = default;
+        if (request.AttackerId.Value != 0 &&
+            _registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) &&
+            attacker is PlayerCharacter attackerPlayer)
+        {
+            RaidAvatarParticipantLink link = attackerPlayer.GetComponent<RaidAvatarParticipantLink>();
+            if (link != null && link.TryResolveParticipant(out NetworkRaidParticipant p))
+            {
+                killerParticipantId = p.RaidParticipantId;
+            }
+        }
+
+        var contributors = new System.Collections.Generic.HashSet<RaidParticipantId>();
+        tracker.GetValidContributors(request.SimulationTick, contributors);
+
+        NetworkRaidParticipant[] allParticipants = FindObjectsByType<NetworkRaidParticipant>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (RaidParticipantId contributorId in contributors)
+        {
+            if (contributorId == killerParticipantId)
+            {
+                continue;
+            }
+
+            foreach (var participant in allParticipants)
+            {
+                if (participant.RaidParticipantId == contributorId)
+                {
+                    PlayerExpeditionExperienceLedger ledger = participant.GetComponent<PlayerExpeditionExperienceLedger>();
+                    source.TryGrantAssistTo(ledger);
+                    break;
+                }
+            }
+        }
+
+        source.MarkAssistGranted();
     }
 
     private void TryAwardFatalKillExperience(in DamageRequest request, in DamageResult result)
