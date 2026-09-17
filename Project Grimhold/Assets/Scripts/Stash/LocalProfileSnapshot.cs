@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class LocalProfileSnapshot
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     public const int MaxLoadoutSlots = 30;
     public const int MaxAppliedExtractionReceipts = 256;
     public const int MaxAppliedShopTransactionReceipts = 256;
@@ -31,6 +31,7 @@ public sealed class LocalProfileSnapshot
     public long ShopIdempotencyWatermark { get; set; } = 0;
     public List<ShopTransactionReceipt> AppliedShopTransactionReceipts { get; } = new();
     public List<ProgressionReceipt> AppliedProgressionReceipts { get; } = new();
+    public List<MissionInstanceState> ActiveMissions { get; } = new();
 
     public LocalProfileSnapshot Clone()
     {
@@ -55,6 +56,19 @@ public sealed class LocalProfileSnapshot
         clone.AppliedExtractionReceipts.AddRange(AppliedExtractionReceipts);
         clone.AppliedShopTransactionReceipts.AddRange(AppliedShopTransactionReceipts);
         clone.AppliedProgressionReceipts.AddRange(AppliedProgressionReceipts);
+        // Deep clone mission instances since they contain mutable dictionaries
+        foreach (var mission in ActiveMissions)
+        {
+            var clonedMission = new MissionInstanceState(mission.MissionId, mission.State) 
+            { 
+                CurrentPhaseIndex = mission.CurrentPhaseIndex 
+            };
+            foreach (var kvp in mission.ObjectiveProgress)
+            {
+                clonedMission.ObjectiveProgress.Add(kvp.Key, new ObjectiveProgressState(kvp.Value.CurrentAmount));
+            }
+            clone.ActiveMissions.Add(clonedMission);
+        }
         return clone;
     }
 }

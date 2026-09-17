@@ -12,6 +12,7 @@ public sealed class LocalProfileStore
     private readonly ProfileId _profileId;
     private readonly LootDefinitionCatalog _lootCatalog;
     private readonly LootId _recoveryWeaponLootId;
+    private readonly MissionDefinitionCatalog _missionCatalog;
 
     public event Action<ProfileId> ProfileCommitted;
 
@@ -24,12 +25,14 @@ public sealed class LocalProfileStore
         ILocalProfileRepository repository,
         ProfileId profileId,
         LootDefinitionCatalog lootCatalog = null,
-        LootId recoveryWeaponLootId = default)
+        LootId recoveryWeaponLootId = default,
+        MissionDefinitionCatalog missionCatalog = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _profileId = profileId;
         _lootCatalog = lootCatalog;
         _recoveryWeaponLootId = recoveryWeaponLootId;
+        _missionCatalog = missionCatalog;
     }
 
     public IReadOnlyList<StashItem> GetStash() =>
@@ -51,6 +54,107 @@ public sealed class LocalProfileStore
         _repository.Snapshot != null ? _repository.Snapshot.CurrentExperience : 0L;
     public int GetLastAppliedProgressionResultSequence() =>
         _repository.Snapshot != null ? _repository.Snapshot.LastAppliedProgressionResultSequence : 0;
+
+    public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
+        _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
+
+    public StashOperationResult TryAcceptMission(MissionDefinition mission)
+    {
+        if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        foreach (var active in current.ActiveMissions)
+        {
+            if (active.MissionId == mission.MissionId)
+                return StashOperationResult.AlreadyApplied;
+        }
+
+        if (_missionCatalog != null)
+        {
+            var activeTypes = new List<MissionType>();
+            foreach (var active in current.ActiveMissions)
+            {
+                if (_missionCatalog.TryGet(active.MissionId.Value, out var activeDef))
+                    activeTypes.Add(activeDef.Type);
+            }
+
+            if (!MissionLifecycleRules.CanAcceptMission(mission.Type, activeTypes))
+                return StashOperationResult.PersistenceFailed;
+        }
+
+        var next = current.Clone();
+        next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        return Commit(next);
+    }
+
+    public StashOperationResult TryAbandonMission(MissionId missionId)
+    {
+        if (!missionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        int index = current.ActiveMissions.FindIndex(m => m.MissionId == missionId);
+        if (index < 0) return StashOperationResult.InvalidInventory;
+
+        var instance = current.ActiveMissions[index];
+        if (!MissionLifecycleRules.CanTransitionTo(instance.State, MissionState.Abandonada))
+            return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        next.ActiveMissions[index].State = MissionState.Abandonada;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryClaimMission(MissionDefinition mission)
+    {
+        if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        int index = current.ActiveMissions.FindIndex(m => m.MissionId == mission.MissionId);
+        if (index < 0) return StashOperationResult.InvalidInventory;
+
+        var instance = current.ActiveMissions[index];
+        if (!MissionLifecycleRules.CanTransitionTo(instance.State, MissionState.Reclamada))
+            return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        next.ActiveMissions[index].State = MissionState.Reclamada;
+
+        if (mission.Rewards != null)
+        {
+            var itemsToAdd = new List<StashItem>();
+            foreach (var reward in mission.Rewards)
+            {
+                if (reward.Type == RewardDefinition.RewardType.Gold)
+                {
+                    if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
+                    next.Currency += reward.Amount;
+                }
+                else if (reward.Type == RewardDefinition.RewardType.Experience)
+                {
+                    next.CurrentExperience += reward.Amount;
+                }
+                else if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
+                {
+                    var lootId = new LootId(reward.ReferenceId);
+                    if (lootId.IsValid && reward.Amount > 0)
+                    {
+                        itemsToAdd.Add(new StashItem(lootId, reward.Amount));
+                    }
+                }
+            }
+
+            if (itemsToAdd.Count > 0)
+            {
+                if (!TryMerge(next.Stash, itemsToAdd))
+                    return StashOperationResult.PersistenceFailed;
+            }
+        }
+
+        return Commit(next);
+    }
 
     public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
     {

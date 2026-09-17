@@ -4,7 +4,6 @@ using System.Collections.Generic;
 /// <summary>
 /// Mutable state of a specific mission accepted by the player.
 /// </summary>
-[Serializable]
 public class MissionInstanceState
 {
     public MissionId MissionId;

@@ -3,7 +3,6 @@ using System;
 /// <summary>
 /// Tracks the progress of a single objective within a mission.
 /// </summary>
-[Serializable]
 public struct ObjectiveProgressState
 {
     public int CurrentAmount;
