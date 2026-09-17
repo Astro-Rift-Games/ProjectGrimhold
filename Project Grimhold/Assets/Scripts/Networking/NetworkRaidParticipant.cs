@@ -232,10 +232,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         IsCharacterAttributeStateInitialized = true;
     }
 
+    public PlayerExpeditionExperienceLedger ExperienceLedger { get; private set; }
+
     private void Awake()
     {
         _progressionResolver = GetComponent<PlayerExpeditionProgressionResolver>();
         _runtimeAttributeOverride = GetComponent<RuntimeAttributeOverrideNetworkController>();
+        ExperienceLedger = GetComponent<PlayerExpeditionExperienceLedger>();
     }
 
     public override void FixedUpdateNetwork()

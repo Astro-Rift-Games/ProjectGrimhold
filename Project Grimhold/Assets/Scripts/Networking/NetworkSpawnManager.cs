@@ -187,6 +187,41 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     }
 
     /// <summary>
+    /// Testing seam used ONLY to inject artificially spawned participants into the local roster
+    /// during PlayMode tests, since tests bypass the real Join/Spawn flow.
+    /// </summary>
+    internal void Test_RegisterParticipant(PlayerRef player, NetworkObject participantObject)
+    {
+        _spawnedPlayers[player] = participantObject;
+    }
+
+    /// <summary>
+    /// Resolves an active participant object exclusively from this runner's tracked roster,
+    /// without relying on scene-wide queries (FindObjectsByType).
+    /// </summary>
+    public bool TryGetRaidParticipant(RaidParticipantId participantId, out NetworkRaidParticipant participant)
+    {
+        participant = null;
+        if (!participantId.IsValid)
+        {
+            return false;
+        }
+
+        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+        {
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant p) &&
+                p.RaidParticipantId == participantId)
+            {
+                participant = p;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Reports remote peers that still belong to this runner. Player routing is retained until
     /// OnPlayerLeft, and ActivePlayers protects the same boundary if an object mapping is absent.
     /// </summary>

@@ -27,8 +27,19 @@ It also replicates the committed activity counts required by Results: PvE and Pv
 PvE and PvP Assists, and valid first chest openings. Normal rewards enter through an explicit
 `ExpeditionExperienceSource`; `None` and unknown values are invalid. A valid source maps to the
 existing Kill, Assist or Exploration category, and its complete Experience candidate plus one
-activity-count increment are committed atomically. PvP and Assist have no producer yet, so those
-counters remain zero until their authoritative attribution rules exist.
+activity-count increment are committed atomically.
+
+PvE Assists are produced authoritatively by Combat during the fatal resolution of a valid target. 
+`DamageResolver` extracts the `RaidParticipantId` from the attacker and stores contributions within
+a deterministic tick window in `CombatContributionTracker`. On death, eligible participants are
+frozen via bitmask into `KillExperienceSource` (`EligibleAssistMask`). 
+
+Rewards are applied to ledgers one by one, recording successes in `GrantedAssistMask`.
+If a ledger is locked or rejects the reward, its bit is not granted. To guarantee partial completion
+recovery, `KillExperienceSource` acts as the authoritative retry owner: it runs a local, tick-driven
+retry loop in `FixedUpdateNetwork` that exclusively attempts to grant pending bits until `GrantedAssistMask == EligibleAssistMask`.
+This preserves exact once-per-target rewards even across Host Migration without global polling or RPCs.
+PvP Assists have no producer yet.
 
 Total Expedition Experience is derived from these accumulators and is never replicated as
 a second source of truth. The public snapshot exposes only this gameplay breakdown.

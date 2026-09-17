@@ -11,6 +11,7 @@ using UnityEngine;
 public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 {
     private EntityRegistry _registry;
+    private NetworkSpawnManager _spawnManager;
 
     private void Awake()
     {
@@ -18,11 +19,13 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
     public override void Spawned()
     {
-        _registry = Runner.GetComponent<EntityRegistry>();
+        _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         if (_registry == null)
         {
             Debug.LogError($"{nameof(DamageResolver)}: EntityRegistry component was not found on the NetworkRunner GameObject.", this);
         }
+
+        _spawnManager = Runner != null ? Runner.GetComponent<NetworkSpawnManager>() : null;
     }
 
     /// <summary>
@@ -110,9 +113,86 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             aggroReceiver.ReceiveAggroAlert(request.AttackerId, attackerTransform);
         }
 
+        if (result.IsApplied && HasStateAuthority && request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
+        {
+            if (_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
+            {
+                if (_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) &&
+                    attacker is PlayerCharacter player)
+                {
+                    RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+                    if (participantLink != null &&
+                        participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+                        participant.RaidParticipantId.IsValid &&
+                        participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) &&
+                        currentAvatar == player.Object)
+                    {
+                        tracker.TryRecordContribution(participant.RaidParticipantId, request.SimulationTick);
+                    }
+                }
+            }
+        }
+
         TryAwardFatalProgress(request, result);
+        TryAwardFatalAssistExperience(request, result);
         TryAwardFatalKillExperience(request, result);
         return CompleteResolution(request, result);
+    }
+
+    private void TryAwardFatalAssistExperience(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null || _spawnManager == null ||
+            !_registry.TryGetKillExperienceSource(request.TargetId, out IKillExperienceSource source) ||
+            source.IsAssistResolutionCompleted ||
+            !_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
+        {
+            return;
+        }
+
+        RaidParticipantId killerParticipantId = default;
+        if (request.AttackerId.Value != 0 &&
+            _registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) &&
+            attacker is PlayerCharacter attackerPlayer)
+        {
+            RaidAvatarParticipantLink link = attackerPlayer.GetComponent<RaidAvatarParticipantLink>();
+            if (link != null && link.TryResolveParticipant(out NetworkRaidParticipant p))
+            {
+                killerParticipantId = p.RaidParticipantId;
+            }
+        }
+
+        var contributors = new System.Collections.Generic.HashSet<RaidParticipantId>();
+        tracker.GetValidContributors(request.SimulationTick, contributors);
+
+        int eligibleMask = 0;
+        foreach (RaidParticipantId contributorId in contributors)
+        {
+            if (contributorId == killerParticipantId) continue;
+
+            if (_spawnManager.TryGetRaidParticipant(contributorId, out NetworkRaidParticipant participant) &&
+                participant.RaidParticipantId.IsValid &&
+                participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) &&
+                currentAvatar.Id.IsValid)
+            {
+                eligibleMask |= (1 << (contributorId.Value - 1));
+            }
+        }
+
+        source.InitializeAssistCandidates(eligibleMask);
+
+        foreach (RaidParticipantId contributorId in contributors)
+        {
+            if (contributorId == killerParticipantId) continue;
+
+            if (_spawnManager.TryGetRaidParticipant(contributorId, out NetworkRaidParticipant participant))
+            {
+                PlayerExpeditionExperienceLedger ledger = participant.GetComponent<PlayerExpeditionExperienceLedger>();
+                if (ledger != null)
+                {
+                    source.TryGrantAssistTo(contributorId, ledger);
+                }
+            }
+        }
     }
 
     private void TryAwardFatalKillExperience(in DamageRequest request, in DamageResult result)
