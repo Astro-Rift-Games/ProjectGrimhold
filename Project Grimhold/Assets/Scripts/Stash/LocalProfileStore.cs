@@ -156,6 +156,37 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    public StashOperationResult TryApplyMissionProgress(MissionContributionEvent contribution)
+    {
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+        if (_missionCatalog == null) return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        bool changed = false;
+
+        for (int i = 0; i < next.ActiveMissions.Count; i++)
+        {
+            var instance = next.ActiveMissions[i];
+            if (instance.State != MissionState.Activa) continue;
+
+            if (_missionCatalog.TryGet(instance.MissionId.Value, out var definition))
+            {
+                if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
+                {
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            return Commit(next);
+        }
+
+        return StashOperationResult.Success;
+    }
+
     public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
     {
         lock (_sync)

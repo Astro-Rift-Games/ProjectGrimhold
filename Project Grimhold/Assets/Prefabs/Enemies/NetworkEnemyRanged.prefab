@@ -64,13 +64,17 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3558313843711300299, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _targetId
+      value: skeleton
+      objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: SortKey
       value: 744990789
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 13
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -118,6 +122,10 @@ PrefabInstance:
       objectReference: {fileID: 4371707113031235481}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[12]'
+      value: 
+      objectReference: {fileID: 3501954990536489427}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[13]'
       value: 
       objectReference: {fileID: 3126052149844608079}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -326,6 +334,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d6d4f5f32f6b849b26f9e9f50ec82c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
+--- !u!114 &3501954990536489427 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3558313843711300299, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 142103171782748952}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421098701350888620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3632c90fbc13d38419b4cc0c4233c42e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyMissionProgressDefeatSource
 --- !u!114 &3937134794404569010 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 3988879926097982634, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

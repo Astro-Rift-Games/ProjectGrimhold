@@ -112,6 +112,7 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
         TryAwardFatalProgress(request, result);
         TryAwardFatalKillExperience(request, result);
+        TryAwardFatalMissionProgress(request, result);
         return CompleteResolution(request, result);
     }
 
@@ -174,5 +175,37 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         }
 
         return result;
+    }
+
+    private void TryAwardFatalMissionProgress(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null ||
+            !_registry.TryGetMissionProgressDefeatSource(request.TargetId, out IMissionProgressDefeatSource source) ||
+            !_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) ||
+            attacker is not PlayerCharacter player)
+        {
+            return;
+        }
+
+        RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+        if (participantLink == null ||
+            !participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+            !participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) ||
+            currentAvatar != player.Object)
+        {
+            return;
+        }
+
+        PlayerMissionContributionLedger ledger =
+            participant.GetComponent<PlayerMissionContributionLedger>();
+        if (ledger != null)
+        {
+            ledger.RecordContribution(
+                ObjectiveFamily.EliminacionPvE,
+                source.DefeatProgressAmount,
+                source.TargetId,
+                source.ZoneId,
+                isCompanionContribution: false);
+        }
     }
 }

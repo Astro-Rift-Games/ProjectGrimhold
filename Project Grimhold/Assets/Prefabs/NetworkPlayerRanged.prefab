@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 33
+      value: 35
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[5]'
@@ -162,6 +162,14 @@ PrefabInstance:
       objectReference: {fileID: 6185397057514364324}
     - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[32]'
+      value: 
+      objectReference: {fileID: 5032895879721406070}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[33]'
+      value: 
+      objectReference: {fileID: 6245878758746202683}
+    - target: {fileID: 3593981370069743005, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[34]'
       value: 
       objectReference: {fileID: 4419447253773158415}
     - target: {fileID: 4369124737019072436, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -357,6 +365,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d6d4f5f32f6b849b26f9e9f50ec82c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Physics2DInteractionTargetQuery
+--- !u!114 &5032895879721406070 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5910356105609365182, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2aa71c91e317ccc47920e90fbbd6bdba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkRaidParticipant
 --- !u!114 &6185397057514364324 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4758981447037605228, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
@@ -368,6 +387,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d90d634aa7b8e77499b7ae332a7bf8a3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DialoguePresenter
+--- !u!114 &6245878758746202683 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4715387629078817523, guid: fea3a7b256f965a4eb9b965832939741, type: 3}
+  m_PrefabInstance: {fileID: 1719739210643671240}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3134367351636412284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfc69026fb0eef147a861f07276e8a7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerMissionContributionLedger
 --- !u!114 &6434550351153431259 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5661482956119050771, guid: fea3a7b256f965a4eb9b965832939741, type: 3}

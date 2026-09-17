@@ -19,6 +19,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IMissionProgressDefeatSource> _missionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
@@ -41,6 +42,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressReceivers.Clear();
         _extractionProgressReaders.Clear();
         _extractionProgressDefeatSources.Clear();
+        _missionProgressDefeatSources.Clear();
         _killExperienceSources.Clear();
         _extractionSanctuaries.Clear();
         _colliders.Clear();
@@ -479,6 +481,21 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressDefeatSources.TryGetValue(id, out source);
     }
 
+    public bool TryRegisterMissionProgressDefeatSource(EntityId id, IMissionProgressDefeatSource source)
+    {
+        return TryRegisterIndependentCapability(id, source, _missionProgressDefeatSources);
+    }
+
+    public bool TryUnregisterMissionProgressDefeatSource(EntityId id, IMissionProgressDefeatSource expectedSource)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedSource, _missionProgressDefeatSources);
+    }
+
+    public bool TryGetMissionProgressDefeatSource(EntityId id, out IMissionProgressDefeatSource source)
+    {
+        return _missionProgressDefeatSources.TryGetValue(id, out source);
+    }
+
     /// <summary>Registers an independently configured one-shot Kill Experience source.</summary>
     public bool TryRegisterKillExperienceSource(EntityId id, IKillExperienceSource source)
     {
@@ -728,6 +745,7 @@ public sealed class EntityRegistry : MonoBehaviour
             _extractionProgressReceivers.ContainsKey(id) ||
             _extractionProgressReaders.ContainsKey(id) ||
             _extractionProgressDefeatSources.ContainsKey(id) ||
+            _missionProgressDefeatSources.ContainsKey(id) ||
             _killExperienceSources.ContainsKey(id) ||
             _extractionSanctuaries.ContainsKey(id);
     }
