@@ -21,4 +21,14 @@ public class MissionInstanceState
         State = initialState;
         CurrentPhaseIndex = 0;
     }
+
+    public bool TryTransitionTo(MissionState targetState)
+    {
+        if (MissionLifecycleRules.CanTransitionTo(State, targetState))
+        {
+            State = targetState;
+            return true;
+        }
+        return false;
+    }
 }
