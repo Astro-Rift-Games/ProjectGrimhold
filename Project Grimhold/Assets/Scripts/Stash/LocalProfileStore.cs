@@ -393,6 +393,95 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    public StashOperationResult TryEquipFromStash(EquipmentSlot slot, LootId lootId)
+    {
+        if (!EquipmentSlotRules.IsEquipmentSlot(slot) || !lootId.IsValid || _lootCatalog == null)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (!IsAvailable || current == null)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (FindAmount(current.Stash, lootId) < 1 ||
+            !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null)
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot next = current.Clone();
+        PreparedEquipmentLoadout candidate = next.PreparedEquipment;
+        EquipmentSlot displacedSecondSlot = EquipmentSlot.None;
+        if (!EquipmentSlotRules.IsCompatible(definition, slot))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        WeaponSetSlot targetSet = EquipmentSlotRules.GetWeaponSet(slot);
+        if (EquipmentSlotRules.IsOffHandSlot(slot) &&
+            PreparedEquipmentLoadout.IsOffHandBlocked(candidate, targetSet, _lootCatalog))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (definition.Category == LootCategory.Weapon)
+        {
+            WeaponDefinition weapon = definition.WeaponDefinition;
+            if (weapon.Handedness == WeaponHandedness.TwoHanded)
+            {
+                displacedSecondSlot = EquipmentSlotRules.GetOffHandSlot(targetSet);
+                candidate = candidate.Without(displacedSecondSlot);
+            }
+        }
+
+        candidate = candidate.With(slot, lootId);
+
+        if (definition.Category == LootCategory.Weapon &&
+            !PreparedEquipmentLoadout.TryValidateWeaponRequirements(
+                candidate, current.CharacterAttributes, _lootCatalog, out _))
+        {
+            return StashOperationResult.AttributeRequirementsNotMet;
+        }
+
+        if (!PreparedEquipmentLoadout.TryValidate(
+                candidate,
+                _lootCatalog,
+                requireWeapon: false,
+                out _))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        if (!TryRemove(next.Stash, lootId, 1))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        LootId previousLootId = next.PreparedEquipment.Get(slot);
+        if (!TryReturnEquippedUnitToStash(next.Stash, previousLootId))
+        {
+            return StashOperationResult.PersistenceFailed;
+        }
+
+        if (displacedSecondSlot != EquipmentSlot.None &&
+            !TryReturnEquippedUnitToStash(next.Stash, next.PreparedEquipment.Get(displacedSecondSlot)))
+        {
+            return StashOperationResult.PersistenceFailed;
+        }
+
+        next.PreparedEquipment = candidate;
+        return Commit(next);
+    }
+
+    private static bool TryReturnEquippedUnitToStash(List<StashItem> inventory, LootId lootId)
+    {
+        if (!lootId.IsValid) return true;
+        return TryMerge(inventory, new[] { new StashItem(lootId, 1) });
+    }
+
     private static bool TryReturnEquippedUnit(List<StashItem> inventory, LootId lootId)
     {
         if (!lootId.IsValid) return true;

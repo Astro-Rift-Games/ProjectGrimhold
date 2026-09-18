@@ -49,6 +49,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private PlayerLootDropNetworkController _dropController;
     private PlayerConsumableNetworkController _consumableController;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
+    private DragPayload _activeDrag;
     private NetworkRunner _runner;
     private Transform _localPlayerTransform;
     private EntityRegistry _registry;
@@ -223,6 +224,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     public void Close()
     {
+        CancelActiveDrag();
         _mode = ScreenMode.Closed;
         HideContextMenu();
         ClearContainerBinding();
@@ -327,7 +329,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             _view.EquipmentUnequipRequested += OnEquipmentUnequipRequested;
             _view.EquipmentContextRequested += OnEquipmentSlotContextRequested;
+            
+            _view.DragStarted += OnDragStarted;
+            _view.DragUpdated += OnDragUpdated;
+            _view.DragEnded += OnDragEnded;
+            _view.DropReceived += OnDropReceived;
         }
+
+        
         if (!_isRaidBinding)
         {
             _isSubscribed = true;
@@ -379,6 +388,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             _view.EquipmentUnequipRequested -= OnEquipmentUnequipRequested;
             _view.EquipmentContextRequested -= OnEquipmentSlotContextRequested;
+            
+            _view.DragStarted -= OnDragStarted;
+            _view.DragUpdated -= OnDragUpdated;
+            _view.DragEnded -= OnDragEnded;
+            _view.DropReceived -= OnDropReceived;
+
+            
+
             if (_view.ContextMenu != null)
             {
                 _view.ContextMenu.ActionRequested -= OnContextActionRequested;
@@ -475,9 +492,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return false;
         }
 
+        CancelActiveDrag();
         Close();
         return true;
     }
+
+
 
     private void OnInteractPressedLocally()
     {
@@ -620,6 +640,81 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         RefreshTransferInteraction();
+    }
+
+    private void CancelActiveDrag()
+    {
+        if (_activeDrag.IsValid)
+        {
+            _activeDrag = DragPayload.Empty;
+            if (_view != null && _view.DragPreview != null) _view.DragPreview.Hide();
+        }
+    }
+
+    private void OnDragStarted(DragPayload payload)
+    {
+        if (_gameplayMutationsBlocked || !payload.IsValid) return;
+        
+        _activeDrag = payload;
+        if (_view.ContextMenu != null) _view.ContextMenu.Hide();
+        if (_view.TooltipView != null) _view.TooltipView.Hide();
+        
+        if (_view.DragPreview != null)
+        {
+            _view.DragPreview.Show(payload.Icon, UnityEngine.Input.mousePosition);
+        }
+    }
+
+    private void OnDragUpdated()
+    {
+        if (!_activeDrag.IsValid || _view.DragPreview == null) return;
+        _view.DragPreview.UpdatePosition(UnityEngine.Input.mousePosition);
+    }
+
+    private void OnDragEnded(bool isValidDropTarget)
+    {
+        CancelActiveDrag();
+    }
+
+    private void OnDropReceived(DragSlotLocation targetLocation, EquipmentSlot targetEquipmentSlot)
+    {
+        if (!_activeDrag.IsValid || _gameplayMutationsBlocked) return;
+        DragPayload payload = _activeDrag;
+        
+        if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
+        if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot)) return;
+
+        _view.HideTransferFeedback();
+
+        if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Container)
+        {
+            if (_container != null && _transferController != null)
+                _transferController.TryRequestTransfer(_lootReceiver.Id, _container.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+        }
+        else if (payload.Source == DragSlotLocation.Container && targetLocation == DragSlotLocation.Inventory)
+        {
+            if (_container != null && _transferController != null)
+                _transferController.TryRequestTransfer(_container.Id, _lootReceiver.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+        }
+        else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
+        {
+            if (_isRaidBinding && _equipmentController != null)
+                _equipmentController.TryRequestEquip(payload.LootId, targetEquipmentSlot);
+            else if (!_isRaidBinding && _townEquipmentEndpoint != null)
+                _townEquipmentEndpoint.TryEquip(payload.LootId, targetEquipmentSlot);
+        }
+        else if (payload.Source == DragSlotLocation.Equipment && targetLocation == DragSlotLocation.Inventory)
+        {
+            if (_isRaidBinding && _equipmentController != null)
+                _equipmentController.TryRequestUnequip(payload.EquipmentSlot);
+            else if (!_isRaidBinding && _townEquipmentEndpoint != null)
+                _townEquipmentEndpoint.TryUnequip(payload.EquipmentSlot);
+        }
+        else if (payload.Source == DragSlotLocation.Container && targetLocation == DragSlotLocation.Equipment)
+        {
+            if (_equipmentController != null && _container != null)
+                _equipmentController.TryRequestContainerEquip(_container.Id, payload.LootId, targetEquipmentSlot);
+        }
     }
 
     private void OnPlayerSlotContextRequested(LootId lootId, RectTransform anchor)

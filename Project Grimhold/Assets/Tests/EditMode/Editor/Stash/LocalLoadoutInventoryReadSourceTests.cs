@@ -138,6 +138,7 @@ public sealed class LocalLoadoutInventoryReadSourceTests
         public PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId) => PreparedEquipment;
         public StashOperationResult TryAssignPreparedEquipment(ProfileId profileId, EquipmentSlot slot, LootId lootId) => StashOperationResult.InvalidInventory;
         public StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot) => StashOperationResult.InvalidInventory;
+        public StashOperationResult TryEquipFromStash(ProfileId profileId, LootId lootId, EquipmentSlot slot) => StashOperationResult.InvalidInventory;
         public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) => ExpeditionPreparationResult.ProfileUnavailable;
         public StashOperationResult TryTransferToLoadout(ProfileId profileId, LootId lootId, int amount) => StashOperationResult.InvalidInventory;
         public StashOperationResult TryTransferToStash(ProfileId profileId, LootId lootId, int amount) => StashOperationResult.InvalidInventory;

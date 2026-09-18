@@ -55,6 +55,11 @@ public sealed class RaidLootPanelView : MonoBehaviour
     public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
     public event Action<RectTransform> TooltipDismissRequested;
 
+    public event Action<DragPayload> DragStarted;
+    public event Action DragUpdated;
+    public event Action<bool> DragEnded;
+    public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
+
     public Sprite PlaceholderIcon => _placeholderIcon;
     public int SlotCount => _slots.Count;
 
@@ -100,6 +105,18 @@ public sealed class RaidLootPanelView : MonoBehaviour
         if (_panelRoot != null && _panelRoot.activeSelf != visible)
         {
             _panelRoot.SetActive(visible);
+        }
+    }
+
+    public void SetDragLocation(DragSlotLocation location)
+    {
+        if (_authoredSlots == null) return;
+        for (int i = 0; i < _authoredSlots.Length; i++)
+        {
+            if (_authoredSlots[i] != null)
+            {
+                _authoredSlots[i].SetDragLocation(location);
+            }
         }
     }
 
@@ -175,6 +192,12 @@ public sealed class RaidLootPanelView : MonoBehaviour
             _authoredSlots[index].ContextRequested += OnSlotContextRequested;
             _authoredSlots[index].TooltipRequested += OnSlotTooltipRequested;
             _authoredSlots[index].TooltipDismissRequested += OnSlotTooltipDismissRequested;
+            
+            _authoredSlots[index].DragStarted += OnSlotDragStarted;
+            _authoredSlots[index].DragUpdated += OnSlotDragUpdated;
+            _authoredSlots[index].DragEnded += OnSlotDragEnded;
+            _authoredSlots[index].DropReceived += OnSlotDropReceived;
+
             _authoredSlots[index].Clear();
         }
 
@@ -323,6 +346,11 @@ public sealed class RaidLootPanelView : MonoBehaviour
                 _authoredSlots[i].ContextRequested -= OnSlotContextRequested;
                 _authoredSlots[i].TooltipRequested -= OnSlotTooltipRequested;
                 _authoredSlots[i].TooltipDismissRequested -= OnSlotTooltipDismissRequested;
+                
+                _authoredSlots[i].DragStarted -= OnSlotDragStarted;
+                _authoredSlots[i].DragUpdated -= OnSlotDragUpdated;
+                _authoredSlots[i].DragEnded -= OnSlotDragEnded;
+                _authoredSlots[i].DropReceived -= OnSlotDropReceived;
             }
         }
     }
@@ -337,13 +365,19 @@ public sealed class RaidLootPanelView : MonoBehaviour
         ContextRequested?.Invoke(lootId, anchor);
     }
 
-    private void OnSlotTooltipRequested(
-        EquipmentTooltipPresentation presentation,
-        RectTransform anchor) =>
+    private void OnSlotTooltipRequested(EquipmentTooltipPresentation presentation, RectTransform anchor) =>
         TooltipRequested?.Invoke(presentation, anchor);
 
     private void OnSlotTooltipDismissRequested(RectTransform anchor) =>
         TooltipDismissRequested?.Invoke(anchor);
+
+    private void OnSlotDragStarted(DragPayload payload) => DragStarted?.Invoke(payload);
+    
+    private void OnSlotDragUpdated() => DragUpdated?.Invoke();
+    
+    private void OnSlotDragEnded(bool isValidDropTarget) => DragEnded?.Invoke(isValidDropTarget);
+    
+    private void OnSlotDropReceived(DragSlotLocation location, EquipmentSlot equipmentSlot) => DropReceived?.Invoke(location, equipmentSlot);
 
     private static void SetState(GameObject root, bool active)
     {

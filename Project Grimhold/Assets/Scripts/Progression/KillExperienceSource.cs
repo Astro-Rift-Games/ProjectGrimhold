@@ -14,7 +14,7 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
     private long _killExperience;
 
     [Networked]
-    private NetworkBool IsGranted { get; set; }
+    public NetworkBool IsGranted { get; private set; }
 
     [Networked]
     public NetworkBool IsAssistResolutionCompleted { get; private set; }

@@ -27,6 +27,11 @@ public interface IPlayerLoadoutService
     StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot);
 
     /// <summary>
+    /// Atomically assigns an item from the Stash directly to Equipment, swapping the displaced item back to the Stash.
+    /// </summary>
+    StashOperationResult TryEquipFromStash(ProfileId profileId, LootId lootId, EquipmentSlot slot);
+
+    /// <summary>
     /// Normalizes the Loadout and prepared Weapon Equipment so a raid reservation can succeed.
     /// It must run before <see cref="TryCreateLoadoutReservation"/> and is safe to retry.
     /// </summary>

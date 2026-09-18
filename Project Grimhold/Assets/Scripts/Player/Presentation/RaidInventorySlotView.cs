@@ -8,7 +8,8 @@ using UnityEngine.UI;
 /// Renders one reusable occupied or empty raid-inventory slot.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler,
+    IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
 {
     [SerializeField]
     private Image _icon;
@@ -35,28 +36,32 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private bool _isOccupied;
     private RaidLootSlotInteractionMode _interactionMode;
     private EquipmentTooltipPresentation _tooltip;
+    private RaidInventorySlotData _slotData;
+    private DragSlotLocation _dragLocation;
+    private EquipmentSlot _assignedEquipmentSlot;
+    private bool _isDragging;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
     public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
     public event Action<RectTransform> TooltipDismissRequested;
+    
+    public event Action<DragPayload> DragStarted;
+    public event Action DragUpdated;
+    public event Action<bool> DragEnded;
+    public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
+
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
 
     private void Awake()
     {
-        if (_button != null)
-        {
-            _button.onClick.AddListener(OnClicked);
-        }
+        // Left click transfer disabled in favor of Drag and Drop
     }
 
     private void OnDestroy()
     {
-        if (_button != null)
-        {
-            _button.onClick.RemoveListener(OnClicked);
-        }
+        // Left click transfer disabled
     }
 
     public void Present(in RaidInventorySlotData data)
@@ -75,6 +80,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _lootId = data.LootId;
         _isOccupied = true;
         _tooltip = data.Tooltip;
+        _slotData = data;
 
         if (_icon != null)
         {
@@ -152,6 +158,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _lootId = default;
         _isOccupied = false;
         _tooltip = default;
+        _slotData = default;
         if (_icon != null)
         {
             _icon.sprite = null;
@@ -193,16 +200,6 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         }
     }
 
-    private void OnClicked()
-    {
-        if ((_interactionMode == RaidLootSlotInteractionMode.Transfer ||
-             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu) && _isOccupied &&
-            _button != null && _button.interactable && _lootId.IsValid)
-        {
-            SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.SingleUnit);
-        }
-    }
-
     /// <summary>
     /// Converts a right click on an interactive occupied slot into a full-stack intention.
     /// Left clicks continue through <see cref="Button.onClick"/> so keyboard submit behavior is preserved.
@@ -240,5 +237,75 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     public void OnPointerExit(PointerEventData eventData)
     {
         TooltipDismissRequested?.Invoke(transform as RectTransform);
+    }
+
+    public void SetDragLocation(DragSlotLocation location, EquipmentSlot equipmentSlot = EquipmentSlot.None)
+    {
+        _dragLocation = location;
+        _assignedEquipmentSlot = equipmentSlot;
+    }
+
+    public void SetDropHighlight(DropHighlightState state)
+    {
+        if (_background == null) return;
+        
+        switch (state)
+        {
+            case DropHighlightState.None:
+                _background.color = _isOccupied && _button != null && !_button.interactable ? _normalColor : _normalColor; // Simplified for now, relies on SetInteraction to restore proper color later if needed
+                // Better approach: just trigger a re-eval of interaction state
+                if (_isOccupied)
+                {
+                    _background.color = _normalColor;
+                }
+                break;
+            case DropHighlightState.Valid:
+                _background.color = new Color(0.2f, 0.6f, 0.2f, 0.8f);
+                break;
+            case DropHighlightState.Invalid:
+                _background.color = new Color(0.6f, 0.2f, 0.2f, 0.8f);
+                break;
+        }
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        Debug.Log($"OnBeginDrag on slot {_lootId.Value} occupied={_isOccupied} buttonInt={_button?.interactable} dragLoc={_dragLocation}");
+        if (eventData.button != PointerEventData.InputButton.Left || !_isOccupied || _button == null || !_button.interactable || !_lootId.IsValid || _dragLocation == DragSlotLocation.None)
+        {
+            return;
+        }
+
+        _isDragging = true;
+        TooltipDismissRequested?.Invoke(transform as RectTransform);
+        
+        var payload = DragPayload.Create(_slotData, _dragLocation, _assignedEquipmentSlot);
+        DragStarted?.Invoke(payload);
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (_isDragging)
+        {
+            DragUpdated?.Invoke();
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (!_isDragging) return;
+        _isDragging = false;
+        
+        // The drop target will handle the drop if valid. We just notify end.
+        DragEnded?.Invoke(eventData.pointerCurrentRaycast.gameObject != null);
+    }
+
+    public void OnDrop(PointerEventData eventData)
+    {
+        Debug.Log($"OnDrop on slot {_lootId.Value} dragLoc={_dragLocation}");
+        if (_dragLocation != DragSlotLocation.None)
+        {
+            DropReceived?.Invoke(_dragLocation, _assignedEquipmentSlot);
+        }
     }
 }

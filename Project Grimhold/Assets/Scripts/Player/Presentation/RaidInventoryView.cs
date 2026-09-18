@@ -36,6 +36,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     private EquipmentTooltipView _tooltipView;
 
     [SerializeField]
+    private DragPreviewView _dragPreview;
+
+    [SerializeField]
     private GameObject _equipmentPanelRoot;
 
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
@@ -80,6 +83,11 @@ public sealed class RaidInventoryView : MonoBehaviour
     public event Action<EquipmentSlot> EquipmentUnequipRequested;
     public event Action<EquipmentSlot, RectTransform> EquipmentContextRequested;
 
+    public event Action<DragPayload> DragStarted;
+    public event Action DragUpdated;
+    public event Action<bool> DragEnded;
+    public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
+
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
     public RaidLootPanelView PlayerPanel => _playerPanel;
     public RaidLootPanelView ContainerPanel => _containerPanel;
@@ -91,6 +99,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     public Button TakeAllButton => _takeAllButton;
     public RaidLootContextMenuView ContextMenu => _contextMenu;
     public EquipmentTooltipView TooltipView => _tooltipView;
+    public DragPreviewView DragPreview => _dragPreview;
 
     private void Awake()
     {
@@ -100,6 +109,10 @@ public sealed class RaidInventoryView : MonoBehaviour
         }
         BindPanelTooltipEvents(_playerPanel);
         BindPanelTooltipEvents(_containerPanel);
+        
+        if (_playerPanel != null) { _playerPanel.SetDragLocation(DragSlotLocation.Inventory); _playerPanel.DragStarted += p => DragStarted?.Invoke(p); _playerPanel.DragUpdated += () => DragUpdated?.Invoke(); _playerPanel.DragEnded += b => DragEnded?.Invoke(b); _playerPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot); }
+        if (_containerPanel != null) { _containerPanel.SetDragLocation(DragSlotLocation.Container); _containerPanel.DragStarted += p => DragStarted?.Invoke(p); _containerPanel.DragUpdated += () => DragUpdated?.Invoke(); _containerPanel.DragEnded += b => DragEnded?.Invoke(b); _containerPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot); }
+        
         EnsureEquipmentSlotViews();
     }
 
@@ -276,12 +289,20 @@ public sealed class RaidInventoryView : MonoBehaviour
             }
 
             EquipmentSlot slot = slots[index];
+            views[index].SetDragLocation(DragSlotLocation.Equipment, slot);
+            
             views[index].SelectionRequested += (_, __) => EquipmentUnequipRequested?.Invoke(slot);
             views[index].ContextRequested += (_, anchor) =>
             {
                 _tooltipView?.Hide();
                 EquipmentContextRequested?.Invoke(slot, anchor);
             };
+            
+            views[index].DragStarted += p => DragStarted?.Invoke(p);
+            views[index].DragUpdated += () => DragUpdated?.Invoke();
+            views[index].DragEnded += b => DragEnded?.Invoke(b);
+            views[index].DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
+
             BindEquipmentTooltipEvents(views[index]);
         }
 

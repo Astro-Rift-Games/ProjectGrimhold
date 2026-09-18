@@ -46,6 +46,7 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     [SerializeField] private RaidLootContextMenuView _contextMenu;
     [SerializeField] private EquipmentTooltipView _tooltipView;
+    [SerializeField] private DragPreviewView _dragPreview;
 
     private readonly List<RaidInventorySlotData> _stashProjection = new();
     private readonly List<RaidInventorySlotData> _loadoutProjection = new();
@@ -62,6 +63,11 @@ public sealed class LobbyStashUI : MonoBehaviour
     public event Action TakeAllRequested;
     public event Action LeaveAllRequested;
 
+    public event Action<DragPayload> DragStarted;
+    public event Action DragUpdated;
+    public event Action<bool> DragEnded;
+    public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
+
     /// <summary>Local intention to occupy one Equipment slot with an owned unit.</summary>
     public event Action<LootId, EquipmentSlot> PreparedEquipmentAssignmentRequested;
 
@@ -71,6 +77,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     /// <summary>The shared fallback icon authored on the stash panel, for unresolved definitions.</summary>
     public Sprite PlaceholderIcon => _stashPanel != null ? _stashPanel.PlaceholderIcon : null;
     public EquipmentTooltipView TooltipView => _tooltipView;
+    public DragPreviewView DragPreview => _dragPreview;
 
     private void Awake()
     {
@@ -80,9 +87,15 @@ public sealed class LobbyStashUI : MonoBehaviour
 
         if (_stashPanel != null)
         {
+            _stashPanel.SetDragLocation(DragSlotLocation.Stash);
             _stashPanel.SelectionRequested += OnStashSelectionRequested;
             _stashPanel.ContextRequested += OnStashContextRequested;
             BindPanelTooltipEvents(_stashPanel);
+            
+            _stashPanel.DragStarted += p => DragStarted?.Invoke(p);
+            _stashPanel.DragUpdated += () => DragUpdated?.Invoke();
+            _stashPanel.DragEnded += b => DragEnded?.Invoke(b);
+            _stashPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
         }
         else
         {
@@ -91,9 +104,15 @@ public sealed class LobbyStashUI : MonoBehaviour
 
         if (_loadoutPanel != null)
         {
+            _loadoutPanel.SetDragLocation(DragSlotLocation.Inventory);
             _loadoutPanel.SelectionRequested += OnLoadoutSelectionRequested;
             _loadoutPanel.ContextRequested += OnLoadoutContextRequested;
             BindPanelTooltipEvents(_loadoutPanel);
+            
+            _loadoutPanel.DragStarted += p => DragStarted?.Invoke(p);
+            _loadoutPanel.DragUpdated += () => DragUpdated?.Invoke();
+            _loadoutPanel.DragEnded += b => DragEnded?.Invoke(b);
+            _loadoutPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
         }
         else
         {
@@ -271,8 +290,14 @@ public sealed class LobbyStashUI : MonoBehaviour
                 continue;
             }
 
+            views[index].SetDragLocation(DragSlotLocation.Equipment, slots[index]);
             views[index].SelectionRequested += OnEquipmentSlotSelected;
             BindEquipmentTooltipEvents(views[index]);
+            
+            views[index].DragStarted += p => DragStarted?.Invoke(p);
+            views[index].DragUpdated += () => DragUpdated?.Invoke();
+            views[index].DragEnded += b => DragEnded?.Invoke(b);
+            views[index].DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
         }
 
         _equipmentSlotViews = views;

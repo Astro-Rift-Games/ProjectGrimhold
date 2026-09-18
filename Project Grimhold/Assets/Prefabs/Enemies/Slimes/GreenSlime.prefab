@@ -119,11 +119,11 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[12]'
       value: 
-      objectReference: {fileID: 142597065861624644}
+      objectReference: {fileID: 891880241507861125}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[13]'
       value: 
-      objectReference: {fileID: 2231533489289978172}
+      objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -321,6 +321,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 8975162442718285891}
   m_SourcePrefab: {fileID: 100100000, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+--- !u!114 &891880241507861125 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: -977575455703964601, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28c98c465dab6884c83492bb739197b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatContributionTracker
 --- !u!114 &946294757865678531 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8300000000000000001, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

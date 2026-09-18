@@ -15,7 +15,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private enum EquipmentRequestKind : byte
     {
         Equip = 1,
-        Unequip = 2
+        Unequip = 2,
+        ContainerEquip = 3
     }
 
     private enum WeaponEligibilityFailure : byte
@@ -55,6 +56,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private int _pendingCatalogIndex;
     private EquipmentSlot _pendingSlot;
     private int _pendingRequestSequence;
+    private NetworkId _pendingContainerId;
     private int _nextRequestSequence;
     private int _appliedSlot1 = int.MinValue;
     private int _appliedSlot2 = int.MinValue;
@@ -169,11 +171,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         int catalogIndex = _pendingCatalogIndex;
         EquipmentSlot slot = _pendingSlot;
         int requestSequence = _pendingRequestSequence;
+        NetworkId containerId = _pendingContainerId;
         _hasPendingAuthorityRequest = false;
 
-        EquipmentOperationResult result = requestKind == EquipmentRequestKind.Equip
-            ? TryEquipAuthority(catalogIndex, slot)
-            : TryUnequipAuthority(slot);
+        EquipmentOperationResult result = EquipmentOperationResult.InvalidRequest;
+        if (requestKind == EquipmentRequestKind.Equip) result = TryEquipAuthority(catalogIndex, slot);
+        else if (requestKind == EquipmentRequestKind.Unequip) result = TryUnequipAuthority(slot);
+        else if (requestKind == EquipmentRequestKind.ContainerEquip) result = TryContainerEquipAuthority(containerId, catalogIndex, slot);
         RPC_ConfirmRequest(requestSequence, (int)result);
     }
 
@@ -221,6 +225,22 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         }
 
         return TrySendRequest(EquipmentRequestKind.Equip, catalogIndex, slot);
+    }
+
+    public bool TryRequestContainerEquip(EntityId containerId, LootId lootId, EquipmentSlot slot)
+    {
+        if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight) return false;
+
+        if (!TryResolveTargetSlot(lootId, slot, out int catalogIndex, out LootDefinition definition) ||
+            definition.Category == LootCategory.Weapon && TryResolveEligibleWeapon(catalogIndex, out _, out _, out _) != WeaponEligibilityFailure.None)
+            return false;
+
+        int requestSequence = ++_nextRequestSequence;
+        NetworkId netId = new NetworkId { Raw = unchecked((uint)containerId.Value) };
+        RpcInvokeInfo invokeInfo = RPC_RequestContainerEquipment(netId, catalogIndex, (int)slot, requestSequence);
+        if (!WasAccepted(invokeInfo, HasStateAuthority)) return false;
+        HasRequestInFlight = true;
+        return true;
     }
 
     public bool TryRequestUnequip(EquipmentSlot slot)
@@ -578,6 +598,25 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         return true;
     }
 
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, InvokeLocal = true, HostMode = RpcHostMode.SourceIsHostPlayer)]
+    private RpcInvokeInfo RPC_RequestContainerEquipment(NetworkId containerId, int catalogIndex, int slotValue, int requestSequence, RpcInfo info = default)
+    {
+        if (!HasStateAuthority || info.Source != Object.InputAuthority) return default;
+        if (_hasPendingAuthorityRequest || !IsValidRequestKind((int)EquipmentRequestKind.ContainerEquip))
+        {
+            RPC_ConfirmRequest(requestSequence, (int)EquipmentOperationResult.InvalidRequest);
+            return default;
+        }
+
+        _pendingRequestKind = EquipmentRequestKind.ContainerEquip;
+        _pendingCatalogIndex = catalogIndex;
+        _pendingSlot = EquipmentSlotRules.IsValidSlotValue(slotValue) ? (EquipmentSlot)slotValue : EquipmentSlot.None;
+        _pendingRequestSequence = requestSequence;
+        _pendingContainerId = containerId;
+        _hasPendingAuthorityRequest = true;
+        return default;
+    }
+
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, InvokeLocal = true,
         HostMode = RpcHostMode.SourceIsHostPlayer)]
     private RpcInvokeInfo RPC_RequestEquipment(
@@ -776,6 +815,75 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         {
             CaptureAppliedState();
         }
+
+        return EquipmentOperationResult.Succeeded;
+    }
+
+    private EquipmentOperationResult TryContainerEquipAuthority(NetworkId containerId, int catalogIndex, EquipmentSlot targetSlot)
+    {
+        if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
+        if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        if (!Runner.TryFindObject(containerId, out NetworkObject networkObject) || networkObject == null) return EquipmentOperationResult.InvalidRequest;
+        NetworkLootContainer container = networkObject.GetComponent<NetworkLootContainer>();
+        if (container == null || !container.HasStateAuthority) return EquipmentOperationResult.InvalidRequest;
+
+        if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null || !EquipmentSlotRules.IsCompatible(definition, targetSlot)) return EquipmentOperationResult.InvalidEquipment;
+        if (!TryResolveTargetSlot(definition.LootId, targetSlot, out int resolvedIndex, out _) || resolvedIndex != catalogIndex) return EquipmentOperationResult.IncompatibleHandConfiguration;
+
+        bool becomesActive = false;
+        if (definition.Category == LootCategory.Weapon)
+        {
+            if (!ValidateWeaponDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
+            WeaponEligibilityFailure eligibility = TryResolveEligibleWeapon(catalogIndex, out _, out AttackConfig attackConfig, out CharacterAttributeState attributes);
+            if (eligibility == WeaponEligibilityFailure.AttributesUnavailable) return EquipmentOperationResult.DependenciesUnavailable;
+            if (eligibility == WeaponEligibilityFailure.RequirementsNotMet) return EquipmentOperationResult.AttributeRequirementsNotMet;
+            if (eligibility != WeaponEligibilityFailure.None) return EquipmentOperationResult.InvalidEquipment;
+            becomesActive = EquipmentSlotRules.IsMainHandSlot(targetSlot) && (ActiveWeaponSetSlot == WeaponSetSlot.None || ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
+            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _)) return EquipmentOperationResult.InvalidEquipment;
+        }
+
+        LootTransferRequest extraction = new LootTransferRequest(container.Id, _lootReceiver.Id, definition.LootId, 1, Runner != null ? Runner.Tick : 0);
+        if (container.ValidateExtraction(extraction) != LootTransferFailureReason.None || !container.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer originTransfer)) return EquipmentOperationResult.ItemNotOwned;
+
+        EquipmentSlot secondDisplacedSlot = EquipmentSlot.None;
+        if (definition.Category == LootCategory.Weapon && definition.WeaponDefinition.Handedness == WeaponHandedness.TwoHanded) secondDisplacedSlot = EquipmentSlotRules.GetOffHandSlot(targetSlot);
+        var displacedSlots = new[] { targetSlot, secondDisplacedSlot };
+        var displacedEntries = new LootEntry?[2];
+        var displacedOrigins = new RaidLootOrigin[2];
+        var displacedTransfers = new RaidLootOriginTransfer[2];
+        for (int index = 0; index < displacedSlots.Length; index++)
+        {
+            EquipmentSlot displacedSlot = displacedSlots[index];
+            if (displacedSlot == EquipmentSlot.None || !TryGetSlotLoot(displacedSlot, out LootEntry displaced)) continue;
+            if (!TryGetSlotRaidOrigin(displacedSlot, out displacedOrigins[index]) || !RaidLootOriginTransfer.TryCreate(displacedOrigins[index], 1, out displacedTransfers[index])) return EquipmentOperationResult.DependenciesUnavailable;
+            displacedEntries[index] = displaced;
+        }
+        if (!CanApplyInventoryExchange(definition.LootId, displacedEntries)) return EquipmentOperationResult.InventoryFull;
+        for (int index = 0; index < displacedEntries.Length; index++)
+        {
+            if (!displacedEntries[index].HasValue) continue;
+            LootTransferRequest receive = CreateInventoryTransfer(displacedEntries[index].Value.LootId);
+            if (_lootReceiver.ValidateRaidLootOriginReceive(receive, displacedTransfers[index]) != LootTransferFailureReason.None) return EquipmentOperationResult.DependenciesUnavailable;
+        }
+
+        container.CommitRaidLootExtraction(extraction, originTransfer);
+        for (int index = 0; index < displacedEntries.Length; index++)
+        {
+            if (!displacedEntries[index].HasValue) continue;
+            LootTransferRequest receive = CreateInventoryTransfer(displacedEntries[index].Value.LootId);
+            _lootReceiver.CommitRaidLootReceive(receive, displacedTransfers[index]);
+            if (!_raidOriginState.TryClearEquipmentOrigin(displacedSlots[index], displacedOrigins[index])) throw new InvalidOperationException("Validated displaced Equipment provenance could not be cleared.");
+            SetCatalogIndexPlusOne(displacedSlots[index], 0);
+        }
+        if (!_raidOriginState.TrySetEquipmentOrigin(targetSlot, originTransfer.Buckets[0].Origin)) throw new InvalidOperationException("Validated Equipment provenance could not be committed.");
+        SetCatalogIndexPlusOne(targetSlot, catalogIndex + 1);
+        EquipmentRevision++;
+        if (becomesActive)
+        {
+            ActiveWeaponSetSlotValue = (int)EquipmentSlotRules.GetWeaponSet(targetSlot);
+            ApplyReplicatedActiveWeapon();
+        }
+        else CaptureAppliedState();
 
         return EquipmentOperationResult.Succeeded;
     }
@@ -1306,7 +1414,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     // The RPC transports the kind as int while the enum is byte-backed, so Enum.IsDefined would
     // reject the boxed value outright. The range check mirrors EquipmentSlotRules.IsValidSlotValue.
     private static bool IsValidRequestKind(int value) =>
-        value == (int)EquipmentRequestKind.Equip || value == (int)EquipmentRequestKind.Unequip;
+        value == (int)EquipmentRequestKind.Equip || value == (int)EquipmentRequestKind.Unequip || value == (int)EquipmentRequestKind.ContainerEquip;
 
     private static bool WasAccepted(in RpcInvokeInfo invokeInfo, bool hasStateAuthority) =>
         invokeInfo.SendMessageResult == RpcSendMessageResult.Sent ||
