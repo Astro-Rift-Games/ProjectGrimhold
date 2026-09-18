@@ -8,9 +8,10 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
 {
     private readonly object _sync = new();
     private readonly ILocalProfileFileStore _fileStore;
-    private readonly string _mainPath;
-    private readonly string _temporaryPath;
-    private readonly string _backupPath;
+    private string _mainPath;
+    private string _temporaryPath;
+    private string _backupPath;
+    private readonly string _directory;
     private LootDefinitionCatalog _catalog;
     private ProfileId _profileId;
 
@@ -21,9 +22,7 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
     public LocalProfileRepository(ILocalProfileFileStore fileStore, string directory)
     {
         _fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
-        _mainPath = System.IO.Path.Combine(directory, "grimhold-profile.json");
-        _temporaryPath = _mainPath + ".tmp";
-        _backupPath = _mainPath + ".bak";
+        _directory = directory;
     }
 
     public bool Initialize(ProfileId profileId, LootDefinitionCatalog catalog)
@@ -34,6 +33,11 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         {
             return Fail(LocalProfilePersistenceStatus.Unavailable, "Local profile identity or loot catalog is missing.");
         }
+
+        string filename = $"grimhold-profile-{profileId.Value}.json";
+        _mainPath = System.IO.Path.Combine(_directory, filename);
+        _temporaryPath = _mainPath + ".tmp";
+        _backupPath = _mainPath + ".bak";
 
         if (!_fileStore.Exists(_mainPath) && !_fileStore.Exists(_backupPath))
         {

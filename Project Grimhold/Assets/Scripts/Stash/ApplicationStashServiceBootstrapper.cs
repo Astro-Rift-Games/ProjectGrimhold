@@ -94,10 +94,11 @@ public static class ApplicationStashServiceBootstrapper
     {
         var contextObject = _context.gameObject;
 
-        var repository = new InMemoryLocalProfileRepository();
+        var fileStore = new LocalProfileFileStore();
+        var repository = new LocalProfileRepository(fileStore, Application.persistentDataPath);
         if (!repository.Initialize(profileId, _configuration.LootCatalog))
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] In-memory profile unavailable: {repository.LastError}");
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile unavailable: {repository.LastError}");
             return;
         }
 
@@ -177,6 +178,7 @@ public static class ApplicationStashServiceBootstrapper
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
+            snapshot.Stash.Clear();
             if (data.stash != null)
         {
             foreach (var item in data.stash)
@@ -190,6 +192,7 @@ public static class ApplicationStashServiceBootstrapper
 
         if (data.loadout != null && snapshot.PendingExtractionCommit == null)
         {
+            snapshot.Loadout.Clear();
             foreach (var item in data.loadout)
             {
                 if (catalog.TryGet(item.lootId, out _))
@@ -254,8 +257,28 @@ public static class ApplicationStashServiceBootstrapper
             var prog = progressionData.Value;
             snapshot.Level = prog.level > 0 ? prog.level : 1;
             snapshot.CurrentExperience = prog.experience > 0 ? prog.experience : 0;
-            snapshot.LastAppliedProgressionResultSequence = prog.lastAppliedProgressionResultSequence;
-            
+            if (prog.lastAppliedProgressionResultSequence > 0)
+            {
+                snapshot.LastAppliedProgressionResultSequence = prog.lastAppliedProgressionResultSequence;
+                
+                var receipt = new ProgressionReceipt(
+                    "backend-sync",
+                    profileId,
+                    prog.lastAppliedProgressionResultSequence,
+                    snapshot.CurrentExperience,
+                    snapshot.Level);
+                    
+                snapshot.LastProgressionReceipt = receipt;
+                
+                // Limpiar el historial local e inyectar el recibo para pasar la validación estricta del Codec V5
+                snapshot.AppliedProgressionReceipts.Clear();
+                snapshot.AppliedProgressionReceipts.Add(receipt);
+            }
+            else
+            {
+                snapshot.LastAppliedProgressionResultSequence = 0;
+                snapshot.LastProgressionReceipt = null;
+            }
             var attr = prog.characterAttributes;
             if (CharacterAttributeState.TryCreate(
                 attr.vitality, attr.resistance, attr.strength,

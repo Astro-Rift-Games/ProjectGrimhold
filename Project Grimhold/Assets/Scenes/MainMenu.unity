@@ -454,7 +454,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39871ed0bb65d304dbf75790c546b88f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LoginFlowController
-  _config: {fileID: 11400000, guid: 8b4b11f5dafa25441b85725329659039, type: 2}
+  _config: {fileID: 11400000, guid: 57e734eaea2a74940a4f7dd9e2597c12, type: 2}
   _authContext: {fileID: 329725052}
 --- !u!4 &1632830265
 Transform:
@@ -734,7 +734,7 @@ PrefabInstance:
     - target: {fileID: 3198790475584024798, guid: 29f439518d3e565498687c9928661656, type: 3}
       propertyPath: _config
       value: 
-      objectReference: {fileID: 11400000, guid: 8b4b11f5dafa25441b85725329659039, type: 2}
+      objectReference: {fileID: 11400000, guid: 57e734eaea2a74940a4f7dd9e2597c12, type: 2}
     - target: {fileID: 4420166459367149581, guid: 29f439518d3e565498687c9928661656, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0

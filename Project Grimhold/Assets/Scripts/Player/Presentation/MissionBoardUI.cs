@@ -285,11 +285,21 @@ public sealed class MissionBoardUI : MonoBehaviour
         {
             if (instance != null)
             {
-                // Already accepted or completed
-                _acceptButton.interactable = false;
-                if (_acceptButtonText != null)
+                if (instance.State == MissionState.PendienteDeReclamar)
                 {
-                    _acceptButtonText.text = instance.State == MissionState.Reclamada ? "Completada" : "Ya Aceptada";
+                    _acceptButton.interactable = true;
+                    if (_acceptButtonText != null) _acceptButtonText.text = "Reclamar Recompensa";
+                }
+                else if (instance.State == MissionState.Reclamada)
+                {
+                    _acceptButton.interactable = false;
+                    if (_acceptButtonText != null) _acceptButtonText.text = "Completada";
+                }
+                else
+                {
+                    // En progreso / Activa
+                    _acceptButton.interactable = false;
+                    if (_acceptButtonText != null) _acceptButtonText.text = "Ya Aceptada";
                 }
             }
             else
@@ -304,6 +314,19 @@ public sealed class MissionBoardUI : MonoBehaviour
     private void OnAcceptMissionClicked()
     {
         if (_selectedMission == null || _context == null || _context.Store == null) return;
+
+        var activeMissions = _context.Store.GetActiveMissions();
+        var instance = activeMissions.FirstOrDefault(m => m.MissionId == _selectedMission.MissionId);
+
+        if (instance != null && instance.State == MissionState.PendienteDeReclamar)
+        {
+            var claimResult = _context.Store.TryClaimMission(_selectedMission);
+            if (claimResult != StashOperationResult.Success)
+            {
+                Debug.LogError($"[MissionBoardUI] Error al reclamar '{_selectedMission.Title}': {claimResult}");
+            }
+            return;
+        }
 
         var result = _context.Store.TryAcceptMission(_selectedMission);
         if (result != StashOperationResult.Success)

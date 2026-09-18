@@ -132,10 +132,25 @@ public sealed class LocalProfileStore
                 {
                     if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
                     next.Currency += reward.Amount;
+                    Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Oro. (Total: {next.Currency})");
                 }
                 else if (reward.Type == RewardDefinition.RewardType.Experience)
                 {
-                    next.CurrentExperience += reward.Amount;
+                    if (CharacterProgressionRules.TryApplyExperience(
+                            ProgressionBalanceDefaults.InitialExperienceCurve,
+                            next.Level,
+                            next.CurrentExperience,
+                            reward.Amount,
+                            out ExperienceApplicationResult expResult))
+                    {
+                        next.Level = expResult.ResultingLevel;
+                        next.CurrentExperience = expResult.ResultingExperience;
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} XP. (Nivel: {next.Level}, XP: {next.CurrentExperience})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[MissionBoard] No se pudo aplicar la experiencia de recompensa ({reward.Amount} XP).");
+                    }
                 }
                 else if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
                 {
@@ -143,6 +158,7 @@ public sealed class LocalProfileStore
                     if (lootId.IsValid && reward.Amount > 0)
                     {
                         itemsToAdd.Add(new StashItem(lootId, reward.Amount));
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount}x {reward.ReferenceId} para el Stash.");
                     }
                 }
             }
@@ -151,10 +167,16 @@ public sealed class LocalProfileStore
             {
                 if (!TryMerge(next.Stash, itemsToAdd))
                     return StashOperationResult.PersistenceFailed;
+                Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
             }
         }
 
-        return Commit(next);
+        var result = Commit(next);
+        if (result == StashOperationResult.Success)
+        {
+            Debug.Log($"[MissionBoard] Misión '{mission.Title}' reclamada y persistida correctamente en disco.");
+        }
+        return result;
     }
 
     public StashOperationResult TryApplyMissionProgress(MissionContributionEvent contribution)
