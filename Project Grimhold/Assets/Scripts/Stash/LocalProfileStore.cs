@@ -20,6 +20,7 @@ public sealed class LocalProfileStore
     public LocalProfilePersistenceStatus Status => _repository.Status;
     public string LastError => _repository.LastError;
     public bool IsAvailable => Status == LocalProfilePersistenceStatus.Ready || Status == LocalProfilePersistenceStatus.RecoveredFromBackup;
+    public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
 
     public LocalProfileStore(
         ILocalProfileRepository repository,
