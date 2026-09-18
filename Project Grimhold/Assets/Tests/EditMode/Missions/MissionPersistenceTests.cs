@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class MissionPersistenceTests
@@ -108,5 +109,112 @@ public class MissionPersistenceTests
         Assert.AreEqual(1, stash.Count);
         Assert.AreEqual("item_test", stash[0].LootId.Value);
         Assert.AreEqual(2, stash[0].Amount);
+    }
+
+    [Test]
+    public void Store_TryClaimMission_WithXPReward_UpdatesProgressionReceipts()
+    {
+        var repository = new InMemoryLocalProfileRepository();
+        var profileId = new ProfileId("test_profile_xp");
+        repository.Initialize(profileId, ScriptableObject.CreateInstance<LootDefinitionCatalog>());
+        
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        snapshot.Level = 1;
+        snapshot.CurrentExperience = 0;
+        snapshot.LastAppliedProgressionResultSequence = 10;
+        var initialReceipt = new ProgressionReceipt("raid_1", profileId, 10, 0, 1);
+        snapshot.LastProgressionReceipt = initialReceipt;
+        snapshot.AppliedProgressionReceipts.Add(initialReceipt);
+        
+        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_test_01"), MissionState.PendienteDeReclamar));
+        repository.TrySave(snapshot, out _);
+        
+        var store = new LocalProfileStore(repository, profileId);
+
+        var result = store.TryClaimMission(_testMission);
+
+        Assert.AreEqual(StashOperationResult.Success, result);
+        
+        var nextSnapshot = repository.Snapshot;
+        Assert.AreEqual(50, nextSnapshot.CurrentExperience);
+        Assert.AreEqual(11, nextSnapshot.LastAppliedProgressionResultSequence);
+        Assert.IsTrue(nextSnapshot.LastProgressionReceipt.HasValue);
+        Assert.AreEqual(11, nextSnapshot.LastProgressionReceipt.Value.ResultSequence);
+        Assert.AreEqual("mission-claim", nextSnapshot.LastProgressionReceipt.Value.RaidId);
+        
+        Assert.AreEqual(2, nextSnapshot.AppliedProgressionReceipts.Count);
+        Assert.AreEqual(11, nextSnapshot.AppliedProgressionReceipts[1].ResultSequence);
+        Assert.AreEqual(nextSnapshot.LastProgressionReceipt.Value, nextSnapshot.AppliedProgressionReceipts[1]);
+    }
+
+    [Test]
+    public void Store_TryClaimMission_WithXPReward_ResultsInValidCodecRoundTrip()
+    {
+        var repository = new InMemoryLocalProfileRepository();
+        var profileId = new ProfileId("test_profile_xp_codec");
+        var catalog = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
+        repository.Initialize(profileId, catalog);
+        
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        snapshot.Level = 1;
+        snapshot.CurrentExperience = 0;
+        snapshot.LastAppliedProgressionResultSequence = 10;
+        var initialReceipt = new ProgressionReceipt("raid_1", profileId, 10, 0, 1);
+        snapshot.LastProgressionReceipt = initialReceipt;
+        snapshot.AppliedProgressionReceipts.Add(initialReceipt);
+        
+        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_test_01"), MissionState.PendienteDeReclamar));
+        repository.TrySave(snapshot, out _);
+        
+        var store = new LocalProfileStore(repository, profileId);
+
+        var result = store.TryClaimMission(_testMission);
+        Assert.AreEqual(StashOperationResult.Success, result);
+
+        string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, catalog, out _, out var status, out string error);
+        
+        Assert.IsTrue(decoded, $"Decode failed after claiming mission with XP: {error}");
+        Assert.AreEqual(LocalProfilePersistenceStatus.Ready, status);
+    }
+
+    [Test]
+    public void Store_TryAcceptMission_AllowsNewMission_WhenSlotsTakenByTerminalMissions()
+    {
+        // Arrange: catalog with 4 missions
+        var catalog = ScriptableObject.CreateInstance<MissionDefinitionCatalog>();
+        var setMissions = typeof(MissionDefinitionCatalog).GetField(
+            "_missions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        
+        var missions = new List<MissionDefinition>();
+        for (int i = 1; i <= 4; i++)
+        {
+            var def = ScriptableObject.CreateInstance<MissionDefinition>();
+            typeof(MissionDefinition).GetField("_id", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(def, $"mission_{i:D2}");
+            def.Type = MissionType.Normal;
+            missions.Add(def);
+        }
+        if (setMissions != null) setMissions.SetValue(catalog, missions);
+
+        var profileId = new ProfileId("test_slot_filter");
+        var repository = new InMemoryLocalProfileRepository();
+        repository.Initialize(profileId, ScriptableObject.CreateInstance<LootDefinitionCatalog>());
+
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        // 3 missions already Reclamada (terminal) — they must NOT count toward slot limit
+        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_01"), MissionState.Reclamada));
+        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_02"), MissionState.Reclamada));
+        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_03"), MissionState.Abandonada));
+        repository.TrySave(snapshot, out _);
+
+        var store = new LocalProfileStore(repository, profileId, null, default, catalog);
+
+        // Act: accept a 4th mission — should succeed because the previous 3 are terminal
+        var result = store.TryAcceptMission(missions[3]);
+
+        Assert.AreEqual(StashOperationResult.Success, result);
+        var active = store.GetActiveMissions();
+        Assert.AreEqual(1, active.Count(m => m.State == MissionState.Activa));
     }
 }

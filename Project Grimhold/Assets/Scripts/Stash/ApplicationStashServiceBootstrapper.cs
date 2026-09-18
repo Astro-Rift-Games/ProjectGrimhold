@@ -244,6 +244,7 @@ public static class ApplicationStashServiceBootstrapper
 
         if (data.lastAppliedExtractionReceipt.resultSequence > 0)
         {
+            snapshot.AppliedExtractionReceipts.Clear();
             snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt(
                 data.lastAppliedExtractionReceipt.raidId,
                 profileId,

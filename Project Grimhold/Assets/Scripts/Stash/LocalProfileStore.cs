@@ -76,6 +76,9 @@ public sealed class LocalProfileStore
             var activeTypes = new List<MissionType>();
             foreach (var active in current.ActiveMissions)
             {
+                if (active.State == MissionState.Reclamada || active.State == MissionState.Abandonada)
+                    continue;
+
                 if (_missionCatalog.TryGet(active.MissionId.Value, out var activeDef))
                     activeTypes.Add(activeDef.Type);
             }
@@ -145,6 +148,22 @@ public sealed class LocalProfileStore
                     {
                         next.Level = expResult.ResultingLevel;
                         next.CurrentExperience = expResult.ResultingExperience;
+                        
+                        next.LastAppliedProgressionResultSequence++;
+                        var receipt = new ProgressionReceipt(
+                            "mission-claim",
+                            _profileId,
+                            next.LastAppliedProgressionResultSequence,
+                            next.CurrentExperience,
+                            next.Level);
+                            
+                        next.LastProgressionReceipt = receipt;
+                        next.AppliedProgressionReceipts.Add(receipt);
+                        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+                        {
+                            next.AppliedProgressionReceipts.RemoveAt(0);
+                        }
+
                         Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} XP. (Nivel: {next.Level}, XP: {next.CurrentExperience})");
                     }
                     else
@@ -816,6 +835,19 @@ public sealed class LocalProfileStore
         next.Level = resultingLevel;
         next.CurrentExperience = resultingExperience;
         next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
+
+        var progressionReceipt = new ProgressionReceipt(
+            receipt.RaidId,
+            _profileId,
+            receipt.ResultSequence,
+            resultingExperience,
+            resultingLevel);
+
+        next.LastProgressionReceipt = progressionReceipt;
+        next.AppliedProgressionReceipts.Add(progressionReceipt);
+        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+            next.AppliedProgressionReceipts.RemoveAt(0);
+
         next.PreparedEquipment = preparedEquipment;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(

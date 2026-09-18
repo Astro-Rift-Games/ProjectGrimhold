@@ -606,9 +606,6 @@ public static class LocalProfileSaveCodec
                  candidate.AppliedProgressionReceipts.Count - 1].Equals(
                      candidate.LastProgressionReceipt.Value)))
         {
-            var lastAppliedCount = candidate.AppliedProgressionReceipts.Count;
-            var lastAppliedSeq = lastAppliedCount > 0 ? candidate.AppliedProgressionReceipts[lastAppliedCount - 1].ResultSequence : -1;
-            UnityEngine.Debug.LogError($"[AUDIT-CODEC] Mismatch en recibos de progresión. LastReceipt.Seq: {candidate.LastProgressionReceipt.Value.ResultSequence}, Historial Count: {lastAppliedCount}, Last in Historial Seq: {lastAppliedSeq}");
             error = "Applied progression history does not end with the last receipt.";
             return false;
         }
