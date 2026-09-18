@@ -21,9 +21,29 @@ MonoBehaviour:
   - Objectives:
     - Family: 0
       Condition:
-        TargetId: 
+        TargetId: blue-slime
         ZoneId: 
-        RequiredAmount: 5
+        RequiredAmount: 1
+    - Family: 0
+      Condition:
+        TargetId: red-slime
+        ZoneId: 
+        RequiredAmount: 1
+    - Family: 0
+      Condition:
+        TargetId: green-slime
+        ZoneId: 
+        RequiredAmount: 1
+    - Family: 0
+      Condition:
+        TargetId: skeleton
+        ZoneId: 
+        RequiredAmount: 1
+    - Family: 3
+      Condition:
+        TargetId: chest
+        ZoneId: 
+        RequiredAmount: 3
   Rewards:
   - Type: 0
     Amount: 100

@@ -110,7 +110,8 @@ public static class ApplicationStashServiceBootstrapper
             repository,
             profileId,
             _configuration.LootCatalog,
-            _configuration.RecoveryWeaponLootId);
+            _configuration.RecoveryWeaponLootId,
+            _configuration.MissionCatalog);
         if (store.PendingExtractionCommit != null)
         {
             Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Retrying pending extraction commit from a previous session crash.");

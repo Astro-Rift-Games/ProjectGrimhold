@@ -21,9 +21,9 @@ MonoBehaviour:
   - Objectives:
     - Family: 3
       Condition:
-        TargetId: 
+        TargetId: chest
         ZoneId: 
-        RequiredAmount: 5
+        RequiredAmount: 3
   Rewards:
   - Type: 0
     Amount: 100

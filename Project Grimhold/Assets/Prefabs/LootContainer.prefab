@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 3300000000000000009}
   - component: {fileID: 7194156349831073629}
   - component: {fileID: 2922473690649630954}
+  - component: {fileID: 1274196193795022588}
   m_Layer: 8
   m_Name: LootContainer
   m_TagString: Untagged
@@ -63,6 +64,7 @@ MonoBehaviour:
   - {fileID: 3300000000000000004}
   - {fileID: 3300000000000000006}
   - {fileID: 2922473690649630954}
+  - {fileID: 1274196193795022588}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &3300000000000000004
 MonoBehaviour:
@@ -79,12 +81,14 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _slotCapacity: 6
   _startsAvailable: 1
+  _supportsFullPlayerInventory: 0
   _initialContent: []
   _IsInitialized:
     RawValue: 0
   _IsAvailable:
     RawValue: 0
   _LootChangeSequence: 0
+  _GenerationState: 0
   _interactionColliders: []
 --- !u!61 &3300000000000000005
 BoxCollider2D:
@@ -235,6 +239,8 @@ MonoBehaviour:
   _renderers:
   - {fileID: 3300000000000000012}
   _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0
 --- !u!114 &2922473690649630954
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -245,8 +251,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a0ff7e307416724a816fbe2f20ca2f7, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ContainerRaidLootOriginState
+--- !u!114 &1274196193795022588
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4075582844b5a824fa7ea57191a440ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ContainerMissionProgressInteractionSource
+  _targetId: chest
+  _zoneId: 
+  _interactionProgressAmount: 1
 --- !u!1 &3300000000000000010
 GameObject:
   m_ObjectHideFlags: 0

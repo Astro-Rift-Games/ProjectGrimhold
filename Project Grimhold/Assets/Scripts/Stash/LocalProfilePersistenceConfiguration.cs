@@ -7,6 +7,7 @@ using UnityEngine;
 public sealed class LocalProfilePersistenceConfiguration : ScriptableObject
 {
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
+    [SerializeField] private MissionDefinitionCatalog _missionCatalog;
     [SerializeField, Min(1)] private int _receiptCapacity = LocalProfileSnapshot.MaxAppliedExtractionReceipts;
 
     [SerializeField]
@@ -16,6 +17,7 @@ public sealed class LocalProfilePersistenceConfiguration : ScriptableObject
     private string _recoveryWeaponLootId;
 
     public LootDefinitionCatalog LootCatalog => _lootCatalog;
+    public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
     public int ReceiptCapacity => _receiptCapacity;
 
     public LootId RecoveryWeaponLootId =>

@@ -20,6 +20,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IMissionProgressDefeatSource> _missionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IMissionProgressInteractionSource> _missionProgressInteractionSources = new();
     private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
@@ -43,6 +44,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressReaders.Clear();
         _extractionProgressDefeatSources.Clear();
         _missionProgressDefeatSources.Clear();
+        _missionProgressInteractionSources.Clear();
         _killExperienceSources.Clear();
         _extractionSanctuaries.Clear();
         _colliders.Clear();
@@ -905,9 +907,6 @@ public sealed class EntityRegistry : MonoBehaviour
         return false;
     }
 
-    /// <summary>
-    /// Attempts to retrieve the EntityId that owns a given Collider2D.
-    /// </summary>
     public bool TryGetEntityId(Collider2D collider, out EntityId id)
     {
         id = default;
@@ -916,5 +915,32 @@ public sealed class EntityRegistry : MonoBehaviour
             return false;
         }
         return _colliders.TryGetValue(collider, out id);
+    }
+
+    public bool TryRegisterMissionProgressInteractionSource(EntityId id, IMissionProgressInteractionSource source)
+    {
+        if (id.Value == 0 || source == null || _missionProgressInteractionSources.ContainsKey(id))
+            return false;
+        _missionProgressInteractionSources.Add(id, source);
+        return true;
+    }
+
+    public bool TryUnregisterMissionProgressInteractionSource(EntityId id, IMissionProgressInteractionSource source)
+    {
+        if (id.Value == 0 || source == null)
+            return false;
+
+        if (_missionProgressInteractionSources.TryGetValue(id, out var existing) && existing == source)
+        {
+            _missionProgressInteractionSources.Remove(id);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryGetMissionProgressInteractionSource(EntityId id, out IMissionProgressInteractionSource source)
+    {
+        return _missionProgressInteractionSources.TryGetValue(id, out source);
     }
 }

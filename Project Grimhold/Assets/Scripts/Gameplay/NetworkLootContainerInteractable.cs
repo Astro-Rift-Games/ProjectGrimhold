@@ -135,6 +135,8 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
                     _firstOpenProgressReward,
                     request.SimulationTick));
             }
+
+            TryAwardMissionProgress(request.InteractorId);
         }
 
         return InteractionResult.Succeeded(isConsumed: false);
@@ -187,6 +189,37 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
         }
 
         FirstOpenExperienceResolved = true;
+    }
+
+    private void TryAwardMissionProgress(EntityId interactorId)
+    {
+        if (_registry == null ||
+            !_registry.TryGetMissionProgressInteractionSource(Id, out IMissionProgressInteractionSource source) ||
+            !_registry.TryGetDamageable(interactorId, out IDamageable damageable) ||
+            damageable is not PlayerCharacter player)
+        {
+            return;
+        }
+
+        RaidAvatarParticipantLink participantLink = player.GetComponent<RaidAvatarParticipantLink>();
+        if (participantLink == null ||
+            !participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) ||
+            !participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) ||
+            currentAvatar != player.Object)
+        {
+            return;
+        }
+
+        PlayerMissionContributionLedger ledger = participant.GetComponent<PlayerMissionContributionLedger>();
+        if (ledger != null)
+        {
+            ledger.RecordContribution(
+                ObjectiveFamily.Interaccion,
+                source.InteractionProgressAmount,
+                source.TargetId,
+                source.ZoneId,
+                isCompanionContribution: false);
+        }
     }
 
     public bool TryValidate(out string error)

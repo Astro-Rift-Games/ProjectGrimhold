@@ -19,11 +19,11 @@ MonoBehaviour:
   RankRequired: 0
   Phases:
   - Objectives:
-    - Family: 3
+    - Family: 0
       Condition:
-        TargetId: 
+        TargetId: skeleton
         ZoneId: 
-        RequiredAmount: 5
+        RequiredAmount: 1
   Rewards:
   - Type: 0
     Amount: 100
