@@ -29,6 +29,9 @@ MonoBehaviour:
     _gripPoint: {x: 0, y: -0.375}
     _angleCorrection: -90
     _animationCategory: 3
+    _combatVfx: {fileID: 11400000, guid: a00763b5a60e1aa499e6ecf118020b01, type: 2}
+    _vfxLocalPoint: {x: 0, y: 0}
+    _vfxTint: {r: 1, g: 1, b: 1, a: 1}
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 5

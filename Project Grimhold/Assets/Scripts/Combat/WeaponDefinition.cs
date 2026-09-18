@@ -185,24 +185,43 @@ public sealed class WeaponDefinition : ScriptableObject
         [SerializeField]
         private WeaponAnimationCategory _animationCategory;
 
+        [SerializeField]
+        private Grimhold.Combat.Presentation.CombatVfxDefinition _combatVfx;
+
+        [SerializeField]
+        private Vector2 _vfxLocalPoint;
+
+        [SerializeField]
+        private Color _vfxTint;
+
         public Vector2 StanceOffset => _stanceOffset;
         public Vector2 GripPoint => _gripPoint;
         public float AngleCorrection => _angleCorrection;
         public WeaponAnimationCategory AnimationCategory => _animationCategory;
+        public Grimhold.Combat.Presentation.CombatVfxDefinition CombatVfx => _combatVfx;
+        public Vector2 VfxLocalPoint => _vfxLocalPoint;
+        public Color VfxTint => _vfxTint;
 
         public bool TryValidate(out string error)
         {
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
-                !IsFinite(_angleCorrection))
+                !IsFinite(_angleCorrection) ||
+                !IsFinite(_vfxLocalPoint.x) || !IsFinite(_vfxLocalPoint.y))
             {
-                error = "stance offset, grip point and angle correction must be finite.";
+                error = "stance offset, grip point, angle correction and vfx local point must be finite.";
                 return false;
             }
 
             if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))
             {
                 error = $"animation category '{(int)_animationCategory}' is unsupported.";
+                return false;
+            }
+            
+            if (_combatVfx != null && !_combatVfx.TryValidate(out string vfxError))
+            {
+                error = $"invalid combat vfx: {vfxError}";
                 return false;
             }
 

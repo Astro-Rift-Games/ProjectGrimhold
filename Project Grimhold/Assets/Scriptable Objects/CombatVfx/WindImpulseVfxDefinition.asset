@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b485ff98ff45c5408e23e36a11ec886, type: 3}
+  m_Name: WindImpulseVfxDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::Grimhold.Combat.Presentation.CombatVfxDefinition
+  _prefab: {fileID: 1108546482620228975, guid: 3e1b67bb1fc4fee4b871f4304f28949c, type: 3}
+  _anchorMode: 0
+  _localOffset: {x: 1, y: 0}
+  _rotationOffset: -90
+  _defaultTint: {r: 1, g: 1, b: 1, a: 1}
+  _sortingOrder: 20
+  _poolCapacity: 5

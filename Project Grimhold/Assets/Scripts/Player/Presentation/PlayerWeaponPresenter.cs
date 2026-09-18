@@ -159,6 +159,27 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _offHandRenderer.sortingOrder = order;
     }
 
+    /// <summary>
+    /// Transforms a local weapon point into world space based on the current main hand visual transform.
+    /// Useful for presentation elements like VFX that need to spawn exactly at a specific point on the weapon.
+    /// </summary>
+    public bool TryGetMainHandPresentationPointWorld(Vector2 localPoint, out Vector3 worldPoint)
+    {
+        if (_mainHandWeaponVisual == null)
+        {
+            worldPoint = Vector3.zero;
+            return false;
+        }
+
+        worldPoint = _mainHandWeaponVisual.TransformPoint(localPoint);
+        return true;
+    }
+
+    public Transform GetMainHandWeaponTransform()
+    {
+        return _mainHandWeaponVisual;
+    }
+
     private void CacheDependencies()
     {
         if (_animatorView == null)

@@ -444,11 +444,13 @@ Attack presentation follows one path:
 ```text
 PlayerCombatNetworkController.AttackSequence
 -> AttackPerformed during Render
--> PlayerAnimatorView.OnAttack trigger + static WeaponAnimationCategory
--> Main Hand Combat Animator layer
--> RightHand transform
--> MainHandGrip
--> MainHandWeaponVisual
+├─ PlayerAnimatorView.OnAttack trigger + static WeaponAnimationCategory
+│  -> Main Hand Combat Animator layer
+│  -> RightHand transform
+│  -> MainHandGrip
+│  -> MainHandWeaponVisual
+└─ PlayerAttackVfxPresenter
+   -> Pool-based VFX presentation
 ```
 
 The trigger represents an already accepted gameplay execution; local mouse input never starts
@@ -457,6 +459,12 @@ clips are one-shot presentation only. They do not apply damage or emit gameplay 
 Animation Events are not part of hit timing. The attack direction from the confirmed event is
 held as the temporary visual facing until the Animator leaves its tagged attack state, while the
 Base Layer preserves the replicated locomotion state so movement animation can continue.
+
+Visual effects (VFX) for combat are presentation-only. They are derived exclusively from the 
+confirmed and replicated `AttackPerformed` event. They do not participate in hit timing, nor 
+do they introduce additional networking (RPCs, networked state, or NetworkObjects). The selection 
+of the VFX and its anchor is part of the weapon's presentation configuration, avoiding incorrect 
+inferences from shared `WeaponAnimationCategory` properties.
 
 Visual authoring keeps those responsibilities explicit. The presentation grip point is
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the

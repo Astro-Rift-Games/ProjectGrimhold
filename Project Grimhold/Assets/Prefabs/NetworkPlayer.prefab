@@ -6033,6 +6033,8 @@ GameObject:
   - component: {fileID: 7997196603447741410}
   - component: {fileID: 2234995063959400674}
   - component: {fileID: 4758981447037605228}
+  - component: {fileID: 5072623643342804703}
+  - component: {fileID: 37423979910024499}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -7045,6 +7047,34 @@ MonoBehaviour:
   _dialogueController: {fileID: 0}
   _dialogueViewBehaviour: {fileID: 0}
   _interactionController: {fileID: 2425433471524800765}
+--- !u!114 &5072623643342804703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60259fa73c3c5574495dd6149f3acf73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAttackVfxPresenter
+  _combatController: {fileID: 0}
+  _equipmentSource: {fileID: 0}
+  _weaponPresenter: {fileID: 0}
+  _vfxPool: {fileID: 0}
+--- !u!114 &37423979910024499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d6aa1cbb394ffb42bba5a57bc87979f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Grimhold.Combat.Presentation.CombatVfxPool
 --- !u!1 &5519409559228361831
 GameObject:
   m_ObjectHideFlags: 0
