@@ -5218,6 +5218,7 @@ GameObject:
   - component: {fileID: 4419076183045921921}
   - component: {fileID: 4716473767476056966}
   - component: {fileID: -977575455703964601}
+  - component: {fileID: -2736405989838392395}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5565,6 +5566,7 @@ MonoBehaviour:
   - {fileID: 8300000000000000001}
   - {fileID: 4419076183045921921}
   - {fileID: -977575455703964601}
+  - {fileID: -2736405989838392395}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -5710,6 +5712,12 @@ MonoBehaviour:
   _killExperience: 0
   _IsGranted:
     RawValue: 0
+  _IsAssistResolutionCompleted:
+    RawValue: 0
+  _IsAssistInitialized:
+    RawValue: 0
+  _EligibleAssistMask: 0
+  _GrantedAssistMask: 0
 --- !u!114 &3762208006993684416
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5803,6 +5811,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatContributionTracker
   _assistWindowSeconds: 10
+--- !u!114 &-2736405989838392395
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3632c90fbc13d38419b4cc0c4233c42e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyMissionProgressDefeatSource
+  _targetId: 
+  _zoneId: 
+  _defeatProgressAmount: 1
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0
