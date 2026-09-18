@@ -12,6 +12,7 @@ public sealed class LocalProfileStore
     private readonly ProfileId _profileId;
     private readonly LootDefinitionCatalog _lootCatalog;
     private readonly LootId _recoveryWeaponLootId;
+    private readonly MissionDefinitionCatalog _missionCatalog;
 
     public event Action<ProfileId> ProfileCommitted;
 
@@ -19,17 +20,20 @@ public sealed class LocalProfileStore
     public LocalProfilePersistenceStatus Status => _repository.Status;
     public string LastError => _repository.LastError;
     public bool IsAvailable => Status == LocalProfilePersistenceStatus.Ready || Status == LocalProfilePersistenceStatus.RecoveredFromBackup;
+    public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
 
     public LocalProfileStore(
         ILocalProfileRepository repository,
         ProfileId profileId,
         LootDefinitionCatalog lootCatalog = null,
-        LootId recoveryWeaponLootId = default)
+        LootId recoveryWeaponLootId = default,
+        MissionDefinitionCatalog missionCatalog = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _profileId = profileId;
         _lootCatalog = lootCatalog;
         _recoveryWeaponLootId = recoveryWeaponLootId;
+        _missionCatalog = missionCatalog;
     }
 
     public IReadOnlyList<StashItem> GetStash() =>
@@ -51,6 +55,179 @@ public sealed class LocalProfileStore
         _repository.Snapshot != null ? _repository.Snapshot.CurrentExperience : 0L;
     public int GetLastAppliedProgressionResultSequence() =>
         _repository.Snapshot != null ? _repository.Snapshot.LastAppliedProgressionResultSequence : 0;
+
+    public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
+        _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
+
+    public StashOperationResult TryAcceptMission(MissionDefinition mission)
+    {
+        if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        foreach (var active in current.ActiveMissions)
+        {
+            if (active.MissionId == mission.MissionId)
+                return StashOperationResult.AlreadyApplied;
+        }
+
+        if (_missionCatalog != null)
+        {
+            var activeTypes = new List<MissionType>();
+            foreach (var active in current.ActiveMissions)
+            {
+                if (active.State == MissionState.Reclamada || active.State == MissionState.Abandonada)
+                    continue;
+
+                if (_missionCatalog.TryGet(active.MissionId.Value, out var activeDef))
+                    activeTypes.Add(activeDef.Type);
+            }
+
+            if (!MissionLifecycleRules.CanAcceptMission(mission.Type, activeTypes))
+                return StashOperationResult.PersistenceFailed;
+        }
+
+        var next = current.Clone();
+        next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        return Commit(next);
+    }
+
+    public StashOperationResult TryAbandonMission(MissionId missionId)
+    {
+        if (!missionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        int index = current.ActiveMissions.FindIndex(m => m.MissionId == missionId);
+        if (index < 0) return StashOperationResult.InvalidInventory;
+
+        var instance = current.ActiveMissions[index];
+        if (!MissionLifecycleRules.CanTransitionTo(instance.State, MissionState.Abandonada))
+            return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        next.ActiveMissions[index].State = MissionState.Abandonada;
+        return Commit(next);
+    }
+
+    public StashOperationResult TryClaimMission(MissionDefinition mission)
+    {
+        if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+
+        int index = current.ActiveMissions.FindIndex(m => m.MissionId == mission.MissionId);
+        if (index < 0) return StashOperationResult.InvalidInventory;
+
+        var instance = current.ActiveMissions[index];
+        if (!MissionLifecycleRules.CanTransitionTo(instance.State, MissionState.Reclamada))
+            return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        next.ActiveMissions[index].State = MissionState.Reclamada;
+
+        if (mission.Rewards != null)
+        {
+            var itemsToAdd = new List<StashItem>();
+            foreach (var reward in mission.Rewards)
+            {
+                if (reward.Type == RewardDefinition.RewardType.Gold)
+                {
+                    if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
+                    next.Currency += reward.Amount;
+                    Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Oro. (Total: {next.Currency})");
+                }
+                else if (reward.Type == RewardDefinition.RewardType.Experience)
+                {
+                    if (CharacterProgressionRules.TryApplyExperience(
+                            ProgressionBalanceDefaults.InitialExperienceCurve,
+                            next.Level,
+                            next.CurrentExperience,
+                            reward.Amount,
+                            out ExperienceApplicationResult expResult))
+                    {
+                        next.Level = expResult.ResultingLevel;
+                        next.CurrentExperience = expResult.ResultingExperience;
+                        
+                        next.LastAppliedProgressionResultSequence++;
+                        var receipt = new ProgressionReceipt(
+                            "mission-claim",
+                            _profileId,
+                            next.LastAppliedProgressionResultSequence,
+                            next.CurrentExperience,
+                            next.Level);
+                            
+                        next.LastProgressionReceipt = receipt;
+                        next.AppliedProgressionReceipts.Add(receipt);
+                        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+                        {
+                            next.AppliedProgressionReceipts.RemoveAt(0);
+                        }
+
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} XP. (Nivel: {next.Level}, XP: {next.CurrentExperience})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[MissionBoard] No se pudo aplicar la experiencia de recompensa ({reward.Amount} XP).");
+                    }
+                }
+                else if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
+                {
+                    var lootId = new LootId(reward.ReferenceId);
+                    if (lootId.IsValid && reward.Amount > 0)
+                    {
+                        itemsToAdd.Add(new StashItem(lootId, reward.Amount));
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount}x {reward.ReferenceId} para el Stash.");
+                    }
+                }
+            }
+
+            if (itemsToAdd.Count > 0)
+            {
+                if (!TryMerge(next.Stash, itemsToAdd))
+                    return StashOperationResult.PersistenceFailed;
+                Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
+            }
+        }
+
+        var result = Commit(next);
+        if (result == StashOperationResult.Success)
+        {
+            Debug.Log($"[MissionBoard] Misión '{mission.Title}' reclamada y persistida correctamente en disco.");
+        }
+        return result;
+    }
+
+    public StashOperationResult TryApplyMissionProgress(MissionContributionEvent contribution)
+    {
+        var current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+        if (_missionCatalog == null) return StashOperationResult.PersistenceFailed;
+
+        var next = current.Clone();
+        bool changed = false;
+
+        for (int i = 0; i < next.ActiveMissions.Count; i++)
+        {
+            var instance = next.ActiveMissions[i];
+            if (instance.State != MissionState.Activa) continue;
+
+            if (_missionCatalog.TryGet(instance.MissionId.Value, out var definition))
+            {
+                if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
+                {
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            return Commit(next);
+        }
+
+        return StashOperationResult.Success;
+    }
 
     public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
     {
@@ -747,6 +924,19 @@ public sealed class LocalProfileStore
         next.Level = resultingLevel;
         next.CurrentExperience = resultingExperience;
         next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
+
+        var progressionReceipt = new ProgressionReceipt(
+            receipt.RaidId,
+            _profileId,
+            receipt.ResultSequence,
+            resultingExperience,
+            resultingLevel);
+
+        next.LastProgressionReceipt = progressionReceipt;
+        next.AppliedProgressionReceipts.Add(progressionReceipt);
+        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+            next.AppliedProgressionReceipts.RemoveAt(0);
+
         next.PreparedEquipment = preparedEquipment;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(

@@ -19,6 +19,8 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IMissionProgressDefeatSource> _missionProgressDefeatSources = new();
+    private readonly Dictionary<EntityId, IMissionProgressInteractionSource> _missionProgressInteractionSources = new();
     private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<EntityId, ICombatContributionTracker> _combatContributionTrackers = new();
@@ -42,6 +44,8 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressReceivers.Clear();
         _extractionProgressReaders.Clear();
         _extractionProgressDefeatSources.Clear();
+        _missionProgressDefeatSources.Clear();
+        _missionProgressInteractionSources.Clear();
         _killExperienceSources.Clear();
         _extractionSanctuaries.Clear();
         _combatContributionTrackers.Clear();
@@ -481,6 +485,21 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressDefeatSources.TryGetValue(id, out source);
     }
 
+    public bool TryRegisterMissionProgressDefeatSource(EntityId id, IMissionProgressDefeatSource source)
+    {
+        return TryRegisterIndependentCapability(id, source, _missionProgressDefeatSources);
+    }
+
+    public bool TryUnregisterMissionProgressDefeatSource(EntityId id, IMissionProgressDefeatSource expectedSource)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedSource, _missionProgressDefeatSources);
+    }
+
+    public bool TryGetMissionProgressDefeatSource(EntityId id, out IMissionProgressDefeatSource source)
+    {
+        return _missionProgressDefeatSources.TryGetValue(id, out source);
+    }
+
     /// <summary>Registers an independently configured one-shot Kill Experience source.</summary>
     public bool TryRegisterKillExperienceSource(EntityId id, IKillExperienceSource source)
     {
@@ -745,6 +764,7 @@ public sealed class EntityRegistry : MonoBehaviour
             _extractionProgressReceivers.ContainsKey(id) ||
             _extractionProgressReaders.ContainsKey(id) ||
             _extractionProgressDefeatSources.ContainsKey(id) ||
+            _missionProgressDefeatSources.ContainsKey(id) ||
             _killExperienceSources.ContainsKey(id) ||
             _extractionSanctuaries.ContainsKey(id) ||
             _combatContributionTrackers.ContainsKey(id);
@@ -905,9 +925,6 @@ public sealed class EntityRegistry : MonoBehaviour
         return false;
     }
 
-    /// <summary>
-    /// Attempts to retrieve the EntityId that owns a given Collider2D.
-    /// </summary>
     public bool TryGetEntityId(Collider2D collider, out EntityId id)
     {
         id = default;
@@ -916,5 +933,32 @@ public sealed class EntityRegistry : MonoBehaviour
             return false;
         }
         return _colliders.TryGetValue(collider, out id);
+    }
+
+    public bool TryRegisterMissionProgressInteractionSource(EntityId id, IMissionProgressInteractionSource source)
+    {
+        if (id.Value == 0 || source == null || _missionProgressInteractionSources.ContainsKey(id))
+            return false;
+        _missionProgressInteractionSources.Add(id, source);
+        return true;
+    }
+
+    public bool TryUnregisterMissionProgressInteractionSource(EntityId id, IMissionProgressInteractionSource source)
+    {
+        if (id.Value == 0 || source == null)
+            return false;
+
+        if (_missionProgressInteractionSources.TryGetValue(id, out var existing) && existing == source)
+        {
+            _missionProgressInteractionSources.Remove(id);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryGetMissionProgressInteractionSource(EntityId id, out IMissionProgressInteractionSource source)
+    {
+        return _missionProgressInteractionSources.TryGetValue(id, out source);
     }
 }

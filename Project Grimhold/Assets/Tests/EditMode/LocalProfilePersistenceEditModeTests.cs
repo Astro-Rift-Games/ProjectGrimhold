@@ -789,5 +789,146 @@ public sealed class LocalProfilePersistenceEditModeTests
             return true;
         }
     }
+
+    [Test]
+    public void HydrateSnapshot_DoesNotDuplicate_AppliedExtractionReceipts()
+    {
+        var profile = new ProfileId("test_profile_ext");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+        
+        // Arrange: snapshot already has the receipt from a previous load
+        snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt("raid_1", profile, 5));
+        
+        // Arrange: backend sends the same receipt
+        var backendData = new Grimhold.Backend.InventoryData
+        {
+            lastAppliedExtractionReceipt = new Grimhold.Backend.ExtractionReceiptData
+            {
+                raidId = "raid_1",
+                resultSequence = 5
+            }
+        };
+
+        // Act: Hydrate via reflection
+        var method = typeof(ApplicationStashServiceBootstrapper).GetMethod(
+            "HydrateSnapshot", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+
+        // Assert: should only have 1 receipt, not 2
+        Assert.That(snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
+        Assert.That(snapshot.AppliedExtractionReceipts[0].ResultSequence, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void HydrateSnapshot_SuccessiveLogins_PreserveValidSnapshot()
+    {
+        var profile = new ProfileId("test_profile_ext2");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+        
+        var backendData = new Grimhold.Backend.InventoryData
+        {
+            lastAppliedExtractionReceipt = new Grimhold.Backend.ExtractionReceiptData
+            {
+                raidId = "raid_1",
+                resultSequence = 5
+            }
+        };
+
+        var method = typeof(ApplicationStashServiceBootstrapper).GetMethod(
+            "HydrateSnapshot", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            
+        // First login
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+        
+        // Second login (simulate closing and opening app, reading from disk gives the snapshot with the receipt)
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+        
+        // TryDecode should pass
+        string json = LocalProfileSaveCodec.Encode(snapshot);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profile, _catalog, out _, out var status, out string error);
+        
+        Assert.That(decoded, Is.True, $"Decode failed: {error}");
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+    }
+}
+
+[TestFixture]
+public sealed class ExtractionProgressionReceiptTests
+{
+    private LootDefinitionCatalog _catalog;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+        Assert.That(_catalog, Is.Not.Null);
+    }
+
+    [Test]
+    public void TryCommitExtraction_SetsProgressionReceipt_MatchingWatermark()
+    {
+        var profileId = new ProfileId("test_profile_extraction");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profileId, _catalog), Is.True);
+
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        snapshot.LastAppliedProgressionResultSequence = 0;
+        snapshot.LastProgressionReceipt = null;
+        Assert.That(repository.TrySave(snapshot, out string initError), Is.True, initError);
+
+        var store = new LocalProfileStore(repository, profileId, _catalog);
+
+        var receipt = new ExtractionReceipt("raid_abc", profileId, 7);
+        var result = store.TryCommitExtraction(
+            receipt,
+            new System.Collections.Generic.List<StashItem>(),
+            default,
+            consolidatedExperience: 200,
+            resultingLevel: 2,
+            resultingExperience: 50);
+
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+
+        var saved = repository.Snapshot;
+        Assert.That(saved.LastAppliedProgressionResultSequence, Is.EqualTo(7));
+        Assert.That(saved.LastProgressionReceipt.HasValue, Is.True);
+        Assert.That(saved.LastProgressionReceipt.Value.ResultSequence, Is.EqualTo(7));
+        Assert.That(saved.AppliedProgressionReceipts, Has.Count.EqualTo(1));
+        Assert.That(saved.AppliedProgressionReceipts[0], Is.EqualTo(saved.LastProgressionReceipt.Value));
+    }
+
+    [Test]
+    public void TryCommitExtraction_ResultsInValidCodecRoundTrip()
+    {
+        var profileId = new ProfileId("test_profile_extraction_codec");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profileId, _catalog), Is.True);
+
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        Assert.That(repository.TrySave(snapshot, out string initError), Is.True, initError);
+
+        var store = new LocalProfileStore(repository, profileId, _catalog);
+
+        var receipt = new ExtractionReceipt("raid_xyz", profileId, 3);
+        var result = store.TryCommitExtraction(
+            receipt,
+            new System.Collections.Generic.List<StashItem>(),
+            default,
+            consolidatedExperience: 100,
+            resultingLevel: 1,
+            resultingExperience: 100);
+
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+
+        string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, _catalog, out _, out var status, out string error);
+
+        Assert.That(decoded, Is.True, $"Codec round-trip failed after extraction: {error}");
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+    }
 }
 #endif

@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 770129000000000002}
   - component: {fileID: 770129000000000003}
   - component: {fileID: 770129000000000004}
+  - component: {fileID: 5906812958196535237}
   m_Layer: 0
   m_Name: NetworkRaidParticipant
   m_TagString: Untagged
@@ -47,7 +48,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
   SortKey: 682598273
   SendPriority: 1
@@ -59,6 +60,7 @@ MonoBehaviour:
   - {fileID: 770129000000000001}
   - {fileID: 770129000000000002}
   - {fileID: 770129000000000003}
+  - {fileID: 5906812958196535237}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &4242367586246355310
 MonoBehaviour:
@@ -70,13 +72,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2aa71c91e317ccc47920e90fbbd6bdba, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkRaidParticipant
   _ProfileId:
     _length: 0
     _data:
       Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-
+  _RaidGenerationId:
+    _length: 0
+    _data:
+      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  _LoadoutReservationId:
+    _length: 0
+    _data:
+      Data: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
   _State: 0
   _CurrentAvatarId:
     Raw: 0
@@ -97,12 +106,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e6dc586796d748bea21a1f627147a465, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerExpeditionExperienceLedger
   _KillExperience: 0
   _AssistExperience: 0
   _ExplorationExperience: 0
   _ExtractedLootExperience: 0
+  _PveKillCount: 0
+  _PvpKillCount: 0
+  _PveAssistCount: 0
+  _PvpAssistCount: 0
+  _FirstOpenChestCount: 0
   _IsFrozen:
     RawValue: 0
   _ExtractedLootResolvedResultSequence: 0
@@ -116,17 +130,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: af08379a2f5f4c7eba65f0f7ab27ef41, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerExpeditionProgressionResolver
   _BaselineLevel: 0
   _BaselineExperience: 0
   _Committed:
     RawValue: 0
-  _CommittedOutcome: 0
-  _CommittedRetentionBasisPoints: 0
-  _CommittedConsolidatedExperience: 0
-  _CommittedResultingLevel: 0
-  _CommittedResultingExperience: 0
 --- !u!114 &770129000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -137,15 +146,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cfb52445d61a45e79f50f79572d197a4, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RuntimeAttributeOverrideNetworkController
-  _VitalityOffset: 0
-  _ResistanceOffset: 0
-  _StrengthOffset: 0
-  _DexterityOffset: 0
-  _IntelligenceOffset: 0
-  _LuckOffset: 0
-  _Revision: 0
 --- !u!114 &770129000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -156,5 +158,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6056049a812d4e13a474a4fda3b74874, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RuntimeAttributeOverrideDeveloperPanel
+--- !u!114 &5906812958196535237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5004213290188446567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfc69026fb0eef147a861f07276e8a7f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerMissionContributionLedger

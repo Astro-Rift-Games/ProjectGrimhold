@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e78370bc118bf40baebe3b64c51dc2, type: 3}
+  m_Name: Mission_RankE_06
+  m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
+  _id: contract_e_06
+  Title: Contrato Rango E - 6
+  Description: "Descripci\xF3n del contrato 6 de rango E."
+  Type: 0
+  RankRequired: 0
+  Phases:
+  - Objectives:
+    - Family: 3
+      Condition:
+        TargetId: 
+        ZoneId: 
+        RequiredAmount: 5
+  Rewards:
+  - Type: 0
+    Amount: 100
+    ReferenceId: 

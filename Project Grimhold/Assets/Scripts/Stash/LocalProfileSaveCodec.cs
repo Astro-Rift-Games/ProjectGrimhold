@@ -35,6 +35,7 @@ public static class LocalProfileSaveCodec
         public ReceiptData[] appliedExtractionReceipts;
         public long shopIdempotencyWatermark;
         public ShopReceiptData[] appliedShopTransactionReceipts;
+        public MissionInstanceStateData[] activeMissions;
     }
 
     [Serializable]
@@ -108,6 +109,22 @@ public static class LocalProfileSaveCodec
         public int resultingLevel;
     }
 
+    [Serializable]
+    private sealed class MissionInstanceStateData
+    {
+        public string missionId;
+        public int state;
+        public int currentPhaseIndex;
+        public ObjectiveProgressStateData[] objectiveProgress;
+    }
+
+    [Serializable]
+    private sealed class ObjectiveProgressStateData
+    {
+        public int index;
+        public int currentAmount;
+    }
+
     public static string Encode(LocalProfileSnapshot snapshot)
     {
         var data = new SaveData
@@ -164,7 +181,8 @@ public static class LocalProfileSaveCodec
             },
             appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
-            appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts)
+            appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts),
+            activeMissions = ToMissions(snapshot.ActiveMissions)
         };
         return JsonUtility.ToJson(data, true);
     }
@@ -429,6 +447,28 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
+        if (data.schemaVersion >= 5 && data.activeMissions != null)
+        {
+            foreach (var missionData in data.activeMissions)
+            {
+                if (string.IsNullOrWhiteSpace(missionData.missionId))
+                {
+                    error = "Mission instance data contains an invalid ID.";
+                    return false;
+                }
+                var mission = new MissionInstanceState(new MissionId(missionData.missionId), (MissionState)missionData.state);
+                mission.CurrentPhaseIndex = missionData.currentPhaseIndex;
+                if (missionData.objectiveProgress != null)
+                {
+                    foreach (var objData in missionData.objectiveProgress)
+                    {
+                        mission.ObjectiveProgress[objData.index] = new ObjectiveProgressState(objData.currentAmount);
+                    }
+                }
+                candidate.ActiveMissions.Add(mission);
+            }
+        }
+
         snapshot = candidate;
         status = LocalProfilePersistenceStatus.Ready;
         return true;
@@ -685,6 +725,30 @@ public static class LocalProfileSaveCodec
             result[index] = ToProgressionReceipt(receipts[index]);
         }
 
+        return result;
+    }
+
+    private static MissionInstanceStateData[] ToMissions(IReadOnlyList<MissionInstanceState> missions)
+    {
+        var result = new MissionInstanceStateData[missions?.Count ?? 0];
+        for (int i = 0; i < result.Length; i++)
+        {
+            var mission = missions[i];
+            var progressArray = new ObjectiveProgressStateData[mission.ObjectiveProgress.Count];
+            int pIdx = 0;
+            foreach (var kvp in mission.ObjectiveProgress)
+            {
+                progressArray[pIdx++] = new ObjectiveProgressStateData { index = kvp.Key, currentAmount = kvp.Value.CurrentAmount };
+            }
+
+            result[i] = new MissionInstanceStateData
+            {
+                missionId = mission.MissionId.Value,
+                state = (int)mission.State,
+                currentPhaseIndex = mission.CurrentPhaseIndex,
+                objectiveProgress = progressArray
+            };
+        }
         return result;
     }
 
