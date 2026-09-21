@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f12f44c3fe1a9d4abd0d89d8ea31843, type: 3}
+  m_Name: AbilityDefinitionCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityDefinitionCatalog
+  _definitions:
+  - {fileID: 11400000, guid: ef3fe12aaf639614a94e932c270a73d6, type: 2}
+  - {fileID: 11400000, guid: 2fbfffccd1cfdab48b010a5b50d62973, type: 2}
+  - {fileID: 11400000, guid: b4e93b6015e57c94583bfa363aa59b20, type: 2}
+  - {fileID: 11400000, guid: db551ee820cf778429d5ecb1a75568d0, type: 2}
+  - {fileID: 11400000, guid: 51c61f7cffd5d1941b20ff172398afcc, type: 2}
+  - {fileID: 11400000, guid: 4497e7ef5eda101419f2fe4b51b2a213, type: 2}
+  - {fileID: 11400000, guid: 2ce312723b638ce4ab3851ac78eca10e, type: 2}
+  - {fileID: 11400000, guid: a3daf809c6cdc6343965fbb5434e0076, type: 2}
+  - {fileID: 11400000, guid: 0f09c3fe24156c34698f5699dae2624d, type: 2}
