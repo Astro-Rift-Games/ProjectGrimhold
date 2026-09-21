@@ -50,8 +50,8 @@ NetworkProjectile (Authoritative Simulation) ──► EntityRegistry & IDamageR
 ## Key Components
 
 ### 1. Data Contracts and Interface Definitions (`IAttack`)
-All combat behaviors implement the common strategy contract:
-* **`IAttack`**: Interface defining the execution strategy for any weapon/ability.
+The current basic weapon attack strategies implement this contract:
+* **`IAttack`**: Interface defining the execution strategy for the active basic weapon attack.
   * `AttackType Type { get; }` (Melee, Ranged, etc.)
   * `float CooldownSeconds { get; }`
   * `AttackInputMode InputMode { get; }` (Press or Hold)
@@ -64,7 +64,8 @@ All combat behaviors implement the common strategy contract:
 * **`AttackResult`**: Captures execution success or detailed failure reasons (Cooldown, MissingConfiguration, InvalidDirection).
 
 ### 2. Network Controller (`PlayerCombatNetworkController`)
-Serves as the network boundary for character combat:
+Serves as the network boundary for the current basic weapon attack flow:
+* Owns the current basic weapon attack flow; it is not the runtime contract or owner for character abilities.
 * Extends `NetworkBehaviour` and processes combat input during Fusion simulation ticks.
 * Only State Authority validates and executes attacks.
 * Listens to player input commands (e.g., `PrimaryAttack` button and `AimWorldPosition`).
