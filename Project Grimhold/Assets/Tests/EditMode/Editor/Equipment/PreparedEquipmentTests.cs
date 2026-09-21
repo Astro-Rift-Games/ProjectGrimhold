@@ -588,7 +588,7 @@ namespace Tests.EditMode.Equipment
                 Is.True,
                 error);
 
-            Assert.That(restored.SchemaVersion, Is.EqualTo(4));
+            Assert.That(restored.SchemaVersion, Is.EqualTo(LocalProfileSnapshot.CurrentSchemaVersion));
             Assert.That(restored.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(restored.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(RecoverySword));
             Assert.That(restored.PreparedEquipment.WeaponSetAOffHand.IsValid, Is.False);

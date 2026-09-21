@@ -34,9 +34,11 @@ public static class ApplicationStashServiceBootstrapper
         }
 
         _configuration = Resources.Load<LocalProfilePersistenceConfiguration>("LocalProfilePersistenceConfiguration");
-        if (_configuration == null || _configuration.LootCatalog == null)
+        if (_configuration == null ||
+            _configuration.LootCatalog == null ||
+            _configuration.AbilityCatalog == null)
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile configuration or loot catalog is missing.");
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile configuration, loot catalog, or ability catalog is missing.");
             return;
         }
 
@@ -81,7 +83,9 @@ public static class ApplicationStashServiceBootstrapper
             return;
         }
 
-        if (_configuration == null || _configuration.LootCatalog == null)
+        if (_configuration == null ||
+            _configuration.LootCatalog == null ||
+            _configuration.AbilityCatalog == null)
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Configuration unavailable during deferred initialization.");
             return;
@@ -112,7 +116,8 @@ public static class ApplicationStashServiceBootstrapper
             profileId,
             _configuration.LootCatalog,
             _configuration.RecoveryWeaponLootId,
-            _configuration.MissionCatalog);
+            _configuration.MissionCatalog,
+            _configuration.AbilityCatalog);
         if (store.PendingExtractionCommit != null)
         {
             Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Retrying pending extraction commit from a previous session crash.");

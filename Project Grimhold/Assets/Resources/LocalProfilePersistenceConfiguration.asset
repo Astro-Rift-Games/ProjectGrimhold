@@ -11,7 +11,9 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2c0a730e8bd44c07a5cc5751bfa46d7d, type: 3}
   m_Name: LocalProfilePersistenceConfiguration
+  m_EditorClassIdentifier:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _missionCatalog: {fileID: 11400000, guid: 618cdaeec4f78734381e1ab512d16113, type: 2}
+  _abilityCatalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
   _receiptCapacity: 256
   _recoveryWeaponLootId: arming_sword

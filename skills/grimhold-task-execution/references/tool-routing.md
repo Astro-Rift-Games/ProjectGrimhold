@@ -102,3 +102,15 @@ A defined HacknPlan task should normally be executed directly.
 Use SDD when the feature is not sufficiently specified, needs proposal/spec/design work before implementation, or the user explicitly requests SDD.
 
 Use subagents for bounded independent exploration/review/verification when they reduce context pollution. Give them exact scope, sources, skills and write boundaries. The parent agent reconciles all findings.
+
+### Validation economy
+
+Minimize Unity MCP context without reducing verification quality.
+
+- Prefer targeted tests before broad suites.
+- For successful test runs, retain only suite name, totals, failures and duration.
+- Expand individual test output only when tests fail.
+- Query Console errors/exceptions first; do not retrieve unrelated logs.
+- Prefer targeted prefab/component/property inspection over full hierarchy or serialized dumps.
+- A Unity refresh/recompile is cheap; avoid optimizing it away unless it adds no validation value.
+- For visual, game-feel or multi-peer exploratory checks, prefer explicit manual validation when automation would add substantial context without improving confidence.

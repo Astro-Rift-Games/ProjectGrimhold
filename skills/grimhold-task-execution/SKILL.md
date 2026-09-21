@@ -24,6 +24,7 @@ Do not load it for backlog creation, Game Design authoring or unrelated reposito
 - Never let Engram, uploads or prior chats override current repository/Architecture/live Game Design.
 - Do not expand the task into adjacent systems.
 - Do not automatically create SDD specs/tasks that duplicate a defined HacknPlan task.
+- Minimize validation context: prefer targeted tests, filtered Console output, and concise success summaries; expand details only for failures.
 
 For an existing named HacknPlan TASK/User Story, HacknPlan is the work-tracking
 source of truth. Do not create odd/tasks, SDD task records, local task mirrors,

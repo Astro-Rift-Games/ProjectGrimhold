@@ -13,6 +13,7 @@ public sealed class LocalProfileStore
     private readonly LootDefinitionCatalog _lootCatalog;
     private readonly LootId _recoveryWeaponLootId;
     private readonly MissionDefinitionCatalog _missionCatalog;
+    private readonly AbilityDefinitionCatalog _abilityCatalog;
 
     public event Action<ProfileId> ProfileCommitted;
 
@@ -27,13 +28,15 @@ public sealed class LocalProfileStore
         ProfileId profileId,
         LootDefinitionCatalog lootCatalog = null,
         LootId recoveryWeaponLootId = default,
-        MissionDefinitionCatalog missionCatalog = null)
+        MissionDefinitionCatalog missionCatalog = null,
+        AbilityDefinitionCatalog abilityCatalog = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _profileId = profileId;
         _lootCatalog = lootCatalog;
         _recoveryWeaponLootId = recoveryWeaponLootId;
         _missionCatalog = missionCatalog;
+        _abilityCatalog = abilityCatalog;
     }
 
     public IReadOnlyList<StashItem> GetStash() =>
@@ -58,6 +61,74 @@ public sealed class LocalProfileStore
 
     public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
         _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
+
+    public IReadOnlyList<AbilityId> GetUnlockedAbilities()
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            if (!IsAvailable || snapshot == null || snapshot.ProfileId != _profileId)
+            {
+                return Array.Empty<AbilityId>();
+            }
+
+            var result = new AbilityId[snapshot.UnlockedAbilities.Count];
+            snapshot.UnlockedAbilities.CopyTo(result);
+            return result;
+        }
+    }
+
+    public bool IsAbilityUnlocked(AbilityId abilityId)
+    {
+        if (!abilityId.IsValid)
+        {
+            return false;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            if (!IsAvailable || snapshot == null || snapshot.ProfileId != _profileId)
+            {
+                return false;
+            }
+
+            return snapshot.UnlockedAbilities.Contains(abilityId);
+        }
+    }
+
+    public AbilityUnlockResult TryUnlockAbility(AbilityId abilityId)
+    {
+        if (!abilityId.IsValid)
+        {
+            return AbilityUnlockResult.InvalidAbility;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return AbilityUnlockResult.ProfileUnavailable;
+            }
+
+            if (_abilityCatalog == null || !_abilityCatalog.TryGet(abilityId, out _))
+            {
+                return AbilityUnlockResult.UnknownAbility;
+            }
+
+            if (current.UnlockedAbilities.Contains(abilityId))
+            {
+                return AbilityUnlockResult.AlreadyUnlocked;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.UnlockedAbilities.Add(abilityId);
+            return Commit(next) == StashOperationResult.Success
+                ? AbilityUnlockResult.Success
+                : AbilityUnlockResult.PersistenceFailed;
+        }
+    }
 
     public StashOperationResult TryAcceptMission(MissionDefinition mission)
     {

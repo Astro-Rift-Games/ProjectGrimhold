@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class LocalProfileSnapshot
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
     public const int MaxLoadoutSlots = 30;
     public const int MaxAppliedExtractionReceipts = 256;
     public const int MaxAppliedShopTransactionReceipts = 256;
@@ -32,6 +32,7 @@ public sealed class LocalProfileSnapshot
     public List<ShopTransactionReceipt> AppliedShopTransactionReceipts { get; } = new();
     public List<ProgressionReceipt> AppliedProgressionReceipts { get; } = new();
     public List<MissionInstanceState> ActiveMissions { get; } = new();
+    public List<AbilityId> UnlockedAbilities { get; } = new();
 
     public LocalProfileSnapshot Clone()
     {
@@ -56,6 +57,7 @@ public sealed class LocalProfileSnapshot
         clone.AppliedExtractionReceipts.AddRange(AppliedExtractionReceipts);
         clone.AppliedShopTransactionReceipts.AddRange(AppliedShopTransactionReceipts);
         clone.AppliedProgressionReceipts.AddRange(AppliedProgressionReceipts);
+        clone.UnlockedAbilities.AddRange(UnlockedAbilities);
         // Deep clone mission instances since they contain mutable dictionaries
         foreach (var mission in ActiveMissions)
         {

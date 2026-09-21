@@ -36,6 +36,7 @@ public static class LocalProfileSaveCodec
         public long shopIdempotencyWatermark;
         public ShopReceiptData[] appliedShopTransactionReceipts;
         public MissionInstanceStateData[] activeMissions;
+        public string[] unlockedAbilityIds;
     }
 
     [Serializable]
@@ -182,7 +183,8 @@ public static class LocalProfileSaveCodec
             appliedExtractionReceipts = ToReceipts(snapshot.AppliedExtractionReceipts),
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
             appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts),
-            activeMissions = ToMissions(snapshot.ActiveMissions)
+            activeMissions = ToMissions(snapshot.ActiveMissions),
+            unlockedAbilityIds = ToAbilityIds(snapshot.UnlockedAbilities)
         };
         return JsonUtility.ToJson(data, true);
     }
@@ -248,6 +250,12 @@ public static class LocalProfileSaveCodec
         };
         if (!TryReadItems(data.stash, catalog, candidate.Stash, "stash", out error) ||
             !TryReadItems(data.loadout, catalog, candidate.Loadout, "loadout", out error))
+        {
+            return false;
+        }
+
+        if (data.schemaVersion >= 6 &&
+            !TryReadAbilityIds(data.unlockedAbilityIds, candidate.UnlockedAbilities, out error))
         {
             return false;
         }
@@ -650,6 +658,49 @@ public static class LocalProfileSaveCodec
             result[i] = new ItemData { lootId = items[i].LootId.Value, amount = items[i].Amount };
         }
         return result;
+    }
+
+    private static string[] ToAbilityIds(IReadOnlyList<AbilityId> abilityIds)
+    {
+        var result = new string[abilityIds?.Count ?? 0];
+        for (int index = 0; index < result.Length; index++)
+        {
+            result[index] = abilityIds[index].Value;
+        }
+
+        return result;
+    }
+
+    private static bool TryReadAbilityIds(
+        string[] values,
+        List<AbilityId> destination,
+        out string error)
+    {
+        error = null;
+        if (values == null)
+        {
+            return true;
+        }
+
+        var seen = new HashSet<AbilityId>();
+        foreach (string value in values)
+        {
+            if (!AbilityId.TryCreate(value, out AbilityId abilityId))
+            {
+                error = "Unlocked ability repertoire contains an invalid ability ID.";
+                return false;
+            }
+
+            if (!seen.Add(abilityId))
+            {
+                error = "Unlocked ability repertoire contains duplicate ability IDs.";
+                return false;
+            }
+
+            destination.Add(abilityId);
+        }
+
+        return true;
     }
 
     /// <summary>
