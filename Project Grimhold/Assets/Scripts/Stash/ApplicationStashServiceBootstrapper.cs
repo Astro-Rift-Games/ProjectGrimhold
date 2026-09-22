@@ -99,7 +99,10 @@ public static class ApplicationStashServiceBootstrapper
         var contextObject = _context.gameObject;
 
         var fileStore = new LocalProfileFileStore();
-        var repository = new LocalProfileRepository(fileStore, Application.persistentDataPath);
+        var repository = new LocalProfileRepository(
+            fileStore,
+            Application.persistentDataPath,
+            _configuration.AbilityCatalog);
         if (!repository.Initialize(profileId, _configuration.LootCatalog))
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile unavailable: {repository.LastError}");
@@ -108,7 +111,13 @@ public static class ApplicationStashServiceBootstrapper
 
         if (inventoryData.HasValue || progressionData.HasValue)
         {
-            HydrateSnapshot(profileId, repository.Snapshot, inventoryData, progressionData, _configuration.LootCatalog);
+            HydrateSnapshot(
+                profileId,
+                repository.Snapshot,
+                inventoryData,
+                progressionData,
+                _configuration.LootCatalog,
+                _configuration.AbilityCatalog);
         }
 
         var store = new LocalProfileStore(
@@ -178,7 +187,13 @@ public static class ApplicationStashServiceBootstrapper
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
     }
 
-    private static void HydrateSnapshot(ProfileId profileId, LocalProfileSnapshot snapshot, Grimhold.Backend.InventoryData? inventoryData, Grimhold.Backend.ProgressionData? progressionData, LootDefinitionCatalog catalog)
+    private static void HydrateSnapshot(
+        ProfileId profileId,
+        LocalProfileSnapshot snapshot,
+        Grimhold.Backend.InventoryData? inventoryData,
+        Grimhold.Backend.ProgressionData? progressionData,
+        LootDefinitionCatalog catalog,
+        AbilityDefinitionCatalog abilityCatalog)
     {
         if (inventoryData.HasValue)
         {
@@ -291,7 +306,23 @@ public static class ApplicationStashServiceBootstrapper
                 attr.dexterity, attr.intelligence, attr.luck, attr.availablePoints,
                 out var state))
             {
-                snapshot.CharacterAttributes = state;
+                if (PreparedAbilityLoadout.TryRevalidateAfterAttributeChange(
+                        snapshot.PreparedAbilities,
+                        snapshot.UnlockedAbilities,
+                        state,
+                        abilityCatalog,
+                        out PreparedAbilityLoadout revalidatedAbilities,
+                        out string abilityError))
+                {
+                    snapshot.CharacterAttributes = state;
+                    snapshot.PreparedAbilities = revalidatedAbilities;
+                }
+                else
+                {
+                    Debug.LogError(
+                        $"[{nameof(ApplicationStashServiceBootstrapper)}] " +
+                        $"Progression hydration found invalid prepared abilities: {abilityError}");
+                }
             }
         }
     }

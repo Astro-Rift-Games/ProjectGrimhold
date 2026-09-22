@@ -37,7 +37,7 @@ or other duplicate tracking artifacts unless explicitly requested.
 | TASK/US scope | HacknPlan first |
 | Code relationships/blast radius | CodeGraph → source |
 | Technical contract | Relevant Architecture |
-| Gameplay behavior | Live Drive |
+| Gameplay behavior | grimhold-docs |
 | Prefab/scene/Inspector/Input/ScriptableObject | Unity MCP + source |
 | Unity compile/tests/Play Mode/Console | Unity MCP |
 | Version-sensitive external API | Verify repo version → Context7/official docs |
@@ -49,7 +49,7 @@ or other duplicate tracking artifacts unless explicitly requested.
 2. Confirm branch and working tree; preserve unrelated changes.
 3. Load applicable AGENTS files.
 4. Explore affected code with CodeGraph when code relationships matter.
-5. Read relevant Architecture and live Game Design.
+5. Read relevant Architecture and grimhold-docs.
 6. Inspect Unity serialized/runtime state through Unity MCP only when required.
 7. Identify ownership, authority, persistence and affected contracts.
 8. For architectural/cross-system/multi-file work, produce a focused plan limited to the TASK.

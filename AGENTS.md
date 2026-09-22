@@ -15,7 +15,9 @@ ProjectGrimhold/
 │   └── ProjectSettings/
 ├── backend/
 ├── docs/
-└── skills/
+├── skills/
+└── tools/
+    └── grimhold-docs-mcp/
 ```
 
 For work under `Project Grimhold/`, read `Project Grimhold/AGENTS.md` before task-specific work. Do not assume a nested `AGENTS.md` was auto-loaded when the session started from repository root.
@@ -59,14 +61,23 @@ Current implementation proves what exists; it does not automatically prove inten
 
 ### Gameplay intent
 
-Authoritative gameplay rules live in the connected Google Drive.
+Authoritative gameplay rules live in Google Drive and are accessed through
+`grimhold-docs`.
 
 When gameplay behavior matters:
 
-- read the live owning document;
-- do not substitute memory, cached summaries or uploaded/exported copies while live Drive is available;
-- read all owning documents for cross-system changes;
+- use `search_documents` to identify the owning document or documents;
+- use `get_document_outline` when needed to locate the relevant section;
+- use `get_document` to read only the relevant section whenever possible;
+- for cross-system changes, search for and read every document that owns affected behavior;
+- do not substitute memory, cached summaries, uploaded/exported copies or prior
+  conversations while `grimhold-docs` is available;
 - do not invent unresolved Game Design.
+
+Do not depend on hardcoded document IDs, titles or document-number routing.
+
+If `grimhold-docs` is unavailable, report that before making a definitive
+Game Design-dependent decision.
 
 ### Conflicts
 
@@ -81,41 +92,6 @@ When sources disagree:
 
 ---
 
-## Game Design routing
-
-Use this only to locate the live source.
-
-- `00` Concept/MVP scope.
-- `01` Game flow and session continuity.
-- `02` game states, Town preparation, Ready, disconnect/participation.
-- `03` player movement, sprint, orientation, camera, base controller.
-- `04` persistent build, attributes, equipped abilities, preparation.
-- `05` XP, levels and consolidation.
-- `06` extraction.
-- `07` loot lifecycle/persistence.
-- `08` derived stats and Health/Stamina/Mana formulas.
-- `09` concrete equipment and Weapon Sets.
-- `10` Dungeon lifecycle/encounters/Collapse.
-- `11` abilities.
-- `12` missions.
-- `13` downed/revive/final defeat.
-- `UI - Auditoría Funcional de Interfaces MVP` for functional UI.
-- `GD-11` for modular visual character direction.
-- `GD-12` for structural equipment slots/compatibility.
-
-Common cross-system routes:
-
-- Abilities: `04` + `08` + `11` + relevant Input/Combat/Status/Presentation architecture.
-- Equipment: `GD-12` + `09` + `08` when attributes participate.
-- Town → Raid preparation: `01` + `02` + preparation/session architecture.
-- Downed/revive: `02` + `13` + affected Combat/Extraction/Loot/Progression contracts.
-- Missions: `12` + each system that owns consumed events + persistence architecture.
-- Functional UI: UI audit + owning Game Design + relevant presentation architecture.
-
-Do not read unrelated design documents by default. If a required live Drive source is unavailable, report that before making a definitive design-dependent decision.
-
----
-
 ## Tool routing
 
 | Need | Route |
@@ -124,7 +100,7 @@ Do not read unrelated design documents by default. If a required live Drive sour
 | Code relationships / blast radius | CodeGraph first → source verification |
 | Current implementation | Repository source |
 | Technical contract | Relevant Architecture |
-| Gameplay behavior | Live Google Drive |
+| Gameplay behavior | grimhold-docs |
 | Prefab/scene/Inspector/serialized state | Unity MCP + source |
 | Input Actions / ScriptableObject Editor state | Unity MCP when needed |
 | Unity compile/Console/Test Runner/Play Mode | Unity MCP |

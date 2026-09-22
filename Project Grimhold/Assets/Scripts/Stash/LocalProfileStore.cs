@@ -62,6 +62,16 @@ public sealed class LocalProfileStore
     public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
         _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
 
+    public PreparedAbilityLoadout GetPreparedAbilities()
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            return IsAvailable && snapshot != null && snapshot.ProfileId == _profileId
+                ? snapshot.PreparedAbilities
+                : default;
+        }
+    }
     public IReadOnlyList<AbilityId> GetUnlockedAbilities()
     {
         lock (_sync)
@@ -130,6 +140,108 @@ public sealed class LocalProfileStore
         }
     }
 
+    public AbilityPreparationResult TrySetPreparedAbility(
+        UniversalAbilitySlot slot,
+        AbilityId abilityId)
+    {
+        if (!PreparedAbilityLoadout.IsKnownSlot(slot))
+        {
+            return AbilityPreparationResult.InvalidSlot;
+        }
+
+        if (!abilityId.IsValid)
+        {
+            return AbilityPreparationResult.InvalidAbility;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return AbilityPreparationResult.ProfileUnavailable;
+            }
+
+            if (_abilityCatalog == null || !_abilityCatalog.TryGet(abilityId, out AbilityDefinition definition))
+            {
+                return AbilityPreparationResult.UnknownAbility;
+            }
+
+            if (!current.UnlockedAbilities.Contains(abilityId))
+            {
+                return AbilityPreparationResult.AbilityNotUnlocked;
+            }
+
+            UniversalAbilitySlot otherSlot = slot == UniversalAbilitySlot.Slot1
+                ? UniversalAbilitySlot.Slot2
+                : UniversalAbilitySlot.Slot1;
+            if (current.PreparedAbilities.Get(otherSlot) == abilityId)
+            {
+                return AbilityPreparationResult.DuplicateAbility;
+            }
+
+            if (!definition.AreAttributeRequirementsSatisfiedBy(current.CharacterAttributes))
+            {
+                return AbilityPreparationResult.AttributeRequirementsNotMet;
+            }
+
+            PreparedAbilityLoadout candidate = current.PreparedAbilities.With(slot, abilityId);
+            if (!PreparedAbilityLoadout.TryValidate(
+                    candidate,
+                    current.UnlockedAbilities,
+                    current.CharacterAttributes,
+                    _abilityCatalog,
+                    out _))
+            {
+                return AbilityPreparationResult.InvalidPreparedState;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.PreparedAbilities = candidate;
+            return Commit(next) == StashOperationResult.Success
+                ? AbilityPreparationResult.Success
+                : AbilityPreparationResult.PersistenceFailed;
+        }
+    }
+
+    public AbilityPreparationResult TryClearPreparedAbility(UniversalAbilitySlot slot)
+    {
+        if (!PreparedAbilityLoadout.IsKnownSlot(slot))
+        {
+            return AbilityPreparationResult.InvalidSlot;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return AbilityPreparationResult.ProfileUnavailable;
+            }
+
+            if (!current.PreparedAbilities.Get(slot).IsValid)
+            {
+                return AbilityPreparationResult.Success;
+            }
+
+            PreparedAbilityLoadout candidate = current.PreparedAbilities.Without(slot);
+            if (!PreparedAbilityLoadout.TryValidate(
+                    candidate,
+                    current.UnlockedAbilities,
+                    current.CharacterAttributes,
+                    _abilityCatalog,
+                    out _))
+            {
+                return AbilityPreparationResult.InvalidPreparedState;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.PreparedAbilities = candidate;
+            return Commit(next) == StashOperationResult.Success
+                ? AbilityPreparationResult.Success
+                : AbilityPreparationResult.PersistenceFailed;
+        }
+    }
     public StashOperationResult TryAcceptMission(MissionDefinition mission)
     {
         if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
@@ -339,8 +451,19 @@ public sealed class LocalProfileStore
                 return CharacterAttributeAssignmentCommitResult.Rejected;
             }
 
+            if (!TryRevalidatePreparedAbilities(
+                    current,
+                    candidate,
+                    out PreparedAbilityLoadout revalidatedAbilities,
+                    out string abilityError))
+            {
+                Debug.LogError($"[LocalProfileStore] Attribute assignment found invalid prepared abilities: {abilityError}");
+                return CharacterAttributeAssignmentCommitResult.PersistenceFailed;
+            }
+
             LocalProfileSnapshot next = current.Clone();
             next.CharacterAttributes = candidate;
+            next.PreparedAbilities = revalidatedAbilities;
             return Commit(next) == StashOperationResult.Success
                 ? CharacterAttributeAssignmentCommitResult.Success
                 : CharacterAttributeAssignmentCommitResult.PersistenceFailed;
@@ -355,8 +478,19 @@ public sealed class LocalProfileStore
             if (!IsAvailable || current == null || current.ProfileId != _profileId)
                 return;
 
+            if (!TryRevalidatePreparedAbilities(
+                    current,
+                    state,
+                    out PreparedAbilityLoadout revalidatedAbilities,
+                    out string abilityError))
+            {
+                Debug.LogError($"[LocalProfileStore] Forced attributes found invalid prepared abilities: {abilityError}");
+                return;
+            }
+
             LocalProfileSnapshot next = current.Clone();
             next.CharacterAttributes = state;
+            next.PreparedAbilities = revalidatedAbilities;
             Commit(next);
         }
     }
@@ -1045,11 +1179,35 @@ public sealed class LocalProfileStore
                 attributes.availablePoints,
                 out var state))
         {
+            if (!TryRevalidatePreparedAbilities(
+                    current,
+                    state,
+                    out PreparedAbilityLoadout revalidatedAbilities,
+                    out string abilityError))
+            {
+                Debug.LogError($"[LocalProfileStore] Progression sync found invalid prepared abilities: {abilityError}");
+                return StashOperationResult.InvalidInventory;
+            }
+
             next.CharacterAttributes = state;
+            next.PreparedAbilities = revalidatedAbilities;
         }
 
         return Commit(next);
     }
+
+    private bool TryRevalidatePreparedAbilities(
+        LocalProfileSnapshot snapshot,
+        in CharacterAttributeState attributes,
+        out PreparedAbilityLoadout revalidated,
+        out string error) =>
+        PreparedAbilityLoadout.TryRevalidateAfterAttributeChange(
+            snapshot.PreparedAbilities,
+            snapshot.UnlockedAbilities,
+            attributes,
+            _abilityCatalog,
+            out revalidated,
+            out error);
 
     private StashOperationResult Commit(LocalProfileSnapshot next)
     {

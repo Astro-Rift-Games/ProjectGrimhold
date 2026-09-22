@@ -37,6 +37,15 @@ public static class LocalProfileSaveCodec
         public ShopReceiptData[] appliedShopTransactionReceipts;
         public MissionInstanceStateData[] activeMissions;
         public string[] unlockedAbilityIds;
+        public string preparedAbilitySlot1;
+        public string preparedAbilitySlot2;
+        public int vitality;
+        public int resistance;
+        public int strength;
+        public int dexterity;
+        public int intelligence;
+        public int luck;
+        public int availableAttributePoints;
     }
 
     [Serializable]
@@ -184,7 +193,16 @@ public static class LocalProfileSaveCodec
             shopIdempotencyWatermark = snapshot.ShopIdempotencyWatermark,
             appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts),
             activeMissions = ToMissions(snapshot.ActiveMissions),
-            unlockedAbilityIds = ToAbilityIds(snapshot.UnlockedAbilities)
+            unlockedAbilityIds = ToAbilityIds(snapshot.UnlockedAbilities),
+            preparedAbilitySlot1 = snapshot.PreparedAbilities.Slot1.Value,
+            preparedAbilitySlot2 = snapshot.PreparedAbilities.Slot2.Value,
+            vitality = snapshot.CharacterAttributes.Vitality,
+            resistance = snapshot.CharacterAttributes.Resistance,
+            strength = snapshot.CharacterAttributes.Strength,
+            dexterity = snapshot.CharacterAttributes.Dexterity,
+            intelligence = snapshot.CharacterAttributes.Intelligence,
+            luck = snapshot.CharacterAttributes.Luck,
+            availableAttributePoints = snapshot.CharacterAttributes.AvailablePoints
         };
         return JsonUtility.ToJson(data, true);
     }
@@ -193,6 +211,23 @@ public static class LocalProfileSaveCodec
         string json,
         ProfileId expectedProfileId,
         LootDefinitionCatalog catalog,
+        out LocalProfileSnapshot snapshot,
+        out LocalProfilePersistenceStatus status,
+        out string error) =>
+        TryDecode(
+            json,
+            expectedProfileId,
+            catalog,
+            null,
+            out snapshot,
+            out status,
+            out error);
+
+    public static bool TryDecode(
+        string json,
+        ProfileId expectedProfileId,
+        LootDefinitionCatalog catalog,
+        AbilityDefinitionCatalog abilityCatalog,
         out LocalProfileSnapshot snapshot,
         out LocalProfilePersistenceStatus status,
         out string error)
@@ -258,6 +293,46 @@ public static class LocalProfileSaveCodec
             !TryReadAbilityIds(data.unlockedAbilityIds, candidate.UnlockedAbilities, out error))
         {
             return false;
+        }
+
+        if (data.schemaVersion >= 8)
+        {
+            if (CharacterAttributeState.TryCreate(
+                    data.vitality,
+                    data.resistance,
+                    data.strength,
+                    data.dexterity,
+                    data.intelligence,
+                    data.luck,
+                    data.availableAttributePoints,
+                    out CharacterAttributeState attributes))
+            {
+                candidate.CharacterAttributes = attributes;
+            }
+            else
+            {
+                error = "Profile character attributes state is invalid.";
+                return false;
+            }
+        }
+
+        PreparedAbilityLoadout preparedAbilities = default;
+        if (data.schemaVersion >= 7 &&
+            !TryReadPreparedAbilities(
+                data.preparedAbilitySlot1,
+                data.preparedAbilitySlot2,
+                candidate.UnlockedAbilities,
+                candidate.CharacterAttributes,
+                abilityCatalog,
+                out preparedAbilities,
+                out error))
+        {
+            return false;
+        }
+
+        if (data.schemaVersion >= 7)
+        {
+            candidate.PreparedAbilities = preparedAbilities;
         }
 
         // JsonUtility assigns 0L to absent long fields. This is safe while
@@ -660,6 +735,51 @@ public static class LocalProfileSaveCodec
         return result;
     }
 
+    private static bool TryReadPreparedAbilities(
+        string slot1Value,
+        string slot2Value,
+        IReadOnlyList<AbilityId> unlockedAbilities,
+        in CharacterAttributeState attributes,
+        AbilityDefinitionCatalog abilityCatalog,
+        out PreparedAbilityLoadout loadout,
+        out string error)
+    {
+        loadout = default;
+        if (!TryReadOptionalAbilityId(slot1Value, out AbilityId slot1, out error) ||
+            !TryReadOptionalAbilityId(slot2Value, out AbilityId slot2, out error))
+        {
+            return false;
+        }
+
+        loadout = new PreparedAbilityLoadout(slot1, slot2);
+        return PreparedAbilityLoadout.TryValidate(
+            loadout,
+            unlockedAbilities,
+            attributes,
+            abilityCatalog,
+            out error);
+    }
+
+    private static bool TryReadOptionalAbilityId(
+        string value,
+        out AbilityId abilityId,
+        out string error)
+    {
+        abilityId = default;
+        error = null;
+        if (string.IsNullOrEmpty(value))
+        {
+            return true;
+        }
+
+        if (!AbilityId.TryCreate(value, out abilityId))
+        {
+            error = "Prepared ability slots contain a malformed ability ID.";
+            return false;
+        }
+
+        return true;
+    }
     private static string[] ToAbilityIds(IReadOnlyList<AbilityId> abilityIds)
     {
         var result = new string[abilityIds?.Count ?? 0];

@@ -51,13 +51,24 @@ Architecture owns sources of truth, data ownership, network authority, persisten
 
 When Architecture and implementation disagree, report the conflict before creating a new contract.
 
-## Google Drive
+## Grimhold Docs MCP
 
-Use current connected Google Drive documents for gameplay intent.
+Use `grimhold-docs` for authoritative Game Design and gameplay intent.
 
-Follow the routing in repository `AGENTS.md`.
+Preferred flow:
 
-Do not use uploaded/exported copies when the live source is available.
+1. Use `search_documents` to locate the owning document or documents.
+2. Use `get_document_outline` when section discovery is needed.
+3. Use `get_document` to read only the relevant section whenever possible.
+4. For cross-system work, search for every document that owns affected behavior.
+
+Do not depend on hardcoded document IDs or document-number routing.
+
+Do not substitute memory, cached summaries, uploaded/exported copies or prior
+conversations while `grimhold-docs` is available.
+
+If `grimhold-docs` is unavailable, report that before making a definitive
+Game Design-dependent decision.
 
 ## Unity MCP
 

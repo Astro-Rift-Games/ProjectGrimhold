@@ -13,16 +13,21 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
     private string _backupPath;
     private readonly string _directory;
     private LootDefinitionCatalog _catalog;
+    private readonly AbilityDefinitionCatalog _abilityCatalog;
     private ProfileId _profileId;
 
     public LocalProfilePersistenceStatus Status { get; private set; } = LocalProfilePersistenceStatus.Unavailable;
     public string LastError { get; private set; }
     public LocalProfileSnapshot Snapshot { get; private set; }
 
-    public LocalProfileRepository(ILocalProfileFileStore fileStore, string directory)
+    public LocalProfileRepository(
+        ILocalProfileFileStore fileStore,
+        string directory,
+        AbilityDefinitionCatalog abilityCatalog = null)
     {
         _fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         _directory = directory;
+        _abilityCatalog = abilityCatalog;
     }
 
     public bool Initialize(ProfileId profileId, LootDefinitionCatalog catalog)
@@ -52,7 +57,7 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         string mainReadError = null;
         LocalProfileSnapshot mainSnapshot = null;
         if (_fileStore.Exists(_mainPath) && _fileStore.TryRead(_mainPath, out string mainJson, out mainReadError) &&
-            LocalProfileSaveCodec.TryDecode(mainJson, profileId, catalog, out mainSnapshot, out mainStatus, out mainError))
+            LocalProfileSaveCodec.TryDecode(mainJson, profileId, catalog, _abilityCatalog, out mainSnapshot, out mainStatus, out mainError))
         {
             Snapshot = mainSnapshot;
             Status = mainStatus;
@@ -70,7 +75,7 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         LocalProfilePersistenceStatus backupStatus = LocalProfilePersistenceStatus.Unavailable;
         LocalProfileSnapshot backupSnapshot = null;
         if (_fileStore.Exists(_backupPath) && _fileStore.TryRead(_backupPath, out string backupJson, out backupReadError) &&
-            LocalProfileSaveCodec.TryDecode(backupJson, profileId, catalog, out backupSnapshot, out backupStatus, out backupError))
+            LocalProfileSaveCodec.TryDecode(backupJson, profileId, catalog, _abilityCatalog, out backupSnapshot, out backupStatus, out backupError))
         {
             Snapshot = backupSnapshot;
             Status = LocalProfilePersistenceStatus.RecoveredFromBackup;
@@ -114,7 +119,7 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
             return false;
         }
 
-        if (!LocalProfileSaveCodec.TryDecode(LocalProfileSaveCodec.Encode(snapshot), snapshot.ProfileId, _catalog, out _, out _, out error))
+        if (!LocalProfileSaveCodec.TryDecode(LocalProfileSaveCodec.Encode(snapshot), snapshot.ProfileId, _catalog, _abilityCatalog, out _, out _, out error))
         {
             LastError = error;
             return false;

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class LocalProfileSnapshot
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 8;
     public const int MaxLoadoutSlots = 30;
     public const int MaxAppliedExtractionReceipts = 256;
     public const int MaxAppliedShopTransactionReceipts = 256;
@@ -33,6 +33,7 @@ public sealed class LocalProfileSnapshot
     public List<ProgressionReceipt> AppliedProgressionReceipts { get; } = new();
     public List<MissionInstanceState> ActiveMissions { get; } = new();
     public List<AbilityId> UnlockedAbilities { get; } = new();
+    public PreparedAbilityLoadout PreparedAbilities { get; set; }
 
     public LocalProfileSnapshot Clone()
     {
@@ -49,7 +50,8 @@ public sealed class LocalProfileSnapshot
             PreparedEquipment = PreparedEquipment,
             PendingReservation = PendingReservation?.Clone(),
             PendingExtractionCommit = PendingExtractionCommit,
-            ShopIdempotencyWatermark = ShopIdempotencyWatermark
+            ShopIdempotencyWatermark = ShopIdempotencyWatermark,
+            PreparedAbilities = PreparedAbilities
         };
 
         clone.Stash.AddRange(Stash);

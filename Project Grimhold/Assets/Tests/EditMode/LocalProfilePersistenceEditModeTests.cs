@@ -814,7 +814,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             "HydrateSnapshot", 
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
             
-        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog, null });
 
         // Assert: should only have 1 receipt, not 2
         Assert.That(snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
@@ -841,10 +841,10 @@ public sealed class LocalProfilePersistenceEditModeTests
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
             
         // First login
-        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog, null });
         
         // Second login (simulate closing and opening app, reading from disk gives the snapshot with the receipt)
-        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog });
+        method.Invoke(null, new object[] { profile, snapshot, backendData, (Grimhold.Backend.ProgressionData?)null, _catalog, null });
         
         // TryDecode should pass
         string json = LocalProfileSaveCodec.Encode(snapshot);
