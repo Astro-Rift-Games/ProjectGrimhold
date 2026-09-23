@@ -177,6 +177,10 @@ public static class ApplicationStashServiceBootstrapper
         var remoteInventoryService = contextObject.AddComponent<RemoteInventoryService>();
         remoteInventoryService.Initialize(_configuration, store);
 
+        // Add ProfileReconciliationService to handle automatic retry and hydration on conflicts
+        var reconciliationService = contextObject.AddComponent<ProfileReconciliationService>();
+        reconciliationService.Initialize(_configuration, store);
+
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
@@ -187,7 +191,7 @@ public static class ApplicationStashServiceBootstrapper
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
     }
 
-    private static void HydrateSnapshot(
+    public static void HydrateSnapshot(
         ProfileId profileId,
         LocalProfileSnapshot snapshot,
         Grimhold.Backend.InventoryData? inventoryData,

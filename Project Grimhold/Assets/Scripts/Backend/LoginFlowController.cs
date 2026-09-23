@@ -10,7 +10,8 @@ public enum LoginFlowStatus
     NetworkError,
     NeedsCharacterCreation,
     RegistrationFailed,
-    CharacterCreationFailed
+    CharacterCreationFailed,
+    HydrationFailed
 }
 
 public readonly struct LoginFlowResult
@@ -187,28 +188,31 @@ public sealed class LoginFlowController : MonoBehaviour
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
         }
 
-        // Step 4: Fetch inventory snapshot
-        InventoryData? inventoryData = null;
-        var (invOk, invData, _) = await InventoryClient.GetInventoryAsync(_config, token);
-        if (invOk)
-        {
-            inventoryData = invData;
-        }
-        else
+        // Step 4: Fetch inventory and progression snapshots in parallel
+        var inventoryTask = InventoryClient.GetInventoryAsync(_config, token);
+        var progressionTask = ProgressionClient.GetProgressionAsync(_config, token);
+
+        await Task.WhenAll(inventoryTask, progressionTask);
+
+        var (invOk, invData, _) = inventoryTask.Result;
+        var (progOk, progData, _) = progressionTask.Result;
+
+        InventoryData? inventoryData = invOk ? invData : null;
+        ProgressionData? progressionData = progOk ? progData : null;
+
+        if (!invOk)
         {
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
         }
-
-        // Step 4b: Fetch progression snapshot
-        ProgressionData? progressionData = null;
-        var (progOk, progData, _) = await ProgressionClient.GetProgressionAsync(_config, token);
-        if (progOk)
-        {
-            progressionData = progData;
-        }
-        else
+        if (!progOk)
         {
             Debug.LogWarning($"[{nameof(LoginFlowController)}] Progression fetch failed. Proceeding with defaults.");
+        }
+
+        if (invOk && progOk && invData.revision != progData.revision)
+        {
+            Debug.LogError($"[{nameof(LoginFlowController)}] Hydration revision mismatch: Inventory({invData.revision}) vs Progression({progData.revision})");
+            return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Inconsistent server state (Hydration Revision Mismatch). Please try again.");
         }
 
         // Step 5: Inject identity into local systems

@@ -486,6 +486,25 @@ public sealed class LocalProfileStore
         }
     }
 
+    public void ReconcileRemoteState(
+        Grimhold.Backend.InventoryData? inventoryData,
+        Grimhold.Backend.ProgressionData? progressionData,
+        LootDefinitionCatalog catalog,
+        AbilityDefinitionCatalog abilityCatalog)
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (IsAvailable && current != null && current.ProfileId == _profileId)
+            {
+                LocalProfileSnapshot next = current.Clone();
+                ApplicationStashServiceBootstrapper.HydrateSnapshot(
+                    _profileId, next, inventoryData, progressionData, catalog, abilityCatalog);
+                Commit(next);
+            }
+        }
+    }
+
     public void ForceCharacterAttributeState(CharacterAttributeState state)
     {
         lock (_sync)

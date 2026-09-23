@@ -124,10 +124,21 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
                 _store.TryGetCharacterAttributeState(out CharacterAttributeState state))
             {
                 var remoteService = _profileContext != null ? _profileContext.GetComponent<RemoteInventoryService>() : null;
+                var reconciliationService = _profileContext != null ? _profileContext.GetComponent<ProfileReconciliationService>() : null;
+                
                 if (remoteService != null)
                 {
                     var attributeName = attribute.ToString();
-                    var (success, data, error) = await remoteService.CommitProgressionAsync(attributeName);
+                    var (success, data, error) = await RemoteRetryPolicy.ExecuteWithRetryAsync(
+                        () => remoteService.CommitProgressionAsync(attributeName),
+                        async () => 
+                        {
+                            if (reconciliationService != null)
+                                return await reconciliationService.ReconcileAsync();
+                            return false;
+                        }
+                    );
+
                     if (success)
                     {
                         Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed to backend successfully.");
