@@ -70,7 +70,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 13
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -120,6 +120,10 @@ PrefabInstance:
       propertyPath: 'NetworkedBehaviours.Array.data[12]'
       value: 
       objectReference: {fileID: 142597065861624644}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[13]'
+      value: 
+      objectReference: {fileID: 820856607998342668}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -309,6 +313,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3623087706174243918}
+    - targetCorrespondingSourceObject: {fileID: 4369124737019072436, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 820856607998342668}
     - targetCorrespondingSourceObject: {fileID: 1221760144332657486, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8975162442718285891}
@@ -438,6 +445,19 @@ MonoBehaviour:
   _attackOrigin: {fileID: 3622679648598810352}
   _attack: {fileID: 6249109546555964142}
   _movementControllerSource: {fileID: 5054560393642584851}
+--- !u!114 &820856607998342668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28c98c465dab6884c83492bb739197b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatContributionTracker
+  _assistWindowSeconds: 10
 --- !u!114 &4854276181518498371 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4419076183045921921, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}

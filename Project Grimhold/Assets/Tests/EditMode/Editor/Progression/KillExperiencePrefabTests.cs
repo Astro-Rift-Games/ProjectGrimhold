@@ -24,11 +24,15 @@ namespace Tests.EditMode.Progression
             ExtractionProgressDefeatSource extractionSource =
                 prefab.GetComponent<ExtractionProgressDefeatSource>();
             NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+            CombatContributionTracker[] trackers = prefab.GetComponents<CombatContributionTracker>();
 
             Assert.That(sources, Has.Length.EqualTo(1), path);
             Assert.That(sources[0].KillExperience, Is.EqualTo(expectedExperience), path);
             Assert.That(networkObject.NetworkedBehaviours, Does.Contain(sources[0]), path);
             Assert.That(extractionSource, Is.Not.Null, path);
+            
+            Assert.That(trackers, Has.Length.EqualTo(1), path);
+            Assert.That(networkObject.NetworkedBehaviours, Does.Contain(trackers[0]), path);
         }
 
         [Test]
@@ -39,6 +43,7 @@ namespace Tests.EditMode.Progression
 
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.GetComponent<KillExperienceSource>(), Is.Null);
+            Assert.That(prefab.GetComponent<CombatContributionTracker>(), Is.Null);
         }
     }
 }

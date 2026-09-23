@@ -14,6 +14,9 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
     [Networked]
     public NetworkBool IsGranted { get; private set; }
 
+    [Networked]
+    public NetworkBool IsAssistGranted { get; private set; }
+
     private EntityRegistry _registry;
     private EntityId _registeredId;
     private bool _isRegistered;
@@ -21,6 +24,7 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
     public long KillExperience => _killExperience;
 
     public bool IsAvailable => _killExperience > 0 && !IsGranted;
+    bool IKillExperienceSource.IsAssistGranted => IsAssistGranted;
 
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))
@@ -31,6 +35,7 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
             IsGranted = false;
+            IsAssistGranted = false;
         }
 
         _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
@@ -74,6 +79,38 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
 
         IsGranted = true;
         return true;
+    }
+
+    public bool TryGrantAssistTo(PlayerExpeditionExperienceLedger ledger)
+    {
+        if (!HasStateAuthority || IsAssistGranted || ledger == null)
+        {
+            return false;
+        }
+
+        long assistExperience = _killExperience / 2;
+        if (assistExperience <= 0)
+        {
+            return false;
+        }
+
+        if (!ledger.TryRegisterNormalReward(
+                ExpeditionExperienceSource.PveAssist,
+                assistExperience,
+                out _))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public void MarkAssistGranted()
+    {
+        if (HasStateAuthority)
+        {
+            IsAssistGranted = true;
+        }
     }
 
     private void UnregisterSource()

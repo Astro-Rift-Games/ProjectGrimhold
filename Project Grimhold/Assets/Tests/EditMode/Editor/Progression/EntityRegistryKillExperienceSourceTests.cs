@@ -102,7 +102,10 @@ namespace Tests.EditMode.Progression
             public EntityId Id => new(IdValue);
             public long KillExperience => 10;
             public bool IsAvailable => true;
+            public bool IsAssistGranted { get; set; }
             public bool TryGrantTo(PlayerExpeditionExperienceLedger ledger) => false;
+            public bool TryGrantAssistTo(PlayerExpeditionExperienceLedger ledger) => false;
+            public void MarkAssistGranted() { IsAssistGranted = true; }
         }
 
         private sealed class ExtractionSource : MonoBehaviour, IExtractionProgressDefeatSource
