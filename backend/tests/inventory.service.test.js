@@ -26,6 +26,42 @@ function makeCharacter(overrides = {}) {
   return doc;
 }
 
+function applyUpdate(doc, update) {
+  if (update.$set) {
+    for (const [key, value] of Object.entries(update.$set)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) current[parts[i]] = {};
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = value;
+    }
+  }
+  if (update.$unset) {
+    for (const key of Object.keys(update.$unset)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) break;
+        current = current[parts[i]];
+      }
+      delete current[parts[parts.length - 1]];
+    }
+  }
+  if (update.$inc) {
+    for (const [key, value] of Object.entries(update.$inc)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) current[parts[i]] = {};
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = (current[parts[parts.length - 1]] || 0) + value;
+    }
+  }
+}
+
 function makeItem(lootId, amount) {
   return { lootId, amount };
 }
@@ -36,10 +72,21 @@ function makeItem(lootId, amount) {
 
 test('InventoryService', async (t) => {
   const originalFindOne = Character.findOne;
+  const originalFindOneAndUpdate = Character.findOneAndUpdate;
 
   t.afterEach(() => {
     Character.findOne = originalFindOne;
+    Character.findOneAndUpdate = originalFindOneAndUpdate;
   });
+
+  const setupMocks = (mockChar) => {
+    Character.findOne = async () => mockChar;
+    Character.findOneAndUpdate = async (filter, update) => {
+      if (!mockChar) return null;
+      applyUpdate(mockChar, update);
+      return mockChar;
+    };
+  };
 
   // --- getInventory ---
 
@@ -57,7 +104,7 @@ test('InventoryService', async (t) => {
 
   await t.test('getInventory() - returns empty inventory for a new character', async () => {
     const mockChar = makeCharacter();
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.getInventory('acc123');
     assert.deepStrictEqual(result.stash, []);
@@ -69,7 +116,7 @@ test('InventoryService', async (t) => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash   = [makeItem('sword', 2)];
     mockChar.inventory.loadout = [makeItem('potion', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.getInventory('acc123');
     assert.deepStrictEqual(result.stash,   [{ lootId: 'sword',  amount: 2 }]);
@@ -81,9 +128,9 @@ test('InventoryService', async (t) => {
   await t.test('moveToLoadout() - moves item from stash to loadout', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('sword', 3)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToLoadout('acc123', 'sword', 2);
+    const result = await InventoryService.moveToLoadout('acc123', 'sword', 2, 0);
 
     assert.deepStrictEqual(result.stash,   [{ lootId: 'sword', amount: 1 }]);
     assert.deepStrictEqual(result.loadout, [{ lootId: 'sword', amount: 2 }]);
@@ -92,9 +139,9 @@ test('InventoryService', async (t) => {
   await t.test('moveToLoadout() - removes item from stash when all units moved', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('axe', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToLoadout('acc123', 'axe', 1);
+    const result = await InventoryService.moveToLoadout('acc123', 'axe', 1, 0);
 
     assert.deepStrictEqual(result.stash,   []);
     assert.deepStrictEqual(result.loadout, [{ lootId: 'axe', amount: 1 }]);
@@ -104,9 +151,9 @@ test('InventoryService', async (t) => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash   = [makeItem('potion', 5)];
     mockChar.inventory.loadout = [makeItem('potion', 2)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToLoadout('acc123', 'potion', 3);
+    const result = await InventoryService.moveToLoadout('acc123', 'potion', 3, 0);
 
     assert.deepStrictEqual(result.stash,   [{ lootId: 'potion', amount: 2 }]);
     assert.deepStrictEqual(result.loadout, [{ lootId: 'potion', amount: 5 }]);
@@ -114,10 +161,10 @@ test('InventoryService', async (t) => {
 
   await t.test('moveToLoadout() - throws 409 when item not in stash', async () => {
     const mockChar = makeCharacter();
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     try {
-      await InventoryService.moveToLoadout('acc123', 'bow', 1);
+      await InventoryService.moveToLoadout('acc123', 'bow', 1, 0);
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 409);
@@ -128,10 +175,10 @@ test('InventoryService', async (t) => {
   await t.test('moveToLoadout() - throws 409 when stash has insufficient amount', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('shield', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     try {
-      await InventoryService.moveToLoadout('acc123', 'shield', 3);
+      await InventoryService.moveToLoadout('acc123', 'shield', 3, 0);
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 409);
@@ -144,9 +191,9 @@ test('InventoryService', async (t) => {
   await t.test('moveToStash() - moves item from loadout to stash', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('sword', 3)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToStash('acc123', 'sword', 2);
+    const result = await InventoryService.moveToStash('acc123', 'sword', 2, 0);
 
     assert.deepStrictEqual(result.loadout, [{ lootId: 'sword', amount: 1 }]);
     assert.deepStrictEqual(result.stash,   [{ lootId: 'sword', amount: 2 }]);
@@ -155,9 +202,9 @@ test('InventoryService', async (t) => {
   await t.test('moveToStash() - removes item from loadout when all units moved', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('helm', 2)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToStash('acc123', 'helm', 2);
+    const result = await InventoryService.moveToStash('acc123', 'helm', 2, 0);
 
     assert.deepStrictEqual(result.loadout, []);
     assert.deepStrictEqual(result.stash,   [{ lootId: 'helm', amount: 2 }]);
@@ -165,10 +212,10 @@ test('InventoryService', async (t) => {
 
   await t.test('moveToStash() - throws 409 when item not in loadout', async () => {
     const mockChar = makeCharacter();
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     try {
-      await InventoryService.moveToStash('acc123', 'crown', 1);
+      await InventoryService.moveToStash('acc123', 'crown', 1, 0);
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 409);
@@ -181,13 +228,13 @@ test('InventoryService', async (t) => {
   await t.test('updatePreparedEquipment() - assigns slots from loadout successfully', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('arming_sword', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.updatePreparedEquipment('acc123', {
       weaponSlot1: 'arming_sword',
       weaponSlot2: '',
       helmet: '', armor: '', gloves: '', boots: ''
-    });
+    }, 0);
 
     assert.strictEqual(result.preparedEquipment.weaponSlot1, 'arming_sword');
     assert.strictEqual(result.preparedEquipment.weaponSlot2, '');
@@ -196,10 +243,10 @@ test('InventoryService', async (t) => {
   await t.test('updatePreparedEquipment() - throws 422 when item not in loadout', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     try {
-      await InventoryService.updatePreparedEquipment('acc123', { weaponSlot1: 'legendary_axe' });
+      await InventoryService.updatePreparedEquipment('acc123', { weaponSlot1: 'legendary_axe' }, 0);
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
@@ -210,14 +257,14 @@ test('InventoryService', async (t) => {
   await t.test('updatePreparedEquipment() - throws 422 when same item used in more slots than owned', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('potion', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     try {
       // Trying to assign the same item to two weapon slots but only 1 owned
       await InventoryService.updatePreparedEquipment('acc123', {
         weaponSlot1: 'potion',
         weaponSlot2: 'potion'
-      });
+      }, 0);
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
@@ -230,7 +277,7 @@ test('InventoryService', async (t) => {
   await t.test('clearPendingReservation() - sets reservation to null', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.pendingReservation = { reservationId: 'res-001', items: [], preparedEquipment: {} };
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.clearPendingReservation('acc123');
     assert.strictEqual(result.pendingReservation, null);
@@ -257,7 +304,7 @@ test('InventoryService', async (t) => {
         weaponSlot1: 'greatsword', weaponSlot2: 'spellbook', helmet: '', armor: '', gloves: '', boots: ''
       }
     };
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const first = await InventoryService.getInventory('acc123');
     assert.deepStrictEqual(first.stash, [
@@ -283,9 +330,9 @@ test('InventoryService', async (t) => {
   await t.test('moveToLoadout() - accepts a canonical id after persisted aliases are migrated', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('recovery_sword', 1), makeItem('training_sword', 2)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
-    const result = await InventoryService.moveToLoadout('acc123', 'arming_sword', 2);
+    const result = await InventoryService.moveToLoadout('acc123', 'arming_sword', 2, 0);
 
     assert.deepStrictEqual(result.stash, [{ lootId: 'arming_sword', amount: 1 }]);
     assert.deepStrictEqual(result.loadout, [{ lootId: 'arming_sword', amount: 2 }]);
@@ -294,13 +341,13 @@ test('InventoryService', async (t) => {
   await t.test('updatePreparedEquipment() - canonicalizes persisted and requested aliases', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('training_sword', 1)];
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.updatePreparedEquipment('acc123', {
       weaponSlot1: 'recovery_sword',
       weaponSlot2: '',
       helmet: '', armor: '', gloves: '', boots: ''
-    });
+    }, 0);
 
     assert.strictEqual(result.preparedEquipment.weaponSlot1, 'arming_sword');
     assert.deepStrictEqual(mockChar.inventory.loadout, []);
