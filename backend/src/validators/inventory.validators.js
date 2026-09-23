@@ -23,6 +23,8 @@ const moveItemValidator = [
     .notEmpty().withMessage('must not be empty'),
   body('amount')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 
@@ -35,6 +37,8 @@ const preparedEquipmentValidator = [
   body('armor')      .optional().isString().withMessage('must be a string'),
   body('gloves')     .optional().isString().withMessage('must be a string'),
   body('boots')      .optional().isString().withMessage('must be a string'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 
@@ -64,6 +68,8 @@ const commitExtractionValidator = [
     .notEmpty().withMessage('must not be empty'),
   body('items.*.amount')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
+  body('expectedRevision')
+    .optional().isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 

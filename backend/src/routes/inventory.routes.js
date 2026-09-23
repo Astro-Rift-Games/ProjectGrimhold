@@ -33,8 +33,8 @@ router.get('/me/inventory', async (req, res, next) => {
 // Body: { lootId: string, amount: number }
 router.post('/me/inventory/stash/move-to-loadout', moveItemValidator, async (req, res, next) => {
   try {
-    const { lootId, amount } = req.body;
-    const result = await InventoryService.moveToLoadout(req.accountId, lootId, amount);
+    const { lootId, amount, expectedRevision } = req.body;
+    const result = await InventoryService.moveToLoadout(req.accountId, lootId, amount, expectedRevision);
     res.json(result);
   } catch (err) {
     next(err);
@@ -46,8 +46,8 @@ router.post('/me/inventory/stash/move-to-loadout', moveItemValidator, async (req
 // Body: { lootId: string, amount: number }
 router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req, res, next) => {
   try {
-    const { lootId, amount } = req.body;
-    const result = await InventoryService.moveToStash(req.accountId, lootId, amount);
+    const { lootId, amount, expectedRevision } = req.body;
+    const result = await InventoryService.moveToStash(req.accountId, lootId, amount, expectedRevision);
     res.json(result);
   } catch (err) {
     next(err);
@@ -67,7 +67,8 @@ router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async
       gloves:      req.body.gloves      || '',
       boots:       req.body.boots       || ''
     };
-    const result = await InventoryService.updatePreparedEquipment(req.accountId, slots);
+    const expectedRevision = req.body.expectedRevision;
+    const result = await InventoryService.updatePreparedEquipment(req.accountId, slots, expectedRevision);
     res.json(result);
   } catch (err) {
     next(err);

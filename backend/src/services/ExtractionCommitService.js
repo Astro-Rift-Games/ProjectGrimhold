@@ -84,6 +84,7 @@ class ExtractionCommitService {
         level:               character.level,
         experience:          character.experience,
         characterAttributes: serializeAttributes(character.characterAttributes),
+        revision:            character.revision || 0
       };
     }
 
@@ -142,50 +143,92 @@ class ExtractionCommitService {
     // 4. Atomic Database Update
     // ------------------------------------------------------------------
     
+    const updateDoc = {
+      $unset: { 'inventory.pendingReservation': 1 },
+      $set: { 
+        'inventory.preparedEquipment': newPreparedEquipment,
+        'inventory.loadout': newLoadout,
+        level: computed.resultingLevel,
+        experience: computed.resultingExperience,
+        'characterAttributes.availablePoints': newAvailablePoints,
+        lastAppliedProgressionResultSequence: resultSequence,
+        lastProgressionReceipt: progressionReceipt
+      },
+      $inc: { revision: 1 },
+      $push: {
+        'inventory.appliedExtractionReceipts': {
+          $each: [{ raidId, resultSequence, timestamp: new Date() }],
+          $slice: -MAX_EXTRACTION_RECEIPTS
+        },
+        'appliedProgressionReceipts': {
+          $each: [progressionReceipt],
+          $slice: -MAX_PROGRESSION_RECEIPTS
+        }
+      }
+    };
+
     const updatedCharacter = await Character.findOneAndUpdate(
       {
         accountId: accountId,
+        revision: character.revision,
         // Atomic Lock: Only update if this exact receipt hasn't been applied yet
         'inventory.appliedExtractionReceipts': { 
           $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
         }
       },
-      {
-        $unset: { 'inventory.pendingReservation': 1 },
-        $set: { 
-          'inventory.preparedEquipment': newPreparedEquipment,
-          'inventory.loadout': newLoadout,
-          level: computed.resultingLevel,
-          experience: computed.resultingExperience,
-          'characterAttributes.availablePoints': newAvailablePoints,
-          lastAppliedProgressionResultSequence: resultSequence,
-          lastProgressionReceipt: progressionReceipt
-        },
-        $push: {
-          'inventory.appliedExtractionReceipts': {
-            $each: [{ raidId, resultSequence, timestamp: new Date() }],
-            $slice: -MAX_EXTRACTION_RECEIPTS
-          },
-          'appliedProgressionReceipts': {
-            $each: [progressionReceipt],
-            $slice: -MAX_PROGRESSION_RECEIPTS
-          }
-        }
-      },
+      updateDoc,
       { new: true }
     );
 
-    // If updatedCharacter is null, it means either the character was deleted OR the atomic lock prevented the update
-    // because a concurrent request already applied it.
+    // If updatedCharacter is null, it means either the character was deleted,
+    // the atomic lock prevented the update, or the revision changed.
     if (!updatedCharacter) {
       // Re-fetch to return the newly secured state
-      const refreshedChar = await Character.findOne({ accountId });
+      let refreshedChar = await Character.findOne({ accountId });
+      if (!refreshedChar) {
+        throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'Character not found after commit.' };
+      }
+
+      const lootAlreadyAppliedNow = (refreshedChar.inventory.appliedExtractionReceipts || []).some(
+        r => r.raidId === raidId && r.resultSequence === resultSequence
+      );
+
+      if (lootAlreadyAppliedNow) {
+        return {
+          alreadySecured:      true,
+          loadout:             serializeItems(refreshedChar.inventory.loadout),
+          level:               refreshedChar.level,
+          experience:          refreshedChar.experience,
+          characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
+          revision:            refreshedChar.revision || 0
+        };
+      }
+
+      // Revision must have changed concurrently, try one more time for read-modify-write
+      const retryUpdated = await Character.findOneAndUpdate(
+        {
+          accountId: accountId,
+          revision: refreshedChar.revision,
+          'inventory.appliedExtractionReceipts': { 
+            $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
+          }
+        },
+        updateDoc,
+        { new: true }
+      );
+
+      if (!retryUpdated) {
+        // Internal conflict, client will retry since it's an idempotent operation (covered in F3)
+        throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict during extraction commit.' };
+      }
+
       return {
-        alreadySecured:      true,
-        loadout:             serializeItems(refreshedChar.inventory.loadout),
-        level:               refreshedChar.level,
-        experience:          refreshedChar.experience,
-        characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
+        alreadySecured:      false,
+        loadout:             serializeItems(retryUpdated.inventory.loadout),
+        level:               retryUpdated.level,
+        experience:          retryUpdated.experience,
+        characterAttributes: serializeAttributes(retryUpdated.characterAttributes),
+        revision:            retryUpdated.revision
       };
     }
 
@@ -195,6 +238,7 @@ class ExtractionCommitService {
       level:               updatedCharacter.level,
       experience:          updatedCharacter.experience,
       characterAttributes: serializeAttributes(updatedCharacter.characterAttributes),
+      revision:            updatedCharacter.revision
     };
   }
 }

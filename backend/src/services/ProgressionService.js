@@ -71,7 +71,8 @@ class ProgressionService {
       { 
         accountId, 
         revision: payload.expectedRevision,
-        'characterAttributes.availablePoints': { $gt: 0 } 
+        'characterAttributes.availablePoints': { $gt: 0 },
+        [`characterAttributes.${attributeName}`]: { $lt: MAX_ATTRIBUTE_VALUE }
       },
       updateQuery,
       { new: true }
