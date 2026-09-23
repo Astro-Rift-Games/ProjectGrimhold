@@ -168,12 +168,12 @@ public class RemoteInventoryService : MonoBehaviour
     /// <summary>
     /// Persists the active raid reservation.
     /// </summary>
-    public async Task<(bool success, BackendError error)> SavePendingReservationAsync(PendingLoadoutReservation reservation)
+    public Task<(bool success, BackendError error)> SavePendingReservationAsync(PendingLoadoutReservation reservation)
     {
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] SavePendingReservationAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
         }
 
         if (reservation.PreparedEquipment.WeaponSetAOffHand.IsValid ||
@@ -182,60 +182,65 @@ public class RemoteInventoryService : MonoBehaviour
             Debug.LogWarning(
                 $"[{nameof(RemoteInventoryService)}] The current backend cannot persist Off Hand " +
                 "assignments. The local reservation remains authoritative for this application run.");
-            return (false, new BackendError
+            return Task.FromResult((false, new BackendError
             {
                 error = "UNSUPPORTED_EQUIPMENT_LAYOUT",
                 message = "The current backend does not support Weapon Set Off Hand assignments."
-            });
+            }));
         }
 
-        await _mutationLock.WaitAsync();
-        try
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
         {
-
-            var request = new SaveReservationRequest
+            await _mutationLock.WaitAsync();
+            try
             {
-                reservationId = reservation.ReservationId
-            };
+                var request = new SaveReservationRequest
+                {
+                    reservationId = reservation.ReservationId
+                };
 
-            var (success, result, error) = await InventoryClient.SavePendingReservationAsync(_backendConfig, AuthToken, request);
-            if (success && _store != null)
-            {
-                _store.SetRemoteRevision(result.revision);
+                var (success, result, error) = await InventoryClient.SavePendingReservationAsync(_backendConfig, AuthToken, request);
+                if (success && _store != null)
+                {
+                    _store.SetRemoteRevision(result.revision);
+                }
+                return (success, error);
             }
-            return (success, error);
-        }
-        finally
-        {
-            _mutationLock.Release();
-        }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
     }
 
     /// <summary>
     /// Clears the active raid reservation.
     /// </summary>
-    public async Task<(bool success, BackendError error)> ClearPendingReservationAsync()
+    public Task<(bool success, BackendError error)> ClearPendingReservationAsync()
     {
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] ClearPendingReservationAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
         }
 
-        await _mutationLock.WaitAsync();
-        try
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
         {
-            var (success, result, error) = await InventoryClient.ClearPendingReservationAsync(_backendConfig, AuthToken);
-            if (success && _store != null)
+            await _mutationLock.WaitAsync();
+            try
             {
-                _store.SetRemoteRevision(result.revision);
+                var (success, result, error) = await InventoryClient.ClearPendingReservationAsync(_backendConfig, AuthToken);
+                if (success && _store != null)
+                {
+                    _store.SetRemoteRevision(result.revision);
+                }
+                return (success, error);
             }
-            return (success, error);
-        }
-        finally
-        {
-            _mutationLock.Release();
-        }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
     }
 
     /// <summary>
@@ -270,7 +275,7 @@ public class RemoteInventoryService : MonoBehaviour
         return (success, error);
     }
 
-    public async Task<(bool success, CommitExtractionUnifiedResult result, BackendError error)> CommitExtractionUnifiedAsync(
+    public Task<(bool success, CommitExtractionUnifiedResult result, BackendError error)> CommitExtractionUnifiedAsync(
         ExtractionReceipt receipt,
         System.Collections.Generic.IReadOnlyList<StashItem> items,
         PreparedEquipmentLoadout preparedEquipment,
@@ -280,54 +285,57 @@ public class RemoteInventoryService : MonoBehaviour
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitExtractionUnifiedAsync: Not authenticated.");
-            return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return Task.FromResult<(bool, CommitExtractionUnifiedResult, BackendError)>((false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
         }
 
-        await _mutationLock.WaitAsync();
-        try
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
         {
-            var request = new CommitExtractionUnifiedRequest
+            await _mutationLock.WaitAsync();
+            try
             {
-                raidId         = receipt.RaidId,
-                resultSequence = receipt.ResultSequence,
-                items          = MapToDTO(items),
-                preparedEquipment = new PreparedEquipmentData
+                var request = new CommitExtractionUnifiedRequest
                 {
-                    weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
-                    weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
-                    helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
-                    armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
-                    gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-                    boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
-                },
-                progression    = new ExtractionProgressionData 
-                {
-                    consolidatedExperience = consolidatedExperience,
-                    resultingLevel = resultingLevel
-                }
-            };
+                    raidId         = receipt.RaidId,
+                    resultSequence = receipt.ResultSequence,
+                    items          = MapToDTO(items),
+                    preparedEquipment = new PreparedEquipmentData
+                    {
+                        weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
+                        weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
+                        helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
+                        armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
+                        gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
+                        boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+                    },
+                    progression    = new ExtractionProgressionData 
+                    {
+                        consolidatedExperience = consolidatedExperience,
+                        resultingLevel = resultingLevel
+                    }
+                };
 
-            var (success, result, error) = await InventoryClient.CommitExtractionUnifiedAsync(_backendConfig, AuthToken, request);
+                var (success, result, error) = await InventoryClient.CommitExtractionUnifiedAsync(_backendConfig, AuthToken, request);
 
-            if (success && _store != null)
-            {
-                _store.SetRemoteRevision(result.revision);
-                if (result.alreadySecured)
+                if (success && _store != null)
                 {
-                    Debug.Log($"[{nameof(RemoteInventoryService)}] Unified extraction already secured on backend " +
-                              $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
+                    _store.SetRemoteRevision(result.revision);
+                    if (result.alreadySecured)
+                    {
+                        Debug.Log($"[{nameof(RemoteInventoryService)}] Unified extraction already secured on backend " +
+                                  $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
+                    }
                 }
+
+                return (success, result, error);
             }
-
-            return (success, result, error);
-        }
-        finally
-        {
-            _mutationLock.Release();
-        }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
     }
 
-    public async Task<(bool success, BackendError error)> PublishExtractionResultAsync(
+    public Task<(bool success, BackendError error)> PublishExtractionResultAsync(
         ExtractionReceipt receipt,
         System.Collections.Generic.IReadOnlyList<StashItem> items,
         PreparedEquipmentLoadout preparedEquipment,
@@ -336,7 +344,7 @@ public class RemoteInventoryService : MonoBehaviour
         if (string.IsNullOrEmpty(AuthToken))
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] PublishExtractionResultAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
         }
 
         string messageToSign = $"{receipt.RaidId}:{receipt.ResultSequence}";
@@ -366,8 +374,11 @@ public class RemoteInventoryService : MonoBehaviour
             hostSignature = hostSignature
         };
 
-        var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
-        return (success, error);
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
+        {
+            var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
+            return (success, error);
+        });
     }
 
     private InventoryItemData[] MapToDTO(System.Collections.Generic.IReadOnlyList<StashItem> items)

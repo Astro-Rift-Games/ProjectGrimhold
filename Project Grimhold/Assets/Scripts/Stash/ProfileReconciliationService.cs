@@ -46,8 +46,21 @@ public class ProfileReconciliationService : MonoBehaviour
 
         await Task.WhenAll(inventoryTask, progressionTask);
 
-        var (invOk, invData, _) = inventoryTask.Result;
-        var (progOk, progData, _) = progressionTask.Result;
+        var invResult = inventoryTask.Result;
+        var progResult = progressionTask.Result;
+
+        if (invResult.success && progResult.success && invResult.result.revision != progResult.result.revision)
+        {
+            Debug.LogWarning($"[ProfileReconciliationService] Mismatch in remote revisions during reconciliation: Inv({invResult.result.revision}) vs Prog({progResult.result.revision}). Retrying once...");
+            inventoryTask = InventoryClient.GetInventoryAsync(_config, AuthToken);
+            progressionTask = ProgressionClient.GetProgressionAsync(_config, AuthToken);
+            await Task.WhenAll(inventoryTask, progressionTask);
+            invResult = inventoryTask.Result;
+            progResult = progressionTask.Result;
+        }
+
+        var (invOk, invData, _) = invResult;
+        var (progOk, progData, _) = progResult;
 
         if (!invOk || !progOk)
         {
@@ -57,7 +70,7 @@ public class ProfileReconciliationService : MonoBehaviour
 
         if (invData.revision != progData.revision)
         {
-            Debug.LogError($"[ProfileReconciliationService] Mismatch in remote revisions during reconciliation: Inv({invData.revision}) vs Prog({progData.revision})");
+            Debug.LogError($"[ProfileReconciliationService] Mismatch in remote revisions after retry: Inv({invData.revision}) vs Prog({progData.revision})");
             return false; // Still mismatching, can't safely reconcile
         }
 

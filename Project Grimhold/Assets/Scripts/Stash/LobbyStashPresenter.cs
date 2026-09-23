@@ -169,9 +169,9 @@ public class LobbyStashPresenter : MonoBehaviour
 
         // Like PreparedEquipmentAssignmentRequested, we should sync equipment state.
         bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess && _reconciliationService != null)
+        if (!syncSuccess)
         {
-            await _reconciliationService.ReconcileAsync();
+            // SyncPreparedEquipmentAsync already uses RemoteOperationPolicy
         }
     }
 
@@ -186,11 +186,13 @@ public class LobbyStashPresenter : MonoBehaviour
             var stashItems = _stashService.GetStash(_localProfileId).ToList();
             foreach (var item in stashItems)
             {
-                var (success, error) = await _remoteInventoryService.MoveToLoadoutAsync(item.LootId, item.Amount);
+                var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+                    () => _remoteInventoryService.MoveToLoadoutAsync(item.LootId, item.Amount),
+                    async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
+                );
                 if (!success)
                 {
                     Debug.LogWarning($"[LobbyStashPresenter] Remote Take All failed for {item.LootId.Value}: {error.message}");
-                    if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
                     return;
                 }
             }
@@ -199,6 +201,7 @@ public class LobbyStashPresenter : MonoBehaviour
             if (result != StashOperationResult.Success)
             {
                 Debug.LogWarning($"[LobbyStashPresenter] Take All failed locally: {result}");
+                // No need to reconcile here; local errors shouldn't happen if remote succeeded, but if they do, we're out of sync.
                 if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
             }
         }
@@ -219,11 +222,13 @@ public class LobbyStashPresenter : MonoBehaviour
             var loadoutItems = _loadoutService.GetLoadout(_localProfileId).ToList();
             foreach (var item in loadoutItems)
             {
-                var (success, error) = await _remoteInventoryService.MoveToStashAsync(item.LootId, item.Amount);
+                var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+                    () => _remoteInventoryService.MoveToStashAsync(item.LootId, item.Amount),
+                    async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
+                );
                 if (!success)
                 {
                     Debug.LogWarning($"[LobbyStashPresenter] Remote Leave All failed for {item.LootId.Value}: {error.message}");
-                    if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
                     return;
                 }
             }
@@ -267,14 +272,16 @@ public class LobbyStashPresenter : MonoBehaviour
 
             if (amountToTransfer == int.MaxValue || amountToTransfer <= 0) return;
 
-            var (success, error) = isFromStash 
-                ? await _remoteInventoryService.MoveToLoadoutAsync(lootId, amountToTransfer)
-                : await _remoteInventoryService.MoveToStashAsync(lootId, amountToTransfer);
+            var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+                () => isFromStash 
+                    ? _remoteInventoryService.MoveToLoadoutAsync(lootId, amountToTransfer)
+                    : _remoteInventoryService.MoveToStashAsync(lootId, amountToTransfer),
+                async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
+            );
 
             if (!success)
             {
                 Debug.LogWarning($"[LobbyStashPresenter] Remote transfer failed: {error.message}");
-                if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
                 return;
             }
 
@@ -316,9 +323,9 @@ public class LobbyStashPresenter : MonoBehaviour
         }
 
         bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess && _reconciliationService != null)
+        if (!syncSuccess)
         {
-            await _reconciliationService.ReconcileAsync();
+            // Handled internally
         }
     }
 
@@ -334,9 +341,9 @@ public class LobbyStashPresenter : MonoBehaviour
         }
 
         bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess && _reconciliationService != null)
+        if (!syncSuccess)
         {
-            await _reconciliationService.ReconcileAsync();
+            // Handled internally
         }
     }
 
@@ -355,7 +362,11 @@ public class LobbyStashPresenter : MonoBehaviour
         }
 
         PreparedEquipmentLoadout prepared = _loadoutService.GetPreparedEquipment(_localProfileId);
-        var (success, error) = await _remoteInventoryService.UpdatePreparedEquipmentAsync(prepared);
+        var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+            () => _remoteInventoryService.UpdatePreparedEquipmentAsync(prepared),
+            async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
+        );
+        
         if (!success)
         {
             Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment sync failed: {error.message}");
