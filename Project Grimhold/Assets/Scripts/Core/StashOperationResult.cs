@@ -29,5 +29,8 @@ public enum StashOperationResult
     PersistenceFailed,
 
     /// <summary>The confirmed character attributes do not satisfy a weapon assignment.</summary>
-    AttributeRequirementsNotMet
+    AttributeRequirementsNotMet,
+
+    /// <summary>The hydration process failed during initialization or reconciliation.</summary>
+    HydrationFailed
 }

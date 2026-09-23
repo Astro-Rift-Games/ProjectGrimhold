@@ -205,7 +205,7 @@ namespace Grimhold.Backend
                 try   { return JsonUtility.FromJson<BackendError>(request.downloadHandler.text); }
                 catch { /* fall through */ }
             }
-            return new BackendError { error = "NETWORK_ERROR", message = request.error };
+            return new BackendError { error = BackendErrorUtility.ClassifyConnectionError(request.error), message = request.error };
         }
     }
 }

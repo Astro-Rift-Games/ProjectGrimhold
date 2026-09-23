@@ -8,7 +8,7 @@ public static class LoginHydrationFailureClassifier
 {
     public static LoginFlowResult ClassifyHydrationFailure(BackendError error, string component)
     {
-        var isNetwork = error.error == "NETWORK_ERROR";
+        var isNetwork = BackendErrorUtility.IsTransportFailure(error.error);
         return LoginFlowResult.Failure(
             isNetwork ? LoginFlowStatus.NetworkError : LoginFlowStatus.HydrationFailed,
             $"Could not load your {component}. Please try again.");

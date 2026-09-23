@@ -16,7 +16,7 @@ namespace Grimhold.Tests.Backend
         [Test]
         public void ClassifyHydrationFailure_NetworkError_Returns_NetworkErrorStatus()
         {
-            var error = new BackendError { error = "NETWORK_ERROR" };
+            var error = new BackendError { error = BackendErrorUtility.NetworkError };
 
             LoginFlowResult result = LoginHydrationFailureClassifier.ClassifyHydrationFailure(error, "inventory");
 
@@ -51,11 +51,20 @@ namespace Grimhold.Tests.Backend
         [Test]
         public void ClassifyHydrationFailure_Timeout_Returns_NetworkErrorStatus()
         {
-            var error = new BackendError { error = "NETWORK_ERROR", message = "Request timeout" };
+            var error = new BackendError { error = BackendErrorUtility.Timeout, message = "Request timeout" };
 
             LoginFlowResult result = LoginHydrationFailureClassifier.ClassifyHydrationFailure(error, "inventory");
 
-            // Timeout surfaces as NETWORK_ERROR on the client side — must be retryable.
+            Assert.AreEqual(LoginFlowStatus.NetworkError, result.Status);
+        }
+
+        [Test]
+        public void ClassifyHydrationFailure_RequestCancelled_Returns_NetworkErrorStatus()
+        {
+            var error = new BackendError { error = BackendErrorUtility.RequestCancelled, message = "Request aborted" };
+
+            LoginFlowResult result = LoginHydrationFailureClassifier.ClassifyHydrationFailure(error, "inventory");
+
             Assert.AreEqual(LoginFlowStatus.NetworkError, result.Status);
         }
 
