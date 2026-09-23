@@ -34,6 +34,18 @@ public sealed class AbilityIdTests
     }
 
     [Test]
+    public void TryCreate_EnforcesNetworkSnapshotLengthLimit()
+    {
+        string maximumLengthId = new string('a', AbilityId.MaximumLength);
+        string oversizedId = maximumLengthId + "a";
+
+        Assert.That(AbilityId.TryCreate(maximumLengthId, out AbilityId valid), Is.True);
+        Assert.That(valid.Value, Has.Length.EqualTo(AbilityId.MaximumLength));
+        Assert.That(AbilityId.TryCreate(oversizedId, out _), Is.False);
+        Assert.Throws<ArgumentException>(() => new AbilityId(oversizedId));
+    }
+
+    [Test]
     public void Equality_UsesStableOrdinalValue()
     {
         var left = new AbilityId("arcane_projectile");

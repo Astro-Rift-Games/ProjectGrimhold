@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Assert = NUnit.Framework.Assert;
 
 [Category("TASK143")]
+[Category("TASK180")]
 public sealed class RaidAdmissionDataCodecTests
 {
     private const string ReservationId = "0123456789abcdef0123456789abcdef";
@@ -52,7 +53,7 @@ public sealed class RaidAdmissionDataCodecTests
             lastAppliedProgressionResultSequence: 12);
 
         Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
-        Assert.That(token[0], Is.EqualTo(10));
+        Assert.That(token[0], Is.EqualTo(11));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
         Assert.That(decoded.RaidCode, Is.EqualTo(code));
         Assert.That(decoded.ProfileId, Is.EqualTo(source.ProfileId));
@@ -341,6 +342,70 @@ public sealed class RaidAdmissionDataCodecTests
                 out RaidAdmissionData data),
             Is.True);
         Assert.That(data.CharacterAttributes, Is.EqualTo(CustomAttributes));
+    }
+
+    [TestCase(null, null)]
+    [TestCase("charge", null)]
+    [TestCase(null, "trap")]
+    [TestCase("charge", "trap")]
+    public void PreparedAbilitySlots_RoundTripZeroOneOrTwoOccupiedSlots(
+        string slot1,
+        string slot2)
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var prepared = new PreparedAbilityLoadout(
+            string.IsNullOrEmpty(slot1) ? default : new AbilityId(slot1),
+            string.IsNullOrEmpty(slot2) ? default : new AbilityId(slot2));
+        var source = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-abilities"),
+            ReservationId,
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
+            InitialAttributes,
+            new[] { 1, 0, 0, 0, 0, 0 },
+            preparedAbilities: prepared);
+
+        Assert.That(RaidAdmissionDataCodec.TryEncode(source, out byte[] token), Is.True);
+        Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
+        Assert.That(decoded.PreparedAbilities, Is.EqualTo(prepared));
+    }
+
+    [Test]
+    public void PreparedAbilitySlots_RejectDuplicateAndMalformedTransport()
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        var duplicate = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-duplicate-abilities"),
+            ReservationId,
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
+            InitialAttributes,
+            new[] { 1, 0, 0, 0, 0, 0 },
+            preparedAbilities: new PreparedAbilityLoadout(
+                new AbilityId("charge"),
+                new AbilityId("charge")));
+        Assert.That(RaidAdmissionDataCodec.TryEncode(duplicate, out _), Is.False);
+
+        var valid = new RaidAdmissionData(
+            code,
+            new ProfileId("profile-malformed-abilities"),
+            ReservationId,
+            new[] { new LootEntry(new LootId("arming_sword"), 1) },
+            InitialAttributes,
+            new[] { 1, 0, 0, 0, 0, 0 });
+        Assert.That(RaidAdmissionDataCodec.TryEncode(valid, out byte[] token), Is.True);
+
+        int offset = 1;
+        for (int textIndex = 0; textIndex < 2; textIndex++)
+        {
+            offset += 1 + token[offset];
+        }
+        offset += 16;
+        offset += sizeof(int) + sizeof(long) + sizeof(int);
+        offset += sizeof(short) * 7;
+        token[offset] = 2;
+
+        Assert.That(RaidAdmissionDataCodec.TryDecode(token, out _), Is.False);
     }
 
     private static CharacterAttributeState InitialAttributes =>

@@ -9,7 +9,7 @@ using System.Text;
 /// </summary>
 public static class RaidAdmissionDataCodec
 {
-    private const byte CanonicalVersion = 10;  // bumped: GUID binary + short attributes
+    private const byte CanonicalVersion = 11;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -54,6 +54,12 @@ public static class RaidAdmissionDataCodec
             writer.Write((short)data.CharacterAttributes.Intelligence);
             writer.Write((short)data.CharacterAttributes.Luck);
             writer.Write((short)data.CharacterAttributes.AvailablePoints);
+
+            if (!TryWriteOptionalAbilityId(writer, data.PreparedAbilities.Slot1) ||
+                !TryWriteOptionalAbilityId(writer, data.PreparedAbilities.Slot2))
+            {
+                return false;
+            }
 
             writer.Write((byte)data.ReservedLoadout.Count);
             for (int index = 0; index < data.ReservedLoadout.Count; index++)
@@ -143,6 +149,17 @@ public static class RaidAdmissionDataCodec
                 return false;
             }
 
+            if (!TryReadOptionalAbilityId(reader, out AbilityId abilitySlot1) ||
+                !TryReadOptionalAbilityId(reader, out AbilityId abilitySlot2))
+            {
+                return false;
+            }
+            var preparedAbilities = new PreparedAbilityLoadout(abilitySlot1, abilitySlot2);
+            if (!PreparedAbilityLoadout.TryValidateTransportShape(preparedAbilities, out _))
+            {
+                return false;
+            }
+
             int entryCount = reader.ReadByte();
             if (entryCount > RaidLoadoutRules.MaximumEntries)
             {
@@ -183,7 +200,8 @@ public static class RaidAdmissionDataCodec
                 level,
                 currentExperience,
                 lastAppliedProgressionResultSequence,
-                activeWeaponSet);
+                activeWeaponSet,
+                preparedAbilities);
             return data.IsValid;
         }
         catch (ArgumentException)
@@ -212,6 +230,26 @@ public static class RaidAdmissionDataCodec
         writer.Write((byte)bytes.Length);
         writer.Write(bytes);
         return true;
+    }
+
+    private static bool TryWriteOptionalAbilityId(BinaryWriter writer, AbilityId abilityId)
+    {
+        writer.Write(abilityId.IsValid);
+        return !abilityId.IsValid || TryWriteText(writer, abilityId.Value);
+    }
+
+    private static bool TryReadOptionalAbilityId(BinaryReader reader, out AbilityId abilityId)
+    {
+        abilityId = default;
+        int presence = reader.ReadByte();
+        if (presence == 0)
+        {
+            return true;
+        }
+
+        return presence == 1 &&
+               TryReadText(reader, out string value) &&
+               AbilityId.TryCreate(value, out abilityId);
     }
 
     private static bool TryReadText(BinaryReader reader, out string value)

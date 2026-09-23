@@ -49,6 +49,46 @@ public readonly struct PreparedAbilityLoadout : IEquatable<PreparedAbilityLoadou
                TryValidateSlot(loadout.Slot2, unlockedAbilities, attributes, catalog, out error);
     }
 
+    /// <summary>Validates the ordered pair's transport-only invariants.</summary>
+    public static bool TryValidateTransportShape(
+        in PreparedAbilityLoadout loadout,
+        out string error)
+    {
+        if (loadout.Slot1.IsValid && loadout.Slot1 == loadout.Slot2)
+        {
+            error = "Prepared ability slots contain a duplicate ability ID.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Revalidates transported identities against Raid's authoritative catalog and admitted
+    /// attributes. Ownership is validated locally before transport; the repertoire never crosses.
+    /// </summary>
+    public static bool TryValidateAdmission(
+        in PreparedAbilityLoadout loadout,
+        in CharacterAttributeState attributes,
+        AbilityDefinitionCatalog catalog,
+        out string error)
+    {
+        if (!TryValidateTransportShape(loadout, out error))
+        {
+            return false;
+        }
+
+        if (catalog == null)
+        {
+            error = "Ability catalog is missing.";
+            return false;
+        }
+
+        return TryValidateAdmissionSlot(loadout.Slot1, attributes, catalog, out error) &&
+               TryValidateAdmissionSlot(loadout.Slot2, attributes, catalog, out error);
+    }
+
     /// <summary>
     /// Revalidates a previously valid loadout after confirmed attributes change. Requirement-invalid
     /// slots are cleared; unknown, locked, or duplicate state is rejected rather than normalized.
@@ -106,6 +146,34 @@ public readonly struct PreparedAbilityLoadout : IEquatable<PreparedAbilityLoadou
         if (definition != null && !definition.AreAttributeRequirementsSatisfiedBy(attributes))
         {
             error = $"Prepared ability '{abilityId.Value}' does not satisfy its attribute requirements.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateAdmissionSlot(
+        AbilityId abilityId,
+        in CharacterAttributeState attributes,
+        AbilityDefinitionCatalog catalog,
+        out string error)
+    {
+        if (!abilityId.IsValid)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!catalog.TryGet(abilityId, out AbilityDefinition definition) || definition == null)
+        {
+            error = $"Prepared ability '{abilityId.Value}' is unknown to the authoritative catalog.";
+            return false;
+        }
+
+        if (!definition.AreAttributeRequirementsSatisfiedBy(attributes))
+        {
+            error = $"Prepared ability '{abilityId.Value}' does not satisfy its admitted attribute requirements.";
             return false;
         }
 

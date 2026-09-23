@@ -72,6 +72,46 @@ public sealed class LocalProfileStore
                 : default;
         }
     }
+
+    /// <summary>
+    /// Captures the confirmed attributes and prepared abilities for Raid admission in one
+    /// aggregate read. The unlocked repertoire remains local and is used only to revalidate the
+    /// two transported identities before they cross the Town-to-Raid boundary.
+    /// </summary>
+    public bool TryGetRaidAdmissionAbilitySnapshot(
+        out CharacterAttributeState characterAttributes,
+        out PreparedAbilityLoadout preparedAbilities,
+        out string error)
+    {
+        lock (_sync)
+        {
+            characterAttributes = default;
+            preparedAbilities = default;
+            error = null;
+
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            if (!IsAvailable || snapshot == null || snapshot.ProfileId != _profileId)
+            {
+                error = "The local profile is unavailable for Raid admission.";
+                return false;
+            }
+
+            if (!PreparedAbilityLoadout.TryValidate(
+                    snapshot.PreparedAbilities,
+                    snapshot.UnlockedAbilities,
+                    snapshot.CharacterAttributes,
+                    _abilityCatalog,
+                    out error))
+            {
+                return false;
+            }
+
+            characterAttributes = snapshot.CharacterAttributes;
+            preparedAbilities = snapshot.PreparedAbilities;
+            return true;
+        }
+    }
+
     public IReadOnlyList<AbilityId> GetUnlockedAbilities()
     {
         lock (_sync)

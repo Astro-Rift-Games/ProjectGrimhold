@@ -3,6 +3,8 @@ using System;
 /// <summary>Stable, ordinal identity used to reference one ability across system boundaries.</summary>
 public readonly struct AbilityId : IEquatable<AbilityId>
 {
+    public const int MaximumLength = 64;
+
     public string Value { get; }
 
     public bool IsValid => IsValidValue(Value);
@@ -12,7 +14,7 @@ public readonly struct AbilityId : IEquatable<AbilityId>
         if (!IsValidValue(value))
         {
             throw new ArgumentException(
-                "AbilityId must contain only lowercase ASCII letters, numbers, and underscores.",
+                $"AbilityId must contain 1-{MaximumLength} lowercase ASCII letters, numbers, or underscores.",
                 nameof(value));
         }
 
@@ -33,7 +35,7 @@ public readonly struct AbilityId : IEquatable<AbilityId>
 
     public static bool IsValidValue(string value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value) || value.Length > MaximumLength)
         {
             return false;
         }
