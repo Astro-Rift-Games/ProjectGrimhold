@@ -13,6 +13,7 @@ namespace Grimhold.Backend
         public long experience;
         public int  lastAppliedProgressionResultSequence;
         public CharacterAttributesData characterAttributes;
+        public int  revision;
     }
 
     [Serializable]
@@ -31,6 +32,7 @@ namespace Grimhold.Backend
     public struct CommitProgressionResult
     {
         public CharacterAttributesData characterAttributes;
+        public int revision;
     }
 
     // ---------------------------------------------------------------------------
@@ -41,5 +43,6 @@ namespace Grimhold.Backend
     public struct CommitProgressionRequest
     {
         public string attribute;
+        public int expectedRevision;
     }
 }

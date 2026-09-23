@@ -325,6 +325,11 @@ public static class ApplicationStashServiceBootstrapper
                 }
             }
         }
+
+        int maxRevision = snapshot.RemoteRevision;
+        if (inventoryData.HasValue) maxRevision = UnityEngine.Mathf.Max(maxRevision, inventoryData.Value.revision);
+        if (progressionData.HasValue) maxRevision = UnityEngine.Mathf.Max(maxRevision, progressionData.Value.revision);
+        snapshot.RemoteRevision = maxRevision;
     }
 
     private static async System.Threading.Tasks.Task RetryPendingExtractionAsync(

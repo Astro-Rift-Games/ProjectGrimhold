@@ -9,12 +9,14 @@ using Grimhold.Backend;
 public class RemoteInventoryService : MonoBehaviour
 {
     private BackendConfiguration _backendConfig;
+    private LocalProfileStore _store;
 
     // Use property getter for token to avoid caching it when not authenticated
     private string AuthToken => ApplicationAuthContext.Instance?.Token;
 
     public void Initialize(LocalProfilePersistenceConfiguration localConfig, LocalProfileStore store)
     {
+        _store = store;
         // Fetch configuration from LoginFlowController if available, otherwise try Resources
         if (LoginFlowController.Instance != null && LoginFlowController.Instance.Config != null)
         {
@@ -45,10 +47,17 @@ public class RemoteInventoryService : MonoBehaviour
 
         var request = new CommitProgressionRequest
         {
-            attribute = attributeName
+            attribute = attributeName,
+            expectedRevision = _store?.RemoteRevision ?? 0
         };
 
         var (success, result, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
+        
+        if (success && _store != null)
+        {
+            _store.SetRemoteRevision(result.revision);
+        }
+        
         return (success, result.characterAttributes, error);
     }
 

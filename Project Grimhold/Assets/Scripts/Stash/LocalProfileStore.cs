@@ -58,6 +58,8 @@ public sealed class LocalProfileStore
         _repository.Snapshot != null ? _repository.Snapshot.CurrentExperience : 0L;
     public int GetLastAppliedProgressionResultSequence() =>
         _repository.Snapshot != null ? _repository.Snapshot.LastAppliedProgressionResultSequence : 0;
+    public int RemoteRevision =>
+        _repository.Snapshot != null ? _repository.Snapshot.RemoteRevision : 0;
 
     public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
         _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
@@ -467,6 +469,20 @@ public sealed class LocalProfileStore
             return Commit(next) == StashOperationResult.Success
                 ? CharacterAttributeAssignmentCommitResult.Success
                 : CharacterAttributeAssignmentCommitResult.PersistenceFailed;
+        }
+    }
+
+    public void SetRemoteRevision(int revision)
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (IsAvailable && current != null && current.ProfileId == _profileId)
+            {
+                LocalProfileSnapshot next = current.Clone();
+                next.RemoteRevision = revision;
+                Commit(next);
+            }
         }
     }
 

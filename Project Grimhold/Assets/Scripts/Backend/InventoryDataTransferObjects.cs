@@ -18,6 +18,7 @@ namespace Grimhold.Backend
         public PreparedEquipmentData    preparedEquipment;
         public PendingReservationData   pendingReservation;
         public ExtractionReceiptData    lastAppliedExtractionReceipt;
+        public int                      revision;
     }
 
     [Serializable]
