@@ -75,7 +75,8 @@ class InventoryService {
       loadout:            serializeItems(character.inventory.loadout),
       preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
       pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
-      lastAppliedExtractionReceipt: lastExtraction
+      lastAppliedExtractionReceipt: lastExtraction,
+      revision: character.revision || 0
     };
   }
 

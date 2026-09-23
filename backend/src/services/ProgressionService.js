@@ -19,7 +19,8 @@ class ProgressionService {
       characterAttributes: character.characterAttributes || {
         vitality: 5, resistance: 5, strength: 5,
         dexterity: 5, intelligence: 5, luck: 5, availablePoints: 10
-      }
+      },
+      revision: character.revision || 0
     };
   }
   static async commitProgression(accountId, payload) {
@@ -32,6 +33,10 @@ class ProgressionService {
 
     if (!payload || !payload.attribute) {
       throw { statusCode: 400, errorCode: 'INVALID_ATTRIBUTE', message: 'Attribute is required.' };
+    }
+
+    if (payload.expectedRevision === undefined) {
+      throw { statusCode: 400, errorCode: 'REVISION_REQUIRED', message: 'expectedRevision is required.' };
     }
 
     const attributeName = payload.attribute.toLowerCase();
@@ -57,18 +62,30 @@ class ProgressionService {
     const updateQuery = {
       $inc: {
         [`characterAttributes.${attributeName}`]: 1,
-        'characterAttributes.availablePoints': -1
+        'characterAttributes.availablePoints': -1,
+        revision: 1
       }
     };
 
     const updated = await Character.findOneAndUpdate(
-      { accountId },
+      { accountId, revision: payload.expectedRevision },
       updateQuery,
       { new: true }
     );
 
+    if (!updated) {
+      // It might have failed because the revision was wrong, or character deleted.
+      // We already checked if the character exists above, but let's be sure.
+      const exists = await Character.findOne({ accountId });
+      if (!exists) {
+        throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
+      }
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+
     return {
-      characterAttributes: updated.characterAttributes
+      characterAttributes: updated.characterAttributes,
+      revision: updated.revision
     };
   }
 }

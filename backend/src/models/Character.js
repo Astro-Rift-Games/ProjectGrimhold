@@ -87,6 +87,10 @@ const characterSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  revision: {
+    type: Number,
+    default: 0
   }
 });
 
