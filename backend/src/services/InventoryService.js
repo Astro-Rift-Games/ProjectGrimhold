@@ -325,7 +325,7 @@ class InventoryService {
    * @throws 404 if no character found.
    */
   static async savePendingReservation(accountId, reservationId) {
-    let character = await Character.findOne({ accountId });
+    const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
@@ -350,7 +350,7 @@ class InventoryService {
       preparedEquipment
     };
 
-    let updated = await Character.findOneAndUpdate(
+    const updated = await Character.findOneAndUpdate(
       { accountId, revision: character.revision },
       {
         $set: {
@@ -378,12 +378,12 @@ class InventoryService {
    * @throws 404 if no character found.
    */
   static async clearPendingReservation(accountId) {
-    let character = await Character.findOne({ accountId });
+    const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    let updated = await Character.findOneAndUpdate(
+    const updated = await Character.findOneAndUpdate(
       { accountId, revision: character.revision },
       {
         $set: { 'inventory.pendingReservation': null },

@@ -60,7 +60,7 @@ test('ProgressionService - Concurrency with Real MongoDB', async (t) => {
     assert.strictEqual(dbChar.characterAttributes.availablePoints, 4);
   });
 
-  await t.test('commitProgression concurrent with ExtractionCommitService.commit does not duplicate points', async () => {
+  await t.test('Concurrent commitProgression during extraction fails the extraction and preserves the spent point', async () => {
     const accountId = new mongoose.Types.ObjectId();
     const char = new Character({
       accountId: accountId,
@@ -68,17 +68,16 @@ test('ProgressionService - Concurrency with Real MongoDB', async (t) => {
       revision: 0,
       level: 1,
       experience: 0,
-      characterAttributes: { availablePoints: 0, vitality: 5 },
+      characterAttributes: { availablePoints: 1, vitality: 5 },
       inventory: { stash: [], loadout: [], preparedEquipment: {} }
     });
     await char.save();
 
-    // Create auth result granting enough XP for level up (e.g. grants 1 point)
     await AuthoritativeExtractionResult.create({
       raidId: 'raid_999',
       accountId: accountId,
       items: [],
-      experienceGranted: 1000 // Levels up to 2
+      experienceGranted: 1000 // Grants level up
     });
 
     const originalFindOneAndUpdate = Character.findOneAndUpdate;
@@ -87,21 +86,7 @@ test('ProgressionService - Concurrency with Real MongoDB', async (t) => {
     Character.findOneAndUpdate = async function(filter, update, options) {
       if (!updateCalled && update.$push && update.$push['appliedProgressionReceipts']) {
         updateCalled = true;
-        // Concurrent commitProgression before the atomic extraction update finishes.
-        // Wait, character initially has 0 points, but extraction gives points. 
-        // If the commitProgression runs *before* extraction update, it will fail (0 points).
-        // If it runs *after*, it shouldn't be possible to run it *during* the update using the old revision.
-        // What we want to test: extraction recalculates points, but doesn't overwrite points consumed by a concurrent progression commit.
-        // Wait, the user asked to simulate a concurrent commitProgression during the extraction!
-        // But extraction *adds* points. Wait, if extraction uses updateDoc calculated from first read,
-        // it sets availablePoints to (old + newly_granted). 
-        // If a commitProgression consumes points concurrently, the extraction would overwrite it.
-        // However, we removed the internal retry in ExtractionCommitService.
-        // So the extraction's findOneAndUpdate will fail with REVISION_CONFLICT if revision changed!
-        try {
-          // Let's manually advance the revision just before the extraction atomic update
-          await Character.updateOne({ accountId }, { $inc: { revision: 1 } });
-        } catch(e) {}
+        await ProgressionService.commitProgression(accountId.toString(), { attribute: 'vitality', expectedRevision: 0 });
       }
       return originalFindOneAndUpdate.call(this, filter, update, options);
     };
@@ -121,6 +106,8 @@ test('ProgressionService - Concurrency with Real MongoDB', async (t) => {
 
     const dbChar = await Character.findOne({ accountId });
     assert.strictEqual(dbChar.revision, 1);
-    assert.strictEqual(dbChar.level, 1, 'Extraction failed, level did not increase');
+    assert.strictEqual(dbChar.characterAttributes.availablePoints, 0);
+    assert.strictEqual(dbChar.characterAttributes.vitality, 6);
+    assert.strictEqual(dbChar.level, 1);
   });
 });
