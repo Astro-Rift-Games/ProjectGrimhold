@@ -380,6 +380,7 @@ public static class ApplicationStashServiceBootstrapper
         if (success)
         {
             Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Successfully recovered pending extraction commit.");
+            store.SetRemoteRevision(result.revision);
             store.ClearPendingExtractionCommit();
         }
         else

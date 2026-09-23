@@ -70,6 +70,7 @@ namespace Grimhold.Backend
     {
         public string lootId;
         public int    amount;
+        public int    expectedRevision;
     }
 
     /// <summary>
@@ -85,6 +86,7 @@ namespace Grimhold.Backend
         public string armor;
         public string gloves;
         public string boots;
+        public int    expectedRevision;
     }
 
     /// <summary>Body for POST /character/me/inventory/reservation.</summary>
@@ -107,6 +109,7 @@ namespace Grimhold.Backend
     {
         public InventoryItemData[] stash;
         public InventoryItemData[] loadout;
+        public int                 revision;
     }
 
     /// <summary>Response shape returned by the update-prepared-equipment endpoint.</summary>
@@ -114,6 +117,7 @@ namespace Grimhold.Backend
     public struct UpdatePreparedEquipmentResult
     {
         public PreparedEquipmentData preparedEquipment;
+        public int                   revision;
     }
 
     /// <summary>Response shape returned by the save-reservation endpoint.</summary>
@@ -121,6 +125,13 @@ namespace Grimhold.Backend
     public struct SaveReservationResult
     {
         public PendingReservationData pendingReservation;
+        public int                    revision;
+    }
+
+    [Serializable]
+    public struct ClearPendingReservationResult
+    {
+        public int revision;
     }
 
     // ---------------------------------------------------------------------------
@@ -151,6 +162,7 @@ namespace Grimhold.Backend
         /// The caller should treat this as success — no retry needed.
         /// </summary>
         public bool alreadySecured;
+        public int  revision;
     }
 
     [Serializable]
@@ -178,6 +190,7 @@ namespace Grimhold.Backend
         public int                   level;
         public long                  experience;
         public CharacterAttributesData characterAttributes;
+        public int                   revision;
     }
 
     [Serializable]
