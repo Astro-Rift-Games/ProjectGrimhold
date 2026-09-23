@@ -31,12 +31,12 @@ class ProgressionService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
     }
 
-    if (!payload || !payload.attribute) {
-      throw { statusCode: 400, errorCode: 'INVALID_ATTRIBUTE', message: 'Attribute is required.' };
+    if (!payload || typeof payload.attribute !== 'string' || payload.attribute.trim() === '') {
+      throw { statusCode: 400, errorCode: 'INVALID_ATTRIBUTE', message: 'Attribute must be a non-empty string.' };
     }
 
-    if (payload.expectedRevision === undefined) {
-      throw { statusCode: 400, errorCode: 'REVISION_REQUIRED', message: 'expectedRevision is required.' };
+    if (typeof payload.expectedRevision !== 'number' || payload.expectedRevision < 0 || !Number.isInteger(payload.expectedRevision)) {
+      throw { statusCode: 400, errorCode: 'INVALID_REVISION', message: 'expectedRevision must be a non-negative integer.' };
     }
 
     const attributeName = payload.attribute.toLowerCase();
@@ -68,19 +68,33 @@ class ProgressionService {
     };
 
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: payload.expectedRevision },
+      { 
+        accountId, 
+        revision: payload.expectedRevision,
+        'characterAttributes.availablePoints': { $gt: 0 } 
+      },
       updateQuery,
       { new: true }
     );
 
     if (!updated) {
-      // It might have failed because the revision was wrong, or character deleted.
-      // We already checked if the character exists above, but let's be sure.
-      const exists = await Character.findOne({ accountId });
+      // It might have failed because the revision was wrong, or character deleted,
+      // or availablePoints became 0 due to concurrent requests.
+      const exists = await Character.findOne({ accountId }, null, { lean: true });
       if (!exists) {
         throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
       }
-      console.log(`[ProgressionService] REVISION_CONFLICT: expectedRevision=${payload.expectedRevision}, actualRevision=${exists.revision}`);
+      
+      const currentAttrs = exists.characterAttributes;
+      if (!currentAttrs || typeof currentAttrs.availablePoints !== 'number') {
+        console.error(`[ProgressionService] Legacy document detected without characterAttributes.availablePoints. AccountId: ${accountId}`);
+        throw { statusCode: 500, errorCode: 'LEGACY_DOCUMENT_UNNORMALIZED', message: 'Legacy document is missing required attributes.' };
+      }
+      
+      if (currentAttrs.availablePoints <= 0) {
+        throw { statusCode: 422, errorCode: 'NO_AVAILABLE_POINTS', message: 'No available attribute points.' };
+      }
+
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
 

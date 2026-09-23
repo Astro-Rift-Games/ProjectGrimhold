@@ -12,11 +12,14 @@ public static class RemoteRetryPolicy
     /// </summary>
     public static async Task<(bool success, T result, BackendError error)> ExecuteWithRetryAsync<T>(
         Func<Task<(bool success, T result, BackendError error)>> operation,
-        Func<Task<bool>> reconciliationFunc)
+        Func<Task<bool>> reconciliationFunc,
+        Func<int> currentRevisionProvider = null)
     {
         int retries = 0;
         while (retries < MaxRetries)
         {
+            int sentRevision = currentRevisionProvider?.Invoke() ?? -1;
+
             var (success, result, error) = await operation();
             if (success)
             {
@@ -26,11 +29,20 @@ public static class RemoteRetryPolicy
             if (error.error == "REVISION_CONFLICT")
             {
                 UnityEngine.Debug.LogWarning($"[RemoteRetryPolicy] Revision conflict detected. Reconciling... (Attempt {retries + 1}/{MaxRetries})");
+                
                 bool reconciled = await reconciliationFunc();
                 if (!reconciled)
                 {
                     return (false, default, new BackendError { error = "RECONCILIATION_FAILED", message = "Failed to reconcile state with remote server." });
                 }
+
+                int postReconciliationRevision = currentRevisionProvider?.Invoke() ?? -1;
+                if (currentRevisionProvider != null && sentRevision == postReconciliationRevision)
+                {
+                    UnityEngine.Debug.LogError($"[RemoteRetryPolicy] Revision did not advance after reconciliation (stuck at {postReconciliationRevision}). Aborting retries.");
+                    return (false, default, new BackendError { error = "REVISION_NOT_ADVANCING", message = "Revision did not change after reconciliation." });
+                }
+
                 retries++;
                 continue;
             }

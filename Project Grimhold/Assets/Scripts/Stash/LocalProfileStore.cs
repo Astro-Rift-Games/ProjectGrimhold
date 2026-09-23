@@ -486,7 +486,7 @@ public sealed class LocalProfileStore
         }
     }
 
-    public void ReconcileRemoteState(
+    public StashOperationResult ReconcileRemoteState(
         Grimhold.Backend.InventoryData? inventoryData,
         Grimhold.Backend.ProgressionData? progressionData,
         LootDefinitionCatalog catalog,
@@ -509,8 +509,9 @@ public sealed class LocalProfileStore
                 if (progressionData.HasValue) serverRevision = UnityEngine.Mathf.Max(serverRevision, progressionData.Value.revision);
                 next.RemoteRevision = serverRevision;
 
-                Commit(next);
+                return Commit(next);
             }
+            return StashOperationResult.PersistenceFailed;
         }
     }
 

@@ -84,7 +84,7 @@ test('ProgressionService.commitProgression with concurrency/revision', async (t)
     );
   });
 
-  await t.test('Sin expectedRevision devuelve 400 REVISION_REQUIRED', async () => {
+  await t.test('Sin expectedRevision devuelve 400 INVALID_REVISION', async () => {
     Character.findOne = async () => makeCharacter();
 
     await assert.rejects(
@@ -93,7 +93,51 @@ test('ProgressionService.commitProgression with concurrency/revision', async (t)
       }),
       err => {
         assert.equal(err.statusCode, 400);
-        assert.equal(err.errorCode, 'REVISION_REQUIRED');
+        assert.equal(err.errorCode, 'INVALID_REVISION');
+        return true;
+      }
+    );
+  });
+
+  await t.test('expectedRevision negativo o no-entero devuelve 400 INVALID_REVISION', async () => {
+    Character.findOne = async () => makeCharacter();
+
+    await assert.rejects(
+      () => ProgressionService.commitProgression(VALID_ACCOUNT_ID, {
+        attribute: 'vitality',
+        expectedRevision: -1
+      }),
+      err => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.errorCode, 'INVALID_REVISION');
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      () => ProgressionService.commitProgression(VALID_ACCOUNT_ID, {
+        attribute: 'vitality',
+        expectedRevision: 1.5
+      }),
+      err => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.errorCode, 'INVALID_REVISION');
+        return true;
+      }
+    );
+  });
+
+  await t.test('attribute no-string devuelve 400 INVALID_ATTRIBUTE', async () => {
+    Character.findOne = async () => makeCharacter();
+
+    await assert.rejects(
+      () => ProgressionService.commitProgression(VALID_ACCOUNT_ID, {
+        attribute: 123,
+        expectedRevision: 0
+      }),
+      err => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.errorCode, 'INVALID_ATTRIBUTE');
         return true;
       }
     );
@@ -115,6 +159,63 @@ test('ProgressionService.commitProgression with concurrency/revision', async (t)
       err => {
         assert.equal(err.statusCode, 404);
         assert.equal(err.errorCode, 'CHARACTER_NOT_FOUND');
+        return true;
+      }
+    );
+  });
+
+  await t.test('Commit asume campo revision y atributos validados', async () => {
+    const mockChar = makeCharacter({ revision: undefined, characterAttributes: { vitality: 5, availablePoints: 5 } });
+    
+    Character.findOne = async () => mockChar;
+
+    Character.findOneAndUpdate = async (query, update, options) => {
+      // Validate that the query checks for availablePoints > 0
+      assert.deepEqual(query['characterAttributes.availablePoints'], { $gt: 0 });
+      assert.equal(query.revision, 0); // No more $or fallback
+      
+      mockChar.revision = (mockChar.revision || 0) + (update.$inc.revision || 0);
+      mockChar.characterAttributes.vitality += update.$inc['characterAttributes.vitality'] || 0;
+      mockChar.characterAttributes.availablePoints += update.$inc['characterAttributes.availablePoints'] || 0;
+      return mockChar;
+    };
+
+    const result = await ProgressionService.commitProgression(VALID_ACCOUNT_ID, {
+      attribute: 'vitality',
+      expectedRevision: 0
+    });
+
+    assert.equal(result.revision, 1);
+  });
+
+  await t.test('Commit devuelve 422 NO_AVAILABLE_POINTS si falló update y el pj no tiene puntos (en vez de 409)', async () => {
+    Character.findOneAndUpdate = async (query, update, options) => {
+      // Validate that the query checks for availablePoints > 0
+      assert.deepEqual(query['characterAttributes.availablePoints'], { $gt: 0 });
+      // Simulate failure to update (e.g. lost the race condition)
+      return null;
+    };
+    
+    let findOneCalls = 0;
+    Character.findOne = async (query) => {
+      findOneCalls++;
+      if (findOneCalls === 1) {
+        // First call (initial check): character has 1 available point
+        return makeCharacter({ revision: 5, characterAttributes: { vitality: 5, availablePoints: 1 } });
+      } else {
+        // Second call (fallback check after !updated): character has 0 points now
+        return makeCharacter({ revision: 6, characterAttributes: { vitality: 6, availablePoints: 0 } });
+      }
+    };
+
+    await assert.rejects(
+      () => ProgressionService.commitProgression(VALID_ACCOUNT_ID, {
+        attribute: 'vitality',
+        expectedRevision: 5
+      }),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'NO_AVAILABLE_POINTS');
         return true;
       }
     );

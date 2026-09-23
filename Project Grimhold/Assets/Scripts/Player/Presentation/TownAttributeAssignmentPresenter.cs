@@ -115,9 +115,11 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
         return true;
     }
 
+    private bool _isCommitInFlight = false;
+
     private async void AssignAttribute(CharacterAttribute attribute)
     {
-        if (_store == null) return;
+        if (_store == null || _isCommitInFlight) return;
 
         var commitResult = _store.TryAssignCharacterAttribute(attribute, out _);
         if (commitResult != CharacterAttributeAssignmentCommitResult.Success) return;
@@ -131,36 +133,45 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
             return;
         }
 
-        var attributeName = attribute.ToString();
-        var (success, data, error) = await RemoteRetryPolicy.ExecuteWithRetryAsync(
-            () => remoteService.CommitProgressionAsync(attributeName),
-            async () => reconciliationService != null && await reconciliationService.ReconcileAsync()
-        );
+        _isCommitInFlight = true;
+        try
+        {
+            var attributeName = attribute.ToString();
+            var (success, data, error) = await RemoteRetryPolicy.ExecuteWithRetryAsync(
+                () => remoteService.CommitProgressionAsync(attributeName),
+                async () => reconciliationService != null && await reconciliationService.ReconcileAsync(),
+                () => _store?.RemoteRevision ?? 0
+            );
 
-        if (success)
-        {
-            Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed. Applying authoritative state.");
-            if (CharacterAttributeState.TryCreate(
-                    data.vitality, data.resistance, data.strength,
-                    data.dexterity, data.intelligence, data.luck, data.availablePoints,
-                    out CharacterAttributeState authoritativeState))
+            if (success)
             {
-                _store.ForceCharacterAttributeState(authoritativeState);
-            }
-        }
-        else
-        {
-            // Backend rejected definitively (after retries and reconciliation attempts).
-            // Reconcile to overwrite the optimistic local state with the authoritative server state.
-            Debug.LogError($"[TownAttributeAssignmentPresenter] Backend rejected {attributeName}: {error.error} - {error.message}. Reconciling local state.");
-            if (reconciliationService != null)
-            {
-                bool reconciled = await reconciliationService.ReconcileAsync();
-                if (!reconciled)
+                Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed. Applying authoritative state.");
+                if (CharacterAttributeState.TryCreate(
+                        data.vitality, data.resistance, data.strength,
+                        data.dexterity, data.intelligence, data.luck, data.availablePoints,
+                        out CharacterAttributeState authoritativeState))
                 {
-                    Debug.LogError("[TownAttributeAssignmentPresenter] Reconciliation after rejection failed. Local state may diverge from server.");
+                    _store.ForceCharacterAttributeState(authoritativeState);
                 }
             }
+            else
+            {
+                // Backend rejected definitively (after retries and reconciliation attempts).
+                // Reconcile to overwrite the optimistic local state with the authoritative server state.
+                Debug.LogError($"[TownAttributeAssignmentPresenter] Backend rejected {attributeName}: {error.error} - {error.message}. Reconciling local state.");
+                if (reconciliationService != null)
+                {
+                    bool reconciled = await reconciliationService.ReconcileAsync();
+                    if (!reconciled)
+                    {
+                        Debug.LogError("[TownAttributeAssignmentPresenter] Reconciliation after rejection failed. Local state may diverge from server.");
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _isCommitInFlight = false;
         }
     }
 

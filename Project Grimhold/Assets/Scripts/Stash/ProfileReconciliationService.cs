@@ -66,7 +66,13 @@ public class ProfileReconciliationService : MonoBehaviour
         var abilityCatalog = _localConfig.AbilityCatalog;
 
         // Apply authoritative data directly to the local store
-        _store.ReconcileRemoteState(invData, progData, catalog, abilityCatalog);
+        var result = _store.ReconcileRemoteState(invData, progData, catalog, abilityCatalog);
+        
+        if (result != StashOperationResult.Success)
+        {
+            Debug.LogError($"[ProfileReconciliationService] ReconcileRemoteState failed with result: {result}");
+            return false;
+        }
         
         return true;
     }
