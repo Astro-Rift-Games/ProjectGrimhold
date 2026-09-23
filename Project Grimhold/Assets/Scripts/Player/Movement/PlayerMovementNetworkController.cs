@@ -142,15 +142,16 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             IsMoving = true;
         }
 
-        // Combat consumes FacingDirection later in this simulation tick. Resolve from
-        // the motor's final position so aiming follows the same authoritative state.
-        if (gameplayPhaseActive && hasInput && !IsDefaultInput(in input) && isAlive &&
-            PlayerAimMath.TryResolveDirection(
-                (Vector2)transform.position,
-                input.AimWorldPosition,
-                out Vector2 aimDirection))
+        // Combat consumes FacingDirection later in this simulation tick. Locomotion
+        // supplies the default facing, while contextual actions may override it from
+        // the cursor using the motor's final position as their canonical origin.
+        if (gameplayPhaseActive && hasInput && isAlive)
         {
-            FacingDirection = aimDirection;
+            FacingDirection = ResolveFacingDirection(
+                in input,
+                moveDirection,
+                (Vector2)transform.position,
+                FacingDirection);
         }
     }
 
@@ -183,11 +184,31 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         KnockbackVelocity += impactDirection.normalized * force;
     }
 
-    private static bool IsDefaultInput(in PlayerNetworkInput input)
+    internal static Vector2 ResolveFacingDirection(
+        in PlayerNetworkInput input,
+        Vector2 moveDirection,
+        Vector2 finalPosition,
+        Vector2 previousFacing)
     {
-        return input.MoveDirection == Vector2.zero &&
-               input.AimWorldPosition == Vector2.zero &&
-               input.Buttons.Bits == 0;
+        Vector2 resolvedFacing = previousFacing;
+        if (PlayerAimMath.TryNormalizeDirection(moveDirection, out Vector2 movementFacing))
+        {
+            resolvedFacing = movementFacing;
+        }
+
+        bool hasContextualFacingIntent =
+            input.Buttons.IsSet(PlayerInputButton.PrimaryAttack) ||
+            input.Buttons.IsSet(PlayerInputButton.Interact);
+        if (hasContextualFacingIntent &&
+            PlayerAimMath.TryResolveDirection(
+                finalPosition,
+                input.AimWorldPosition,
+                out Vector2 contextualFacing))
+        {
+            resolvedFacing = contextualFacing;
+        }
+
+        return resolvedFacing;
     }
 
     internal static bool ShouldSprint(
