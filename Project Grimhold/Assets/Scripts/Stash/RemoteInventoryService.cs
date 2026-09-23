@@ -45,10 +45,13 @@ public class RemoteInventoryService : MonoBehaviour
             return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
         }
 
+        int currentRevision = _store?.RemoteRevision ?? 0;
+        Debug.Log($"[{nameof(RemoteInventoryService)}] CommitProgressionAsync: sending expectedRevision={currentRevision}");
+
         var request = new CommitProgressionRequest
         {
             attribute = attributeName,
-            expectedRevision = _store?.RemoteRevision ?? 0
+            expectedRevision = currentRevision
         };
 
         var (success, result, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);

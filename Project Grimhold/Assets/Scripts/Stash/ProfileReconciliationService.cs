@@ -9,12 +9,14 @@ using Grimhold.Backend;
 public class ProfileReconciliationService : MonoBehaviour
 {
     private BackendConfiguration _config;
+    private LocalProfilePersistenceConfiguration _localConfig;
     private LocalProfileStore _store;
 
     private string AuthToken => ApplicationAuthContext.Instance?.Token;
 
     public void Initialize(LocalProfilePersistenceConfiguration localConfig, LocalProfileStore store)
     {
+        _localConfig = localConfig;
         _store = store;
         
         if (LoginFlowController.Instance != null && LoginFlowController.Instance.Config != null)
@@ -33,7 +35,7 @@ public class ProfileReconciliationService : MonoBehaviour
 
     public async Task<bool> ReconcileAsync()
     {
-        if (string.IsNullOrEmpty(AuthToken) || _store == null)
+        if (string.IsNullOrEmpty(AuthToken) || _store == null || _localConfig == null)
         {
             Debug.LogError("[ProfileReconciliationService] Not initialized or not authenticated.");
             return false;
@@ -59,9 +61,9 @@ public class ProfileReconciliationService : MonoBehaviour
             return false; // Still mismatching, can't safely reconcile
         }
 
-        // Load catalogs
-        var catalog = Resources.Load<LootDefinitionCatalog>("LootCatalog");
-        var abilityCatalog = Resources.Load<AbilityDefinitionCatalog>("AbilityCatalog");
+        // Use catalogs from local configuration instead of Resources.Load
+        var catalog = _localConfig.LootCatalog;
+        var abilityCatalog = _localConfig.AbilityCatalog;
 
         // Apply authoritative data directly to the local store
         _store.ReconcileRemoteState(invData, progData, catalog, abilityCatalog);

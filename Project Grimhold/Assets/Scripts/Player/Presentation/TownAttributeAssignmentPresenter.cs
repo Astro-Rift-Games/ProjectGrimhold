@@ -117,47 +117,48 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 
     private async void AssignAttribute(CharacterAttribute attribute)
     {
-        if (_store != null)
-        {
-            var commitResult = _store.TryAssignCharacterAttribute(attribute, out _);
-            if (commitResult == CharacterAttributeAssignmentCommitResult.Success &&
-                _store.TryGetCharacterAttributeState(out CharacterAttributeState state))
-            {
-                var remoteService = _profileContext != null ? _profileContext.GetComponent<RemoteInventoryService>() : null;
-                var reconciliationService = _profileContext != null ? _profileContext.GetComponent<ProfileReconciliationService>() : null;
-                
-                if (remoteService != null)
-                {
-                    var attributeName = attribute.ToString();
-                    var (success, data, error) = await RemoteRetryPolicy.ExecuteWithRetryAsync(
-                        () => remoteService.CommitProgressionAsync(attributeName),
-                        async () => 
-                        {
-                            if (reconciliationService != null)
-                                return await reconciliationService.ReconcileAsync();
-                            return false;
-                        }
-                    );
+        if (_store == null) return;
 
-                    if (success)
-                    {
-                        Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed to backend successfully.");
-                        if (CharacterAttributeState.TryCreate(
-                            data.vitality, data.resistance, data.strength,
-                            data.dexterity, data.intelligence, data.luck, data.availablePoints,
-                            out CharacterAttributeState authoritativeState))
-                        {
-                            _store.ForceCharacterAttributeState(authoritativeState);
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError($"[TownAttributeAssignmentPresenter] Failed to commit attribute {attributeName}: {error.error} - {error.message}");
-                    }
-                }
-                else
+        var commitResult = _store.TryAssignCharacterAttribute(attribute, out _);
+        if (commitResult != CharacterAttributeAssignmentCommitResult.Success) return;
+
+        var remoteService         = _profileContext?.GetComponent<RemoteInventoryService>();
+        var reconciliationService = _profileContext?.GetComponent<ProfileReconciliationService>();
+
+        if (remoteService == null)
+        {
+            Debug.LogWarning("[TownAttributeAssignmentPresenter] RemoteInventoryService not found, attribute not committed to backend.");
+            return;
+        }
+
+        var attributeName = attribute.ToString();
+        var (success, data, error) = await RemoteRetryPolicy.ExecuteWithRetryAsync(
+            () => remoteService.CommitProgressionAsync(attributeName),
+            async () => reconciliationService != null && await reconciliationService.ReconcileAsync()
+        );
+
+        if (success)
+        {
+            Debug.Log($"[TownAttributeAssignmentPresenter] Attribute {attributeName} committed. Applying authoritative state.");
+            if (CharacterAttributeState.TryCreate(
+                    data.vitality, data.resistance, data.strength,
+                    data.dexterity, data.intelligence, data.luck, data.availablePoints,
+                    out CharacterAttributeState authoritativeState))
+            {
+                _store.ForceCharacterAttributeState(authoritativeState);
+            }
+        }
+        else
+        {
+            // Backend rejected definitively (after retries and reconciliation attempts).
+            // Reconcile to overwrite the optimistic local state with the authoritative server state.
+            Debug.LogError($"[TownAttributeAssignmentPresenter] Backend rejected {attributeName}: {error.error} - {error.message}. Reconciling local state.");
+            if (reconciliationService != null)
+            {
+                bool reconciled = await reconciliationService.ReconcileAsync();
+                if (!reconciled)
                 {
-                    Debug.LogWarning("[TownAttributeAssignmentPresenter] RemoteInventoryService not found, attributes not committed to backend.");
+                    Debug.LogError("[TownAttributeAssignmentPresenter] Reconciliation after rejection failed. Local state may diverge from server.");
                 }
             }
         }

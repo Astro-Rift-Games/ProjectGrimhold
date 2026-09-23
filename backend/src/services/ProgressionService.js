@@ -80,6 +80,7 @@ class ProgressionService {
       if (!exists) {
         throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
       }
+      console.log(`[ProgressionService] REVISION_CONFLICT: expectedRevision=${payload.expectedRevision}, actualRevision=${exists.revision}`);
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
 

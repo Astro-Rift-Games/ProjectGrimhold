@@ -181,41 +181,52 @@ public sealed class LoginFlowController : MonoBehaviour
                 "Login succeeded but character data could not be loaded.");
         }
 
-        // Step 3: Fetch profile snapshot
-        var (profileOk, profileData, _) = await CharacterClient.GetProfileAsync(_config, token);
+        // Step 3: Fetch profile snapshot — required; fail-closed.
+        var (profileOk, profileData, profileError) = await CharacterClient.GetProfileAsync(_config, token);
         if (!profileOk)
         {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
+            var isNetwork = profileError.error == "NETWORK_ERROR";
+            return LoginFlowResult.Failure(
+                isNetwork ? LoginFlowStatus.NetworkError : LoginFlowStatus.HydrationFailed,
+                "Could not load your character profile. Please try again.");
         }
 
-        // Step 4: Fetch inventory and progression snapshots in parallel
-        var inventoryTask = InventoryClient.GetInventoryAsync(_config, token);
+        // Step 4: Fetch inventory and progression snapshots in parallel — both required; fail-closed.
+        var inventoryTask   = InventoryClient.GetInventoryAsync(_config, token);
         var progressionTask = ProgressionClient.GetProgressionAsync(_config, token);
 
         await Task.WhenAll(inventoryTask, progressionTask);
 
-        var (invOk, invData, _) = inventoryTask.Result;
-        var (progOk, progData, _) = progressionTask.Result;
-
-        InventoryData? inventoryData = invOk ? invData : null;
-        ProgressionData? progressionData = progOk ? progData : null;
+        var (invOk, invData, invError)    = inventoryTask.Result;
+        var (progOk, progData, progError) = progressionTask.Result;
 
         if (!invOk)
         {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
+            var isNetwork = invError.error == "NETWORK_ERROR";
+            return LoginFlowResult.Failure(
+                isNetwork ? LoginFlowStatus.NetworkError : LoginFlowStatus.HydrationFailed,
+                "Could not load your inventory. Please try again.");
         }
+
         if (!progOk)
         {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Progression fetch failed. Proceeding with defaults.");
+            var isNetwork = progError.error == "NETWORK_ERROR";
+            return LoginFlowResult.Failure(
+                isNetwork ? LoginFlowStatus.NetworkError : LoginFlowStatus.HydrationFailed,
+                "Could not load your progression. Please try again.");
         }
 
-        if (invOk && progOk && invData.revision != progData.revision)
+        if (invData.revision != progData.revision)
         {
-            Debug.LogError($"[{nameof(LoginFlowController)}] Hydration revision mismatch: Inventory({invData.revision}) vs Progression({progData.revision})");
-            return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Inconsistent server state (Hydration Revision Mismatch). Please try again.");
+            Debug.LogError(
+                $"[{nameof(LoginFlowController)}] Hydration revision mismatch: " +
+                $"Inventory({invData.revision}) vs Progression({progData.revision})");
+            return LoginFlowResult.Failure(
+                LoginFlowStatus.HydrationFailed,
+                "Inconsistent server state (Hydration Revision Mismatch). Please try again.");
         }
 
-        // Step 5: Inject identity into local systems
+        // Step 5: Inject identity into local systems.
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
 
@@ -224,8 +235,8 @@ public sealed class LoginFlowController : MonoBehaviour
             _authContext.Initialize(token, charData, profileData);
         }
 
-        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated inventory
-        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData, progressionData);
+        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated data.
+        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData);
 
         return LoginFlowResult.Success();
     }

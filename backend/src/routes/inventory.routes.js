@@ -133,7 +133,6 @@ router.post('/me/inventory/extraction', commitExtractionValidator, async (req, r
 // }
 router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (req, res, next) => {
   try {
-    console.log("COMMIT PAYLOAD:", JSON.stringify(req.body, null, 2));
     const result = await ExtractionCommitService.commit(req.accountId, req.body);
     res.status(result.alreadySecured ? 200 : 201).json(result);
   } catch (err) {

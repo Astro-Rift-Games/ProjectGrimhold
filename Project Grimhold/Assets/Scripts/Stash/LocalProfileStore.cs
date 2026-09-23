@@ -500,6 +500,15 @@ public sealed class LocalProfileStore
                 LocalProfileSnapshot next = current.Clone();
                 ApplicationStashServiceBootstrapper.HydrateSnapshot(
                     _profileId, next, inventoryData, progressionData, catalog, abilityCatalog);
+
+                // Always use the authoritative server revision after reconciliation, not
+                // Math.Max, so a stale higher revision from a previous session on disk
+                // can never prevent the next commit from finding the correct expectedRevision.
+                int serverRevision = 0;
+                if (inventoryData.HasValue)   serverRevision = UnityEngine.Mathf.Max(serverRevision, inventoryData.Value.revision);
+                if (progressionData.HasValue) serverRevision = UnityEngine.Mathf.Max(serverRevision, progressionData.Value.revision);
+                next.RemoteRevision = serverRevision;
+
                 Commit(next);
             }
         }
