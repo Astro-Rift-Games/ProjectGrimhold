@@ -75,6 +75,15 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     private NetworkBool IsCharacterAttributeStateInitialized { get; set; }
 
+    [Networked]
+    private NetworkString<_64> PreparedAbilitySlot1 { get; set; }
+
+    [Networked]
+    private NetworkString<_64> PreparedAbilitySlot2 { get; set; }
+
+    [Networked]
+    private NetworkBool IsPreparedAbilitySnapshotInitialized { get; set; }
+
     public bool IsExtractionCommitConfirmed =>
         ExtractionExperiencePhase >= ExtractionExperienceTransactionPhase.ExtractedLootPending;
 
@@ -125,6 +134,22 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             out state);
     }
 
+    /// <summary>Reads the immutable prepared-ability entitlement admitted for this participation.</summary>
+    public bool TryGetPreparedAbilityLoadout(out PreparedAbilityLoadout preparedAbilities)
+    {
+        preparedAbilities = default;
+        if (Object == null || !Object.IsValid)
+        {
+            return false;
+        }
+
+        return TryBuildPreparedAbilityLoadout(
+            IsPreparedAbilitySnapshotInitialized,
+            PreparedAbilitySlot1.ToString(),
+            PreparedAbilitySlot2.ToString(),
+            out preparedAbilities);
+    }
+
     public bool TryGetCharacterAttributeRevision(out int revision)
     {
         revision = 0;
@@ -166,6 +191,36 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             out state);
     }
 
+    internal static bool TryBuildPreparedAbilityLoadout(
+        bool initialized,
+        string slot1,
+        string slot2,
+        out PreparedAbilityLoadout preparedAbilities)
+    {
+        preparedAbilities = default;
+        if (!initialized ||
+            !TryParseOptionalAbilityId(slot1, out AbilityId slot1Id) ||
+            !TryParseOptionalAbilityId(slot2, out AbilityId slot2Id))
+        {
+            return false;
+        }
+
+        var candidate = new PreparedAbilityLoadout(slot1Id, slot2Id);
+        if (!PreparedAbilityLoadout.TryValidateTransportShape(candidate, out _))
+        {
+            return false;
+        }
+
+        preparedAbilities = candidate;
+        return true;
+    }
+
+    private static bool TryParseOptionalAbilityId(string value, out AbilityId abilityId)
+    {
+        abilityId = default;
+        return string.IsNullOrEmpty(value) || AbilityId.TryCreate(value, out abilityId);
+    }
+
     /// <summary>
     /// Resolves the current avatar without changing simulation state.
     /// </summary>
@@ -187,8 +242,15 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         long baselineExperience,
         string raidGenerationId = null,
         string loadoutReservationId = null,
-        int baselineResultSequence = 0)
+        int baselineResultSequence = 0,
+        PreparedAbilityLoadout preparedAbilities = default)
     {
+        if (!HasStateAuthority)
+        {
+            throw new System.InvalidOperationException(
+                "Only State Authority can initialize a Raid participant.");
+        }
+
         if (!raidParticipantId.IsValid)
         {
             throw new System.ArgumentException("Raid participant identity must be valid.", nameof(raidParticipantId));
@@ -199,6 +261,11 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             throw new System.ArgumentOutOfRangeException(
                 nameof(baselineResultSequence),
                 "The progression watermark must allow exactly one following result.");
+        }
+
+        if (!PreparedAbilityLoadout.TryValidateTransportShape(preparedAbilities, out string abilityError))
+        {
+            throw new System.ArgumentException(abilityError, nameof(preparedAbilities));
         }
 
         _progressionResolver ??= GetComponent<PlayerExpeditionProgressionResolver>();
@@ -230,6 +297,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         FinalizationCause = ExpeditionProgressionFinalizationCause.None;
         IsReturnAuthorized = false;
         IsCharacterAttributeStateInitialized = true;
+        PreparedAbilitySlot1 = preparedAbilities.Slot1.ToString();
+        PreparedAbilitySlot2 = preparedAbilities.Slot2.ToString();
+        IsPreparedAbilitySnapshotInitialized = true;
     }
 
     public PlayerExpeditionExperienceLedger ExperienceLedger { get; private set; }

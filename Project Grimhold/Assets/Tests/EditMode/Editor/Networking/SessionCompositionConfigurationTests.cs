@@ -166,6 +166,34 @@ public sealed class SessionCompositionConfigurationTests
     }
 
     [Test]
+    public void RaidParticipantPreparedAbilitySnapshot_IsReadOnlyAndRequiresCompleteInitialization()
+    {
+        Assert.That(
+            NetworkRaidParticipant.TryBuildPreparedAbilityLoadout(
+                false, "charge", "trap", out PreparedAbilityLoadout unavailable),
+            Is.False);
+        Assert.That(unavailable, Is.EqualTo(default(PreparedAbilityLoadout)));
+
+        Assert.That(
+            NetworkRaidParticipant.TryBuildPreparedAbilityLoadout(
+                true, string.Empty, "trap", out PreparedAbilityLoadout oneAbility),
+            Is.True);
+        Assert.That(oneAbility.Slot1.IsValid, Is.False);
+        Assert.That(oneAbility.Slot2, Is.EqualTo(new AbilityId("trap")));
+
+        Assert.That(
+            NetworkRaidParticipant.TryBuildPreparedAbilityLoadout(
+                true, "charge", "trap", out PreparedAbilityLoadout twoAbilities),
+            Is.True);
+        Assert.That(twoAbilities.Slot1, Is.EqualTo(new AbilityId("charge")));
+        Assert.That(twoAbilities.Slot2, Is.EqualTo(new AbilityId("trap")));
+        Assert.That(
+            NetworkRaidParticipant.TryBuildPreparedAbilityLoadout(
+                true, "charge", "charge", out _),
+            Is.False);
+    }
+
+    [Test]
     public void RaidAvatarParticipantLink_DelegatesAttributeSnapshotWithoutOwningACopy()
     {
         System.Reflection.FieldInfo[] fields = typeof(RaidAvatarParticipantLink).GetFields(
@@ -687,6 +715,11 @@ public sealed class SessionCompositionConfigurationTests
                 FindInScene<NetworkSpawnSceneConfiguration>(scene);
             Assert.That(configurations, Has.Count.EqualTo(1));
             Assert.That(configurations[0].Validate(out string failure), Is.True, failure);
+            List<NetworkSpawnManager> spawnManagers = FindInScene<NetworkSpawnManager>(scene);
+            Assert.That(spawnManagers, Has.Count.EqualTo(1));
+            Assert.That(
+                SerializedReference(spawnManagers[0], "_abilityCatalog"),
+                Is.TypeOf<AbilityDefinitionCatalog>());
             SpawnGroupDefinition players = System.Array.Find(
                 configurations[0].SpawnGroups,
                 group => group.Group == SpawnGroupType.Players);

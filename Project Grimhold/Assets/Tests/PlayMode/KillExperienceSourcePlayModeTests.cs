@@ -432,6 +432,30 @@ namespace Tests.PlayMode.Progression
         public IEnumerator ParticipantCopyStateFromPreservesStableRaidParticipantIdWithoutReassignment()
         {
             yield return StartRunnerAndSpawnParticipants();
+            var sourceAbilities = new PreparedAbilityLoadout(
+                new AbilityId(new string('a', AbilityId.MaximumLength)),
+                new AbilityId("trap"));
+            NetworkObject sourceObject = _runner.Spawn(
+                LoadPrefab(ParticipantPrefabGuid),
+                Vector3.up * 2f,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        "source-profile",
+                        CreateParticipantId(15),
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel,
+                        0,
+                        "source-generation",
+                        preparedAbilities: sourceAbilities));
+            NetworkRaidParticipant source = sourceObject.GetComponent<NetworkRaidParticipant>();
+            Assert.That(source.TryGetPreparedAbilityLoadout(out PreparedAbilityLoadout freshSource), Is.True);
+            Assert.That(freshSource, Is.EqualTo(sourceAbilities));
+
+            var replacementAbilities = new PreparedAbilityLoadout(
+                default,
+                new AbilityId("replacement_ability"));
             NetworkObject restoredObject = _runner.Spawn(
                 LoadPrefab(ParticipantPrefabGuid),
                 Vector3.up * 4f,
@@ -444,15 +468,23 @@ namespace Tests.PlayMode.Progression
                         ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel,
                         0,
-                        "replacement-generation"));
+                        "replacement-generation",
+                        preparedAbilities: replacementAbilities));
             NetworkRaidParticipant restored =
                 restoredObject.GetComponent<NetworkRaidParticipant>();
+            Assert.That(restored.TryGetPreparedAbilityLoadout(out PreparedAbilityLoadout freshReplacement), Is.True);
+            Assert.That(freshReplacement, Is.EqualTo(replacementAbilities));
 
-            restored.CopyStateFrom(_firstParticipant);
+            restored.CopyStateFrom(source);
 
-            Assert.That(restored.RaidParticipantId, Is.EqualTo(_firstParticipant.RaidParticipantId));
-            Assert.That(restored.ProfileId, Is.EqualTo(_firstParticipant.ProfileId));
-            Assert.That(restored.RaidParticipantId.Value, Is.EqualTo(1));
+            Assert.That(restored.RaidParticipantId, Is.EqualTo(source.RaidParticipantId));
+            Assert.That(restored.ProfileId, Is.EqualTo(source.ProfileId));
+            Assert.That(restored.RaidParticipantId.Value, Is.EqualTo(15));
+            Assert.That(restored.TryGetPreparedAbilityLoadout(out PreparedAbilityLoadout restoredAbilities), Is.True);
+            Assert.That(restoredAbilities, Is.EqualTo(sourceAbilities));
+            Assert.That(restoredAbilities, Is.Not.EqualTo(replacementAbilities));
+            Assert.That(source.TryGetPreparedAbilityLoadout(out PreparedAbilityLoadout unchangedSource), Is.True);
+            Assert.That(unchangedSource, Is.EqualTo(sourceAbilities));
         }
 
         private IEnumerator StartRunnerAndSpawnParticipants()
