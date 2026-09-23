@@ -68,8 +68,6 @@ const commitExtractionValidator = [
     .notEmpty().withMessage('must not be empty'),
   body('items.*.amount')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
-  body('expectedRevision')
-    .optional().isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 

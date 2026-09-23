@@ -163,7 +163,7 @@ public static class ApplicationStashServiceBootstrapper
                 var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
                 if (backendConfig != null)
                 {
-                    _ = InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+                    _ = ClearReservationAndUpdateRevisionAsync(backendConfig, authToken, store);
                 }
             }
         }
@@ -414,5 +414,15 @@ public static class ApplicationStashServiceBootstrapper
 
         _initializedProfileId = default;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Context reset for logout.");
+    }
+
+    private static async System.Threading.Tasks.Task ClearReservationAndUpdateRevisionAsync(
+        BackendConfiguration backendConfig, string authToken, LocalProfileStore store)
+    {
+        var (success, result, _) = await InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+        if (success && result.revision > store.RemoteRevision)
+        {
+            store.SetRemoteRevision(result.revision);
+        }
     }
 }

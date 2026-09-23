@@ -204,32 +204,8 @@ class ExtractionCommitService {
         };
       }
 
-      // Revision must have changed concurrently, try one more time for read-modify-write
-      const retryUpdated = await Character.findOneAndUpdate(
-        {
-          accountId: accountId,
-          revision: refreshedChar.revision,
-          'inventory.appliedExtractionReceipts': { 
-            $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
-          }
-        },
-        updateDoc,
-        { new: true }
-      );
-
-      if (!retryUpdated) {
-        // Internal conflict, client will retry since it's an idempotent operation (covered in F3)
-        throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict during extraction commit.' };
-      }
-
-      return {
-        alreadySecured:      false,
-        loadout:             serializeItems(retryUpdated.inventory.loadout),
-        level:               retryUpdated.level,
-        experience:          retryUpdated.experience,
-        characterAttributes: serializeAttributes(retryUpdated.characterAttributes),
-        revision:            retryUpdated.revision
-      };
+      // Revision must have changed concurrently. Leave retry to the client.
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during extraction commit.' };
     }
 
     return {

@@ -57,17 +57,71 @@ test('InventoryService - Concurrency and Revision', async (t) => {
 
     const expectedRevision = 0;
 
-    // First one succeeds
-    const res1 = await InventoryService.moveToLoadout(accountId.toString(), 'potion', 1, expectedRevision);
-    assert.strictEqual(res1.revision, 1);
+    // Ejecución simultánea real
+    const results = await Promise.allSettled([
+      InventoryService.moveToLoadout(accountId.toString(), 'potion', 1, expectedRevision),
+      InventoryService.moveToLoadout(accountId.toString(), 'potion', 1, expectedRevision)
+    ]);
 
-    // Second one with same expectedRevision fails
+    const fulfilled = results.filter(r => r.status === 'fulfilled');
+    const rejected = results.filter(r => r.status === 'rejected');
+
+    assert.strictEqual(fulfilled.length, 1, 'Exactly one should succeed');
+    assert.strictEqual(rejected.length, 1, 'Exactly one should fail');
+    
+    assert.strictEqual(fulfilled[0].value.revision, 1);
+    assert.strictEqual(rejected[0].reason.statusCode, 409);
+    assert.strictEqual(rejected[0].reason.errorCode, 'REVISION_CONFLICT');
+
+    const dbChar = await Character.findOne({ accountId });
+    assert.strictEqual(dbChar.revision, 1);
+    assert.strictEqual(dbChar.inventory.loadout.length, 1);
+    assert.strictEqual(dbChar.inventory.loadout[0].amount, 1);
+  });
+
+  await t.test('Move concurrent during savePendingReservation does not lose items', async () => {
+    const accountId = new mongoose.Types.ObjectId();
+    const char = new Character({
+      accountId: accountId,
+      name: 'ResChar',
+      revision: 0,
+      inventory: { stash: [{ lootId: 'potion', amount: 10 }], loadout: [{ lootId: 'sword', amount: 1 }], preparedEquipment: {} }
+    });
+    await char.save();
+
+    // The user asked to make sure a concurrent move during savePendingReservation does not lose items,
+    // which happens if savePendingReservation recalculates items from the old read instead of throwing 409.
+    // Since we removed the retry, savePendingReservation will throw 409 and not lose items.
+    
+    // We simulate a race condition where findOneAndUpdate fails because revision changed.
+    const originalFindOneAndUpdate = Character.findOneAndUpdate;
+    let updateCalled = false;
+    
+    Character.findOneAndUpdate = async function(filter, update, options) {
+      if (!updateCalled && update.$set && update.$set['inventory.pendingReservation']) {
+        updateCalled = true;
+        // Concurrent move happens before the atomic update
+        await InventoryService.moveToLoadout(accountId.toString(), 'potion', 1, 0);
+      }
+      return originalFindOneAndUpdate.call(this, filter, update, options);
+    };
+
     try {
-      await InventoryService.moveToLoadout(accountId.toString(), 'potion', 1, expectedRevision);
-      assert.fail('Should have thrown REVISION_CONFLICT');
-    } catch (err) {
-      assert.strictEqual(err.statusCode, 409);
-      assert.strictEqual(err.errorCode, 'REVISION_CONFLICT');
+      await assert.rejects(
+        () => InventoryService.savePendingReservation(accountId.toString(), 'res_123'),
+        err => {
+          assert.strictEqual(err.statusCode, 409);
+          assert.strictEqual(err.errorCode, 'REVISION_CONFLICT');
+          return true;
+        }
+      );
+    } finally {
+      Character.findOneAndUpdate = originalFindOneAndUpdate;
     }
+
+    const dbChar = await Character.findOne({ accountId });
+    assert.strictEqual(dbChar.revision, 1, 'Only moveToLoadout advanced the revision');
+    assert.strictEqual(dbChar.inventory.loadout.length, 2, 'Loadout should have sword and potion');
+    assert.strictEqual(dbChar.inventory.pendingReservation, null, 'Reservation failed');
   });
 });

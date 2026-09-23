@@ -17,7 +17,8 @@ function makeCharacter(overrides = {}) {
       loadout: [],
       preparedEquipment: { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' },
       pendingReservation: null
-    }
+    },
+    revision: 0
   };
   const doc = { ...defaults, ...overrides };
   // Minimal mongoose-like markModified + save behaviour

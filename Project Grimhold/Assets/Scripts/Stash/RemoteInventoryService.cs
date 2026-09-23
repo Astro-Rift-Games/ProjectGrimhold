@@ -192,12 +192,7 @@ public class RemoteInventoryService : MonoBehaviour
         await _mutationLock.WaitAsync();
         try
         {
-            // Note: SaveReservationRequest might not need expectedRevision on body if backend doesn't check it?
-            // Wait, does backend expect expectedRevision on savePendingReservation?
-            // No, savePendingReservation in backend uses character.save(), wait, F1 we changed it to findOneAndUpdate but does it take expectedRevision?
-            // Actually I don't think it takes expectedRevision from the request body in my F1 changes?
-            // Let me pass it just in case, but InventoryDataTransferObjects doesn't have expectedRevision in SaveReservationRequest.
-            // That's fine, the lock prevents concurrent reservations and the revision will be updated upon success.
+
             var request = new SaveReservationRequest
             {
                 reservationId = reservation.ReservationId

@@ -93,6 +93,10 @@ class InventoryService {
     }
 
     normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
     lootId = normalizeLootId(lootId);
 
     const stash   = character.inventory.stash;
@@ -155,6 +159,10 @@ class InventoryService {
     }
 
     normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
     lootId = normalizeLootId(lootId);
 
     const stash   = character.inventory.stash;
@@ -218,6 +226,10 @@ class InventoryService {
     }
 
     normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
     normalizePreparedEquipment(slots);
 
     const slotNames = ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots'];
@@ -352,27 +364,7 @@ class InventoryService {
     );
 
     if (!updated) {
-      // Retry once for read-modify-write
-      character = await Character.findOne({ accountId });
-      if (!character) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
-      
-      updated = await Character.findOneAndUpdate(
-        { accountId, revision: character.revision },
-        {
-          $set: {
-            'inventory.pendingReservation': pendingReservation,
-            'inventory.loadout': [],
-            'inventory.preparedEquipment': {}
-          },
-          $inc: { revision: 1 }
-        },
-        { new: true }
-      );
-      
-      if (!updated) {
-        // Internal conflict, client will retry since it's an idempotent operation (covered in F3)
-        throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict during reservation.' };
-      }
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation.' };
     }
 
     return {
@@ -401,23 +393,7 @@ class InventoryService {
     );
 
     if (!updated) {
-      // Retry once for read-modify-write
-      character = await Character.findOne({ accountId });
-      if (!character) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
-      
-      updated = await Character.findOneAndUpdate(
-        { accountId, revision: character.revision },
-        {
-          $set: { 'inventory.pendingReservation': null },
-          $inc: { revision: 1 }
-        },
-        { new: true }
-      );
-      
-      if (!updated) {
-        // Internal conflict, client will retry since it's an idempotent operation (covered in F3)
-        throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict clearing reservation.' };
-      }
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict clearing reservation.' };
     }
 
     return { pendingReservation: null, revision: updated.revision };
