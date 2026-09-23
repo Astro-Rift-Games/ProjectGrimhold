@@ -129,7 +129,7 @@ public sealed class MainMenuController : MonoBehaviour
         string username = _loginPanel.Username;
         LoginFlowResult result;
 
-        if (loginFlow.HasPendingHydration && loginFlow.PendingUsername == username)
+        if (loginFlow.HasHydrationFailed && loginFlow.PendingUsername == username)
         {
             result = await loginFlow.RetryHydrationAsync();
         }

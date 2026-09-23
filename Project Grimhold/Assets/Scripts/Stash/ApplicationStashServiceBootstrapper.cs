@@ -74,7 +74,7 @@ public static class ApplicationStashServiceBootstrapper
         if (_initializedProfileId == profileId)
         {
             Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store already initialized for ProfileId {profileId.Value}. Skipping.");
-            return _context != null;
+            return _context != null && _context.IsAvailable;
         }
 
         if (_context == null)
@@ -195,6 +195,17 @@ public static class ApplicationStashServiceBootstrapper
         return true;
     }
 
+    /// <summary>
+    /// Updates the local snapshot with authoritative data from the backend.
+    /// Note: The following local-only or unsynced fields are NOT overwritten by the backend:
+    /// - Currency
+    /// - ActiveMissions
+    /// - UnlockedAbilities
+    /// - PreparedAbilities (unless revalidation fails due to attribute changes)
+    /// - Shop receipts
+    /// - PendingExtractionCommit
+    /// - Off Hand weapon assignments
+    /// </summary>
     public static bool HydrateSnapshot(
         ProfileId profileId,
         LocalProfileSnapshot snapshot,
@@ -227,8 +238,8 @@ public static class ApplicationStashServiceBootstrapper
                     out PreparedAbilityLoadout revalidatedAbilities,
                     out string abilityError))
             {
-                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: invalid prepared abilities: {abilityError}");
-                return false;
+                Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration found invalid prepared abilities ({abilityError}). Clearing local abilities.");
+                revalidatedAbilities = default;
             }
 
             validatedAttributes = state;

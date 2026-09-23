@@ -45,7 +45,7 @@ public sealed class LoginFlowController : MonoBehaviour
     [SerializeField] private ApplicationAuthContext _authContext;
 
     public string PendingUsername => _pendingUsername;
-    public bool HasPendingHydration => !string.IsNullOrEmpty(_pendingToken);
+    public bool HasHydrationFailed => !string.IsNullOrEmpty(_pendingToken);
 
     private string _pendingToken;
     private string _pendingUsername;
@@ -272,9 +272,11 @@ public sealed class LoginFlowController : MonoBehaviour
         bool initialized = ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData);
         if (!initialized)
         {
+            LocalProfileProvider.ClearRemoteCharacterId();
+            _authContext?.Clear();
             _pendingToken = token;
             _pendingUsername = username;
-            return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Failed to initialize character data (invalid attributes).");
+            return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Failed to load character data. Please try again.");
         }
 
         _pendingToken = null;
