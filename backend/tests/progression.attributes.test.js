@@ -32,7 +32,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
       };
     };
 
-    const result = await ProgressionService.commitProgression('acc123', { attribute: 'Vitality' });
+    const result = await ProgressionService.commitProgression('acc123', { attribute: 'Vitality', expectedRevision: 0 });
 
     assert.strictEqual(result.characterAttributes.vitality, 6);
     assert.strictEqual(result.characterAttributes.availablePoints, 9);
@@ -41,7 +41,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
   await t.test('should throw 400 if attribute name is missing', async () => {
     Character.findOne = async () => ({});
     try {
-      await ProgressionService.commitProgression('acc123', {});
+      await ProgressionService.commitProgression('acc123', { expectedRevision: 0 });
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 400);
@@ -52,7 +52,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
   await t.test('should throw 400 if attribute name is invalid', async () => {
     Character.findOne = async () => ({});
     try {
-      await ProgressionService.commitProgression('acc123', { attribute: 'InvalidAttribute' });
+      await ProgressionService.commitProgression('acc123', { attribute: 'InvalidAttribute', expectedRevision: 0 });
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 400);
@@ -70,7 +70,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
     });
 
     try {
-      await ProgressionService.commitProgression('acc123', { attribute: 'Strength' });
+      await ProgressionService.commitProgression('acc123', { attribute: 'Strength', expectedRevision: 0 });
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
@@ -89,7 +89,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
     });
 
     try {
-      await ProgressionService.commitProgression('acc123', { attribute: 'Strength' });
+      await ProgressionService.commitProgression('acc123', { attribute: 'Strength', expectedRevision: 0 });
       assert.fail('Should have thrown');
     } catch (err) {
       assert.strictEqual(err.statusCode, 422);
@@ -114,7 +114,7 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
       };
     };
 
-    const result = await ProgressionService.commitProgression('acc123', { attribute: 'inTeLLigence' });
+    const result = await ProgressionService.commitProgression('acc123', { attribute: 'inTeLLigence', expectedRevision: 0 });
 
     assert.strictEqual(result.characterAttributes.intelligence, 6);
     assert.strictEqual(result.characterAttributes.availablePoints, 9);

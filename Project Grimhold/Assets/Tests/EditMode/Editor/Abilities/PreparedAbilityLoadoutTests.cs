@@ -177,19 +177,14 @@ public sealed class PreparedAbilityLoadoutTests
                 availablePoints = 0
             }
         };
-        MethodInfo method = typeof(ApplicationStashServiceBootstrapper).GetMethod(
-            "HydrateSnapshot",
-            BindingFlags.NonPublic | BindingFlags.Static);
-
-        method.Invoke(null, new object[]
-        {
+        ApplicationStashServiceBootstrapper.HydrateSnapshot(
             Profile,
             snapshot,
-            (Grimhold.Backend.InventoryData?)null,
+            null,
             progression,
             _lootCatalog,
             _abilityCatalog
-        });
+        );
 
         Assert.That(snapshot.CharacterAttributes.Strength, Is.EqualTo(9));
         Assert.That(snapshot.PreparedAbilities.Slot1.IsValid, Is.False);

@@ -25,6 +25,42 @@ function makeCharacter(overrides = {}) {
   return doc;
 }
 
+function applyUpdate(doc, update) {
+  if (update.$set) {
+    for (const [key, value] of Object.entries(update.$set)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) current[parts[i]] = {};
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = value;
+    }
+  }
+  if (update.$unset) {
+    for (const key of Object.keys(update.$unset)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) break;
+        current = current[parts[i]];
+      }
+      delete current[parts[parts.length - 1]];
+    }
+  }
+  if (update.$inc) {
+    for (const [key, value] of Object.entries(update.$inc)) {
+      const parts = key.split('.');
+      let current = doc;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!current[parts[i]]) current[parts[i]] = {};
+        current = current[parts[i]];
+      }
+      current[parts[parts.length - 1]] = (current[parts[parts.length - 1]] || 0) + value;
+    }
+  }
+}
+
 function makeItem(lootId, amount) {
   return { lootId, amount };
 }
@@ -35,10 +71,21 @@ function makeItem(lootId, amount) {
 
 test('InventoryService - savePendingReservation', async (t) => {
   const originalFindOne = Character.findOne;
+  const originalFindOneAndUpdate = Character.findOneAndUpdate;
 
   t.afterEach(() => {
     Character.findOne = originalFindOne;
+    Character.findOneAndUpdate = originalFindOneAndUpdate;
   });
+
+  const setupMocks = (mockChar) => {
+    Character.findOne = async () => mockChar;
+    Character.findOneAndUpdate = async (filter, update) => {
+      if (!mockChar) return null;
+      applyUpdate(mockChar, update);
+      return mockChar;
+    };
+  };
 
   await t.test('builds reservation from persisted loadout/preparedEquipment, not body', async () => {
     const mockChar = makeCharacter();
@@ -46,7 +93,7 @@ test('InventoryService - savePendingReservation', async (t) => {
     mockChar.inventory.preparedEquipment = {
       weaponSlot1: 'arming_sword', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: ''
     };
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.savePendingReservation('acc123', 'res-001');
 
@@ -62,7 +109,7 @@ test('InventoryService - savePendingReservation', async (t) => {
     mockChar.inventory.preparedEquipment = {
       weaponSlot1: '', weaponSlot2: '', helmet: 'iron_helm', armor: '', gloves: '', boots: ''
     };
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     await InventoryService.savePendingReservation('acc123', 'res-002');
 
@@ -88,7 +135,7 @@ test('InventoryService - savePendingReservation', async (t) => {
     // (though we can track save calls directly).
     let saveCalled = false;
     mockChar.save = async function () { saveCalled = true; return this; };
-    Character.findOne = async () => mockChar;
+    setupMocks(mockChar);
 
     const result = await InventoryService.savePendingReservation('acc123', 'res-idempotent');
 

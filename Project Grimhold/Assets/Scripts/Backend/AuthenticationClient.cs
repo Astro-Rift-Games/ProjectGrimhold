@@ -47,7 +47,7 @@ namespace Grimhold.Backend
                 }
                 else
                 {
-                    backendError = new BackendError { error = "NETWORK_ERROR", message = request.error };
+                    backendError = new BackendError { error = BackendErrorUtility.ClassifyConnectionError(request.error), message = request.error };
                 }
                 return (false, default, backendError);
             }
@@ -91,7 +91,7 @@ namespace Grimhold.Backend
                 }
                 else
                 {
-                    backendError = new BackendError { error = "NETWORK_ERROR", message = request.error };
+                    backendError = new BackendError { error = BackendErrorUtility.ClassifyConnectionError(request.error), message = request.error };
                 }
                 return (false, default, backendError);
             }

@@ -71,11 +71,13 @@ class InventoryService {
       : null;
 
     return {
+      currency:           character.inventory.currency || 0,
       stash:              serializeItems(character.inventory.stash),
       loadout:            serializeItems(character.inventory.loadout),
       preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
       pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
-      lastAppliedExtractionReceipt: lastExtraction
+      lastAppliedExtractionReceipt: lastExtraction,
+      revision: character.revision || 0
     };
   }
 
@@ -85,14 +87,16 @@ class InventoryService {
    * @throws 404 if no character found.
    * @throws 409 if the stash does not hold enough units of that item.
    */
-  static async moveToLoadout(accountId, lootId, amount) {
+  static async moveToLoadout(accountId, lootId, amount, expectedRevision) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
     lootId = normalizeLootId(lootId);
 
@@ -123,13 +127,23 @@ class InventoryService {
       loadout.push({ lootId, amount });
     }
 
-    character.markModified('inventory.stash');
-    character.markModified('inventory.loadout');
-    await character.save();
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision },
+      {
+        $set: { 'inventory.stash': stash, 'inventory.loadout': loadout },
+        $inc: { revision: 1 }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during move to loadout.' };
+    }
 
     return {
-      stash:   serializeItems(stash),
-      loadout: serializeItems(loadout)
+      stash:   serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      revision: updated.revision
     };
   }
 
@@ -139,14 +153,16 @@ class InventoryService {
    * @throws 404 if no character found.
    * @throws 409 if the loadout does not hold enough units of that item.
    */
-  static async moveToStash(accountId, lootId, amount) {
+  static async moveToStash(accountId, lootId, amount, expectedRevision) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
     lootId = normalizeLootId(lootId);
 
@@ -177,13 +193,23 @@ class InventoryService {
       stash.push({ lootId, amount });
     }
 
-    character.markModified('inventory.stash');
-    character.markModified('inventory.loadout');
-    await character.save();
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision },
+      {
+        $set: { 'inventory.stash': stash, 'inventory.loadout': loadout },
+        $inc: { revision: 1 }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during move to stash.' };
+    }
 
     return {
-      stash:   serializeItems(stash),
-      loadout: serializeItems(loadout)
+      stash:   serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      revision: updated.revision
     };
   }
 
@@ -194,14 +220,16 @@ class InventoryService {
    * @throws 404 if no character found.
    * @throws 422 if a new item is not found in either the Loadout or the Stash.
    */
-  static async updatePreparedEquipment(accountId, slots) {
+  static async updatePreparedEquipment(accountId, slots, expectedRevision) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
     normalizePreparedEquipment(slots);
 
@@ -250,7 +278,6 @@ class InventoryService {
           if (character.inventory.stash[stashIndex].amount === 0) {
             character.inventory.stash.splice(stashIndex, 1);
           }
-          character.markModified('inventory.stash');
           deducted = true;
         }
       }
@@ -269,12 +296,26 @@ class InventoryService {
       character.inventory.preparedEquipment[slot] = slots[slot] || '';
     }
 
-    character.markModified('inventory.loadout');
-    character.markModified('inventory.preparedEquipment');
-    await character.save();
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision },
+      {
+        $set: {
+          'inventory.stash': character.inventory.stash,
+          'inventory.loadout': character.inventory.loadout,
+          'inventory.preparedEquipment': character.inventory.preparedEquipment
+        },
+        $inc: { revision: 1 }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during equipment update.' };
+    }
 
     return {
-      preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment),
+      revision: updated.revision
     };
   }
 
@@ -290,14 +331,13 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
-    }
+    normalizeCharacterInventory(character);
 
     // Idempotency: if already reserved with the same reservationId, return without mutating
     if (character.inventory.pendingReservation && character.inventory.pendingReservation.reservationId === reservationId) {
       return {
-        pendingReservation: serializePendingReservation(character.inventory.pendingReservation)
+        pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
+        revision: character.revision || 0
       };
     }
 
@@ -305,24 +345,32 @@ class InventoryService {
     const items = serializeItems(character.inventory.loadout);
     const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment);
 
-    character.inventory.pendingReservation = {
+    const pendingReservation = {
       reservationId,
       items,
       preparedEquipment
     };
 
-    // Mirror what the Unity client does: the loadout travels inside the reservation.
-    // Clearing it here prevents item duplication on extraction and blocks Alt+F4 recovery exploits.
-    character.inventory.loadout = [];
-    character.inventory.preparedEquipment = {};
-    
-    character.markModified('inventory.loadout');
-    character.markModified('inventory.preparedEquipment');
-    character.markModified('inventory.pendingReservation');
-    await character.save();
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: character.revision },
+      {
+        $set: {
+          'inventory.pendingReservation': pendingReservation,
+          'inventory.loadout': [],
+          'inventory.preparedEquipment': {}
+        },
+        $inc: { revision: 1 }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation.' };
+    }
 
     return {
-      pendingReservation: serializePendingReservation(character.inventory.pendingReservation)
+      pendingReservation: serializePendingReservation(updated.inventory.pendingReservation),
+      revision: updated.revision
     };
   }
 
@@ -336,15 +384,20 @@ class InventoryService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: character.revision },
+      {
+        $set: { 'inventory.pendingReservation': null },
+        $inc: { revision: 1 }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Internal revision conflict clearing reservation.' };
     }
 
-    character.inventory.pendingReservation = null;
-    character.markModified('inventory.pendingReservation');
-    await character.save();
-
-    return { pendingReservation: null };
+    return { pendingReservation: null, revision: updated.revision };
   }
 
   /**
@@ -432,6 +485,117 @@ class InventoryService {
     return {
       alreadySecured: false,
       loadout: serializeItems(character.inventory.loadout)
+    };
+  }
+
+  /**
+   * Processes a shop sale. Removes items from the loadout and adds currency.
+   */
+  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    lootId = normalizeLootId(lootId);
+
+    const loadout = character.inventory.loadout;
+    const loadoutIndex = loadout.findIndex(i => i.lootId === lootId);
+
+    if (loadoutIndex === -1 || loadout[loadoutIndex].amount < amount) {
+      throw {
+        statusCode: 409,
+        errorCode: 'INSUFFICIENT_ITEMS',
+        message: `Loadout does not hold ${amount} unit(s) of '${lootId}'.`
+      };
+    }
+
+    if (loadout[loadoutIndex].amount === amount) {
+      loadout.splice(loadoutIndex, 1);
+    } else {
+      loadout[loadoutIndex].amount -= amount;
+    }
+
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision },
+      {
+        $set: { 'inventory.loadout': loadout },
+        $inc: { revision: 1, 'inventory.currency': declaredSellValue }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during shop sale.' };
+    }
+
+    return {
+      revision: updated.revision,
+      currency: updated.inventory.currency || 0,
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
+    };
+  }
+
+  /**
+   * Processes a shop purchase. Removes currency and adds items to the loadout.
+   */
+  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    lootId = normalizeLootId(lootId);
+    
+    const currentCurrency = character.inventory.currency || 0;
+    if (currentCurrency < declaredPrice) {
+      throw {
+        statusCode: 409, // Using 409 for domain errors like INSUFFICIENT_FUNDS to keep retry policies simple
+        errorCode: 'INSUFFICIENT_FUNDS',
+        message: `Not enough currency to purchase '${lootId}'.`
+      };
+    }
+
+    const loadout = character.inventory.loadout;
+    const loadoutIndex = loadout.findIndex(i => i.lootId === lootId);
+
+    if (loadoutIndex !== -1) {
+      loadout[loadoutIndex].amount += amount;
+    } else {
+      loadout.push({ lootId, amount });
+    }
+
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision, 'inventory.currency': { $gte: declaredPrice } },
+      {
+        $set: { 'inventory.loadout': loadout },
+        $inc: { revision: 1, 'inventory.currency': -declaredPrice }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict or insufficient funds during shop purchase.' };
+    }
+
+    return {
+      revision: updated.revision,
+      currency: updated.inventory.currency || 0,
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
     };
   }
 }

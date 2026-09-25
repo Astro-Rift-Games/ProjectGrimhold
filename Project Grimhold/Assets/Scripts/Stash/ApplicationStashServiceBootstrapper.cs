@@ -63,24 +63,24 @@ public static class ApplicationStashServiceBootstrapper
     /// Initializes the stash store for the given profile. Called by LoginFlowController
     /// after a successful login. Safe to call only once per profile per session.
     /// </summary>
-    public static void InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
+    public static bool InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
     {
         if (!profileId.IsValid)
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] InitializeWithProfile called with an invalid ProfileId.");
-            return;
+            return false;
         }
 
         if (_initializedProfileId == profileId)
         {
             Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store already initialized for ProfileId {profileId.Value}. Skipping.");
-            return;
+            return _context != null && _context.IsAvailable;
         }
 
         if (_context == null)
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Context not created yet. Was BeforeSceneLoad suppressed?");
-            return;
+            return false;
         }
 
         if (_configuration == null ||
@@ -88,13 +88,13 @@ public static class ApplicationStashServiceBootstrapper
             _configuration.AbilityCatalog == null)
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Configuration unavailable during deferred initialization.");
-            return;
+            return false;
         }
 
-        InitializeStore(profileId, inventoryData, progressionData);
+        return InitializeStore(profileId, inventoryData, progressionData);
     }
 
-    private static void InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
+    private static bool InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
     {
         var contextObject = _context.gameObject;
 
@@ -106,18 +106,21 @@ public static class ApplicationStashServiceBootstrapper
         if (!repository.Initialize(profileId, _configuration.LootCatalog))
         {
             Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile unavailable: {repository.LastError}");
-            return;
+            return false;
         }
 
         if (inventoryData.HasValue || progressionData.HasValue)
         {
-            HydrateSnapshot(
+            if (!HydrateSnapshot(
                 profileId,
                 repository.Snapshot,
                 inventoryData,
                 progressionData,
                 _configuration.LootCatalog,
-                _configuration.AbilityCatalog);
+                _configuration.AbilityCatalog))
+            {
+                return false;
+            }
         }
 
         var store = new LocalProfileStore(
@@ -163,7 +166,7 @@ public static class ApplicationStashServiceBootstrapper
                 var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
                 if (backendConfig != null)
                 {
-                    _ = InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+                    _ = ClearReservationAndUpdateRevisionAsync(backendConfig, authToken, store);
                 }
             }
         }
@@ -171,23 +174,38 @@ public static class ApplicationStashServiceBootstrapper
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
         var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
-        var shopTransactionService = contextObject.AddComponent<LocalShopTransactionService>();
+        var shopTransactionService = contextObject.AddComponent<RemoteShopTransactionService>();
         
         // Add RemoteInventoryService to handle backend operations
         var remoteInventoryService = contextObject.AddComponent<RemoteInventoryService>();
         remoteInventoryService.Initialize(_configuration, store);
 
+        // Add ProfileReconciliationService to handle automatic retry and hydration on conflicts
+        var reconciliationService = contextObject.AddComponent<ProfileReconciliationService>();
+        reconciliationService.Initialize(_configuration, store);
+
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
-        shopTransactionService.Initialize(store);
+        shopTransactionService.Initialize(store, _configuration, reconciliationService);
         _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
 
         _initializedProfileId = profileId;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
+        return true;
     }
 
-    private static void HydrateSnapshot(
+    /// <summary>
+    /// Updates the local snapshot with authoritative data from the backend.
+    /// Note: The following local-only or unsynced fields are NOT overwritten by the backend:
+    /// - ActiveMissions
+    /// - UnlockedAbilities
+    /// - PreparedAbilities (unless revalidation fails due to attribute changes)
+    /// - Shop receipts
+    /// - PendingExtractionCommit
+    /// - Off Hand weapon assignments
+    /// </summary>
+    public static bool HydrateSnapshot(
         ProfileId profileId,
         LocalProfileSnapshot snapshot,
         Grimhold.Backend.InventoryData? inventoryData,
@@ -195,82 +213,117 @@ public static class ApplicationStashServiceBootstrapper
         LootDefinitionCatalog catalog,
         AbilityDefinitionCatalog abilityCatalog)
     {
+        CharacterAttributeState? validatedAttributes = null;
+        PreparedAbilityLoadout? validatedAbilities = null;
+
+        if (progressionData.HasValue)
+        {
+            var prog = progressionData.Value;
+            var attr = prog.characterAttributes;
+            if (!CharacterAttributeState.TryCreate(
+                attr.vitality, attr.resistance, attr.strength,
+                attr.dexterity, attr.intelligence, attr.luck, attr.availablePoints,
+                out var state))
+            {
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: invalid character attributes.");
+                return false;
+            }
+
+            if (!PreparedAbilityLoadout.TryRevalidateAfterAttributeChange(
+                    snapshot.PreparedAbilities,
+                    snapshot.UnlockedAbilities,
+                    state,
+                    abilityCatalog,
+                    out PreparedAbilityLoadout revalidatedAbilities,
+                    out string abilityError))
+            {
+                Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration found invalid prepared abilities ({abilityError}). Clearing local abilities.");
+                revalidatedAbilities = default;
+            }
+
+            validatedAttributes = state;
+            validatedAbilities = revalidatedAbilities;
+        }
+
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
+            snapshot.Currency = data.currency;
             snapshot.Stash.Clear();
             if (data.stash != null)
-        {
-            foreach (var item in data.stash)
             {
-                if (catalog.TryGet(item.lootId, out _))
-                {
-                    snapshot.Stash.Add(new StashItem(new LootId(item.lootId), item.amount));
-                }
-            }
-        }
-
-        if (data.loadout != null && snapshot.PendingExtractionCommit == null)
-        {
-            snapshot.Loadout.Clear();
-            foreach (var item in data.loadout)
-            {
-                if (catalog.TryGet(item.lootId, out _))
-                {
-                    snapshot.Loadout.Add(new StashItem(new LootId(item.lootId), item.amount));
-                }
-            }
-        }
-
-        if (snapshot.PendingExtractionCommit == null)
-        {
-            var eq = data.preparedEquipment;
-            snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
-                string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
-                string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
-                string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
-                string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
-                string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
-                string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
-            );
-        }
-
-        if (data.pendingReservation.reservationId != null)
-        {
-            var res = data.pendingReservation;
-            var resItems = new System.Collections.Generic.List<StashItem>();
-            if (res.items != null)
-            {
-                foreach (var item in res.items)
+                foreach (var item in data.stash)
                 {
                     if (catalog.TryGet(item.lootId, out _))
                     {
-                        resItems.Add(new StashItem(new LootId(item.lootId), item.amount));
+                        snapshot.Stash.Add(new StashItem(new LootId(item.lootId), item.amount));
                     }
                 }
             }
-            var resEq = res.preparedEquipment;
-            var preparedResEq = new PreparedEquipmentLoadout(
-                string.IsNullOrEmpty(resEq.weaponSlot1) ? default : new LootId(resEq.weaponSlot1),
-                string.IsNullOrEmpty(resEq.weaponSlot2) ? default : new LootId(resEq.weaponSlot2),
-                string.IsNullOrEmpty(resEq.helmet) ? default : new LootId(resEq.helmet),
-                string.IsNullOrEmpty(resEq.armor) ? default : new LootId(resEq.armor),
-                string.IsNullOrEmpty(resEq.gloves) ? default : new LootId(resEq.gloves),
-                string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots)
-            );
 
-            snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
-        }
+            if (data.loadout != null && snapshot.PendingExtractionCommit == null)
+            {
+                snapshot.Loadout.Clear();
+                foreach (var item in data.loadout)
+                {
+                    if (catalog.TryGet(item.lootId, out _))
+                    {
+                        snapshot.Loadout.Add(new StashItem(new LootId(item.lootId), item.amount));
+                    }
+                }
+            }
 
-        if (data.lastAppliedExtractionReceipt.resultSequence > 0)
-        {
-            snapshot.AppliedExtractionReceipts.Clear();
-            snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt(
-                data.lastAppliedExtractionReceipt.raidId,
-                profileId,
-                data.lastAppliedExtractionReceipt.resultSequence
-            ));
-        }
+            if (snapshot.PendingExtractionCommit == null)
+            {
+                var eq = data.preparedEquipment;
+                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+                    string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
+                    string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
+                    string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
+                    string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
+                    string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
+                    string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
+                );
+            }
+
+            if (data.pendingReservation.reservationId != null)
+            {
+                var res = data.pendingReservation;
+                var resItems = new System.Collections.Generic.List<StashItem>();
+                if (res.items != null)
+                {
+                    foreach (var item in res.items)
+                    {
+                        if (catalog.TryGet(item.lootId, out _))
+                        {
+                            resItems.Add(new StashItem(new LootId(item.lootId), item.amount));
+                        }
+                    }
+                }
+                var resEq = res.preparedEquipment;
+                var preparedResEq = new PreparedEquipmentLoadout(
+                    string.IsNullOrEmpty(resEq.weaponSlot1) ? default : new LootId(resEq.weaponSlot1),
+                    string.IsNullOrEmpty(resEq.weaponSlot2) ? default : new LootId(resEq.weaponSlot2),
+                    string.IsNullOrEmpty(resEq.helmet) ? default : new LootId(resEq.helmet),
+                    string.IsNullOrEmpty(resEq.armor) ? default : new LootId(resEq.armor),
+                    string.IsNullOrEmpty(resEq.gloves) ? default : new LootId(resEq.gloves),
+                    string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots)
+                );
+
+                snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
+            }
+
+            if (data.lastAppliedExtractionReceipt.resultSequence > 0)
+            {
+                snapshot.AppliedExtractionReceipts.Clear();
+                snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt(
+                    data.lastAppliedExtractionReceipt.raidId,
+                    profileId,
+                    data.lastAppliedExtractionReceipt.resultSequence
+                ));
+            }
+            
+            snapshot.RemoteRevision = data.revision;
         }
 
         if (progressionData.HasValue)
@@ -300,31 +353,13 @@ public static class ApplicationStashServiceBootstrapper
                 snapshot.LastAppliedProgressionResultSequence = 0;
                 snapshot.LastProgressionReceipt = null;
             }
-            var attr = prog.characterAttributes;
-            if (CharacterAttributeState.TryCreate(
-                attr.vitality, attr.resistance, attr.strength,
-                attr.dexterity, attr.intelligence, attr.luck, attr.availablePoints,
-                out var state))
-            {
-                if (PreparedAbilityLoadout.TryRevalidateAfterAttributeChange(
-                        snapshot.PreparedAbilities,
-                        snapshot.UnlockedAbilities,
-                        state,
-                        abilityCatalog,
-                        out PreparedAbilityLoadout revalidatedAbilities,
-                        out string abilityError))
-                {
-                    snapshot.CharacterAttributes = state;
-                    snapshot.PreparedAbilities = revalidatedAbilities;
-                }
-                else
-                {
-                    Debug.LogError(
-                        $"[{nameof(ApplicationStashServiceBootstrapper)}] " +
-                        $"Progression hydration found invalid prepared abilities: {abilityError}");
-                }
-            }
+            
+            snapshot.CharacterAttributes = validatedAttributes.Value;
+            snapshot.PreparedAbilities = validatedAbilities.Value;
+            snapshot.RemoteRevision = prog.revision;
         }
+
+        return true;
     }
 
     private static async System.Threading.Tasks.Task RetryPendingExtractionAsync(
@@ -371,6 +406,7 @@ public static class ApplicationStashServiceBootstrapper
         if (success)
         {
             Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Successfully recovered pending extraction commit.");
+            store.SetRemoteRevision(result.revision);
             store.ClearPendingExtractionCommit();
         }
         else
@@ -404,5 +440,15 @@ public static class ApplicationStashServiceBootstrapper
 
         _initializedProfileId = default;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Context reset for logout.");
+    }
+
+    private static async System.Threading.Tasks.Task ClearReservationAndUpdateRevisionAsync(
+        BackendConfiguration backendConfig, string authToken, LocalProfileStore store)
+    {
+        var (success, result, _) = await InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+        if (success && result.revision > store.RemoteRevision)
+        {
+            store.SetRemoteRevision(result.revision);
+        }
     }
 }

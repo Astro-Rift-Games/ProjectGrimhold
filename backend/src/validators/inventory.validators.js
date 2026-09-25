@@ -23,6 +23,8 @@ const moveItemValidator = [
     .notEmpty().withMessage('must not be empty'),
   body('amount')
     .isInt({ min: 1 }).withMessage('must be a positive integer'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 
@@ -35,6 +37,8 @@ const preparedEquipmentValidator = [
   body('armor')      .optional().isString().withMessage('must be a string'),
   body('gloves')     .optional().isString().withMessage('must be a string'),
   body('boots')      .optional().isString().withMessage('must be a string'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 
@@ -67,4 +71,34 @@ const commitExtractionValidator = [
   handleValidationErrors
 ];
 
-module.exports = { moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator };
+// Validates the body for shop sale operations.
+const shopSellValidator = [
+  body('lootId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
+  body('amount')
+    .isInt({ min: 1 }).withMessage('must be a positive integer'),
+  body('declaredSellValue')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  handleValidationErrors
+];
+
+// Validates the body for shop purchase operations.
+const shopBuyValidator = [
+  body('lootId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
+  body('amount')
+    .isInt({ min: 1 }).withMessage('must be a positive integer'),
+  body('declaredPrice')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  handleValidationErrors
+];
+
+module.exports = { moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

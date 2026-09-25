@@ -44,10 +44,10 @@ namespace Grimhold.Backend
         /// stash to the loadout. Returns the updated stash and loadout on success.
         /// </summary>
         public static async Task<(bool success, MoveItemResult data, BackendError error)>
-            MoveToLoadoutAsync(BackendConfiguration config, string token, string lootId, int amount)
+            MoveToLoadoutAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/stash/move-to-loadout";
-            var body = new MoveItemRequest { lootId = lootId, amount = amount };
+            var body = new MoveItemRequest { lootId = lootId, amount = amount, expectedRevision = expectedRevision };
             return await PostJson<MoveItemRequest, MoveItemResult>(config, token, url, body);
         }
 
@@ -56,11 +56,31 @@ namespace Grimhold.Backend
         /// loadout to the stash. Returns the updated stash and loadout on success.
         /// </summary>
         public static async Task<(bool success, MoveItemResult data, BackendError error)>
-            MoveToStashAsync(BackendConfiguration config, string token, string lootId, int amount)
+            MoveToStashAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/loadout/move-to-stash";
-            var body = new MoveItemRequest { lootId = lootId, amount = amount };
+            var body = new MoveItemRequest { lootId = lootId, amount = amount, expectedRevision = expectedRevision };
             return await PostJson<MoveItemRequest, MoveItemResult>(config, token, url, body);
+        }
+
+        // ------------------------------------------------------------------
+        // Shop operations
+        // ------------------------------------------------------------------
+
+        public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopSellAsync(BackendConfiguration config, string token, string lootId, int amount, long declaredSellValue, int expectedRevision)
+        {
+            var url  = $"{config.BaseUrl}/character/me/inventory/shop/sell";
+            var body = new ShopSellRequest { lootId = lootId, amount = amount, declaredSellValue = declaredSellValue, expectedRevision = expectedRevision };
+            return await PostJson<ShopSellRequest, ShopTransactionResult>(config, token, url, body);
+        }
+
+        public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopBuyAsync(BackendConfiguration config, string token, string lootId, int amount, long declaredPrice, int expectedRevision)
+        {
+            var url  = $"{config.BaseUrl}/character/me/inventory/shop/buy";
+            var body = new ShopBuyRequest { lootId = lootId, amount = amount, declaredPrice = declaredPrice, expectedRevision = expectedRevision };
+            return await PostJson<ShopBuyRequest, ShopTransactionResult>(config, token, url, body);
         }
 
         // ------------------------------------------------------------------
@@ -72,8 +92,9 @@ namespace Grimhold.Backend
         /// Each slot must reference a lootId present in the loadout, or be empty.
         /// </summary>
         public static async Task<(bool success, UpdatePreparedEquipmentResult data, BackendError error)>
-            UpdatePreparedEquipmentAsync(BackendConfiguration config, string token, UpdatePreparedEquipmentRequest slots)
+            UpdatePreparedEquipmentAsync(BackendConfiguration config, string token, UpdatePreparedEquipmentRequest slots, int expectedRevision)
         {
+            slots.expectedRevision = expectedRevision;
             var url = $"{config.BaseUrl}/character/me/inventory/prepared-equipment";
             return await PutJson<UpdatePreparedEquipmentRequest, UpdatePreparedEquipmentResult>(config, token, url, slots);
         }
@@ -96,7 +117,7 @@ namespace Grimhold.Backend
         /// <summary>
         /// Clears the pending reservation once a raid completes or the player exits voluntarily.
         /// </summary>
-        public static async Task<(bool success, BackendError error)>
+        public static async Task<(bool success, ClearPendingReservationResult data, BackendError error)>
             ClearPendingReservationAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/inventory/reservation";
@@ -109,13 +130,7 @@ namespace Grimhold.Backend
             var operation = request.SendWebRequest();
             while (!operation.isDone) await Task.Yield();
 
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                return (true, default);
-            }
-
-            var err = ParseError(request);
-            return (false, err);
+            return ProcessResponse<ClearPendingReservationResult>(request);
         }
 
         // ------------------------------------------------------------------
@@ -210,7 +225,7 @@ namespace Grimhold.Backend
                 try   { return JsonUtility.FromJson<BackendError>(request.downloadHandler.text); }
                 catch { /* fall through */ }
             }
-            return new BackendError { error = "NETWORK_ERROR", message = request.error };
+            return new BackendError { error = BackendErrorUtility.ClassifyConnectionError(request.error), message = request.error };
         }
     }
 }
