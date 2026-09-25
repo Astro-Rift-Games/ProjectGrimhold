@@ -483,6 +483,20 @@ ends, presentation resumes reading current Equipment. The attack direction from 
 is held as the temporary visual facing until the Animator leaves its tagged attack state, while the
 Base Layer preserves the replicated locomotion state so movement animation can continue.
 
+Optional attack VFX is local presentation, independent of the directional attack animation set.
+`WeaponDefinition.Presentation` references a reusable `AttackVfxDefinition` containing a
+sprite-only clip, start offset, and six directional poses (position, rotation, scale and sorting).
+`PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
+not the currently equipped Set, and waits for the matching RightHand attack clip. It samples the
+VFX clip at that clip's phase minus the configured start offset on the *existing* `VisualRoot`
+Animator root. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
+and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
+the animated hand or weapon pivot. Arming Sword configures four 100 ms sprite frames beginning
+at attack phase 0.1s and the prior six poses; other weapons have no VFX reference. The effect
+clears on interruption, defeat, disable or completion. Proxies observe the same confirmed attack
+snapshot; no VFX-only network state, Animator layer/state, second Animator, animation events or
+gameplay timing authority is introduced.
+
 Visual authoring keeps those responsibilities explicit. The presentation grip point is
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the
 point inside the visible handle that must coincide with `MainHandGrip`, so grip tuning

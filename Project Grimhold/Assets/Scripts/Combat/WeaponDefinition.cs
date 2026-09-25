@@ -195,6 +195,9 @@ public sealed class WeaponDefinition : ScriptableObject
         public DirectionalAttackAnimationSet AttackAnimationSet => _attackAnimationSet;
         public bool HasGenericAttack => _attackAnimationSet != null && _attackAnimationSet.IsComplete;
 
+        [SerializeField] private AttackVfxDefinition _attackVfx;
+        public AttackVfxDefinition AttackVfx => _attackVfx;
+
         public AnimationClip GetAttackClip(int direction) =>
             _attackAnimationSet != null ? _attackAnimationSet.GetAttackClip(direction) : null;
 
@@ -206,6 +209,18 @@ public sealed class WeaponDefinition : ScriptableObject
             {
                 error = "stance offset, grip point and angle correction must be finite.";
                 return false;
+            }
+
+            if (_attackVfx != null)
+            {
+                if (!HasGenericAttack)
+                {
+                    error = "attack VFX requires a complete attack animation set.";
+                    return false;
+                }
+
+                if (!_attackVfx.TryValidate(out error))
+                    return false;
             }
 
             if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))
