@@ -447,12 +447,22 @@ Attack presentation follows one path:
 ```text
 PlayerCombatNetworkController.AttackSequence
 -> AttackPerformed during Render
--> PlayerAnimatorView.OnAttack trigger + static WeaponAnimationCategory
+-> PlayerAnimatorView.OnAttack trigger + equipment presentation configuration
 -> Main Hand Combat Animator layer
 -> RightHand transform
 -> MainHandGrip
 -> MainHandWeaponVisual
 ```
+
+For `arming_sword`, six configured directional clips on `WeaponDefinition.Presentation`
+replace only the six neutral `GenericAttack_*` slots in a per-Animator override controller.
+`HasGenericAttack` enables the generic `Attack` state only when all six clips are set;
+its route does not inspect `WeaponAnimationCategory`. An unarmed or incompletely
+configured weapon disables that route and restores the placeholder slots. The
+category-1 `LegacySword-Attack` state retains the existing directional sword clips
+and is gated by `!HasGenericAttack`, preserving the `magic_sword`, `long_sword`
+and `zweihander` fallbacks. Other category routes remain unchanged. This is
+local presentation state, not a replicated or authoritative combat decision.
 
 The trigger represents an already accepted gameplay execution; local mouse input never starts
 the animation. Proxies observe the same replicated sequence and therefore reproduce it. Attack

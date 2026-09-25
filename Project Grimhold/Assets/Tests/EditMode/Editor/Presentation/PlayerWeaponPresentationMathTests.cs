@@ -129,6 +129,7 @@ namespace Tests.EditMode.Presentation
 
             AssertParameter(controller, "OnAttack", AnimatorControllerParameterType.Trigger);
             AssertParameter(controller, "WeaponAnimationCategory", AnimatorControllerParameterType.Int);
+            AssertParameter(controller, "HasGenericAttack", AnimatorControllerParameterType.Bool);
             Assert.That(controller.parameters.Any(parameter => parameter.name == "IsLMBPressed"), Is.False);
             Assert.That(controller.parameters.Any(parameter => parameter.name == "IsRMBPressed"), Is.False);
 
@@ -138,7 +139,8 @@ namespace Tests.EditMode.Presentation
                 .Select(child => child.state)
                 .Where(state => state.tag == "Attack")
                 .ToArray();
-            Assert.That(attackStates, Has.Length.EqualTo(4));
+            Assert.That(attackStates.Select(state => state.name),
+                Is.EquivalentTo(new[] { "Attack", "LegacySword-Attack", "Rapier-Attack", "RondelDagger-Attack", "MagicWand-Attack" }));
             Assert.That(attackStates.All(state => state.motion is BlendTree), Is.True);
             Assert.That(controller.layers.Any(layer => layer.name == "Off Hand Defense"), Is.False);
         }

@@ -29,6 +29,12 @@ MonoBehaviour:
     _gripPoint: {x: 0, y: -0.625}
     _angleCorrection: -90
     _animationCategory: 1
+    _attackN: {fileID: 7400000, guid: e25aa5420da29754693200d7f642d606, type: 2}
+    _attackNE: {fileID: 7400000, guid: 78ac77f708de0014082bbc3518c64e42, type: 2}
+    _attackNW: {fileID: 7400000, guid: 11fddce44bc681f4cbf904490cf9e234, type: 2}
+    _attackS: {fileID: 7400000, guid: 1038d0f70e44a794894e9b9d7d312ea3, type: 2}
+    _attackSE: {fileID: 7400000, guid: a40a64e1629a2ea4884be18f7be4e965, type: 2}
+    _attackSW: {fileID: 7400000, guid: dd329fea2a1ca654cab46d730c3f17fc, type: 2}
   _attributeRequirements:
     _minimumStrength: 5
     _minimumDexterity: 0

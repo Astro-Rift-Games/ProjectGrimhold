@@ -12,6 +12,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         Animator.StringToHash("LocomotionPlaybackRate");
     private static readonly int WeaponAnimationCategoryHash =
         Animator.StringToHash("WeaponAnimationCategory");
+    private static readonly int HasGenericAttackHash = Animator.StringToHash("HasGenericAttack");
+    private static readonly string[] AttackDirections = { "N", "NE", "NW", "S", "SE", "SW" };
     private const string MainHandCombatLayerName = "RightHand";
 
     protected override bool StopsLocomotionDuringTemporalFacing => false;
@@ -28,6 +30,10 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private PlayerCombatNetworkController _subscribedCombatController;
     private int _mainHandCombatLayerIndex = -1;
     private bool _hasObservedAttackState;
+    private WeaponDefinition _activeWeapon;
+    private RuntimeAnimatorController _baseController;
+    private AnimatorOverrideController _attackOverrides;
+    private AnimationClip[] _placeholderClips;
 
     private void OnEnable()
     {
@@ -40,6 +46,22 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     protected override void OnDisable()
     {
         UnsubscribeFromCombat();
+        if (AnimatorInstance != null)
+        {
+            AnimatorInstance.SetBool(HasGenericAttackHash, false);
+            if (_attackOverrides != null && AnimatorInstance.runtimeAnimatorController == _attackOverrides)
+            {
+                AnimatorInstance.runtimeAnimatorController = _baseController;
+            }
+        }
+        if (_attackOverrides != null)
+        {
+            Destroy(_attackOverrides);
+            _attackOverrides = null;
+        }
+        _baseController = null;
+        _placeholderClips = null;
+        _activeWeapon = null;
         _hasObservedAttackState = false;
         base.OnDisable();
         ResetVisualPositionSample();
@@ -120,16 +142,79 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void RefreshWeaponAnimationCategory()
     {
-        WeaponAnimationCategory category = WeaponAnimationCategory.None;
+        WeaponDefinition weapon = null;
         if (CanReadEquipmentState() &&
             _equipmentSource.TryGetEquippedDefinition(out LootDefinition definition) &&
-            definition != null &&
-            definition.WeaponDefinition != null)
+            definition != null)
         {
-            category = definition.WeaponDefinition.Presentation.AnimationCategory;
+            weapon = definition.WeaponDefinition;
         }
 
-        AnimatorInstance.SetInteger(WeaponAnimationCategoryHash, (int)category);
+        if (_activeWeapon != weapon || (_baseController == null && AnimatorInstance.runtimeAnimatorController != null))
+        {
+            RefreshAttackOverrides(weapon);
+        }
+
+        AnimatorInstance.SetBool(HasGenericAttackHash, weapon != null &&
+            weapon.Presentation.HasGenericAttack && _attackOverrides != null);
+        AnimatorInstance.SetInteger(WeaponAnimationCategoryHash,
+            (int)(weapon != null ? weapon.Presentation.AnimationCategory : WeaponAnimationCategory.None));
+    }
+
+    private void RefreshAttackOverrides(WeaponDefinition weapon)
+    {
+        _activeWeapon = weapon;
+        RuntimeAnimatorController currentController = AnimatorInstance.runtimeAnimatorController;
+        if (_baseController == null)
+        {
+            _baseController = currentController;
+        }
+
+        if (weapon == null || !weapon.Presentation.HasGenericAttack || _baseController == null)
+        {
+            if (_attackOverrides != null)
+            {
+                for (int index = 0; index < AttackDirections.Length; index++)
+                {
+                    _attackOverrides[_placeholderClips[index]] = _placeholderClips[index];
+                }
+            }
+            return;
+        }
+
+        if (_attackOverrides == null)
+        {
+            AnimationClip[] clips = _baseController.animationClips;
+            _placeholderClips = new AnimationClip[AttackDirections.Length];
+            for (int index = 0; index < AttackDirections.Length; index++)
+            {
+                string name = "GenericAttack_" + AttackDirections[index];
+                for (int clipIndex = 0; clipIndex < clips.Length; clipIndex++)
+                {
+                    if (clips[clipIndex].name == name)
+                    {
+                        _placeholderClips[index] = clips[clipIndex];
+                        break;
+                    }
+                }
+                if (_placeholderClips[index] == null)
+                {
+                    Debug.LogError($"Missing generic attack placeholder {name}.", this);
+                    _placeholderClips = null;
+                    return;
+                }
+            }
+            _attackOverrides = new AnimatorOverrideController(_baseController);
+        }
+
+        for (int index = 0; index < AttackDirections.Length; index++)
+        {
+            _attackOverrides[_placeholderClips[index]] = weapon.Presentation.GetAttackClip(index);
+        }
+        if (AnimatorInstance.runtimeAnimatorController != _attackOverrides)
+        {
+            AnimatorInstance.runtimeAnimatorController = _attackOverrides;
+        }
     }
 
     private bool CanReadEquipmentState()
