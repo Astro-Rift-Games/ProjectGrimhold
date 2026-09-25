@@ -47,6 +47,20 @@ public class RemoteOperationPolicyTests
     }
 
     [Test]
+    public async Task ExecuteWithReconciliation_DomainError_ReconcilesAndReturnsFalse()
+    {
+        bool reconciled = false;
+        var (success, result, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+            () => Task.FromResult((false, 0, new BackendError { error = "UNSUPPORTED_EQUIPMENT_LAYOUT" })),
+            () => { reconciled = true; return Task.FromResult(true); }
+        );
+
+        Assert.That(reconciled, Is.True);
+        Assert.That(success, Is.False);
+        Assert.That(error.error, Is.EqualTo("UNSUPPORTED_EQUIPMENT_LAYOUT"));
+    }
+
+    [Test]
     public async Task ExecuteWithReconciliation_ReconciliationFails_PropagatesError()
     {
         var (success, result, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(

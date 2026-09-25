@@ -45,10 +45,11 @@ public sealed class LoginFlowController : MonoBehaviour
     [SerializeField] private ApplicationAuthContext _authContext;
 
     public string PendingUsername => _pendingUsername;
-    public bool HasHydrationFailed => !string.IsNullOrEmpty(_pendingToken);
+    public bool HasHydrationFailed => _hydrationFailed;
 
     private string _pendingToken;
     private string _pendingUsername;
+    private bool _hydrationFailed;
 
     private void Awake()
     {
@@ -174,6 +175,7 @@ public sealed class LoginFlowController : MonoBehaviour
     {
         _pendingToken = null;
         _pendingUsername = null;
+        _hydrationFailed = false;
         LocalProfileProvider.ClearRemoteCharacterId();
         _authContext?.Clear();
     }
@@ -188,7 +190,7 @@ public sealed class LoginFlowController : MonoBehaviour
         var invResult = inventoryTask.Result;
         var progResult = progressionTask.Result;
 
-        return (invResult.success, invResult.result, invResult.error, progResult.success, progResult.result, progResult.error);
+        return (invResult.success, invResult.data, invResult.error, progResult.success, progResult.data, progResult.error);
     }
 
     private async Task<LoginFlowResult> CompleteAuthenticationAndInjectIdentity(string token, string username, bool isRetry = false)
@@ -201,6 +203,7 @@ public sealed class LoginFlowController : MonoBehaviour
             {
                 _pendingToken = token;
                 _pendingUsername = username;
+                _hydrationFailed = false;
                 return LoginFlowResult.Failure(LoginFlowStatus.NeedsCharacterCreation, "Account has no character.");
             }
             if (charError.error == "UNAUTHORIZED")
@@ -210,6 +213,7 @@ public sealed class LoginFlowController : MonoBehaviour
             }
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginHydrationFailureClassifier.ClassifyHydrationFailure(charError, "character profile");
         }
 
@@ -224,6 +228,7 @@ public sealed class LoginFlowController : MonoBehaviour
             }
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginHydrationFailureClassifier.ClassifyHydrationFailure(profileError, "character profile");
         }
 
@@ -241,6 +246,7 @@ public sealed class LoginFlowController : MonoBehaviour
             if (invError.error == "UNAUTHORIZED") { ClearState(); return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired."); }
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginHydrationFailureClassifier.ClassifyHydrationFailure(invError, "inventory");
         }
 
@@ -249,6 +255,7 @@ public sealed class LoginFlowController : MonoBehaviour
             if (progError.error == "UNAUTHORIZED") { ClearState(); return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired."); }
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginHydrationFailureClassifier.ClassifyHydrationFailure(progError, "progression");
         }
 
@@ -256,6 +263,7 @@ public sealed class LoginFlowController : MonoBehaviour
         {
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginHydrationFailureClassifier.ClassifyRevisionMismatch(invData.revision, progData.revision);
         }
 
@@ -276,6 +284,7 @@ public sealed class LoginFlowController : MonoBehaviour
             _authContext?.Clear();
             _pendingToken = token;
             _pendingUsername = username;
+            _hydrationFailed = true;
             return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Failed to load character data. Please try again.");
         }
 

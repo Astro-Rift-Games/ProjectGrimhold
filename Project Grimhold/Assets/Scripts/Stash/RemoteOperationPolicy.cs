@@ -19,20 +19,15 @@ public static class RemoteOperationPolicy
             return (true, result, default);
         }
 
-        if (error.error == "REVISION_CONFLICT" || BackendErrorUtility.IsTransportFailure(error.error))
+        UnityEngine.Debug.LogWarning($"[RemoteOperationPolicy] Remote operation rejected/failed ({error.error}). Reconciling...");
+        
+        bool reconciled = await reconciliationFunc();
+        if (!reconciled)
         {
-            UnityEngine.Debug.LogWarning($"[RemoteOperationPolicy] {error.error} detected. Reconciling...");
-            
-            bool reconciled = await reconciliationFunc();
-            if (!reconciled)
-            {
-                return (false, default, new BackendError { error = "RECONCILIATION_FAILED", message = "Failed to reconcile state with remote server." });
-            }
-
-            // Return the original error so the caller knows the mutation was rejected/undetermined and needs user action
-            return (false, default, error);
+            return (false, default, new BackendError { error = "RECONCILIATION_FAILED", message = "Failed to reconcile state with remote server." });
         }
 
+        // Return the original error so the caller knows the mutation was rejected/undetermined and needs user action
         return (false, default, error);
     }
 

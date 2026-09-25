@@ -168,11 +168,7 @@ public class LobbyStashPresenter : MonoBehaviour
         }
 
         // Like PreparedEquipmentAssignmentRequested, we should sync equipment state.
-        bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess)
-        {
-            // SyncPreparedEquipmentAsync already uses RemoteOperationPolicy
-        }
+        await SyncPreparedEquipmentAsync();
     }
 
     private async void OnTakeAllRequested()
@@ -322,11 +318,7 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
-        bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess)
-        {
-            // Handled internally
-        }
+        await SyncPreparedEquipmentAsync();
     }
 
     private async void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
@@ -340,11 +332,7 @@ public class LobbyStashPresenter : MonoBehaviour
             return;
         }
 
-        bool syncSuccess = await SyncPreparedEquipmentAsync();
-        if (!syncSuccess)
-        {
-            // Handled internally
-        }
+        await SyncPreparedEquipmentAsync();
     }
 
     /// <summary>

@@ -6,6 +6,18 @@ using NUnit.Framework;
 [Category("BACK-06")]
 public class RemoteIdempotentRetryPolicyTests
 {
+    [SetUp]
+    public void SetUp()
+    {
+        RemoteIdempotentRetryPolicy.BackoffMs = 0;
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        RemoteIdempotentRetryPolicy.BackoffMs = 1000;
+    }
+
     [Test]
     public async Task ExecuteWithRetry_Success_DirectlyReturnsSuccess()
     {

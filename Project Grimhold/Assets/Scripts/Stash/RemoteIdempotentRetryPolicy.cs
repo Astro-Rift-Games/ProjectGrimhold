@@ -5,7 +5,7 @@ using Grimhold.Backend;
 public static class RemoteIdempotentRetryPolicy
 {
     public const int MaxRetries = 3;
-    public const int BackoffMs = 1000;
+    internal static int BackoffMs = 1000;
 
     /// <summary>
     /// Executes an idempotent remote operation. If a REVISION_CONFLICT or Transport Failure occurs, 

@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using Grimhold.Backend;
 using NUnit.Framework;
 
 [Category("BACK-06")]

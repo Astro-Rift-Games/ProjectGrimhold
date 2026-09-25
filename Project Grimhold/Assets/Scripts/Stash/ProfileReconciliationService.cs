@@ -49,9 +49,9 @@ public class ProfileReconciliationService : MonoBehaviour
         var invResult = inventoryTask.Result;
         var progResult = progressionTask.Result;
 
-        if (invResult.success && progResult.success && invResult.result.revision != progResult.result.revision)
+        if (invResult.success && progResult.success && invResult.data.revision != progResult.data.revision)
         {
-            Debug.LogWarning($"[ProfileReconciliationService] Mismatch in remote revisions during reconciliation: Inv({invResult.result.revision}) vs Prog({progResult.result.revision}). Retrying once...");
+            Debug.LogWarning($"[ProfileReconciliationService] Mismatch in remote revisions during reconciliation: Inv({invResult.data.revision}) vs Prog({progResult.data.revision}). Retrying once...");
             inventoryTask = InventoryClient.GetInventoryAsync(_config, AuthToken);
             progressionTask = ProgressionClient.GetProgressionAsync(_config, AuthToken);
             await Task.WhenAll(inventoryTask, progressionTask);
