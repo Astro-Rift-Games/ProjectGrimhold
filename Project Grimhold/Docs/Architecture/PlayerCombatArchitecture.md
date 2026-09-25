@@ -461,8 +461,10 @@ its route does not inspect `WeaponAnimationCategory`. An unarmed or incompletely
 configured weapon disables that route and restores the placeholder slots. The
 category-1 `LegacySword-Attack` state retains the existing directional sword clips
 and is gated by `!HasGenericAttack`, preserving the `magic_sword`, `long_sword`
-and `zweihander` fallbacks. Other category routes remain unchanged. This is
-local presentation state, not a replicated or authoritative combat decision.
+and `zweihander` fallbacks. Rondel Dagger and Magic Cinquedea share six Rondel
+clips through the generic override route; the category-3 dagger route is removed.
+The Magic Wand category-4 legacy route remains. This is local presentation state,
+not a replicated or authoritative combat decision.
 
 The trigger represents an already accepted gameplay execution; local mouse input never starts
 the animation. Proxies observe the same replicated sequence and therefore reproduce it. Attack
@@ -562,8 +564,8 @@ of future scaling variation.
 | `magic_sword` | 1 | `PlayerMeleeAttackConfig` | `ArmingSword` |
 | `long_sword` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
 | `zweihander` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
-| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | `RondelDagger` |
-| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | `RondelDagger` |
+| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | six Rondel generic clips |
+| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | six shared Rondel generic clips |
 | `long_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
 | `magic_wand` | 1 | `RangePlayerAttackConfig` | `MagicWand` |
@@ -576,7 +578,9 @@ static per-weapon presentation data and do not introduce LootId branches in the 
 
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
 to be final two-handed, bow or staff animation content. `WeaponAnimationCategory` therefore exposes
-only the four currently supported families: `ArmingSword`, `Rapier`, `RondelDagger` and `MagicWand`.
+the legacy categories `ArmingSword` and `MagicWand`, the retained `Rapier` enum value,
+and `None` for weapons using generic directional clips. The retired category value 3 is not reused;
+`MagicWand` remains serialized as 4.
 
 `shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
 independent from attack animation categories.

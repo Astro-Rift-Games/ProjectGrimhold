@@ -7,6 +7,5 @@ public enum WeaponAnimationCategory
     None = 0,
     ArmingSword = 1,
     Rapier = 2,
-    RondelDagger = 3,
     MagicWand = 4
 }

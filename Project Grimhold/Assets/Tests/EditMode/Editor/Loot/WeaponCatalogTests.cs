@@ -117,10 +117,10 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.ArmingSword, typeof(MeleeAttackConfig));
             AssertWeapon("rondel_dagger", 18f, 0.55f, 1f, 10f, 0f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 5, 0,
-                WeaponAnimationCategory.RondelDagger, typeof(MeleeAttackConfig));
+                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("magic_cinquedea", 18f, 0.55f, 1f, 10f, 0f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 5, 0,
-                WeaponAnimationCategory.RondelDagger, typeof(MeleeAttackConfig));
+                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("long_bow", 28f, 0.9f, 6f, 14f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
                 WeaponAnimationCategory.MagicWand, typeof(RangedAttackConfig));
@@ -191,13 +191,19 @@ namespace Tests.EditMode.Loot
             Assert.That(supported, Is.EquivalentTo(new[]
             {
                 WeaponAnimationCategory.ArmingSword,
-                WeaponAnimationCategory.RondelDagger,
                 WeaponAnimationCategory.MagicWand
             }));
+
+            Assert.That(Enum.IsDefined(typeof(WeaponAnimationCategory), 3), Is.False);
+            Assert.That((int)WeaponAnimationCategory.MagicWand, Is.EqualTo(4));
+            Assert.That(attackLayer.stateMachine.anyStateTransitions.Any(transition =>
+                transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
+                    condition.threshold == 3f)), Is.False);
 
             foreach (string id in WeaponIds)
             {
                 _catalog.TryGet(id, out LootDefinition definition);
+                Assert.That((int)definition.WeaponDefinition.Presentation.AnimationCategory, Is.Not.EqualTo(3), id);
                 if (!definition.WeaponDefinition.Presentation.HasGenericAttack)
                 {
                     Assert.That(supported, Does.Contain(definition.WeaponDefinition.Presentation.AnimationCategory), id);

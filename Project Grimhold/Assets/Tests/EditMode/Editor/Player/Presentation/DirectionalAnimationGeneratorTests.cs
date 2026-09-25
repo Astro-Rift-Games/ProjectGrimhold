@@ -10,6 +10,7 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string Grip = Hand + "/MainHandGrip";
     private const string Root = "Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_";
     private const string RapierRoot = "Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_";
+    private const string RondelRoot = "Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_";
 
     [TestCase("N", 180f)]
     [TestCase("NE", 135f)]
@@ -315,6 +316,53 @@ public sealed class DirectionalAnimationGeneratorTests
                     Assert.That(AnimationUtility.GetEditorCurve(first, binding).keys,
                         Is.EqualTo(AnimationUtility.GetEditorCurve(second, binding).keys),
                         $"{direction}/{binding.propertyName}");
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+    }
+
+    [Test]
+    public void RondelDaggerOutputs_AreReproducibleFromSingleSouthSource()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/Animations/Weapons/RondelDagger_Attack.anim");
+        Assert.That(source, Is.Not.Null);
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        foreach (string direction in directions)
+        {
+            AnimationClip expected = AssetDatabase.LoadAssetAtPath<AnimationClip>(RondelRoot + direction + ".anim");
+            AnimationClip first = DirectionalAnimationGenerator.CreateClip(source, direction, "RondelDagger");
+            AnimationClip second = DirectionalAnimationGenerator.CreateClip(source, direction, "RondelDagger");
+            try
+            {
+                Assert.That(expected, Is.Not.Null, direction);
+                Assert.That(first.name, Is.EqualTo(expected.name));
+                Assert.That(AnimationUtility.GetCurveBindings(first), Is.EquivalentTo(
+                    AnimationUtility.GetCurveBindings(second)), direction);
+                Assert.That(AnimationUtility.GetObjectReferenceCurveBindings(first), Is.EquivalentTo(
+                    AnimationUtility.GetObjectReferenceCurveBindings(second)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(first))
+                {
+                    Assert.That(AnimationUtility.GetEditorCurve(first, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(second, binding).keys),
+                        $"{direction}/{binding.propertyName}");
+                    Assert.That(AnimationUtility.GetEditorCurve(first, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(expected, binding).keys),
+                        $"{direction}/{binding.propertyName}/output");
+                }
+                foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(first))
+                {
+                    Assert.That(AnimationUtility.GetObjectReferenceCurve(first, binding),
+                        Is.EqualTo(AnimationUtility.GetObjectReferenceCurve(second, binding)),
+                        $"{direction}/{binding.propertyName}");
+                    Assert.That(AnimationUtility.GetObjectReferenceCurve(first, binding),
+                        Is.EqualTo(AnimationUtility.GetObjectReferenceCurve(expected, binding)),
+                        $"{direction}/{binding.propertyName}/output");
                 }
             }
             finally

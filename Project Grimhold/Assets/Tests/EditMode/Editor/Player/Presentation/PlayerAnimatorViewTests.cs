@@ -265,7 +265,7 @@ public sealed class PlayerAnimatorViewTests
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
         AnimatorControllerLayer rightHandLayer = controller.layers.Single(layer => layer.name == "RightHand");
-        string[] weapons = { "ArmingSword", "RondelDagger", "MagicWand" };
+        string[] weapons = { "ArmingSword", "MagicWand" };
 
         foreach (string weapon in weapons)
         {
@@ -364,10 +364,41 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_{directions[index]}.anim")));
         }
         Assert.That(layer.stateMachine.states.Any(child => child.state.name == "Rapier-Attack"), Is.False);
+
+        WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset");
+        Assert.That(rondel.Presentation.HasGenericAttack, Is.True);
+        Assert.That(rondel.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < directions.Length; index++)
+        {
+            Assert.That(rondel.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_{directions[index]}.anim")));
+        }
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "RondelDagger-Attack"), Is.False);
+        WeaponDefinition cinquedea = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset");
+        Assert.That(cinquedea.Presentation.HasGenericAttack, Is.True);
+        Assert.That(cinquedea.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < directions.Length; index++)
+        {
+            Assert.That(cinquedea.Presentation.GetAttackClip(index),
+                Is.SameAs(rondel.Presentation.GetAttackClip(index)), directions[index]);
+        }
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "LegacyDagger-Attack"), Is.False);
+        Assert.That(AssetDatabase.LoadAllAssetsAtPath(AnimatorControllerPath).OfType<BlendTree>()
+            .Any(tree => tree.name == "RondelDagger-Attack-Directional" ||
+                tree.name == "LegacyDagger-Attack-Directional"), Is.False);
+        Assert.That(layer.stateMachine.anyStateTransitions.Any(transition =>
+            transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
+                condition.threshold == 3f)), Is.False);
     }
 
     [TestCase("arming_sword", true)]
+    [TestCase("rapier", true)]
+    [TestCase("rondel_dagger", true)]
     [TestCase("magic_sword", false)]
+    [TestCase("magic_cinquedea", true)]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)
     {
         LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
@@ -500,7 +531,7 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(runtime.Except(grip), Is.EqualTo(authored));
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
-            else if (weapon == "Rapier")
+            else if (weapon == "Rapier" || weapon == "RondelDagger")
             {
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
@@ -548,7 +579,7 @@ public sealed class PlayerAnimatorViewTests
     [Test]
     public void DirectionalAttackClips_KeepTheDirectionalIdleGripPose()
     {
-        string[] weapons = { "ArmingSword", "Rapier" };
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         const string gripPath = "RightHandPivot/RightHand/MainHandGrip";
         string[] positionProperties =
