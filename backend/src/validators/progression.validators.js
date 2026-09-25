@@ -19,6 +19,9 @@ const commitProgressionValidator = [
     .isString().withMessage('must be a string')
     .trim()
     .notEmpty().withMessage('must not be empty'),
+  body('expectedRevision')
+    .exists().withMessage('expectedRevision is required')
+    .isInt({ min: 0 }).withMessage('expectedRevision must be a non-negative integer'),
   handleValidationErrors
 ];
 

@@ -34,6 +34,7 @@ public sealed class LocalProfileSnapshot
     public List<MissionInstanceState> ActiveMissions { get; } = new();
     public List<AbilityId> UnlockedAbilities { get; } = new();
     public PreparedAbilityLoadout PreparedAbilities { get; set; }
+    public int RemoteRevision { get; set; }
 
     public LocalProfileSnapshot Clone()
     {
@@ -51,7 +52,8 @@ public sealed class LocalProfileSnapshot
             PendingReservation = PendingReservation?.Clone(),
             PendingExtractionCommit = PendingExtractionCommit,
             ShopIdempotencyWatermark = ShopIdempotencyWatermark,
-            PreparedAbilities = PreparedAbilities
+            PreparedAbilities = PreparedAbilities,
+            RemoteRevision = RemoteRevision
         };
 
         clone.Stash.AddRange(Stash);

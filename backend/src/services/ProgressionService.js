@@ -19,7 +19,8 @@ class ProgressionService {
       characterAttributes: character.characterAttributes || {
         vitality: 5, resistance: 5, strength: 5,
         dexterity: 5, intelligence: 5, luck: 5, availablePoints: 10
-      }
+      },
+      revision: character.revision || 0
     };
   }
   static async commitProgression(accountId, payload) {
@@ -30,8 +31,12 @@ class ProgressionService {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
     }
 
-    if (!payload || !payload.attribute) {
-      throw { statusCode: 400, errorCode: 'INVALID_ATTRIBUTE', message: 'Attribute is required.' };
+    if (!payload || typeof payload.attribute !== 'string' || payload.attribute.trim() === '') {
+      throw { statusCode: 400, errorCode: 'INVALID_ATTRIBUTE', message: 'Attribute must be a non-empty string.' };
+    }
+
+    if (typeof payload.expectedRevision !== 'number' || payload.expectedRevision < 0 || !Number.isInteger(payload.expectedRevision)) {
+      throw { statusCode: 400, errorCode: 'INVALID_REVISION', message: 'expectedRevision must be a non-negative integer.' };
     }
 
     const attributeName = payload.attribute.toLowerCase();
@@ -57,18 +62,46 @@ class ProgressionService {
     const updateQuery = {
       $inc: {
         [`characterAttributes.${attributeName}`]: 1,
-        'characterAttributes.availablePoints': -1
+        'characterAttributes.availablePoints': -1,
+        revision: 1
       }
     };
 
     const updated = await Character.findOneAndUpdate(
-      { accountId },
+      { 
+        accountId, 
+        revision: payload.expectedRevision,
+        'characterAttributes.availablePoints': { $gt: 0 },
+        [`characterAttributes.${attributeName}`]: { $lt: MAX_ATTRIBUTE_VALUE }
+      },
       updateQuery,
       { new: true }
     );
 
+    if (!updated) {
+      // It might have failed because the revision was wrong, or character deleted,
+      // or availablePoints became 0 due to concurrent requests.
+      const exists = await Character.findOne({ accountId }, null, { lean: true });
+      if (!exists) {
+        throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found.' };
+      }
+      
+      const currentAttrs = exists.characterAttributes;
+      if (!currentAttrs || typeof currentAttrs.availablePoints !== 'number') {
+        console.error(`[ProgressionService] Legacy document detected without characterAttributes.availablePoints. AccountId: ${accountId}`);
+        throw { statusCode: 500, errorCode: 'LEGACY_DOCUMENT_UNNORMALIZED', message: 'Legacy document is missing required attributes.' };
+      }
+      
+      if (currentAttrs.availablePoints <= 0) {
+        throw { statusCode: 422, errorCode: 'NO_AVAILABLE_POINTS', message: 'No available attribute points.' };
+      }
+
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+
     return {
-      characterAttributes: updated.characterAttributes
+      characterAttributes: updated.characterAttributes,
+      revision: updated.revision
     };
   }
 }

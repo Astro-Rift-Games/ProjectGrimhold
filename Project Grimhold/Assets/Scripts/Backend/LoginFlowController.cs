@@ -10,7 +10,8 @@ public enum LoginFlowStatus
     NetworkError,
     NeedsCharacterCreation,
     RegistrationFailed,
-    CharacterCreationFailed
+    CharacterCreationFailed,
+    HydrationFailed
 }
 
 public readonly struct LoginFlowResult
@@ -43,7 +44,12 @@ public sealed class LoginFlowController : MonoBehaviour
 
     [SerializeField] private ApplicationAuthContext _authContext;
 
+    public string PendingUsername => _pendingUsername;
+    public bool HasHydrationFailed => _hydrationFailed;
+
     private string _pendingToken;
+    private string _pendingUsername;
+    private bool _hydrationFailed;
 
     private void Awake()
     {
@@ -96,16 +102,14 @@ public sealed class LoginFlowController : MonoBehaviour
         var (loginOk, loginResult, loginError) = await AuthenticationClient.PostLoginAsync(_config, username, password);
         if (!loginOk)
         {
-            var isNetwork = loginError.error == "NETWORK_ERROR";
-            var message = isNetwork
-                ? "Cannot reach the server. Check your connection."
-                : "Invalid username or password.";
-            return LoginFlowResult.Failure(
-                isNetwork ? LoginFlowStatus.NetworkError : LoginFlowStatus.AuthFailed,
-                message);
+            if (BackendErrorUtility.IsTransportFailure(loginError.error))
+            {
+                return LoginFlowResult.Failure(LoginFlowStatus.NetworkError, "Cannot reach the server. Check your connection.");
+            }
+            return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Invalid username or password.");
         }
 
-        return await CompleteAuthenticationAndInjectIdentity(loginResult.token);
+        return await CompleteAuthenticationAndInjectIdentity(loginResult.token, username);
     }
 
     public async Task<LoginFlowResult> ExecuteRegisterAsync(string username, string password)
@@ -115,8 +119,7 @@ public sealed class LoginFlowController : MonoBehaviour
         var (registerOk, loginResult, registerError) = await AuthenticationClient.PostRegisterAsync(_config, username, password);
         if (!registerOk)
         {
-            var isNetwork = registerError.error == "NETWORK_ERROR";
-            if (isNetwork)
+            if (BackendErrorUtility.IsTransportFailure(registerError.error))
             {
                 return LoginFlowResult.Failure(LoginFlowStatus.NetworkError, "Cannot reach the server. Check your connection.");
             }
@@ -134,7 +137,7 @@ public sealed class LoginFlowController : MonoBehaviour
             return LoginFlowResult.Failure(LoginFlowStatus.RegistrationFailed, message);
         }
 
-        return await CompleteAuthenticationAndInjectIdentity(loginResult.token);
+        return await CompleteAuthenticationAndInjectIdentity(loginResult.token, username);
     }
 
     public async Task<LoginFlowResult> CreateCharacterAsync(string name)
@@ -150,22 +153,47 @@ public sealed class LoginFlowController : MonoBehaviour
             return LoginFlowResult.Failure(LoginFlowStatus.CharacterCreationFailed, err.message ?? "Failed to create character.");
         }
 
-        var result = await CompleteAuthenticationAndInjectIdentity(_pendingToken);
+        var result = await CompleteAuthenticationAndInjectIdentity(_pendingToken, _pendingUsername);
         if (result.IsSuccess)
         {
             _pendingToken = null;
+            _pendingUsername = null;
         }
         return result;
+    }
+
+    public async Task<LoginFlowResult> RetryHydrationAsync()
+    {
+        if (string.IsNullOrEmpty(_pendingToken))
+        {
+            return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "No authentication token available.");
+        }
+        return await CompleteAuthenticationAndInjectIdentity(_pendingToken, _pendingUsername);
     }
 
     private void ClearState()
     {
         _pendingToken = null;
+        _pendingUsername = null;
+        _hydrationFailed = false;
         LocalProfileProvider.ClearRemoteCharacterId();
         _authContext?.Clear();
     }
 
-    private async Task<LoginFlowResult> CompleteAuthenticationAndInjectIdentity(string token)
+    private async Task<(bool invOk, InventoryData invData, BackendError invError, bool progOk, ProgressionData progData, BackendError progError)> FetchInventoryAndProgressionAsync(string token)
+    {
+        var inventoryTask = InventoryClient.GetInventoryAsync(_config, token);
+        var progressionTask = ProgressionClient.GetProgressionAsync(_config, token);
+
+        await Task.WhenAll(inventoryTask, progressionTask);
+
+        var invResult = inventoryTask.Result;
+        var progResult = progressionTask.Result;
+
+        return (invResult.success, invResult.data, invResult.error, progResult.success, progResult.data, progResult.error);
+    }
+
+    private async Task<LoginFlowResult> CompleteAuthenticationAndInjectIdentity(string token, string username, bool isRetry = false)
     {
         // Step 2: Fetch character identity
         var (charOk, charData, charError) = await CharacterClient.GetCharacterAsync(_config, token);
@@ -174,44 +202,72 @@ public sealed class LoginFlowController : MonoBehaviour
             if (charError.error == "CHARACTER_NOT_FOUND")
             {
                 _pendingToken = token;
+                _pendingUsername = username;
+                _hydrationFailed = false;
                 return LoginFlowResult.Failure(LoginFlowStatus.NeedsCharacterCreation, "Account has no character.");
             }
-            return LoginFlowResult.Failure(LoginFlowStatus.CharacterFailed,
-                "Login succeeded but character data could not be loaded.");
+            if (charError.error == "UNAUTHORIZED")
+            {
+                ClearState();
+                return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired.");
+            }
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginHydrationFailureClassifier.ClassifyHydrationFailure(charError, "character profile");
         }
 
         // Step 3: Fetch profile snapshot
-        var (profileOk, profileData, _) = await CharacterClient.GetProfileAsync(_config, token);
+        var (profileOk, profileData, profileError) = await CharacterClient.GetProfileAsync(_config, token);
         if (!profileOk)
         {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Profile fetch failed. Proceeding with empty profile.");
+            if (profileError.error == "UNAUTHORIZED")
+            {
+                ClearState();
+                return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired.");
+            }
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginHydrationFailureClassifier.ClassifyHydrationFailure(profileError, "character profile");
         }
 
-        // Step 4: Fetch inventory snapshot
-        InventoryData? inventoryData = null;
-        var (invOk, invData, _) = await InventoryClient.GetInventoryAsync(_config, token);
-        if (invOk)
+        // Step 4: Fetch inventory and progression snapshots
+        var (invOk, invData, invError, progOk, progData, progError) = await FetchInventoryAndProgressionAsync(token);
+
+        if (invOk && progOk && invData.revision != progData.revision && !isRetry)
         {
-            inventoryData = invData;
-        }
-        else
-        {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Inventory fetch failed. Proceeding with empty inventory.");
+            Debug.LogWarning($"[{nameof(LoginFlowController)}] Hydration revision mismatch ({invData.revision} vs {progData.revision}). Retrying once...");
+            (invOk, invData, invError, progOk, progData, progError) = await FetchInventoryAndProgressionAsync(token);
         }
 
-        // Step 4b: Fetch progression snapshot
-        ProgressionData? progressionData = null;
-        var (progOk, progData, _) = await ProgressionClient.GetProgressionAsync(_config, token);
-        if (progOk)
+        if (!invOk)
         {
-            progressionData = progData;
-        }
-        else
-        {
-            Debug.LogWarning($"[{nameof(LoginFlowController)}] Progression fetch failed. Proceeding with defaults.");
+            if (invError.error == "UNAUTHORIZED") { ClearState(); return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired."); }
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginHydrationFailureClassifier.ClassifyHydrationFailure(invError, "inventory");
         }
 
-        // Step 5: Inject identity into local systems
+        if (!progOk)
+        {
+            if (progError.error == "UNAUTHORIZED") { ClearState(); return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired."); }
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginHydrationFailureClassifier.ClassifyHydrationFailure(progError, "progression");
+        }
+
+        if (invData.revision != progData.revision)
+        {
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginHydrationFailureClassifier.ClassifyRevisionMismatch(invData.revision, progData.revision);
+        }
+
+        // Step 5: Inject identity into local systems.
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
 
@@ -220,9 +276,20 @@ public sealed class LoginFlowController : MonoBehaviour
             _authContext.Initialize(token, charData, profileData);
         }
 
-        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated inventory
-        ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, inventoryData, progressionData);
+        // Step 6: Initialize the stash with the now-valid ProfileId and hydrated data.
+        bool initialized = ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData);
+        if (!initialized)
+        {
+            LocalProfileProvider.ClearRemoteCharacterId();
+            _authContext?.Clear();
+            _pendingToken = token;
+            _pendingUsername = username;
+            _hydrationFailed = true;
+            return LoginFlowResult.Failure(LoginFlowStatus.HydrationFailed, "Failed to load character data. Please try again.");
+        }
 
+        _pendingToken = null;
+        _pendingUsername = null;
         return LoginFlowResult.Success();
     }
 
