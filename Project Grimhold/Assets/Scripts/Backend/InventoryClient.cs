@@ -64,6 +64,26 @@ namespace Grimhold.Backend
         }
 
         // ------------------------------------------------------------------
+        // Shop operations
+        // ------------------------------------------------------------------
+
+        public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopSellAsync(BackendConfiguration config, string token, string lootId, int amount, long declaredSellValue, int expectedRevision)
+        {
+            var url  = $"{config.BaseUrl}/character/me/inventory/shop/sell";
+            var body = new ShopSellRequest { lootId = lootId, amount = amount, declaredSellValue = declaredSellValue, expectedRevision = expectedRevision };
+            return await PostJson<ShopSellRequest, ShopTransactionResult>(config, token, url, body);
+        }
+
+        public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopBuyAsync(BackendConfiguration config, string token, string lootId, int amount, long declaredPrice, int expectedRevision)
+        {
+            var url  = $"{config.BaseUrl}/character/me/inventory/shop/buy";
+            var body = new ShopBuyRequest { lootId = lootId, amount = amount, declaredPrice = declaredPrice, expectedRevision = expectedRevision };
+            return await PostJson<ShopBuyRequest, ShopTransactionResult>(config, token, url, body);
+        }
+
+        // ------------------------------------------------------------------
         // Equipment slots
         // ------------------------------------------------------------------
 

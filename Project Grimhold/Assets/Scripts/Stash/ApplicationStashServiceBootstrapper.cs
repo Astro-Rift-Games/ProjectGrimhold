@@ -174,7 +174,7 @@ public static class ApplicationStashServiceBootstrapper
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
         var loadoutService = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
         var currencyService = contextObject.AddComponent<InMemoryPlayerCurrencyService>();
-        var shopTransactionService = contextObject.AddComponent<LocalShopTransactionService>();
+        var shopTransactionService = contextObject.AddComponent<RemoteShopTransactionService>();
         
         // Add RemoteInventoryService to handle backend operations
         var remoteInventoryService = contextObject.AddComponent<RemoteInventoryService>();
@@ -187,7 +187,7 @@ public static class ApplicationStashServiceBootstrapper
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
-        shopTransactionService.Initialize(store);
+        shopTransactionService.Initialize(store, _configuration, reconciliationService);
         _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
 
         _initializedProfileId = profileId;
@@ -198,7 +198,6 @@ public static class ApplicationStashServiceBootstrapper
     /// <summary>
     /// Updates the local snapshot with authoritative data from the backend.
     /// Note: The following local-only or unsynced fields are NOT overwritten by the backend:
-    /// - Currency
     /// - ActiveMissions
     /// - UnlockedAbilities
     /// - PreparedAbilities (unless revalidation fails due to attribute changes)
@@ -249,6 +248,7 @@ public static class ApplicationStashServiceBootstrapper
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
+            snapshot.Currency = data.currency;
             snapshot.Stash.Clear();
             if (data.stash != null)
             {

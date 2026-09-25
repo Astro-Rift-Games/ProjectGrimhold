@@ -72,9 +72,8 @@ const characterSchema = new mongoose.Schema({
   lastProgressionReceipt:               { type: progressionReceiptSchema, default: null },
   appliedProgressionReceipts:           { type: [progressionReceiptSchema], default: [] },
   characterAttributes:                  { type: characterAttributeStateSchema, default: () => ({}) },
-  // Durable inventory state.
-  // Persisted only when the player moves an item between containers (save-on-move).
   inventory: {
+    currency:           { type: Number, default: 0 },
     stash:              { type: [itemSchema],             default: [] },
     loadout:            { type: [itemSchema],             default: [] },
     preparedEquipment:  { type: preparedEquipmentSchema,  default: () => ({}) },

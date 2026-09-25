@@ -13,6 +13,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct InventoryData
     {
+        public long                     currency;
         public InventoryItemData[]      stash;
         public InventoryItemData[]      loadout;
         public PreparedEquipmentData    preparedEquipment;
@@ -94,6 +95,38 @@ namespace Grimhold.Backend
     public struct SaveReservationRequest
     {
         public string reservationId;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Shop operations
+    // ---------------------------------------------------------------------------
+
+    [Serializable]
+    public struct ShopSellRequest
+    {
+        public string lootId;
+        public int    amount;
+        public long   declaredSellValue;
+        public int    expectedRevision;
+    }
+
+    [Serializable]
+    public struct ShopBuyRequest
+    {
+        public string lootId;
+        public int    amount;
+        public long   declaredPrice;
+        public int    expectedRevision;
+    }
+
+    [Serializable]
+    public struct ShopTransactionResult
+    {
+        public long                  currency;
+        public InventoryItemData[]   stash;
+        public InventoryItemData[]   loadout;
+        public PreparedEquipmentData preparedEquipment;
+        public int                   revision;
     }
 
     // ---------------------------------------------------------------------------

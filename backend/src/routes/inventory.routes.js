@@ -9,7 +9,9 @@ const {
   moveItemValidator,
   preparedEquipmentValidator,
   pendingReservationValidator,
-  commitExtractionValidator
+  commitExtractionValidator,
+  shopSellValidator,
+  shopBuyValidator
 } = require('../validators/inventory.validators');
 const { commitExtractionUnifiedValidator } = require('../validators/extraction.validators');
 
@@ -48,6 +50,32 @@ router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req
   try {
     const { lootId, amount, expectedRevision } = req.body;
     const result = await InventoryService.moveToStash(req.accountId, lootId, amount, expectedRevision);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/shop/sell
+// Sells an item from the loadout, awarding currency.
+// Body: { lootId: string, amount: number, declaredSellValue: number, expectedRevision: number }
+router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next) => {
+  try {
+    const { lootId, amount, declaredSellValue, expectedRevision } = req.body;
+    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/shop/buy
+// Buys an item into the loadout, deducting currency.
+// Body: { lootId: string, amount: number, declaredPrice: number, expectedRevision: number }
+router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) => {
+  try {
+    const { lootId, amount, declaredPrice, expectedRevision } = req.body;
+    const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision);
     res.json(result);
   } catch (err) {
     next(err);

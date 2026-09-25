@@ -71,6 +71,7 @@ class InventoryService {
       : null;
 
     return {
+      currency:           character.inventory.currency || 0,
       stash:              serializeItems(character.inventory.stash),
       loadout:            serializeItems(character.inventory.loadout),
       preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
@@ -484,6 +485,117 @@ class InventoryService {
     return {
       alreadySecured: false,
       loadout: serializeItems(character.inventory.loadout)
+    };
+  }
+
+  /**
+   * Processes a shop sale. Removes items from the loadout and adds currency.
+   */
+  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    lootId = normalizeLootId(lootId);
+
+    const loadout = character.inventory.loadout;
+    const loadoutIndex = loadout.findIndex(i => i.lootId === lootId);
+
+    if (loadoutIndex === -1 || loadout[loadoutIndex].amount < amount) {
+      throw {
+        statusCode: 409,
+        errorCode: 'INSUFFICIENT_ITEMS',
+        message: `Loadout does not hold ${amount} unit(s) of '${lootId}'.`
+      };
+    }
+
+    if (loadout[loadoutIndex].amount === amount) {
+      loadout.splice(loadoutIndex, 1);
+    } else {
+      loadout[loadoutIndex].amount -= amount;
+    }
+
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision },
+      {
+        $set: { 'inventory.loadout': loadout },
+        $inc: { revision: 1, 'inventory.currency': declaredSellValue }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during shop sale.' };
+    }
+
+    return {
+      revision: updated.revision,
+      currency: updated.inventory.currency || 0,
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
+    };
+  }
+
+  /**
+   * Processes a shop purchase. Removes currency and adds items to the loadout.
+   */
+  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    normalizeCharacterInventory(character);
+    
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    lootId = normalizeLootId(lootId);
+    
+    const currentCurrency = character.inventory.currency || 0;
+    if (currentCurrency < declaredPrice) {
+      throw {
+        statusCode: 409, // Using 409 for domain errors like INSUFFICIENT_FUNDS to keep retry policies simple
+        errorCode: 'INSUFFICIENT_FUNDS',
+        message: `Not enough currency to purchase '${lootId}'.`
+      };
+    }
+
+    const loadout = character.inventory.loadout;
+    const loadoutIndex = loadout.findIndex(i => i.lootId === lootId);
+
+    if (loadoutIndex !== -1) {
+      loadout[loadoutIndex].amount += amount;
+    } else {
+      loadout.push({ lootId, amount });
+    }
+
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision, 'inventory.currency': { $gte: declaredPrice } },
+      {
+        $set: { 'inventory.loadout': loadout },
+        $inc: { revision: 1, 'inventory.currency': -declaredPrice }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict or insufficient funds during shop purchase.' };
+    }
+
+    return {
+      revision: updated.revision,
+      currency: updated.inventory.currency || 0,
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
     };
   }
 }
