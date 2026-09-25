@@ -491,7 +491,7 @@ class InventoryService {
    * `declaredSellValue` is validated as >= 0 at the route level, ensuring
    * that sales can only grow (or maintain) the currency balance.
    */
-  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision) {
+  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -499,9 +499,24 @@ class InventoryService {
 
     normalizeCharacterInventory(character);
     
+    // 1. Idempotency check: if already applied, return immediately.
+    // This MUST run before the revision check so network retries don't fail.
+    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
+      return {
+        alreadySecured: true,
+        revision: character.revision,
+        currency: character.inventory.currency || 0,
+        stash: serializeItems(character.inventory.stash),
+        loadout: serializeItems(character.inventory.loadout),
+        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+      };
+    }
+
+    // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
+
     lootId = normalizeLootId(lootId);
 
     const loadout = character.inventory.loadout;
@@ -525,7 +540,13 @@ class InventoryService {
       { accountId, revision: expectedRevision },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': declaredSellValue }
+        $inc: { revision: 1, 'inventory.currency': declaredSellValue },
+        $push: {
+          appliedShopReceipts: {
+            $each: [{ transactionId, type: 'sell', timestamp: new Date() }],
+            $slice: -64
+          }
+        }
       },
       { new: true }
     );
@@ -551,7 +572,7 @@ class InventoryService {
    * MongoDB query filter ('inventory.currency': { $gte: declaredPrice }).
    * `declaredPrice` is validated as >= 0 at the route level.
    */
-  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision) {
+  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -559,9 +580,23 @@ class InventoryService {
 
     normalizeCharacterInventory(character);
     
+    // 1. Idempotency check: if already applied, return immediately.
+    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
+      return {
+        alreadySecured: true,
+        revision: character.revision,
+        currency: character.inventory.currency || 0,
+        stash: serializeItems(character.inventory.stash),
+        loadout: serializeItems(character.inventory.loadout),
+        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+      };
+    }
+
+    // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
+    
     lootId = normalizeLootId(lootId);
     
     const currentCurrency = character.inventory.currency || 0;
@@ -586,7 +621,13 @@ class InventoryService {
       { accountId, revision: expectedRevision, 'inventory.currency': { $gte: declaredPrice } },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': -declaredPrice }
+        $inc: { revision: 1, 'inventory.currency': -declaredPrice },
+        $push: {
+          appliedShopReceipts: {
+            $each: [{ transactionId, type: 'buy', timestamp: new Date() }],
+            $slice: -64
+          }
+        }
       },
       { new: true }
     );

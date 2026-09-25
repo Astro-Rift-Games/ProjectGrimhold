@@ -72,6 +72,10 @@ const commitExtractionValidator = [
 
 // Validates the body for shop sale operations.
 const shopSellValidator = [
+  body('transactionId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
   body('lootId')
     .isString().withMessage('must be a string')
     .trim()
@@ -87,6 +91,10 @@ const shopSellValidator = [
 
 // Validates the body for shop purchase operations.
 const shopBuyValidator = [
+  body('transactionId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
   body('lootId')
     .isString().withMessage('must be a string')
     .trim()

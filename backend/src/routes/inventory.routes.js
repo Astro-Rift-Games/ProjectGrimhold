@@ -59,11 +59,11 @@ router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req
 
 // POST /character/me/inventory/shop/sell
 // Sells an item from the loadout, awarding currency.
-// Body: { lootId: string, amount: number, declaredSellValue: number, expectedRevision: number }
+// Body: { transactionId, lootId, amount, declaredSellValue, expectedRevision }
 router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, declaredSellValue, expectedRevision } = req.body;
-    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision);
+    const { transactionId, lootId, amount, declaredSellValue, expectedRevision } = req.body;
+    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId);
     res.json(result);
   } catch (err) {
     next(err);
@@ -72,11 +72,11 @@ router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next)
 
 // POST /character/me/inventory/shop/buy
 // Buys an item into the loadout, deducting currency.
-// Body: { lootId: string, amount: number, declaredPrice: number, expectedRevision: number }
+// Body: { transactionId, lootId, amount, declaredPrice, expectedRevision }
 router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, declaredPrice, expectedRevision } = req.body;
-    const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision);
+    const { transactionId, lootId, amount, declaredPrice, expectedRevision } = req.body;
+    const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision, transactionId);
     res.json(result);
   } catch (err) {
     next(err);

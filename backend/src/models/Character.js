@@ -53,6 +53,12 @@ const characterAttributeStateSchema = new mongoose.Schema({
   availablePoints: { type: Number, default: 10, min: 0 }
 }, { _id: false });
 
+const shopReceiptSchema = new mongoose.Schema({
+  transactionId: { type: String, required: true },
+  type:          { type: String, enum: ['buy', 'sell'], required: true },
+  timestamp:     { type: Date, default: Date.now }
+}, { _id: false });
+
 const characterSchema = new mongoose.Schema({
   accountId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -89,6 +95,8 @@ const characterSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Capped at 64 entries (at-most-once window for Shop transactions)
+  appliedShopReceipts: { type: [shopReceiptSchema], default: [] },
   revision: {
     type: Number,
     default: 0
