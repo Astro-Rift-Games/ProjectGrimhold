@@ -28,7 +28,13 @@ MonoBehaviour:
     _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.625}
     _angleCorrection: -90
-    _animationCategory: 2
+    _animationCategory: 0
+    _attackN: {fileID: 7400000, guid: 786563cb93c3dfc43aa1bc0082dbdb10, type: 2}
+    _attackNE: {fileID: 7400000, guid: 36c2f9934d351bb44b49e1e2650e47d4, type: 2}
+    _attackNW: {fileID: 7400000, guid: d2fce8defaf06584fb3c6b149b9b033a, type: 2}
+    _attackS: {fileID: 7400000, guid: 97d602c464c45264eb897f39d01aaa54, type: 2}
+    _attackSE: {fileID: 7400000, guid: 3edb5875c0c7e0a448a6043d60c774fc, type: 2}
+    _attackSW: {fileID: 7400000, guid: 74a32e45dc6272346a5b4a80a089533d, type: 2}
   _attributeRequirements:
     _minimumStrength: 5
     _minimumDexterity: 0

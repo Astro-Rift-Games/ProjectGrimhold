@@ -4,11 +4,12 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class ArmingSwordDirectionalAnimationGeneratorTests
+public sealed class DirectionalAnimationGeneratorTests
 {
     private const string Hand = "RightHandPivot/RightHand";
     private const string Grip = Hand + "/MainHandGrip";
     private const string Root = "Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_";
+    private const string RapierRoot = "Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_";
 
     [TestCase("N", 180f)]
     [TestCase("NE", 135f)]
@@ -20,7 +21,7 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
     {
         AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
         Assert.That(south, Is.Not.Null);
-        AnimationClip result = ArmingSwordDirectionalAnimationGenerator.CreateClip(south, direction);
+        AnimationClip result = DirectionalAnimationGenerator.CreateClip(south, direction, "ArmingSword");
         try
         {
             float radians = angle * Mathf.Deg2Rad;
@@ -185,7 +186,7 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
             keys[0].value += 0.125f;
             changed.keys = keys;
             AnimationUtility.SetEditorCurve(copy, binding, changed);
-            AnimationClip generated = ArmingSwordDirectionalAnimationGenerator.CreateClip(copy, "S");
+            AnimationClip generated = DirectionalAnimationGenerator.CreateClip(copy, "S", "ArmingSword");
             try
             {
                 Assert.That(Curve(generated, Hand, "m_LocalPosition.x").keys[0].value,
@@ -202,7 +203,7 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
     public void CreateClip_RejectsUnknownDirectionWithoutChangingSource()
     {
         AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
-        Assert.Throws<ArgumentException>(() => ArmingSwordDirectionalAnimationGenerator.CreateClip(south, "E"));
+        Assert.Throws<ArgumentException>(() => DirectionalAnimationGenerator.CreateClip(south, "E", "ArmingSword"));
         Assert.That(Curve(south, Hand, "m_SortingOrder"), Is.Null);
     }
 
@@ -215,7 +216,7 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
         string guid = AssetDatabase.AssetPathToGUID(sourcePath);
         float value = Curve(original, Hand, "m_LocalPosition.x").keys[0].value;
 
-        Assert.Throws<ArgumentException>(() => ArmingSwordDirectionalAnimationGenerator.Bake(original, "S", sourcePath));
+        Assert.Throws<ArgumentException>(() => DirectionalAnimationGenerator.Bake(original, "S", sourcePath, "ArmingSword"));
         Assert.That(AssetDatabase.AssetPathToGUID(sourcePath), Is.EqualTo(guid));
         Assert.That(Curve(original, Hand, "m_LocalPosition.x").keys[0].value, Is.EqualTo(value));
     }
@@ -236,11 +237,11 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
             if (!AssetDatabase.IsValidFolder(folder))
                 AssetDatabase.CreateFolder("Assets/Tests/EditMode/Editor/Player/Presentation", "ArmingSwordDirectionalGenerationScratch");
             Assert.That(AssetDatabase.LoadAssetAtPath<AnimationClip>(path), Is.Null);
-            ArmingSwordDirectionalAnimationGenerator.Bake(original, direction, path);
+            DirectionalAnimationGenerator.Bake(original, direction, path, "ArmingSword");
             string guid = AssetDatabase.AssetPathToGUID(path);
             Assert.That(guid, Is.Not.Empty);
             AssertImportedBindings(path, direction);
-            ArmingSwordDirectionalAnimationGenerator.Bake(original, direction, path);
+            DirectionalAnimationGenerator.Bake(original, direction, path, "ArmingSword");
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid));
             AssertImportedBindings(path, direction);
         }
@@ -264,10 +265,10 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
         {
             if (!AssetDatabase.IsValidFolder(folder))
                 AssetDatabase.CreateFolder("Assets/Tests/EditMode/Editor/Player/Presentation", "ArmingSwordDirectionalGenerationScratch");
-            ArmingSwordDirectionalAnimationGenerator.Bake(original, "S", path);
+            DirectionalAnimationGenerator.Bake(original, "S", path, "ArmingSword");
             Assert.That(AssetDatabase.DeleteAsset(path), Is.True);
             Assert.That(AssetDatabase.LoadAssetAtPath<AnimationClip>(path), Is.Null);
-            ArmingSwordDirectionalAnimationGenerator.Bake(original, "S", path);
+            DirectionalAnimationGenerator.Bake(original, "S", path, "ArmingSword");
             AssertImportedBindings(path, "S");
             float runtimeSouthValue = Curve(AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim"), Hand, "m_LocalPosition.x").keys[0].value;
             AnimationCurve changed = AnimationUtility.GetEditorCurve(copy, binding);
@@ -275,7 +276,7 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
             keys[0].value += 0.125f;
             changed.keys = keys;
             AnimationUtility.SetEditorCurve(copy, binding, changed);
-            ArmingSwordDirectionalAnimationGenerator.Bake(copy, "S", path);
+            DirectionalAnimationGenerator.Bake(copy, "S", path, "ArmingSword");
             AnimationClip imported = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
             Assert.That(Curve(imported, Hand, "m_LocalPosition.x").keys[0].value, Is.EqualTo(keys[0].value).Within(0.00001f));
             Assert.That(Curve(original, Hand, "m_LocalPosition.x").keys[0].value, Is.EqualTo(originalValue));
@@ -288,6 +289,63 @@ public sealed class ArmingSwordDirectionalAnimationGeneratorTests
             AssetDatabase.DeleteAsset(path);
             AssetDatabase.DeleteAsset(folder);
         }
+    }
+
+    [Test]
+    public void RapierOutputs_AreReproducibleFromSingleSouthSource()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/Animations/Weapons/Rapier_Attack.anim");
+        Assert.That(source, Is.Not.Null);
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        foreach (string direction in directions)
+        {
+            AnimationClip expected = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_{direction}.anim");
+            AnimationClip first = DirectionalAnimationGenerator.CreateClip(source, direction, "Rapier");
+            AnimationClip second = DirectionalAnimationGenerator.CreateClip(source, direction, "Rapier");
+            try
+            {
+                Assert.That(expected, Is.Not.Null, direction);
+                Assert.That(first.name, Is.EqualTo(expected.name));
+                Assert.That(AnimationUtility.GetCurveBindings(first), Is.EquivalentTo(
+                    AnimationUtility.GetCurveBindings(second)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(first))
+                {
+                    Assert.That(AnimationUtility.GetEditorCurve(first, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(second, binding).keys),
+                        $"{direction}/{binding.propertyName}");
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+    }
+
+    [Test]
+    public void RapierNorthGrip_IsDerivedFromNorthIdleInsteadOfLegacyOutput()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/Animations/Weapons/Rapier_Attack.anim");
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/Animations/Player/Idle/Idle_N.anim");
+        AnimationClip result = DirectionalAnimationGenerator.CreateClip(source, "N", "Rapier");
+        try
+        {
+            string property = "m_LocalPosition.x";
+            EditorCurveBinding binding = new EditorCurveBinding
+            {
+                path = Grip, type = typeof(Transform), propertyName = property
+            };
+            float expected = Curve(idle, Grip, property).Evaluate(0f);
+            Assert.That(Curve(result, Grip, property).Evaluate(0f), Is.EqualTo(expected).Within(0.00001f));
+            Assert.That(Curve(result, Grip, property).Evaluate(result.length), Is.EqualTo(expected).Within(0.00001f));
+            Assert.That(AnimationUtility.GetEditorCurve(result, binding), Is.Not.Null);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(result); }
     }
 
     private static void AssertImportedBindings(string path, string direction)

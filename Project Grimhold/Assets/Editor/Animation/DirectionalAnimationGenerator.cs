@@ -3,19 +3,23 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-public static class ArmingSwordDirectionalAnimationGenerator
+public static class DirectionalAnimationGenerator
 {
-    private const string Root = "Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_";
     private const string Hand = "RightHandPivot/RightHand";
     private const string Grip = Hand + "/MainHandGrip";
     private static readonly string[] Directions = { "N", "NE", "NW", "S", "SE", "SW" };
     private static readonly float[] Angles = { 180f, 135f, -135f, 0f, 45f, -45f };
 
     [MenuItem("Tools/Animations/Generate ArmingSword Directional Attacks")]
-    public static void GenerateAssets()
+    private static void GenerateArmingSwordAssets() => GenerateAssets("ArmingSword");
+
+    [MenuItem("Tools/Animations/Generate Rapier Directional Attacks")]
+    public static void GenerateRapierAssets() => GenerateAssets("Rapier");
+
+    public static void GenerateAssets(string weaponName)
     {
-        AnimationClip original = RequireClip("Assets/Animations/Weapons/ArmingSword_Attack.anim");
-        // Resolve every input and output before writing any assets.
+        ValidateWeaponName(weaponName);
+        AnimationClip original = RequireClip($"Assets/Animations/Weapons/{weaponName}_Attack.anim");
         foreach (string direction in Directions)
         {
             RequireClip($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
@@ -23,12 +27,17 @@ public static class ArmingSwordDirectionalAnimationGenerator
         }
 
         foreach (string direction in Directions)
-            Bake(original, direction, Root + direction + ".anim");
+        {
+            Bake(original, direction,
+                $"Assets/Animations/Weapons/Directional/{weaponName}/{weaponName}_Attack_{direction}.anim",
+                weaponName);
+        }
     }
 
-    public static void Bake(AnimationClip original, string direction, string path)
+    public static void Bake(AnimationClip original, string direction, string path, string weaponName)
     {
         if (original == null) throw new ArgumentNullException(nameof(original));
+        ValidateWeaponName(weaponName);
         if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/", StringComparison.Ordinal) ||
             !path.EndsWith(".anim", StringComparison.Ordinal))
             throw new ArgumentException("Expected an asset animation path.", nameof(path));
@@ -36,14 +45,12 @@ public static class ArmingSwordDirectionalAnimationGenerator
         if (!string.IsNullOrEmpty(sourcePath) && string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Destination cannot overwrite the source animation clip.", nameof(path));
 
-        AnimationClip generated = CreateClip(original, direction);
+        AnimationClip generated = CreateClip(original, direction, weaponName);
         try
         {
             AnimationClip destination = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
             if (destination == null)
             {
-                // A fresh asset must be imported before editing its bindings; copying a prepared
-                // clip into an asset can leave Unity's binding constant stale.
                 AssetDatabase.CreateAsset(new AnimationClip(), path);
                 destination = RequireClip(path);
             }
@@ -71,9 +78,10 @@ public static class ArmingSwordDirectionalAnimationGenerator
         }
     }
 
-    public static AnimationClip CreateClip(AnimationClip original, string direction)
+    public static AnimationClip CreateClip(AnimationClip original, string direction, string weaponName)
     {
         if (original == null) throw new ArgumentNullException(nameof(original));
+        ValidateWeaponName(weaponName);
         int index = Array.IndexOf(Directions, direction);
         if (index < 0) throw new ArgumentException("Unknown facing direction.", nameof(direction));
 
@@ -82,7 +90,7 @@ public static class ArmingSwordDirectionalAnimationGenerator
         AnimationClip result = UnityEngine.Object.Instantiate(original);
         try
         {
-            result.name = $"ArmingSword_Attack_{direction}";
+            result.name = $"{weaponName}_Attack_{direction}";
 
             EditorCurveBinding x = Binding(Hand, typeof(Transform), "m_LocalPosition.x");
             EditorCurveBinding y = Binding(Hand, typeof(Transform), "m_LocalPosition.y");
@@ -160,4 +168,10 @@ public static class ArmingSwordDirectionalAnimationGenerator
     private static AnimationClip RequireClip(string path) =>
         AssetDatabase.LoadAssetAtPath<AnimationClip>(path) ??
         throw new InvalidOperationException($"Missing animation clip: {path}");
+
+    private static void ValidateWeaponName(string weaponName)
+    {
+        if (string.IsNullOrEmpty(weaponName) || weaponName.IndexOfAny(new[] { '/', '\\' }) >= 0)
+            throw new ArgumentException("Expected a simple weapon name.", nameof(weaponName));
+    }
 }

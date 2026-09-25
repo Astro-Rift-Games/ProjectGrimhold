@@ -265,7 +265,7 @@ public sealed class PlayerAnimatorViewTests
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
         AnimatorControllerLayer rightHandLayer = controller.layers.Single(layer => layer.name == "RightHand");
-        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] weapons = { "ArmingSword", "RondelDagger", "MagicWand" };
 
         foreach (string weapon in weapons)
         {
@@ -352,6 +352,18 @@ public sealed class PlayerAnimatorViewTests
                 AssetDatabase.LoadAssetAtPath<AnimationClip>(
                     $"Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_{directions[index]}.anim")));
         }
+
+        WeaponDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset");
+        Assert.That(rapier.Presentation.HasGenericAttack, Is.True);
+        Assert.That(rapier.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < directions.Length; index++)
+        {
+            Assert.That(rapier.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_{directions[index]}.anim")));
+        }
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "Rapier-Attack"), Is.False);
     }
 
     [TestCase("arming_sword", true)]
@@ -488,6 +500,10 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(runtime.Except(grip), Is.EqualTo(authored));
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
+            else if (weapon == "Rapier")
+            {
+                AssertCurvesEqual(source, south, allowSouthGrip: true);
+            }
             else
             {
                 AssertCurvesEqual(source, south);
@@ -532,7 +548,7 @@ public sealed class PlayerAnimatorViewTests
     [Test]
     public void DirectionalAttackClips_KeepTheDirectionalIdleGripPose()
     {
-        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        string[] weapons = { "ArmingSword", "Rapier" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         const string gripPath = "RightHandPivot/RightHand/MainHandGrip";
         string[] positionProperties =

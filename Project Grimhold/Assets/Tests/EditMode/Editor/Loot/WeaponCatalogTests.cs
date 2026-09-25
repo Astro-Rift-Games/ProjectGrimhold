@@ -105,7 +105,7 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.ArmingSword, typeof(MeleeAttackConfig));
             AssertWeapon("rapier", 30f, 1f, 1.5f, 15f, 5f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
-                WeaponAnimationCategory.Rapier, typeof(MeleeAttackConfig));
+                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("magic_sword", 30f, 1f, 1.5f, 15f, 5f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
                 WeaponAnimationCategory.ArmingSword, typeof(MeleeAttackConfig));
@@ -191,7 +191,6 @@ namespace Tests.EditMode.Loot
             Assert.That(supported, Is.EquivalentTo(new[]
             {
                 WeaponAnimationCategory.ArmingSword,
-                WeaponAnimationCategory.Rapier,
                 WeaponAnimationCategory.RondelDagger,
                 WeaponAnimationCategory.MagicWand
             }));
@@ -199,7 +198,10 @@ namespace Tests.EditMode.Loot
             foreach (string id in WeaponIds)
             {
                 _catalog.TryGet(id, out LootDefinition definition);
-                Assert.That(supported, Does.Contain(definition.WeaponDefinition.Presentation.AnimationCategory), id);
+                if (!definition.WeaponDefinition.Presentation.HasGenericAttack)
+                {
+                    Assert.That(supported, Does.Contain(definition.WeaponDefinition.Presentation.AnimationCategory), id);
+                }
             }
         }
 

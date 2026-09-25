@@ -140,7 +140,7 @@ namespace Tests.EditMode.Presentation
                 .Where(state => state.tag == "Attack")
                 .ToArray();
             Assert.That(attackStates.Select(state => state.name),
-                Is.EquivalentTo(new[] { "Attack", "LegacySword-Attack", "Rapier-Attack", "RondelDagger-Attack", "MagicWand-Attack" }));
+                Is.EquivalentTo(new[] { "Attack", "LegacySword-Attack", "RondelDagger-Attack", "MagicWand-Attack" }));
             Assert.That(attackStates.All(state => state.motion is BlendTree), Is.True);
             Assert.That(controller.layers.Any(layer => layer.name == "Off Hand Defense"), Is.False);
         }
