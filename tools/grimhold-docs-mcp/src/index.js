@@ -201,4 +201,3 @@ async function createServer() {
 }
 
 void serveStdio(createServer);
-console.error('grimhold-docs MCP server running on stdio');

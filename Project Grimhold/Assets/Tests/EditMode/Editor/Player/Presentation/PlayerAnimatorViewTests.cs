@@ -282,7 +282,13 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(clip, Is.Not.Null);
                 Assert.That(clip.isLooping, Is.False, $"{clip.name} must remain one-shot.");
                 Assert.That(
-                    AnimationUtility.GetCurveBindings(clip).All(binding => binding.path == "RightHandPivot/RightHand"),
+                    AnimationUtility.GetCurveBindings(clip).All(binding =>
+                        binding.path == "RightHandPivot/RightHand" ||
+                        (binding.path == "RightHandPivot/RightHand/MainHandGrip" &&
+                         binding.type == typeof(Transform) &&
+                         (binding.propertyName == "m_LocalPosition.x" ||
+                          binding.propertyName == "m_LocalPosition.y" ||
+                          binding.propertyName == "m_LocalPosition.z"))),
                     Is.True,
                     $"{clip.name} must target the restored authored hierarchy.");
                 AssertCurveEndpointsEqual(source, clip);
@@ -300,7 +306,25 @@ public sealed class PlayerAnimatorViewTests
             AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_S.anim");
             Assert.That(source, Is.Not.Null);
             Assert.That(south, Is.Not.Null);
-            AssertCurvesEqual(source, south);
+            if (weapon == "ArmingSword")
+            {
+                EditorCurveBinding[] authored = AnimationUtility.GetCurveBindings(source);
+                EditorCurveBinding[] runtime = AnimationUtility.GetCurveBindings(south);
+                EditorCurveBinding[] grip = runtime.Where(binding =>
+                    binding.path == "RightHandPivot/RightHand/MainHandGrip" &&
+                    binding.type == typeof(Transform) &&
+                    (binding.propertyName == "m_LocalPosition.x" ||
+                     binding.propertyName == "m_LocalPosition.y" ||
+                     binding.propertyName == "m_LocalPosition.z")).ToArray();
+                Assert.That(grip.Select(binding => binding.propertyName),
+                    Is.EquivalentTo(new[] { "m_LocalPosition.x", "m_LocalPosition.y", "m_LocalPosition.z" }));
+                Assert.That(runtime.Except(grip), Is.EqualTo(authored));
+                AssertCurvesEqual(source, south, allowSouthGrip: true);
+            }
+            else
+            {
+                AssertCurvesEqual(source, south);
+            }
         }
     }
 
@@ -366,9 +390,16 @@ public sealed class PlayerAnimatorViewTests
                 {
                     AnimationClip attack = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                         $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim");
-                    EditorCurveBinding attackBinding = AnimationUtility.GetCurveBindings(attack)
-                        .Single(binding => binding.path == gripPath && binding.propertyName == property);
-                    AnimationCurve curve = AnimationUtility.GetEditorCurve(attack, attackBinding);
+                    Assert.That(attack, Is.Not.Null, $"{weapon}/{direction}: missing directional attack asset");
+                    EditorCurveBinding[] gripBindings = AnimationUtility.GetCurveBindings(attack)
+                        .Where(binding => binding.path == gripPath &&
+                            binding.type == typeof(Transform) && binding.propertyName == property)
+                        .ToArray();
+                    Assert.That(gripBindings, Has.Length.EqualTo(1),
+                        $"{weapon}/{direction}: expected one {gripPath}/{property} binding in {attack.name}; found: " +
+                        string.Join(", ", AnimationUtility.GetCurveBindings(attack)
+                            .Select(binding => $"{binding.path}/{binding.propertyName}")));
+                    AnimationCurve curve = AnimationUtility.GetEditorCurve(attack, gripBindings[0]);
 
                     Assert.That(curve.Evaluate(0f), Is.EqualTo(expected).Within(0.0001f), attack.name);
                     Assert.That(curve.Evaluate(attack.length), Is.EqualTo(expected).Within(0.0001f), attack.name);
@@ -588,11 +619,14 @@ public sealed class PlayerAnimatorViewTests
         }
     }
 
-    private static void AssertCurvesEqual(AnimationClip expected, AnimationClip actual)
+    private static void AssertCurvesEqual(AnimationClip expected, AnimationClip actual, bool allowSouthGrip = false)
     {
         EditorCurveBinding[] expectedBindings = AnimationUtility.GetCurveBindings(expected);
         EditorCurveBinding[] actualBindings = AnimationUtility.GetCurveBindings(actual);
-        Assert.That(actualBindings, Is.EqualTo(expectedBindings));
+        if (!allowSouthGrip)
+        {
+            Assert.That(actualBindings, Is.EqualTo(expectedBindings));
+        }
 
         foreach (EditorCurveBinding binding in expectedBindings)
         {
@@ -605,6 +639,9 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(actualKeys[index].value, Is.EqualTo(expectedKeys[index].value), binding.propertyName);
                 Assert.That(actualKeys[index].inTangent, Is.EqualTo(expectedKeys[index].inTangent), binding.propertyName);
                 Assert.That(actualKeys[index].outTangent, Is.EqualTo(expectedKeys[index].outTangent), binding.propertyName);
+                Assert.That(actualKeys[index].inWeight, Is.EqualTo(expectedKeys[index].inWeight), binding.propertyName);
+                Assert.That(actualKeys[index].outWeight, Is.EqualTo(expectedKeys[index].outWeight), binding.propertyName);
+                Assert.That(actualKeys[index].weightedMode, Is.EqualTo(expectedKeys[index].weightedMode), binding.propertyName);
             }
         }
     }

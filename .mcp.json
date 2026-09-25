@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "grimhold-docs": {
+      "command": "node",
+      "args": [
+        "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/src/index.js"
+      ],
+      "env": {
+        "GRIMHOLD_DRIVE_ROOT_FOLDER_ID": "15hA44M-8_9rO_YXn5IQANWSn91JVkYMp",
+        "GOOGLE_OAUTH_CREDENTIALS_PATH": "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/credentials.json",
+        "GOOGLE_OAUTH_TOKEN_PATH": "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/.auth/token.json"
+      },
+      "protocolVersion": "auto",
+      "requestTimeoutMs": 30000,
+      "debug": true
+    }
+  }
+}

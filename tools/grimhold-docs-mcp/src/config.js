@@ -9,6 +9,7 @@ export const MCP_ROOT = path.resolve(__dirname, '..');
 
 loadDotEnv({
   path: path.join(MCP_ROOT, '.env'),
+  quiet: true,
 });
 
 function resolveFromMcpRoot(value) {
