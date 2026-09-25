@@ -311,6 +311,8 @@ class InventoryService {
 
     return {
       preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment),
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
       revision: updated.revision
     };
   }
