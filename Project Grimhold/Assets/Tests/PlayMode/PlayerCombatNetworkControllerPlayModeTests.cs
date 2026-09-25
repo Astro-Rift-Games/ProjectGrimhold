@@ -26,6 +26,8 @@ namespace Tests.PlayMode.Combat
         private static readonly PropertyInfo CooldownDurationProperty =
             GetProperty("AttackCooldownDurationSeconds");
         private static readonly PropertyInfo AttackSequenceProperty = GetProperty("AttackSequence");
+        private static readonly PropertyInfo LastAttackDirectionProperty =
+            GetProperty("LastAttackDirection");
         private static readonly FieldInfo ActiveAttackField = GetField("_activeAttack");
         private static readonly FieldInfo ActiveAttackSourceField = GetField("_activeAttackSource");
         private static readonly MethodInfo CacheDependenciesMethod =
@@ -240,6 +242,34 @@ namespace Tests.PlayMode.Combat
             Assert.That(rangedStatus.IsAvailable, Is.True);
         }
 
+        [UnityTest]
+        public IEnumerator ContextualAttackFacing_IsConsumedByCombatInTheSameTick()
+        {
+            yield return StartRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject playerObject = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            PlayerCombatNetworkController combatController =
+                playerObject.GetComponent<PlayerCombatNetworkController>();
+            PlayerCombatTestAttack attack =
+                playerObject.gameObject.AddComponent<PlayerCombatTestAttack>();
+            attack.Initialize(AttackType.Melee, 0f);
+            yield return SetStrategy(combatController, attack, true);
+
+            _inputDriver.MoveDirection = Vector2.up;
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            _inputDriver.AttackHeld = true;
+            yield return WaitUntil(
+                () => attack.ExecutionCount == 1,
+                "Combat did not execute the contextual attack.");
+            _inputDriver.AttackHeld = false;
+            _inputDriver.MoveDirection = Vector2.zero;
+
+            Vector2 attackDirection =
+                (Vector2)LastAttackDirectionProperty.GetValue(combatController);
+            Assert.That(attackDirection.x, Is.GreaterThan(0.99f));
+            Assert.That(Mathf.Abs(attackDirection.y), Is.LessThan(0.1f));
+        }
+
         private IEnumerator StartRunner()
         {
             var runnerObject = new GameObject("PlayerCombatNetworkControllerTestRunner");
@@ -413,10 +443,14 @@ namespace Tests.PlayMode.Combat
         private sealed class PlayerCombatInputDriver : NetworkRunnerCallbacksAdapter
         {
             public bool AttackHeld { get; set; }
+            public Vector2 MoveDirection { get; set; }
+            public Vector2 AimWorldPosition { get; set; }
 
             public override void OnInput(NetworkRunner runner, NetworkInput input)
             {
                 PlayerNetworkInput playerInput = default;
+                playerInput.MoveDirection = MoveDirection;
+                playerInput.AimWorldPosition = AimWorldPosition;
                 playerInput.Buttons.Set(PlayerInputButton.PrimaryAttack, AttackHeld);
                 input.Set(playerInput);
             }

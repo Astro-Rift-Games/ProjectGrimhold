@@ -88,6 +88,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
+    [SerializeField]
+    private AbilityDefinitionCatalog _abilityCatalog;
+
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
@@ -492,6 +495,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _lootContainerPrefab = configuredManager._lootContainerPrefab;
         _breakablePrefab = configuredManager._breakablePrefab;
         _lootCatalog = configuredManager._lootCatalog;
+        _abilityCatalog = configuredManager._abilityCatalog;
         if (!_lootContainerPrefab.IsValid)
         {
             Debug.LogError(
@@ -2348,6 +2352,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        if (!PreparedAbilityLoadout.TryValidateAdmission(
+                admission.PreparedAbilities,
+                admission.CharacterAttributes,
+                _abilityCatalog,
+                out string abilityValidationError))
+        {
+            Debug.LogWarning(
+                $"[NetworkSpawnManager] Rejected prepared abilities for profile '{admission.ProfileId.Value}': {abilityValidationError}.");
+            return false;
+        }
+
         return true;
     }
 
@@ -2366,6 +2381,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                    admission.ReservedLoadout,
                    _lootCatalog,
                    LocalProfileSnapshot.MaxLoadoutSlots,
+                   out _) &&
+               PreparedAbilityLoadout.TryValidateAdmission(
+                   admission.PreparedAbilities,
+                   admission.CharacterAttributes,
+                   _abilityCatalog,
                    out _);
     }
 
@@ -2520,7 +2540,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         admission.CurrentExperience,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null,
-                        admission.LastAppliedProgressionResultSequence);
+                        admission.LastAppliedProgressionResultSequence,
+                        admission.PreparedAbilities);
                 }
             });
 

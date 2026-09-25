@@ -133,16 +133,20 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 $"Mode={mode}.",
                 this);
 
+            string abilityAdmissionError = null;
             if (profileContext?.Store == null ||
                 profileContext.Store.ProfileId != profileId ||
                 !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId) ||
-                !profileContext.Store.TryGetCharacterAttributeState(
-                    out CharacterAttributeState characterAttributes) ||
+                !profileContext.Store.TryGetRaidAdmissionAbilitySnapshot(
+                    out CharacterAttributeState characterAttributes,
+                    out PreparedAbilityLoadout preparedAbilities,
+                    out abilityAdmissionError) ||
                 !RaidAdmissionData.TryCreate(
                     launchContext.RaidCode,
                     profileId,
                     loadoutReservation,
                     characterAttributes,
+                    preparedAbilities,
                     profileContext.Store.GetLevel(),
                     profileContext.Store.GetCurrentExperience(),
                     profileContext.Store.GetLastAppliedProgressionResultSequence(),
@@ -153,7 +157,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     $"[AUDIT][FusionSessionLauncher] Admission token build FAILED. " +
                     $"Store={(profileContext?.Store != null ? "ok" : "null")}. " +
                     $"StoreIdMatch={(profileContext?.Store?.ProfileId == profileId)}. " +
-                    $"ProfileInManifest={RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId)}.",
+                    $"ProfileInManifest={RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, profileId)}. " +
+                    $"AbilityAdmissionError={abilityAdmissionError ?? "none"}.",
                     this);
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }

@@ -2,11 +2,12 @@
 
 ## Shared aim direction
 
-`PlayerMovementNetworkController` resolves `AimWorldPosition` after the player's
-kinematic displacement and writes the synchronized `FacingDirection`. It runs before
-`PlayerCombatNetworkController` in every Fusion simulation tick. Melee and ranged both
-validate and consume that same finite, normalized facing; combat does not recompute aim
-from cursor input or `_attackOrigin`.
+`PlayerMovementNetworkController` resolves locomotion-facing after the player's kinematic
+displacement, then lets a valid cursor direction override it only for a same-tick
+`PrimaryAttack` or `Interact` intent. It writes the single synchronized
+`FacingDirection` and runs before `PlayerCombatNetworkController` in every Fusion
+simulation tick. Melee and ranged both validate and consume that same finite, normalized
+contextual facing; combat does not recompute aim from cursor input or `_attackOrigin`.
 
 `_attackOrigin` remains the physical `AttackRequest.Origin`. `LastAttackDirection` is
 not continuous aim state: it is replicated only after a strategy successfully executes,
@@ -156,7 +157,8 @@ phase exit, or loss of input cancels defense on the next authoritative tick. Hos
 restored state only when those reconstructed conditions remain compatible.
 
 Defense has priority over attack when both intentions are present in the same tick. Movement and
-the normal continuous aim-to-facing flow continue while defending. `PlayerCombatNetworkController`
+the normal locomotion-facing flow continue while defending; `SecondaryAction` alone does not
+enable a cursor-facing override. `PlayerCombatNetworkController`
 does not execute either Press or Hold attacks while the current conditions accept the
 secondary-action intention.
 
@@ -327,7 +329,7 @@ incoming amount exactly, and True Damage bypasses mitigation. No calculation mut
 2. **Transport**: `PlayerNetworkInput` transports buttons to `FixedUpdateNetwork` via Fusion.
 3. **Trigger**: `PlayerCombatNetworkController` processes input. Neutral players update button history and stop. An active player requires authoritative strategy presence, a local implementation, enabled combat, a living character, and an expired `AttackCooldown`.
 4. **Execution**: If authorized and ready, calls `MeleeAttack.Execute(in AttackRequest)`.
-5. **Direction**: Movement resolves the finite, normalized `PlayerMovementNetworkController.FacingDirection` from the final simulated player position before combat runs in the same tick.
+5. **Direction**: Movement resolves the finite, normalized `PlayerMovementNetworkController.FacingDirection` before combat runs in the same tick; a valid primary-attack cursor direction overrides simultaneous locomotion-facing from the final simulated player position.
 6. **Query Targets**: `MeleeAttack` delegates queries to `Physics2DAttackTargetQuery.FindTargets()`.
    * Center is computed as: `Origin + FacingDirection * (WeaponDefinition.Range - MeleeAttackConfig.Radius)`.
    * `WeaponDefinition.Range` is the effective distance from origin to the farthest edge of the circle; `Range < Radius` is invalid.
@@ -358,7 +360,7 @@ After `IDamageable.ApplyDamage` returns, `DamageResolver` contributes only for a
 ## Ranged Attack Flow
 
 1. **Input Collection**: `PlayerInputReader` reads primary attack button and mouse world position `AimWorldPosition`.
-2. **Facing**: `PlayerMovementNetworkController` has already resolved `FacingDirection` from the final simulated player position. Invalid or suppressed aim preserves the last valid facing.
+2. **Facing**: `PlayerMovementNetworkController` has already resolved `FacingDirection`. A valid primary-attack cursor direction from the final simulated player position overrides locomotion-facing; invalid cursor direction falls back to valid movement and otherwise preserves the prior facing.
 3. **Execution**: If ready, calls `RangedAttack.Execute(in AttackRequest)` with the same facing used by melee.
 4. **Build Request**: `RangedAttack` calculates origin using `SpawnOffset` along the normalized direction and builds `ProjectileSpawnRequest`.
 5. **Spawn**: `RangedAttack` calls `IProjectileSpawner.Spawn()`.

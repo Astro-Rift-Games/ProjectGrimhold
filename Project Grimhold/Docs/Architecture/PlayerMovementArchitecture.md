@@ -2,14 +2,21 @@
 
 ## Facing update
 
-`PlayerNetworkInput.AimWorldPosition` is resolved in `FixedUpdateNetwork` only after
-`Kinematic2DMovementMotor` has applied the current tick displacement. The final player
-transform is the canonical aim origin. `PlayerAimMath` rejects non-finite vectors and
-directions whose squared magnitude is below `0.0001f`; an invalid, absent, or default
-payload preserves the prior `FacingDirection`.
+`PlayerMovementNetworkController` resolves facing in `FixedUpdateNetwork` after
+`Kinematic2DMovementMotor` has applied the current tick displacement. A finite movement
+direction above the minimum magnitude supplies the default facing. Cursor direction may
+override that movement-facing only while `PrimaryAttack` or `Interact` is present in the
+same input tick. Without either contextual action, cursor movement does not rotate the
+character.
 
-`FacingDirection` is the sole continuous `[Networked]` orientation state. It is not
-derived from `MoveDirection`, and locomotion restrictions do not suppress valid aim.
+For a contextual action, the final player transform is the canonical cursor-aim origin.
+`PlayerAimMath` rejects non-finite vectors and directions whose squared magnitude is below
+`0.0001f`. Invalid contextual cursor direction falls back to valid movement direction;
+if neither direction is valid, the prior `FacingDirection` is preserved. World position
+`(0, 0)` remains valid whenever its direction from the final player position is usable.
+
+`FacingDirection` is the sole continuous `[Networked]` orientation state. No separate
+cursor-facing state is replicated.
 The configured initial facing is normalized with `Vector2.down` as the final fallback.
 
 `PlayerMovementNetworkController` uses `DefaultExecutionOrder(-10)` and
@@ -18,10 +25,9 @@ movement, final position and facing before combat reads it in the same tick. Inp
 Authority predicts this calculation; State Authority supplies the final replicated
 state observed by proxies.
 
-A payload is treated as default/suppressed only when move and aim positions are zero
-and `Buttons.Bits` is zero. Consequently an idle player without buttons cannot
-distinguish suppression from aiming at global `(0, 0)`; the input contract intentionally preserves
-facing in that ambiguous case without adding another input field.
+An idle input without `PrimaryAttack` or `Interact` preserves facing regardless of the
+transported cursor position. This removes the previous ambiguity around a cursor at global
+`(0, 0)` without adding another input field.
 
 ## 1. Propósito
 

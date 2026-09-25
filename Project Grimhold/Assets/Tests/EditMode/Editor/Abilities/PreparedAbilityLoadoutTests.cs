@@ -302,6 +302,38 @@ public sealed class PreparedAbilityLoadoutTests
         Assert.That(commits, Is.Zero);
     }
 
+    [Test]
+    public void RaidAdmissionSnapshot_RevalidatesOwnershipAndRemainsAStableCopy()
+    {
+        LocalProfileStore store = CreateStore(out InMemoryLocalProfileRepository repository);
+        Unlock(store, "trap");
+        Assert.That(
+            store.TrySetPreparedAbility(UniversalAbilitySlot.Slot2, new AbilityId("trap")),
+            Is.EqualTo(AbilityPreparationResult.Success));
+
+        Assert.That(
+            store.TryGetRaidAdmissionAbilitySnapshot(
+                out CharacterAttributeState admittedAttributes,
+                out PreparedAbilityLoadout admittedAbilities,
+                out string error),
+            Is.True,
+            error);
+        Assert.That(admittedAbilities.Slot1.IsValid, Is.False);
+        Assert.That(admittedAbilities.Slot2, Is.EqualTo(new AbilityId("trap")));
+        Assert.That(
+            store.TryClearPreparedAbility(UniversalAbilitySlot.Slot2),
+            Is.EqualTo(AbilityPreparationResult.Success));
+        Assert.That(admittedAbilities.Slot2, Is.EqualTo(new AbilityId("trap")));
+        Assert.That(admittedAttributes, Is.EqualTo(repository.Snapshot.CharacterAttributes));
+
+        repository.Snapshot.PreparedAbilities =
+            new PreparedAbilityLoadout(new AbilityId("charge"), default);
+        Assert.That(
+            store.TryGetRaidAdmissionAbilitySnapshot(out _, out _, out string invalidError),
+            Is.False);
+        Assert.That(invalidError, Does.Contain("unlocked repertoire"));
+    }
+
     private LocalProfileStore CreateStore(out InMemoryLocalProfileRepository repository)
     {
         repository = new InMemoryLocalProfileRepository();

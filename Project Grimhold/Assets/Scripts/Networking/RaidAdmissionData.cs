@@ -14,6 +14,7 @@ public readonly struct RaidAdmissionData
     public long CurrentExperience { get; }
     public int LastAppliedProgressionResultSequence { get; }
     public CharacterAttributeState CharacterAttributes { get; }
+    public PreparedAbilityLoadout PreparedAbilities { get; }
     public WeaponSetSlot ActiveWeaponSet { get; }
     private readonly LootEntry[] _reservedLoadout;
 
@@ -45,6 +46,7 @@ public readonly struct RaidAdmissionData
                            PlayerExpeditionProgressionResolver.IsValidBaseline(Level, CurrentExperience) &&
                            LastAppliedProgressionResultSequence >= 0 &&
                            LastAppliedProgressionResultSequence < int.MaxValue &&
+                           PreparedAbilityLoadout.TryValidateTransportShape(PreparedAbilities, out _) &&
                            IsValidActiveWeaponSet() &&
                            RaidLoadoutRules.TryValidateShape(ReservedLoadout, out _) &&
                            RaidLoadoutRules.TryValidatePreparedEquipmentReferences(
@@ -63,7 +65,8 @@ public readonly struct RaidAdmissionData
         int level = ExperienceCurve.InitialLevel,
         long currentExperience = 0,
         int lastAppliedProgressionResultSequence = 0,
-        WeaponSetSlot activeWeaponSet = WeaponSetSlot.None)
+        WeaponSetSlot activeWeaponSet = WeaponSetSlot.None,
+        PreparedAbilityLoadout preparedAbilities = default)
     {
         RaidCode = raidCode;
         ProfileId = profileId;
@@ -72,6 +75,7 @@ public readonly struct RaidAdmissionData
         CurrentExperience = currentExperience;
         LastAppliedProgressionResultSequence = lastAppliedProgressionResultSequence;
         CharacterAttributes = characterAttributes;
+        PreparedAbilities = preparedAbilities;
         _reservedLoadout = CopyLoadout(reservedLoadout);
         _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
         ActiveWeaponSet = NormalizeActiveWeaponSet(activeWeaponSet, _entryIndicesPlusOne);
@@ -103,8 +107,32 @@ public readonly struct RaidAdmissionData
         int lastAppliedProgressionResultSequence,
         out RaidAdmissionData data)
     {
+        return TryCreate(
+            raidCode,
+            profileId,
+            reservation,
+            characterAttributes,
+            default,
+            level,
+            currentExperience,
+            lastAppliedProgressionResultSequence,
+            out data);
+    }
+
+    public static bool TryCreate(
+        RaidCode raidCode,
+        ProfileId profileId,
+        PendingLoadoutReservation reservation,
+        in CharacterAttributeState characterAttributes,
+        in PreparedAbilityLoadout preparedAbilities,
+        int level,
+        long currentExperience,
+        int lastAppliedProgressionResultSequence,
+        out RaidAdmissionData data)
+    {
         data = default;
-        if (reservation == null)
+        if (reservation == null ||
+            !PreparedAbilityLoadout.TryValidateTransportShape(preparedAbilities, out _))
         {
             return false;
         }
@@ -151,7 +179,8 @@ public readonly struct RaidAdmissionData
             lastAppliedProgressionResultSequence,
             reservation.PreparedEquipment.HasWeaponSetAMainHand
                 ? WeaponSetSlot.SetA
-                : WeaponSetSlot.SetB);
+                : WeaponSetSlot.SetB,
+            preparedAbilities);
         return data.IsValid;
     }
 

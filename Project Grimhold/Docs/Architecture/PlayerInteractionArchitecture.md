@@ -15,6 +15,12 @@ The flow keeps these responsibilities separate:
 5. **Interactable behavior:** each `IInteractable` owns the business rules for its interaction.
 6. **Presentation:** confirmed results and local predictive candidates are published during `Render` for local presenters.
 
+`PlayerMovementNetworkController` resolves the shared replicated `FacingDirection` before
+interaction simulation. Locomotion supplies its default direction, while a same-tick
+`Interact` intent may override it with a valid cursor direction resolved from the player's
+post-movement position. This facing context does not select a target, alter
+`InteractionResolver`, or add interaction network state.
+
 ```text
 PlayerInputReader (local input)
        |
