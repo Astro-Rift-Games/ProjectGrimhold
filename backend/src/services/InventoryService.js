@@ -1,5 +1,6 @@
 // src/services/InventoryService.js
 const Character = require('../models/Character');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const {
   normalizeCharacterInventory,
   normalizeItems,
@@ -18,20 +19,15 @@ function serializeItems(items) {
 
 /**
  * Serializes the preparedEquipment subdocument to a plain object.
+ * Iterates over EQUIPMENT_SLOTS so new slots are covered automatically.
  */
 function serializePreparedEquipment(eq) {
-  if (!eq) {
-    return { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' };
-  }
   const clean = (val) => (!val || val === 'null' ? '' : val);
-  return {
-    weaponSlot1: clean(eq.weaponSlot1),
-    weaponSlot2: clean(eq.weaponSlot2),
-    helmet:      clean(eq.helmet),
-    armor:       clean(eq.armor),
-    gloves:      clean(eq.gloves),
-    boots:       clean(eq.boots)
-  };
+  const result = {};
+  for (const slot of EQUIPMENT_SLOTS) {
+    result[slot] = clean(eq ? eq[slot] : undefined);
+  }
+  return result;
 }
 
 /**
@@ -233,7 +229,7 @@ class InventoryService {
     }
     normalizePreparedEquipment(slots);
 
-    const slotNames = ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots'];
+    const slotNames = EQUIPMENT_SLOTS;
 
     const oldEquipment = character.inventory.preparedEquipment || {};
     const removedItems = [];

@@ -4,6 +4,7 @@ const router = express.Router();
 const InventoryService = require('../services/InventoryService');
 const ExtractionCommitService = require('../services/ExtractionCommitService');
 const env = require('../config/env');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const authenticate = require('../middleware/authenticate');
 const {
   moveItemValidator,
@@ -87,14 +88,11 @@ router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) =
 // Body: { weaponSlot1?, weaponSlot2?, helmet?, armor?, gloves?, boots? }
 router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async (req, res, next) => {
   try {
-    const slots = {
-      weaponSlot1: req.body.weaponSlot1 || '',
-      weaponSlot2: req.body.weaponSlot2 || '',
-      helmet:      req.body.helmet      || '',
-      armor:       req.body.armor       || '',
-      gloves:      req.body.gloves      || '',
-      boots:       req.body.boots       || ''
-    };
+    // Build the slots object from EQUIPMENT_SLOTS so new slots are covered automatically.
+    const slots = {};
+    for (const slot of EQUIPMENT_SLOTS) {
+      slots[slot] = req.body[slot] || '';
+    }
     const expectedRevision = req.body.expectedRevision;
     const result = await InventoryService.updatePreparedEquipment(req.accountId, slots, expectedRevision);
     res.json(result);

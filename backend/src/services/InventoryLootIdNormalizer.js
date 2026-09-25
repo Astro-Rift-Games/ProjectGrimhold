@@ -1,5 +1,7 @@
 'use strict';
 
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
+
 const LOOT_ID_ALIASES = Object.freeze({
   recovery_sword: 'arming_sword',
   training_sword: 'arming_sword',
@@ -39,7 +41,7 @@ function normalizeItems(items) {
 function normalizePreparedEquipment(equipment) {
   if (!equipment) return equipment;
 
-  for (const slot of ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots']) {
+  for (const slot of EQUIPMENT_SLOTS) {
     equipment[slot] = normalizeLootId(equipment[slot] || '');
   }
 
@@ -64,6 +66,17 @@ function normalizeCharacterInventory(character) {
   if (inventory.pendingReservation) {
     inventory.pendingReservation.items = normalizeItems(inventory.pendingReservation.items);
     normalizePreparedEquipment(inventory.pendingReservation.preparedEquipment);
+  }
+
+  // Legacy migration: ensure all 8 slots exist (documents created with 6 slots)
+  for (const slot of EQUIPMENT_SLOTS) {
+    if (inventory.preparedEquipment && inventory.preparedEquipment[slot] === undefined) {
+      inventory.preparedEquipment[slot] = '';
+    }
+    if (inventory.pendingReservation?.preparedEquipment &&
+        inventory.pendingReservation.preparedEquipment[slot] === undefined) {
+      inventory.pendingReservation.preparedEquipment[slot] = '';
+    }
   }
 
   const after = JSON.stringify({

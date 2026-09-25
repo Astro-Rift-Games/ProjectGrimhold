@@ -11,10 +11,12 @@ const itemSchema = new mongoose.Schema({
 const preparedEquipmentSchema = new mongoose.Schema({
   weaponSlot1: { type: String, default: '' },
   weaponSlot2: { type: String, default: '' },
+  offHand1:    { type: String, default: '' },
   helmet:      { type: String, default: '' },
   armor:       { type: String, default: '' },
   gloves:      { type: String, default: '' },
-  boots:       { type: String, default: '' }
+  boots:       { type: String, default: '' },
+  offHand2:    { type: String, default: '' }
 }, { _id: false });
 
 // Embedded schema for the pending raid reservation snapshot.
