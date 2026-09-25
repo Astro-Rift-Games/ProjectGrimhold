@@ -516,7 +516,7 @@ AnimatorState:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MagicWand-Attack
+  m_Name: LegacyRanged-Attack
   m_Speed: 1
   m_CycleOffset: 0
   m_Transitions:
@@ -1175,7 +1175,7 @@ BlendTree:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MagicWand-Attack-Directional
+  m_Name: LegacyRanged-Attack-Directional
   m_Childs:
   - serializedVersion: 2
     m_Motion: {fileID: 7400000, guid: 6577726d743ec254aa37d0be720bb6e3, type: 2}
@@ -1246,6 +1246,9 @@ AnimatorStateTransition:
   - m_ConditionMode: 6
     m_ConditionEvent: WeaponAnimationCategory
     m_EventTreshold: 4
+  - m_ConditionMode: 2
+    m_ConditionEvent: HasGenericAttack
+    m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -4430826870946753031}
   m_Solo: 0

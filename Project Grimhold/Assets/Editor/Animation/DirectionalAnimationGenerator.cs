@@ -19,6 +19,9 @@ public static class DirectionalAnimationGenerator
     [MenuItem("Tools/Animations/Generate Rondel Dagger Directional Attacks")]
     public static void GenerateRondelDaggerAssets() => GenerateAssets("RondelDagger");
 
+    [MenuItem("Tools/Animations/Generate Magic Wand Directional Attacks")]
+    public static void GenerateMagicWandAssets() => GenerateAssets("MagicWand");
+
     public static void GenerateAssets(string weaponName)
     {
         ValidateWeaponName(weaponName);

@@ -129,7 +129,7 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.MagicWand, typeof(RangedAttackConfig));
             AssertWeapon("magic_wand", 22f, 0.7f, 5f, 10f, 0f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Intelligence, 0, 0, 5,
-                WeaponAnimationCategory.MagicWand, typeof(RangedAttackConfig));
+                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
             AssertWeapon("magic_staff", 45f, 1.4f, 7f, 22f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 15,
                 WeaponAnimationCategory.MagicWand, typeof(RangedAttackConfig));

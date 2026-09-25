@@ -463,7 +463,10 @@ category-1 `LegacySword-Attack` state retains the existing directional sword cli
 and is gated by `!HasGenericAttack`, preserving the `magic_sword`, `long_sword`
 and `zweihander` fallbacks. Rondel Dagger and Magic Cinquedea share six Rondel
 clips through the generic override route; the category-3 dagger route is removed.
-The Magic Wand category-4 legacy route remains. This is local presentation state,
+Magic Wand uses its own six generated directional clips via that same generic override route.
+The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
+motions and is gated by `!HasGenericAttack` for long bow, compound bow and magic staff.
+This is local presentation state,
 not a replicated or authoritative combat decision.
 
 The trigger represents an already accepted gameplay execution; local mouse input never starts
@@ -568,7 +571,7 @@ of future scaling variation.
 | `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | six shared Rondel generic clips |
 | `long_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
-| `magic_wand` | 1 | `RangePlayerAttackConfig` | `MagicWand` |
+| `magic_wand` | 1 | `RangePlayerAttackConfig` | six Magic Wand generic clips |
 | `magic_staff` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
@@ -580,7 +583,8 @@ The fallback assignments make every weapon use an authored Animator transition. 
 to be final two-handed, bow or staff animation content. `WeaponAnimationCategory` therefore exposes
 the legacy categories `ArmingSword` and `MagicWand`, the retained `Rapier` enum value,
 and `None` for weapons using generic directional clips. The retired category value 3 is not reused;
-`MagicWand` remains serialized as 4.
+`MagicWand` remains serialized as 4 for the three unmigrated ranged fallbacks;
+`magic_wand` itself uses `None` with six configured clips.
 
 `shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
 independent from attack animation categories.

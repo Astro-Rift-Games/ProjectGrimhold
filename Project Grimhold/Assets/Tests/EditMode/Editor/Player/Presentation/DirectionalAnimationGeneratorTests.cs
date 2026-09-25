@@ -11,6 +11,41 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string Root = "Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_";
     private const string RapierRoot = "Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_";
     private const string RondelRoot = "Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_";
+    private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
+
+    [Test]
+    public void MagicWandOutputs_BakeFromSouthAndRemainStableOnRepeat()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/MagicWand_Attack.anim");
+        Assert.That(source, Is.Not.Null);
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        // The production menu and this check share the same Bake path. Re-running must retain asset identities.
+        DirectionalAnimationGenerator.GenerateMagicWandAssets();
+        foreach (string direction in directions)
+        {
+            string path = WandRoot + direction + ".anim";
+            string guid = AssetDatabase.AssetPathToGUID(path);
+            Assert.That(guid, Is.Not.Empty, direction);
+            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, "MagicWand");
+            try
+            {
+                AnimationClip actual = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                Assert.That(actual, Is.Not.Null, direction);
+                Assert.That(actual.isLooping, Is.False, direction);
+                Assert.That(AnimationUtility.GetCurveBindings(actual), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetEditorCurve(actual, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(expected, binding).keys), $"{direction}/{binding.propertyName}");
+                foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetObjectReferenceCurve(actual, binding),
+                        Is.EqualTo(AnimationUtility.GetObjectReferenceCurve(expected, binding)), $"{direction}/{binding.propertyName}");
+                AssertImportedBindings(path, direction);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(expected); }
+            DirectionalAnimationGenerator.Bake(source, direction, path, "MagicWand");
+            Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
+        }
+    }
 
     [TestCase("N", 180f)]
     [TestCase("NE", 135f)]

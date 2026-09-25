@@ -269,7 +269,7 @@ public sealed class PlayerAnimatorViewTests
 
         foreach (string weapon in weapons)
         {
-            string stateName = weapon == "ArmingSword" ? "LegacySword" : weapon;
+            string stateName = weapon == "ArmingSword" ? "LegacySword" : "LegacyRanged";
             AnimatorState state = FindState(rightHandLayer, $"{stateName}-Attack");
             AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 $"Assets/Animations/Weapons/{weapon}_Attack.anim");
@@ -376,6 +376,32 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_{directions[index]}.anim")));
         }
         Assert.That(layer.stateMachine.states.Any(child => child.state.name == "RondelDagger-Attack"), Is.False);
+        WeaponDefinition wand = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicWandWeaponDefinition.asset");
+        Assert.That(wand.Presentation.HasGenericAttack, Is.True);
+        Assert.That(wand.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < directions.Length; index++)
+            Assert.That(wand.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_{directions[index]}.anim")));
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "MagicWand-Attack"), Is.False);
+        AnimatorState ranged = FindState(layer, "LegacyRanged-Attack");
+        Assert.That(ranged.tag, Is.EqualTo("Attack"));
+        AssertDirectionalTree(ranged.motion, "LegacyRanged-Attack-Directional");
+        AnimatorStateTransition rangedRoute = layer.stateMachine.anyStateTransitions.Single(
+            transition => transition.destinationState == ranged);
+        Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
+            condition.threshold == 4f), Is.True);
+        Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
+            condition.mode == AnimatorConditionMode.IfNot), Is.True);
+        foreach (string name in new[] { "LongBowWeaponDefinition", "CompoundBowWeaponDefinition", "MagicStaffWeaponDefinition" })
+        {
+            WeaponDefinition fallback = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+                $"Assets/Scriptable Objects/Loot/Definitions/{name}.asset");
+            Assert.That(fallback, Is.Not.Null, name);
+            Assert.That((int)fallback.Presentation.AnimationCategory, Is.EqualTo(4), name);
+            Assert.That(fallback.Presentation.HasGenericAttack, Is.False, name);
+        }
         WeaponDefinition cinquedea = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset");
         Assert.That(cinquedea.Presentation.HasGenericAttack, Is.True);
@@ -399,6 +425,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("rondel_dagger", true)]
     [TestCase("magic_sword", false)]
     [TestCase("magic_cinquedea", true)]
+    [TestCase("magic_wand", true)]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)
     {
         LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
@@ -531,7 +558,7 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(runtime.Except(grip), Is.EqualTo(authored));
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
-            else if (weapon == "Rapier" || weapon == "RondelDagger")
+            else if (weapon == "Rapier" || weapon == "RondelDagger" || weapon == "MagicWand")
             {
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
@@ -579,7 +606,7 @@ public sealed class PlayerAnimatorViewTests
     [Test]
     public void DirectionalAttackClips_KeepTheDirectionalIdleGripPose()
     {
-        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger" };
+        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         const string gripPath = "RightHandPivot/RightHand/MainHandGrip";
         string[] positionProperties =
