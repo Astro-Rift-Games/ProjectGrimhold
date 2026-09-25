@@ -454,18 +454,21 @@ PlayerCombatNetworkController.AttackSequence
 -> MainHandWeaponVisual
 ```
 
-For `arming_sword`, six configured directional clips on `WeaponDefinition.Presentation`
-replace only the six neutral `GenericAttack_*` slots in a per-Animator override controller.
-`HasGenericAttack` enables the generic `Attack` state only when all six clips are set;
-its route does not inspect `WeaponAnimationCategory`. An unarmed or incompletely
-configured weapon disables that route and restores the placeholder slots. The
-category-1 `LegacySword-Attack` state retains the existing directional sword clips
-and is gated by `!HasGenericAttack`, preserving the `magic_sword`, `long_sword`
-and `zweihander` fallbacks. Rondel Dagger and Magic Cinquedea share six Rondel
-clips through the generic override route; the category-3 dagger route is removed.
-Magic Wand uses its own six generated directional clips via that same generic override route.
+`DirectionalAttackAnimationSet` owns exactly six static clips in N, NE, NW, S, SE, SW
+order; completeness requires every clip. `WeaponDefinition.Presentation` holds one
+optional set reference instead of six clips. A complete set enables `HasGenericAttack`
+and replaces only the six neutral `GenericAttack_*` slots in the local per-Animator
+override controller. The generic `Attack` route does not inspect
+`WeaponAnimationCategory`; an unarmed weapon or missing/incomplete set disables it
+and restores placeholder slots. Arming Sword, Rapier and Magic Wand reference their
+respective Sword1H, Rapier and Wand sets. Rondel Dagger and Magic Cinquedea reference
+the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
+presentation without editing `Character.controller` or branching on weapon identity.
+The category-1 `LegacySword-Attack` state retains the existing directional sword clips
+and is gated by `!HasGenericAttack` for `magic_sword`, `long_sword` and `zweihander`.
 The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
-motions and is gated by `!HasGenericAttack` for long bow, compound bow and magic staff.
+motions and is gated by `!HasGenericAttack` for `long_bow`, `compound_bow` and
+`magic_staff`. Generic Arming Sword, Rapier, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 2 and 3 remain retired.
 This is local presentation state,
 not a replicated or authoritative combat decision.
 
@@ -562,17 +565,17 @@ of future scaling variation.
 
 | Loot id | Hands | Attack config | Attack animation |
 | :--- | :---: | :--- | :--- |
-| `arming_sword` | 1 | `PlayerMeleeAttackConfig` | `ArmingSword` |
-| `rapier` | 1 | `PlayerMeleeAttackConfig` | `Rapier` |
-| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | `ArmingSword` |
-| `long_sword` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
-| `zweihander` | 2 | `PlayerMeleeAttackConfig` | `ArmingSword` fallback |
-| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | six Rondel generic clips |
-| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | six shared Rondel generic clips |
-| `long_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
-| `compound_bow` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
-| `magic_wand` | 1 | `RangePlayerAttackConfig` | six Magic Wand generic clips |
-| `magic_staff` | 2 | `RangePlayerAttackConfig` | `MagicWand` fallback |
+| `arming_sword` | 1 | `PlayerMeleeAttackConfig` | Sword1H set (`None` category) |
+| `rapier` | 1 | `PlayerMeleeAttackConfig` | Rapier set (`None` category) |
+| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | `LegacySword` |
+| `long_sword` | 2 | `PlayerMeleeAttackConfig` | `LegacySword` fallback |
+| `zweihander` | 2 | `PlayerMeleeAttackConfig` | `LegacySword` fallback |
+| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips; `None` category) |
+| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set (`None` category) |
+| `long_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
+| `compound_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
+| `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set (`None` category) |
+| `magic_staff` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with `MainHandGrip`. Vertical weapon art uses a `-90` degree correction to align its
@@ -581,10 +584,9 @@ static per-weapon presentation data and do not introduce LootId branches in the 
 
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
 to be final two-handed, bow or staff animation content. `WeaponAnimationCategory` therefore exposes
-the legacy categories `ArmingSword` and `MagicWand`, the retained `Rapier` enum value,
-and `None` for weapons using generic directional clips. The retired category value 3 is not reused;
-`MagicWand` remains serialized as 4 for the three unmigrated ranged fallbacks;
-`magic_wand` itself uses `None` with six configured clips.
+`None` (0) for all five generic weapons and only `LegacySword` (1) and
+`LegacyRanged` (4) for the unmigrated sword and ranged fallback routes respectively.
+Numeric values 2 and 3 remain retired; there is no Rapier category or Animator route.
 
 `shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
 independent from attack animation categories.

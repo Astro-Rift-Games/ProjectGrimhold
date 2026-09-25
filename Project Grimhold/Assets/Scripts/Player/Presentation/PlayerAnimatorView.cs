@@ -31,6 +31,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private int _mainHandCombatLayerIndex = -1;
     private bool _hasObservedAttackState;
     private WeaponDefinition _activeWeapon;
+    private DirectionalAttackAnimationSet _activeAttackSet;
     private LootDefinition _confirmedAttackWeapon;
     private bool _attackWeaponPinned;
 
@@ -70,6 +71,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _baseController = null;
         _placeholderClips = null;
         _activeWeapon = null;
+        _activeAttackSet = null;
         _confirmedAttackWeapon = null;
         _attackWeaponPinned = false;
         _hasObservedAttackState = false;
@@ -168,7 +170,9 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             weapon = definition.WeaponDefinition;
         }
 
-        if (_activeWeapon != weapon || (_baseController == null && AnimatorInstance.runtimeAnimatorController != null))
+        if (_activeWeapon != weapon ||
+            _activeAttackSet != (weapon != null ? weapon.Presentation.AttackAnimationSet : null) ||
+            (_baseController == null && AnimatorInstance.runtimeAnimatorController != null))
         {
             RefreshAttackOverrides(weapon);
         }
@@ -182,6 +186,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private void RefreshAttackOverrides(WeaponDefinition weapon)
     {
         _activeWeapon = weapon;
+        _activeAttackSet = weapon != null ? weapon.Presentation.AttackAnimationSet : null;
         RuntimeAnimatorController currentController = AnimatorInstance.runtimeAnimatorController;
         if (_baseController == null)
         {

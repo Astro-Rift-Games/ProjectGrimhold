@@ -190,26 +190,13 @@ public sealed class WeaponDefinition : ScriptableObject
         public float AngleCorrection => _angleCorrection;
         public WeaponAnimationCategory AnimationCategory => _animationCategory;
 
-        [SerializeField] private AnimationClip _attackN;
-        [SerializeField] private AnimationClip _attackNE;
-        [SerializeField] private AnimationClip _attackNW;
-        [SerializeField] private AnimationClip _attackS;
-        [SerializeField] private AnimationClip _attackSE;
-        [SerializeField] private AnimationClip _attackSW;
+        [SerializeField] private DirectionalAttackAnimationSet _attackAnimationSet;
 
-        public bool HasGenericAttack => _attackN != null && _attackNE != null &&
-            _attackNW != null && _attackS != null && _attackSE != null && _attackSW != null;
+        public DirectionalAttackAnimationSet AttackAnimationSet => _attackAnimationSet;
+        public bool HasGenericAttack => _attackAnimationSet != null && _attackAnimationSet.IsComplete;
 
-        public AnimationClip GetAttackClip(int direction) => direction switch
-        {
-            0 => _attackN,
-            1 => _attackNE,
-            2 => _attackNW,
-            3 => _attackS,
-            4 => _attackSE,
-            5 => _attackSW,
-            _ => null
-        };
+        public AnimationClip GetAttackClip(int direction) =>
+            _attackAnimationSet != null ? _attackAnimationSet.GetAttackClip(direction) : null;
 
         public bool TryValidate(out string error)
         {

@@ -1,11 +1,10 @@
 /// <summary>
-/// Selects the authored hand animation used to present a weapon attack.
-/// This is static presentation configuration and is never replicated.
+/// Selects only legacy Animator attack routes; generic directional sets use None.
+/// This static presentation value is never replicated. Values 2 and 3 are retired.
 /// </summary>
 public enum WeaponAnimationCategory
 {
     None = 0,
-    ArmingSword = 1,
-    Rapier = 2,
-    MagicWand = 4
+    LegacySword = 1,
+    LegacyRanged = 4
 }

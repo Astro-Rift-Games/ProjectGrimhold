@@ -534,6 +534,56 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
+    public void GenericAttack_ReassigningSetUpdatesSixOverridesWithoutControllerChange()
+    {
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
+        WeaponDefinition sword = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset"));
+        DirectionalAttackAnimationSet rapier = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(
+            "Assets/Scriptable Objects/Loot/AttackAnimationSets/Rapier.asset");
+        GameObject gameObject = new GameObject(nameof(GenericAttack_ReassigningSetUpdatesSixOverridesWithoutControllerChange));
+        try
+        {
+            Animator animator = gameObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController = controller;
+            PlayerAnimatorView view = gameObject.AddComponent<PlayerAnimatorView>();
+            MethodInfo refresh = typeof(PlayerAnimatorView).GetMethod("RefreshAttackOverrides",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            refresh.Invoke(view, new object[] { sword });
+            AnimatorOverrideController overrides = animator.runtimeAnimatorController as AnimatorOverrideController;
+            Assert.That(overrides, Is.Not.Null);
+            SerializedObject serialized = new SerializedObject(sword);
+            SerializedProperty set = serialized.FindProperty("_presentation._attackAnimationSet");
+            UnityEngine.Object original = set.objectReferenceValue;
+            try
+            {
+                set.objectReferenceValue = rapier;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                refresh.Invoke(view, new object[] { sword });
+                Assert.That(animator.runtimeAnimatorController, Is.SameAs(overrides));
+                string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+                for (int index = 0; index < directions.Length; index++)
+                {
+                    AnimationClip placeholder = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                        $"Assets/Animations/Player/Attack/GenericAttack_{directions[index]}.anim");
+                    Assert.That(overrides[placeholder], Is.SameAs(rapier.GetAttackClip(index)));
+                }
+                Assert.That(overrides.runtimeAnimatorController, Is.SameAs(controller));
+            }
+            finally
+            {
+                set.objectReferenceValue = original;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(gameObject);
+            UnityEngine.Object.DestroyImmediate(sword);
+        }
+    }
+
+    [Test]
     public void DirectionalSouthClips_PreserveJuanAuthoredCurves()
     {
         string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };

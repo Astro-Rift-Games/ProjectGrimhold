@@ -164,14 +164,15 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void ArmingSword_UsesArmingSwordPresentationWithoutNetworkState()
+        public void ArmingSword_UsesGenericAttackSetWithoutNetworkState()
         {
             LootDefinition definition = AssetDatabase.LoadAssetAtPath<LootDefinition>(TrainingSwordPath);
             Assert.That(definition, Is.Not.Null);
             Assert.That(definition.WeaponDefinition, Is.Not.Null);
-            Assert.That(
-                definition.WeaponDefinition.Presentation.AnimationCategory,
-                Is.EqualTo(WeaponAnimationCategory.ArmingSword));
+            Assert.That(definition.WeaponDefinition.Presentation.AnimationCategory,
+                Is.EqualTo(WeaponAnimationCategory.None));
+            Assert.That(definition.WeaponDefinition.Presentation.HasGenericAttack, Is.True);
+            Assert.That(definition.WeaponDefinition.Presentation.AttackAnimationSet, Is.Not.Null);
 
             const BindingFlags flags = BindingFlags.Instance |
                 BindingFlags.Public | BindingFlags.NonPublic;
