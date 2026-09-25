@@ -467,8 +467,12 @@ local presentation state, not a replicated or authoritative combat decision.
 The trigger represents an already accepted gameplay execution; local mouse input never starts
 the animation. Proxies observe the same replicated sequence and therefore reproduce it. Attack
 clips are one-shot presentation only. They do not apply damage or emit gameplay decisions, and
-Animation Events are not part of hit timing. The attack direction from the confirmed event is
-held as the temporary visual facing until the Animator leaves its tagged attack state, while the
+Animation Events are not part of hit timing. The confirmed attack snapshot carries the deterministic
+Main Hand catalog index captured only after successful execution. Animation, held Main Hand
+presentation, and attack-start audio resolve that snapshot identity rather than current Equipment,
+so a Weapon Set change cannot rewrite an attack already in progress; once the tagged attack state
+ends, presentation resumes reading current Equipment. The attack direction from the confirmed event
+is held as the temporary visual facing until the Animator leaves its tagged attack state, while the
 Base Layer preserves the replicated locomotion state so movement animation can continue.
 
 Visual authoring keeps those responsibilities explicit. The presentation grip point is

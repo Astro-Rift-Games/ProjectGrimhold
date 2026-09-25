@@ -68,7 +68,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         if (CanReadEquipmentState())
         {
-            _equipmentSource.TryGetEquippedDefinition(out mainHand);
+            if (!_animatorView.TryGetPresentedAttackWeapon(out mainHand))
+            {
+                _equipmentSource.TryGetEquippedDefinition(out mainHand);
+            }
 
             WeaponSetSlot activeSet = _equipmentSource.ActiveWeaponSetSlot;
             EquipmentSlot offHandSlot = EquipmentSlotRules.GetOffHandSlot(activeSet);

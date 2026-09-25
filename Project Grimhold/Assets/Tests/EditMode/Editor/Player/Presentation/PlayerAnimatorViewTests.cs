@@ -354,6 +354,59 @@ public sealed class PlayerAnimatorViewTests
         }
     }
 
+    [TestCase("arming_sword", true)]
+    [TestCase("magic_sword", false)]
+    public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)
+    {
+        LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+        Assert.That(catalog, Is.Not.Null);
+        Assert.That(catalog.TryGetIndex(new LootId(lootId), out int index), Is.True);
+
+        var gameObject = new GameObject(nameof(ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation));
+        try
+        {
+            Animator animator = gameObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
+            PlayerWeaponEquipmentNetworkController equipment =
+                gameObject.AddComponent<PlayerWeaponEquipmentNetworkController>();
+            typeof(PlayerWeaponEquipmentNetworkController).GetField("_lootCatalog",
+                BindingFlags.Instance | BindingFlags.NonPublic).SetValue(equipment, catalog);
+            Assert.That(equipment.TryGetWeaponByCatalogIndexPlusOne(index + 1, out LootDefinition definition), Is.True);
+            Assert.That(definition.Id, Is.EqualTo(lootId));
+            Assert.That(equipment.TryGetWeaponByCatalogIndexPlusOne(0, out _), Is.False);
+
+            PlayerAnimatorView view = gameObject.AddComponent<PlayerAnimatorView>();
+            typeof(PlayerAnimatorView).GetField("_confirmedAttackWeapon",
+                BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, definition);
+            typeof(PlayerAnimatorView).GetField("_attackWeaponPinned",
+                BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, true);
+            MethodInfo refresh = typeof(PlayerAnimatorView).GetMethod("RefreshWeaponAnimationCategory",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            refresh.Invoke(view, null);
+
+            Assert.That(animator.GetBool("HasGenericAttack"), Is.EqualTo(generic));
+            Assert.That(animator.GetInteger("WeaponAnimationCategory"),
+                Is.EqualTo((int)definition.WeaponDefinition.Presentation.AnimationCategory));
+            AnimationClip placeholder = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                "Assets/Animations/Player/Attack/GenericAttack_S.anim");
+            AnimatorOverrideController overrides = animator.runtimeAnimatorController as AnimatorOverrideController;
+            if (generic)
+            {
+                Assert.That(overrides, Is.Not.Null);
+                Assert.That(overrides[placeholder], Is.SameAs(definition.WeaponDefinition.Presentation.GetAttackClip(3)));
+            }
+            else
+            {
+                Assert.That(overrides, Is.Null);
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(gameObject);
+        }
+    }
+
     [Test]
     public void GenericAttack_OverridesOnlyPlaceholderSlotsAndRevertsOnUnequip()
     {

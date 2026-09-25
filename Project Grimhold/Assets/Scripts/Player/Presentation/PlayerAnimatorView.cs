@@ -31,6 +31,14 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private int _mainHandCombatLayerIndex = -1;
     private bool _hasObservedAttackState;
     private WeaponDefinition _activeWeapon;
+    private LootDefinition _confirmedAttackWeapon;
+    private bool _attackWeaponPinned;
+
+    public bool TryGetPresentedAttackWeapon(out LootDefinition definition)
+    {
+        definition = _confirmedAttackWeapon;
+        return _attackWeaponPinned && definition != null;
+    }
     private RuntimeAnimatorController _baseController;
     private AnimatorOverrideController _attackOverrides;
     private AnimationClip[] _placeholderClips;
@@ -62,6 +70,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _baseController = null;
         _placeholderClips = null;
         _activeWeapon = null;
+        _confirmedAttackWeapon = null;
+        _attackWeaponPinned = false;
         _hasObservedAttackState = false;
         base.OnDisable();
         ResetVisualPositionSample();
@@ -124,6 +134,13 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             return;
         }
 
+        _attackWeaponPinned = _equipmentSource != null &&
+            _equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
+                attackEvent.WeaponCatalogIndexPlusOne, out _confirmedAttackWeapon);
+        if (!_attackWeaponPinned)
+        {
+            _confirmedAttackWeapon = null;
+        }
         RefreshWeaponAnimationCategory();
         ApplyTemporalFacingDirection(attackEvent.Direction);
         _hasObservedAttackState = false;
@@ -142,8 +159,9 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void RefreshWeaponAnimationCategory()
     {
-        WeaponDefinition weapon = null;
-        if (CanReadEquipmentState() &&
+        WeaponDefinition weapon = _attackWeaponPinned
+            ? _confirmedAttackWeapon.WeaponDefinition : null;
+        if (!_attackWeaponPinned && CanReadEquipmentState() &&
             _equipmentSource.TryGetEquippedDefinition(out LootDefinition definition) &&
             definition != null)
         {
@@ -257,6 +275,9 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         {
             _hasObservedAttackState = false;
             ClearTemporalFacingDirection();
+            _confirmedAttackWeapon = null;
+            _attackWeaponPinned = false;
+            RefreshWeaponAnimationCategory();
         }
     }
 

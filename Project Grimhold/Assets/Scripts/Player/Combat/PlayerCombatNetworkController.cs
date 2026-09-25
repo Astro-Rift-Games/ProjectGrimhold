@@ -39,6 +39,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private IAttack _activeAttack;
     private bool _dependenciesValid;
     private NetworkMatchController _matchController;
+    private PlayerWeaponEquipmentNetworkController _equipmentController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
     private int _lastObservedSequence;
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
@@ -73,6 +74,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
     [Networked]
     private int LastAttackTick { get; set; }
+
+    [Networked]
+    private int LastAttackWeaponCatalogIndexPlusOne { get; set; }
 
     [Networked]
     private int CombatFeedbackSequence { get; set; }
@@ -217,7 +221,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 (AttackType)LastAttackTypeValue,
                 LastAttackOrigin,
                 LastAttackDirection,
-                LastAttackTick
+                LastAttackTick,
+                LastAttackWeaponCatalogIndexPlusOne
             );
 
             AttackPerformed?.Invoke(performedEvent);
@@ -334,6 +339,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             LastAttackDirection = request.Direction;
             LastAttackTypeValue = (int)executedAttack.Type;
             LastAttackTick = request.SimulationTick;
+            LastAttackWeaponCatalogIndexPlusOne = _equipmentController != null
+                ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
+                : 0;
             
             // Increment sequence last to ensure correct replication of all related fields
             AttackSequence++;
@@ -470,6 +478,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
 
         _activeAttack = _activeAttackSource as IAttack;
+        _equipmentController ??= GetComponent<PlayerWeaponEquipmentNetworkController>();
 
         if (_attackOrigin == null)
         {

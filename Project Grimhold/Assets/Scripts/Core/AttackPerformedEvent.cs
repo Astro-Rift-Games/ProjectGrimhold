@@ -11,18 +11,21 @@ public readonly struct AttackPerformedEvent
     public Vector2 Origin { get; }
     public Vector2 Direction { get; }
     public int SimulationTick { get; }
+    public int WeaponCatalogIndexPlusOne { get; }
 
     public AttackPerformedEvent(
         EntityId attackerId,
         AttackType attackType,
         Vector2 origin,
         Vector2 direction,
-        int simulationTick)
+        int simulationTick,
+        int weaponCatalogIndexPlusOne = 0)
     {
         AttackerId = attackerId;
         AttackType = attackType;
         Origin = origin;
         Direction = direction.normalized;
         SimulationTick = simulationTick;
+        WeaponCatalogIndexPlusOne = weaponCatalogIndexPlusOne;
     }
 }

@@ -298,6 +298,19 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     /// <summary>Compatibility query whose result is always the active weapon.</summary>
     public bool TryGetEquippedLoot(out LootEntry entry) => TryGetSlotLoot(ActiveWeaponSetSlot, out entry);
 
+    /// <summary>Returns the active Main Hand's deterministic catalog identity, or zero when empty.</summary>
+    public int GetActiveWeaponCatalogIndexPlusOne() =>
+        GetCatalogIndexPlusOne(EquipmentSlotRules.GetMainHandSlot(ActiveWeaponSetSlot));
+
+    /// <summary>Resolves a confirmed attack's catalog identity independently of current Equipment.</summary>
+    public bool TryGetWeaponByCatalogIndexPlusOne(int indexPlusOne, out LootDefinition definition)
+    {
+        definition = null;
+        return indexPlusOne > 0 && _lootCatalog != null &&
+            _lootCatalog.TryGetByIndex(indexPlusOne - 1, out definition) &&
+            definition != null && definition.WeaponDefinition != null;
+    }
+
     /// <summary>Resolves only the active weapon for combat and presentation consumers.</summary>
     public bool TryGetEquippedDefinition(out LootDefinition definition) =>
         TryGetSlotDefinition(ActiveWeaponSetSlot, out definition);

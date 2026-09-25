@@ -119,7 +119,7 @@ public class WeaponAudioPresenter : MonoBehaviour
     {
         if (AudioManager.Instance == null) return;
 
-        WeaponAudioConfig config = ResolveAudioConfig();
+        WeaponAudioConfig config = ResolveAudioConfig(attackEvent.WeaponCatalogIndexPlusOne);
         if (config == null) return;
 
         if (attackEvent.AttackType == AttackType.Melee)
@@ -238,11 +238,20 @@ public class WeaponAudioPresenter : MonoBehaviour
         return false;
     }
 
-    private WeaponAudioConfig ResolveAudioConfig()
+    private WeaponAudioConfig ResolveAudioConfig(int confirmedWeaponIndexPlusOne = 0)
     {
         if (_equipmentSource == null)
         {
             _equipmentSource = GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+        }
+
+        if (confirmedWeaponIndexPlusOne > 0)
+        {
+            return _equipmentSource != null &&
+                _equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
+                    confirmedWeaponIndexPlusOne, out LootDefinition confirmedWeapon)
+                ? confirmedWeapon.WeaponDefinition.AudioConfig ?? _fallbackAudioConfig
+                : _fallbackAudioConfig;
         }
 
         if (_equipmentSource != null && _equipmentSource.TryGetEquippedDefinition(out LootDefinition lootDefinition))
