@@ -486,6 +486,10 @@ class InventoryService {
 
   /**
    * Processes a shop sale. Removes items from the loadout and adds currency.
+   * 
+   * INVARIANT: Currency balance is never negative.
+   * `declaredSellValue` is validated as >= 0 at the route level, ensuring
+   * that sales can only grow (or maintain) the currency balance.
    */
   static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision) {
     const character = await Character.findOne({ accountId });
@@ -541,6 +545,11 @@ class InventoryService {
 
   /**
    * Processes a shop purchase. Removes currency and adds items to the loadout.
+   * 
+   * INVARIANT: Currency balance is never negative.
+   * Enforced locally (currentCurrency < declaredPrice) and atomically by the
+   * MongoDB query filter ('inventory.currency': { $gte: declaredPrice }).
+   * `declaredPrice` is validated as >= 0 at the route level.
    */
   static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision) {
     const character = await Character.findOne({ accountId });
