@@ -51,26 +51,128 @@ public sealed class ArmingSwordSlashPresentationTests
     private static object State(PlayerAttackVfxPresenter presenter, string name) =>
         typeof(PlayerAttackVfxPresenter).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(presenter);
 
-    [TestCase(CharacterVisualDirection.North, false)]
-    [TestCase(CharacterVisualDirection.NorthEast, false)]
-    [TestCase(CharacterVisualDirection.NorthWest, false)]
-    [TestCase(CharacterVisualDirection.South, true)]
-    [TestCase(CharacterVisualDirection.SouthEast, true)]
-    [TestCase(CharacterVisualDirection.SouthWest, true)]
-    public void ConfirmedSwordAttack_CapturesConfiguredDirectionalPose(CharacterVisualDirection direction, bool front)
+    [TestCase(CharacterVisualDirection.North, 0)]
+    [TestCase(CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CharacterVisualDirection.South, 3)]
+    [TestCase(CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CharacterVisualDirection.SouthWest, 5)]
+    public void ConfirmedSwordAttack_CapturesConfiguredDirectionalPose(CharacterVisualDirection direction, int index)
     {
+        AttackVfxDefinition.DirectionalPose pose =
+            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation.AttackVfx.GetPose(index);
         Perform(IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset"),
             CharacterVisualDirectionResolver.GetCanonicalVector(direction));
         Assert.That(State(_presenter, "_pending"), Is.True);
         Assert.That(_renderer.transform.name, Is.EqualTo("AttackVfx"));
         Assert.That(_renderer.transform.parent.name, Is.EqualTo("VisualRoot"));
-        Assert.That(_renderer.transform.localPosition,
-            Is.EqualTo(front ? new Vector3(0.2f, -0.3f, 0f) : new Vector3(0.2f, 0f, 0f)));
-        Assert.That(_renderer.transform.localScale,
-            Is.EqualTo(new Vector3(0.65f, front ? 0.65f : -0.65f, 1f)));
-        Assert.That(_renderer.sortingOrder, Is.EqualTo(front ? 21 : -9));
+        Assert.That(_renderer.transform.localPosition, Is.EqualTo(pose.Position));
+        Assert.That(Quaternion.Angle(_renderer.transform.localRotation, pose.Rotation), Is.EqualTo(0f).Within(0.001f));
+        Assert.That(_renderer.transform.localScale, Is.EqualTo(pose.Scale));
+        Assert.That(_renderer.sortingOrder, Is.EqualTo(pose.SortingOrder));
         Assert.That(_renderer.enabled, Is.False);
     }
+
+    // Functional contract: once the presenter applies the configured directional pose, the VFX sprite
+    // sequence must sweep in the same rotational sense as the weapon swing during the VFX window.
+    // Both sweeps are measured in the Animator root space, so no mirror axis or weapon is assumed.
+    [TestCase(CharacterVisualDirection.North, 0)]
+    [TestCase(CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CharacterVisualDirection.South, 3)]
+    [TestCase(CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CharacterVisualDirection.SouthWest, 5)]
+    public void AttackVfx_SweepsInSameRotationalSenseAsWeaponSwing(CharacterVisualDirection direction, int index)
+    {
+        var weaponPresenter = _contents.GetComponentInChildren<PlayerWeaponPresenter>(true);
+        Assert.That(weaponPresenter, Is.Not.Null);
+        Transform grip = (Transform)new SerializedObject(weaponPresenter).FindProperty("_mainHandGrip").objectReferenceValue;
+        Transform root = _renderer.transform.parent;
+        Assert.That(grip, Is.Not.Null);
+        Assert.That(grip.IsChildOf(root), Is.True);
+
+        int checkedWeapons = 0;
+        for (int catalogIndex = 0; catalogIndex < _catalog.DefinitionCount; catalogIndex++)
+        {
+            if (!_catalog.TryGetByIndex(catalogIndex, out LootDefinition loot) || loot.WeaponDefinition == null) continue;
+            WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
+            AttackVfxDefinition vfx = presentation.AttackVfx;
+            if (vfx == null || !presentation.HasGenericAttack) continue;
+
+            Perform(catalogIndex + 1, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
+            Assert.That(State(_presenter, "_pending"), Is.True, loot.name);
+            float vfxSweep = MeasureVfxSweep(vfx.Clip, root.worldToLocalMatrix * _renderer.transform.localToWorldMatrix);
+            float weaponSweep = MeasureWeaponSweep(presentation.GetAttackClip(index), root, grip,
+                vfx.StartSeconds, vfx.StartSeconds + vfx.Clip.length);
+
+            string context = $"{loot.name} {direction}: VFX sweep {vfxSweep:F1}°, weapon sweep {weaponSweep:F1}°";
+            Assert.That(Mathf.Abs(vfxSweep), Is.GreaterThan(1f), context);
+            Assert.That(Mathf.Abs(weaponSweep), Is.GreaterThan(1f), context);
+            Assert.That(Mathf.Sign(vfxSweep), Is.EqualTo(Mathf.Sign(weaponSweep)), context);
+            checkedWeapons++;
+        }
+        Assert.That(checkedWeapons, Is.GreaterThan(0), "No catalog weapon configures an Attack VFX.");
+    }
+
+    /// <summary>Signed degrees swept by the frame centroids of the VFX sprite sequence, in root space.</summary>
+    private float MeasureVfxSweep(AnimationClip clip, Matrix4x4 vfxToRoot)
+    {
+        EditorCurveBinding[] bindings = AnimationUtility.GetObjectReferenceCurveBindings(clip);
+        Assert.That(bindings, Has.Length.EqualTo(1));
+        ObjectReferenceKeyframe[] frames = AnimationUtility.GetObjectReferenceCurve(clip, bindings[0]);
+        Assert.That(frames.Length, Is.GreaterThanOrEqualTo(2));
+        Vector2 flip = new Vector2(_renderer.flipX ? -1f : 1f, _renderer.flipY ? -1f : 1f);
+        float sweep = 0f;
+        float previous = 0f;
+        for (int i = 0; i < frames.Length; i++)
+        {
+            var sprite = frames[i].value as Sprite;
+            Assert.That(sprite, Is.Not.Null, $"frame {i}");
+            Vector2 centroid = Vector2.Scale(CalculateMeshCentroid(sprite), flip);
+            float angle = Angle(vfxToRoot.MultiplyVector(centroid));
+            if (i > 0) sweep += Mathf.DeltaAngle(previous, angle);
+            previous = angle;
+        }
+        return sweep;
+    }
+
+    /// <summary>Signed degrees swept by the main-hand grip axis while the attack clip plays the window.</summary>
+    private static float MeasureWeaponSweep(AnimationClip attack, Transform root, Transform grip, float start, float end)
+    {
+        Assert.That(attack, Is.Not.Null);
+        const int Samples = 40;
+        float sweep = 0f;
+        float previous = 0f;
+        for (int i = 0; i <= Samples; i++)
+        {
+            attack.SampleAnimation(root.gameObject, Mathf.Lerp(start, end, i / (float)Samples));
+            float angle = Angle((root.worldToLocalMatrix * grip.localToWorldMatrix).MultiplyVector(Vector3.right));
+            if (i > 0) sweep += Mathf.DeltaAngle(previous, angle);
+            previous = angle;
+        }
+        return sweep;
+    }
+
+    private static Vector2 CalculateMeshCentroid(Sprite sprite)
+    {
+        Vector2[] vertices = sprite.vertices;
+        ushort[] triangles = sprite.triangles;
+        Vector2 weighted = Vector2.zero;
+        float area = 0f;
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            Vector2 a = vertices[triangles[i]];
+            Vector2 b = vertices[triangles[i + 1]];
+            Vector2 c = vertices[triangles[i + 2]];
+            float triangleArea = Mathf.Abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) * 0.5f;
+            weighted += (a + b + c) / 3f * triangleArea;
+            area += triangleArea;
+        }
+        Assert.That(area, Is.GreaterThan(0f), sprite.name);
+        return weighted / area;
+    }
+
+    private static float Angle(Vector3 vector) => Mathf.Atan2(vector.y, vector.x) * Mathf.Rad2Deg;
 
     [Test]
     public void VfxConfiguration_HasExclusiveChildSpriteBindingAndFourOrderedFrames()
@@ -94,14 +196,25 @@ public sealed class ArmingSwordSlashPresentationTests
             Assert.That(frames[i].time, Is.EqualTo(i * 0.1f).Within(0.0001f));
             Assert.That(frames[i].value.name, Is.EqualTo($"VFX-Slash_{i}"));
         }
+        // Index order: N, NE, NW, S, SE, SW.
+        var positions = new[]
+        {
+            new Vector3(0.2f, 0f, 0f), new Vector3(0.2f, 0f, 0f), new Vector3(0.2f, 0f, 0f),
+            new Vector3(0.2f, -0.3f, 0f), new Vector3(0.2f, -0.3f, 0f), new Vector3(0.2f, -0.3f, 0f)
+        };
+        var scales = new[]
+        {
+            new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f),
+            new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f)
+        };
+        var sortingOrders = new[] { -9, -9, -9, 21, 21, 21 };
         for (int i = 0; i < 6; i++)
         {
             var pose = vfx.GetPose(i);
-            bool front = i >= 3;
-            Assert.That(pose.Position, Is.EqualTo(front ? new Vector3(0.2f, -0.3f, 0) : new Vector3(0.2f, 0, 0)));
-            Assert.That(pose.Scale, Is.EqualTo(new Vector3(0.65f, front ? 0.65f : -0.65f, 1)));
-            Assert.That(pose.Rotation, Is.EqualTo(Quaternion.identity));
-            Assert.That(pose.SortingOrder, Is.EqualTo(front ? 21 : -9));
+            Assert.That(pose.Position, Is.EqualTo(positions[i]), $"pose {i}");
+            Assert.That(pose.Scale, Is.EqualTo(scales[i]), $"pose {i}");
+            Assert.That(pose.Rotation, Is.EqualTo(Quaternion.identity), $"pose {i}");
+            Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
         }
         WeaponDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset");
