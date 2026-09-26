@@ -282,7 +282,9 @@ public static class ApplicationStashServiceBootstrapper
                     string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
                     string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
                     string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
-                    string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots)
+                    string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots),
+                    string.IsNullOrEmpty(eq.offHand1) ? default : new LootId(eq.offHand1),
+                    string.IsNullOrEmpty(eq.offHand2) ? default : new LootId(eq.offHand2)
                 );
             }
 
@@ -307,7 +309,9 @@ public static class ApplicationStashServiceBootstrapper
                     string.IsNullOrEmpty(resEq.helmet) ? default : new LootId(resEq.helmet),
                     string.IsNullOrEmpty(resEq.armor) ? default : new LootId(resEq.armor),
                     string.IsNullOrEmpty(resEq.gloves) ? default : new LootId(resEq.gloves),
-                    string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots)
+                    string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots),
+                    string.IsNullOrEmpty(resEq.offHand1) ? default : new LootId(resEq.offHand1),
+                    string.IsNullOrEmpty(resEq.offHand2) ? default : new LootId(resEq.offHand2)
                 );
 
                 snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
@@ -392,7 +396,9 @@ public static class ApplicationStashServiceBootstrapper
                 helmet = commit.PreparedEquipment.Helmet.IsValid ? commit.PreparedEquipment.Helmet.Value : null,
                 armor = commit.PreparedEquipment.Armor.IsValid ? commit.PreparedEquipment.Armor.Value : null,
                 gloves = commit.PreparedEquipment.Gloves.IsValid ? commit.PreparedEquipment.Gloves.Value : null,
-                boots = commit.PreparedEquipment.Boots.IsValid ? commit.PreparedEquipment.Boots.Value : null
+                boots = commit.PreparedEquipment.Boots.IsValid ? commit.PreparedEquipment.Boots.Value : null,
+                offHand1 = commit.PreparedEquipment.WeaponSetAOffHand.IsValid ? commit.PreparedEquipment.WeaponSetAOffHand.Value : null,
+                offHand2 = commit.PreparedEquipment.WeaponSetBOffHand.IsValid ? commit.PreparedEquipment.WeaponSetBOffHand.Value : null
             },
             progression = new ExtractionProgressionData
             {

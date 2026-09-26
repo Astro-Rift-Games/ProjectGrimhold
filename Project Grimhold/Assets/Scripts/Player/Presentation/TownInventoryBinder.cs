@@ -83,7 +83,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _profileContext.LoadoutService,
             localProfileId,
             _lootCatalog,
-            CanMutateEquipment);
+            CanMutateEquipment,
+            SyncPreparedEquipmentAsync);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
@@ -122,6 +123,25 @@ public sealed class TownInventoryBinder : NetworkBehaviour
                 _localProfileId,
                 out TownRaidPreparationPresentation presentation) &&
             !presentation.LocalReady;
+    }
+
+    private async void SyncPreparedEquipmentAsync()
+    {
+        if (_profileContext != null && _profileContext.TryGetComponent<RemoteInventoryService>(out var remoteInventory))
+        {
+            _profileContext.TryGetComponent<ProfileReconciliationService>(out var reconciliationService);
+            PreparedEquipmentLoadout prepared = _profileContext.LoadoutService.GetPreparedEquipment(_localProfileId);
+            
+            var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
+                () => remoteInventory.UpdatePreparedEquipmentAsync(prepared),
+                async () => reconciliationService != null && await reconciliationService.ReconcileAsync()
+            );
+            
+            if (!success)
+            {
+                Debug.LogWarning($"[{nameof(TownInventoryBinder)}] Remote prepared equipment sync failed: {error.message}");
+            }
+        }
     }
 
     private void Cleanup()
