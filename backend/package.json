@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "test": "node --test tests/*.test.js",
     "test:concurrency": "node --test tests/concurrency/*.test.js",
+    "test:integration": "node --test tests/integration/*.test.js",
     "seed": "node scripts/seed-test-accounts.js"
   },
   "keywords": [],

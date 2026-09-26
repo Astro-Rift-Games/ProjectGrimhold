@@ -13,9 +13,12 @@ const app = express();
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// Global request logging for debugging
+// Global request logging for debugging (disabled in production)
+const env = require('./config/env');
 app.use((req, res, next) => {
-  console.log(`[Express] Received ${req.method} request to: ${req.originalUrl}`);
+  if (env.nodeEnv !== 'production') {
+    console.log(`[Express] Received ${req.method} request to: ${req.originalUrl}`);
+  }
   next();
 });
 
