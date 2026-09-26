@@ -1,7 +1,10 @@
 using System;
 using UnityEngine;
 
-/// <summary>Shared, local sprite-clip presentation for a confirmed weapon attack.</summary>
+/// <summary>
+/// Aligns a shared <see cref="AttackVfxVisualDefinition"/> with one weapon swing: when it starts in the
+/// attack clip and where it sits for each facing. Local presentation for a confirmed weapon attack.
+/// </summary>
 [CreateAssetMenu(fileName = "AttackVfxDefinition", menuName = "Grimhold/Combat/Attack VFX Definition")]
 public sealed class AttackVfxDefinition : ScriptableObject
 {
@@ -47,28 +50,29 @@ public sealed class AttackVfxDefinition : ScriptableObject
         public int SortingOrder { get; }
     }
 
-    [SerializeField] private AnimationClip _clip;
-    [SerializeField, Min(0f)] private float _startSeconds;
-    [SerializeField, Min(0f), Tooltip("Radius, in sprite local units, that the blade tip traces through the sprite sequence.")]
-    private float _tipRadius;
+    [SerializeField] private AttackVfxVisualDefinition _visual;
+    [SerializeField, Min(0f), Tooltip("Attack clip time, in seconds, at which the visual starts playing.")]
+    private float _startSeconds;
     [SerializeField] private DirectionalPose[] _poses;
 
-    public AnimationClip Clip => _clip;
+    public AttackVfxVisualDefinition Visual => _visual;
+    public AnimationClip Clip => _visual != null ? _visual.Clip : null;
     public float StartSeconds => _startSeconds;
-    public float TipRadius => _tipRadius;
+    public float TipRadius => _visual != null ? _visual.TipRadius : 0f;
     public DirectionalPose GetPose(int direction) => _poses[direction];
 
     /// <summary>Scales the sprite sequence so its tip radius matches the blade tip's swing radius.</summary>
     public bool TryResolvePose(int direction, float bladeReach, out ResolvedPose pose)
     {
         pose = default;
+        float tipRadius = TipRadius;
         if (_poses == null || direction < 0 || direction >= _poses.Length ||
-            !IsFinite(_tipRadius) || _tipRadius <= 0f || !IsFinite(bladeReach))
+            !IsFinite(tipRadius) || tipRadius <= 0f || !IsFinite(bladeReach))
         {
             return false;
         }
         DirectionalPose source = _poses[direction];
-        float scale = (source.ReachOffset + bladeReach) / _tipRadius;
+        float scale = (source.ReachOffset + bladeReach) / tipRadius;
         if (!source.IsValid || !IsFinite(scale) || scale <= 0f)
         {
             return false;
@@ -80,12 +84,15 @@ public sealed class AttackVfxDefinition : ScriptableObject
 
     public bool TryValidate(out string error)
     {
-        if (_clip == null || _clip.length <= 0f || _clip.isLooping ||
-            !IsFinite(_startSeconds) || _startSeconds < 0f ||
-            !IsFinite(_tipRadius) || _tipRadius <= 0f ||
-            _poses == null || _poses.Length != 6)
+        if (_visual == null)
         {
-            error = "Attack VFX requires a non-looping clip, nonnegative finite start, positive tip radius and six directional poses.";
+            error = "Attack VFX requires a visual definition.";
+            return false;
+        }
+        if (!_visual.TryValidate(out error)) return false;
+        if (!IsFinite(_startSeconds) || _startSeconds < 0f || _poses == null || _poses.Length != 6)
+        {
+            error = "Attack VFX requires a nonnegative finite start and six directional poses.";
             return false;
         }
         for (int i = 0; i < _poses.Length; i++)

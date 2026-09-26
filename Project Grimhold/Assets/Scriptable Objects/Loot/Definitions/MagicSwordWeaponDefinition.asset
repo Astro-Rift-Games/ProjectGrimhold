@@ -30,8 +30,8 @@ MonoBehaviour:
     _angleCorrection: -90
     _animationCategory: 0
     _attackAnimationSet: {fileID: 11400000, guid: ae0ed31a8a296ea44a9655ddead9c83a, type: 2}
-    _attackVfx: {fileID: 0}
-    _bladeTip: {x: 0, y: 0}
+    _attackVfx: {fileID: 11400000, guid: 909d635069f74dc18cf9eeda43df041d, type: 2}
+    _bladeTip: {x: 0, y: 0.75}
   _attributeRequirements:
     _minimumStrength: 5
     _minimumDexterity: 0

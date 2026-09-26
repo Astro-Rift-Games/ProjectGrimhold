@@ -10,11 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
-  m_Name: SwordSlashAttackVfx
+  m_Name: ArmingSwordSlashAttackVfx
   m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
-  _clip: {fileID: 7400000, guid: 33b14366b1649d44280e17d0e1aac163, type: 2}
+  _visual: {fileID: 11400000, guid: 29cf5fd5ff8b4e27999aaf006e170beb, type: 2}
   _startSeconds: 0.1
-  _tipRadius: 1.05
   _poses:
   - _position: {x: -0.04, y: 0.52, z: 0}
     _rotation: {x: 0, y: 0, z: 87}

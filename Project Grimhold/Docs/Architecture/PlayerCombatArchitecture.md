@@ -491,21 +491,28 @@ is held as the temporary visual facing until the Animator leaves its tagged atta
 Base Layer preserves the replicated locomotion state so movement animation can continue.
 
 Optional attack VFX is local presentation, independent of the directional attack animation set.
-`WeaponDefinition.Presentation` references a reusable `AttackVfxDefinition` containing a
-sprite-only clip, start offset, the tip radius the blade traces through its sprite frames, and six
-swing-relative directional poses (swing arc center, rotation, reach offset, mirror and sorting).
+The effect is split by responsibility. An `AttackVfxVisualDefinition` holds only the shared art:
+a sprite-only clip and the tip radius the blade traces through its sprite frames.
+`WeaponDefinition.Presentation` references an `AttackVfxDefinition` that aligns one visual with
+one swing: the start offset in the attack clip and six swing-relative directional poses (swing
+arc center, rotation, reach offset, mirror and sorting). Weapons with different swings reuse the
+same visual through their own alignments, so changing one swing's timing or geometry never moves
+another weapon's effect, and the art is never duplicated.
 The weapon owns its visual geometry: `BladeTip` sits in the weapon sprite's local units beside
 `GripPoint`, and their distance is the blade reach. The presenter resolves each pose's uniform
 scale as `(reach offset + blade reach) / tip radius`, so weapons sharing a swing animation can
-share one Attack VFX without per-weapon sizes, and it never reads weapon-specific measurements.
+share one alignment without per-weapon sizes, and it never reads weapon-specific measurements.
 `PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
 not the currently equipped Set, and waits for the matching RightHand attack clip. It samples the
 VFX clip at that clip's phase minus the configured start offset on the *existing* `VisualRoot`
 Animator root. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
 and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
-the animated hand or weapon pivot, so the effect never inherits the swing twice. Arming Sword
-configures four 100 ms sprite frames beginning at attack phase 0.1s with poses fitted to its
-directional swings; other weapons have no VFX reference. The effect
+the animated hand or weapon pivot, so the effect never inherits the swing twice. The Sword Slash
+visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s, mirrored to
+its counterclockwise swing; Magic Sword aligns it from 0.25s, so the first frame straddles its
+windup apex at 0.3s and the last one its strike end at 0.55s, unmirrored to its clockwise strike
+around the body center. Both use poses fitted to their own directional swings;
+other weapons have no VFX reference. The effect
 clears on interruption, defeat, disable or completion. Proxies observe the same confirmed attack
 snapshot; no VFX-only network state, Animator layer/state, second Animator, animation events or
 gameplay timing authority is introduced.

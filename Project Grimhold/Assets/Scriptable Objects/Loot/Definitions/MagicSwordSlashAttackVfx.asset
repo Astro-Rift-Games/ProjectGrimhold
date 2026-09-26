@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
+  m_Name: MagicSwordSlashAttackVfx
+  m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
+  _visual: {fileID: 11400000, guid: 29cf5fd5ff8b4e27999aaf006e170beb, type: 2}
+  _startSeconds: 0.25
+  _poses:
+  - _position: {x: 0, y: 0.11, z: 0}
+    _rotation: {x: 0, y: 0, z: 133}
+    _reachOffset: -0.06
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.07, y: 0.08, z: 0}
+    _rotation: {x: 0, y: 0, z: 88}
+    _reachOffset: 0.16
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: -0.07, y: 0.07, z: 0}
+    _rotation: {x: 0, y: 0, z: -173}
+    _reachOffset: -0.15
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0, y: -0.11, z: 0}
+    _rotation: {x: 0, y: 0, z: -45}
+    _reachOffset: 0.37
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: 0.08, y: -0.08, z: 0}
+    _rotation: {x: 0, y: 0, z: -4}
+    _reachOffset: 0.13
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.07, y: -0.06, z: 0}
+    _rotation: {x: 0, y: 0, z: -82}
+    _reachOffset: 0.43
+    _mirrored: 0
+    _sortingOrder: 21
