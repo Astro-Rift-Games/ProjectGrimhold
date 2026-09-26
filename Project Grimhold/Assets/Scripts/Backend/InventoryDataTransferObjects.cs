@@ -108,6 +108,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct ShopSellRequest
     {
+        public string transactionId;
         public string lootId;
         public int    amount;
         public long   declaredSellValue;
@@ -117,6 +118,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct ShopBuyRequest
     {
+        public string transactionId;
         public string lootId;
         public int    amount;
         public long   declaredPrice;

@@ -67,6 +67,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 var (success, data, error) = await InventoryClient.ShopBuyAsync(
                     _config, 
                     AuthToken, 
+                    receipt.TransactionId.Value.ToString("N"),
                     lootId.Value, 
                     amount, 
                     declaredPrice, 
@@ -113,6 +114,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 var (success, data, error) = await InventoryClient.ShopSellAsync(
                     _config, 
                     AuthToken, 
+                    receipt.TransactionId.Value.ToString("N"),
                     lootId.Value, 
                     amount, 
                     declaredSellValue, 

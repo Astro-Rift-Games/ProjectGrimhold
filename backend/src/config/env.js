@@ -10,7 +10,7 @@ if (missing.length > 0) {
 }
 
 const nodeEnv = process.env.NODE_ENV || 'development';
-const webhookSecret = process.env.WEBHOOK_SECRET || 'dev-webhook-secret-do-not-use-in-prod';
+const webhookSecret = (process.env.WEBHOOK_SECRET || 'dev-webhook-secret-do-not-use-in-prod').trim();
 
 if (nodeEnv === 'production' && webhookSecret === 'dev-webhook-secret-do-not-use-in-prod') {
   console.error('[Config] CRITICAL: WEBHOOK_SECRET must be set to a secure value in production.');
