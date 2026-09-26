@@ -31,6 +31,7 @@ MonoBehaviour:
     _animationCategory: 0
     _attackAnimationSet: {fileID: 11400000, guid: b6ed5531e3384984b36e61c39715d301, type: 2}
     _attackVfx: {fileID: 11400000, guid: 4fb412e710ef4e9c955dff343864f5ba, type: 2}
+    _bladeTip: {x: 0, y: 0.8125}
   _attributeRequirements:
     _minimumStrength: 5
     _minimumDexterity: 0

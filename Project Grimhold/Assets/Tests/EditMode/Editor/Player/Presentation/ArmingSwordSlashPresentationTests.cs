@@ -57,10 +57,12 @@ public sealed class ArmingSwordSlashPresentationTests
     [TestCase(CharacterVisualDirection.South, 3)]
     [TestCase(CharacterVisualDirection.SouthEast, 4)]
     [TestCase(CharacterVisualDirection.SouthWest, 5)]
-    public void ConfirmedSwordAttack_CapturesConfiguredDirectionalPose(CharacterVisualDirection direction, int index)
+    public void ConfirmedSwordAttack_AppliesPoseResolvedFromBladeReach(CharacterVisualDirection direction, int index)
     {
-        AttackVfxDefinition.DirectionalPose pose =
-            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation.AttackVfx.GetPose(index);
+        WeaponDefinition.PresentationConfig presentation =
+            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation;
+        Assert.That(presentation.AttackVfx.TryResolvePose(index, presentation.BladeReach,
+            out AttackVfxDefinition.ResolvedPose pose), Is.True);
         Perform(IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset"),
             CharacterVisualDirectionResolver.GetCanonicalVector(direction));
         Assert.That(State(_presenter, "_pending"), Is.True);
@@ -174,6 +176,164 @@ public sealed class ArmingSwordSlashPresentationTests
 
     private static float Angle(Vector3 vector) => Mathf.Atan2(vector.y, vector.x) * Mathf.Rad2Deg;
 
+    // Spatial contract: the resolved pose centers the sprite sequence on the swing arc and sizes it so
+    // its tip radius follows the real blade tip, and each frame's arc covers the tip while it plays.
+    // The blade is posed with the production grip/facing math, so a variant geometry sharing the same
+    // Attack VFX must align without code or VFX changes.
+    [TestCase(CharacterVisualDirection.North, 0)]
+    [TestCase(CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CharacterVisualDirection.South, 3)]
+    [TestCase(CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CharacterVisualDirection.SouthWest, 5)]
+    public void AttackVfx_TracesBladeTipForSwordAndVariantGeometries(CharacterVisualDirection direction, int index)
+    {
+        WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath);
+        WeaponDefinition shortBlade = CreateGeometryVariant(sword, new Vector2(0f, -0.4f), new Vector2(0f, 0.6f));
+        WeaponDefinition longBlade = CreateGeometryVariant(sword, new Vector2(0.1f, -0.8f), new Vector2(0.1f, 1.4f));
+        try
+        {
+            Assert.That(shortBlade.Presentation.AttackVfx, Is.SameAs(sword.Presentation.AttackVfx));
+            Assert.That(longBlade.Presentation.AttackVfx, Is.SameAs(sword.Presentation.AttackVfx));
+            foreach (WeaponDefinition weapon in new[] { sword, shortBlade, longBlade })
+            {
+                Assert.That(weapon.TryValidate(out string error), Is.True, error);
+                AssertSlashTracesBladeTip(weapon, direction, index);
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(shortBlade);
+            Object.DestroyImmediate(longBlade);
+        }
+    }
+
+    private static WeaponDefinition CreateGeometryVariant(WeaponDefinition source, Vector2 gripPoint, Vector2 bladeTip)
+    {
+        WeaponDefinition variant = Object.Instantiate(source);
+        variant.name = $"{source.name} reach {Vector2.Distance(gripPoint, bladeTip):F2}";
+        var serialized = new SerializedObject(variant);
+        serialized.FindProperty("_presentation._gripPoint").vector2Value = gripPoint;
+        serialized.FindProperty("_presentation._bladeTip").vector2Value = bladeTip;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        return variant;
+    }
+
+    private void AssertSlashTracesBladeTip(WeaponDefinition weapon, CharacterVisualDirection direction, int index)
+    {
+        // About 1.6 px at the project's 16 PPU: the swing is not a perfect circle, so the tip wobbles
+        // around the fitted arc by roughly one pixel for any blade reach.
+        const float MaxMeanRadialError = 0.1f;
+        const float AngularToleranceDegrees = 30f;
+        WeaponDefinition.PresentationConfig presentation = weapon.Presentation;
+        AttackVfxDefinition vfx = presentation.AttackVfx;
+        Assert.That(vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose), Is.True);
+        Transform root = _renderer.transform.parent;
+        Transform visual = PoseHeldWeapon(presentation, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
+        Matrix4x4 vfxToRoot = Matrix4x4.TRS(pose.Position, pose.Rotation, pose.Scale);
+        Vector2 center = pose.Position;
+        float expectedRadius = vfx.TipRadius * Mathf.Abs(pose.Scale.x);
+        AnimationClip attack = presentation.GetAttackClip(index);
+
+        const int Samples = 40;
+        float radialError = 0f;
+        for (int i = 0; i <= Samples; i++)
+        {
+            float time = vfx.StartSeconds + vfx.Clip.length * i / Samples;
+            radialError += Mathf.Abs((SampleBladeTip(attack, time, root, visual, presentation.BladeTip) - center).magnitude - expectedRadius);
+        }
+        radialError /= Samples + 1;
+        string context = $"{weapon.name} {direction}";
+        Assert.That(radialError, Is.LessThanOrEqualTo(MaxMeanRadialError),
+            $"{context}: mean tip radial error {radialError:F3} for slash tip radius {expectedRadius:F3}");
+
+        EditorCurveBinding[] bindings = AnimationUtility.GetObjectReferenceCurveBindings(vfx.Clip);
+        ObjectReferenceKeyframe[] frames = AnimationUtility.GetObjectReferenceCurve(vfx.Clip, bindings[0]);
+        for (int i = 0; i < frames.Length; i++)
+        {
+            var sprite = (Sprite)frames[i].value;
+            float frameEnd = i + 1 < frames.Length ? frames[i + 1].time : vfx.Clip.length;
+            float midpoint = vfx.StartSeconds + (frames[i].time + frameEnd) * 0.5f;
+            float reference = Angle(vfxToRoot.MultiplyVector(CalculateMeshCentroid(sprite)));
+            float min = float.MaxValue;
+            float max = float.MinValue;
+            foreach (Vector2 vertex in sprite.vertices)
+            {
+                float offset = Mathf.DeltaAngle(reference, Angle(vfxToRoot.MultiplyVector(vertex)));
+                min = Mathf.Min(min, offset);
+                max = Mathf.Max(max, offset);
+            }
+            float tip = Mathf.DeltaAngle(reference,
+                Angle(SampleBladeTip(attack, midpoint, root, visual, presentation.BladeTip) - center));
+            Assert.That(tip, Is.InRange(min - AngularToleranceDegrees, max + AngularToleranceDegrees),
+                $"{context} frame {i}: tip at {tip:F1}° outside slash arc [{min:F1}°, {max:F1}°]");
+        }
+    }
+
+    /// <summary>Applies the production grip alignment and facing pose to the main-hand weapon transforms.</summary>
+    private Transform PoseHeldWeapon(WeaponDefinition.PresentationConfig presentation, Vector2 facing)
+    {
+        var weaponPresenter = _contents.GetComponentInChildren<PlayerWeaponPresenter>(true);
+        var serialized = new SerializedObject(weaponPresenter);
+        var pivot = (Transform)serialized.FindProperty("_mainHandWeaponPivot").objectReferenceValue;
+        var visual = (Transform)serialized.FindProperty("_mainHandWeaponVisual").objectReferenceValue;
+        pivot.localPosition = Vector3.zero;
+        pivot.localRotation = Quaternion.Euler(0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing));
+        pivot.localScale = new Vector3(1f, PlayerWeaponPresentationMath.ShouldMirror(facing) ? -1f : 1f, 1f);
+        Vector2 aligned = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+            presentation.GripPoint, visual.localScale, presentation.AngleCorrection);
+        visual.localPosition = new Vector3(aligned.x, aligned.y, visual.localPosition.z);
+        visual.localRotation = Quaternion.Euler(0f, 0f, presentation.AngleCorrection);
+        return visual;
+    }
+
+    private static Vector2 SampleBladeTip(AnimationClip attack, float time, Transform root, Transform visual, Vector2 bladeTip)
+    {
+        attack.SampleAnimation(root.gameObject, time);
+        return (root.worldToLocalMatrix * visual.localToWorldMatrix).MultiplyPoint3x4(bladeTip);
+    }
+
+    [Test]
+    public void SharedAttackVfx_ResizesFromBladeReachWithoutMovingPlacement()
+    {
+        AttackVfxDefinition vfx = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation.AttackVfx;
+        for (int i = 0; i < 6; i++)
+        {
+            AttackVfxDefinition.DirectionalPose source = vfx.GetPose(i);
+            Assert.That(vfx.TryResolvePose(i, 1f, out AttackVfxDefinition.ResolvedPose shorter), Is.True);
+            Assert.That(vfx.TryResolvePose(i, 2f, out AttackVfxDefinition.ResolvedPose longer), Is.True);
+            float expectedShort = (source.ReachOffset + 1f) / vfx.TipRadius;
+            float expectedLong = (source.ReachOffset + 2f) / vfx.TipRadius;
+            float mirror = source.Mirrored ? -1f : 1f;
+            Assert.That(shorter.Scale.x, Is.EqualTo(expectedShort).Within(0.0001f), $"pose {i}");
+            Assert.That(shorter.Scale.y, Is.EqualTo(mirror * expectedShort).Within(0.0001f), $"pose {i}");
+            Assert.That(longer.Scale.x, Is.EqualTo(expectedLong).Within(0.0001f), $"pose {i}");
+            Assert.That(longer.Scale.y, Is.EqualTo(mirror * expectedLong).Within(0.0001f), $"pose {i}");
+            Assert.That(longer.Position, Is.EqualTo(shorter.Position), $"pose {i}");
+            Assert.That(longer.Rotation, Is.EqualTo(shorter.Rotation), $"pose {i}");
+            Assert.That(longer.SortingOrder, Is.EqualTo(shorter.SortingOrder), $"pose {i}");
+            Assert.That(vfx.TryResolvePose(i, -source.ReachOffset, out _), Is.False, $"pose {i} zero size");
+        }
+        Assert.That(vfx.TryResolvePose(6, 1f, out _), Is.False);
+        Assert.That(vfx.TryResolvePose(0, float.NaN, out _), Is.False);
+    }
+
+    [Test]
+    public void WeaponWithAttackVfx_RequiresBladeTipDistinctFromGrip()
+    {
+        WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath);
+        WeaponDefinition invalid = CreateGeometryVariant(sword, sword.Presentation.GripPoint, sword.Presentation.GripPoint);
+        try
+        {
+            Assert.That(invalid.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain("blade tip"));
+        }
+        finally
+        {
+            Object.DestroyImmediate(invalid);
+        }
+    }
+
     [Test]
     public void VfxConfiguration_HasExclusiveChildSpriteBindingAndFourOrderedFrames()
     {
@@ -196,24 +356,25 @@ public sealed class ArmingSwordSlashPresentationTests
             Assert.That(frames[i].time, Is.EqualTo(i * 0.1f).Within(0.0001f));
             Assert.That(frames[i].value.name, Is.EqualTo($"VFX-Slash_{i}"));
         }
+        Assert.That(vfx.TipRadius, Is.EqualTo(1.05f));
+        Assert.That(sword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.8125f)));
+        Assert.That(sword.Presentation.BladeReach, Is.EqualTo(1.4375f).Within(0.0001f));
         // Index order: N, NE, NW, S, SE, SW.
         var positions = new[]
         {
-            new Vector3(0.2f, 0f, 0f), new Vector3(0.2f, 0f, 0f), new Vector3(0.2f, 0f, 0f),
-            new Vector3(0.2f, -0.3f, 0f), new Vector3(0.2f, -0.3f, 0f), new Vector3(0.2f, -0.3f, 0f)
+            new Vector3(-0.04f, 0.52f, 0f), new Vector3(0.34f, 0.4f, 0f), new Vector3(-0.44f, 0.31f, 0f),
+            new Vector3(0.05f, -0.53f, 0f), new Vector3(0.39f, -0.35f, 0f), new Vector3(-0.31f, -0.45f, 0f)
         };
-        var scales = new[]
-        {
-            new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f),
-            new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f), new Vector3(0.65f, -0.65f, 1f)
-        };
+        var rotations = new[] { 87f, 41f, 141f, -93f, -51f, -131f };
+        var reachOffsets = new[] { -0.31f, -0.09f, -0.4f, 0.12f, -0.12f, 0.16f };
         var sortingOrders = new[] { -9, -9, -9, 21, 21, 21 };
         for (int i = 0; i < 6; i++)
         {
             var pose = vfx.GetPose(i);
             Assert.That(pose.Position, Is.EqualTo(positions[i]), $"pose {i}");
-            Assert.That(pose.Scale, Is.EqualTo(scales[i]), $"pose {i}");
-            Assert.That(pose.Rotation, Is.EqualTo(Quaternion.identity), $"pose {i}");
+            Assert.That(Quaternion.Angle(pose.Rotation, Quaternion.Euler(0f, 0f, rotations[i])), Is.EqualTo(0f).Within(0.001f), $"pose {i}");
+            Assert.That(pose.ReachOffset, Is.EqualTo(reachOffsets[i]), $"pose {i}");
+            Assert.That(pose.Mirrored, Is.True, $"pose {i}");
             Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
         }
         WeaponDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(

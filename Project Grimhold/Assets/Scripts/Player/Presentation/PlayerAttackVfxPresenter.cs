@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>Samples a configured sprite-only VFX on the existing character Animator root.</summary>
+/// <summary>
+/// Samples a configured sprite-only VFX on the existing character Animator root, sized from the
+/// attacking weapon's blade reach.
+/// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerAttackVfxPresenter : MonoBehaviour
 {
@@ -73,12 +76,12 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             _ => 5
         };
         _attackClip = presentation.GetAttackClip(index);
-        if (_attackClip == null || _attackClip.length < vfx.StartSeconds + vfx.Clip.length)
+        if (_attackClip == null || _attackClip.length < vfx.StartSeconds + vfx.Clip.length ||
+            !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose))
         {
             Clear();
             return;
         }
-        AttackVfxDefinition.DirectionalPose pose = vfx.GetPose(index);
         _vfxTransform.localPosition = pose.Position;
         _vfxTransform.localRotation = pose.Rotation;
         _vfxTransform.localScale = pose.Scale;

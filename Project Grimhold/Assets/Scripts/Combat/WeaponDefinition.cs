@@ -198,6 +198,13 @@ public sealed class WeaponDefinition : ScriptableObject
         [SerializeField] private AttackVfxDefinition _attackVfx;
         public AttackVfxDefinition AttackVfx => _attackVfx;
 
+        [SerializeField, Tooltip("Blade tip in the weapon sprite's local units, the same space as the grip point.")]
+        private Vector2 _bladeTip;
+        public Vector2 BladeTip => _bladeTip;
+
+        /// <summary>Distance from the grip point to the blade tip, in weapon sprite local units.</summary>
+        public float BladeReach => Vector2.Distance(_gripPoint, _bladeTip);
+
         public AnimationClip GetAttackClip(int direction) =>
             _attackAnimationSet != null ? _attackAnimationSet.GetAttackClip(direction) : null;
 
@@ -205,9 +212,10 @@ public sealed class WeaponDefinition : ScriptableObject
         {
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
-                !IsFinite(_angleCorrection))
+                !IsFinite(_angleCorrection) ||
+                !IsFinite(_bladeTip.x) || !IsFinite(_bladeTip.y))
             {
-                error = "stance offset, grip point and angle correction must be finite.";
+                error = "stance offset, grip point, angle correction and blade tip must be finite.";
                 return false;
             }
 
@@ -219,7 +227,13 @@ public sealed class WeaponDefinition : ScriptableObject
                     return false;
                 }
 
-                if (!_attackVfx.TryValidate(out error))
+                if (BladeReach <= 0f)
+                {
+                    error = "attack VFX requires a blade tip distinct from the grip point.";
+                    return false;
+                }
+
+                if (!_attackVfx.TryValidateBladeReach(BladeReach, out error))
                     return false;
             }
 

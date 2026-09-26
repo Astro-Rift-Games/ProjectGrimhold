@@ -485,14 +485,20 @@ Base Layer preserves the replicated locomotion state so movement animation can c
 
 Optional attack VFX is local presentation, independent of the directional attack animation set.
 `WeaponDefinition.Presentation` references a reusable `AttackVfxDefinition` containing a
-sprite-only clip, start offset, and six directional poses (position, rotation, scale and sorting).
+sprite-only clip, start offset, the tip radius the blade traces through its sprite frames, and six
+swing-relative directional poses (swing arc center, rotation, reach offset, mirror and sorting).
+The weapon owns its visual geometry: `BladeTip` sits in the weapon sprite's local units beside
+`GripPoint`, and their distance is the blade reach. The presenter resolves each pose's uniform
+scale as `(reach offset + blade reach) / tip radius`, so weapons sharing a swing animation can
+share one Attack VFX without per-weapon sizes, and it never reads weapon-specific measurements.
 `PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
 not the currently equipped Set, and waits for the matching RightHand attack clip. It samples the
 VFX clip at that clip's phase minus the configured start offset on the *existing* `VisualRoot`
 Animator root. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
 and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
-the animated hand or weapon pivot. Arming Sword configures four 100 ms sprite frames beginning
-at attack phase 0.1s and the prior six poses; other weapons have no VFX reference. The effect
+the animated hand or weapon pivot, so the effect never inherits the swing twice. Arming Sword
+configures four 100 ms sprite frames beginning at attack phase 0.1s with poses fitted to its
+directional swings; other weapons have no VFX reference. The effect
 clears on interruption, defeat, disable or completion. Proxies observe the same confirmed attack
 snapshot; no VFX-only network state, Animator layer/state, second Animator, animation events or
 gameplay timing authority is introduced.
