@@ -12,6 +12,7 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string RapierRoot = "Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_";
     private const string RondelRoot = "Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_";
     private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
+    private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
 
     [Test]
     public void MagicWandOutputs_BakeFromSouthAndRemainStableOnRepeat()
@@ -45,6 +46,98 @@ public sealed class DirectionalAnimationGeneratorTests
             DirectionalAnimationGenerator.Bake(source, direction, path, "MagicWand");
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
         }
+    }
+
+    [Test]
+    public void MagicSwordOutputs_BakeFromSouthAndRemainStableOnRepeat()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/MagicSword_Attack.anim");
+        Assert.That(source, Is.Not.Null);
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        DirectionalAnimationGenerator.GenerateMagicSwordAssets();
+        foreach (string direction in directions)
+        {
+            string path = MagicSwordRoot + direction + ".anim";
+            string guid = AssetDatabase.AssetPathToGUID(path);
+            Assert.That(guid, Is.Not.Empty, direction);
+            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, "MagicSword");
+            try
+            {
+                AnimationClip actual = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                Assert.That(actual, Is.Not.Null, direction);
+                Assert.That(AnimationUtility.GetCurveBindings(actual), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetEditorCurve(actual, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(expected, binding).keys), $"{direction}/{binding.propertyName}");
+                foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetObjectReferenceCurve(actual, binding),
+                        Is.EqualTo(AnimationUtility.GetObjectReferenceCurve(expected, binding)), $"{direction}/{binding.propertyName}");
+                AssertImportedBindings(path, direction);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(expected); }
+            DirectionalAnimationGenerator.Bake(source, direction, path, "MagicSword");
+            Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
+        }
+    }
+
+    [TestCase("N", 180f)]
+    [TestCase("NE", 135f)]
+    [TestCase("NW", -135f)]
+    [TestCase("S", 0f)]
+    [TestCase("SE", 45f)]
+    [TestCase("SW", -45f)]
+    public void MagicSwordOutput_KeepsRightHandArtAndDropsCurvesOutsideMainHandContract(string direction, float angle)
+    {
+        const string sourcePath = "Assets/Animations/Weapons/MagicSword_Attack.anim";
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(sourcePath);
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(MagicSwordRoot + direction + ".anim");
+        Assert.That(source, Is.Not.Null);
+        Assert.That(clip, Is.Not.Null);
+
+        // The source stays untouched: it still loops and still carries LeftHand curves.
+        Assert.That(AnimationUtility.GetAnimationClipSettings(source).loopTime, Is.True);
+        Assert.That(AnimationUtility.GetCurveBindings(source).Any(b => b.path == "LeftHandPivot/LeftHand"), Is.True);
+
+        Assert.That(clip.isLooping, Is.False);
+        Assert.That(AnimationUtility.GetAnimationClipSettings(clip).loopTime, Is.False);
+        Assert.That(clip.length, Is.EqualTo(source.length).Within(0.00001f));
+        Assert.That(AnimationUtility.GetCurveBindings(clip).Concat(AnimationUtility.GetObjectReferenceCurveBindings(clip))
+            .All(b => b.path == Hand || b.path == Grip), Is.True);
+
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(source)
+            .Where(b => b.path == Hand && !b.propertyName.StartsWith("m_LocalPosition.", StringComparison.Ordinal)))
+        {
+            Assert.That(AnimationUtility.GetEditorCurve(clip, binding).keys,
+                Is.EqualTo(AnimationUtility.GetEditorCurve(source, binding).keys), binding.propertyName);
+        }
+
+        float radians = angle * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(radians);
+        float sin = Mathf.Sin(radians);
+        AnimationCurve sx = Curve(source, Hand, "m_LocalPosition.x");
+        AnimationCurve sy = Curve(source, Hand, "m_LocalPosition.y");
+        AnimationCurve rx = Curve(clip, Hand, "m_LocalPosition.x");
+        AnimationCurve ry = Curve(clip, Hand, "m_LocalPosition.y");
+        Assert.That(rx.length, Is.EqualTo(sx.length));
+        for (int i = 0; i < sx.length; i++)
+        {
+            Assert.That(rx.keys[i].time, Is.EqualTo(sx.keys[i].time));
+            Assert.That(rx.keys[i].value, Is.EqualTo(cos * sx.keys[i].value - sin * sy.keys[i].value).Within(0.00002f));
+            Assert.That(ry.keys[i].value, Is.EqualTo(sin * sx.keys[i].value + cos * sy.keys[i].value).Within(0.00002f));
+            Assert.That(rx.keys[i].outTangent, Is.EqualTo(cos * sx.keys[i].outTangent - sin * sy.keys[i].outTangent).Within(0.00002f));
+            Assert.That(ry.keys[i].inTangent, Is.EqualTo(sin * sx.keys[i].inTangent + cos * sy.keys[i].inTangent).Within(0.00002f));
+        }
+
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
+        foreach (string axis in new[] { "x", "y", "z" })
+        {
+            float expected = Curve(idle, Grip, "m_LocalPosition." + axis).Evaluate(0f);
+            Assert.That(Curve(clip, Grip, "m_LocalPosition." + axis).Evaluate(clip.length), Is.EqualTo(expected).Within(0.00002f));
+        }
+        AnimationClip handIdle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/RightHand/RightHand_Idle_{direction}.anim");
+        var sprite = new EditorCurveBinding { path = Hand, type = typeof(SpriteRenderer), propertyName = "m_Sprite" };
+        Assert.That(AnimationUtility.GetObjectReferenceCurve(clip, sprite).Single().value,
+            Is.SameAs(AnimationUtility.GetObjectReferenceCurve(handIdle, sprite)[0].value));
     }
 
     [TestCase("N", 180f)]

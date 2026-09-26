@@ -460,15 +460,22 @@ optional set reference instead of six clips. A complete set enables `HasGenericA
 and replaces only the six neutral `GenericAttack_*` slots in the local per-Animator
 override controller. The generic `Attack` route does not inspect
 `WeaponAnimationCategory`; an unarmed weapon or missing/incomplete set disables it
-and restores placeholder slots. Arming Sword, Rapier and Magic Wand reference their
-respective Sword1H, Rapier and Wand sets. Rondel Dagger and Magic Cinquedea reference
-the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
+and restores placeholder slots. Arming Sword, Rapier, Magic Wand and Magic Sword reference
+their respective Sword1H, Rapier, Wand and MagicSword sets. Rondel Dagger and Magic Cinquedea
+reference the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
 presentation without editing `Character.controller` or branching on weapon identity.
+`DirectionalAnimationGenerator` bakes each set from one south-authored `<Weapon>_Attack.anim`:
+it rotates the RightHand position trajectory (values and tangents) per facing, keeps the
+RightHand rotation art, derives MainHandGrip, hand sprite and north sorting from the facing's
+idle, keeps the source clip length, and always emits a one-shot clip. Only the
+`RightHandPivot/RightHand` hierarchy is part of the output; other source curves, such as the
+LeftHand motion authored in `MagicSword_Attack.anim`, are dropped because LeftHand carries
+`OffHandGrip` and belongs to separately authored off-hand clips.
 The category-1 `LegacySword-Attack` state retains the existing directional sword clips
-and is gated by `!HasGenericAttack` for `magic_sword`, `long_sword` and `zweihander`.
+and is gated by `!HasGenericAttack` for `long_sword` and `zweihander`.
 The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
 motions and is gated by `!HasGenericAttack` for `long_bow`, `compound_bow` and
-`magic_staff`. Generic Arming Sword, Rapier, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 2 and 3 remain retired.
+`magic_staff`. Generic Arming Sword, Rapier, Magic Sword, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 2 and 3 remain retired.
 This is local presentation state,
 not a replicated or authoritative combat decision.
 

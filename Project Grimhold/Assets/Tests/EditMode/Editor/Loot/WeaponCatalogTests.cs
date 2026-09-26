@@ -108,7 +108,7 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("magic_sword", 30f, 1f, 1.5f, 15f, 5f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
-                WeaponAnimationCategory.LegacySword, typeof(MeleeAttackConfig));
+                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("long_sword", 45f, 1.4f, 2f, 22f, 10f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Strength, 10, 0, 0,
                 WeaponAnimationCategory.LegacySword, typeof(MeleeAttackConfig));
@@ -208,7 +208,7 @@ namespace Tests.EditMode.Loot
                 _catalog.TryGet(id, out LootDefinition definition);
                 Assert.That((int)definition.WeaponDefinition.Presentation.AnimationCategory, Is.Not.EqualTo(3), id);
                 WeaponDefinition.PresentationConfig presentation = definition.WeaponDefinition.Presentation;
-                if (new[] { "arming_sword", "rapier", "rondel_dagger", "magic_cinquedea", "magic_wand" }.Contains(id))
+                if (new[] { "arming_sword", "rapier", "magic_sword", "rondel_dagger", "magic_cinquedea", "magic_wand" }.Contains(id))
                 {
                     Assert.That(presentation.HasGenericAttack, Is.True, id);
                     Assert.That(presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None), id);

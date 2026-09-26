@@ -332,7 +332,7 @@ public sealed class PlayerAnimatorViewTests
             condition.mode == AnimatorConditionMode.If), Is.True);
         Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory"), Is.False);
 
-        string[] fallbacks = { "MagicSwordWeaponDefinition", "LongSwordCombatDefinition", "ZweihanderWeaponDefinition" };
+        string[] fallbacks = { "LongSwordCombatDefinition", "ZweihanderWeaponDefinition" };
         foreach (string weapon in fallbacks)
         {
             WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
@@ -385,6 +385,15 @@ public sealed class PlayerAnimatorViewTests
                 AssetDatabase.LoadAssetAtPath<AnimationClip>(
                     $"Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_{directions[index]}.anim")));
         Assert.That(layer.stateMachine.states.Any(child => child.state.name == "MagicWand-Attack"), Is.False);
+        WeaponDefinition magicSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset");
+        Assert.That(magicSword.Presentation.HasGenericAttack, Is.True);
+        Assert.That(magicSword.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < directions.Length; index++)
+            Assert.That(magicSword.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_{directions[index]}.anim")));
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "MagicSword-Attack"), Is.False);
         AnimatorState ranged = FindState(layer, "LegacyRanged-Attack");
         Assert.That(ranged.tag, Is.EqualTo("Attack"));
         AssertDirectionalTree(ranged.motion, "LegacyRanged-Attack-Directional");
@@ -423,7 +432,8 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("arming_sword", true)]
     [TestCase("rapier", true)]
     [TestCase("rondel_dagger", true)]
-    [TestCase("magic_sword", false)]
+    [TestCase("magic_sword", true)]
+    [TestCase("long_sword", false)]
     [TestCase("magic_cinquedea", true)]
     [TestCase("magic_wand", true)]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)

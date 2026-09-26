@@ -22,6 +22,9 @@ public static class DirectionalAnimationGenerator
     [MenuItem("Tools/Animations/Generate Magic Wand Directional Attacks")]
     public static void GenerateMagicWandAssets() => GenerateAssets("MagicWand");
 
+    [MenuItem("Tools/Animations/Generate Magic Sword Directional Attacks")]
+    public static void GenerateMagicSwordAssets() => GenerateAssets("MagicSword");
+
     public static void GenerateAssets(string weaponName)
     {
         ValidateWeaponName(weaponName);
@@ -97,6 +100,12 @@ public static class DirectionalAnimationGenerator
         try
         {
             result.name = $"{weaponName}_Attack_{direction}";
+            // Main Hand attacks are one-shot and drive only the RightHand hierarchy; other source
+            // curves (for example LeftHand, which carries OffHandGrip) are outside the output contract.
+            RemoveBindingsOutsideHand(result);
+            AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(result);
+            settings.loopTime = false;
+            AnimationUtility.SetAnimationClipSettings(result, settings);
 
             EditorCurveBinding x = Binding(Hand, typeof(Transform), "m_LocalPosition.x");
             EditorCurveBinding y = Binding(Hand, typeof(Transform), "m_LocalPosition.y");
@@ -158,6 +167,23 @@ public static class DirectionalAnimationGenerator
             throw;
         }
     }
+
+    private static void RemoveBindingsOutsideHand(AnimationClip clip)
+    {
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(clip))
+        {
+            if (!IsHandBinding(binding))
+                AnimationUtility.SetEditorCurve(clip, binding, null);
+        }
+        foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+        {
+            if (!IsHandBinding(binding))
+                AnimationUtility.SetObjectReferenceCurve(clip, binding, null);
+        }
+    }
+
+    private static bool IsHandBinding(EditorCurveBinding binding) =>
+        binding.path == Hand || binding.path.StartsWith(Hand + "/", StringComparison.Ordinal);
 
     private static AnimationCurve Constant(float value, float duration) =>
         new AnimationCurve(

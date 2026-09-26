@@ -13,6 +13,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("Rapier", "Rapier")]
     [TestCase("Dagger", "RondelDagger")]
     [TestCase("Wand", "MagicWand")]
+    [TestCase("MagicSword", "MagicSword")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -62,14 +63,14 @@ public sealed class DirectionalAttackAnimationSetTests
     [Test]
     public void Definitions_ShareDaggerIdentityButOtherFamiliesAreDistinct()
     {
-        string[] names = { "ArmingSword", "Rapier", "RondelDagger", "MagicCinquedea", "MagicWand" };
+        string[] names = { "ArmingSword", "Rapier", "RondelDagger", "MagicCinquedea", "MagicWand", "MagicSword" };
         DirectionalAttackAnimationSet[] sets = names.Select(name =>
             AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{name}WeaponDefinition.asset")
                 .Presentation.AttackAnimationSet).ToArray();
         Assert.That(sets, Has.All.Not.Null);
         Assert.That(sets[2], Is.SameAs(sets[3]));
-        Assert.That(new[] { sets[0], sets[1], sets[2], sets[4] }.Distinct().Count(), Is.EqualTo(4));
+        Assert.That(new[] { sets[0], sets[1], sets[2], sets[4], sets[5] }.Distinct().Count(), Is.EqualTo(5));
         foreach (string name in names)
         {
             WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(

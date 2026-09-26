@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 695eb1d508634f71a85ad608942fa931, type: 3}
+  m_Name: MagicSword
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalAttackAnimationSet
+  _attackN: {fileID: 7400000, guid: a23029bb0c2ddb64d86f20c895f07288, type: 2}
+  _attackNE: {fileID: 7400000, guid: 5e03bb4c58b66be489e229fde5add8b3, type: 2}
+  _attackNW: {fileID: 7400000, guid: 59df508a0bcc8c14485f5d54687a525f, type: 2}
+  _attackS: {fileID: 7400000, guid: 3496c8097b9e7474896df1ff889cde99, type: 2}
+  _attackSE: {fileID: 7400000, guid: b64b312f9c2c0534c8a48d74e9b1dd12, type: 2}
+  _attackSW: {fileID: 7400000, guid: 40045c77526080145a66c78f7710c274, type: 2}
