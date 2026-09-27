@@ -16,6 +16,7 @@ const {
   normalizeItems,
   normalizePreparedEquipment
 } = require('./InventoryLootIdNormalizer');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
@@ -28,14 +29,11 @@ const MAX_PROGRESSION_RECEIPTS = 256;
 
 function sanitizePreparedEquipment(eq) {
   if (!eq) return {};
-  return normalizePreparedEquipment({
-    weaponSlot1: eq.weaponSlot1 || '',
-    weaponSlot2: eq.weaponSlot2 || '',
-    helmet:      eq.helmet      || '',
-    armor:       eq.armor       || '',
-    gloves:      eq.gloves      || '',
-    boots:       eq.boots       || ''
-  });
+  const base = {};
+  for (const slot of EQUIPMENT_SLOTS) {
+    base[slot] = eq[slot] || '';
+  }
+  return normalizePreparedEquipment(base);
 }
 
 class ExtractionCommitService {

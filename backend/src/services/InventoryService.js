@@ -1,5 +1,6 @@
 // src/services/InventoryService.js
 const Character = require('../models/Character');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const {
   normalizeCharacterInventory,
   normalizeItems,
@@ -18,20 +19,15 @@ function serializeItems(items) {
 
 /**
  * Serializes the preparedEquipment subdocument to a plain object.
+ * Iterates over EQUIPMENT_SLOTS so new slots are covered automatically.
  */
 function serializePreparedEquipment(eq) {
-  if (!eq) {
-    return { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' };
-  }
   const clean = (val) => (!val || val === 'null' ? '' : val);
-  return {
-    weaponSlot1: clean(eq.weaponSlot1),
-    weaponSlot2: clean(eq.weaponSlot2),
-    helmet:      clean(eq.helmet),
-    armor:       clean(eq.armor),
-    gloves:      clean(eq.gloves),
-    boots:       clean(eq.boots)
-  };
+  const result = {};
+  for (const slot of EQUIPMENT_SLOTS) {
+    result[slot] = clean(eq ? eq[slot] : undefined);
+  }
+  return result;
 }
 
 /**
@@ -233,7 +229,7 @@ class InventoryService {
     }
     normalizePreparedEquipment(slots);
 
-    const slotNames = ['weaponSlot1', 'weaponSlot2', 'helmet', 'armor', 'gloves', 'boots'];
+    const slotNames = EQUIPMENT_SLOTS;
 
     const oldEquipment = character.inventory.preparedEquipment || {};
     const removedItems = [];
@@ -315,6 +311,8 @@ class InventoryService {
 
     return {
       preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment),
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
       revision: updated.revision
     };
   }
@@ -490,8 +488,12 @@ class InventoryService {
 
   /**
    * Processes a shop sale. Removes items from the loadout and adds currency.
+   * 
+   * INVARIANT: Currency balance is never negative.
+   * `declaredSellValue` is validated as >= 0 at the route level, ensuring
+   * that sales can only grow (or maintain) the currency balance.
    */
-  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision) {
+  static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -499,9 +501,24 @@ class InventoryService {
 
     normalizeCharacterInventory(character);
     
+    // 1. Idempotency check: if already applied, return immediately.
+    // This MUST run before the revision check so network retries don't fail.
+    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
+      return {
+        alreadySecured: true,
+        revision: character.revision,
+        currency: character.inventory.currency || 0,
+        stash: serializeItems(character.inventory.stash),
+        loadout: serializeItems(character.inventory.loadout),
+        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+      };
+    }
+
+    // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
+
     lootId = normalizeLootId(lootId);
 
     const loadout = character.inventory.loadout;
@@ -525,7 +542,13 @@ class InventoryService {
       { accountId, revision: expectedRevision },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': declaredSellValue }
+        $inc: { revision: 1, 'inventory.currency': declaredSellValue },
+        $push: {
+          appliedShopReceipts: {
+            $each: [{ transactionId, type: 'sell', timestamp: new Date() }],
+            $slice: -64
+          }
+        }
       },
       { new: true }
     );
@@ -545,8 +568,13 @@ class InventoryService {
 
   /**
    * Processes a shop purchase. Removes currency and adds items to the loadout.
+   * 
+   * INVARIANT: Currency balance is never negative.
+   * Enforced locally (currentCurrency < declaredPrice) and atomically by the
+   * MongoDB query filter ('inventory.currency': { $gte: declaredPrice }).
+   * `declaredPrice` is validated as >= 0 at the route level.
    */
-  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision) {
+  static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -554,9 +582,23 @@ class InventoryService {
 
     normalizeCharacterInventory(character);
     
+    // 1. Idempotency check: if already applied, return immediately.
+    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
+      return {
+        alreadySecured: true,
+        revision: character.revision,
+        currency: character.inventory.currency || 0,
+        stash: serializeItems(character.inventory.stash),
+        loadout: serializeItems(character.inventory.loadout),
+        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+      };
+    }
+
+    // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
+    
     lootId = normalizeLootId(lootId);
     
     const currentCurrency = character.inventory.currency || 0;
@@ -581,7 +623,13 @@ class InventoryService {
       { accountId, revision: expectedRevision, 'inventory.currency': { $gte: declaredPrice } },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': -declaredPrice }
+        $inc: { revision: 1, 'inventory.currency': -declaredPrice },
+        $push: {
+          appliedShopReceipts: {
+            $each: [{ transactionId, type: 'buy', timestamp: new Date() }],
+            $slice: -64
+          }
+        }
       },
       { new: true }
     );

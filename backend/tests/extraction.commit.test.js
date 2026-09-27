@@ -31,7 +31,7 @@ function makeCharacter(overrides = {}) {
     inventory: {
       stash:   [],
       loadout: [],
-      preparedEquipment:        { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' },
+      preparedEquipment:        { weaponSlot1: '', weaponSlot2: '', offHand1: '', offHand2: '', helmet: '', armor: '', gloves: '', boots: '' },
       pendingReservation:       null,
       appliedExtractionReceipts: [],
     },

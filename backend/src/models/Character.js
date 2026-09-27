@@ -11,10 +11,12 @@ const itemSchema = new mongoose.Schema({
 const preparedEquipmentSchema = new mongoose.Schema({
   weaponSlot1: { type: String, default: '' },
   weaponSlot2: { type: String, default: '' },
+  offHand1:    { type: String, default: '' },
   helmet:      { type: String, default: '' },
   armor:       { type: String, default: '' },
   gloves:      { type: String, default: '' },
-  boots:       { type: String, default: '' }
+  boots:       { type: String, default: '' },
+  offHand2:    { type: String, default: '' }
 }, { _id: false });
 
 // Embedded schema for the pending raid reservation snapshot.
@@ -49,6 +51,12 @@ const characterAttributeStateSchema = new mongoose.Schema({
   intelligence:    { type: Number, default: 5, min: 0 },
   luck:            { type: Number, default: 5, min: 0 },
   availablePoints: { type: Number, default: 10, min: 0 }
+}, { _id: false });
+
+const shopReceiptSchema = new mongoose.Schema({
+  transactionId: { type: String, required: true },
+  type:          { type: String, enum: ['buy', 'sell'], required: true },
+  timestamp:     { type: Date, default: Date.now }
 }, { _id: false });
 
 const characterSchema = new mongoose.Schema({
@@ -87,6 +95,8 @@ const characterSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Capped at 64 entries (at-most-once window for Shop transactions)
+  appliedShopReceipts: { type: [shopReceiptSchema], default: [] },
   revision: {
     type: Number,
     default: 0

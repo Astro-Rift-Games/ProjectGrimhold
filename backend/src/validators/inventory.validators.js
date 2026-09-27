@@ -1,5 +1,6 @@
 // src/validators/inventory.validators.js
 const { body, validationResult } = require('express-validator');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 
 // Shared validation error handler — mirrors the pattern from other validators.
 function handleValidationErrors(req, res, next) {
@@ -29,14 +30,12 @@ const moveItemValidator = [
 ];
 
 // Validates the body for the update-prepared-equipment operation.
-// All six slots are optional; if provided they must be strings.
+// All equipment slots are optional; if provided they must be strings.
+// Generated from EQUIPMENT_SLOTS so new slots are covered automatically.
 const preparedEquipmentValidator = [
-  body('weaponSlot1').optional().isString().withMessage('must be a string'),
-  body('weaponSlot2').optional().isString().withMessage('must be a string'),
-  body('helmet')     .optional().isString().withMessage('must be a string'),
-  body('armor')      .optional().isString().withMessage('must be a string'),
-  body('gloves')     .optional().isString().withMessage('must be a string'),
-  body('boots')      .optional().isString().withMessage('must be a string'),
+  ...EQUIPMENT_SLOTS.map(slot =>
+    body(slot).optional().isString().withMessage('must be a string')
+  ),
   body('expectedRevision')
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
@@ -73,6 +72,10 @@ const commitExtractionValidator = [
 
 // Validates the body for shop sale operations.
 const shopSellValidator = [
+  body('transactionId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
   body('lootId')
     .isString().withMessage('must be a string')
     .trim()
@@ -88,6 +91,10 @@ const shopSellValidator = [
 
 // Validates the body for shop purchase operations.
 const shopBuyValidator = [
+  body('transactionId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
   body('lootId')
     .isString().withMessage('must be a string')
     .trim()

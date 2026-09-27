@@ -4,6 +4,7 @@ const router = express.Router();
 const InventoryService = require('../services/InventoryService');
 const ExtractionCommitService = require('../services/ExtractionCommitService');
 const env = require('../config/env');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const authenticate = require('../middleware/authenticate');
 const {
   moveItemValidator,
@@ -58,11 +59,11 @@ router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req
 
 // POST /character/me/inventory/shop/sell
 // Sells an item from the loadout, awarding currency.
-// Body: { lootId: string, amount: number, declaredSellValue: number, expectedRevision: number }
+// Body: { transactionId, lootId, amount, declaredSellValue, expectedRevision }
 router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, declaredSellValue, expectedRevision } = req.body;
-    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision);
+    const { transactionId, lootId, amount, declaredSellValue, expectedRevision } = req.body;
+    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId);
     res.json(result);
   } catch (err) {
     next(err);
@@ -71,11 +72,11 @@ router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next)
 
 // POST /character/me/inventory/shop/buy
 // Buys an item into the loadout, deducting currency.
-// Body: { lootId: string, amount: number, declaredPrice: number, expectedRevision: number }
+// Body: { transactionId, lootId, amount, declaredPrice, expectedRevision }
 router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, declaredPrice, expectedRevision } = req.body;
-    const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision);
+    const { transactionId, lootId, amount, declaredPrice, expectedRevision } = req.body;
+    const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision, transactionId);
     res.json(result);
   } catch (err) {
     next(err);
@@ -87,14 +88,11 @@ router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) =
 // Body: { weaponSlot1?, weaponSlot2?, helmet?, armor?, gloves?, boots? }
 router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async (req, res, next) => {
   try {
-    const slots = {
-      weaponSlot1: req.body.weaponSlot1 || '',
-      weaponSlot2: req.body.weaponSlot2 || '',
-      helmet:      req.body.helmet      || '',
-      armor:       req.body.armor       || '',
-      gloves:      req.body.gloves      || '',
-      boots:       req.body.boots       || ''
-    };
+    // Build the slots object from EQUIPMENT_SLOTS so new slots are covered automatically.
+    const slots = {};
+    for (const slot of EQUIPMENT_SLOTS) {
+      slots[slot] = req.body[slot] || '';
+    }
     const expectedRevision = req.body.expectedRevision;
     const result = await InventoryService.updatePreparedEquipment(req.accountId, slots, expectedRevision);
     res.json(result);

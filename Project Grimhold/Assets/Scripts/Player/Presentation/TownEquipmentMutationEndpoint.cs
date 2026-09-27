@@ -11,16 +11,19 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
     private readonly ProfileId _profileId;
     private readonly LootDefinitionCatalog _lootCatalog;
     private readonly Func<bool> _canMutate;
+    private readonly Action _onMutated;
 
     public TownEquipmentMutationEndpoint(
         IPlayerLoadoutService loadoutService,
         ProfileId profileId,
         LootDefinitionCatalog lootCatalog,
-        Func<bool> canMutate)
+        Func<bool> canMutate,
+        Action onMutated = null)
     {
         _loadoutService = loadoutService ?? throw new ArgumentNullException(nameof(loadoutService));
         _lootCatalog = lootCatalog ?? throw new ArgumentNullException(nameof(lootCatalog));
         _canMutate = canMutate ?? throw new ArgumentNullException(nameof(canMutate));
+        _onMutated = onMutated;
         if (!profileId.IsValid)
         {
             throw new ArgumentException("The mutated profile must be valid.", nameof(profileId));
@@ -58,14 +61,27 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
             return StashOperationResult.InvalidInventory;
         }
 
-        return _loadoutService.TryAssignPreparedEquipment(_profileId, slot, lootId);
+        StashOperationResult result = _loadoutService.TryAssignPreparedEquipment(_profileId, slot, lootId);
+        if (result == StashOperationResult.Success)
+        {
+            _onMutated?.Invoke();
+        }
+        return result;
     }
 
     public StashOperationResult TryUnequip(EquipmentSlot slot)
     {
-        return CanMutate && EquipmentSlotRules.IsEquipmentSlot(slot)
-            ? _loadoutService.TryClearPreparedEquipment(_profileId, slot)
-            : StashOperationResult.InvalidInventory;
+        if (!CanMutate || !EquipmentSlotRules.IsEquipmentSlot(slot))
+        {
+            return StashOperationResult.InvalidInventory;
+        }
+
+        StashOperationResult result = _loadoutService.TryClearPreparedEquipment(_profileId, slot);
+        if (result == StashOperationResult.Success)
+        {
+            _onMutated?.Invoke();
+        }
+        return result;
     }
 
     private bool TryResolveDefinition(LootId lootId, out LootDefinition definition)

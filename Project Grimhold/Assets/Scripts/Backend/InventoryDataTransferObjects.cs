@@ -37,7 +37,7 @@ namespace Grimhold.Backend
         public int    amount;
     }
 
-    /// <summary>The six equipment assignment slots on the character loadout.</summary>
+    /// <summary>The equipment assignment slots on the character loadout.</summary>
     [Serializable]
     public struct PreparedEquipmentData
     {
@@ -47,6 +47,8 @@ namespace Grimhold.Backend
         public string armor;
         public string gloves;
         public string boots;
+        public string offHand1;
+        public string offHand2;
     }
 
     /// <summary>
@@ -87,6 +89,8 @@ namespace Grimhold.Backend
         public string armor;
         public string gloves;
         public string boots;
+        public string offHand1;
+        public string offHand2;
         public int    expectedRevision;
     }
 
@@ -104,6 +108,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct ShopSellRequest
     {
+        public string transactionId;
         public string lootId;
         public int    amount;
         public long   declaredSellValue;
@@ -113,6 +118,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct ShopBuyRequest
     {
+        public string transactionId;
         public string lootId;
         public int    amount;
         public long   declaredPrice;

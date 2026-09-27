@@ -127,8 +127,7 @@ public class RemoteInventoryService : MonoBehaviour
     }
 
     /// <summary>
-    /// Persists only the legacy backend projection. Off Hand assignments remain local until the
-    /// backend receives its own Weapon Set migration.
+    /// Persists the updated prepared equipment to the backend.
     /// </summary>
     public async Task<(bool success, BackendError error)> UpdatePreparedEquipmentAsync(PreparedEquipmentLoadout equipment)
     {
@@ -149,7 +148,9 @@ public class RemoteInventoryService : MonoBehaviour
                 helmet      = equipment.Helmet.IsValid      ? equipment.Helmet.Value      : "",
                 armor       = equipment.Armor.IsValid       ? equipment.Armor.Value       : "",
                 gloves      = equipment.Gloves.IsValid      ? equipment.Gloves.Value      : "",
-                boots       = equipment.Boots.IsValid       ? equipment.Boots.Value       : ""
+                boots       = equipment.Boots.IsValid       ? equipment.Boots.Value       : "",
+                offHand1    = equipment.WeaponSetAOffHand.IsValid ? equipment.WeaponSetAOffHand.Value : "",
+                offHand2    = equipment.WeaponSetBOffHand.IsValid ? equipment.WeaponSetBOffHand.Value : ""
             };
 
             var (success, result, error) = await InventoryClient.UpdatePreparedEquipmentAsync(_backendConfig, AuthToken, request, expectedRevision);
@@ -174,19 +175,6 @@ public class RemoteInventoryService : MonoBehaviour
         {
             Debug.LogError($"[{nameof(RemoteInventoryService)}] SavePendingReservationAsync: Not authenticated.");
             return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
-        }
-
-        if (reservation.PreparedEquipment.WeaponSetAOffHand.IsValid ||
-            reservation.PreparedEquipment.WeaponSetBOffHand.IsValid)
-        {
-            Debug.LogWarning(
-                $"[{nameof(RemoteInventoryService)}] The current backend cannot persist Off Hand " +
-                "assignments. The local reservation remains authoritative for this application run.");
-            return Task.FromResult((false, new BackendError
-            {
-                error = "UNSUPPORTED_EQUIPMENT_LAYOUT",
-                message = "The current backend does not support Weapon Set Off Hand assignments."
-            }));
         }
 
         return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
@@ -305,7 +293,9 @@ public class RemoteInventoryService : MonoBehaviour
                         helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
                         armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
                         gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-                        boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+                        boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
+                        offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
+                        offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
                     },
                     progression    = new ExtractionProgressionData 
                     {
@@ -368,7 +358,9 @@ public class RemoteInventoryService : MonoBehaviour
                 helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
                 armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
                 gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null
+                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
+                offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
+                offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
             },
             experienceGranted = experienceGranted,
             hostSignature = hostSignature

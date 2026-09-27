@@ -101,6 +101,8 @@ class ProgressionService {
 
     return {
       characterAttributes: updated.characterAttributes,
+      level: updated.level,
+      experience: updated.experience,
       revision: updated.revision
     };
   }
