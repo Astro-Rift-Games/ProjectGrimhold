@@ -9,16 +9,16 @@ using UnityEngine;
 public sealed class AttackVfxDefinition : ScriptableObject
 {
     /// <summary>
-    /// Swing-relative placement for one facing. The effect is centered on the swing arc and its
-    /// radius is derived from the weapon's blade reach, so it holds no weapon-specific size.
+    /// Swing-relative placement for one facing. The visual decides what the anchor means for its
+    /// geometry and its size is derived from the weapon's blade reach, so it holds no weapon-specific size.
     /// </summary>
     [Serializable]
     public struct DirectionalPose
     {
-        [SerializeField, Tooltip("Swing arc center in the Animator root space.")]
+        [SerializeField, Tooltip("Geometric anchor of the visual in the Animator root space: the swing arc center for a slash, the thrust path start for a thrust.")]
         private Vector3 _position;
         [SerializeField] private Vector3 _rotation;
-        [SerializeField, Tooltip("Added to the weapon blade reach to get the blade tip's radius around the swing arc center.")]
+        [SerializeField, Tooltip("Added to the weapon blade reach to get the size the visual's geometry spans: the blade tip's swing radius for a slash, the path length to the extended blade tip for a thrust.")]
         private float _reachOffset;
         [SerializeField, Tooltip("Mirrors the sprite sequence across its local X axis to match the swing's rotational sense.")]
         private bool _mirrored;
@@ -58,28 +58,19 @@ public sealed class AttackVfxDefinition : ScriptableObject
     public AttackVfxVisualDefinition Visual => _visual;
     public AnimationClip Clip => _visual != null ? _visual.Clip : null;
     public float StartSeconds => _startSeconds;
-    public float TipRadius => _visual != null ? _visual.TipRadius : 0f;
     public DirectionalPose GetPose(int direction) => _poses[direction];
 
-    /// <summary>Scales the sprite sequence so its tip radius matches the blade tip's swing radius.</summary>
+    /// <summary>Lets the visual place and size its art for the facing's anchor and the blade reach.</summary>
     public bool TryResolvePose(int direction, float bladeReach, out ResolvedPose pose)
     {
         pose = default;
-        float tipRadius = TipRadius;
-        if (_poses == null || direction < 0 || direction >= _poses.Length ||
-            !IsFinite(tipRadius) || tipRadius <= 0f || !IsFinite(bladeReach))
+        if (_visual == null || _poses == null || direction < 0 || direction >= _poses.Length ||
+            !IsFinite(bladeReach))
         {
             return false;
         }
         DirectionalPose source = _poses[direction];
-        float scale = (source.ReachOffset + bladeReach) / tipRadius;
-        if (!source.IsValid || !IsFinite(scale) || scale <= 0f)
-        {
-            return false;
-        }
-        pose = new ResolvedPose(source.Position, source.Rotation,
-            new Vector3(scale, source.Mirrored ? -scale : scale, 1f), source.SortingOrder);
-        return true;
+        return source.IsValid && _visual.TryResolvePose(source, source.ReachOffset + bladeReach, out pose);
     }
 
     public bool TryValidate(out string error)

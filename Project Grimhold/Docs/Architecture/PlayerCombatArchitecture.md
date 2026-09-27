@@ -512,17 +512,19 @@ is held as the temporary visual facing until the Animator leaves its tagged atta
 Base Layer preserves the replicated locomotion state so movement animation can continue.
 
 Optional attack VFX is local presentation, independent of the directional attack animation set.
-The effect is split by responsibility. An `AttackVfxVisualDefinition` holds only the shared art:
-a sprite-only clip and the tip radius the blade traces through its sprite frames.
+The effect is split by responsibility. An abstract `AttackVfxVisualDefinition` holds the shared art
+(a sprite-only clip) and delegates geometry-specific placement and sizing to specialized subclasses:
+`SlashVfxVisualDefinition` for arc-shaped swings (scaled by `TipRadius`) and `ThrustVfxVisualDefinition`
+for straight-line thrusts (scaled by path `Length` and shifted along the local +X axis from `BackX`).
 `WeaponDefinition.Presentation` references an `AttackVfxDefinition` that aligns one visual with
-one swing: the start offset in the attack clip and six swing-relative directional poses (swing
-arc center, rotation, reach offset, mirror and sorting). Weapons with different swings reuse the
-same visual through their own alignments, so changing one swing's timing or geometry never moves
-another weapon's effect, and the art is never duplicated.
+one attack: the start offset in the attack clip and six attack-relative directional poses (geometric anchor,
+rotation, reach offset, mirror and sorting). Weapons with different attacks reuse the same visual
+through their own alignments, so changing one attack's timing or geometry never moves another weapon's
+effect, and the art is never duplicated.
 The weapon owns its visual geometry: `BladeTip` sits in the weapon sprite's local units beside
-`GripPoint`, and their distance is the blade reach. The presenter resolves each pose's uniform
-scale as `(reach offset + blade reach) / tip radius`, so weapons sharing a swing animation can
-share one alignment without per-weapon sizes, and it never reads weapon-specific measurements.
+`GripPoint`, and their distance is the blade reach. The presenter resolves each pose through the
+visual's `TryResolvePose`, so weapons sharing an animation can share one alignment without
+per-weapon sizes, and it never reads weapon-specific measurements.
 `PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
 not the currently equipped Set, and waits for the matching RightHand attack clip. It samples the
 VFX clip at that clip's phase minus the configured start offset on the *existing* `VisualRoot`
@@ -535,11 +537,12 @@ windup apex at 0.3s and the last one its strike end at 0.55s, unmirrored to its 
 around the body center. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
 its windup apex at 0.2s, frames 1-2 cover its counterclockwise strike to 0.4s and frame 3 the
 recoil, mirrored like Arming Sword; its size follows the main-hand grip to blade tip reach only,
-never `SecondaryGripPoint`. Each uses poses fitted to its own directional swings;
-other weapons have no VFX reference. The effect
-clears on interruption, defeat, disable or completion. Proxies observe the same confirmed attack
-snapshot; no VFX-only network state, Animator layer/state, second Animator, animation events or
-gameplay timing authority is introduced.
+never `SecondaryGripPoint`. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
+spanning the path to its extended blade tip across all six facings. Each uses poses fitted to its
+own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
+defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
+network state, Animator layer/state, second Animator, animation events or gameplay timing authority
+is introduced.
 
 Visual authoring keeps those responsibilities explicit. The presentation grip point is
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the

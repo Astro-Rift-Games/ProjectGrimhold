@@ -11,6 +11,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f55703beb4a24374817117b0e6a06b7c, type: 3}
   m_Name: SwordSlashVfxVisual
-  m_EditorClassIdentifier: Assembly-CSharp::AttackVfxVisualDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::SlashVfxVisualDefinition
   _clip: {fileID: 7400000, guid: 33b14366b1649d44280e17d0e1aac163, type: 2}
   _tipRadius: 1.05

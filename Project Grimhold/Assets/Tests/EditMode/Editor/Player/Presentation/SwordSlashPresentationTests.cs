@@ -14,6 +14,8 @@ public sealed class SwordSlashPresentationTests
     private const string MagicSwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicSword.asset";
     private const string LongSwordPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
     private const string LongSwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
+    private const string RapierPath = "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset";
+    private const string RapierLootPath = "Assets/Scriptable Objects/Loot/Definitions/Rapier.asset";
     private GameObject _contents;
     private PlayerAttackVfxPresenter _presenter;
     private SpriteRenderer _renderer;
@@ -55,6 +57,12 @@ public sealed class SwordSlashPresentationTests
 
     private static object State(PlayerAttackVfxPresenter presenter, string name) =>
         typeof(PlayerAttackVfxPresenter).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(presenter);
+
+    private static float SlashTipRadius(AttackVfxDefinition vfx)
+    {
+        Assert.That(vfx.Visual, Is.InstanceOf<SlashVfxVisualDefinition>(), vfx.name);
+        return ((SlashVfxVisualDefinition)vfx.Visual).TipRadius;
+    }
 
     [TestCase(CharacterVisualDirection.North, 0)]
     [TestCase(CharacterVisualDirection.NorthEast, 1)]
@@ -107,7 +115,8 @@ public sealed class SwordSlashPresentationTests
             if (!_catalog.TryGetByIndex(catalogIndex, out LootDefinition loot) || loot.WeaponDefinition == null) continue;
             WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
             AttackVfxDefinition vfx = presentation.AttackVfx;
-            if (vfx == null || !presentation.HasGenericAttack) continue;
+            // Rotational sense only exists for arc-shaped visuals; a thrust travels in a straight line.
+            if (vfx == null || !presentation.HasGenericAttack || !(vfx.Visual is SlashVfxVisualDefinition)) continue;
 
             Perform(catalogIndex + 1, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
             Assert.That(State(_presenter, "_pending"), Is.True, loot.name);
@@ -251,7 +260,7 @@ public sealed class SwordSlashPresentationTests
         Transform visual = PoseHeldWeapon(presentation, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
         Matrix4x4 vfxToRoot = Matrix4x4.TRS(pose.Position, pose.Rotation, pose.Scale);
         Vector2 center = pose.Position;
-        float expectedRadius = vfx.TipRadius * Mathf.Abs(pose.Scale.x);
+        float expectedRadius = SlashTipRadius(vfx) * Mathf.Abs(pose.Scale.x);
         AnimationClip attack = presentation.GetAttackClip(index);
 
         const int Samples = 40;
@@ -321,8 +330,8 @@ public sealed class SwordSlashPresentationTests
             AttackVfxDefinition.DirectionalPose source = vfx.GetPose(i);
             Assert.That(vfx.TryResolvePose(i, 1f, out AttackVfxDefinition.ResolvedPose shorter), Is.True);
             Assert.That(vfx.TryResolvePose(i, 2f, out AttackVfxDefinition.ResolvedPose longer), Is.True);
-            float expectedShort = (source.ReachOffset + 1f) / vfx.TipRadius;
-            float expectedLong = (source.ReachOffset + 2f) / vfx.TipRadius;
+            float expectedShort = (source.ReachOffset + 1f) / SlashTipRadius(vfx);
+            float expectedLong = (source.ReachOffset + 2f) / SlashTipRadius(vfx);
             float mirror = source.Mirrored ? -1f : 1f;
             Assert.That(shorter.Scale.x, Is.EqualTo(expectedShort).Within(0.0001f), $"pose {i}");
             Assert.That(shorter.Scale.y, Is.EqualTo(mirror * expectedShort).Within(0.0001f), $"pose {i}");
@@ -375,7 +384,7 @@ public sealed class SwordSlashPresentationTests
             Assert.That(frames[i].time, Is.EqualTo(i * 0.1f).Within(0.0001f));
             Assert.That(frames[i].value.name, Is.EqualTo($"VFX-Slash_{i}"));
         }
-        Assert.That(vfx.TipRadius, Is.EqualTo(1.05f));
+        Assert.That(SlashTipRadius(vfx), Is.EqualTo(1.05f));
         Assert.That(sword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.8125f)));
         Assert.That(sword.Presentation.BladeReach, Is.EqualTo(1.4375f).Within(0.0001f));
         // Index order: N, NE, NW, S, SE, SW.
@@ -387,9 +396,6 @@ public sealed class SwordSlashPresentationTests
         var rotations = new[] { 87f, 41f, 141f, -93f, -51f, -131f };
         var reachOffsets = new[] { -0.31f, -0.09f, -0.4f, 0.12f, -0.12f, 0.16f };
         AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
-        WeaponDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
-            "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset");
-        Assert.That(rapier.Presentation.AttackVfx, Is.Null);
     }
 
     // Magic Sword winds up counterclockwise until 0.3s and strikes clockwise until 0.55s around the
@@ -512,7 +518,7 @@ public sealed class SwordSlashPresentationTests
             Assert.That(other, Is.Not.SameAs(sword), other.name);
             Assert.That(other.Visual, Is.SameAs(sword.Visual), other.name);
             Assert.That(other.Clip, Is.SameAs(sword.Clip), other.name);
-            Assert.That(other.TipRadius, Is.EqualTo(sword.TipRadius), other.name);
+            Assert.That(SlashTipRadius(other), Is.EqualTo(SlashTipRadius(sword)), other.name);
         }
         Assert.That(longSword, Is.Not.SameAs(magicSword));
         Assert.That(magicSword.StartSeconds, Is.Not.EqualTo(sword.StartSeconds));
@@ -596,8 +602,11 @@ public sealed class SwordSlashPresentationTests
     public void RejectedAttack_ClearsPendingEffect()
     {
         int sword = IndexPlusOne(SwordLootPath);
-        int rapier = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/Rapier.asset");
-        foreach (int rejected in new[] { 0, _catalog.DefinitionCount + 1, rapier })
+        // Magic Wand has generic attacks but no Attack VFX.
+        int wand = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+        Assert.That(AssetDatabase.LoadAssetAtPath<LootDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset").WeaponDefinition.Presentation.AttackVfx, Is.Null);
+        foreach (int rejected in new[] { 0, _catalog.DefinitionCount + 1, wand })
         {
             Perform(sword, Vector2.down);
             Perform(rejected, Vector2.down);
@@ -623,11 +632,13 @@ public sealed class SwordSlashPresentationTests
 
     // Steps are 50 ms: Arming Sword starts at 0.1s, Long Sword at 0.08s and Magic Sword at 0.25s, so
     // the same Slash frames appear at different hand phases and clear after 0.4s of Slash playback.
-    [TestCase(SwordPath, SwordLootPath, 3, 6, 10)]
-    [TestCase(LongSwordPath, LongSwordLootPath, 3, 6, 10)]
-    [TestCase(MagicSwordPath, MagicSwordLootPath, 6, 9, 13)]
-    public void SwordAttack_SamplesClipAtMatchingHandPhaseAndClearsAtEnd(string weaponPath, string lootPath,
-        int firstFrameStep, int thirdFrameStep, int endStep)
+    // Rapier plays its 0.2s Thrust from 0.19s through the same generic presenter.
+    [TestCase(SwordPath, SwordLootPath, 3, 6, 10, "VFX-Slash")]
+    [TestCase(LongSwordPath, LongSwordLootPath, 3, 6, 10, "VFX-Slash")]
+    [TestCase(MagicSwordPath, MagicSwordLootPath, 6, 9, 13, "VFX-Slash")]
+    [TestCase(RapierPath, RapierLootPath, 4, 6, 8, "VFX-Thrust")]
+    public void WeaponAttack_SamplesClipAtMatchingHandPhaseAndClearsAtEnd(string weaponPath, string lootPath,
+        int firstFrameStep, int thirdFrameStep, int endStep, string spritePrefix)
     {
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         GameObject player = null;
@@ -661,7 +672,7 @@ public sealed class SwordSlashPresentationTests
                 animator.Update(0.05f);
                 update.Invoke(presenter, null);
                 if (step == firstFrameStep - 2)
-                    Assert.That(renderer.enabled, Is.False, "Slash must wait for its start offset");
+                    Assert.That(renderer.enabled, Is.False, "Attack VFX must wait for its start offset");
                 if (step == firstFrameStep || step == thirdFrameStep || step == endStep)
                 {
                     AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(layer);
@@ -670,7 +681,7 @@ public sealed class SwordSlashPresentationTests
                     if (step != endStep)
                     {
                         Assert.That(renderer.enabled, Is.True);
-                        Assert.That(renderer.sprite?.name, Is.EqualTo(step == firstFrameStep ? "VFX-Slash_0" : "VFX-Slash_2"));
+                        Assert.That(renderer.sprite?.name, Is.EqualTo($"{spritePrefix}_{(step == firstFrameStep ? 0 : 2)}"));
                     }
                 }
             }
