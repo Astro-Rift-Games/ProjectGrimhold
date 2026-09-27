@@ -12,6 +12,8 @@ public sealed class SwordSlashPresentationTests
     private const string SwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
     private const string MagicSwordPath = "Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset";
     private const string MagicSwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicSword.asset";
+    private const string LongSwordPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
+    private const string LongSwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
     private GameObject _contents;
     private PlayerAttackVfxPresenter _presenter;
     private SpriteRenderer _renderer;
@@ -62,7 +64,8 @@ public sealed class SwordSlashPresentationTests
     [TestCase(CharacterVisualDirection.SouthWest, 5)]
     public void ConfirmedSwordAttack_AppliesPoseResolvedFromBladeReach(CharacterVisualDirection direction, int index)
     {
-        foreach ((string weaponPath, string lootPath) in new[] { (SwordPath, SwordLootPath), (MagicSwordPath, MagicSwordLootPath) })
+        foreach ((string weaponPath, string lootPath) in new[]
+            { (SwordPath, SwordLootPath), (MagicSwordPath, MagicSwordLootPath), (LongSwordPath, LongSwordLootPath) })
         {
             WeaponDefinition.PresentationConfig presentation =
                 AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weaponPath).Presentation;
@@ -118,8 +121,8 @@ public sealed class SwordSlashPresentationTests
             Assert.That(Mathf.Sign(vfxSweep), Is.EqualTo(Mathf.Sign(weaponSweep)), context);
             checkedWeapons.Add(loot.name);
         }
-        // Both swords share the Slash visual but swing in opposite senses, so each must be checked.
-        Assert.That(checkedWeapons, Does.Contain("ArmingSword").And.Contain("MagicSword"));
+        // The swords share the Slash visual but swing in different senses, so each must be checked.
+        Assert.That(checkedWeapons, Does.Contain("ArmingSword").And.Contain("MagicSword").And.Contain("LongSword"));
     }
 
     /// <summary>Signed degrees swept by the frame centroids of the VFX sprite sequence, in root space.</summary>
@@ -186,7 +189,7 @@ public sealed class SwordSlashPresentationTests
     // its tip radius follows the real blade tip, and each frame's arc covers the tip while it plays.
     // The blade is posed with the production grip/facing math, so a variant geometry sharing the same
     // Attack VFX must align without code or VFX changes. Magic Sword checks the same shared Slash
-    // visual against its own, differently shaped swing.
+    // visual against its own, differently shaped swing, and the two-handed Long Sword with its own variants.
     [TestCase(CharacterVisualDirection.North, 0)]
     [TestCase(CharacterVisualDirection.NorthEast, 1)]
     [TestCase(CharacterVisualDirection.NorthWest, 2)]
@@ -197,13 +200,19 @@ public sealed class SwordSlashPresentationTests
     {
         WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath);
         WeaponDefinition magicSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(MagicSwordPath);
+        WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath);
         WeaponDefinition shortBlade = CreateGeometryVariant(sword, new Vector2(0f, -0.4f), new Vector2(0f, 0.6f));
         WeaponDefinition longBlade = CreateGeometryVariant(sword, new Vector2(0.1f, -0.8f), new Vector2(0.1f, 1.4f));
+        WeaponDefinition shortLongSword = CreateGeometryVariant(longSword, new Vector2(0f, -0.4f), new Vector2(0f, 0.6f));
+        WeaponDefinition longerLongSword = CreateGeometryVariant(longSword, new Vector2(0.1f, -0.8f), new Vector2(0.1f, 1.4f));
         try
         {
             Assert.That(shortBlade.Presentation.AttackVfx, Is.SameAs(sword.Presentation.AttackVfx));
             Assert.That(longBlade.Presentation.AttackVfx, Is.SameAs(sword.Presentation.AttackVfx));
-            foreach (WeaponDefinition weapon in new[] { sword, shortBlade, longBlade, magicSword })
+            Assert.That(shortLongSword.Presentation.AttackVfx, Is.SameAs(longSword.Presentation.AttackVfx));
+            Assert.That(longerLongSword.Presentation.AttackVfx, Is.SameAs(longSword.Presentation.AttackVfx));
+            foreach (WeaponDefinition weapon in new[]
+                { sword, shortBlade, longBlade, magicSword, longSword, shortLongSword, longerLongSword })
             {
                 Assert.That(weapon.TryValidate(out string error), Is.True, error);
                 AssertSlashTracesBladeTip(weapon, direction, index);
@@ -213,6 +222,8 @@ public sealed class SwordSlashPresentationTests
         {
             Object.DestroyImmediate(shortBlade);
             Object.DestroyImmediate(longBlade);
+            Object.DestroyImmediate(shortLongSword);
+            Object.DestroyImmediate(longerLongSword);
         }
     }
 
@@ -408,6 +419,69 @@ public sealed class SwordSlashPresentationTests
         }
     }
 
+    // Long Sword winds up clockwise until 0.2s, strikes counterclockwise until 0.4s and recovers
+    // clockwise to rest at 0.6s. Starting at 0.08s keeps the blade tip inside every Slash frame's arc
+    // with the widest margin: frame 0 anticipates at the apex, frames 1-2 cover the strike and frame 3
+    // the recoil. Its counterclockwise strike plays the Slash mirrored. The poses are fitted to its
+    // own six baked two-handed clips, not taken from another sword's alignment.
+    [Test]
+    public void LongSwordVfxConfiguration_AlignsSharedSlashWithItsOwnTwoHandedSwing()
+    {
+        WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath);
+        AttackVfxDefinition vfx = longSword.Presentation.AttackVfx;
+        Assert.That(vfx, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(vfx),
+            Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset"));
+        Assert.That(longSword.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(longSword.TryValidate(out string error), Is.True, error);
+        Assert.That(vfx.StartSeconds, Is.EqualTo(0.08f));
+        // LongSword.png is 30 px tall with a centered pivot: the tip is the center of its top pixel row.
+        Assert.That(longSword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.90625f)));
+        var positions = new[]
+        {
+            new Vector3(0.02f, 0.05f, 0f), new Vector3(0.05f, 0.02f, 0f), new Vector3(0f, 0.05f, 0f),
+            new Vector3(-0.02f, -0.05f, 0f), new Vector3(0.02f, -0.05f, 0f), new Vector3(-0.06f, -0.01f, 0f)
+        };
+        var rotations = new[] { 85f, 41f, 139f, -92f, -51f, -129f };
+        var reachOffsets = new[] { -0.06f, 0.17f, -0.15f, 0.38f, 0.14f, 0.42f };
+        AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.That(vfx.StartSeconds + vfx.Clip.length,
+                Is.LessThanOrEqualTo(longSword.Presentation.GetAttackClip(i).length), $"clip {i}");
+        }
+    }
+
+    // The Slash is sized from the main-hand grip to the blade tip only; the second hand follows the
+    // baked animation and must not move or resize the effect.
+    [Test]
+    public void LongSwordVfx_DoesNotDependOnSecondaryGripPoint()
+    {
+        WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath);
+        WeaponDefinition variant = Object.Instantiate(longSword);
+        try
+        {
+            var serialized = new SerializedObject(variant);
+            serialized.FindProperty("_presentation._secondaryGripPoint").vector2Value =
+                longSword.Presentation.SecondaryGripPoint + new Vector2(0f, -0.2f);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            Assert.That(variant.TryValidate(out string error), Is.True, error);
+            AttackVfxDefinition vfx = longSword.Presentation.AttackVfx;
+            Assert.That(variant.Presentation.AttackVfx, Is.SameAs(vfx));
+            for (int i = 0; i < 6; i++)
+            {
+                Assert.That(vfx.TryResolvePose(i, longSword.Presentation.BladeReach, out var expected), Is.True);
+                Assert.That(vfx.TryResolvePose(i, variant.Presentation.BladeReach, out var actual), Is.True);
+                Assert.That(actual.Position, Is.EqualTo(expected.Position), $"pose {i}");
+                Assert.That(actual.Scale, Is.EqualTo(expected.Scale), $"pose {i}");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(variant);
+        }
+    }
+
     private static void AssertPoses(AttackVfxDefinition vfx, Vector3[] positions, float[] rotations,
         float[] reachOffsets, bool mirrored)
     {
@@ -429,26 +503,47 @@ public sealed class SwordSlashPresentationTests
     {
         AttackVfxDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation.AttackVfx;
         AttackVfxDefinition magicSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(MagicSwordPath).Presentation.AttackVfx;
-        Assert.That(magicSword, Is.Not.SameAs(sword));
-        Assert.That(magicSword.Visual, Is.SameAs(sword.Visual));
+        AttackVfxDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath).Presentation.AttackVfx;
+        Assert.That(AssetDatabase.GetAssetPath(sword.Visual),
+            Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/SwordSlashVfxVisual.asset"));
         Assert.That(AssetDatabase.GetAssetPath(sword.Clip), Is.EqualTo("Assets/Art/VFX/SwordSlashVfx.anim"));
-        Assert.That(magicSword.Clip, Is.SameAs(sword.Clip));
-        Assert.That(magicSword.TipRadius, Is.EqualTo(sword.TipRadius));
+        foreach (AttackVfxDefinition other in new[] { magicSword, longSword })
+        {
+            Assert.That(other, Is.Not.SameAs(sword), other.name);
+            Assert.That(other.Visual, Is.SameAs(sword.Visual), other.name);
+            Assert.That(other.Clip, Is.SameAs(sword.Clip), other.name);
+            Assert.That(other.TipRadius, Is.EqualTo(sword.TipRadius), other.name);
+        }
+        Assert.That(longSword, Is.Not.SameAs(magicSword));
         Assert.That(magicSword.StartSeconds, Is.Not.EqualTo(sword.StartSeconds));
+        Assert.That(longSword.StartSeconds, Is.Not.EqualTo(sword.StartSeconds));
+        Assert.That(longSword.StartSeconds, Is.Not.EqualTo(magicSword.StartSeconds));
         Assert.That(magicSword.GetPose(3).Position, Is.Not.EqualTo(sword.GetPose(3).Position));
         Assert.That(magicSword.GetPose(3).Mirrored, Is.Not.EqualTo(sword.GetPose(3).Mirrored));
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.That(longSword.GetPose(i).Position, Is.Not.EqualTo(sword.GetPose(i).Position), $"pose {i}");
+            Assert.That(longSword.GetPose(i).Position, Is.Not.EqualTo(magicSword.GetPose(i).Position), $"pose {i}");
+        }
     }
 
     [Test]
-    public void ChangingOneSwordAlignment_LeavesTheOtherSwordUnchanged()
+    public void ChangingOneSwordAlignment_LeavesTheOtherSwordsUnchanged()
     {
-        WeaponDefinition.PresentationConfig magicSword =
-            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(MagicSwordPath).Presentation;
+        var others = new[]
+        {
+            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(MagicSwordPath).Presentation,
+            AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath).Presentation
+        };
         AttackVfxDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SwordPath).Presentation.AttackVfx;
-        float magicStart = magicSword.AttackVfx.StartSeconds;
-        var magicPoses = new AttackVfxDefinition.ResolvedPose[6];
-        for (int i = 0; i < 6; i++)
-            Assert.That(magicSword.AttackVfx.TryResolvePose(i, magicSword.BladeReach, out magicPoses[i]), Is.True);
+        var otherStarts = new float[others.Length];
+        var otherPoses = new AttackVfxDefinition.ResolvedPose[others.Length, 6];
+        for (int w = 0; w < others.Length; w++)
+        {
+            otherStarts[w] = others[w].AttackVfx.StartSeconds;
+            for (int i = 0; i < 6; i++)
+                Assert.That(others[w].AttackVfx.TryResolvePose(i, others[w].BladeReach, out otherPoses[w, i]), Is.True);
+        }
 
         // Edits the Arming Sword alignment in memory only; the original values are restored below.
         var serialized = new SerializedObject(sword);
@@ -468,13 +563,17 @@ public sealed class SwordSlashPresentationTests
             serialized.ApplyModifiedPropertiesWithoutUndo();
             Assert.That(sword.StartSeconds, Is.EqualTo(originalStart + 0.05f).Within(0.0001f));
 
-            Assert.That(magicSword.AttackVfx.StartSeconds, Is.EqualTo(magicStart));
-            for (int i = 0; i < 6; i++)
+            for (int w = 0; w < others.Length; w++)
             {
-                Assert.That(magicSword.AttackVfx.TryResolvePose(i, magicSword.BladeReach, out var pose), Is.True);
-                Assert.That(pose.Position, Is.EqualTo(magicPoses[i].Position), $"pose {i}");
-                Assert.That(pose.Rotation, Is.EqualTo(magicPoses[i].Rotation), $"pose {i}");
-                Assert.That(pose.Scale, Is.EqualTo(magicPoses[i].Scale), $"pose {i}");
+                string context = others[w].AttackVfx.name;
+                Assert.That(others[w].AttackVfx.StartSeconds, Is.EqualTo(otherStarts[w]), context);
+                for (int i = 0; i < 6; i++)
+                {
+                    Assert.That(others[w].AttackVfx.TryResolvePose(i, others[w].BladeReach, out var pose), Is.True);
+                    Assert.That(pose.Position, Is.EqualTo(otherPoses[w, i].Position), $"{context} pose {i}");
+                    Assert.That(pose.Rotation, Is.EqualTo(otherPoses[w, i].Rotation), $"{context} pose {i}");
+                    Assert.That(pose.Scale, Is.EqualTo(otherPoses[w, i].Scale), $"{context} pose {i}");
+                }
             }
         }
         finally
@@ -522,9 +621,10 @@ public sealed class SwordSlashPresentationTests
         Assert.That(_renderer.sprite, Is.Null);
     }
 
-    // Steps are 50 ms: Arming Sword starts at 0.1s and Magic Sword at 0.25s, so the same Slash
-    // frames appear at different hand phases and clear after 0.4s of Slash playback.
+    // Steps are 50 ms: Arming Sword starts at 0.1s, Long Sword at 0.08s and Magic Sword at 0.25s, so
+    // the same Slash frames appear at different hand phases and clear after 0.4s of Slash playback.
     [TestCase(SwordPath, SwordLootPath, 3, 6, 10)]
+    [TestCase(LongSwordPath, LongSwordLootPath, 3, 6, 10)]
     [TestCase(MagicSwordPath, MagicSwordLootPath, 6, 9, 13)]
     public void SwordAttack_SamplesClipAtMatchingHandPhaseAndClearsAtEnd(string weaponPath, string lootPath,
         int firstFrameStep, int thirdFrameStep, int endStep)

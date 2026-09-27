@@ -532,7 +532,10 @@ the animated hand or weapon pivot, so the effect never inherits the swing twice.
 visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s, mirrored to
 its counterclockwise swing; Magic Sword aligns it from 0.25s, so the first frame straddles its
 windup apex at 0.3s and the last one its strike end at 0.55s, unmirrored to its clockwise strike
-around the body center. Both use poses fitted to their own directional swings;
+around the body center. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
+its windup apex at 0.2s, frames 1-2 cover its counterclockwise strike to 0.4s and frame 3 the
+recoil, mirrored like Arming Sword; its size follows the main-hand grip to blade tip reach only,
+never `SecondaryGripPoint`. Each uses poses fitted to its own directional swings;
 other weapons have no VFX reference. The effect
 clears on interruption, defeat, disable or completion. Proxies observe the same confirmed attack
 snapshot; no VFX-only network state, Animator layer/state, second Animator, animation events or
