@@ -299,6 +299,69 @@ Client startup. It still delegates to the coordinator, preserving the single-run
 invariant. `MainMenuController.JoinRoom` remains callable for development automation but its
 controls are hidden in the player flow.
 
+### Offline development profile (Editor / Development builds only)
+
+`DirectRaidDevelopmentStarter` normally still fails offline: `LocalProfileProvider` only
+receives a `ProfileId` from `LoginFlowController` after a successful backend login, and
+`ApplicationStashServiceBootstrapper.InitializeWithProfile` is only called from that same
+login step. Without both, `RaidLaunchContext.TryCreate` rejects the invalid local `ProfileId`
+and the loadout reservation fails before a raid can start.
+
+`DevelopmentProfileBootstrap` is a `[DisallowMultipleComponent]` `MonoBehaviour` placed next to
+`DirectRaidDevelopmentStarter` on the `FusionSessionLauncher` GameObject in `Systems.prefab`. It
+closes both gates for local Animation/VFX/gameplay testing without a backend:
+
+- **Lazy invocation, no Awake side effects**: `DevelopmentProfileBootstrap` has no Unity
+  lifecycle methods at all (no `Awake`/`OnEnable`/`Start`). `DirectRaidDevelopmentStarter`
+  (`[RequireComponent(typeof(DevelopmentProfileBootstrap))]`) calls
+  `TryPrepareForDirectRaid()` immediately before every `StartDirectRaidForDevelopmentAsync`
+  attempt, for both `StartDirectHostRaid` and `JoinDirectClientRaid`. A disabled bypass never
+  touches MainMenu state at all; there is no domain contamination to avoid on scene load. This
+  also means preparation runs fresh on every direct raid attempt rather than only once per Play
+  session, matching the direct route's per-raid loadout reservation.
+- **Components**: `DevelopmentProfileIdentity` (pure, static) derives a deterministic
+  `ProfileId("dev-local-" + key)` from a validated key (1-32 lowercase letters, digits or
+  hyphens) and exposes `IsDevelopmentProfile`. `DirectRaidDevelopmentPreparation.Prepare` is the
+  pure orchestration rule (result `DirectRaidDevelopmentPreparationResult`: `NotRequested`,
+  `UnavailableInBuild`, `InvalidKey`, `StashUnavailable`, `LoadoutNotLaunchable`, `Prepared`) that
+  `TryPrepareForDirectRaid()` evaluates through the narrow `IDevelopmentProfileEnvironment` seam
+  (`CurrentProfile`, `AssignProfile`, `ClearProfile`, `TryInitializeLocalStash`,
+  `LoadoutService`), backed in Play Mode by a private adapter over `LocalProfileProvider` and
+  `ApplicationStashServiceBootstrapper`. When no valid profile exists yet, the rule assigns the
+  deterministic dev `ProfileId` and initializes the local stash; when a profile (real or
+  already-assigned dev) is present, neither is ever touched again. Every attempt — new profile or
+  reused one — then always runs `IPlayerLoadoutService.TryPrepareExpeditionLoadout`, the same
+  normalization the Town launch path runs before reserving (recovery weapon `arming_sword` when
+  no Main Hand is prepared); it is atomic, deterministic and idempotent, so a second direct raid
+  attempt for an already-prepared or already-reserved profile grants nothing twice, and a raid
+  after a confirmed reservation (which consumed the previous grant) is prepared again from
+  scratch. A failed preparation blocks the Fusion start entirely: the starter logs a clear error
+  and returns without calling the coordinator.
+- **Gating**: serialized fields (`_enabled`, default `false`; `_profileKey`, default `"host"`)
+  are always compiled, so the release player keeps the same serialization layout as the
+  Editor/Development component. The entire `TryPrepareForDirectRaid()` bootstrap body is compiled
+  only under `UNITY_EDITOR || DEVELOPMENT_BUILD`; a release build has no bootstrap code path at
+  all (a disabled bypass still returns successfully there so the legacy route is unaffected). An
+  already-valid profile (a real, logged-in identity) is always preserved and never overwritten.
+- **What it does not do**: it never calls `ApplicationAuthContext.Initialize` and never creates
+  or requires an `ApplicationAuthContext`; it performs no backend HTTP request and no write to
+  the backend; `DirectRaidDevelopmentStarter`, Photon Fusion, `RaidLaunchContext`, and
+  `ProfileId` validation are unchanged.
+- **Local state**: the local profile persists to the same per-profile JSON file as any other
+  profile, `grimhold-profile-dev-local-<key>.json` under `Application.persistentDataPath`, so a
+  development profile's loadout survives between Editor sessions.
+- **Enabling it**: in the Editor, enable `_enabled` on `Systems.prefab`'s
+  `DevelopmentProfileBootstrap` (or an instance override), keep or change `_profileKey`, then
+  use `DirectRaidDevelopmentStarter`'s `Start Direct Host Raid` context menu. `_profileKey`
+  defaults to `"host"`, matching `DirectRaidDevelopmentStarter`'s Host-only default flow; a
+  second local participant is not supported by this bootstrap.
+- **Known limitation**: when the coordinator confirms or rolls back the loadout reservation
+  (`SessionConnectionCoordinator.TryConfirmActiveReservation` / `TryRollbackActiveReservation`),
+  it calls `RemoteInventoryService.ClearPendingReservationAsync`, which logs a
+  `Not authenticated` `LogError` because there is no backend token. The token guard returns
+  before any HTTP request; the log is pre-existing behavior, not introduced by this bootstrap,
+  and it does not block the raid.
+
 ## Failure and recovery
 
 If shutdown fails, the coordinator reports the appropriate shutdown or recovery result and

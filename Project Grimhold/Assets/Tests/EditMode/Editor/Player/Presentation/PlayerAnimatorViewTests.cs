@@ -332,7 +332,7 @@ public sealed class PlayerAnimatorViewTests
             condition.mode == AnimatorConditionMode.If), Is.True);
         Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory"), Is.False);
 
-        string[] fallbacks = { "LongSwordCombatDefinition", "ZweihanderWeaponDefinition" };
+        string[] fallbacks = { "ZweihanderWeaponDefinition" };
         foreach (string weapon in fallbacks)
         {
             WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
@@ -433,7 +433,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("rapier", true)]
     [TestCase("rondel_dagger", true)]
     [TestCase("magic_sword", true)]
-    [TestCase("long_sword", false)]
+    [TestCase("long_sword", true)]
     [TestCase("magic_cinquedea", true)]
     [TestCase("magic_wand", true)]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)

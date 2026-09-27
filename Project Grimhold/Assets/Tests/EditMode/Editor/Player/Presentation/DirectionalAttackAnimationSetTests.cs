@@ -14,6 +14,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("Dagger", "RondelDagger")]
     [TestCase("Wand", "MagicWand")]
     [TestCase("MagicSword", "MagicSword")]
+    [TestCase("LongSword", "LongSword")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -28,6 +29,27 @@ public sealed class DirectionalAttackAnimationSetTests
                 $"Assets/Animations/Weapons/Directional/{sourceName}/{sourceName}_Attack_{Directions[index]}.anim")));
         Assert.That(set.GetAttackClip(-1), Is.Null);
         Assert.That(set.GetAttackClip(6), Is.Null);
+    }
+
+    [Test]
+    public void LongSword_IsTwoHandedGenericAttackWhileZweihanderKeepsLegacyFallback()
+    {
+        WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset");
+        Assert.That(longSword.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(longSword.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        Assert.That(longSword.Presentation.HasGenericAttack, Is.True);
+        Assert.That(longSword.Presentation.AttackAnimationSet, Is.SameAs(
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "LongSword.asset")));
+        // LongSword.png: the main hand grips the handle row under the guard, the second hand its last row.
+        Assert.That(longSword.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.46875f)));
+        Assert.That(longSword.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.65625f)));
+        Assert.That(longSword.TryValidate(out string validationError), Is.True, validationError);
+
+        WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset");
+        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.LegacySword));
+        Assert.That(zweihander.Presentation.HasGenericAttack, Is.False);
     }
 
     [Test]

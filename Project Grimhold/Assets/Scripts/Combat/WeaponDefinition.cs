@@ -157,6 +157,14 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
+        // Two-handed generic attacks are baked with the second hand on this handle point.
+        if (_handedness == WeaponHandedness.TwoHanded && _presentation.HasGenericAttack &&
+            _presentation.SecondaryGripPoint == _presentation.GripPoint)
+        {
+            error = $"Weapon definition '{name}' two-handed generic attack requires a secondary grip point distinct from its grip point.";
+            return false;
+        }
+
         if (!_attributeRequirements.TryValidate(out string requirementError))
         {
             error = $"Weapon definition '{name}' has invalid attribute requirements: {requirementError}";
@@ -202,6 +210,10 @@ public sealed class WeaponDefinition : ScriptableObject
         private Vector2 _bladeTip;
         public Vector2 BladeTip => _bladeTip;
 
+        [SerializeField, Tooltip("Second-hand point inside the handle of a two-handed weapon, in the weapon sprite's local units like the grip point.")]
+        private Vector2 _secondaryGripPoint;
+        public Vector2 SecondaryGripPoint => _secondaryGripPoint;
+
         /// <summary>Distance from the grip point to the blade tip, in weapon sprite local units.</summary>
         public float BladeReach => Vector2.Distance(_gripPoint, _bladeTip);
 
@@ -213,9 +225,10 @@ public sealed class WeaponDefinition : ScriptableObject
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
                 !IsFinite(_angleCorrection) ||
-                !IsFinite(_bladeTip.x) || !IsFinite(_bladeTip.y))
+                !IsFinite(_bladeTip.x) || !IsFinite(_bladeTip.y) ||
+                !IsFinite(_secondaryGripPoint.x) || !IsFinite(_secondaryGripPoint.y))
             {
-                error = "stance offset, grip point, angle correction and blade tip must be finite.";
+                error = "stance offset, grip point, angle correction, blade tip and secondary grip point must be finite.";
                 return false;
             }
 

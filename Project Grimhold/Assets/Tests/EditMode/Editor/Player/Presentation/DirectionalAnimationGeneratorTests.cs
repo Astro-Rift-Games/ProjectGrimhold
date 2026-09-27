@@ -13,6 +13,210 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string RondelRoot = "Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_";
     private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
     private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
+    private const string SecondHand = "LeftHandPivot/LeftHand";
+    private const string LongSwordSource = "Assets/Animations/Weapons/LongSword_Attack.anim";
+    private const string LongSwordRoot = "Assets/Animations/Weapons/Directional/LongSword/LongSword_Attack_";
+    private const string LongSwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
+
+    [Test]
+    public void LongSwordOutputs_BakeFromSouthAndRemainStableOnRepeat()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        Assert.That(source, Is.Not.Null);
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        DirectionalAnimationGenerator.GenerateLongSwordAssets();
+        foreach (string direction in directions)
+        {
+            string path = LongSwordRoot + direction + ".anim";
+            string guid = AssetDatabase.AssetPathToGUID(path);
+            Assert.That(guid, Is.Not.Empty, direction);
+            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, "LongSword", LongSwordDefinition());
+            AnimationClip repeated = DirectionalAnimationGenerator.CreateClip(source, direction, "LongSword", LongSwordDefinition());
+            try
+            {
+                AnimationClip actual = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                Assert.That(actual, Is.Not.Null, direction);
+                Assert.That(actual.isLooping, Is.False, direction);
+                Assert.That(AnimationUtility.GetCurveBindings(actual), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
+                Assert.That(AnimationUtility.GetCurveBindings(repeated), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(expected))
+                {
+                    Keyframe[] keys = AnimationUtility.GetEditorCurve(expected, binding).keys;
+                    Assert.That(AnimationUtility.GetEditorCurve(actual, binding).keys, Is.EqualTo(keys), $"{direction}/{binding.propertyName}");
+                    Assert.That(AnimationUtility.GetEditorCurve(repeated, binding).keys, Is.EqualTo(keys), $"{direction}/{binding.propertyName}/repeat");
+                }
+                foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetObjectReferenceCurve(actual, binding),
+                        Is.EqualTo(AnimationUtility.GetObjectReferenceCurve(expected, binding)), $"{direction}/{binding.propertyName}");
+                AssertImportedBindings(path, direction);
+                foreach (string axis in new[] { "x", "y", "z" })
+                    Assert.That(Curve(actual, SecondHand, "m_LocalPosition." + axis), Is.Not.Null, direction);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(expected);
+                UnityEngine.Object.DestroyImmediate(repeated);
+            }
+            DirectionalAnimationGenerator.Bake(source, direction, path, "LongSword", LongSwordDefinition());
+            Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
+        }
+    }
+
+    [TestCase("S", "Left", 0.375f, -0.25f)]
+    [TestCase("S", "Right", -0.375f, -0.25f)]
+    [TestCase("N", "Left", -0.375f, -0.25f)]
+    [TestCase("SE", "Left", 0.3125f, -0.125f)]
+    public void ResolveSpriteAnchor_MeasuresTheDrawnHandFromItsPivot(string direction, string hand, float x, float y)
+    {
+        string path = hand == "Left" ? SecondHand : Hand;
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            $"Assets/Animations/Player/Idle/{hand}Hand/{hand}Hand_Idle_{direction}.anim");
+        var sprite = new EditorCurveBinding { path = path, type = typeof(SpriteRenderer), propertyName = "m_Sprite" };
+        Vector2 anchor = DirectionalAnimationGenerator.ResolveSpriteAnchor(
+            (Sprite)AnimationUtility.GetObjectReferenceCurve(idle, sprite)[0].value);
+        Assert.That(anchor.x, Is.EqualTo(x).Within(0.001f));
+        Assert.That(anchor.y, Is.EqualTo(y).Within(0.001f));
+    }
+
+    [TestCase("N", 180f)]
+    [TestCase("NE", 135f)]
+    [TestCase("NW", -135f)]
+    [TestCase("S", 0f)]
+    [TestCase("SE", 45f)]
+    [TestCase("SW", -45f)]
+    public void LongSwordOutput_DirectionalizesBothHandsAndKeepsTheSecondHandOnTheGrip(string direction, float angle)
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordRoot + direction + ".anim");
+        Assert.That(source, Is.Not.Null);
+        Assert.That(clip, Is.Not.Null);
+
+        // The authored source stays untouched: it loops and carries no second-hand sprite or sorting.
+        Assert.That(AnimationUtility.GetAnimationClipSettings(source).loopTime, Is.True);
+        Assert.That(Curve(source, SecondHand, "m_SortingOrder"), Is.Null);
+        Assert.That(AnimationUtility.GetObjectReferenceCurveBindings(source).Any(b => b.path == SecondHand), Is.False);
+
+        Assert.That(clip.isLooping, Is.False);
+        Assert.That(clip.length, Is.EqualTo(source.length).Within(0.00001f));
+        EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(clip);
+        Assert.That(bindings.All(b => b.path == Hand || b.path == Grip ||
+            (b.path == SecondHand && (b.type == typeof(Transform) || b.propertyName == "m_SortingOrder"))), Is.True);
+        Assert.That(AnimationUtility.GetObjectReferenceCurveBindings(clip).All(b => b.path == Hand), Is.True,
+            "The LeftHand layer keeps owning the second-hand sprite.");
+
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(source)
+            .Where(b => (b.path == Hand || b.path == SecondHand) && !b.propertyName.StartsWith("m_LocalPosition.", StringComparison.Ordinal)))
+        {
+            Assert.That(AnimationUtility.GetEditorCurve(clip, binding).keys,
+                Is.EqualTo(AnimationUtility.GetEditorCurve(source, binding).keys), $"{binding.path}/{binding.propertyName}");
+        }
+        Assert.That(Curve(clip, SecondHand, "m_LocalPosition.z").keys, Is.EqualTo(Curve(source, SecondHand, "m_LocalPosition.z").keys));
+
+        float radians = angle * Mathf.Deg2Rad;
+        AnimationCurve sx = Curve(source, Hand, "m_LocalPosition.x");
+        AnimationCurve sy = Curve(source, Hand, "m_LocalPosition.y");
+        for (int i = 0; i < sx.length; i++)
+        {
+            Vector2 rotated = Rotate(new Vector2(sx.keys[i].value, sy.keys[i].value), radians);
+            Assert.That(Curve(clip, Hand, "m_LocalPosition.x").keys[i].value, Is.EqualTo(rotated.x).Within(0.00002f));
+            Assert.That(Curve(clip, Hand, "m_LocalPosition.y").keys[i].value, Is.EqualTo(rotated.y).Within(0.00002f));
+        }
+
+        // Timing is authored: every south key time stays keyed; the frame grid only adds in-between keys.
+        AnimationCurve secondX = Curve(source, SecondHand, "m_LocalPosition.x");
+        float[] outputTimes = Curve(clip, SecondHand, "m_LocalPosition.x").keys.Select(key => key.time).ToArray();
+        foreach (Keyframe key in secondX.keys)
+            Assert.That(outputTimes.Any(time => Mathf.Abs(time - key.time) < 0.0001f), Is.True, $"{direction}@{key.time}");
+        Assert.That(outputTimes.Max(), Is.EqualTo(secondX.keys.Last().time).Within(0.0001f));
+
+        // Grip placement: seen from MainHandGrip turned by the main hand, the drawn second hand sits on the
+        // weapon's secondary grip point, placed like the presenter places the held weapon for this facing.
+        WeaponDefinition.PresentationConfig presentation = LongSwordDefinition().Presentation;
+        Vector2 grip = IdleGrip(direction);
+        Vector2 anchor = SecondHandAnchor(direction);
+        float facingDegrees = angle - 90f;
+        Vector2 facingVector = new Vector2(Mathf.Cos(facingDegrees * Mathf.Deg2Rad), Mathf.Sin(facingDegrees * Mathf.Deg2Rad));
+        Vector2 handle = Rotate(presentation.SecondaryGripPoint - presentation.GripPoint, presentation.AngleCorrection * Mathf.Deg2Rad);
+        if (facingVector.x < -0.0001f) handle.y = -handle.y;
+        Vector2 expected = Rotate(handle, facingDegrees * Mathf.Deg2Rad);
+        Assert.That(expected.magnitude, Is.GreaterThan(0.1f));
+        for (int step = 0; step <= 60; step++)
+        {
+            float time = secondX.keys.Last().time * step / 60f;
+            Vector2 relation = GripRelation(clip, time, grip, anchor);
+            // Keys land exactly; between frame-grid keys it stays within half a 16 PPU pixel.
+            Assert.That(relation.x, Is.EqualTo(expected.x).Within(0.5f / 16f), $"{direction}@{time}");
+            Assert.That(relation.y, Is.EqualTo(expected.y).Within(0.5f / 16f), $"{direction}@{time}");
+        }
+        foreach (Keyframe key in Curve(clip, SecondHand, "m_LocalPosition.x").keys)
+        {
+            Vector2 relation = GripRelation(clip, key.time, grip, anchor);
+            Assert.That((relation - expected).magnitude, Is.LessThan(0.0002f), $"{direction}@{key.time}");
+        }
+
+        // The second hand draws over the handle and under the main hand in every facing.
+        bool north = direction.StartsWith("N", StringComparison.Ordinal);
+        AnimationCurve sorting = Curve(clip, SecondHand, "m_SortingOrder");
+        Assert.That(sorting.Evaluate(0f), Is.EqualTo(north ? -5f : 25f));
+        Assert.That(sorting.Evaluate(clip.length), Is.EqualTo(north ? -5f : 25f));
+        if (north) Assert.That(Curve(clip, Hand, "m_SortingOrder").Evaluate(0f), Is.EqualTo(-2f));
+    }
+
+    [Test]
+    public void LongSwordSouth_RetainsEveryAuthoredCurveExceptTheRealignedSecondHandPosition()
+    {
+        AnimationClip original = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordRoot + "S.anim");
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(original)
+            .Where(b => !(b.path == SecondHand && (b.propertyName == "m_LocalPosition.x" || b.propertyName == "m_LocalPosition.y"))))
+        {
+            AnimationCurve source = AnimationUtility.GetEditorCurve(original, binding);
+            Assert.That(AnimationUtility.GetEditorCurve(south, binding).keys, Is.EqualTo(source.keys),
+                $"{binding.path}/{binding.propertyName}");
+        }
+    }
+
+    [Test]
+    public void CreateClip_TwoHandedWeaponWithoutSecondaryGripIsRejected()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        WeaponDefinition invalid = UnityEngine.Object.Instantiate(LongSwordDefinition());
+        try
+        {
+            var serialized = new SerializedObject(invalid);
+            serialized.FindProperty("_presentation._secondaryGripPoint").vector2Value =
+                serialized.FindProperty("_presentation._gripPoint").vector2Value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            Assert.Throws<ArgumentException>(() => DirectionalAnimationGenerator.CreateClip(source, "S", "LongSword", invalid));
+            Assert.That(invalid.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain("secondary grip point"));
+        }
+        finally { UnityEngine.Object.DestroyImmediate(invalid); }
+    }
+
+    [Test]
+    public void HeldWeaponVisual_KeepsUnitScaleAssumedByTheSecondGrip()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var presenter = prefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
+        var serialized = new SerializedObject(presenter);
+        var visual = (Transform)serialized.FindProperty("_mainHandWeaponVisual").objectReferenceValue;
+        var pivot = (Transform)serialized.FindProperty("_mainHandWeaponPivot").objectReferenceValue;
+        Assert.That(visual.localScale, Is.EqualTo(Vector3.one));
+        Assert.That(pivot.localScale, Is.EqualTo(Vector3.one));
+    }
+
+    [Test]
+    public void CreateClip_OneHandedContractStillDropsAuthoredLeftHandCurves()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        AnimationClip oneHanded = DirectionalAnimationGenerator.CreateClip(source, "SE", "LongSword");
+        try
+        {
+            Assert.That(AnimationUtility.GetCurveBindings(oneHanded).Any(b => b.path == SecondHand), Is.False);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(oneHanded); }
+    }
 
     [Test]
     public void MagicWandOutputs_BakeFromSouthAndRemainStableOnRepeat()
@@ -538,6 +742,38 @@ public sealed class DirectionalAnimationGeneratorTests
         Assert.That(Curve(imported, Hand, "m_SortingOrder") == null,
             Is.EqualTo(!direction.StartsWith("N", StringComparison.Ordinal)));
     }
+
+    // Drawn second hand position expressed in the main hand's rotated grip frame at a clip time.
+    private static Vector2 GripRelation(AnimationClip clip, float time, Vector2 grip, Vector2 anchor)
+    {
+        float mainAngle = Curve(clip, Hand, "localEulerAnglesRaw.z").Evaluate(time) * Mathf.Deg2Rad;
+        float secondAngle = Curve(clip, SecondHand, "localEulerAnglesRaw.z").Evaluate(time) * Mathf.Deg2Rad;
+        Vector2 main = new Vector2(Curve(clip, Hand, "m_LocalPosition.x").Evaluate(time), Curve(clip, Hand, "m_LocalPosition.y").Evaluate(time));
+        Vector2 second = new Vector2(Curve(clip, SecondHand, "m_LocalPosition.x").Evaluate(time), Curve(clip, SecondHand, "m_LocalPosition.y").Evaluate(time));
+        Vector2 drawnSecond = second + Rotate(anchor, secondAngle);
+        Vector2 gripPoint = main + Rotate(grip, mainAngle);
+        return Rotate(drawnSecond - gripPoint, -mainAngle);
+    }
+
+    private static WeaponDefinition LongSwordDefinition() =>
+        AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordDefinitionPath);
+
+    private static Vector2 IdleGrip(string direction)
+    {
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
+        return new Vector2(Curve(idle, Grip, "m_LocalPosition.x").Evaluate(0f), Curve(idle, Grip, "m_LocalPosition.y").Evaluate(0f));
+    }
+
+    private static Vector2 SecondHandAnchor(string direction)
+    {
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/LeftHand/LeftHand_Idle_{direction}.anim");
+        var sprite = new EditorCurveBinding { path = SecondHand, type = typeof(SpriteRenderer), propertyName = "m_Sprite" };
+        return DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)AnimationUtility.GetObjectReferenceCurve(idle, sprite)[0].value);
+    }
+
+    private static Vector2 Rotate(Vector2 value, float radians) => new Vector2(
+        Mathf.Cos(radians) * value.x - Mathf.Sin(radians) * value.y,
+        Mathf.Sin(radians) * value.x + Mathf.Cos(radians) * value.y);
 
     private static bool SameBinding(EditorCurveBinding actual, EditorCurveBinding expected) =>
         actual.path == expected.path && actual.type == expected.type && actual.propertyName == expected.propertyName;

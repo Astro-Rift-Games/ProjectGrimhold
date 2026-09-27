@@ -45,6 +45,7 @@ GameObject:
   - component: {fileID: 7366466056960329881}
   - component: {fileID: 4286063876978952089}
   - component: {fileID: 500828127470096320}
+  - component: {fileID: 2264618660867755604}
   m_Layer: 0
   m_Name: FusionSessionLauncher
   m_TagString: Untagged
@@ -140,6 +141,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DirectRaidDevelopmentStarter
   _sessionName: Development-Raid
   _selectedBuild: 1
+--- !u!114 &2264618660867755604
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2950036176946796994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed95cd62d6eea62b6252aaf470370b7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DevelopmentProfileBootstrap
+  _enabled: 0
+  _profileKey: host
 --- !u!1 &4428764685288075167
 GameObject:
   m_ObjectHideFlags: 0
