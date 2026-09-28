@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
-  m_Name: RondelDaggerThrustAttackVfx
+  m_Name: DaggerThrustAttackVfx
   m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
   _visual: {fileID: 11400000, guid: e0285fcd4383f7049b74cf53c13f1ea5, type: 2}
   _startSeconds: 0.14

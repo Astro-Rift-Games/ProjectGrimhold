@@ -541,8 +541,9 @@ never `SecondaryGripPoint`. Rapier aligns the four 50 ms frames of the Thrust vi
 spanning the path to its extended blade tip across all six facings. Rondel Dagger reuses the same
 Thrust visual through its own alignment from 0.14s: its stroke runs 50 ms earlier than Rapier's and its
 hand tilts the blade about 14 degrees off the facing, so each axis is the facing plus 14 degrees and each
-anchor is its own stroke-start grip. Magic Cinquedea shares Rondel's Dagger animation set but not its VFX.
-Each uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
+anchor is its own stroke-start grip. Magic Cinquedea plays the same Dagger clips, so it shares that
+`DaggerThrustAttackVfx` alignment and differs only by its own blade reach.
+Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority
 is introduced.

@@ -10,6 +10,9 @@ public sealed class ThrustPresentationTests
     private const string RapierLootPath = "Assets/Scriptable Objects/Loot/Definitions/Rapier.asset";
     private const string RondelPath = "Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset";
     private const string RondelLootPath = "Assets/Scriptable Objects/Loot/Definitions/RondelDagger.asset";
+    private const string CinquedeaPath = "Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset";
+    private const string CinquedeaLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicCinquedea.asset";
+    private const string DaggerThrustPath = "Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset";
     private const string SwordPath = "Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset";
     private const string ThrustVisualPath = "Assets/Scriptable Objects/Loot/Definitions/ThrustVfxVisual.asset";
     private const string ThrustClipPath = "Assets/Art/VFX/ThrustVfx.anim";
@@ -151,8 +154,7 @@ public sealed class ThrustPresentationTests
         WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath);
         AttackVfxDefinition vfx = rondel.Presentation.AttackVfx;
         Assert.That(vfx, Is.Not.Null);
-        Assert.That(AssetDatabase.GetAssetPath(vfx),
-            Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/RondelDaggerThrustAttackVfx.asset"));
+        Assert.That(AssetDatabase.GetAssetPath(vfx), Is.EqualTo(DaggerThrustPath));
         Assert.That(AssetDatabase.GetAssetPath(vfx.Visual), Is.EqualTo(ThrustVisualPath));
         Assert.That(rondel.TryValidate(out string error), Is.True, error);
         // RondelDagger.png is 17 px tall with a centered pivot: the tip is the center of its top pixel row.
@@ -177,6 +179,31 @@ public sealed class ThrustPresentationTests
             Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
             Assert.That(vfx.StartSeconds + vfx.Clip.length,
                 Is.LessThanOrEqualTo(rondel.Presentation.GetAttackClip(i).length), $"clip {i}");
+        }
+    }
+
+    // Magic Cinquedea plays the same Dagger clips as Rondel, so it shares Rondel's alignment: the grip rides
+    // the same hand path and only its own blade reach sizes the Thrust.
+    [Test]
+    public void CinquedeaVfxConfiguration_SharesDaggerAlignmentAndSizesByItsOwnBlade()
+    {
+        WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath);
+        WeaponDefinition cinquedea = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(CinquedeaPath);
+        Assert.That(cinquedea.Presentation.AttackAnimationSet, Is.SameAs(rondel.Presentation.AttackAnimationSet));
+        Assert.That(cinquedea.Presentation.AngleCorrection, Is.EqualTo(rondel.Presentation.AngleCorrection));
+        Assert.That(cinquedea.Presentation.AttackVfx, Is.SameAs(rondel.Presentation.AttackVfx));
+        Assert.That(AssetDatabase.GetAssetPath(cinquedea.Presentation.AttackVfx), Is.EqualTo(DaggerThrustPath));
+        Assert.That(cinquedea.TryValidate(out string error), Is.True, error);
+        // MagicCinquedea.png is 20 px tall with a centered pivot: the tip is the center of its top pixel row.
+        Assert.That(cinquedea.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.59375f)));
+        Assert.That(cinquedea.Presentation.BladeReach, Is.EqualTo(1.03125f).Within(0.0001f));
+        AttackVfxDefinition vfx = cinquedea.Presentation.AttackVfx;
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.That(vfx.TryResolvePose(i, rondel.Presentation.BladeReach, out AttackVfxDefinition.ResolvedPose rondelPose), Is.True);
+            Assert.That(vfx.TryResolvePose(i, cinquedea.Presentation.BladeReach, out AttackVfxDefinition.ResolvedPose cinquedeaPose), Is.True);
+            Assert.That(cinquedeaPose.Scale.x, Is.GreaterThan(rondelPose.Scale.x), $"pose {i}");
+            Assert.That(Quaternion.Angle(cinquedeaPose.Rotation, rondelPose.Rotation), Is.EqualTo(0f).Within(0.001f), $"pose {i}");
         }
     }
 
@@ -222,6 +249,12 @@ public sealed class ThrustPresentationTests
     [TestCase(RondelLootPath, CharacterVisualDirection.South, 3)]
     [TestCase(RondelLootPath, CharacterVisualDirection.SouthEast, 4)]
     [TestCase(RondelLootPath, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CinquedeaLootPath, CharacterVisualDirection.SouthWest, 5)]
     public void ConfirmedThrustAttack_AppliesPoseResolvedFromBladeReach(string lootPath, CharacterVisualDirection direction, int index)
     {
         LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(lootPath);
@@ -301,17 +334,19 @@ public sealed class ThrustPresentationTests
         }
     }
 
-    // Rondel's alignment is fitted to its own stroke. Blade length alone sizes the Thrust: a shorter and a
-    // longer blade on the same grip stay aligned in every facing without asset or code changes.
+    // The Dagger alignment is fitted to Rondel's stroke. Blade length alone sizes the Thrust: Magic
+    // Cinquedea and a shorter and a longer blade on Rondel's grip stay aligned in every facing without
+    // asset or code changes.
     [TestCase(CharacterVisualDirection.North, 0)]
     [TestCase(CharacterVisualDirection.NorthEast, 1)]
     [TestCase(CharacterVisualDirection.NorthWest, 2)]
     [TestCase(CharacterVisualDirection.South, 3)]
     [TestCase(CharacterVisualDirection.SouthEast, 4)]
     [TestCase(CharacterVisualDirection.SouthWest, 5)]
-    public void ThrustVfx_FollowsBladeForRondelAndBladeLengthVariants(CharacterVisualDirection direction, int index)
+    public void ThrustVfx_FollowsBladeForDaggersAndBladeLengthVariants(CharacterVisualDirection direction, int index)
     {
         WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath);
+        WeaponDefinition cinquedea = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(CinquedeaPath);
         Vector2 grip = rondel.Presentation.GripPoint;
         WeaponDefinition shorterBlade = CreateGeometryVariant(rondel, grip, new Vector2(0f, 0.25f));
         WeaponDefinition longerBlade = CreateGeometryVariant(rondel, grip, new Vector2(0f, 0.75f));
@@ -319,7 +354,7 @@ public sealed class ThrustPresentationTests
         {
             Assert.That(shorterBlade.Presentation.BladeReach, Is.LessThan(rondel.Presentation.BladeReach));
             Assert.That(longerBlade.Presentation.BladeReach, Is.GreaterThan(rondel.Presentation.BladeReach));
-            foreach (WeaponDefinition weapon in new[] { rondel, shorterBlade, longerBlade })
+            foreach (WeaponDefinition weapon in new[] { rondel, cinquedea, shorterBlade, longerBlade })
             {
                 Assert.That(weapon.Presentation.AttackVfx, Is.SameAs(rondel.Presentation.AttackVfx));
                 Assert.That(weapon.TryValidate(out string error), Is.True, error);
