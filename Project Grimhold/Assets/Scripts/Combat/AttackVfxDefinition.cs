@@ -15,10 +15,10 @@ public sealed class AttackVfxDefinition : ScriptableObject
     [Serializable]
     public struct DirectionalPose
     {
-        [SerializeField, Tooltip("Geometric anchor of the visual in the Animator root space: the swing arc center for a slash, the thrust path start for a thrust.")]
+        [SerializeField, Tooltip("Geometric anchor of the visual in the Animator root space: the swing arc center for a slash, the thrust path start for a thrust, the casting grip for a cast flash.")]
         private Vector3 _position;
         [SerializeField] private Vector3 _rotation;
-        [SerializeField, Tooltip("Added to the weapon blade reach to get the size the visual's geometry spans: the blade tip's swing radius for a slash, the path length to the extended blade tip for a thrust.")]
+        [SerializeField, Tooltip("Added to the weapon blade reach to get the visual's size along the pose axis: the blade tip's swing radius for a slash, the path length to the extended blade tip for a thrust, the distance to the casting tip for a cast flash.")]
         private float _reachOffset;
         [SerializeField, Tooltip("Mirrors the sprite sequence across its local X axis to match the swing's rotational sense.")]
         private bool _mirrored;

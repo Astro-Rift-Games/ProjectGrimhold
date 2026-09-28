@@ -517,8 +517,12 @@ Base Layer preserves the replicated locomotion state so movement animation can c
 Optional attack VFX is local presentation, independent of the directional attack animation set.
 The effect is split by responsibility. An abstract `AttackVfxVisualDefinition` holds the shared art
 (a sprite-only clip) and delegates geometry-specific placement and sizing to specialized subclasses:
-`SlashVfxVisualDefinition` for arc-shaped swings (scaled by `TipRadius`) and `ThrustVfxVisualDefinition`
-for straight-line thrusts (scaled by path `Length` and shifted along the local +X axis from `BackX`).
+`SlashVfxVisualDefinition` for arc-shaped swings (scaled by `TipRadius`), `ThrustVfxVisualDefinition`
+for straight-line thrusts (scaled by path `Length` and shifted along the local +X axis from `BackX`)
+and `CastFlashVfxVisualDefinition` for point flashes emitted at the casting tip (never scaled, rotated
+or mirrored; its art `Center` is placed on the cast point). Every archetype receives one reach-derived
+length along the pose's +X axis and decides what it measures: the span of its art for Slash and
+Thrust, the offset from the anchor to the cast point for Cast Flash.
 `WeaponDefinition.Presentation` references an `AttackVfxDefinition` that aligns one visual with
 one attack: the start offset in the attack clip and six attack-relative directional poses (geometric anchor,
 rotation, reach offset, mirror and sorting). Weapons with different attacks reuse the same visual
@@ -550,6 +554,14 @@ Thrust visual through its own alignment from 0.14s: its stroke runs 50 ms earlie
 hand tilts the blade about 14 degrees off the facing, so each axis is the facing plus 14 degrees and each
 anchor is its own stroke-start grip. Magic Cinquedea plays the same Dagger clips, so it shares that
 `DaggerThrustAttackVfx` alignment and differs only by its own blade reach.
+Magic Wand is the first Cast Flash consumer. Its clips wind up until 0.2s, flick forward until the
+tip stops at 0.35s and recover until 0.6s in every facing. `MagicWandCastFlashAttackVfx` anchors
+each facing at the grip of that stop with the grip to tip axis as rotation and no reach offset, so
+the flash lands on the tip of any wand length; `BladeTip` is `(0.03125, 0.46875)`, the single top
+pixel of the 4x16 px sprite. Its four 50 ms frames start at 0.325s: frame 0 ignites as the tip
+arrives, frame 1 bursts on the hold and frames 2-3 fade where the cast happened while the wand
+recovers, because a flash is emitted in place rather than carried. The visual holds no wand data,
+so another caster reuses it through its own alignment.
 Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority

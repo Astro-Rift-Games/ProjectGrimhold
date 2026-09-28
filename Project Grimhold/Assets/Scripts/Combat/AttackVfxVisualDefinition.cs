@@ -22,8 +22,9 @@ public abstract class AttackVfxVisualDefinition : ScriptableObject
     }
 
     /// <summary>
-    /// Places the art for one facing. <paramref name="size"/> is the length, in Animator root units,
-    /// that the art's geometry must span, already derived from the weapon's blade reach.
+    /// Places the art for one facing. <paramref name="size"/> is a positive length, in Animator root units,
+    /// along the pose's +X axis, already derived from the weapon's blade reach. Each archetype decides what
+    /// it measures: the span its art must cover, or the offset from the anchor to the point it marks.
     /// </summary>
     public abstract bool TryResolvePose(AttackVfxDefinition.DirectionalPose pose, float size,
         out AttackVfxDefinition.ResolvedPose resolved);

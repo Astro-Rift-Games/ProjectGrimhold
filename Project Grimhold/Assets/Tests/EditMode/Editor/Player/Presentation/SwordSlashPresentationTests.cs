@@ -661,11 +661,11 @@ public sealed class SwordSlashPresentationTests
     public void RejectedAttack_ClearsPendingEffect()
     {
         int sword = IndexPlusOne(SwordLootPath);
-        // Magic Wand has generic attacks but no Attack VFX.
-        int wand = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+        // Magic Staff has no Attack VFX.
+        int staff = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/MagicStaff.asset");
         Assert.That(AssetDatabase.LoadAssetAtPath<LootDefinition>(
-            "Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset").WeaponDefinition.Presentation.AttackVfx, Is.Null);
-        foreach (int rejected in new[] { 0, _catalog.DefinitionCount + 1, wand })
+            "Assets/Scriptable Objects/Loot/Definitions/MagicStaff.asset").WeaponDefinition.Presentation.AttackVfx, Is.Null);
+        foreach (int rejected in new[] { 0, _catalog.DefinitionCount + 1, staff })
         {
             Perform(sword, Vector2.down);
             Perform(rejected, Vector2.down);
