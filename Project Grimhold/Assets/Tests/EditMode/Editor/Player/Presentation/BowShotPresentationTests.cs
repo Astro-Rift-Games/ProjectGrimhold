@@ -15,9 +15,6 @@ public sealed class BowShotPresentationTests
     private const string BowShotTexturePath = "Assets/Art/VFX/VFX-BowShot.png";
     private const string BowShotClipPath = "Assets/Art/VFX/BowShotVfx.anim";
     private const string BowShotVisualPath = DefinitionsRoot + "BowShotVfxVisual.asset";
-    private const string LongBowBowShotPath = DefinitionsRoot + "LongBowBowShotAttackVfx.asset";
-    private const string LongBowPath = DefinitionsRoot + "LongBowWeaponDefinition.asset";
-    private const string LongBowLootPath = DefinitionsRoot + "LongBow.asset";
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     private static readonly CharacterVisualDirection[] Directions =
@@ -118,13 +115,15 @@ public sealed class BowShotPresentationTests
         }
     }
 
-    [Test]
-    public void LongBow_UsesItsBowShotProfileWithoutABlade()
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void Bow_UsesItsOwnBowShotProfileOverTheSharedVisualWithoutABlade(string bowName)
     {
-        WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongBowPath);
+        WeaponDefinition bow = Bow(bowName);
         AttackVfxDefinition vfx = bow.Presentation.AttackVfx;
-        Assert.That(vfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(LongBowBowShotPath)));
-        Assert.That(vfx.Visual, Is.SameAs(BowShot()));
+        Assert.That(vfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(
+            DefinitionsRoot + bowName + "BowShotAttackVfx.asset")));
+        Assert.That(vfx.Visual, Is.SameAs(BowShot()), "Both bows share one Bow Shot visual.");
         Assert.That(bow.Presentation.BladeTip, Is.EqualTo(Vector2.zero), "No blade tip is configured for the bow.");
         Assert.That(bow.TryValidate(out string error), Is.True, error);
         for (int i = 0; i < 6; i++)
@@ -139,13 +138,21 @@ public sealed class BowShotPresentationTests
     }
 
     [Test]
-    public void LongBowBowShot_StartsOnTheStringingRelease()
+    public void Bows_KeepDistinctBowShotProfiles()
     {
-        WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongBowPath);
+        Assert.That(Bow("CompoundBow").Presentation.AttackVfx, Is.Not.SameAs(Bow("LongBow").Presentation.AttackVfx),
+            "Each bow aligns the shared visual with its own attack.");
+    }
+
+    [TestCase("LongBow", 0.45f)]
+    [TestCase("CompoundBow", 0.4f)]
+    public void BowShot_StartsOnTheStringingRelease(string bowName, float releaseSeconds)
+    {
+        WeaponDefinition bow = Bow(bowName);
         AttackVfxDefinition vfx = bow.Presentation.AttackVfx;
         // The stringing owns the release: its last frame ends when the string hand lets go.
         Assert.That(vfx.StartSeconds, Is.EqualTo(bow.Presentation.AttackSpriteAnimation.EndSeconds).Within(0.0001f));
-        Assert.That(vfx.StartSeconds, Is.EqualTo(0.45f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(releaseSeconds).Within(0.0001f));
         for (int i = 0; i < 6; i++)
         {
             Assert.That(vfx.StartSeconds + vfx.Clip.length,
@@ -153,11 +160,12 @@ public sealed class BowShotPresentationTests
         }
     }
 
-    [Test]
-    public void LongBowBowShot_LeavesTheBowFrontOnItsShootingAxisInEveryFacing()
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void BowShot_LeavesTheBowFrontOnItsShootingAxisInEveryFacing(string bowName)
     {
-        WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongBowPath);
-        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(LongBowLootPath);
+        WeaponDefinition bow = Bow(bowName);
+        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(DefinitionsRoot + bowName + ".asset");
         AttackVfxDefinition vfx = bow.Presentation.AttackVfx;
         float bowFront = BowFrontFromGrip(loot.WorldSprite, bow.Presentation.GripPoint);
         Assert.That(bowFront, Is.EqualTo(0.09375f), "The limb's front edge is 1.5 px ahead of the grip.");
@@ -214,8 +222,9 @@ public sealed class BowShotPresentationTests
         }
     }
 
-    [Test]
-    public void ConfirmedLongBowAttack_PlaysTheShotFromReleaseAndClearsWithoutRereadingEquipment()
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void ConfirmedBowAttack_PlaysTheShotFromReleaseAndClearsWithoutRereadingEquipment(string bowName)
     {
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         GameObject player = null;
@@ -226,8 +235,10 @@ public sealed class BowShotPresentationTests
             Animator animator = player.GetComponentInChildren<Animator>(true);
             var presenter = player.GetComponentInChildren<PlayerAttackVfxPresenter>(true);
             var renderer = (SpriteRenderer)new SerializedObject(presenter).FindProperty("_vfxRenderer").objectReferenceValue;
-            WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongBowPath);
-            overrides = new AnimatorOverrideController(AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ControllerPath));
+            WeaponDefinition bow = Bow(bowName);
+            float release = bow.Presentation.AttackVfx.StartSeconds;
+            float end = release + bow.Presentation.AttackVfx.Clip.length;
+            overrides =new AnimatorOverrideController(AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ControllerPath));
             overrides[AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Player/Attack/GenericAttack_S.anim")] =
                 bow.Presentation.GetAttackClip(3);
             animator.runtimeAnimatorController = overrides;
@@ -241,7 +252,7 @@ public sealed class BowShotPresentationTests
 
             var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
             var catalog = (LootDefinitionCatalog)new SerializedObject(equipment).FindProperty("_lootCatalog").objectReferenceValue;
-            Assert.That(catalog.TryGetIndex(AssetDatabase.LoadAssetAtPath<LootDefinition>(LongBowLootPath).LootId,
+            Assert.That(catalog.TryGetIndex(AssetDatabase.LoadAssetAtPath<LootDefinition>(DefinitionsRoot + bowName + ".asset").LootId,
                 out int index), Is.True);
             var attack = new AttackPerformedEvent(default, AttackType.Ranged, Vector2.zero, Vector2.down, 0, index + 1);
             typeof(PlayerAttackVfxPresenter).GetMethod("OnAttackPerformed", Private).Invoke(presenter, new object[] { attack });
@@ -263,13 +274,13 @@ public sealed class BowShotPresentationTests
                 Assert.That(state.IsTag("Attack"), Is.True);
                 float seconds = step * 0.05f;
                 Assert.That(state.normalizedTime * state.length, Is.EqualTo(seconds).Within(0.01f));
-                if (seconds < 0.45f - 0.001f)
+                if (seconds < release - 0.001f)
                 {
                     Assert.That(renderer.enabled, Is.False, $"{seconds}s is before the release");
                 }
-                else if (seconds < 0.65f - 0.001f)
+                else if (seconds < end - 0.001f)
                 {
-                    int frame = Mathf.RoundToInt((seconds - 0.45f) / 0.05f);
+                    int frame = Mathf.RoundToInt((seconds - release) / 0.05f);
                     Assert.That(renderer.enabled, Is.True, $"{seconds}s");
                     Assert.That(renderer.sprite.name, Is.EqualTo($"VFX-BowShot_{frame}"), $"{seconds}s");
                     Assert.That(renderer.sortingOrder, Is.EqualTo(21), "South draws over the bow.");
@@ -288,6 +299,9 @@ public sealed class BowShotPresentationTests
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
     }
+
+    private static WeaponDefinition Bow(string bowName) =>
+        AssetDatabase.LoadAssetAtPath<WeaponDefinition>(DefinitionsRoot + bowName + "WeaponDefinition.asset");
 
     private static BowShotVfxVisualDefinition BowShot() =>
         AssetDatabase.LoadAssetAtPath<BowShotVfxVisualDefinition>(BowShotVisualPath);

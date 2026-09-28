@@ -603,6 +603,11 @@ front edge on the center column of `LongBow.png`, so the flash leaves the bow's 
 and SW mirror like the bow, and sorting sits just above the held bow (21 in front facings, -9 in north
 facings). The shot is a release impulse, not a trajectory, so neither the blade reach nor the projectile's
 range sizes it; the bow configures no blade tip for it.
+Compound Bow is the second Bow Shot consumer: `CompoundBowBowShotAttackVfx` aligns the same `BowShotVfxVisual`
+with its own attack. It starts at 0.4s, the end of the Compound Bow stringing sequence, and anchors each facing
+at `WeaponPose` in that clip at the release, with the facing as rotation. Its reach offset is also 0.09375, from
+the `(0, 0.09375)` grip to the limb's front edge on the center column of `RecurveBow.png`. Mirroring and sorting
+follow the same rules as Long Bow's.
 Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority

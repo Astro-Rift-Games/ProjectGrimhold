@@ -303,6 +303,7 @@ public sealed class WeaponAttackSpriteAnimationTests
     [TestCase("Assets/Scripts/Player/Presentation/PlayerWeaponPresenter.cs")]
     [TestCase("Assets/Scripts/Player/Presentation/PlayerWeaponPresentationMath.cs")]
     [TestCase("Assets/Scripts/Player/Presentation/PlayerAnimatorView.cs")]
+    [TestCase("Assets/Scripts/Player/Presentation/PlayerAttackVfxPresenter.cs")]
     [TestCase("Assets/Scripts/Combat/WeaponAttackSpriteAnimation.cs")]
     public void Runtime_DoesNotDependOnWeaponIdentity(string scriptPath)
     {
