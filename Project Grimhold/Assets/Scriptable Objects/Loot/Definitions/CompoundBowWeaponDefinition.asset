@@ -26,9 +26,16 @@ MonoBehaviour:
     _coefficient: 0
   _presentation:
     _stanceOffset: {x: 0, y: 0}
-    _gripPoint: {x: 0, y: 0}
-    _angleCorrection: 0
-    _animationCategory: 4
+    _gripPoint: {x: 0, y: 0.09375}
+    _angleCorrection: -90
+    _animationCategory: 0
+    _attackAnimationSet: {fileID: 11400000, guid: 194b75979a62fa14587bbe0ab6f7806a, type: 2}
+    _attackVfx: {fileID: 0}
+    _bladeTip: {x: 0, y: 0}
+    _secondaryGripPoint: {x: 0, y: 0}
+    _secondHand: 1
+    _rig: 1
+    _attackSpriteAnimation: {fileID: 0}
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 10

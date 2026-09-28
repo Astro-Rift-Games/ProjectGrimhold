@@ -18,6 +18,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("Zweihander", "Zweihander")]
     [TestCase("MagicStaff", "MagicStaff")]
     [TestCase("LongBow", "LongBow")]
+    [TestCase("CompoundBow", "CompoundBow")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -88,37 +89,44 @@ public sealed class DirectionalAttackAnimationSetTests
         Assert.That(staff.TryValidate(out string validationError), Is.True, validationError);
     }
 
-    [Test]
-    public void LongBow_IsTwoHandedGenericAttackDrivenByItsOwnPose()
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void Bow_IsTwoHandedGenericAttackDrivenByItsOwnPose(string bowName)
     {
-        WeaponDefinition bow = LongBow();
+        WeaponDefinition bow = Bow(bowName);
         Assert.That(bow.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
         Assert.That(bow.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         Assert.That(bow.Presentation.HasGenericAttack, Is.True);
         Assert.That(bow.Presentation.AttackAnimationSet, Is.SameAs(
-            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "LongBow.asset")));
-        // LongBow.png shoots along sprite +Y, which a -90 degree correction aligns with the presenter's
-        // facing axis (+X). Its grip point is derived from the art in LongBow_GripPointIsTheCenterOfTheHandle.
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + bowName + ".asset")));
+        // Bow art shoots along sprite +Y, which a -90 degree correction aligns with the presenter's
+        // facing axis (+X). Its grip point is derived from the art in Bow_GripPointIsTheCenterOfTheHandle.
         Assert.That(bow.Presentation.AngleCorrection, Is.EqualTo(-90f));
         // The bow owns its pose: its visual follows WeaponPose, and the baked attack places the bow arm on its
         // grip and the drawing hand on its string target.
         Assert.That(bow.Presentation.Rig, Is.EqualTo(WeaponRig.WeaponDriven));
         Assert.That(bow.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
-        // The Bow Shot is placed from the bow's own shooting axis, not from a blade reach.
-        Assert.That(bow.Presentation.AttackVfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(
-            "Assets/Scriptable Objects/Loot/Definitions/LongBowBowShotAttackVfx.asset")));
-        Assert.That(bow.Presentation.AttackVfx.UsesWeaponReach, Is.False);
         Assert.That(bow.TryValidate(out string validationError), Is.True, validationError);
     }
 
     [Test]
-    public void LongBow_GripPointIsTheCenterOfTheHandle()
+    public void LongBow_PlacesItsBowShotFromTheShootingAxis()
+    {
+        // The Bow Shot is placed from the bow's own shooting axis, not from a blade reach.
+        WeaponDefinition bow = Bow("LongBow");
+        Assert.That(bow.Presentation.AttackVfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/LongBowBowShotAttackVfx.asset")));
+        Assert.That(bow.Presentation.AttackVfx.UsesWeaponReach, Is.False);
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void Bow_GripPointIsTheCenterOfTheHandle(string bowName)
     {
         // The bow's handle is the middle of its limb: in the sprite's center column, the first opaque run from
         // the top is the limb (outline, wood, outline) and the last one is the string. The grip is the center of
         // the limb run, measured from the sprite pivot in Unity's bottom-up pixel space.
-        Sprite sprite = AssetDatabase.LoadAssetAtPath<LootDefinition>(
-            "Assets/Scriptable Objects/Loot/Definitions/LongBow.asset").WorldSprite;
+        Sprite sprite = BowSprite(bowName);
         Assert.That(sprite, Is.Not.Null);
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         try
@@ -136,24 +144,32 @@ public sealed class DirectionalAttackAnimationSetTests
 
             Vector2 handle = new Vector2(column + 0.5f - rect.x, (top + bottom + 1) * 0.5f - rect.y);
             Vector2 expected = (handle - sprite.pivot) / sprite.pixelsPerUnit;
-            Vector2 grip = LongBow().Presentation.GripPoint;
+            Vector2 grip = Bow(bowName).Presentation.GripPoint;
             Assert.That(grip.x, Is.EqualTo(expected.x).Within(0.00001f));
             Assert.That(grip.y, Is.EqualTo(expected.y).Within(0.00001f));
         }
         finally { UnityEngine.Object.DestroyImmediate(texture); }
     }
 
-    [TestCase(0f, -1f)]
-    [TestCase(1f, -1f)]
-    [TestCase(-1f, -1f)]
-    [TestCase(0f, 1f)]
-    [TestCase(1f, 1f)]
-    [TestCase(-1f, 1f)]
-    public void LongBow_PresenterHoldsTheGripAndShootsAlongTheFacing(float x, float y)
+    [TestCase("LongBow", 0f, -1f)]
+    [TestCase("LongBow", 1f, -1f)]
+    [TestCase("LongBow", -1f, -1f)]
+    [TestCase("LongBow", 0f, 1f)]
+    [TestCase("LongBow", 1f, 1f)]
+    [TestCase("LongBow", -1f, 1f)]
+    [TestCase("CompoundBow", 0f, -1f)]
+    [TestCase("CompoundBow", 1f, -1f)]
+    [TestCase("CompoundBow", -1f, -1f)]
+    [TestCase("CompoundBow", 0f, 1f)]
+    [TestCase("CompoundBow", 1f, 1f)]
+    [TestCase("CompoundBow", -1f, 1f)]
+    public void Bow_PresenterHoldsTheGripAndShootsAlongTheFacing(string bowName, float x, float y)
     {
-        WeaponDefinition.PresentationConfig presentation = LongBow().Presentation;
+        WeaponDefinition.PresentationConfig presentation = Bow(bowName).Presentation;
         Vector2 facing = new Vector2(x, y).normalized;
-        const float stringY = -0.1875f;
+        // The string is the bottom row of the art, on the center column.
+        Sprite sprite = BowSprite(bowName);
+        float stringY = (0.5f - sprite.pivot.y) / sprite.pixelsPerUnit;
 
         Assert.That(BowPoint(presentation, facing, presentation.GripPoint).magnitude, Is.LessThan(0.00001f),
             "The grip lands on MainHandGrip.");
@@ -200,8 +216,11 @@ public sealed class DirectionalAttackAnimationSetTests
 
     private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
 
-    private static WeaponDefinition LongBow() => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
-        "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset");
+    private static WeaponDefinition Bow(string bowName) => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+        $"Assets/Scriptable Objects/Loot/Definitions/{bowName}WeaponDefinition.asset");
+
+    private static Sprite BowSprite(string bowName) => AssetDatabase.LoadAssetAtPath<LootDefinition>(
+        $"Assets/Scriptable Objects/Loot/Definitions/{bowName}.asset").WorldSprite;
 
     [Test]
     public void MissingAnyDirection_DisablesCompleteness()

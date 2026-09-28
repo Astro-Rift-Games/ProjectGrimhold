@@ -58,6 +58,11 @@ public static class DirectionalAnimationGenerator
     public static void GenerateLongBowAssets() => GenerateAssets("LongBow",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset"));
 
+    // Compound Bow's south source is authored under the name of its RecurveBow art.
+    [MenuItem("Tools/Animations/Generate Compound Bow Directional Attacks")]
+    public static void GenerateCompoundBowAssets() => GenerateAssets("CompoundBow",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset"), "RecurveBow");
+
     // Outside attacks a weapon-driven rig rests in the drawn left hand. Like MainHandGrip it tracks that hand:
     // every Idle and Walk body clip keys WeaponPose, at each LeftHand sprite frame of the matching LeftHand clip,
     // on the opaque-pixel centroid of that frame, stepped like the authored MainHandGrip keys, with no rotation.
@@ -119,12 +124,15 @@ public static class DirectionalAnimationGenerator
     }
 
     // A two-handed weapon passes its definition: its second-hand presentation selects whether its handle
-    // geometry places the second hand or the hand keeps its authored motion.
-    public static void GenerateAssets(string weaponName, WeaponDefinition weapon = null)
+    // geometry places the second hand or the hand keeps its authored motion. The south source defaults to
+    // <weaponName>_Attack.anim; a source authored under another name is passed explicitly.
+    public static void GenerateAssets(string weaponName, WeaponDefinition weapon = null, string sourceName = null)
     {
         ValidateWeaponName(weaponName);
+        sourceName ??= weaponName;
+        ValidateWeaponName(sourceName);
         WeaponHandedness handedness = weapon != null ? weapon.Handedness : WeaponHandedness.OneHanded;
-        AnimationClip original = RequireClip($"Assets/Animations/Weapons/{weaponName}_Attack.anim");
+        AnimationClip original = RequireClip($"Assets/Animations/Weapons/{sourceName}_Attack.anim");
         foreach (string direction in Directions)
         {
             RequireClip($"Assets/Animations/Player/Idle/Idle_{direction}.anim");

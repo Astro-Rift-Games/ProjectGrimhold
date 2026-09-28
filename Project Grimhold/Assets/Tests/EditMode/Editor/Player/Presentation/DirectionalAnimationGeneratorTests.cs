@@ -20,11 +20,26 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string ZweihanderDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset";
     private const string MagicStaffDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
     private const string LongBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset";
+    private const string CompoundBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset";
+
+    // Each weapon-driven bow in every facing: its turn from south and its facing vector.
+    private static System.Collections.Generic.IEnumerable<TestCaseData> WeaponDrivenBowFacings()
+    {
+        var facings = new[]
+        {
+            ("N", 180f, 0f, 1f), ("NE", 135f, 1f, 1f), ("NW", -135f, -1f, 1f),
+            ("S", 0f, 0f, -1f), ("SE", 45f, 1f, -1f), ("SW", -45f, -1f, -1f)
+        };
+        foreach (string bow in new[] { "LongBow", "CompoundBow" })
+            foreach ((string direction, float angle, float x, float y) in facings)
+                yield return new TestCaseData(bow, direction, angle, x, y);
+    }
 
     [TestCase("LongSword")]
     [TestCase("Zweihander")]
     [TestCase("MagicStaff")]
     [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
     public void TwoHandedOutputs_BakeFromSouthAndRemainStableOnRepeat(string weapon)
     {
         AnimationClip source = TwoHandedSource(weapon);
@@ -33,7 +48,8 @@ public sealed class DirectionalAnimationGeneratorTests
         if (weapon == "LongSword") DirectionalAnimationGenerator.GenerateLongSwordAssets();
         else if (weapon == "Zweihander") DirectionalAnimationGenerator.GenerateZweihanderAssets();
         else if (weapon == "MagicStaff") DirectionalAnimationGenerator.GenerateMagicStaffAssets();
-        else DirectionalAnimationGenerator.GenerateLongBowAssets();
+        else if (weapon == "LongBow") DirectionalAnimationGenerator.GenerateLongBowAssets();
+        else DirectionalAnimationGenerator.GenerateCompoundBowAssets();
         foreach (string direction in directions)
         {
             string path = TwoHandedOutput(weapon, direction);
@@ -364,16 +380,12 @@ public sealed class DirectionalAnimationGeneratorTests
         finally { UnityEngine.Object.DestroyImmediate(oneHanded); }
     }
 
-    [TestCase("N", 180f)]
-    [TestCase("NE", 135f)]
-    [TestCase("NW", -135f)]
-    [TestCase("S", 0f)]
-    [TestCase("SE", 45f)]
-    [TestCase("SW", -45f)]
-    public void LongBowOutput_WeaponPoseOwnsTheBowAndPlacesBothHandsOnIt(string direction, float angle)
+    [TestCaseSource(nameof(WeaponDrivenBowFacings))]
+    public void BowOutput_WeaponPoseOwnsTheBowAndPlacesBothHandsOnIt(string bowName, string direction, float angle,
+        float x, float y)
     {
-        AnimationClip source = TwoHandedSource("LongBow");
-        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput("LongBow", direction));
+        AnimationClip source = TwoHandedSource(bowName);
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(bowName, direction));
         Assert.That(source, Is.Not.Null);
         Assert.That(clip, Is.Not.Null);
 
@@ -448,7 +460,7 @@ public sealed class DirectionalAnimationGeneratorTests
             Assert.That(Vector2.Distance(right, expectedRight), Is.LessThan(0.001f), $"The string hand follows its target {at}.");
         }
 
-        AssertImportedBindings(TwoHandedOutput("LongBow", direction), direction);
+        AssertImportedBindings(TwoHandedOutput(bowName, direction), direction);
         if (direction != "S") return;
         // South reconstructs the authored art: every drawn hand stays where the source draws it.
         for (float time = 0f; time <= source.length + 0.0001f; time += 0.025f)
@@ -461,28 +473,32 @@ public sealed class DirectionalAnimationGeneratorTests
         }
     }
 
-    [TestCase("N", 0f, 1f)]
-    [TestCase("NE", 1f, 1f)]
-    [TestCase("NW", -1f, 1f)]
-    [TestCase("S", 0f, -1f)]
-    [TestCase("SE", 1f, -1f)]
-    [TestCase("SW", -1f, -1f)]
-    public void LongBowOutput_ProjectsTheBowTowardTheTargetAndDrawsTheStringBehindIt(string direction, float x, float y)
+    [TestCaseSource(nameof(WeaponDrivenBowFacings))]
+    public void BowOutput_ProjectsTheBowTowardTheTargetAndDrawsTheStringBehindIt(string bowName, string direction,
+        float angle, float x, float y)
     {
-        AnimationClip source = TwoHandedSource("LongBow");
-        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput("LongBow", direction));
+        AnimationClip source = TwoHandedSource(bowName);
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(bowName, direction));
         Vector2 facing = new Vector2(x, y).normalized;
         Vector2 aim = AimCenter(source);
         Vector2 rightAnchor = IdleHandAnchor("Right", direction);
         const float blend = DirectionalAnimationGenerator.WeaponDrivenBlendSeconds;
-        const float draw = 0.3f + blend;
-        const float release = 0.4f + blend;
-        // The bow never migrates toward the feet: through the whole authored motion it stays forward of the body
-        // origin; only the blends travel from and back to the locomotion rest.
-        const float minimumForwardDistance = 0.3f;
+        // The full draw starts the authored hold and the release is the string-hand key after it.
+        Keyframe[] drawKeys = Curve(source, Hand, "m_LocalPosition.x").keys;
+        int hold = DrawHoldIndex(source);
+        float draw = drawKeys[hold].time + blend;
+        float release = drawKeys[hold + 2].time + blend;
+        // The bow never migrates toward the feet: through the whole authored motion it stays forward of the aim
+        // center and of the body origin; only the blends travel from and back to the locomotion rest. Turning about
+        // the aim center keeps the distance to it, so the distance to the body origin in back facings shrinks with
+        // the aim height: Compound Bow draws lower than Long Bow, so its north ready pose sits closer to the body.
+        float minimumForwardDistance = bowName == "LongBow" ? 0.3f : 0.15f;
         for (float time = blend; time <= source.length + blend + 0.0001f; time += 0.01f)
         {
-            Assert.That(Vector2.Dot(Position(clip, WeaponPose, time), facing), Is.GreaterThan(minimumForwardDistance),
+            Vector2 pose = Position(clip, WeaponPose, time);
+            Assert.That(Vector2.Dot(pose - aim, facing), Is.GreaterThan(0.3f),
+                $"The bow stays forward of the aim center @{time:0.00}.");
+            Assert.That(Vector2.Dot(pose, facing), Is.GreaterThan(minimumForwardDistance),
                 $"The bow stays forward of the body @{time:0.00}.");
         }
         Vector2 rest = Position(clip, WeaponPose, blend);
@@ -592,12 +608,15 @@ public sealed class DirectionalAnimationGeneratorTests
     }
 
     // The aim center: on the body axis at the south string hand's height during its authored draw hold.
-    private static Vector2 AimCenter(AnimationClip source)
+    private static Vector2 AimCenter(AnimationClip source) =>
+        new Vector2(0f, SouthDrawn(source, Hand, Curve(source, Hand, "m_LocalPosition.x").keys[DrawHoldIndex(source)].time).y);
+
+    // The authored draw hold: the first two consecutive string-hand keys at the same position.
+    private static int DrawHoldIndex(AnimationClip source)
     {
         Keyframe[] x = Curve(source, Hand, "m_LocalPosition.x").keys;
         Keyframe[] y = Curve(source, Hand, "m_LocalPosition.y").keys;
-        int hold = Enumerable.Range(0, x.Length - 1).First(i => x[i].value == x[i + 1].value && y[i].value == y[i + 1].value);
-        return new Vector2(0f, SouthDrawn(source, Hand, x[hold].time).y);
+        return Enumerable.Range(0, x.Length - 1).First(i => x[i].value == x[i + 1].value && y[i].value == y[i + 1].value);
     }
 
     [Test]
@@ -1143,10 +1162,12 @@ public sealed class DirectionalAnimationGeneratorTests
     private static WeaponDefinition TwoHandedDefinition(string weapon) =>
         AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weapon == "LongSword" ? LongSwordDefinitionPath :
             weapon == "Zweihander" ? ZweihanderDefinitionPath :
-            weapon == "MagicStaff" ? MagicStaffDefinitionPath : LongBowDefinitionPath);
+            weapon == "MagicStaff" ? MagicStaffDefinitionPath :
+            weapon == "LongBow" ? LongBowDefinitionPath : CompoundBowDefinitionPath);
 
-    private static AnimationClip TwoHandedSource(string weapon) =>
-        AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/{weapon}_Attack.anim");
+    // Compound Bow's south source is authored under the name of its RecurveBow art.
+    private static AnimationClip TwoHandedSource(string weapon) => AssetDatabase.LoadAssetAtPath<AnimationClip>(
+        $"Assets/Animations/Weapons/{(weapon == "CompoundBow" ? "RecurveBow" : weapon)}_Attack.anim");
 
     private static string TwoHandedOutput(string weapon, string direction) =>
         $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim";
