@@ -241,6 +241,10 @@ public sealed class WeaponDefinition : ScriptableObject
         private WeaponRig _rig;
         public WeaponRig Rig => _rig;
 
+        [SerializeField, Tooltip("Optional. Sprite sequence the held weapon visual shows during its attack clip, such as a bow drawing its string. It only swaps the sprite.")]
+        private WeaponAttackSpriteAnimation _attackSpriteAnimation;
+        public WeaponAttackSpriteAnimation AttackSpriteAnimation => _attackSpriteAnimation;
+
         /// <summary>Distance from the grip point to the blade tip, in weapon sprite local units.</summary>
         public float BladeReach => Vector2.Distance(_gripPoint, _bladeTip);
 
@@ -275,6 +279,12 @@ public sealed class WeaponDefinition : ScriptableObject
 
                 if (!_attackVfx.TryValidateBladeReach(BladeReach, out error))
                     return false;
+            }
+
+            if (_attackSpriteAnimation != null &&
+                !_attackSpriteAnimation.TryValidateAttackSet(_attackAnimationSet, out error))
+            {
+                return false;
             }
 
             if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))

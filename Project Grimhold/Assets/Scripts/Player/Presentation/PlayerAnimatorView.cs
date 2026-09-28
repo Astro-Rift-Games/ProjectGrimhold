@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -34,12 +35,52 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private DirectionalAttackAnimationSet _activeAttackSet;
     private LootDefinition _confirmedAttackWeapon;
     private bool _attackWeaponPinned;
+    private readonly List<AnimatorClipInfo> _attackClipBuffer = new List<AnimatorClipInfo>(2);
 
     public bool TryGetPresentedAttackWeapon(out LootDefinition definition)
     {
         definition = _confirmedAttackWeapon;
         return _attackWeaponPinned && definition != null;
     }
+
+    /// <summary>
+    /// Playback time, in seconds, of the confirmed attack's clip while the main-hand layer plays one of the
+    /// presented attack weapon's own directional clips.
+    /// </summary>
+    public bool TryGetPresentedAttackSeconds(out float seconds)
+    {
+        seconds = 0f;
+        WeaponDefinition weapon = _attackWeaponPinned && _confirmedAttackWeapon != null
+            ? _confirmedAttackWeapon.WeaponDefinition : null;
+        DirectionalAttackAnimationSet attackSet = weapon != null ? weapon.Presentation.AttackAnimationSet : null;
+        if (attackSet == null || AnimatorInstance == null || _mainHandCombatLayerIndex < 0)
+        {
+            return false;
+        }
+
+        AnimatorStateInfo state = AnimatorInstance.GetCurrentAnimatorStateInfo(_mainHandCombatLayerIndex);
+        if (!state.IsTag("Attack"))
+        {
+            return false;
+        }
+
+        AnimatorInstance.GetCurrentAnimatorClipInfo(_mainHandCombatLayerIndex, _attackClipBuffer);
+        for (int i = 0; i < _attackClipBuffer.Count; i++)
+        {
+            AnimationClip clip = _attackClipBuffer[i].clip;
+            for (int direction = 0; direction < 6; direction++)
+            {
+                if (clip != null && clip == attackSet.GetAttackClip(direction))
+                {
+                    seconds = state.normalizedTime * clip.length;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private RuntimeAnimatorController _baseController;
     private AnimatorOverrideController _attackOverrides;
     private AnimationClip[] _placeholderClips;

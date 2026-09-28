@@ -751,6 +751,33 @@ After the `-90` correction the bow shoots along the facing in every direction. T
 flips only its symmetric limbs, and the grip lies on the shooting axis, so NW and SW keep the
 string → bow → target order.
 
+### Weapon attack sprite animation
+
+A weapon whose own art changes during its attack, such as a bow drawing its string, references an optional
+`WeaponAttackSpriteAnimation` from `WeaponDefinition.Presentation.AttackSpriteAnimation`. It is static
+presentation data: a `StartSeconds` in the weapon's attack clip time and ordered frames, each a sprite and a
+positive duration. Validation requires a complete attack animation set and a sequence that ends inside all six
+attack clips. Weapons without it are unchanged.
+
+The sequence only swaps the held visual's sprite. `WeaponPose`, both hands, `GripPoint`, `AngleCorrection`, the
+facing rotation and the left-facing mirror keep owning the spatial pose, so every frame is authored in the frame
+of reference of the weapon's world sprite: the same orientation and pixels per unit, with a pivot that keeps
+`GripPoint` on the same pixel of the art. One sequence therefore serves all six facings.
+
+`PlayerAnimatorView.TryGetPresentedAttackSeconds` reports the clip time while the `RightHand` layer plays an
+`Attack`-tagged state whose current clip belongs to the pinned confirmed attack weapon's own set.
+`PlayerWeaponPresenter` shows the frame for that time, and the world sprite before the start, after the last
+frame, outside the attack and on proxies without a confirmed attack. It adds no Animator, layer, controller,
+networked state or weapon identity branch, and it is independent from the attack VFX pipeline.
+
+Long Bow uses `LongBowStringingAttackSpriteAnimation` over the four `Weapon-LongBow-Stringing.png` frames (rest,
+two partial draws, full draw). Its frames lie in the world sprite's orientation (limb up, string on the bottom
+row), at 16 PPU with point filtering, and frame 0 is pixel-identical to `LongBow.png`. Each pivot sits 3.5 px
+below the top of the limb, on the center column, so the `(0, 0.125)` grip stays on the limb's center. The frames
+follow the baked attack: the draw starts at 0.1 s after the ease-in, draws through 0.2 s and 0.25 s, reaches the
+full draw at 0.35 s while the hands peak at 0.4 s, holds, and releases at 0.45 s, when the string hand leaves the
+hold. The world sprite then shows the string at rest.
+
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
 to be final bow animation content. `WeaponAnimationCategory` therefore exposes
 `None` (0) for all generic weapons and only `LegacyRanged` (4) for the unmigrated ranged

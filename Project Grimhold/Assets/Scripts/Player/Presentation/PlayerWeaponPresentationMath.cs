@@ -31,4 +31,22 @@ internal static class PlayerWeaponPresentationMath
 
         return -rotatedGrip;
     }
+
+    /// <summary>
+    /// The held weapon shows its attack animation frame while its confirmed attack clip is inside the sequence,
+    /// and its world sprite otherwise. An unarmed hand stays empty.
+    /// </summary>
+    internal static Sprite ResolveMainHandSprite(
+        Sprite worldSprite,
+        WeaponAttackSpriteAnimation attackAnimation,
+        bool isAttacking,
+        float attackSeconds)
+    {
+        return worldSprite != null &&
+            attackAnimation != null &&
+            isAttacking &&
+            attackAnimation.TryGetSprite(attackSeconds, out Sprite frame)
+                ? frame
+                : worldSprite;
+    }
 }

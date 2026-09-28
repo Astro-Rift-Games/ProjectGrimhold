@@ -35,6 +35,7 @@ MonoBehaviour:
     _secondaryGripPoint: {x: 0, y: 0}
     _secondHand: 1
     _rig: 1
+    _attackSpriteAnimation: {fileID: 11400000, guid: 269bedbeffedd134795f7a38d7071b1d, type: 2}
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 10

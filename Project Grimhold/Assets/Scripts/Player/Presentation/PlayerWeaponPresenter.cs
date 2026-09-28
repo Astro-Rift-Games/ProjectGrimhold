@@ -4,6 +4,7 @@ using UnityEngine;
 /// Presents the active Weapon Set without owning attack motion.
 /// The Animator moves the hands; held visuals inherit those transforms through their grips.
 /// The single Main Hand weapon visual follows MainHandGrip, or WeaponPose when the weapon drives its own pose.
+/// During the weapon's confirmed attack clip, an optional attack sprite animation swaps only its sprite.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
@@ -29,6 +30,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private LootDefinition _mainHandDefinition;
     private LootDefinition _offHandDefinition;
+    private Sprite _mainHandWorldSprite;
+    private WeaponAttackSpriteAnimation _mainHandAttackSprites;
     private Vector3 _mainHandWeaponPivotBaseScale;
     private Vector3 _mainHandWeaponVisualBaseScale;
     private int _weaponPoseHandBaseSortingOrder;
@@ -59,6 +62,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     {
         _mainHandDefinition = null;
         _offHandDefinition = null;
+        _mainHandWorldSprite = null;
+        _mainHandAttackSprites = null;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
@@ -67,6 +72,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void LateUpdate()
     {
         RefreshEquipment(force: false);
+        RefreshMainHandSprite();
         RefreshPose();
     }
 
@@ -106,9 +112,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void ApplyMainHandDefinition(LootDefinition definition)
     {
         WeaponDefinition weapon = definition != null ? definition.WeaponDefinition : null;
-        SetRendererSprite(
-            _mainHandRenderer,
-            weapon != null ? definition.WorldSprite ?? definition.Icon : null);
+        _mainHandWorldSprite = weapon != null ? definition.WorldSprite ?? definition.Icon : null;
+        _mainHandAttackSprites = weapon != null ? weapon.Presentation.AttackSpriteAnimation : null;
+        SetRendererSprite(_mainHandRenderer, _mainHandWorldSprite);
         WeaponRig rig = weapon != null ? weapon.Presentation.Rig : WeaponRig.HandHeld;
         AttachMainHandWeapon(rig);
         SetWeaponDriven(rig == WeaponRig.WeaponDriven);
@@ -176,6 +182,23 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _offHandVisual.localPosition = Vector3.zero;
         _offHandVisual.localRotation = Quaternion.identity;
+    }
+
+    // Swaps only the sprite, so the pose, grip, angle correction, facing and mirror stay untouched.
+    private void RefreshMainHandSprite()
+    {
+        float attackSeconds = 0f;
+        bool isAttacking = _mainHandAttackSprites != null &&
+            _animatorView.TryGetPresentedAttackSeconds(out attackSeconds);
+        Sprite sprite = PlayerWeaponPresentationMath.ResolveMainHandSprite(
+            _mainHandWorldSprite,
+            _mainHandAttackSprites,
+            isAttacking,
+            attackSeconds);
+        if (_mainHandRenderer.sprite != sprite)
+        {
+            _mainHandRenderer.sprite = sprite;
+        }
     }
 
     private void RefreshPose()
