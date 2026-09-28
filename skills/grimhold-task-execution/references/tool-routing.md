@@ -30,13 +30,13 @@ Then read the actual source files needed to verify behavior and contracts.
 
 ## Repository
 
-The target branch is the source of current technical state.
+The target branch is the source of current technical state, except exact Unity, Photon Fusion and package versions, which are verified in `New-Testing`.
 
 Verify:
 
 - current code;
 - prefabs/scenes/assets;
-- packages and exact versions;
+- packages and exact versions (in `New-Testing`);
 - serialized configuration;
 - implementation ownership;
 - lifecycle and network authority.

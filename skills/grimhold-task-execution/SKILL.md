@@ -45,19 +45,9 @@ or other duplicate tracking artifacts unless explicitly requested.
 
 ## Execution Steps
 
-1. Resolve TASK/US objective, acceptance criteria, dependencies and exclusions.
-2. Confirm branch and working tree; preserve unrelated changes.
-3. Load applicable AGENTS files.
-4. Explore affected code with CodeGraph when code relationships matter.
-5. Read relevant Architecture and grimhold-docs.
-6. Inspect Unity serialized/runtime state through Unity MCP only when required.
-7. Identify ownership, authority, persistence and affected contracts.
-8. For architectural/cross-system/multi-file work, produce a focused plan limited to the TASK.
-9. Implement the smallest coherent change satisfying the TASK.
-10. Review the complete diff and unintended changes.
-11. Run applicable validation; use Unity MCP for Unity-side checks when required.
-12. Compare the result against every acceptance criterion.
-13. Report blockers instead of inventing missing design, architecture or Inspector assignments.
+Follow the repository workflow and validation rules in the AGENTS files. The order that matters: resolve the TASK's objective, acceptance criteria and exclusions before touching code; establish ownership, authority and affected contracts before planning; plan only for architectural, cross-system or multi-file work; implement the smallest coherent change; then check the full diff and every acceptance criterion.
+
+When design, architecture or an Inspector assignment is missing, report it as a blocker rather than inventing it.
 
 ## Output Contract
 

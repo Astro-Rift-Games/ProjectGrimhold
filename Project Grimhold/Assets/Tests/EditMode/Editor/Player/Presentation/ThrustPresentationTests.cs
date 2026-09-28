@@ -3,11 +3,13 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
-public sealed class RapierThrustPresentationTests
+public sealed class ThrustPresentationTests
 {
     private const string PrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
     private const string RapierPath = "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset";
     private const string RapierLootPath = "Assets/Scriptable Objects/Loot/Definitions/Rapier.asset";
+    private const string RondelPath = "Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset";
+    private const string RondelLootPath = "Assets/Scriptable Objects/Loot/Definitions/RondelDagger.asset";
     private const string SwordPath = "Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset";
     private const string ThrustVisualPath = "Assets/Scriptable Objects/Loot/Definitions/ThrustVfxVisual.asset";
     private const string ThrustClipPath = "Assets/Art/VFX/ThrustVfx.anim";
@@ -37,9 +39,8 @@ public sealed class RapierThrustPresentationTests
         if (_contents != null) PrefabUtility.UnloadPrefabContents(_contents);
     }
 
-    private void Perform(Vector2 direction)
+    private void Perform(LootDefinition loot, Vector2 direction)
     {
-        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(RapierLootPath);
         Assert.That(_catalog.TryGetIndex(loot.LootId, out int index), Is.True);
         var attack = new AttackPerformedEvent(default, AttackType.Melee, Vector2.zero, direction, 0, index + 1);
         typeof(PlayerAttackVfxPresenter).GetMethod("OnAttackPerformed", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -138,6 +139,66 @@ public sealed class RapierThrustPresentationTests
         }
     }
 
+    // Rondel retracts until 0.2s, thrusts until 0.3s and recoils to 0.45s, 50 ms ahead of Rapier. Its hand
+    // tilts the blade 12-17 degrees off the facing through the stroke, so each Thrust axis is the facing
+    // plus 14 degrees, the mean blade angle over frames 1-3. Each anchor is the stroke-start grip and the
+    // 0.5 reach offset is the grip's travel along that axis, so the path ends at the extended tip for any
+    // blade reach. Starting at 0.14s keeps Rapier's phase: the glint lands 60 ms before the stroke and
+    // frame 3 reaches full extension. Rapier's 0.19s start would leave the art behind the dagger tip.
+    [Test]
+    public void RondelVfxConfiguration_AlignsSharedThrustWithItsOwnStroke()
+    {
+        WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath);
+        AttackVfxDefinition vfx = rondel.Presentation.AttackVfx;
+        Assert.That(vfx, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(vfx),
+            Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/RondelDaggerThrustAttackVfx.asset"));
+        Assert.That(AssetDatabase.GetAssetPath(vfx.Visual), Is.EqualTo(ThrustVisualPath));
+        Assert.That(rondel.TryValidate(out string error), Is.True, error);
+        // RondelDagger.png is 17 px tall with a centered pivot: the tip is the center of its top pixel row.
+        Assert.That(rondel.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.5f)));
+        Assert.That(rondel.Presentation.BladeReach, Is.EqualTo(0.875f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(0.14f));
+        // Index order: N, NE, NW, S, SE, SW. Sorting follows the facing, like the held weapon.
+        var positions = new[]
+        {
+            new Vector3(0.47f, -0.41f, 0f), new Vector3(0.2f, -0.47f, 0f), new Vector3(0.55f, -0.16f, 0f),
+            new Vector3(-0.42f, -0.03f, 0f), new Vector3(-0.53f, -0.22f, 0f), new Vector3(-0.18f, 0.06f, 0f)
+        };
+        var facings = new[] { 90f, 45f, 135f, -90f, -45f, -135f };
+        var sortingOrders = new[] { -9, -9, -9, 21, 21, 21 };
+        for (int i = 0; i < 6; i++)
+        {
+            AttackVfxDefinition.DirectionalPose pose = vfx.GetPose(i);
+            Assert.That(pose.Position, Is.EqualTo(positions[i]), $"pose {i}");
+            Assert.That(Quaternion.Angle(pose.Rotation, Quaternion.Euler(0f, 0f, facings[i] + 14f)), Is.EqualTo(0f).Within(0.001f), $"pose {i}");
+            Assert.That(pose.ReachOffset, Is.EqualTo(0.5f), $"pose {i}");
+            Assert.That(pose.Mirrored, Is.False, $"pose {i}");
+            Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
+            Assert.That(vfx.StartSeconds + vfx.Clip.length,
+                Is.LessThanOrEqualTo(rondel.Presentation.GetAttackClip(i).length), $"clip {i}");
+        }
+    }
+
+    [Test]
+    public void RapierAndRondel_ShareOneThrustVisualThroughTheirOwnAlignments()
+    {
+        AttackVfxDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RapierPath).Presentation.AttackVfx;
+        AttackVfxDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath).Presentation.AttackVfx;
+        Assert.That(rondel, Is.Not.SameAs(rapier));
+        Assert.That(Thrust(rondel), Is.SameAs(AssetDatabase.LoadAssetAtPath<ThrustVfxVisualDefinition>(ThrustVisualPath)));
+        Assert.That(rondel.Visual, Is.SameAs(rapier.Visual));
+        Assert.That(rondel.Clip, Is.SameAs(rapier.Clip));
+        Assert.That(rondel.StartSeconds, Is.Not.EqualTo(rapier.StartSeconds));
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.That(rondel.TryResolvePose(i, 1f, out AttackVfxDefinition.ResolvedPose rondelPose), Is.True);
+            Assert.That(rapier.TryResolvePose(i, 1f, out AttackVfxDefinition.ResolvedPose rapierPose), Is.True);
+            Assert.That(Quaternion.Angle(rondelPose.Rotation, rapierPose.Rotation), Is.GreaterThan(1f), $"pose {i}");
+            Assert.That(rondelPose.Position, Is.Not.EqualTo(rapierPose.Position), $"pose {i}");
+        }
+    }
+
     [Test]
     public void ThrustAndSlash_AreSeparateVisualsWithSeparateAlignments()
     {
@@ -149,18 +210,25 @@ public sealed class RapierThrustPresentationTests
         Assert.That(Thrust(rapier).Clip, Is.Not.SameAs(sword.Clip));
     }
 
-    [TestCase(CharacterVisualDirection.North, 0)]
-    [TestCase(CharacterVisualDirection.NorthEast, 1)]
-    [TestCase(CharacterVisualDirection.NorthWest, 2)]
-    [TestCase(CharacterVisualDirection.South, 3)]
-    [TestCase(CharacterVisualDirection.SouthEast, 4)]
-    [TestCase(CharacterVisualDirection.SouthWest, 5)]
-    public void ConfirmedRapierAttack_AppliesThrustPoseResolvedFromBladeReach(CharacterVisualDirection direction, int index)
+    [TestCase(RapierLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(RapierLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(RapierLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(RapierLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(RapierLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(RapierLootPath, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(RondelLootPath, CharacterVisualDirection.SouthWest, 5)]
+    public void ConfirmedThrustAttack_AppliesPoseResolvedFromBladeReach(string lootPath, CharacterVisualDirection direction, int index)
     {
-        WeaponDefinition.PresentationConfig presentation = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RapierPath).Presentation;
+        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(lootPath);
+        WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
         Assert.That(presentation.AttackVfx.TryResolvePose(index, presentation.BladeReach,
             out AttackVfxDefinition.ResolvedPose pose), Is.True);
-        Perform(CharacterVisualDirectionResolver.GetCanonicalVector(direction));
+        Perform(loot, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
         Assert.That(typeof(PlayerAttackVfxPresenter).GetField("_pending", BindingFlags.Instance | BindingFlags.NonPublic)
             .GetValue(_presenter), Is.True);
         Assert.That(_renderer.transform.localPosition, Is.EqualTo(pose.Position));
@@ -170,10 +238,11 @@ public sealed class RapierThrustPresentationTests
         Assert.That(_renderer.enabled, Is.False);
     }
 
-    [Test]
-    public void ThrustPose_StartsAtAnchorAndGrowsForwardWithBladeReach()
+    [TestCase(RapierPath)]
+    [TestCase(RondelPath)]
+    public void ThrustPose_StartsAtAnchorAndGrowsForwardWithBladeReach(string weaponPath)
     {
-        AttackVfxDefinition vfx = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RapierPath).Presentation.AttackVfx;
+        AttackVfxDefinition vfx = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weaponPath).Presentation.AttackVfx;
         ThrustVfxVisualDefinition visual = Thrust(vfx);
         for (int i = 0; i < 6; i++)
         {
@@ -229,6 +298,38 @@ public sealed class RapierThrustPresentationTests
         {
             Object.DestroyImmediate(daggerLength);
             Object.DestroyImmediate(shorterBlade);
+        }
+    }
+
+    // Rondel's alignment is fitted to its own stroke. Blade length alone sizes the Thrust: a shorter and a
+    // longer blade on the same grip stay aligned in every facing without asset or code changes.
+    [TestCase(CharacterVisualDirection.North, 0)]
+    [TestCase(CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CharacterVisualDirection.South, 3)]
+    [TestCase(CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CharacterVisualDirection.SouthWest, 5)]
+    public void ThrustVfx_FollowsBladeForRondelAndBladeLengthVariants(CharacterVisualDirection direction, int index)
+    {
+        WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RondelPath);
+        Vector2 grip = rondel.Presentation.GripPoint;
+        WeaponDefinition shorterBlade = CreateGeometryVariant(rondel, grip, new Vector2(0f, 0.25f));
+        WeaponDefinition longerBlade = CreateGeometryVariant(rondel, grip, new Vector2(0f, 0.75f));
+        try
+        {
+            Assert.That(shorterBlade.Presentation.BladeReach, Is.LessThan(rondel.Presentation.BladeReach));
+            Assert.That(longerBlade.Presentation.BladeReach, Is.GreaterThan(rondel.Presentation.BladeReach));
+            foreach (WeaponDefinition weapon in new[] { rondel, shorterBlade, longerBlade })
+            {
+                Assert.That(weapon.Presentation.AttackVfx, Is.SameAs(rondel.Presentation.AttackVfx));
+                Assert.That(weapon.TryValidate(out string error), Is.True, error);
+                AssertThrustFollowsBlade(weapon, direction, index);
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(shorterBlade);
+            Object.DestroyImmediate(longerBlade);
         }
     }
 

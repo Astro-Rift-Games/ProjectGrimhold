@@ -51,7 +51,7 @@ Resolve authority by responsibility.
 
 ### Current technical state
 
-1. Current code, prefabs, scenes, assets, packages and configuration in the target branch.
+1. Current code, prefabs, scenes, assets and configuration in the target branch; exact Unity, Photon Fusion and package versions in `New-Testing`.
 2. Relevant approved technical documents, primarily `Project Grimhold/Docs/Architecture/`.
 3. Repository `AGENTS.md` instructions.
 4. Current live Game Design when gameplay intent is relevant.

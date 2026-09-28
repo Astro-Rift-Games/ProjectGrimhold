@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
+  m_Name: RondelDaggerThrustAttackVfx
+  m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
+  _visual: {fileID: 11400000, guid: e0285fcd4383f7049b74cf53c13f1ea5, type: 2}
+  _startSeconds: 0.14
+  _poses:
+  - _position: {x: 0.47, y: -0.41, z: 0}
+    _rotation: {x: 0, y: 0, z: 104}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.2, y: -0.47, z: 0}
+    _rotation: {x: 0, y: 0, z: 59}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.55, y: -0.16, z: 0}
+    _rotation: {x: 0, y: 0, z: 149}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: -0.42, y: -0.03, z: 0}
+    _rotation: {x: 0, y: 0, z: -76}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.53, y: -0.22, z: 0}
+    _rotation: {x: 0, y: 0, z: -31}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.18, y: 0.06, z: 0}
+    _rotation: {x: 0, y: 0, z: -121}
+    _reachOffset: 0.5
+    _mirrored: 0
+    _sortingOrder: 21

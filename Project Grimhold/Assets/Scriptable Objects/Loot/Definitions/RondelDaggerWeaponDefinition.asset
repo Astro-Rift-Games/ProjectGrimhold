@@ -30,6 +30,9 @@ MonoBehaviour:
     _angleCorrection: -90
     _animationCategory: 0
     _attackAnimationSet: {fileID: 11400000, guid: 2c7f4fb68f2b474cb45a24aec75d0a44, type: 2}
+    _attackVfx: {fileID: 11400000, guid: 9f7e844db62c52f4295ceb1c01502b5e, type: 2}
+    _bladeTip: {x: 0, y: 0.5}
+    _secondaryGripPoint: {x: 0, y: 0}
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 5
