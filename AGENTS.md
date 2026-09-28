@@ -152,6 +152,12 @@ For implementation, review, debugging or completion of an existing Project Grimh
 skills/grimhold-task-execution/SKILL.md
 ```
 
+To draft a commit title/description for the current diff, load:
+
+```text
+skills/grimhold-commit-message/SKILL.md
+```
+
 After adding/moving/editing project skills:
 
 ```text

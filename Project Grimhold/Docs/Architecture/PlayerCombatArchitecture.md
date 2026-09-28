@@ -576,6 +576,14 @@ pixel of the 4x16 px sprite. Its four 50 ms frames start at 0.325s: frame 0 igni
 arrives, frame 1 bursts on the hold and frames 2-3 fade where the cast happened while the wand
 recovers, because a flash is emitted in place rather than carried. The visual holds no wand data,
 so another caster reuses it through its own alignment.
+Magic Staff is the second Cast Flash consumer: `MagicStaffCastFlashAttackVfx` aligns the same
+`CastFlashVfxVisual` with its own cast. Its clips charge raised until 0.65s, pull back until 0.8s and
+strike forward until the gem peaks at 0.9s in every facing, then recover until 1.1s. Each facing anchors
+the main-hand grip at that peak with the grip to gem axis as rotation and no reach offset; `BladeTip` is
+`(-0.0625, 0.53125)`, the center of the 5x5 px gem of the 13x24 px sprite. Its four frames start at
+0.875s, so frame 0 ignites as the gem arrives and frames 2-3 fade in place while the staff recovers.
+Sorting sits just above the held staff (21 in front facings, -9 in north facings). The staff's left hand
+is an independent authored gesture outside the main-hand chain, so it never moves the cast point.
 Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority

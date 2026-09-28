@@ -9,6 +9,9 @@ public sealed class CastFlashPresentationTests
     private const string WandPath = "Assets/Scriptable Objects/Loot/Definitions/MagicWandWeaponDefinition.asset";
     private const string WandLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset";
     private const string WandCastFlashPath = "Assets/Scriptable Objects/Loot/Definitions/MagicWandCastFlashAttackVfx.asset";
+    private const string StaffPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
+    private const string StaffLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaff.asset";
+    private const string StaffCastFlashPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffCastFlashAttackVfx.asset";
     private const string CastFlashVisualPath = "Assets/Scriptable Objects/Loot/Definitions/CastFlashVfxVisual.asset";
     private const string CastFlashClipPath = "Assets/Art/VFX/CastFlashVfx.anim";
     private const string CastFlashTexturePath = "Assets/Art/VFX/VFX-WandAttack.png";
@@ -16,7 +19,9 @@ public sealed class CastFlashPresentationTests
     private const string RapierPath = "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset";
     private const string PresenterScriptPath = "Assets/Scripts/Player/Presentation/PlayerAttackVfxPresenter.cs";
     // The wand flicks forward until the tip stops at 0.35s, on the clip's 20 fps grid, then recovers.
-    private const float CastSeconds = 0.35f;
+    private const float WandCastSeconds = 0.35f;
+    // The staff strikes forward from its retracted windup until the gem peaks at 0.9s, then recovers.
+    private const float StaffCastSeconds = 0.9f;
     // The tight sprite mesh pads the art by up to two pixels at the project's 16 PPU.
     private const float MeshPadding = 0.125f;
     private GameObject _contents;
@@ -143,10 +148,65 @@ public sealed class CastFlashPresentationTests
             Assert.That(pose.ReachOffset, Is.EqualTo(0f), $"pose {i}");
             Assert.That(pose.Mirrored, Is.False, $"pose {i}");
             Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
-            Assert.That(vfx.StartSeconds, Is.LessThan(CastSeconds), $"pose {i} ignites before the cast");
+            Assert.That(vfx.StartSeconds, Is.LessThan(WandCastSeconds), $"pose {i} ignites before the cast");
             Assert.That(vfx.StartSeconds + vfx.Clip.length,
                 Is.LessThanOrEqualTo(wand.Presentation.GetAttackClip(i).length), $"clip {i}");
         }
+    }
+
+    // Magic Staff charges raised until 0.65s, pulls back until 0.8s and strikes forward until the gem peaks at
+    // 0.9s in every facing, then recovers until 1.1s. Each anchor is the main-hand grip at that peak and each
+    // rotation the grip to gem axis. Starting at 0.875s ignites frame 0 as the gem arrives and bursts frame 1
+    // while it holds; frames 2-3 fade where the cast happened while the staff recovers.
+    [Test]
+    public void MagicStaffVfxConfiguration_AlignsCastFlashWithItsOwnCast()
+    {
+        WeaponDefinition staff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(StaffPath);
+        AttackVfxDefinition vfx = staff.Presentation.AttackVfx;
+        Assert.That(vfx, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(vfx), Is.EqualTo(StaffCastFlashPath));
+        Assert.That(staff.TryValidate(out string error), Is.True, error);
+        // MagicStaff.png is 13x24 px with a centered pivot: the cast point is the center of the 5x5 px gem
+        // (columns 3-7, rows 18-22), left of and above the center.
+        Assert.That(staff.Presentation.BladeTip, Is.EqualTo(new Vector2(-0.0625f, 0.53125f)));
+        Assert.That(staff.Presentation.BladeReach, Is.EqualTo(1.0331f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(0.875f));
+        // Index order: N, NE, NW, S, SE, SW. Sorting follows the facing, just above the held staff.
+        var positions = new[]
+        {
+            new Vector3(0.31f, 0.15f, 0f), new Vector3(0.51f, 0.01f, 0f), new Vector3(0.01f, 0.14f, 0f),
+            new Vector3(-0.35f, -0.59f, 0f), new Vector3(-0.05f, -0.52f, 0f), new Vector3(-0.55f, -0.39f, 0f)
+        };
+        var rotations = new[] { 97.5f, 52.5f, 135.5f, -82.5f, -37.5f, -134.5f };
+        var sortingOrders = new[] { -9, -9, -9, 21, 21, 21 };
+        for (int i = 0; i < 6; i++)
+        {
+            AttackVfxDefinition.DirectionalPose pose = vfx.GetPose(i);
+            Assert.That(pose.Position, Is.EqualTo(positions[i]), $"pose {i}");
+            Assert.That(Quaternion.Angle(pose.Rotation, Quaternion.Euler(0f, 0f, rotations[i])), Is.EqualTo(0f).Within(0.001f), $"pose {i}");
+            Assert.That(pose.ReachOffset, Is.EqualTo(0f), $"pose {i}");
+            Assert.That(pose.Mirrored, Is.False, $"pose {i}");
+            Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
+            Assert.That(vfx.StartSeconds, Is.LessThan(StaffCastSeconds), $"pose {i} ignites before the cast");
+            Assert.That(vfx.StartSeconds + vfx.Clip.length,
+                Is.LessThanOrEqualTo(staff.Presentation.GetAttackClip(i).length), $"clip {i}");
+        }
+    }
+
+    // One flash art, two casts: each caster aligns the same visual through its own timing and poses.
+    [Test]
+    public void WandAndStaff_ShareCastFlashVisualThroughIndependentAlignments()
+    {
+        AttackVfxDefinition wand = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WandPath).Presentation.AttackVfx;
+        AttackVfxDefinition staff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(StaffPath).Presentation.AttackVfx;
+        var visual = AssetDatabase.LoadAssetAtPath<CastFlashVfxVisualDefinition>(CastFlashVisualPath);
+        Assert.That(wand.Visual, Is.SameAs(visual));
+        Assert.That(staff.Visual, Is.SameAs(visual));
+        Assert.That(staff.Clip, Is.SameAs(wand.Clip));
+        Assert.That(staff, Is.Not.SameAs(wand));
+        Assert.That(staff.StartSeconds, Is.Not.EqualTo(wand.StartSeconds));
+        for (int i = 0; i < 6; i++)
+            Assert.That(staff.GetPose(i).Position, Is.Not.EqualTo(wand.GetPose(i).Position), $"pose {i}");
     }
 
     [Test]
@@ -175,15 +235,22 @@ public sealed class CastFlashPresentationTests
         Assert.That(vfx.TryResolvePose(0, float.NaN, out _), Is.False);
     }
 
-    [TestCase(CharacterVisualDirection.North, 0)]
-    [TestCase(CharacterVisualDirection.NorthEast, 1)]
-    [TestCase(CharacterVisualDirection.NorthWest, 2)]
-    [TestCase(CharacterVisualDirection.South, 3)]
-    [TestCase(CharacterVisualDirection.SouthEast, 4)]
-    [TestCase(CharacterVisualDirection.SouthWest, 5)]
-    public void ConfirmedWandAttack_AppliesCastFlashPoseResolvedFromBladeReach(CharacterVisualDirection direction, int index)
+    [TestCase(WandLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(WandLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(WandLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(WandLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(WandLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(WandLootPath, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(StaffLootPath, CharacterVisualDirection.SouthWest, 5)]
+    public void ConfirmedCasterAttack_AppliesCastFlashPoseResolvedFromBladeReach(string lootPath,
+        CharacterVisualDirection direction, int index)
     {
-        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(WandLootPath);
+        LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(lootPath);
         WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
         Assert.That(presentation.AttackVfx.TryResolvePose(index, presentation.BladeReach,
             out AttackVfxDefinition.ResolvedPose pose), Is.True);
@@ -197,32 +264,39 @@ public sealed class CastFlashPresentationTests
         Assert.That(_renderer.enabled, Is.False);
     }
 
-    // Spatial contract: the flash sits on the wand tip at the cast stop, and the ignition and burst frames
-    // contain the tip while they play. The wand is posed with the production grip/facing math, so a longer
-    // wand on the same grip and axis marks its own tip without asset changes.
-    [TestCase(CharacterVisualDirection.North, 0)]
-    [TestCase(CharacterVisualDirection.NorthEast, 1)]
-    [TestCase(CharacterVisualDirection.NorthWest, 2)]
-    [TestCase(CharacterVisualDirection.South, 3)]
-    [TestCase(CharacterVisualDirection.SouthEast, 4)]
-    [TestCase(CharacterVisualDirection.SouthWest, 5)]
-    public void CastFlashVfx_MarksWandTipAtCastForWandAndLongerTip(CharacterVisualDirection direction, int index)
+    // Spatial contract: the flash sits on the caster's tip at the cast, and the ignition and burst frames
+    // contain the tip while they play. The caster is posed with the production grip/facing math, so a longer
+    // caster on the same grip and axis marks its own tip without asset changes.
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.North, 0)]
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.South, 3)]
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(WandPath, WandCastSeconds, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.North, 0)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.South, 3)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.SouthWest, 5)]
+    public void CastFlashVfx_MarksCasterTipAtCastForCasterAndLongerTip(string weaponPath, float castSeconds,
+        CharacterVisualDirection direction, int index)
     {
-        WeaponDefinition wand = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WandPath);
-        WeaponDefinition longerTip = Object.Instantiate(wand);
-        longerTip.name = $"{wand.name} longer tip";
+        WeaponDefinition caster = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weaponPath);
+        WeaponDefinition longerTip = Object.Instantiate(caster);
+        longerTip.name = $"{caster.name} longer tip";
         var serialized = new SerializedObject(longerTip);
         // Half again as long along the same grip to tip axis.
-        Vector2 grip = wand.Presentation.GripPoint;
-        serialized.FindProperty("_presentation._bladeTip").vector2Value = grip + (wand.Presentation.BladeTip - grip) * 1.5f;
+        Vector2 grip = caster.Presentation.GripPoint;
+        serialized.FindProperty("_presentation._bladeTip").vector2Value = grip + (caster.Presentation.BladeTip - grip) * 1.5f;
         serialized.ApplyModifiedPropertiesWithoutUndo();
         try
         {
-            Assert.That(longerTip.Presentation.BladeReach, Is.GreaterThan(wand.Presentation.BladeReach));
-            foreach (WeaponDefinition weapon in new[] { wand, longerTip })
+            Assert.That(longerTip.Presentation.BladeReach, Is.GreaterThan(caster.Presentation.BladeReach));
+            foreach (WeaponDefinition weapon in new[] { caster, longerTip })
             {
                 Assert.That(weapon.TryValidate(out string error), Is.True, error);
-                AssertFlashMarksTip(weapon, direction, index);
+                AssertFlashMarksTip(weapon, castSeconds, direction, index);
             }
         }
         finally
@@ -231,7 +305,43 @@ public sealed class CastFlashPresentationTests
         }
     }
 
-    private void AssertFlashMarksTip(WeaponDefinition weapon, CharacterVisualDirection direction, int index)
+    // The staff's left hand gestures on its own; the cast point belongs to the staff held by the main hand,
+    // so removing every LeftHand curve from the attack leaves the gem, and the flash on it, where they were.
+    [TestCase(CharacterVisualDirection.North, 0)]
+    [TestCase(CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(CharacterVisualDirection.South, 3)]
+    [TestCase(CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(CharacterVisualDirection.SouthWest, 5)]
+    public void StaffCastPoint_IgnoresTheIndependentLeftHandGesture(CharacterVisualDirection direction, int index)
+    {
+        WeaponDefinition.PresentationConfig presentation = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(StaffPath).Presentation;
+        Assert.That(presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
+        AnimationClip attack = presentation.GetAttackClip(index);
+        AnimationClip withoutLeftHand = Object.Instantiate(attack);
+        try
+        {
+            int removed = 0;
+            foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(withoutLeftHand))
+            {
+                if (!binding.path.StartsWith("LeftHandPivot", System.StringComparison.Ordinal)) continue;
+                AnimationUtility.SetEditorCurve(withoutLeftHand, binding, null);
+                removed++;
+            }
+            Assert.That(removed, Is.GreaterThan(0), "The staff attack animates its left hand.");
+            Transform root = _renderer.transform.parent;
+            Transform held = PoseHeldWeapon(presentation, CharacterVisualDirectionResolver.GetCanonicalVector(direction));
+            Vector2 withGesture = SampleTip(attack, root, held, presentation, StaffCastSeconds);
+            Vector2 withoutGesture = SampleTip(withoutLeftHand, root, held, presentation, StaffCastSeconds);
+            Assert.That((withGesture - withoutGesture).magnitude, Is.LessThan(0.00001f));
+        }
+        finally
+        {
+            Object.DestroyImmediate(withoutLeftHand);
+        }
+    }
+
+    private void AssertFlashMarksTip(WeaponDefinition weapon, float castSeconds, CharacterVisualDirection direction, int index)
     {
         // Half a pixel at the project's 16 PPU.
         const float MaxCastError = 0.03125f;
@@ -245,7 +355,7 @@ public sealed class CastFlashPresentationTests
         AnimationClip attack = presentation.GetAttackClip(index);
         string context = $"{weapon.name} {direction}";
 
-        float castError = (SampleTip(attack, root, held, presentation, CastSeconds) - center).magnitude;
+        float castError = (SampleTip(attack, root, held, presentation, castSeconds) - center).magnitude;
         Assert.That(castError, Is.LessThanOrEqualTo(MaxCastError), $"{context}: tip {castError:F3} off the flash at the cast");
 
         EditorCurveBinding[] bindings = AnimationUtility.GetObjectReferenceCurveBindings(vfx.Clip);
@@ -288,7 +398,7 @@ public sealed class CastFlashPresentationTests
     public void Presenter_KnowsNoArchetypeOrWeapon()
     {
         string source = AssetDatabase.LoadAssetAtPath<MonoScript>(PresenterScriptPath).text;
-        foreach (string term in new[] { "CastFlash", "Slash", "Thrust", "MagicWand", "Wand" })
+        foreach (string term in new[] { "CastFlash", "Slash", "Thrust", "MagicWand", "Wand", "MagicStaff", "Staff" })
         {
             Assert.That(source, Does.Not.Contain(term), term);
         }

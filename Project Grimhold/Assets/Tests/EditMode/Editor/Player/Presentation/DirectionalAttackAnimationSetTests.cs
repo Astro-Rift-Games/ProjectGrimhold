@@ -83,7 +83,7 @@ public sealed class DirectionalAttackAnimationSetTests
         // needs no secondary grip point.
         Assert.That(staff.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.5f)));
         Assert.That(staff.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
-        Assert.That(staff.Presentation.AttackVfx, Is.Null);
+        Assert.That(staff.Presentation.AttackVfx, Is.Not.Null);
         Assert.That(staff.TryValidate(out string validationError), Is.True, validationError);
     }
 

@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
+  m_Name: MagicStaffCastFlashAttackVfx
+  m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
+  _visual: {fileID: 11400000, guid: ae97972221664b04aa47cf5683ada964, type: 2}
+  _startSeconds: 0.875
+  _poses:
+  - _position: {x: 0.31, y: 0.15, z: 0}
+    _rotation: {x: 0, y: 0, z: 97.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.51, y: 0.01, z: 0}
+    _rotation: {x: 0, y: 0, z: 52.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.01, y: 0.14, z: 0}
+    _rotation: {x: 0, y: 0, z: 135.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: -0.35, y: -0.59, z: 0}
+    _rotation: {x: 0, y: 0, z: -82.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.05, y: -0.52, z: 0}
+    _rotation: {x: 0, y: 0, z: -37.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.55, y: -0.39, z: 0}
+    _rotation: {x: 0, y: 0, z: -134.5}
+    _reachOffset: 0
+    _mirrored: 0
+    _sortingOrder: 21
