@@ -342,6 +342,17 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/Zweihander/Zweihander_Attack_{zweihanderDirections[index]}.anim")));
         }
 
+        WeaponDefinition magicStaff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset");
+        Assert.That(magicStaff.Presentation.HasGenericAttack, Is.True);
+        Assert.That(magicStaff.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < zweihanderDirections.Length; index++)
+        {
+            Assert.That(magicStaff.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/MagicStaff/MagicStaff_Attack_{zweihanderDirections[index]}.anim")));
+        }
+
         WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset");
         Assert.That(sword.Presentation.HasGenericAttack, Is.True);
@@ -403,7 +414,7 @@ public sealed class PlayerAnimatorViewTests
             condition.threshold == 4f), Is.True);
         Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
             condition.mode == AnimatorConditionMode.IfNot), Is.True);
-        foreach (string name in new[] { "LongBowWeaponDefinition", "CompoundBowWeaponDefinition", "MagicStaffWeaponDefinition" })
+        foreach (string name in new[] { "LongBowWeaponDefinition", "CompoundBowWeaponDefinition" })
         {
             WeaponDefinition fallback = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{name}.asset");

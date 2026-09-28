@@ -132,7 +132,7 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.None, typeof(RangedAttackConfig));
             AssertWeapon("magic_staff", 45f, 1.4f, 7f, 22f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 15,
-                WeaponAnimationCategory.LegacyRanged, typeof(RangedAttackConfig));
+                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
         }
 
         [Test]
@@ -207,7 +207,7 @@ namespace Tests.EditMode.Loot
                 _catalog.TryGet(id, out LootDefinition definition);
                 Assert.That((int)definition.WeaponDefinition.Presentation.AnimationCategory, Is.Not.EqualTo(3), id);
                 WeaponDefinition.PresentationConfig presentation = definition.WeaponDefinition.Presentation;
-                if (new[] { "arming_sword", "rapier", "magic_sword", "long_sword", "zweihander", "rondel_dagger", "magic_cinquedea", "magic_wand" }.Contains(id))
+                if (new[] { "arming_sword", "rapier", "magic_sword", "long_sword", "zweihander", "rondel_dagger", "magic_cinquedea", "magic_wand", "magic_staff" }.Contains(id))
                 {
                     Assert.That(presentation.HasGenericAttack, Is.True, id);
                     Assert.That(presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None), id);

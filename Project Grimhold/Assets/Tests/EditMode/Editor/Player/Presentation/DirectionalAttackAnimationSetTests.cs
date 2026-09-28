@@ -16,6 +16,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("MagicSword", "MagicSword")]
     [TestCase("LongSword", "LongSword")]
     [TestCase("Zweihander", "Zweihander")]
+    [TestCase("MagicStaff", "MagicStaff")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -45,6 +46,7 @@ public sealed class DirectionalAttackAnimationSetTests
         // LongSword.png: the main hand grips the handle row under the guard, the second hand its last row.
         Assert.That(longSword.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.46875f)));
         Assert.That(longSword.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.65625f)));
+        Assert.That(longSword.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.HoldsSecondaryGrip));
         Assert.That(longSword.TryValidate(out string validationError), Is.True, validationError);
     }
 
@@ -62,7 +64,27 @@ public sealed class DirectionalAttackAnimationSetTests
         // the main hand grips the handle row under the guard, the second hand its last row.
         Assert.That(zweihander.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.4375f)));
         Assert.That(zweihander.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.75f)));
+        Assert.That(zweihander.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.HoldsSecondaryGrip));
         Assert.That(zweihander.TryValidate(out string validationError), Is.True, validationError);
+    }
+
+    [Test]
+    public void MagicStaff_IsTwoHandedGenericAttackWithAuthoredSecondHand()
+    {
+        WeaponDefinition staff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset");
+        Assert.That(staff.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(staff.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        Assert.That(staff.Presentation.HasGenericAttack, Is.True);
+        Assert.That(staff.Presentation.AttackAnimationSet, Is.SameAs(
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "MagicStaff.asset")));
+        // MagicStaff.png is 24 px tall with a centered pivot: the main hand grips 8 px below the center.
+        // The authored left hand gestures on its own side instead of holding the staff, so the staff
+        // needs no secondary grip point.
+        Assert.That(staff.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.5f)));
+        Assert.That(staff.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
+        Assert.That(staff.Presentation.AttackVfx, Is.Null);
+        Assert.That(staff.TryValidate(out string validationError), Is.True, validationError);
     }
 
     [Test]

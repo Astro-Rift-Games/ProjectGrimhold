@@ -460,8 +460,9 @@ optional set reference instead of six clips. A complete set enables `HasGenericA
 and replaces only the six neutral `GenericAttack_*` slots in the local per-Animator
 override controller. The generic `Attack` route does not inspect
 `WeaponAnimationCategory`; an unarmed weapon or missing/incomplete set disables it
-and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword and Long Sword reference
-their respective Sword1H, Rapier, Wand, MagicSword and LongSword sets. Rondel Dagger and Magic Cinquedea
+and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander and
+Magic Staff reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword, Zweihander and
+MagicStaff sets. Rondel Dagger and Magic Cinquedea
 reference the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
 presentation without editing `Character.controller` or branching on weapon identity.
 `DirectionalAnimationGenerator` bakes each set from one south-authored `<Weapon>_Attack.anim`:
@@ -473,9 +474,21 @@ For one-handed weapons only the `RightHandPivot/RightHand` hierarchy is part of 
 source curves, such as the LeftHand motion authored in `MagicSword_Attack.anim`, are dropped because
 LeftHand carries `OffHandGrip` and belongs to separately authored off-hand clips.
 A two-handed weapon blocks the Off Hand, so `OffHandGrip` stays empty and the authored
-`LeftHandPivot/LeftHand` transform is the second hand on the same handle. The two-handed output
-therefore also keeps that transform: its rotation art, depth and every authored key time are preserved,
-while its position is derived from the weapon's handle so the drawn second hand holds it. A two-handed
+`LeftHandPivot/LeftHand` transform is its second hand, which the two-handed output therefore keeps.
+Being two-handed equipment does not by itself mean the second hand holds the weapon:
+`WeaponDefinition.Presentation.SecondHand` (`SecondHandPresentation`, static presentation data read only
+by the generator) selects how that transform is baked, and only two-handed weapons may set it.
+`HoldsSecondaryGrip` (the default) constrains the second hand to the handle as described below.
+`FollowsAuthoredMotion` keeps a second hand that does not hold the weapon on its own authored path under
+the main hand's rule: its position trajectory (values and tangents) turns with the facing at its authored
+key times, its rotation art and depth stay authored, no `SecondaryGripPoint` is required, and no sorting is
+emitted, so the LeftHand layer keeps owning its sorting and sprite. Magic Staff uses it:
+`MagicStaff_Attack.anim` authors the left hand as a spell gesture on its own side of the body, rotating
+against the main hand and never reaching the staff, whereas Long Sword and Zweihander author it turning
+rigidly with the main hand on the handle. The staff's main hand grips `(0, -0.5)`, 8 px below the center
+of the 24 px `MagicStaff.png`.
+With `HoldsSecondaryGrip` the second hand's rotation art, depth and every authored key time are preserved,
+while its position is derived from the weapon's handle so the drawn second hand holds it. Such a two-handed
 generic weapon serializes `SecondaryGripPoint` in `WeaponDefinition.Presentation`, in the same sprite
 units as `GripPoint`: the main hand holds `GripPoint` and the second hand `SecondaryGripPoint`. The
 generator receives the weapon definition, carries that point along the path the presenter gives the held
@@ -498,8 +511,9 @@ its glove.
 Category 1 and its `LegacySword-Attack` state are retired: every melee weapon, including
 `zweihander`, uses the generic `Attack` route.
 The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
-motions and is gated by `!HasGenericAttack` for `long_bow`, `compound_bow` and
-`magic_staff`. Generic Arming Sword, Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
+motions and is gated by `!HasGenericAttack` for `long_bow` and `compound_bow`. Generic Arming Sword,
+Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger, Magic Cinquedea, Magic Wand and Magic Staff
+all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
 This is local presentation state,
 not a replicated or authoritative combat decision.
 
@@ -659,7 +673,7 @@ of future scaling variation.
 | `long_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
 | `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set (`None` category) |
-| `magic_staff` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
+| `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand; `None` category) |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with `MainHandGrip`. Vertical weapon art uses a `-90` degree correction to align its
@@ -667,7 +681,7 @@ forward axis with the presenter's `+X`; horizontal bow art is already aligned. T
 static per-weapon presentation data and do not introduce LootId branches in the presenter.
 
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
-to be final bow or staff animation content. `WeaponAnimationCategory` therefore exposes
+to be final bow animation content. `WeaponAnimationCategory` therefore exposes
 `None` (0) for all generic weapons and only `LegacyRanged` (4) for the unmigrated ranged
 fallback route. Numeric values 1, 2 and 3 are retired; there is no sword, Rapier or dagger
 category or Animator route.

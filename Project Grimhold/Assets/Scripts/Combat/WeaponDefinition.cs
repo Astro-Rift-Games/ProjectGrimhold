@@ -157,8 +157,16 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
-        // Two-handed generic attacks are baked with the second hand on this handle point.
+        if (_handedness != WeaponHandedness.TwoHanded &&
+            _presentation.SecondHand != SecondHandPresentation.HoldsSecondaryGrip)
+        {
+            error = $"Weapon definition '{name}' selects a second-hand presentation but is not two-handed.";
+            return false;
+        }
+
+        // Two-handed generic attacks that hold the weapon are baked with the second hand on this handle point.
         if (_handedness == WeaponHandedness.TwoHanded && _presentation.HasGenericAttack &&
+            _presentation.SecondHand == SecondHandPresentation.HoldsSecondaryGrip &&
             _presentation.SecondaryGripPoint == _presentation.GripPoint)
         {
             error = $"Weapon definition '{name}' two-handed generic attack requires a secondary grip point distinct from its grip point.";
@@ -214,6 +222,10 @@ public sealed class WeaponDefinition : ScriptableObject
         private Vector2 _secondaryGripPoint;
         public Vector2 SecondaryGripPoint => _secondaryGripPoint;
 
+        [SerializeField, Tooltip("How a two-handed attack presents the second hand: on the secondary grip point, or along its own authored motion.")]
+        private SecondHandPresentation _secondHand;
+        public SecondHandPresentation SecondHand => _secondHand;
+
         /// <summary>Distance from the grip point to the blade tip, in weapon sprite local units.</summary>
         public float BladeReach => Vector2.Distance(_gripPoint, _bladeTip);
 
@@ -253,6 +265,12 @@ public sealed class WeaponDefinition : ScriptableObject
             if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))
             {
                 error = $"animation category '{(int)_animationCategory}' is unsupported.";
+                return false;
+            }
+
+            if (!System.Enum.IsDefined(typeof(SecondHandPresentation), _secondHand))
+            {
+                error = $"second-hand presentation '{(int)_secondHand}' is unsupported.";
                 return false;
             }
 

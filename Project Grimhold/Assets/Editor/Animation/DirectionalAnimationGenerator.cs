@@ -46,7 +46,12 @@ public static class DirectionalAnimationGenerator
     public static void GenerateZweihanderAssets() => GenerateAssets("Zweihander",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset"));
 
-    // A two-handed weapon passes its definition: its handle geometry places the second hand.
+    [MenuItem("Tools/Animations/Generate Magic Staff Directional Attacks")]
+    public static void GenerateMagicStaffAssets() => GenerateAssets("MagicStaff",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset"));
+
+    // A two-handed weapon passes its definition: its second-hand presentation selects whether its handle
+    // geometry places the second hand or the hand keeps its authored motion.
     public static void GenerateAssets(string weaponName, WeaponDefinition weapon = null)
     {
         ValidateWeaponName(weaponName);
@@ -123,7 +128,9 @@ public static class DirectionalAnimationGenerator
         int index = Array.IndexOf(Directions, direction);
         if (index < 0) throw new ArgumentException("Unknown facing direction.", nameof(direction));
         bool twoHanded = weapon != null && weapon.Handedness == WeaponHandedness.TwoHanded;
-        if (twoHanded && weapon.Presentation.SecondaryGripPoint == weapon.Presentation.GripPoint)
+        bool holdsSecondaryGrip = twoHanded &&
+            weapon.Presentation.SecondHand == SecondHandPresentation.HoldsSecondaryGrip;
+        if (holdsSecondaryGrip && weapon.Presentation.SecondaryGripPoint == weapon.Presentation.GripPoint)
             throw new ArgumentException($"Two-handed weapon {weapon.name} needs a secondary grip point.", nameof(weapon));
 
         AnimationClip idle = RequireClip($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
@@ -134,7 +141,7 @@ public static class DirectionalAnimationGenerator
             result.name = $"{weaponName}_Attack_{direction}";
             // Main Hand attacks drive only the RightHand hierarchy; LeftHand carries OffHandGrip and
             // belongs to off-hand clips. A two-handed weapon blocks the Off Hand, so its authored
-            // LeftHand transform is the second hand on the same grip and stays in the output.
+            // LeftHand transform is its second hand and stays in the output.
             RemoveBindingsOutsideContract(result, twoHanded);
             AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(result);
             settings.loopTime = false;
@@ -158,11 +165,18 @@ public static class DirectionalAnimationGenerator
             AnimationUtility.SetEditorCurve(result, sorting,
                 north ? Constant(NorthHandSortingOrder, original.length) : null);
 
-            if (twoHanded)
+            if (holdsSecondaryGrip)
             {
                 ApplySecondHand(original, result, direction, radians, idle, weapon.Presentation);
                 AnimationUtility.SetEditorCurve(result, Binding(SecondHand, typeof(SpriteRenderer), "m_SortingOrder"),
                     Constant(north ? BackSecondHandSortingOrder : FrontSecondHandSortingOrder, original.length));
+            }
+            else if (twoHanded)
+            {
+                // A second hand that does not hold the weapon keeps its own authored motion under the same
+                // rule as the main hand: its trajectory turns with the facing, while its rotation art, depth,
+                // key times and LeftHand-layer sorting stay authored.
+                WriteTrajectory(result, SecondHand, RotateTrajectory(original, SecondHand, radians));
             }
             return result;
         }
