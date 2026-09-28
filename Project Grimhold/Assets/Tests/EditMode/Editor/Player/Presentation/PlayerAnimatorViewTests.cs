@@ -265,11 +265,11 @@ public sealed class PlayerAnimatorViewTests
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
         AnimatorControllerLayer rightHandLayer = controller.layers.Single(layer => layer.name == "RightHand");
-        string[] weapons = { "ArmingSword", "MagicWand" };
+        string[] weapons = { "MagicWand" };
 
         foreach (string weapon in weapons)
         {
-            string stateName = weapon == "ArmingSword" ? "LegacySword" : "LegacyRanged";
+            string stateName = "LegacyRanged";
             AnimatorState state = FindState(rightHandLayer, $"{stateName}-Attack");
             AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 $"Assets/Animations/Weapons/{weapon}_Attack.anim");
@@ -298,7 +298,7 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
-    public void GenericAttack_UsesOnlyConfiguredSwordClipsAndKeepsLegacyFallback()
+    public void GenericAttack_UsesOnlyConfiguredSwordClipsAndRetiresLegacySword()
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
         AnimatorControllerLayer layer = controller.layers.Single(candidate => candidate.name == "RightHand");
@@ -318,28 +318,28 @@ public sealed class PlayerAnimatorViewTests
             Assert.That(AnimationUtility.GetCurveBindings(placeholder), Is.Empty);
         }
 
-        AnimatorState legacy = FindState(layer, "LegacySword-Attack");
-        Assert.That(legacy.tag, Is.EqualTo("Attack"));
-        AnimatorStateTransition legacyRoute = layer.stateMachine.anyStateTransitions.Single(
-            transition => transition.destinationState == legacy);
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "LegacySword-Attack"), Is.False);
+        Assert.That(layer.stateMachine.anyStateTransitions.Any(transition =>
+            transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
+                condition.threshold == 1f)), Is.False);
         AnimatorStateTransition genericRoute = layer.stateMachine.anyStateTransitions.Single(
             transition => transition.destinationState == generic);
-        Assert.That(legacyRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
-            condition.threshold == 1f), Is.True);
-        Assert.That(legacyRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
-            condition.mode == AnimatorConditionMode.IfNot), Is.True);
         Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
             condition.mode == AnimatorConditionMode.If), Is.True);
         Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory"), Is.False);
+        Assert.That(AssetDatabase.LoadAllAssetsAtPath(AnimatorControllerPath).OfType<BlendTree>()
+            .Any(tree => tree.name == "LegacySword-Attack-Directional"), Is.False);
 
-        string[] fallbacks = { "ZweihanderWeaponDefinition" };
-        foreach (string weapon in fallbacks)
+        WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset");
+        Assert.That(zweihander.Presentation.HasGenericAttack, Is.True);
+        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        string[] zweihanderDirections = { "N", "NE", "NW", "S", "SE", "SW" };
+        for (int index = 0; index < zweihanderDirections.Length; index++)
         {
-            WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
-                $"Assets/Scriptable Objects/Loot/Definitions/{weapon}.asset");
-            Assert.That(definition, Is.Not.Null, weapon);
-            Assert.That((int)definition.Presentation.AnimationCategory, Is.EqualTo(1), weapon);
-            Assert.That(definition.Presentation.HasGenericAttack, Is.False, weapon);
+            Assert.That(zweihander.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/Zweihander/Zweihander_Attack_{zweihanderDirections[index]}.anim")));
         }
 
         WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
@@ -434,6 +434,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("rondel_dagger", true)]
     [TestCase("magic_sword", true)]
     [TestCase("long_sword", true)]
+    [TestCase("zweihander", true)]
     [TestCase("magic_cinquedea", true)]
     [TestCase("magic_wand", true)]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)

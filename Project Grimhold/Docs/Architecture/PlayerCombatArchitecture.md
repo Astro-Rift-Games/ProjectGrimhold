@@ -486,17 +486,20 @@ origin lands on the handle. The held weapon visual must keep unit scale for thos
 Because the second hand follows the rotating handle, its position is keyed at the authored key times plus
 the clip's frame grid. `LongSword_Attack.anim` was authored with a different blade rest pose than the
 presenter's facing-aligned one, so its authored second-hand offset is not reused; Long Sword grips
-`(0, -0.46875)` (the handle row under the guard) and `(0, -0.65625)` (the last handle row). The
+`(0, -0.46875)` (the handle row under the guard) and `(0, -0.65625)` (the last handle row).
+Zweihander follows the same rule on its own art: `Zweihander.png` has a six-row handle between guard
+and pommel, so it grips `(0, -0.4375)` and `(0, -0.75)`. `Zweihander_Attack.anim` remains its single
+south source and bakes through the same two-handed contract without weapon-specific code. The
 second-hand sprite is not part of the output: the LeftHand layer keeps owning it, so a walk cycle played
 during an attack can still move the drawn second hand away from the handle.
 The second hand draws over the handle and under the main hand: sorting order 25 in front facings (weapon 20,
 attack VFX 21, main hand 30) and -5 in north facings (weapon -10, main hand -2), leaving the next slot for
 its glove.
-The category-1 `LegacySword-Attack` state retains the existing directional sword clips
-and is gated by `!HasGenericAttack` for `zweihander`.
+Category 1 and its `LegacySword-Attack` state are retired: every melee weapon, including
+`zweihander`, uses the generic `Attack` route.
 The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
 motions and is gated by `!HasGenericAttack` for `long_bow`, `compound_bow` and
-`magic_staff`. Generic Arming Sword, Rapier, Magic Sword, Long Sword, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 2 and 3 remain retired.
+`magic_staff`. Generic Arming Sword, Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger, Magic Cinquedea and Magic Wand all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
 This is local presentation state,
 not a replicated or authoritative combat decision.
 
@@ -537,7 +540,11 @@ windup apex at 0.3s and the last one its strike end at 0.55s, unmirrored to its 
 around the body center. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
 its windup apex at 0.2s, frames 1-2 cover its counterclockwise strike to 0.4s and frame 3 the
 recoil, mirrored like Arming Sword; its size follows the main-hand grip to blade tip reach only,
-never `SecondaryGripPoint`. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
+never `SecondaryGripPoint`. The two-handed Zweihander has its own alignment from 0.25s: frame 0
+anticipates its windup apex at 0.3s, frames 1-2 cover its slower, roughly 190-degree
+counterclockwise strike to 0.6s and frame 3 the strike end, mirrored like Long Sword; its arc
+centers sit farther from the body because its hands travel farther, and its size also follows only
+the grip to blade tip reach. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
 spanning the path to its extended blade tip across all six facings. Rondel Dagger reuses the same
 Thrust visual through its own alignment from 0.14s: its stroke runs 50 ms earlier than Rapier's and its
 hand tilts the blade about 14 degrees off the facing, so each axis is the facing plus 14 degrees and each
@@ -632,9 +639,9 @@ of future scaling variation.
 | :--- | :---: | :--- | :--- |
 | `arming_sword` | 1 | `PlayerMeleeAttackConfig` | Sword1H set (`None` category) |
 | `rapier` | 1 | `PlayerMeleeAttackConfig` | Rapier set (`None` category) |
-| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | `LegacySword` |
+| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | MagicSword set (`None` category) |
 | `long_sword` | 2 | `PlayerMeleeAttackConfig` | LongSword set (two-handed; `None` category) |
-| `zweihander` | 2 | `PlayerMeleeAttackConfig` | `LegacySword` fallback |
+| `zweihander` | 2 | `PlayerMeleeAttackConfig` | Zweihander set (two-handed; `None` category) |
 | `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips; `None` category) |
 | `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set (`None` category) |
 | `long_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
@@ -648,10 +655,10 @@ forward axis with the presenter's `+X`; horizontal bow art is already aligned. T
 static per-weapon presentation data and do not introduce LootId branches in the presenter.
 
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
-to be final two-handed, bow or staff animation content. `WeaponAnimationCategory` therefore exposes
-`None` (0) for all generic weapons and only `LegacySword` (1) and
-`LegacyRanged` (4) for the unmigrated sword and ranged fallback routes respectively.
-Numeric values 2 and 3 remain retired; there is no Rapier category or Animator route.
+to be final bow or staff animation content. `WeaponAnimationCategory` therefore exposes
+`None` (0) for all generic weapons and only `LegacyRanged` (4) for the unmigrated ranged
+fallback route. Numeric values 1, 2 and 3 are retired; there is no sword, Rapier or dagger
+category or Animator route.
 
 `shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
 independent from attack animation categories.

@@ -140,7 +140,7 @@ namespace Tests.EditMode.Presentation
                 .Where(state => state.tag == "Attack")
                 .ToArray();
             Assert.That(attackStates.Select(state => state.name),
-                Is.EquivalentTo(new[] { "Attack", "LegacySword-Attack", "LegacyRanged-Attack" }));
+                Is.EquivalentTo(new[] { "Attack", "LegacyRanged-Attack" }));
             Assert.That(attackLayer.stateMachine.states.Any(child =>
                 child.state.name.StartsWith("MagicWand-")), Is.False);
             Assert.That(attackStates.All(state => state.motion is BlendTree), Is.True);

@@ -15,6 +15,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("Wand", "MagicWand")]
     [TestCase("MagicSword", "MagicSword")]
     [TestCase("LongSword", "LongSword")]
+    [TestCase("Zweihander", "Zweihander")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -32,7 +33,7 @@ public sealed class DirectionalAttackAnimationSetTests
     }
 
     [Test]
-    public void LongSword_IsTwoHandedGenericAttackWhileZweihanderKeepsLegacyFallback()
+    public void LongSword_IsTwoHandedGenericAttack()
     {
         WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset");
@@ -45,11 +46,23 @@ public sealed class DirectionalAttackAnimationSetTests
         Assert.That(longSword.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.46875f)));
         Assert.That(longSword.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.65625f)));
         Assert.That(longSword.TryValidate(out string validationError), Is.True, validationError);
+    }
 
+    [Test]
+    public void Zweihander_IsTwoHandedGenericAttackWithItsOwnHandleGeometry()
+    {
         WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset");
-        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.LegacySword));
-        Assert.That(zweihander.Presentation.HasGenericAttack, Is.False);
+        Assert.That(zweihander.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        Assert.That(zweihander.Presentation.HasGenericAttack, Is.True);
+        Assert.That(zweihander.Presentation.AttackAnimationSet, Is.SameAs(
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "Zweihander.asset")));
+        // Zweihander.png is 33 px tall with a centered pivot and a six-row handle between guard and pommel:
+        // the main hand grips the handle row under the guard, the second hand its last row.
+        Assert.That(zweihander.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.4375f)));
+        Assert.That(zweihander.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.75f)));
+        Assert.That(zweihander.TryValidate(out string validationError), Is.True, validationError);
     }
 
     [Test]

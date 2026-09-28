@@ -42,6 +42,10 @@ public static class DirectionalAnimationGenerator
     public static void GenerateLongSwordAssets() => GenerateAssets("LongSword",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset"));
 
+    [MenuItem("Tools/Animations/Generate Zweihander Directional Attacks")]
+    public static void GenerateZweihanderAssets() => GenerateAssets("Zweihander",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset"));
+
     // A two-handed weapon passes its definition: its handle geometry places the second hand.
     public static void GenerateAssets(string weaponName, WeaponDefinition weapon = null)
     {

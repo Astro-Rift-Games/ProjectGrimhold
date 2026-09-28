@@ -15,23 +15,25 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
     private const string SecondHand = "LeftHandPivot/LeftHand";
     private const string LongSwordSource = "Assets/Animations/Weapons/LongSword_Attack.anim";
-    private const string LongSwordRoot = "Assets/Animations/Weapons/Directional/LongSword/LongSword_Attack_";
     private const string LongSwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
+    private const string ZweihanderDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset";
 
-    [Test]
-    public void LongSwordOutputs_BakeFromSouthAndRemainStableOnRepeat()
+    [TestCase("LongSword")]
+    [TestCase("Zweihander")]
+    public void TwoHandedOutputs_BakeFromSouthAndRemainStableOnRepeat(string weapon)
     {
-        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
+        AnimationClip source = TwoHandedSource(weapon);
         Assert.That(source, Is.Not.Null);
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
-        DirectionalAnimationGenerator.GenerateLongSwordAssets();
+        if (weapon == "LongSword") DirectionalAnimationGenerator.GenerateLongSwordAssets();
+        else DirectionalAnimationGenerator.GenerateZweihanderAssets();
         foreach (string direction in directions)
         {
-            string path = LongSwordRoot + direction + ".anim";
+            string path = TwoHandedOutput(weapon, direction);
             string guid = AssetDatabase.AssetPathToGUID(path);
             Assert.That(guid, Is.Not.Empty, direction);
-            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, "LongSword", LongSwordDefinition());
-            AnimationClip repeated = DirectionalAnimationGenerator.CreateClip(source, direction, "LongSword", LongSwordDefinition());
+            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, weapon, TwoHandedDefinition(weapon));
+            AnimationClip repeated = DirectionalAnimationGenerator.CreateClip(source, direction, weapon, TwoHandedDefinition(weapon));
             try
             {
                 AnimationClip actual = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
@@ -57,7 +59,7 @@ public sealed class DirectionalAnimationGeneratorTests
                 UnityEngine.Object.DestroyImmediate(expected);
                 UnityEngine.Object.DestroyImmediate(repeated);
             }
-            DirectionalAnimationGenerator.Bake(source, direction, path, "LongSword", LongSwordDefinition());
+            DirectionalAnimationGenerator.Bake(source, direction, path, weapon, TwoHandedDefinition(weapon));
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
         }
     }
@@ -78,16 +80,22 @@ public sealed class DirectionalAnimationGeneratorTests
         Assert.That(anchor.y, Is.EqualTo(y).Within(0.001f));
     }
 
-    [TestCase("N", 180f)]
-    [TestCase("NE", 135f)]
-    [TestCase("NW", -135f)]
-    [TestCase("S", 0f)]
-    [TestCase("SE", 45f)]
-    [TestCase("SW", -45f)]
-    public void LongSwordOutput_DirectionalizesBothHandsAndKeepsTheSecondHandOnTheGrip(string direction, float angle)
+    [TestCase("LongSword", "N", 180f)]
+    [TestCase("LongSword", "NE", 135f)]
+    [TestCase("LongSword", "NW", -135f)]
+    [TestCase("LongSword", "S", 0f)]
+    [TestCase("LongSword", "SE", 45f)]
+    [TestCase("LongSword", "SW", -45f)]
+    [TestCase("Zweihander", "N", 180f)]
+    [TestCase("Zweihander", "NE", 135f)]
+    [TestCase("Zweihander", "NW", -135f)]
+    [TestCase("Zweihander", "S", 0f)]
+    [TestCase("Zweihander", "SE", 45f)]
+    [TestCase("Zweihander", "SW", -45f)]
+    public void TwoHandedOutput_DirectionalizesBothHandsAndKeepsTheSecondHandOnTheGrip(string weapon, string direction, float angle)
     {
-        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
-        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordRoot + direction + ".anim");
+        AnimationClip source = TwoHandedSource(weapon);
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(weapon, direction));
         Assert.That(source, Is.Not.Null);
         Assert.That(clip, Is.Not.Null);
 
@@ -131,7 +139,7 @@ public sealed class DirectionalAnimationGeneratorTests
 
         // Grip placement: seen from MainHandGrip turned by the main hand, the drawn second hand sits on the
         // weapon's secondary grip point, placed like the presenter places the held weapon for this facing.
-        WeaponDefinition.PresentationConfig presentation = LongSwordDefinition().Presentation;
+        WeaponDefinition.PresentationConfig presentation = TwoHandedDefinition(weapon).Presentation;
         Vector2 grip = IdleGrip(direction);
         Vector2 anchor = SecondHandAnchor(direction);
         float facingDegrees = angle - 90f;
@@ -162,11 +170,12 @@ public sealed class DirectionalAnimationGeneratorTests
         if (north) Assert.That(Curve(clip, Hand, "m_SortingOrder").Evaluate(0f), Is.EqualTo(-2f));
     }
 
-    [Test]
-    public void LongSwordSouth_RetainsEveryAuthoredCurveExceptTheRealignedSecondHandPosition()
+    [TestCase("LongSword")]
+    [TestCase("Zweihander")]
+    public void TwoHandedSouth_RetainsEveryAuthoredCurveExceptTheRealignedSecondHandPosition(string weapon)
     {
-        AnimationClip original = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordSource);
-        AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>(LongSwordRoot + "S.anim");
+        AnimationClip original = TwoHandedSource(weapon);
+        AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(weapon, "S"));
         foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(original)
             .Where(b => !(b.path == SecondHand && (b.propertyName == "m_LocalPosition.x" || b.propertyName == "m_LocalPosition.y"))))
         {
@@ -757,6 +766,15 @@ public sealed class DirectionalAnimationGeneratorTests
 
     private static WeaponDefinition LongSwordDefinition() =>
         AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordDefinitionPath);
+
+    private static WeaponDefinition TwoHandedDefinition(string weapon) =>
+        AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weapon == "LongSword" ? LongSwordDefinitionPath : ZweihanderDefinitionPath);
+
+    private static AnimationClip TwoHandedSource(string weapon) =>
+        AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/{weapon}_Attack.anim");
+
+    private static string TwoHandedOutput(string weapon, string direction) =>
+        $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim";
 
     private static Vector2 IdleGrip(string direction)
     {

@@ -34,7 +34,7 @@ MonoBehaviour:
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 516a3b1c179d42ebbc63e82246d783e0, type: 2}
-    _weight: 6
+    _weight: 100
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: 8081524fb32548bdbbc8c9e27641e5da, type: 2}
@@ -158,7 +158,7 @@ MonoBehaviour:
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000002, type: 2}
-    _weight: 100
+    _weight: 6
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: b31f0000000000000000000000000003, type: 2}
