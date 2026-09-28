@@ -535,17 +535,23 @@ The effect is split by responsibility. An abstract `AttackVfxVisualDefinition` h
 (a sprite-only clip) and delegates geometry-specific placement and sizing to specialized subclasses:
 `SlashVfxVisualDefinition` for arc-shaped swings (scaled by `TipRadius`), `ThrustVfxVisualDefinition`
 for straight-line thrusts (scaled by path `Length` and shifted along the local +X axis from `BackX`)
-and `CastFlashVfxVisualDefinition` for point flashes emitted at the casting tip (never scaled, rotated
-or mirrored; its art `Center` is placed on the cast point). Every archetype receives one reach-derived
-length along the pose's +X axis and decides what it measures: the span of its art for Slash and
-Thrust, the offset from the anchor to the cast point for Cast Flash.
+`CastFlashVfxVisualDefinition` for point flashes emitted at the casting tip (never scaled, rotated
+or mirrored; its art `Center` is placed on the cast point) and `BowShotVfxVisualDefinition` for a bow's
+release impulse (never scaled; its art `Origin` is placed on the shot origin, pointed along the shot and
+mirrored like the bow). Every archetype receives one length along the pose's +X axis and decides what it
+measures: the span of its art for Slash and Thrust, the offset from the anchor to the cast point for Cast
+Flash, the offset from the anchor to the shot origin for Bow Shot. The visual declares whether that length
+uses the weapon: `UsesWeaponReach` is true by default and the length is the pose's reach offset plus the
+blade reach; Bow Shot overrides it to false and the length is the reach offset alone. Only a visual that
+uses the weapon reach requires a blade tip distinct from the grip point.
 `WeaponDefinition.Presentation` references an `AttackVfxDefinition` that aligns one visual with
 one attack: the start offset in the attack clip and six attack-relative directional poses (geometric anchor,
 rotation, reach offset, mirror and sorting). Weapons with different attacks reuse the same visual
 through their own alignments, so changing one attack's timing or geometry never moves another weapon's
 effect, and the art is never duplicated.
 The weapon owns its visual geometry: `BladeTip` sits in the weapon sprite's local units beside
-`GripPoint`, and their distance is the blade reach. The presenter resolves each pose through the
+`GripPoint`, and their distance is the blade reach. `AttackVfxDefinition` adds it only when its visual
+uses the weapon reach. The presenter resolves each pose through the
 visual's `TryResolvePose`, so weapons sharing an animation can share one alignment without
 per-weapon sizes, and it never reads weapon-specific measurements.
 `PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
@@ -586,6 +592,17 @@ the main-hand grip at that peak with the grip to gem axis as rotation and no rea
 0.875s, so frame 0 ignites as the gem arrives and frames 2-3 fade in place while the staff recovers.
 Sorting sits just above the held staff (21 in front facings, -9 in north facings). The staff's left hand
 is an independent authored gesture outside the main-hand chain, so it never moves the cast point.
+Long Bow is the first Bow Shot consumer. `VFX-BowShot.png` is four 96x96 px cells at 16 PPU with centered
+pivots: a release flash, then a streak, rings and remnants that travel along +X from the flash center. That
+center, `(-0.875, -0.03125)` in sprite local units, is the `BowShotVfxVisual` origin in every frame.
+`LongBowBowShotAttackVfx` plays the four 50 ms frames from 0.45s, the end of the Long Bow stringing sequence
+where the string hand releases, so the stringing stays the single source of that timing. Each facing
+anchors the bow's pivot at that release: the grip on `WeaponPose`, with the facing as rotation, because the
+presenter turns the bow along its shooting axis. The reach offset is 0.09375, from the grip to the limb's
+front edge on the center column of `LongBow.png`, so the flash leaves the bow's front in every facing. NW
+and SW mirror like the bow, and sorting sits just above the held bow (21 in front facings, -9 in north
+facings). The shot is a release impulse, not a trajectory, so neither the blade reach nor the projectile's
+range sizes it; the bow configures no blade tip for it.
 Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority

@@ -661,10 +661,10 @@ public sealed class SwordSlashPresentationTests
     public void RejectedAttack_ClearsPendingEffect()
     {
         int sword = IndexPlusOne(SwordLootPath);
-        // Long Bow has no Attack VFX.
-        int bow = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/LongBow.asset");
+        // Compound Bow has no Attack VFX.
+        int bow = IndexPlusOne("Assets/Scriptable Objects/Loot/Definitions/CompoundBow.asset");
         Assert.That(AssetDatabase.LoadAssetAtPath<LootDefinition>(
-            "Assets/Scriptable Objects/Loot/Definitions/LongBow.asset").WeaponDefinition.Presentation.AttackVfx, Is.Null);
+            "Assets/Scriptable Objects/Loot/Definitions/CompoundBow.asset").WeaponDefinition.Presentation.AttackVfx, Is.Null);
         foreach (int rejected in new[] { 0, _catalog.DefinitionCount + 1, bow })
         {
             Perform(sword, Vector2.down);

@@ -18,7 +18,7 @@ public sealed class AttackVfxDefinition : ScriptableObject
         [SerializeField, Tooltip("Geometric anchor of the visual in the Animator root space: the swing arc center for a slash, the thrust path start for a thrust, the casting grip for a cast flash.")]
         private Vector3 _position;
         [SerializeField] private Vector3 _rotation;
-        [SerializeField, Tooltip("Added to the weapon blade reach to get the visual's size along the pose axis: the blade tip's swing radius for a slash, the path length to the extended blade tip for a thrust, the distance to the casting tip for a cast flash.")]
+        [SerializeField, Tooltip("Added to the weapon blade reach to get the visual's size along the pose axis: the blade tip's swing radius for a slash, the path length to the extended blade tip for a thrust, the distance to the casting tip for a cast flash. A visual that does not use the weapon reach takes it alone: the distance to the shot origin for a bow shot.")]
         private float _reachOffset;
         [SerializeField, Tooltip("Mirrors the sprite sequence across its local X axis to match the swing's rotational sense.")]
         private bool _mirrored;
@@ -57,10 +57,14 @@ public sealed class AttackVfxDefinition : ScriptableObject
 
     public AttackVfxVisualDefinition Visual => _visual;
     public AnimationClip Clip => _visual != null ? _visual.Clip : null;
+    public bool UsesWeaponReach => _visual != null && _visual.UsesWeaponReach;
     public float StartSeconds => _startSeconds;
     public DirectionalPose GetPose(int direction) => _poses[direction];
 
-    /// <summary>Lets the visual place and size its art for the facing's anchor and the blade reach.</summary>
+    /// <summary>
+    /// Lets the visual place and size its art for the facing's anchor, adding the blade reach only when the
+    /// visual uses the weapon reach.
+    /// </summary>
     public bool TryResolvePose(int direction, float bladeReach, out ResolvedPose pose)
     {
         pose = default;
@@ -70,7 +74,8 @@ public sealed class AttackVfxDefinition : ScriptableObject
             return false;
         }
         DirectionalPose source = _poses[direction];
-        return source.IsValid && _visual.TryResolvePose(source, source.ReachOffset + bladeReach, out pose);
+        float size = _visual.UsesWeaponReach ? source.ReachOffset + bladeReach : source.ReachOffset;
+        return source.IsValid && _visual.TryResolvePose(source, size, out pose);
     }
 
     public bool TryValidate(out string error)

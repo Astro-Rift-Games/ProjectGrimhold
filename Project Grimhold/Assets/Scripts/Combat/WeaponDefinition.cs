@@ -271,7 +271,8 @@ public sealed class WeaponDefinition : ScriptableObject
                     return false;
                 }
 
-                if (BladeReach <= 0f)
+                // Only art resolved from the weapon reach needs a blade; a bow shot is placed from its pose alone.
+                if (_attackVfx.UsesWeaponReach && BladeReach <= 0f)
                 {
                     error = "attack VFX requires a blade tip distinct from the grip point.";
                     return false;

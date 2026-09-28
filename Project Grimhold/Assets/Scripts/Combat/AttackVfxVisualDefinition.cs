@@ -11,6 +11,12 @@ public abstract class AttackVfxVisualDefinition : ScriptableObject
 
     public AnimationClip Clip => _clip;
 
+    /// <summary>
+    /// Whether the art is placed or sized from the weapon's blade reach. Art that does not use it, such as a
+    /// bow's shot impulse, is resolved from its pose alone, so the weapon needs no blade tip.
+    /// </summary>
+    public virtual bool UsesWeaponReach => true;
+
     public bool TryValidate(out string error)
     {
         if (_clip == null || _clip.length <= 0f || _clip.isLooping)
@@ -22,9 +28,10 @@ public abstract class AttackVfxVisualDefinition : ScriptableObject
     }
 
     /// <summary>
-    /// Places the art for one facing. <paramref name="size"/> is a positive length, in Animator root units,
-    /// along the pose's +X axis, already derived from the weapon's blade reach. Each archetype decides what
-    /// it measures: the span its art must cover, or the offset from the anchor to the point it marks.
+    /// Places the art for one facing. <paramref name="size"/> is a length, in Animator root units, along the
+    /// pose's +X axis: the pose's reach offset plus the weapon's blade reach when <see cref="UsesWeaponReach"/>,
+    /// or the reach offset alone otherwise. Each archetype decides what it measures: the span its art must
+    /// cover, or the offset from the anchor to the point it marks.
     /// </summary>
     public abstract bool TryResolvePose(AttackVfxDefinition.DirectionalPose pose, float size,
         out AttackVfxDefinition.ResolvedPose resolved);

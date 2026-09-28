@@ -104,7 +104,10 @@ public sealed class DirectionalAttackAnimationSetTests
         // grip and the drawing hand on its string target.
         Assert.That(bow.Presentation.Rig, Is.EqualTo(WeaponRig.WeaponDriven));
         Assert.That(bow.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
-        Assert.That(bow.Presentation.AttackVfx, Is.Null);
+        // The Bow Shot is placed from the bow's own shooting axis, not from a blade reach.
+        Assert.That(bow.Presentation.AttackVfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/LongBowBowShotAttackVfx.asset")));
+        Assert.That(bow.Presentation.AttackVfx.UsesWeaponReach, Is.False);
         Assert.That(bow.TryValidate(out string validationError), Is.True, validationError);
     }
 
