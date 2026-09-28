@@ -426,7 +426,7 @@ The combat system coordinates gameplay state with the visual presentation layer 
 `NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and one `PlayerAnimatorView` over the
 modular hierarchy under `VisualRoot`. `NetworkPlayer.prefab` is the productive Raid avatar;
 the legacy `NetworkPlayerMelee.prefab` and `NetworkPlayerRanged.prefab` remain only as
-historical references. Weapon-specific grip point, angular correction and animation category
+historical references. Weapon-specific grip point, angular correction and attack animation set
 belong to `WeaponDefinition.Presentation`, while the sprite remains sourced from the linked
 `LootDefinition`. Player prefabs do not select or override those values.
 
@@ -458,8 +458,8 @@ PlayerCombatNetworkController.AttackSequence
 order; completeness requires every clip. `WeaponDefinition.Presentation` holds one
 optional set reference instead of six clips. A complete set enables `HasGenericAttack`
 and replaces only the six neutral `GenericAttack_*` slots in the local per-Animator
-override controller. The generic `Attack` route does not inspect
-`WeaponAnimationCategory`; an unarmed weapon or missing/incomplete set disables it
+override controller. The generic `Attack` route is the only attack route and depends only
+on `HasGenericAttack`; an unarmed weapon or missing/incomplete set disables it
 and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander,
 Magic Staff, Long Bow and Compound Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword,
 Zweihander, MagicStaff, LongBow and CompoundBow sets. Rondel Dagger and Magic Cinquedea
@@ -510,13 +510,10 @@ during an attack can still move the drawn second hand away from the handle.
 The second hand draws over the handle and under the main hand: sorting order 25 in front facings (weapon 20,
 attack VFX 21, main hand 30) and -5 in north facings (weapon -10, main hand -2), leaving the next slot for
 its glove.
-Category 1 and its `LegacySword-Attack` state are retired: every melee weapon, including
-`zweihander`, uses the generic `Attack` route.
-The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
-motions and is gated by `!HasGenericAttack`; no catalog weapon selects it any longer, and its removal is a
-separate follow-up. Generic Arming Sword, Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger,
-Magic Cinquedea, Magic Wand, Magic Staff, Long Bow and Compound Bow all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
-This is local presentation state,
+The legacy per-category routes (`LegacySword-Attack`, `LegacyRanged-Attack`) are retired: every catalog
+weapon, melee or ranged, uses the generic `Attack` route through its `DirectionalAttackAnimationSet`.
+`Character.controller` keeps no `WeaponAnimationCategory` parameter and `WeaponDefinition.Presentation`
+serializes no animation category. `HasGenericAttack` is local presentation state,
 not a replicated or authoritative combat decision.
 
 The trigger represents an already accepted gameplay execution; local mouse input never starts
@@ -695,17 +692,17 @@ of future scaling variation.
 
 | Loot id | Hands | Attack config | Attack animation |
 | :--- | :---: | :--- | :--- |
-| `arming_sword` | 1 | `PlayerMeleeAttackConfig` | Sword1H set (`None` category) |
-| `rapier` | 1 | `PlayerMeleeAttackConfig` | Rapier set (`None` category) |
-| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | MagicSword set (`None` category) |
-| `long_sword` | 2 | `PlayerMeleeAttackConfig` | LongSword set (two-handed; `None` category) |
-| `zweihander` | 2 | `PlayerMeleeAttackConfig` | Zweihander set (two-handed; `None` category) |
-| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips; `None` category) |
-| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set (`None` category) |
-| `long_bow` | 2 | `RangePlayerAttackConfig` | LongBow set (two-handed, held by the left hand; `None` category) |
-| `compound_bow` | 2 | `RangePlayerAttackConfig` | CompoundBow set (two-handed, held by the left hand; `None` category) |
-| `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set (`None` category) |
-| `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand; `None` category) |
+| `arming_sword` | 1 | `PlayerMeleeAttackConfig` | Sword1H set |
+| `rapier` | 1 | `PlayerMeleeAttackConfig` | Rapier set |
+| `magic_sword` | 1 | `PlayerMeleeAttackConfig` | MagicSword set |
+| `long_sword` | 2 | `PlayerMeleeAttackConfig` | LongSword set (two-handed) |
+| `zweihander` | 2 | `PlayerMeleeAttackConfig` | Zweihander set (two-handed) |
+| `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips) |
+| `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set |
+| `long_bow` | 2 | `RangePlayerAttackConfig` | LongBow set (two-handed, held by the left hand) |
+| `compound_bow` | 2 | `RangePlayerAttackConfig` | CompoundBow set (two-handed, held by the left hand) |
+| `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set |
+| `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand) |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with the owner of the weapon pose (`MainHandGrip` by default). Vertical weapon art uses a `-90` degree correction to align its
@@ -819,9 +816,8 @@ while the hands peak at 0.35 s, holds, and releases at 0.4 s, when the string ha
 spans the world sprite's 23 px and grip, but its art is one row deeper than `RecurveBow.png`, so the string shifts
 by one pixel when the sequence starts and at the release.
 
-`WeaponAnimationCategory` exposes `None` (0) for all generic weapons and `LegacyRanged` (4) for the
-retained ranged fallback route, which no catalog weapon currently uses. Numeric values 1, 2 and 3 are retired; there is no sword, Rapier or dagger
-category or Animator route.
+There is no weapon animation category: attack presentation varies only by the weapon's
+`DirectionalAttackAnimationSet`, with no per-weapon or per-category Animator route.
 
 `shield` preserves `0.5` damage reduction and a `120` degree defensive cone. Shield defense remains
 independent from attack animation categories.

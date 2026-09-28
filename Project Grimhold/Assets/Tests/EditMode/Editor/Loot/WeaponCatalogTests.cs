@@ -102,37 +102,37 @@ namespace Tests.EditMode.Loot
         {
             AssertWeapon("arming_sword", 30f, 1f, 1.5f, 15f, 5f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("rapier", 30f, 1f, 1.5f, 15f, 5f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("magic_sword", 30f, 1f, 1.5f, 15f, 5f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Strength, 5, 0, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("long_sword", 45f, 1.4f, 2f, 22f, 10f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Strength, 10, 0, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("zweihander", 45f, 1.4f, 2f, 22f, 10f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Strength, 10, 0, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("rondel_dagger", 18f, 0.55f, 1f, 10f, 0f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 5, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("magic_cinquedea", 18f, 0.55f, 1f, 10f, 0f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 5, 0,
-                WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
+                typeof(MeleeAttackConfig));
             AssertWeapon("long_bow", 28f, 0.9f, 6f, 14f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
-                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
+                typeof(RangedAttackConfig));
             AssertWeapon("compound_bow", 56f, 1.8f, 12f, 28f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
-                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
+                typeof(RangedAttackConfig));
             AssertWeapon("magic_wand", 22f, 0.7f, 5f, 10f, 0f, DamageType.Magical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Intelligence, 0, 0, 5,
-                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
+                typeof(RangedAttackConfig));
             AssertWeapon("magic_staff", 45f, 1.4f, 7f, 22f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 15,
-                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
+                typeof(RangedAttackConfig));
         }
 
         [Test]
@@ -170,53 +170,27 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void CatalogWeapons_UseOnlyAnimatorSupportedAttackCategories()
+        public void CatalogWeapons_UseOnlyTheGenericAttackRoute()
         {
             AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
             Assert.That(controller, Is.Not.Null);
             AnimatorControllerLayer attackLayer =
                 controller.layers.Single(layer => layer.name == "RightHand");
 
-            var supported = new HashSet<WeaponAnimationCategory>();
-            foreach (AnimatorStateTransition transition in attackLayer.stateMachine.anyStateTransitions)
-            {
-                AnimatorCondition condition = transition.conditions.SingleOrDefault(candidate =>
-                    candidate.parameter == "WeaponAnimationCategory");
-                if (!string.IsNullOrEmpty(condition.parameter))
-                {
-                    supported.Add((WeaponAnimationCategory)(int)condition.threshold);
-                }
-            }
-
-            Assert.That(supported, Is.EquivalentTo(new[]
-            {
-                WeaponAnimationCategory.LegacyRanged
-            }));
-
-            Assert.That((int)WeaponAnimationCategory.None, Is.Zero);
-            Assert.That(Enum.IsDefined(typeof(WeaponAnimationCategory), 1), Is.False);
-            Assert.That(Enum.IsDefined(typeof(WeaponAnimationCategory), 2), Is.False);
-            Assert.That(Enum.IsDefined(typeof(WeaponAnimationCategory), 3), Is.False);
-            Assert.That((int)WeaponAnimationCategory.LegacyRanged, Is.EqualTo(4));
-            Assert.That(attackLayer.stateMachine.anyStateTransitions.Any(transition =>
-                transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
-                    (condition.threshold == 1f || condition.threshold == 3f))), Is.False);
+            Assert.That(controller.parameters.Any(parameter => parameter.name == "WeaponAnimationCategory"), Is.False);
+            AnimatorStateTransition route = attackLayer.stateMachine.anyStateTransitions.Single();
+            Assert.That(route.destinationState.name, Is.EqualTo("Attack"));
+            Assert.That(route.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
+                condition.mode == AnimatorConditionMode.If), Is.True);
+            Assert.That(typeof(WeaponDefinition).Assembly.GetType("WeaponAnimationCategory"), Is.Null);
 
             foreach (string id in WeaponIds)
             {
-                _catalog.TryGet(id, out LootDefinition definition);
-                Assert.That((int)definition.WeaponDefinition.Presentation.AnimationCategory, Is.Not.EqualTo(3), id);
-                WeaponDefinition.PresentationConfig presentation = definition.WeaponDefinition.Presentation;
-                if (new[] { "arming_sword", "rapier", "magic_sword", "long_sword", "zweihander", "rondel_dagger", "magic_cinquedea", "magic_wand", "magic_staff", "long_bow", "compound_bow" }.Contains(id))
-                {
-                    Assert.That(presentation.HasGenericAttack, Is.True, id);
-                    Assert.That(presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None), id);
-                }
-                else
-                {
-                    Assert.That(presentation.HasGenericAttack, Is.False, id);
-                    Assert.That(supported, Does.Contain(presentation.AnimationCategory), id);
-                }
+                Assert.That(_catalog.TryGet(id, out LootDefinition definition), Is.True, id);
+                Assert.That(definition.WeaponDefinition.Presentation.HasGenericAttack, Is.True, id);
+                string weaponAsset = System.IO.File.ReadAllText(
+                    AssetDatabase.GetAssetPath(definition.WeaponDefinition));
+                Assert.That(weaponAsset, Does.Not.Contain("_animationCategory"), id);
             }
         }
 
@@ -233,7 +207,6 @@ namespace Tests.EditMode.Loot
             int strength,
             int dexterity,
             int intelligence,
-            WeaponAnimationCategory animationCategory,
             Type attackConfigType)
         {
             Assert.That(_catalog.TryGet(id, out LootDefinition loot), Is.True, id);
@@ -253,7 +226,6 @@ namespace Tests.EditMode.Loot
             Assert.That(weapon.AttributeRequirements.MinimumStrength, Is.EqualTo(strength), id);
             Assert.That(weapon.AttributeRequirements.MinimumDexterity, Is.EqualTo(dexterity), id);
             Assert.That(weapon.AttributeRequirements.MinimumIntelligence, Is.EqualTo(intelligence), id);
-            Assert.That(weapon.Presentation.AnimationCategory, Is.EqualTo(animationCategory), id);
             Assert.That(weapon.PrimaryAttack.GetType(), Is.EqualTo(attackConfigType), id);
         }
     }

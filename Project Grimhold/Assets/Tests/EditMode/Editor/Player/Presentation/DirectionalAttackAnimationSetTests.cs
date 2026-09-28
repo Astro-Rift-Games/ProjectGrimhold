@@ -41,7 +41,6 @@ public sealed class DirectionalAttackAnimationSetTests
         WeaponDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset");
         Assert.That(longSword.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
-        Assert.That(longSword.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         Assert.That(longSword.Presentation.HasGenericAttack, Is.True);
         Assert.That(longSword.Presentation.AttackAnimationSet, Is.SameAs(
             AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "LongSword.asset")));
@@ -58,7 +57,6 @@ public sealed class DirectionalAttackAnimationSetTests
         WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset");
         Assert.That(zweihander.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
-        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         Assert.That(zweihander.Presentation.HasGenericAttack, Is.True);
         Assert.That(zweihander.Presentation.AttackAnimationSet, Is.SameAs(
             AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "Zweihander.asset")));
@@ -76,7 +74,6 @@ public sealed class DirectionalAttackAnimationSetTests
         WeaponDefinition staff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset");
         Assert.That(staff.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
-        Assert.That(staff.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         Assert.That(staff.Presentation.HasGenericAttack, Is.True);
         Assert.That(staff.Presentation.AttackAnimationSet, Is.SameAs(
             AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "MagicStaff.asset")));
@@ -95,7 +92,6 @@ public sealed class DirectionalAttackAnimationSetTests
     {
         WeaponDefinition bow = Bow(bowName);
         Assert.That(bow.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
-        Assert.That(bow.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         Assert.That(bow.Presentation.HasGenericAttack, Is.True);
         Assert.That(bow.Presentation.AttackAnimationSet, Is.SameAs(
             AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + bowName + ".asset")));

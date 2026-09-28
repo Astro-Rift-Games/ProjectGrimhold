@@ -209,13 +209,9 @@ public sealed class WeaponDefinition : ScriptableObject
         [SerializeField]
         private float _angleCorrection;
 
-        [SerializeField]
-        private WeaponAnimationCategory _animationCategory;
-
         public Vector2 StanceOffset => _stanceOffset;
         public Vector2 GripPoint => _gripPoint;
         public float AngleCorrection => _angleCorrection;
-        public WeaponAnimationCategory AnimationCategory => _animationCategory;
 
         [SerializeField] private DirectionalAttackAnimationSet _attackAnimationSet;
 
@@ -285,12 +281,6 @@ public sealed class WeaponDefinition : ScriptableObject
             if (_attackSpriteAnimation != null &&
                 !_attackSpriteAnimation.TryValidateAttackSet(_attackAnimationSet, out error))
             {
-                return false;
-            }
-
-            if (!System.Enum.IsDefined(typeof(WeaponAnimationCategory), _animationCategory))
-            {
-                error = $"animation category '{(int)_animationCategory}' is unsupported.";
                 return false;
             }
 

@@ -246,7 +246,6 @@ public sealed class BowShotPresentationTests
             animator.SetFloat("MoveY", -1f);
             animator.SetBool("IsMoving", false);
             animator.SetBool("HasGenericAttack", true);
-            animator.SetInteger("WeaponAnimationCategory", (int)bow.Presentation.AnimationCategory);
             typeof(PlayerAttackVfxPresenter).GetMethod("OnEnable", Private).Invoke(presenter, null);
             animator.SetTrigger("OnAttack");
 

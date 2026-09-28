@@ -264,25 +264,21 @@ public sealed class PlayerAnimatorViewTests
     }
 
     [Test]
-    public void CharacterController_EachWeaponAttackUsesSixDirectionalOneShotClips()
+    public void MagicWandAttackSet_UsesSixDirectionalOneShotClips()
     {
-        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
-        AnimatorControllerLayer rightHandLayer = controller.layers.Single(layer => layer.name == "RightHand");
         string[] weapons = { "MagicWand" };
 
         foreach (string weapon in weapons)
         {
-            string stateName = "LegacyRanged";
-            AnimatorState state = FindState(rightHandLayer, $"{stateName}-Attack");
+            WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+                $"Assets/Scriptable Objects/Loot/Definitions/{weapon}WeaponDefinition.asset");
             AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 $"Assets/Animations/Weapons/{weapon}_Attack.anim");
-            Assert.That(state.tag, Is.EqualTo("Attack"));
-            AssertDirectionalTree(state.motion, $"{stateName}-Attack-Directional");
+            Assert.That(definition.Presentation.HasGenericAttack, Is.True, weapon);
 
-            BlendTree tree = (BlendTree)state.motion;
-            foreach (ChildMotion child in tree.children)
+            for (int direction = 0; direction < 6; direction++)
             {
-                AnimationClip clip = child.motion as AnimationClip;
+                AnimationClip clip = definition.Presentation.GetAttackClip(direction);
                 Assert.That(clip, Is.Not.Null);
                 Assert.That(clip.isLooping, Is.False, $"{clip.name} must remain one-shot.");
                 Assert.That(
@@ -322,21 +318,16 @@ public sealed class PlayerAnimatorViewTests
         }
 
         Assert.That(layer.stateMachine.states.Any(child => child.state.name == "LegacySword-Attack"), Is.False);
-        Assert.That(layer.stateMachine.anyStateTransitions.Any(transition =>
-            transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
-                condition.threshold == 1f)), Is.False);
         AnimatorStateTransition genericRoute = layer.stateMachine.anyStateTransitions.Single(
             transition => transition.destinationState == generic);
         Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
             condition.mode == AnimatorConditionMode.If), Is.True);
-        Assert.That(genericRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory"), Is.False);
         Assert.That(AssetDatabase.LoadAllAssetsAtPath(AnimatorControllerPath).OfType<BlendTree>()
             .Any(tree => tree.name == "LegacySword-Attack-Directional"), Is.False);
 
         WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset");
         Assert.That(zweihander.Presentation.HasGenericAttack, Is.True);
-        Assert.That(zweihander.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         string[] zweihanderDirections = { "N", "NE", "NW", "S", "SE", "SW" };
         for (int index = 0; index < zweihanderDirections.Length; index++)
         {
@@ -348,7 +339,6 @@ public sealed class PlayerAnimatorViewTests
         WeaponDefinition magicStaff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset");
         Assert.That(magicStaff.Presentation.HasGenericAttack, Is.True);
-        Assert.That(magicStaff.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < zweihanderDirections.Length; index++)
         {
             Assert.That(magicStaff.Presentation.GetAttackClip(index), Is.SameAs(
@@ -361,7 +351,6 @@ public sealed class PlayerAnimatorViewTests
             WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{bowName}WeaponDefinition.asset");
             Assert.That(bow.Presentation.HasGenericAttack, Is.True, bowName);
-            Assert.That(bow.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None), bowName);
             for (int index = 0; index < zweihanderDirections.Length; index++)
             {
                 Assert.That(bow.Presentation.GetAttackClip(index), Is.SameAs(
@@ -385,7 +374,6 @@ public sealed class PlayerAnimatorViewTests
         WeaponDefinition rapier = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset");
         Assert.That(rapier.Presentation.HasGenericAttack, Is.True);
-        Assert.That(rapier.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < directions.Length; index++)
         {
             Assert.That(rapier.Presentation.GetAttackClip(index), Is.SameAs(
@@ -397,7 +385,6 @@ public sealed class PlayerAnimatorViewTests
         WeaponDefinition rondel = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset");
         Assert.That(rondel.Presentation.HasGenericAttack, Is.True);
-        Assert.That(rondel.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < directions.Length; index++)
         {
             Assert.That(rondel.Presentation.GetAttackClip(index), Is.SameAs(
@@ -408,7 +395,6 @@ public sealed class PlayerAnimatorViewTests
         WeaponDefinition wand = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicWandWeaponDefinition.asset");
         Assert.That(wand.Presentation.HasGenericAttack, Is.True);
-        Assert.That(wand.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < directions.Length; index++)
             Assert.That(wand.Presentation.GetAttackClip(index), Is.SameAs(
                 AssetDatabase.LoadAssetAtPath<AnimationClip>(
@@ -417,25 +403,17 @@ public sealed class PlayerAnimatorViewTests
         WeaponDefinition magicSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset");
         Assert.That(magicSword.Presentation.HasGenericAttack, Is.True);
-        Assert.That(magicSword.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < directions.Length; index++)
             Assert.That(magicSword.Presentation.GetAttackClip(index), Is.SameAs(
                 AssetDatabase.LoadAssetAtPath<AnimationClip>(
                     $"Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_{directions[index]}.anim")));
         Assert.That(layer.stateMachine.states.Any(child => child.state.name == "MagicSword-Attack"), Is.False);
-        AnimatorState ranged = FindState(layer, "LegacyRanged-Attack");
-        Assert.That(ranged.tag, Is.EqualTo("Attack"));
-        AssertDirectionalTree(ranged.motion, "LegacyRanged-Attack-Directional");
-        AnimatorStateTransition rangedRoute = layer.stateMachine.anyStateTransitions.Single(
-            transition => transition.destinationState == ranged);
-        Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
-            condition.threshold == 4f), Is.True);
-        Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
-            condition.mode == AnimatorConditionMode.IfNot), Is.True);
+        Assert.That(layer.stateMachine.states.Any(child => child.state.name == "LegacyRanged-Attack"), Is.False);
+        Assert.That(AssetDatabase.LoadAllAssetsAtPath(AnimatorControllerPath).OfType<BlendTree>()
+            .Any(tree => tree.name == "LegacyRanged-Attack-Directional"), Is.False);
         WeaponDefinition cinquedea = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset");
         Assert.That(cinquedea.Presentation.HasGenericAttack, Is.True);
-        Assert.That(cinquedea.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
         for (int index = 0; index < directions.Length; index++)
         {
             Assert.That(cinquedea.Presentation.GetAttackClip(index),
@@ -445,27 +423,27 @@ public sealed class PlayerAnimatorViewTests
         Assert.That(AssetDatabase.LoadAllAssetsAtPath(AnimatorControllerPath).OfType<BlendTree>()
             .Any(tree => tree.name == "RondelDagger-Attack-Directional" ||
                 tree.name == "LegacyDagger-Attack-Directional"), Is.False);
-        Assert.That(layer.stateMachine.anyStateTransitions.Any(transition =>
-            transition.conditions.Any(condition => condition.parameter == "WeaponAnimationCategory" &&
-                condition.threshold == 3f)), Is.False);
     }
 
-    [TestCase("arming_sword", true)]
-    [TestCase("rapier", true)]
-    [TestCase("rondel_dagger", true)]
-    [TestCase("magic_sword", true)]
-    [TestCase("long_sword", true)]
-    [TestCase("zweihander", true)]
-    [TestCase("magic_cinquedea", true)]
-    [TestCase("magic_wand", true)]
-    public void ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation(string lootId, bool generic)
+    [TestCase("arming_sword")]
+    [TestCase("rapier")]
+    [TestCase("rondel_dagger")]
+    [TestCase("magic_sword")]
+    [TestCase("long_sword")]
+    [TestCase("zweihander")]
+    [TestCase("magic_cinquedea")]
+    [TestCase("magic_wand")]
+    [TestCase("magic_staff")]
+    [TestCase("long_bow")]
+    [TestCase("compound_bow")]
+    public void ConfirmedCatalogIdentity_UsesItsOwnGenericAnimation(string lootId)
     {
         LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
             "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
         Assert.That(catalog, Is.Not.Null);
         Assert.That(catalog.TryGetIndex(new LootId(lootId), out int index), Is.True);
 
-        var gameObject = new GameObject(nameof(ConfirmedCatalogIdentity_UsesItsOwnGenericOrLegacyAnimation));
+        var gameObject = new GameObject(nameof(ConfirmedCatalogIdentity_UsesItsOwnGenericAnimation));
         try
         {
             Animator animator = gameObject.AddComponent<Animator>();
@@ -483,25 +461,16 @@ public sealed class PlayerAnimatorViewTests
                 BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, definition);
             typeof(PlayerAnimatorView).GetField("_attackWeaponPinned",
                 BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, true);
-            MethodInfo refresh = typeof(PlayerAnimatorView).GetMethod("RefreshWeaponAnimationCategory",
+            MethodInfo refresh = typeof(PlayerAnimatorView).GetMethod("RefreshAttackAnimation",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             refresh.Invoke(view, null);
 
-            Assert.That(animator.GetBool("HasGenericAttack"), Is.EqualTo(generic));
-            Assert.That(animator.GetInteger("WeaponAnimationCategory"),
-                Is.EqualTo((int)definition.WeaponDefinition.Presentation.AnimationCategory));
+            Assert.That(animator.GetBool("HasGenericAttack"), Is.True);
             AnimationClip placeholder = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 "Assets/Animations/Player/Attack/GenericAttack_S.anim");
             AnimatorOverrideController overrides = animator.runtimeAnimatorController as AnimatorOverrideController;
-            if (generic)
-            {
-                Assert.That(overrides, Is.Not.Null);
-                Assert.That(overrides[placeholder], Is.SameAs(definition.WeaponDefinition.Presentation.GetAttackClip(3)));
-            }
-            else
-            {
-                Assert.That(overrides, Is.Null);
-            }
+            Assert.That(overrides, Is.Not.Null);
+            Assert.That(overrides[placeholder], Is.SameAs(definition.WeaponDefinition.Presentation.GetAttackClip(3)));
         }
         finally
         {

@@ -719,7 +719,6 @@ public sealed class SwordSlashPresentationTests
             animator.SetFloat("MoveY", -1f);
             animator.SetBool("IsMoving", false);
             animator.SetBool("HasGenericAttack", true);
-            animator.SetInteger("WeaponAnimationCategory", (int)sword.Presentation.AnimationCategory);
             typeof(PlayerAttackVfxPresenter).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(presenter, null);
             animator.SetTrigger("OnAttack");
             Perform(IndexPlusOne(lootPath), Vector2.down, AttackType.Melee, presenter);

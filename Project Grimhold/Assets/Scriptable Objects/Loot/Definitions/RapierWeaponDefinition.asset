@@ -28,7 +28,6 @@ MonoBehaviour:
     _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.625}
     _angleCorrection: -90
-    _animationCategory: 0
     _attackAnimationSet: {fileID: 11400000, guid: 919276f12b0846f6aa78763c233eac59, type: 2}
     _attackVfx: {fileID: 11400000, guid: bbc1448311663fc44935000630ee4b91, type: 2}
     _bladeTip: {x: 0, y: 0.8125}

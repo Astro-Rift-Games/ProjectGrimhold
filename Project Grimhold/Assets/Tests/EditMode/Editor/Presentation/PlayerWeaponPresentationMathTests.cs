@@ -167,8 +167,8 @@ namespace Tests.EditMode.Presentation
             Assert.That(controller, Is.Not.Null);
 
             AssertParameter(controller, "OnAttack", AnimatorControllerParameterType.Trigger);
-            AssertParameter(controller, "WeaponAnimationCategory", AnimatorControllerParameterType.Int);
             AssertParameter(controller, "HasGenericAttack", AnimatorControllerParameterType.Bool);
+            Assert.That(controller.parameters.Any(parameter => parameter.name == "WeaponAnimationCategory"), Is.False);
             Assert.That(controller.parameters.Any(parameter => parameter.name == "IsLMBPressed"), Is.False);
             Assert.That(controller.parameters.Any(parameter => parameter.name == "IsRMBPressed"), Is.False);
 
@@ -179,7 +179,9 @@ namespace Tests.EditMode.Presentation
                 .Where(state => state.tag == "Attack")
                 .ToArray();
             Assert.That(attackStates.Select(state => state.name),
-                Is.EquivalentTo(new[] { "Attack", "LegacyRanged-Attack" }));
+                Is.EquivalentTo(new[] { "Attack" }));
+            Assert.That(attackLayer.stateMachine.anyStateTransitions.Select(transition => transition.destinationState),
+                Is.EquivalentTo(attackStates));
             Assert.That(attackLayer.stateMachine.states.Any(child =>
                 child.state.name.StartsWith("MagicWand-")), Is.False);
             Assert.That(attackStates.All(state => state.motion is BlendTree), Is.True);
@@ -208,8 +210,6 @@ namespace Tests.EditMode.Presentation
             LootDefinition definition = AssetDatabase.LoadAssetAtPath<LootDefinition>(TrainingSwordPath);
             Assert.That(definition, Is.Not.Null);
             Assert.That(definition.WeaponDefinition, Is.Not.Null);
-            Assert.That(definition.WeaponDefinition.Presentation.AnimationCategory,
-                Is.EqualTo(WeaponAnimationCategory.None));
             Assert.That(definition.WeaponDefinition.Presentation.HasGenericAttack, Is.True);
             Assert.That(definition.WeaponDefinition.Presentation.AttackAnimationSet, Is.Not.Null);
 

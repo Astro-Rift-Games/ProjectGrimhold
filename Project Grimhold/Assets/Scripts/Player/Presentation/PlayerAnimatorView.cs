@@ -11,8 +11,6 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private static readonly int LocomotionPlaybackRateHash =
         Animator.StringToHash("LocomotionPlaybackRate");
-    private static readonly int WeaponAnimationCategoryHash =
-        Animator.StringToHash("WeaponAnimationCategory");
     private static readonly int HasGenericAttackHash = Animator.StringToHash("HasGenericAttack");
     private static readonly string[] AttackDirections = { "N", "NE", "NW", "S", "SE", "SW" };
     private const string MainHandCombatLayerName = "RightHand";
@@ -184,7 +182,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         {
             _confirmedAttackWeapon = null;
         }
-        RefreshWeaponAnimationCategory();
+        RefreshAttackAnimation();
         ApplyTemporalFacingDirection(attackEvent.Direction);
         _hasObservedAttackState = false;
         TriggerAttack();
@@ -197,10 +195,10 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             return;
         }
 
-        RefreshWeaponAnimationCategory();
+        RefreshAttackAnimation();
     }
 
-    private void RefreshWeaponAnimationCategory()
+    private void RefreshAttackAnimation()
     {
         WeaponDefinition weapon = _attackWeaponPinned
             ? _confirmedAttackWeapon.WeaponDefinition : null;
@@ -220,8 +218,6 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
         AnimatorInstance.SetBool(HasGenericAttackHash, weapon != null &&
             weapon.Presentation.HasGenericAttack && _attackOverrides != null);
-        AnimatorInstance.SetInteger(WeaponAnimationCategoryHash,
-            (int)(weapon != null ? weapon.Presentation.AnimationCategory : WeaponAnimationCategory.None));
     }
 
     private void RefreshAttackOverrides(WeaponDefinition weapon)
@@ -323,7 +319,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             ClearTemporalFacingDirection();
             _confirmedAttackWeapon = null;
             _attackWeaponPinned = false;
-            RefreshWeaponAnimationCategory();
+            RefreshAttackAnimation();
         }
     }
 
