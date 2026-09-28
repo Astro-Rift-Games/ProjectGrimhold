@@ -17,6 +17,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("LongSword", "LongSword")]
     [TestCase("Zweihander", "Zweihander")]
     [TestCase("MagicStaff", "MagicStaff")]
+    [TestCase("LongBow", "LongBow")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -86,6 +87,118 @@ public sealed class DirectionalAttackAnimationSetTests
         Assert.That(staff.Presentation.AttackVfx, Is.Not.Null);
         Assert.That(staff.TryValidate(out string validationError), Is.True, validationError);
     }
+
+    [Test]
+    public void LongBow_IsTwoHandedGenericAttackDrivenByItsOwnPose()
+    {
+        WeaponDefinition bow = LongBow();
+        Assert.That(bow.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(bow.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        Assert.That(bow.Presentation.HasGenericAttack, Is.True);
+        Assert.That(bow.Presentation.AttackAnimationSet, Is.SameAs(
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "LongBow.asset")));
+        // LongBow.png shoots along sprite +Y, which a -90 degree correction aligns with the presenter's
+        // facing axis (+X). Its grip point is derived from the art in LongBow_GripPointIsTheCenterOfTheHandle.
+        Assert.That(bow.Presentation.AngleCorrection, Is.EqualTo(-90f));
+        // The bow owns its pose: its visual follows WeaponPose, and the baked attack places the bow arm on its
+        // grip and the drawing hand on its string target.
+        Assert.That(bow.Presentation.Rig, Is.EqualTo(WeaponRig.WeaponDriven));
+        Assert.That(bow.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
+        Assert.That(bow.Presentation.AttackVfx, Is.Null);
+        Assert.That(bow.TryValidate(out string validationError), Is.True, validationError);
+    }
+
+    [Test]
+    public void LongBow_GripPointIsTheCenterOfTheHandle()
+    {
+        // The bow's handle is the middle of its limb: in the sprite's center column, the first opaque run from
+        // the top is the limb (outline, wood, outline) and the last one is the string. The grip is the center of
+        // the limb run, measured from the sprite pivot in Unity's bottom-up pixel space.
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/LongBow.asset").WorldSprite;
+        Assert.That(sprite, Is.Not.Null);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(sprite.texture))), Is.True);
+            Rect rect = sprite.rect;
+            Assert.That((int)rect.width % 2, Is.EqualTo(1), "An odd width gives the bow a single center column.");
+            int column = (int)rect.x + (int)rect.width / 2;
+            int top = (int)rect.yMax - 1;
+            while (top >= rect.y && texture.GetPixel(column, top).a == 0f) top--;
+            int bottom = top;
+            while (bottom - 1 >= rect.y && texture.GetPixel(column, bottom - 1).a > 0f) bottom--;
+            Assert.That(top - bottom + 1, Is.EqualTo(3), "The limb is one wood row between two outline rows.");
+            Assert.That(texture.GetPixel(column, (int)rect.y).a, Is.GreaterThan(0f), "The string closes the bottom row.");
+
+            Vector2 handle = new Vector2(column + 0.5f - rect.x, (top + bottom + 1) * 0.5f - rect.y);
+            Vector2 expected = (handle - sprite.pivot) / sprite.pixelsPerUnit;
+            Vector2 grip = LongBow().Presentation.GripPoint;
+            Assert.That(grip.x, Is.EqualTo(expected.x).Within(0.00001f));
+            Assert.That(grip.y, Is.EqualTo(expected.y).Within(0.00001f));
+        }
+        finally { UnityEngine.Object.DestroyImmediate(texture); }
+    }
+
+    [TestCase(0f, -1f)]
+    [TestCase(1f, -1f)]
+    [TestCase(-1f, -1f)]
+    [TestCase(0f, 1f)]
+    [TestCase(1f, 1f)]
+    [TestCase(-1f, 1f)]
+    public void LongBow_PresenterHoldsTheGripAndShootsAlongTheFacing(float x, float y)
+    {
+        WeaponDefinition.PresentationConfig presentation = LongBow().Presentation;
+        Vector2 facing = new Vector2(x, y).normalized;
+        const float stringY = -0.1875f;
+
+        Assert.That(BowPoint(presentation, facing, presentation.GripPoint).magnitude, Is.LessThan(0.00001f),
+            "The grip lands on MainHandGrip.");
+        Vector2 shot = BowPoint(presentation, facing, presentation.GripPoint + Vector2.up) -
+            BowPoint(presentation, facing, presentation.GripPoint);
+        Assert.That(Vector2.Dot(shot.normalized, facing), Is.EqualTo(1f).Within(0.00001f),
+            "Sprite +Y shoots along the facing, mirrored or not.");
+        Vector2 toString = BowPoint(presentation, facing, new Vector2(0f, stringY));
+        Assert.That(Vector2.Dot(toString, facing), Is.LessThan(0f), "The string sits behind the grip.");
+        Assert.That(Mathf.Abs(Cross(toString, facing)), Is.LessThan(0.00001f), "The string is centered on the shot.");
+        Vector2 limbs = BowPoint(presentation, facing, presentation.GripPoint + Vector2.right) -
+            BowPoint(presentation, facing, presentation.GripPoint);
+        Assert.That(Vector2.Dot(limbs, facing), Is.EqualTo(0f).Within(0.00001f), "The limbs span across the shot.");
+    }
+
+    [TestCase("ArmingSwordWeaponDefinition")]
+    [TestCase("RapierWeaponDefinition")]
+    [TestCase("RondelDaggerWeaponDefinition")]
+    [TestCase("MagicCinquedeaWeaponDefinition")]
+    [TestCase("MagicWandWeaponDefinition")]
+    [TestCase("MagicSwordWeaponDefinition")]
+    [TestCase("LongSwordCombatDefinition")]
+    [TestCase("ZweihanderWeaponDefinition")]
+    [TestCase("MagicStaffWeaponDefinition")]
+    public void OtherGenericWeapons_KeepTheirVisualInTheMainHand(string definition)
+    {
+        WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            $"Assets/Scriptable Objects/Loot/Definitions/{definition}.asset");
+        Assert.That(weapon, Is.Not.Null, definition);
+        Assert.That(weapon.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld), definition);
+        Assert.That(weapon.TryValidate(out string error), Is.True, error);
+    }
+
+    // Position of a bow sprite point relative to WeaponPose, following the presenter: the pivot turns to the
+    // facing and mirrors Y when facing left, and the visual is grip-aligned and turned by the angle correction.
+    private static Vector2 BowPoint(WeaponDefinition.PresentationConfig presentation, Vector2 facing, Vector2 point)
+    {
+        Vector2 visual = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+            presentation.GripPoint, Vector2.one, presentation.AngleCorrection);
+        Vector2 local = visual + (Vector2)(Quaternion.Euler(0f, 0f, presentation.AngleCorrection) * point);
+        if (PlayerWeaponPresentationMath.ShouldMirror(facing)) local.y = -local.y;
+        return Quaternion.Euler(0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing)) * local;
+    }
+
+    private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+    private static WeaponDefinition LongBow() => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+        "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset");
 
     [Test]
     public void MissingAnyDirection_DisablesCompleteness()

@@ -251,9 +251,12 @@ public sealed class PlayerAnimatorViewTests
                     .ToArray();
 
                 Assert.That(positionBindings, Is.Not.Empty, path);
+                Assert.That(positionBindings.Any(binding =>
+                    binding.path == "RightHandPivot/RightHand/MainHandGrip"), Is.True, path);
+                // A weapon-driven rig rests WeaponPose in the drawn left hand, as MainHandGrip tracks the right.
                 Assert.That(
                     positionBindings.All(binding =>
-                        binding.path == "RightHandPivot/RightHand/MainHandGrip"),
+                        binding.path == "RightHandPivot/RightHand/MainHandGrip" || binding.path == "WeaponPose"),
                     Is.True,
                     $"{path} must keep the weapon grip aligned with the authored hand pose.");
             }
@@ -353,6 +356,17 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/MagicStaff/MagicStaff_Attack_{zweihanderDirections[index]}.anim")));
         }
 
+        WeaponDefinition longBow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset");
+        Assert.That(longBow.Presentation.HasGenericAttack, Is.True);
+        Assert.That(longBow.Presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None));
+        for (int index = 0; index < zweihanderDirections.Length; index++)
+        {
+            Assert.That(longBow.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/LongBow/LongBow_Attack_{zweihanderDirections[index]}.anim")));
+        }
+
         WeaponDefinition sword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset");
         Assert.That(sword.Presentation.HasGenericAttack, Is.True);
@@ -414,7 +428,7 @@ public sealed class PlayerAnimatorViewTests
             condition.threshold == 4f), Is.True);
         Assert.That(rangedRoute.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
             condition.mode == AnimatorConditionMode.IfNot), Is.True);
-        foreach (string name in new[] { "LongBowWeaponDefinition", "CompoundBowWeaponDefinition" })
+        foreach (string name in new[] { "CompoundBowWeaponDefinition" })
         {
             WeaponDefinition fallback = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{name}.asset");

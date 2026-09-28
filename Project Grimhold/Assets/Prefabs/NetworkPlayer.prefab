@@ -5301,6 +5301,37 @@ Transform:
   - {fileID: 726070400954003540}
   m_Father: {fileID: 7397229956843810041}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6068095686071359075
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3584831585979483659}
+  m_Layer: 7
+  m_Name: WeaponPose
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3584831585979483659
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6068095686071359075}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7397229956843810001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2408805181285633772
 GameObject:
   m_ObjectHideFlags: 0
@@ -5348,6 +5379,8 @@ MonoBehaviour:
   _animatorView: {fileID: 7572879158521877428}
   _equipmentSource: {fileID: 8300000000000000005}
   _mainHandGrip: {fileID: 2222222222222222222}
+  _weaponPose: {fileID: 3584831585979483659}
+  _weaponPoseHandRenderer: {fileID: 7397229956843810042}
   _mainHandWeaponPivot: {fileID: 6727737383359403759}
   _mainHandWeaponVisual: {fileID: 1771784473681192027}
   _mainHandRenderer: {fileID: 4522316450052852347}
@@ -7241,6 +7274,7 @@ Transform:
   - {fileID: 3347708108045665961}
   - {fileID: 6860150675624511344}
   - {fileID: 8732000000000000003}
+  - {fileID: 3584831585979483659}
   m_Father: {fileID: 2520259848855165086}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8732000000000000001

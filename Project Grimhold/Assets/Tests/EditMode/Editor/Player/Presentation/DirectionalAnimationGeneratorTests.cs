@@ -14,14 +14,17 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
     private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
     private const string SecondHand = "LeftHandPivot/LeftHand";
+    private const string WeaponPose = "WeaponPose";
     private const string LongSwordSource = "Assets/Animations/Weapons/LongSword_Attack.anim";
     private const string LongSwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
     private const string ZweihanderDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset";
     private const string MagicStaffDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
+    private const string LongBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset";
 
     [TestCase("LongSword")]
     [TestCase("Zweihander")]
     [TestCase("MagicStaff")]
+    [TestCase("LongBow")]
     public void TwoHandedOutputs_BakeFromSouthAndRemainStableOnRepeat(string weapon)
     {
         AnimationClip source = TwoHandedSource(weapon);
@@ -29,7 +32,8 @@ public sealed class DirectionalAnimationGeneratorTests
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         if (weapon == "LongSword") DirectionalAnimationGenerator.GenerateLongSwordAssets();
         else if (weapon == "Zweihander") DirectionalAnimationGenerator.GenerateZweihanderAssets();
-        else DirectionalAnimationGenerator.GenerateMagicStaffAssets();
+        else if (weapon == "MagicStaff") DirectionalAnimationGenerator.GenerateMagicStaffAssets();
+        else DirectionalAnimationGenerator.GenerateLongBowAssets();
         foreach (string direction in directions)
         {
             string path = TwoHandedOutput(weapon, direction);
@@ -358,6 +362,242 @@ public sealed class DirectionalAnimationGeneratorTests
             Assert.That(error, Does.Contain("second-hand presentation"));
         }
         finally { UnityEngine.Object.DestroyImmediate(oneHanded); }
+    }
+
+    [TestCase("N", 180f)]
+    [TestCase("NE", 135f)]
+    [TestCase("NW", -135f)]
+    [TestCase("S", 0f)]
+    [TestCase("SE", 45f)]
+    [TestCase("SW", -45f)]
+    public void LongBowOutput_WeaponPoseOwnsTheBowAndPlacesBothHandsOnIt(string direction, float angle)
+    {
+        AnimationClip source = TwoHandedSource("LongBow");
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput("LongBow", direction));
+        Assert.That(source, Is.Not.Null);
+        Assert.That(clip, Is.Not.Null);
+
+        // The authored source stays untouched: it loops, the left hand is the bow arm and the right hand draws.
+        Assert.That(AnimationUtility.GetAnimationClipSettings(source).loopTime, Is.True);
+        Assert.That(Curve(source, Hand, "localEulerAnglesRaw.z"), Is.Null);
+        Assert.That(Curve(source, SecondHand, "localEulerAnglesRaw.z"), Is.Not.Null);
+
+        // The authored motion plays whole between an ease out of locomotion and an ease back into it.
+        const float blend = DirectionalAnimationGenerator.WeaponDrivenBlendSeconds;
+        Assert.That(clip.isLooping, Is.False);
+        Assert.That(clip.length, Is.EqualTo(source.length + 2f * blend).Within(0.00001f));
+        Assert.That(AnimationUtility.GetCurveBindings(clip).All(b => b.path == Hand || b.path == Grip ||
+            (b.type == typeof(Transform) && (b.path == SecondHand || b.path == WeaponPose))), Is.True,
+            "Only both hands and the weapon pose move; the presenter owns the bow hand's sorting.");
+        Assert.That(AnimationUtility.GetObjectReferenceCurveBindings(clip).All(b => b.path == Hand), Is.True,
+            "The LeftHand layer keeps owning the second-hand sprite.");
+
+        // Rotation art and depth stay authored on each hand; the bow takes the bow arm's rotation art.
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(source)
+            .Where(b => (b.path == Hand || b.path == SecondHand) && !b.propertyName.StartsWith("m_LocalPosition.x", StringComparison.Ordinal) &&
+                !b.propertyName.StartsWith("m_LocalPosition.y", StringComparison.Ordinal)))
+        {
+            AnimationCurve authored = AnimationUtility.GetEditorCurve(source, binding);
+            AnimationCurve baked = AnimationUtility.GetEditorCurve(clip, binding);
+            Assert.That(baked.keys.Skip(1).Take(authored.length).Select(key => key.time - blend),
+                Is.EqualTo(authored.keys.Select(key => key.time)).Within(0.00001f), $"{binding.path}/{binding.propertyName}");
+            foreach (Keyframe key in authored.keys)
+                Assert.That(baked.Evaluate(key.time + blend), Is.EqualTo(key.value).Within(0.00001f), $"{binding.path}/{binding.propertyName}@{key.time}");
+        }
+        foreach (Keyframe key in Curve(source, SecondHand, "localEulerAnglesRaw.z").keys)
+            Assert.That(Curve(clip, WeaponPose, "localEulerAnglesRaw.z").Evaluate(key.time + blend), Is.EqualTo(key.value).Within(0.00001f));
+
+        // Every authored key time stays keyed on both hands and the weapon pose.
+        foreach (string path in new[] { Hand, SecondHand, WeaponPose })
+        {
+            float[] times = Curve(clip, path, "m_LocalPosition.x").keys.Select(key => key.time).ToArray();
+            foreach (Keyframe key in Curve(source, SecondHand, "m_LocalPosition.x").keys)
+                Assert.That(times.Any(time => Mathf.Abs(time - key.time - blend) < 0.0001f), Is.True, $"{path}@{key.time}");
+        }
+
+        // Both ends rest in the facing's locomotion pose: WeaponPose in the idle drawn left hand, the hands at
+        // their transform origin, nothing rotated, so the instant Idle/Attack transitions do not snap.
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
+        foreach (float time in new[] { 0f, clip.length })
+        {
+            Assert.That(Vector2.Distance(Position(clip, WeaponPose, time), Position(idle, WeaponPose, 0f)), Is.LessThan(0.00001f), $"@{time}");
+            Assert.That(Position(clip, SecondHand, time).magnitude, Is.LessThan(0.00001f), $"@{time}");
+            Assert.That(Position(clip, Hand, time).magnitude, Is.LessThan(0.00001f), $"@{time}");
+            Assert.That(Curve(clip, WeaponPose, "localEulerAnglesRaw.z").Evaluate(time), Is.EqualTo(0f).Within(0.00001f), $"@{time}");
+        }
+
+        // The bow pose and the string-hand target are the south drawn points turned about the aim center.
+        Vector2 aim = AimCenter(source);
+        float radians = angle * Mathf.Deg2Rad;
+        Vector2 leftAnchor = IdleHandAnchor("Left", direction);
+        Vector2 rightAnchor = IdleHandAnchor("Right", direction);
+        for (float time = 0f; time <= clip.length + 0.0001f; time += 0.025f)
+        {
+            string at = $"{direction}@{time:0.000}";
+            float bowAngle = Curve(clip, WeaponPose, "localEulerAnglesRaw.z").Evaluate(time) * Mathf.Deg2Rad;
+            Vector2 bow = Position(clip, WeaponPose, time);
+            Vector2 left = Position(clip, SecondHand, time) + Rotate(leftAnchor, bowAngle);
+            // The bow hand holds the grip in every frame, blends included.
+            Assert.That(Vector2.Distance(left, bow), Is.LessThan(0.001f), $"The bow hand holds the grip {at}.");
+            float authoredTime = time - blend;
+            if (authoredTime < -0.0001f || authoredTime > source.length + 0.0001f) continue;
+            Vector2 right = Position(clip, Hand, time) + rightAnchor;
+            Vector2 expectedBow = aim + Rotate(SouthDrawn(source, SecondHand, authoredTime) - aim, radians);
+            Vector2 expectedRight = aim + Rotate(SouthDrawn(source, Hand, authoredTime) - aim, radians);
+            Assert.That(Vector2.Distance(bow, expectedBow), Is.LessThan(0.001f), $"The bow follows its own pose {at}.");
+            Assert.That(Vector2.Distance(right, expectedRight), Is.LessThan(0.001f), $"The string hand follows its target {at}.");
+        }
+
+        AssertImportedBindings(TwoHandedOutput("LongBow", direction), direction);
+        if (direction != "S") return;
+        // South reconstructs the authored art: every drawn hand stays where the source draws it.
+        for (float time = 0f; time <= source.length + 0.0001f; time += 0.025f)
+        {
+            foreach (string path in new[] { Hand, SecondHand })
+            {
+                Assert.That(Vector2.Distance(Position(clip, path, time + blend), Position(source, path, time)), Is.LessThan(0.001f),
+                    $"{path}@{time:0.000}");
+            }
+        }
+    }
+
+    [TestCase("N", 0f, 1f)]
+    [TestCase("NE", 1f, 1f)]
+    [TestCase("NW", -1f, 1f)]
+    [TestCase("S", 0f, -1f)]
+    [TestCase("SE", 1f, -1f)]
+    [TestCase("SW", -1f, -1f)]
+    public void LongBowOutput_ProjectsTheBowTowardTheTargetAndDrawsTheStringBehindIt(string direction, float x, float y)
+    {
+        AnimationClip source = TwoHandedSource("LongBow");
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput("LongBow", direction));
+        Vector2 facing = new Vector2(x, y).normalized;
+        Vector2 aim = AimCenter(source);
+        Vector2 rightAnchor = IdleHandAnchor("Right", direction);
+        const float blend = DirectionalAnimationGenerator.WeaponDrivenBlendSeconds;
+        const float draw = 0.3f + blend;
+        const float release = 0.4f + blend;
+        // The bow never migrates toward the feet: through the whole authored motion it stays forward of the body
+        // origin; only the blends travel from and back to the locomotion rest.
+        const float minimumForwardDistance = 0.3f;
+        for (float time = blend; time <= source.length + blend + 0.0001f; time += 0.01f)
+        {
+            Assert.That(Vector2.Dot(Position(clip, WeaponPose, time), facing), Is.GreaterThan(minimumForwardDistance),
+                $"The bow stays forward of the body @{time:0.00}.");
+        }
+        Vector2 rest = Position(clip, WeaponPose, blend);
+        foreach (float time in new[] { draw, release })
+        {
+            Vector2 bow = Position(clip, WeaponPose, time);
+            Vector2 drawHand = Position(clip, Hand, time) + rightAnchor;
+            Assert.That(Vector2.Dot(bow - aim, facing), Is.GreaterThan(0.5f), $"The bow reaches toward the target @{time}.");
+            Assert.That(Vector2.Dot(bow - rest, facing), Is.GreaterThan(0.1f), $"The draw pushes the bow toward the target @{time}.");
+            Assert.That(Vector2.Dot(drawHand - bow, facing), Is.LessThan(-0.5f), $"The string hand stays behind the bow @{time}.");
+        }
+    }
+
+    [TestCase("Idle", "N")]
+    [TestCase("Idle", "NE")]
+    [TestCase("Idle", "NW")]
+    [TestCase("Idle", "S")]
+    [TestCase("Idle", "SE")]
+    [TestCase("Idle", "SW")]
+    [TestCase("Walk", "N")]
+    [TestCase("Walk", "NE")]
+    [TestCase("Walk", "NW")]
+    [TestCase("Walk", "S")]
+    [TestCase("Walk", "SE")]
+    [TestCase("Walk", "SW")]
+    public void WeaponPoseLocomotion_RestsInEveryDrawnLeftHandFrame(string motion, string direction)
+    {
+        AnimationClip body = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/{motion}/{motion}_{direction}.anim");
+        AnimationClip hand = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            $"Assets/Animations/Player/{motion}/LeftHand/LeftHand_{motion}_{direction}.anim");
+        Assert.That(body, Is.Not.Null);
+        Assert.That(hand, Is.Not.Null);
+        ObjectReferenceKeyframe[] frames = AnimationUtility.GetObjectReferenceCurve(hand,
+            new EditorCurveBinding { path = SecondHand, type = typeof(SpriteRenderer), propertyName = "m_Sprite" });
+
+        AnimationClip regenerated = UnityEngine.Object.Instantiate(body);
+        try
+        {
+            DirectionalAnimationGenerator.WriteWeaponPoseLocomotion(regenerated, hand);
+            foreach (string property in new[] { "m_LocalPosition.x", "m_LocalPosition.y", "m_LocalPosition.z",
+                "localEulerAnglesRaw.x", "localEulerAnglesRaw.y", "localEulerAnglesRaw.z" })
+            {
+                Keyframe[] keys = Curve(body, WeaponPose, property)?.keys;
+                Assert.That(keys, Is.Not.Null, $"{motion}_{direction} misses its WeaponPose {property} curve.");
+                Assert.That(keys, Is.EqualTo(Curve(regenerated, WeaponPose, property).keys), property);
+                Assert.That(keys[keys.Length - 1].time, Is.EqualTo(body.length).Within(0.0001f), property);
+                if (property.StartsWith("localEulerAnglesRaw", StringComparison.Ordinal))
+                    Assert.That(keys.All(key => key.value == 0f), Is.True, $"{property} rests unrotated.");
+                else
+                    Assert.That(keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True, $"{property} is stepped.");
+            }
+            foreach (ObjectReferenceKeyframe frame in frames)
+            {
+                Vector2 anchor = DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)frame.value);
+                Vector2 pose = Position(body, WeaponPose, frame.time + 0.0001f);
+                Assert.That(pose.x, Is.EqualTo(anchor.x).Within(0.00001f), $"{frame.time}");
+                Assert.That(pose.y, Is.EqualTo(anchor.y).Within(0.00001f), $"{frame.time}");
+            }
+        }
+        finally { UnityEngine.Object.DestroyImmediate(regenerated); }
+    }
+
+    [TestCase("LongSword")]
+    [TestCase("Zweihander")]
+    [TestCase("MagicStaff")]
+    public void HandHeldOutputs_DoNotAnimateTheWeaponPose(string weapon)
+    {
+        Assert.That(TwoHandedDefinition(weapon).Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
+        AnimationClip clip = DirectionalAnimationGenerator.CreateClip(TwoHandedSource(weapon), "SE", weapon, TwoHandedDefinition(weapon));
+        try
+        {
+            Assert.That(AnimationUtility.GetCurveBindings(clip).Any(b => b.path == WeaponPose), Is.False);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(clip); }
+    }
+
+    [Test]
+    public void WeaponDrivenRig_RequiresATwoHandedWeaponWhoseSecondHandFollowsItsAuthoredMotion()
+    {
+        WeaponDefinition oneHanded = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/MagicWandWeaponDefinition.asset"));
+        WeaponDefinition holdsGrip = UnityEngine.Object.Instantiate(LongSwordDefinition());
+        try
+        {
+            foreach (WeaponDefinition weapon in new[] { oneHanded, holdsGrip })
+            {
+                var serialized = new SerializedObject(weapon);
+                serialized.FindProperty("_presentation._rig").intValue = (int)WeaponRig.WeaponDriven;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                Assert.That(weapon.TryValidate(out string error), Is.False, weapon.name);
+                Assert.That(error, Does.Contain("weapon-driven rig"), weapon.name);
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(oneHanded);
+            UnityEngine.Object.DestroyImmediate(holdsGrip);
+        }
+    }
+
+    // South drawn hand: its transform plus its south idle sprite anchor turned by the hand's rotation.
+    private static Vector2 SouthDrawn(AnimationClip source, string path, float time)
+    {
+        AnimationCurve angle = Curve(source, path, "localEulerAnglesRaw.z");
+        float radians = angle != null ? angle.Evaluate(time) * Mathf.Deg2Rad : 0f;
+        return Position(source, path, time) + Rotate(IdleHandAnchor(path == Hand ? "Right" : "Left", "S"), radians);
+    }
+
+    // The aim center: on the body axis at the south string hand's height during its authored draw hold.
+    private static Vector2 AimCenter(AnimationClip source)
+    {
+        Keyframe[] x = Curve(source, Hand, "m_LocalPosition.x").keys;
+        Keyframe[] y = Curve(source, Hand, "m_LocalPosition.y").keys;
+        int hold = Enumerable.Range(0, x.Length - 1).First(i => x[i].value == x[i + 1].value && y[i].value == y[i + 1].value);
+        return new Vector2(0f, SouthDrawn(source, Hand, x[hold].time).y);
     }
 
     [Test]
@@ -902,7 +1142,8 @@ public sealed class DirectionalAnimationGeneratorTests
 
     private static WeaponDefinition TwoHandedDefinition(string weapon) =>
         AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weapon == "LongSword" ? LongSwordDefinitionPath :
-            weapon == "Zweihander" ? ZweihanderDefinitionPath : MagicStaffDefinitionPath);
+            weapon == "Zweihander" ? ZweihanderDefinitionPath :
+            weapon == "MagicStaff" ? MagicStaffDefinitionPath : LongBowDefinitionPath);
 
     private static AnimationClip TwoHandedSource(string weapon) =>
         AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/{weapon}_Attack.anim");
@@ -915,6 +1156,18 @@ public sealed class DirectionalAnimationGeneratorTests
         AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
         return new Vector2(Curve(idle, Grip, "m_LocalPosition.x").Evaluate(0f), Curve(idle, Grip, "m_LocalPosition.y").Evaluate(0f));
     }
+
+    private static Vector2 IdleHandAnchor(string hand, string direction)
+    {
+        string path = hand == "Left" ? SecondHand : Hand;
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            $"Assets/Animations/Player/Idle/{hand}Hand/{hand}Hand_Idle_{direction}.anim");
+        var sprite = new EditorCurveBinding { path = path, type = typeof(SpriteRenderer), propertyName = "m_Sprite" };
+        return DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)AnimationUtility.GetObjectReferenceCurve(idle, sprite)[0].value);
+    }
+
+    private static Vector2 Position(AnimationClip clip, string path, float time) => new Vector2(
+        Curve(clip, path, "m_LocalPosition.x").Evaluate(time), Curve(clip, path, "m_LocalPosition.y").Evaluate(time));
 
     private static Vector2 SecondHandAnchor(string direction)
     {

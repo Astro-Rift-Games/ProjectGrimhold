@@ -434,7 +434,7 @@ The character visual structure is modularized under `VisualRoot`:
 * **`VisualRoot`**: Houses the single common `Animator` and `PlayerAnimatorView` for the character.
 * **Modular Slots**: Contains independent `SpriteRenderer` components for `Legs`, `Body`, `Head`, `LeftHand`, and `RightHand`, sharing a uniform 96x96 canvas and local position origin `(0, 0, 0)`. `LeftHand` and `RightHand` are the sole visual hands of the character and are driven exclusively by the modular Animator clips.
 * **Single Animator**: A single common `Animator` on `VisualRoot` acts as the ancestor for all modular slots, driving coordinated animation clips across the six visual directions.
-* **Held visual hierarchy**: `RightHand/MainHandGrip/MainHandWeaponVisual/WeaponSprite` and `LeftHand/OffHandGrip/OffHandVisual` make each visual inherit the corresponding animated hand transform. A two-handed weapon remains a single visual owned by `MainHandGrip`; authored clips may move both hands without giving the weapon two parents.
+* **Held visual hierarchy**: `RightHand/MainHandGrip/MainHandWeaponVisual/WeaponSprite` and `LeftHand/OffHandGrip/OffHandVisual` make each visual inherit the corresponding animated hand transform. A two-handed weapon remains a single visual; authored clips may move both hands without giving the weapon two parents. That visual is owned by `MainHandGrip` unless its definition gives the weapon its own pose through `WeaponPose` (see Weapon rig).
 
 `PlayerWeaponPresenter` owns only Equipment presentation. It resolves the replicated active
 Set through `PlayerWeaponEquipmentNetworkController`, assigns or clears Main Hand and shield
@@ -460,9 +460,9 @@ optional set reference instead of six clips. A complete set enables `HasGenericA
 and replaces only the six neutral `GenericAttack_*` slots in the local per-Animator
 override controller. The generic `Attack` route does not inspect
 `WeaponAnimationCategory`; an unarmed weapon or missing/incomplete set disables it
-and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander and
-Magic Staff reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword, Zweihander and
-MagicStaff sets. Rondel Dagger and Magic Cinquedea
+and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander,
+Magic Staff and Long Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword, Zweihander,
+MagicStaff and LongBow sets. Rondel Dagger and Magic Cinquedea
 reference the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
 presentation without editing `Character.controller` or branching on weapon identity.
 `DirectionalAnimationGenerator` bakes each set from one south-authored `<Weapon>_Attack.anim`:
@@ -487,6 +487,8 @@ emitted, so the LeftHand layer keeps owning its sorting and sprite. Magic Staff 
 against the main hand and never reaching the staff, whereas Long Sword and Zweihander author it turning
 rigidly with the main hand on the handle. The staff's main hand grips `(0, -0.5)`, 8 px below the center
 of the 24 px `MagicStaff.png`.
+Long Bow is baked by the weapon-driven rig described in Weapon rig below: the bow owns its pose and both
+hands are placed on it, so neither the main-hand trajectory rule above nor the second-hand modes position it.
 With `HoldsSecondaryGrip` the second hand's rotation art, depth and every authored key time are preserved,
 while its position is derived from the weapon's handle so the drawn second hand holds it. Such a two-handed
 generic weapon serializes `SecondaryGripPoint` in `WeaponDefinition.Presentation`, in the same sprite
@@ -511,9 +513,9 @@ its glove.
 Category 1 and its `LegacySword-Attack` state are retired: every melee weapon, including
 `zweihander`, uses the generic `Attack` route.
 The category-4 `LegacyRanged-Attack` route retains the original Magic Wand directional
-motions and is gated by `!HasGenericAttack` for `long_bow` and `compound_bow`. Generic Arming Sword,
-Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger, Magic Cinquedea, Magic Wand and Magic Staff
-all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
+motions and is gated by `!HasGenericAttack` for `compound_bow`. Generic Arming Sword,
+Rapier, Magic Sword, Long Sword, Zweihander, Rondel Dagger, Magic Cinquedea, Magic Wand, Magic Staff and
+Long Bow all serialize category `None` (0). Numeric categories 1, 2 and 3 are retired.
 This is local presentation state,
 not a replicated or authoritative combat decision.
 
@@ -678,15 +680,76 @@ of future scaling variation.
 | `zweihander` | 2 | `PlayerMeleeAttackConfig` | Zweihander set (two-handed; `None` category) |
 | `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips; `None` category) |
 | `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set (`None` category) |
-| `long_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
+| `long_bow` | 2 | `RangePlayerAttackConfig` | LongBow set (two-handed, held by the left hand; `None` category) |
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | `LegacyRanged` fallback |
 | `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set (`None` category) |
 | `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand; `None` category) |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
-coincide with `MainHandGrip`. Vertical weapon art uses a `-90` degree correction to align its
-forward axis with the presenter's `+X`; horizontal bow art is already aligned. These values are
-static per-weapon presentation data and do not introduce LootId branches in the presenter.
+coincide with the owner of the weapon pose (`MainHandGrip` by default). Vertical weapon art uses a `-90` degree correction to align its
+forward axis with the presenter's `+X`. Bow art spans its limbs horizontally and shoots along sprite
+`+Y`, so a migrated bow uses the same `-90` correction; unmigrated `compound_bow` keeps its fallback values.
+These values are static per-weapon presentation data and do not introduce LootId branches in the presenter.
+
+### Weapon rig
+
+The equipped Main Hand weapon has exactly one held visual hierarchy (`MainHandWeaponVisual` →
+`WeaponSprite`). `WeaponDefinition.Presentation.Rig` (`WeaponRig`, static presentation data, never
+replicated) selects what owns its pose:
+
+- `HandHeld` (default): the main hand. The visual follows `RightHandPivot/RightHand/MainHandGrip`. Every
+  weapon except Long Bow uses it.
+- `WeaponDriven`: the weapon. The visual follows `WeaponPose`, a transform on the Animator root beside the
+  hand pivots and inside no hand. Long Bow uses it.
+
+`PlayerWeaponPresenter` reparents the same visual under the selected owner when the presented weapon
+changes, and back to `MainHandGrip` when unarmed. The facing rotation, the left-facing Y mirror, `GripPoint`
+and `AngleCorrection` apply unchanged under either owner. The rig is presentation only: equipment still
+treats the weapon as Main Hand, a two-handed weapon still blocks the Off Hand, and `OffHandGrip` still
+belongs only to the Off Hand item. Validation allows `WeaponDriven` only for a two-handed weapon whose second
+hand is `FollowsAuthoredMotion`.
+
+A weapon-driven attack is derived from its south source instead of rotating hand transforms:
+
+- The source is read as drawn positions: each hand transform plus its south idle sprite anchor, turned by
+  the hand's rotation.
+- The authored bow-arm (left) hand is the weapon grip, so its drawn path becomes the `WeaponPose`
+  trajectory. `WeaponPose` also takes that hand's rotation art.
+- The authored drawing (right) hand, relative to the weapon, is the string-hand target.
+- Both turn with the facing about the aim center, a point on the body axis at the south string hand's
+  height during its authored draw hold (the first two equal consecutive main-hand keys).
+
+Rotating drawn points about that aim center, rather than rotating hand transform offsets about the root and
+adding unrotated sprite anchors, keeps the aim height in place. A south draw toward the target therefore
+turns into an upward draw in N instead of a pull toward the feet. The runtime hands are then keyed so each
+drawn centroid lands exactly on its point in every frame: the left hand on `WeaponPose` (the bow grip),
+the right hand on its string target. The hands never carry the bow, and moving the string hand never
+moves it. South reconstructs the source exactly, because its turn is the identity.
+
+A weapon-driven source starts and ends in its authored ready pose, away from the locomotion rest, while the
+generic Attack transitions are instant. So the bake delays the whole authored motion by
+`DirectionalAnimationGenerator.WeaponDrivenBlendSeconds` (0.1 s) and keys the facing's idle pose on both
+sides: `WeaponPose` at the idle drawn left hand, both hand transforms at their origin, nothing rotated.
+While a weapon-driven weapon is presented, `PlayerWeaponPresenter` owns the sorting of the holding left hand
+in idle, locomotion and attacks alike: order 25 in front facings, the second-hand slot `HoldsSecondaryGrip`
+uses (over the front weapon at 20 and its VFX at 21, under the main hand at 30, with the glove one slot
+above), and the hand's authored order in back facings. Weapon-driven clips never key that sorting, and
+switching to another rig restores the authored order once so hand-held clips keep animating it. The
+clip therefore eases out of and back into locomotion instead of snapping. For Long Bow the clip grows from
+0.7 s to 0.9 s, its attack interval, and the authored release plays 0.1 s later. The Animator controller
+and every hand-held weapon are unchanged.
+
+Outside attacks, `WeaponPose` rests in the drawn left hand. The Idle and Walk body clips key its position,
+stepped, at every LeftHand sprite frame of the matching `LeftHand_<Motion>_<Facing>` clip, on the
+opaque-pixel centroid of that frame, and key its rotation to zero. The
+`Tools/Animations/Generate Weapon Pose Locomotion` menu writes those keys; a weapon-driven attack bake
+requires none of them.
+
+Long Bow grips `(0, 0.125)` of the 27x7 px `LongBow.png`: the center of the three-row limb in the sprite's
+center column (outline, wood, outline), 2 px above the centered pivot. The string lies on the bottom row.
+After the `-90` correction the bow shoots along the facing in every direction. The left-facing mirror
+flips only its symmetric limbs, and the grip lies on the shooting axis, so NW and SW keep the
+string → bow → target order.
 
 The fallback assignments make every weapon use an authored Animator transition. They do not claim
 to be final bow animation content. `WeaponAnimationCategory` therefore exposes

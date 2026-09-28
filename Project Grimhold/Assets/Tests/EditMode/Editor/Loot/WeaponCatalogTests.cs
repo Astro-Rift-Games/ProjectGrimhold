@@ -123,7 +123,7 @@ namespace Tests.EditMode.Loot
                 WeaponAnimationCategory.None, typeof(MeleeAttackConfig));
             AssertWeapon("long_bow", 28f, 0.9f, 6f, 14f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
-                WeaponAnimationCategory.LegacyRanged, typeof(RangedAttackConfig));
+                WeaponAnimationCategory.None, typeof(RangedAttackConfig));
             AssertWeapon("compound_bow", 56f, 1.8f, 12f, 28f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
                 WeaponAnimationCategory.LegacyRanged, typeof(RangedAttackConfig));
@@ -207,7 +207,7 @@ namespace Tests.EditMode.Loot
                 _catalog.TryGet(id, out LootDefinition definition);
                 Assert.That((int)definition.WeaponDefinition.Presentation.AnimationCategory, Is.Not.EqualTo(3), id);
                 WeaponDefinition.PresentationConfig presentation = definition.WeaponDefinition.Presentation;
-                if (new[] { "arming_sword", "rapier", "magic_sword", "long_sword", "zweihander", "rondel_dagger", "magic_cinquedea", "magic_wand", "magic_staff" }.Contains(id))
+                if (new[] { "arming_sword", "rapier", "magic_sword", "long_sword", "zweihander", "rondel_dagger", "magic_cinquedea", "magic_wand", "magic_staff", "long_bow" }.Contains(id))
                 {
                     Assert.That(presentation.HasGenericAttack, Is.True, id);
                     Assert.That(presentation.AnimationCategory, Is.EqualTo(WeaponAnimationCategory.None), id);

@@ -122,6 +122,45 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void PlayerPrefab_OffersOneWeaponVisualToTheMainHandOrItsOwnPose()
+        {
+            GameObject basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BasePlayerPrefabPath);
+            Assert.That(basePrefab, Is.Not.Null);
+            PlayerWeaponPresenter presenter = basePrefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
+            Assert.That(presenter, Is.Not.Null);
+
+            SerializedObject serializedPresenter = new SerializedObject(presenter);
+            Transform mainGrip = Reference<Transform>(serializedPresenter, "_mainHandGrip");
+            Transform weaponPose = Reference<Transform>(serializedPresenter, "_weaponPose");
+            Transform offGrip = Reference<Transform>(serializedPresenter, "_offHandGrip");
+            Transform mainPivot = Reference<Transform>(serializedPresenter, "_mainHandWeaponPivot");
+
+            // A weapon-driven pose lives on the Animator root beside the hands, never inside a hand.
+            Animator animator = basePrefab.GetComponentInChildren<Animator>(true);
+            Assert.That(weaponPose.name, Is.EqualTo("WeaponPose"));
+            Assert.That(weaponPose.parent, Is.SameAs(animator.transform));
+            Assert.That(weaponPose.IsChildOf(mainGrip.parent), Is.False);
+            Assert.That(weaponPose.IsChildOf(offGrip.parent), Is.False);
+            Assert.That(weaponPose.childCount, Is.Zero);
+            Assert.That(weaponPose.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(weaponPose.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(weaponPose.localScale, Is.EqualTo(Vector3.one));
+
+            // A weapon-driven weapon is held by the left hand, whose renderer draws over the front weapon (20)
+            // and under the main hand.
+            SpriteRenderer weaponPoseHand = Reference<SpriteRenderer>(serializedPresenter, "_weaponPoseHandRenderer");
+            Assert.That(weaponPoseHand.transform, Is.SameAs(offGrip.parent));
+            Assert.That(PlayerWeaponPresenter.WeaponPoseHandSortingOrderFront, Is.GreaterThan(21));
+            Assert.That(PlayerWeaponPresenter.WeaponPoseHandSortingOrderFront + 1,
+                Is.LessThan(mainGrip.parent.GetComponent<SpriteRenderer>().sortingOrder));
+
+            // One weapon visual, parked on the main hand until a weapon-driven definition moves it.
+            Assert.That(mainPivot.parent, Is.SameAs(mainGrip));
+            Assert.That(basePrefab.GetComponentsInChildren<Transform>(true)
+                .Count(transform => transform.name == "WeaponSprite"), Is.EqualTo(1));
+        }
+
+        [Test]
         public void CharacterController_UsesSemanticAttackParameters()
         {
             AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);

@@ -3,17 +3,23 @@ using UnityEngine;
 /// <summary>
 /// Presents the active Weapon Set without owning attack motion.
 /// The Animator moves the hands; held visuals inherit those transforms through their grips.
+/// The single Main Hand weapon visual follows MainHandGrip, or WeaponPose when the weapon drives its own pose.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
 {
     private const int SortingOrderFront = 20;
     private const int SortingOrderBack = -10;
+    // A weapon-driven weapon is held by the left hand, which draws over it in front facings: over the weapon (20)
+    // and its attack VFX (21), under the main hand (30). The hand's glove follows one slot above.
+    internal const int WeaponPoseHandSortingOrderFront = 25;
 
     [Header("References")]
     [SerializeField] private PlayerAnimatorView _animatorView;
     [SerializeField] private PlayerWeaponEquipmentNetworkController _equipmentSource;
     [SerializeField] private Transform _mainHandGrip;
+    [SerializeField] private Transform _weaponPose;
+    [SerializeField] private SpriteRenderer _weaponPoseHandRenderer;
     [SerializeField] private Transform _mainHandWeaponPivot;
     [SerializeField] private Transform _mainHandWeaponVisual;
     [SerializeField] private SpriteRenderer _mainHandRenderer;
@@ -25,6 +31,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private LootDefinition _offHandDefinition;
     private Vector3 _mainHandWeaponPivotBaseScale;
     private Vector3 _mainHandWeaponVisualBaseScale;
+    private int _weaponPoseHandBaseSortingOrder;
+    private bool _weaponDriven;
     private bool _hasCapturedBaseState;
 
     private void Awake()
@@ -51,6 +59,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     {
         _mainHandDefinition = null;
         _offHandDefinition = null;
+        SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
     }
@@ -100,6 +109,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         SetRendererSprite(
             _mainHandRenderer,
             weapon != null ? definition.WorldSprite ?? definition.Icon : null);
+        WeaponRig rig = weapon != null ? weapon.Presentation.Rig : WeaponRig.HandHeld;
+        AttachMainHandWeapon(rig);
+        SetWeaponDriven(rig == WeaponRig.WeaponDriven);
 
         if (weapon == null)
         {
@@ -126,6 +138,33 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             0f,
             0f,
             presentation.AngleCorrection);
+    }
+
+    // Moves the one weapon visual hierarchy under the transform that owns its pose; RefreshPose then resets
+    // its local pose.
+    private void AttachMainHandWeapon(WeaponRig rig)
+    {
+        Transform owner = rig == WeaponRig.WeaponDriven ? _weaponPose : _mainHandGrip;
+        if (_mainHandWeaponPivot.parent != owner)
+        {
+            _mainHandWeaponPivot.SetParent(owner, false);
+        }
+    }
+
+    // Only while a weapon-driven weapon is presented does the presenter own the holding hand's sorting; leaving
+    // that rig restores the hand's authored order once, so clips of hand-held weapons keep animating it.
+    private void SetWeaponDriven(bool weaponDriven)
+    {
+        if (_weaponDriven == weaponDriven)
+        {
+            return;
+        }
+
+        _weaponDriven = weaponDriven;
+        if (!weaponDriven && _weaponPoseHandRenderer != null)
+        {
+            _weaponPoseHandRenderer.sortingOrder = _weaponPoseHandBaseSortingOrder;
+        }
     }
 
     private void ApplyOffHandDefinition(LootDefinition definition)
@@ -160,6 +199,13 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _mainHandRenderer.sortingOrder = order;
         _offHandRenderer.sortingOrder = order;
+        if (_weaponDriven)
+        {
+            _weaponPoseHandRenderer.sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(
+                direction,
+                WeaponPoseHandSortingOrderFront,
+                _weaponPoseHandBaseSortingOrder);
+        }
     }
 
     private void CacheDependencies()
@@ -186,6 +232,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _mainHandWeaponPivotBaseScale = _mainHandWeaponPivot.localScale;
         _mainHandWeaponVisualBaseScale = _mainHandWeaponVisual.localScale;
+        _weaponPoseHandBaseSortingOrder = _weaponPoseHandRenderer != null ? _weaponPoseHandRenderer.sortingOrder : 0;
         _hasCapturedBaseState = true;
     }
 
@@ -201,6 +248,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (_animatorView != null &&
             _equipmentSource != null &&
             _mainHandGrip != null &&
+            _weaponPose != null &&
+            _weaponPoseHandRenderer != null &&
+            !_weaponPose.IsChildOf(_mainHandGrip) &&
+            !_weaponPose.IsChildOf(_offHandGrip) &&
             _mainHandWeaponPivot != null &&
             _mainHandWeaponVisual != null &&
             _mainHandRenderer != null &&
@@ -208,7 +259,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             _offHandVisual != null &&
             _offHandRenderer != null &&
             _hasCapturedBaseState &&
-            _mainHandWeaponPivot.parent == _mainHandGrip &&
+            (_mainHandWeaponPivot.parent == _mainHandGrip ||
+                _mainHandWeaponPivot.parent == _weaponPose) &&
             _mainHandWeaponVisual.parent == _mainHandWeaponPivot &&
             _mainHandRenderer.transform == _mainHandWeaponVisual &&
             _offHandVisual.IsChildOf(_offHandGrip))
@@ -218,6 +270,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         Debug.LogError(
             $"{nameof(PlayerWeaponPresenter)} on '{name}' requires animator, Equipment, " +
+            "a weapon pose outside the hand grips, " +
             "and held visuals parented beneath their matching hand grips.",
             this);
         return false;

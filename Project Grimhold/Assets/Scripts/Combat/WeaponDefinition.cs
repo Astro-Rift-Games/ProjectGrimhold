@@ -164,6 +164,17 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
+        // A weapon-driven rig places both hands on the weapon, so only a two-handed weapon, which blocks the Off
+        // Hand, may use it. Both hands follow authored motion relative to the weapon instead of the second hand
+        // reaching for a secondary grip derived from a hand-held weapon.
+        if (_presentation.Rig == WeaponRig.WeaponDriven &&
+            (_handedness != WeaponHandedness.TwoHanded ||
+                _presentation.SecondHand != SecondHandPresentation.FollowsAuthoredMotion))
+        {
+            error = $"Weapon definition '{name}' weapon-driven rig requires a two-handed weapon whose second hand follows its authored motion.";
+            return false;
+        }
+
         // Two-handed generic attacks that hold the weapon are baked with the second hand on this handle point.
         if (_handedness == WeaponHandedness.TwoHanded && _presentation.HasGenericAttack &&
             _presentation.SecondHand == SecondHandPresentation.HoldsSecondaryGrip &&
@@ -226,6 +237,10 @@ public sealed class WeaponDefinition : ScriptableObject
         private SecondHandPresentation _secondHand;
         public SecondHandPresentation SecondHand => _secondHand;
 
+        [SerializeField, Tooltip("What owns the held visual's pose: the main hand through MainHandGrip, or the weapon itself through WeaponPose.")]
+        private WeaponRig _rig;
+        public WeaponRig Rig => _rig;
+
         /// <summary>Distance from the grip point to the blade tip, in weapon sprite local units.</summary>
         public float BladeReach => Vector2.Distance(_gripPoint, _bladeTip);
 
@@ -271,6 +286,12 @@ public sealed class WeaponDefinition : ScriptableObject
             if (!System.Enum.IsDefined(typeof(SecondHandPresentation), _secondHand))
             {
                 error = $"second-hand presentation '{(int)_secondHand}' is unsupported.";
+                return false;
+            }
+
+            if (!System.Enum.IsDefined(typeof(WeaponRig), _rig))
+            {
+                error = $"weapon rig '{(int)_rig}' is unsupported.";
                 return false;
             }
 

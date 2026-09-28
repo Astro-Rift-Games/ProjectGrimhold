@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 695eb1d508634f71a85ad608942fa931, type: 3}
+  m_Name: LongBow
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalAttackAnimationSet
+  _attackN: {fileID: 7400000, guid: f7e67089e06c4e1c810c0bbe04bfbac7, type: 2}
+  _attackNE: {fileID: 7400000, guid: 91a4bde48dbf45ac9479b76240ef65c0, type: 2}
+  _attackNW: {fileID: 7400000, guid: 7db622329eb448fe9d0f90a8a0d64d66, type: 2}
+  _attackS: {fileID: 7400000, guid: f2093f8e01104a8bbc913040c26b752b, type: 2}
+  _attackSE: {fileID: 7400000, guid: 1d58ce3abf3842fe9dbd0f28723d08b5, type: 2}
+  _attackSW: {fileID: 7400000, guid: edfbfd89b3c749659ba33414babfeace, type: 2}
