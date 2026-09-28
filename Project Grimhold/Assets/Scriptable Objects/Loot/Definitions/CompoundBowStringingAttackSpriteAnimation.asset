@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb0761fcc26b8cb46ad3275dd104a3a7, type: 3}
+  m_Name: CompoundBowStringingAttackSpriteAnimation
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponAttackSpriteAnimation
+  _startSeconds: 0.1
+  _frames:
+  - _sprite: {fileID: -4505032909500530443, guid: 5c37a34c0f077184d8aed15ab3763385, type: 3}
+    _durationSeconds: 0.1
+  - _sprite: {fileID: 7322340468183202272, guid: 5c37a34c0f077184d8aed15ab3763385, type: 3}
+    _durationSeconds: 0.05
+  - _sprite: {fileID: -7748527629141666032, guid: 5c37a34c0f077184d8aed15ab3763385, type: 3}
+    _durationSeconds: 0.05
+  - _sprite: {fileID: -6002203599296905660, guid: 5c37a34c0f077184d8aed15ab3763385, type: 3}
+    _durationSeconds: 0.1

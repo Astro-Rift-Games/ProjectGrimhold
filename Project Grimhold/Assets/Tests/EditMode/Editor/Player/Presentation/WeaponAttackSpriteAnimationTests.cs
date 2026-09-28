@@ -9,17 +9,13 @@ public sealed class WeaponAttackSpriteAnimationTests
     private const string DefinitionsRoot = "Assets/Scriptable Objects/Loot/Definitions/";
     private const string LongBowPath = DefinitionsRoot + "LongBowWeaponDefinition.asset";
     private const string LongBowLootPath = DefinitionsRoot + "LongBow.asset";
-    private const string StringingPath = DefinitionsRoot + "LongBowStringingAttackSpriteAnimation.asset";
-    private const string StringingSheetPath = "Assets/Art/Weapons/Animations Spritesheets/Weapon-LongBow-Stringing.png";
+    private const string CompoundBowPath = DefinitionsRoot + "CompoundBowWeaponDefinition.asset";
     private const string PrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
     private const string AnimatorControllerPath = "Assets/Animations/Player/Character.controller";
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
-    // The weapon-driven bake eases in for 0.1 s, so the authored draw starts there. The hands stop drawing at
-    // 0.4 s, hold the full draw until 0.45 s, and the string hand releases from 0.45 s.
-    private const float DrawStartSeconds = 0.1f;
-    private const float FullDrawSeconds = 0.4f;
-    private const float ReleaseSeconds = 0.45f;
+    // The weapon-driven bake eases in for 0.1 s, so the authored draw starts there.
+    private const float DrawStartSeconds = DirectionalAnimationGenerator.WeaponDrivenBlendSeconds;
 
     [Test]
     public void TryGetSprite_ShowsEachFrameOnlyInsideItsWindow()
@@ -71,57 +67,71 @@ public sealed class WeaponAttackSpriteAnimationTests
     }
 
     [Test]
-    public void EveryWeaponExceptLongBow_HasNoAttackSpriteAnimation()
+    public void EveryWeaponExceptTheBows_HasNoAttackSpriteAnimation()
     {
         foreach (string guid in AssetDatabase.FindAssets("t:" + nameof(WeaponDefinition)))
         {
             WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(AssetDatabase.GUIDToAssetPath(guid));
-            if (AssetDatabase.GetAssetPath(weapon) == LongBowPath) continue;
+            string path = AssetDatabase.GetAssetPath(weapon);
+            if (path == LongBowPath || path == CompoundBowPath) continue;
             Assert.That(weapon.Presentation.AttackSpriteAnimation, Is.Null, weapon.name);
         }
     }
 
     [Test]
-    public void LongBow_DrawsHoldsAndReleasesTheStringWithItsBakedAttack()
+    public void Bows_UseTheirOwnStringing()
     {
-        WeaponDefinition bow = LongBow();
+        Assert.That(Bow("LongBow").Presentation.AttackSpriteAnimation, Is.SameAs(AssetDatabase
+            .LoadAssetAtPath<WeaponAttackSpriteAnimation>(DefinitionsRoot + "LongBowStringingAttackSpriteAnimation.asset")));
+        Assert.That(Bow("CompoundBow").Presentation.AttackSpriteAnimation, Is.SameAs(AssetDatabase
+            .LoadAssetAtPath<WeaponAttackSpriteAnimation>(DefinitionsRoot + "CompoundBowStringingAttackSpriteAnimation.asset")));
+    }
+
+    // Each bow's partial draws switch on its own draw progress; the full draw holds until the release.
+    [TestCase("LongBow", 0.2f, 0.3f, 0.35f)]
+    [TestCase("CompoundBow", 0.2f, 0.25f, 0.3f)]
+    public void Bow_DrawsHoldsAndReleasesTheStringWithItsBakedAttack(string bowName, float firstPartialSeconds,
+        float secondPartialSeconds, float fullDrawFrameSeconds)
+    {
+        WeaponDefinition bow = Bow(bowName);
         WeaponAttackSpriteAnimation stringing = bow.Presentation.AttackSpriteAnimation;
-        Assert.That(stringing, Is.SameAs(AssetDatabase.LoadAssetAtPath<WeaponAttackSpriteAnimation>(StringingPath)));
         Assert.That(bow.TryValidate(out string error), Is.True, error);
         Assert.That(bow.Presentation.Rig, Is.EqualTo(WeaponRig.WeaponDriven), "The weapon-driven pose is unchanged.");
         Assert.That(bow.Presentation.AngleCorrection, Is.EqualTo(-90f));
-        Assert.That(bow.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, 0.125f)));
 
-        Sprite[] frames = StringingFrames();
+        Sprite[] frames = StringingFrames(bowName);
         Assert.That(stringing.FrameCount, Is.EqualTo(frames.Length));
         for (int i = 0; i < frames.Length; i++)
         {
             Assert.That(stringing.GetFrame(i).Sprite, Is.SameAs(frames[i]), frames[i].name);
         }
 
+        // The baked clip delays the authored hold by the ease-in: the hands reach the full draw at its start,
+        // and the string hand releases when it leaves the hold.
+        (float fullDraw, float release) = BakedDrawHold(bow);
         Assert.That(stringing.StartSeconds, Is.EqualTo(DrawStartSeconds).Within(0.00001f));
-        Assert.That(stringing.EndSeconds, Is.EqualTo(ReleaseSeconds).Within(0.00001f));
+        Assert.That(stringing.EndSeconds, Is.EqualTo(release).Within(0.00001f));
         AssertFrame(stringing, DrawStartSeconds, frames[0]);
-        AssertFrame(stringing, 0.2f, frames[1]);
-        AssertFrame(stringing, 0.3f, frames[2]);
-        AssertFrame(stringing, FullDrawSeconds, frames[3]);
-        AssertFrame(stringing, ReleaseSeconds - 0.001f, frames[3]);
-        Assert.That(stringing.TryGetSprite(ReleaseSeconds, out _), Is.False,
+        AssertFrame(stringing, firstPartialSeconds, frames[1]);
+        AssertFrame(stringing, secondPartialSeconds, frames[2]);
+        AssertFrame(stringing, fullDrawFrameSeconds, frames[3]);
+        AssertFrame(stringing, fullDraw, frames[3]);
+        AssertFrame(stringing, release - 0.001f, frames[3]);
+        Assert.That(stringing.TryGetSprite(release, out _), Is.False,
             "The release returns the string to rest: the world sprite.");
     }
 
-    [Test]
-    public void LongBowStringingFrames_ShareTheWorldSpriteFrameAndGrip()
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void BowStringingFrames_ShareTheWorldSpriteFrameAndGrip(string bowName)
     {
-        Sprite world = AssetDatabase.LoadAssetAtPath<LootDefinition>(LongBowLootPath).WorldSprite;
+        Sprite world = AssetDatabase.LoadAssetAtPath<LootDefinition>(DefinitionsRoot + bowName + ".asset").WorldSprite;
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        var worldTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         try
         {
-            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(StringingSheetPath)), Is.True);
-            Assert.That(worldTexture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(world))), Is.True);
-            Vector2 grip = LongBow().Presentation.GripPoint;
-            Sprite[] frames = StringingFrames();
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(StringingSheetPath(bowName))), Is.True);
+            Vector2 grip = Bow(bowName).Presentation.GripPoint;
+            Sprite[] frames = StringingFrames(bowName);
             foreach (Sprite frame in frames)
             {
                 Assert.That(frame.pixelsPerUnit, Is.EqualTo(world.pixelsPerUnit), frame.name);
@@ -138,8 +148,28 @@ public sealed class WeaponAttackSpriteAnimationTests
                 Vector2 handle = new Vector2(column + 0.5f - rect.x, top - 1 + 0.5f - rect.y);
                 Vector2 expected = (handle - frame.pivot) / frame.pixelsPerUnit;
                 Assert.That(Vector2.Distance(grip, expected), Is.LessThan(0.0001f), frame.name);
+                // The frames never outgrow the world sprite's span, so the limbs never jump sideways.
+                Assert.That(frame.rect.width, Is.LessThanOrEqualTo(world.rect.width), frame.name);
             }
+            Assert.That(frames[0].rect.width, Is.EqualTo(world.rect.width));
+        }
+        finally
+        {
+            Object.DestroyImmediate(texture);
+        }
+    }
 
+    [Test]
+    public void LongBowRestFrame_IsTheWorldSprite()
+    {
+        Sprite world = AssetDatabase.LoadAssetAtPath<LootDefinition>(LongBowLootPath).WorldSprite;
+        Sprite[] frames = StringingFrames("LongBow");
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        var worldTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(StringingSheetPath("LongBow"))), Is.True);
+            Assert.That(worldTexture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(world))), Is.True);
             // The rest frame is the world sprite itself, so leaving the sequence never pops.
             Rect rest = frames[0].rect;
             Assert.That(rest.size, Is.EqualTo(world.rect.size));
@@ -182,14 +212,22 @@ public sealed class WeaponAttackSpriteAnimationTests
         }
     }
 
-    [TestCase(0f, false)]
-    [TestCase(0.05f, false)]
-    [TestCase(0.1f, true)]
-    [TestCase(0.3f, true)]
-    [TestCase(0.44f, true)]
-    [TestCase(0.46f, false)]
-    [TestCase(0.85f, false)]
-    public void Presenter_SwapsOnlyTheSpriteInSyncWithTheConfirmedAttackClip(float attackSeconds, bool animated)
+    [TestCase("LongBow", 0f, false)]
+    [TestCase("LongBow", 0.05f, false)]
+    [TestCase("LongBow", 0.1f, true)]
+    [TestCase("LongBow", 0.3f, true)]
+    [TestCase("LongBow", 0.44f, true)]
+    [TestCase("LongBow", 0.46f, false)]
+    [TestCase("LongBow", 0.85f, false)]
+    [TestCase("CompoundBow", 0f, false)]
+    [TestCase("CompoundBow", 0.05f, false)]
+    [TestCase("CompoundBow", 0.1f, true)]
+    [TestCase("CompoundBow", 0.3f, true)]
+    [TestCase("CompoundBow", 0.39f, true)]
+    [TestCase("CompoundBow", 0.41f, false)]
+    [TestCase("CompoundBow", 0.75f, false)]
+    public void Presenter_SwapsOnlyTheSpriteInSyncWithTheConfirmedAttackClip(string bowName, float attackSeconds,
+        bool animated)
     {
         GameObject contents = PrefabUtility.LoadPrefabContents(PrefabPath);
         try
@@ -201,7 +239,7 @@ public sealed class WeaponAttackSpriteAnimationTests
             var visual = (Transform)serialized.FindProperty("_mainHandWeaponVisual").objectReferenceValue;
             Animator animator = view.GetComponent<Animator>();
             animator.runtimeAnimatorController = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimatorControllerPath);
-            LootDefinition bow = AssetDatabase.LoadAssetAtPath<LootDefinition>(LongBowLootPath);
+            LootDefinition bow = AssetDatabase.LoadAssetAtPath<LootDefinition>(DefinitionsRoot + bowName + ".asset");
             PinAttack(view, animator, bow);
 
             typeof(PlayerWeaponPresenter).GetMethod("CaptureBaseState", Private).Invoke(presenter, null);
@@ -291,12 +329,37 @@ public sealed class WeaponAttackSpriteAnimationTests
         Assert.That(sprite, Is.SameAs(expected), $"{seconds}s");
     }
 
-    private static WeaponDefinition LongBow() => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongBowPath);
+    private static WeaponDefinition LongBow() => Bow("LongBow");
 
-    private static Sprite[] StringingFrames()
+    private static WeaponDefinition Bow(string bowName) =>
+        AssetDatabase.LoadAssetAtPath<WeaponDefinition>(DefinitionsRoot + bowName + "WeaponDefinition.asset");
+
+    private static string StringingSheetPath(string bowName) =>
+        $"Assets/Art/Weapons/Animations Spritesheets/Weapon-{bowName}-Stringing.png";
+
+    // The baked full draw and release: the authored string-hand hold, delayed by the weapon-driven ease-in, read
+    // from the south clip the bow actually plays.
+    private static (float fullDraw, float release) BakedDrawHold(WeaponDefinition bow)
+    {
+        AnimationClip clip = bow.Presentation.GetAttackClip(3);
+        var binding = new EditorCurveBinding
+        {
+            path = "RightHandPivot/RightHand", type = typeof(Transform), propertyName = "m_LocalPosition.y"
+        };
+        Keyframe[] keys = AnimationUtility.GetEditorCurve(clip, binding).keys;
+        for (int i = 0; i + 1 < keys.Length; i++)
+        {
+            if (Mathf.Abs(keys[i].value - keys[i + 1].value) < 0.00001f && keys[i].time > DrawStartSeconds)
+                return (keys[i].time, keys[i + 1].time);
+        }
+        Assert.Fail($"{clip.name} has no draw hold.");
+        return default;
+    }
+
+    private static Sprite[] StringingFrames(string bowName)
     {
         var frames = new Sprite[4];
-        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(StringingSheetPath))
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(StringingSheetPath(bowName)))
         {
             if (asset is Sprite sprite)
             {

@@ -805,6 +805,15 @@ follow the baked attack: the draw starts at 0.1 s after the ease-in, draws throu
 full draw at 0.35 s while the hands peak at 0.4 s, holds, and releases at 0.45 s, when the string hand leaves the
 hold. The world sprite then shows the string at rest.
 
+Compound Bow uses `CompoundBowStringingAttackSpriteAnimation` over the four `Weapon-CompoundBow-Stringing.png`
+frames (rest, two partial draws, full draw), stored like Long Bow's in the world sprite's orientation (limb up,
+string on the bottom row) at 16 PPU with point filtering. Each pivot sits 3 px below the top of the limb, on the
+center column, so the `(0, 0.09375)` grip stays on the limb's center. The frames follow its own baked attack, not
+Long Bow's: the draw starts at 0.1 s, reaches the partial draws at 0.2 s and 0.25 s and the full draw at 0.3 s
+while the hands peak at 0.35 s, holds, and releases at 0.4 s, when the string hand leaves the hold. Its rest frame
+spans the world sprite's 23 px and grip, but its art is one row deeper than `RecurveBow.png`, so the string shifts
+by one pixel when the sequence starts and at the release.
+
 `WeaponAnimationCategory` exposes `None` (0) for all generic weapons and `LegacyRanged` (4) for the
 retained ranged fallback route, which no catalog weapon currently uses. Numeric values 1, 2 and 3 are retired; there is no sword, Rapier or dagger
 category or Animator route.
