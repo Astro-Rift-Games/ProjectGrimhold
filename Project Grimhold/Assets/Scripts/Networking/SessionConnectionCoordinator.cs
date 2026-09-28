@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// Owns the application's local Fusion connection lifecycle across MainMenu, Town and raid.
@@ -616,17 +619,44 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _hubLauncher.RunnerShutdownObserved += OnHubRunnerShutdown;
         _raidLauncher.RunnerShutdownObserved += OnRaidRunnerShutdown;
+#if UNITY_EDITOR
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+#endif
     }
 
     private void OnApplicationQuit()
     {
+        BeginTermination();
+    }
+
+#if UNITY_EDITOR
+    private void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            BeginTermination();
+        }
+    }
+#endif
+
+    private void BeginTermination()
+    {
+        if (_isQuitting)
+        {
+            return;
+        }
+
         _isQuitting = true;
+        _activeTransitionCancellation?.Cancel();
     }
 
     private void OnDestroy()
     {
+        BeginTermination();
+#if UNITY_EDITOR
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+#endif
         ResetHostResultsReturn();
-        _activeTransitionCancellation?.Cancel();
         _activeTransitionCancellation?.Dispose();
         _activeTransitionCancellation = null;
 
@@ -651,6 +681,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// </summary>
     public async Task<SessionTransitionResult> ConnectToTownAsync()
     {
+        if (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
+
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
@@ -672,6 +707,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
             if (!TransitionTo(SessionConnectionState.ConnectingTown))
@@ -679,7 +715,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.InvalidState;
             }
 
-            if (!await ShutdownActiveRunnersAsync())
+            bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
+            if (!shutdownSucceeded)
             {
                 if (!TryRollbackActiveReservation())
                 {
@@ -690,7 +732,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName);
+            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
             if (!started)
             {
                 TransitionTo(SessionConnectionState.Failed);
@@ -713,6 +760,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             CompleteTownEntry();
             return SessionTransitionResult.Succeeded;
         }
+        catch (OperationCanceledException) when (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
@@ -726,6 +777,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
         finally
         {
+            EndTransitionCancellation();
             _operationActive = false;
         }
     }
@@ -742,6 +794,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         RaidTransitionTicket ticket,
         bool recoverTownOnFailure)
     {
+        if (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
+
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
@@ -772,11 +829,20 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 TransitionTo(SessionConnectionState.PreparingRaid);
             }
 
-            if (!continuationAttempt && !await _hubLauncher.ShutdownAndDestroyRunnerAsync())
+            if (!continuationAttempt)
             {
+                bool shutdownSucceeded = await _hubLauncher.ShutdownAndDestroyRunnerAsync();
+                if (_isQuitting)
+                {
+                    return SessionTransitionResult.ConnectionFailed;
+                }
+
+                if (!shutdownSucceeded)
+                {
                     return recoverTownOnFailure
                         ? await RecoverTownAfterRaidFailureAsync(SessionTransitionResult.ShutdownFailed)
                         : SessionTransitionResult.ShutdownFailed;
+                }
             }
 
             if (State != SessionConnectionState.ConnectingRaid)
@@ -794,6 +860,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             int coordinatedAttempt = 0;
             while (!started && coordinatedAttempt < MaximumCoordinatedClientAttempts)
             {
+                if (_isQuitting)
+                {
+                    return SessionTransitionResult.ConnectionFailed;
+                }
+
                 coordinatedAttempt++;
                 started = await _raidLauncher.StartCoordinatedSessionAsync(
                     ticket.Request.SessionName,
@@ -802,6 +873,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     ticket.LaunchContext,
                     ticket.LoadoutReservation,
                     cancellationToken);
+                if (_isQuitting)
+                {
+                    return SessionTransitionResult.ConnectionFailed;
+                }
+
                 if (started)
                 {
                     break;
@@ -867,6 +943,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
+            if (this == null || _isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
             return recoverTownOnFailure
                 ? await RecoverTownAfterRaidFailureAsync(SessionTransitionResult.ConnectionFailed)
                 : await CleanupFailedRaidAttemptAsync(SessionTransitionResult.ConnectionFailed);
@@ -941,6 +1022,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private async Task<SessionTransitionResult> ReturnToTownInternalAsync(
         bool isParticipantReturn)
     {
+        if (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
+
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
@@ -969,6 +1055,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
             if (_loadoutConfirmationPending && !TryConfirmActiveReservation())
@@ -987,13 +1074,23 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             UpdateTicketState(SessionConnectionState.ReturningTown);
 
             bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
             if (!shutdownSucceeded)
             {
                 TransitionTo(SessionConnectionState.Failed);
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName);
+            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
             if (!started)
             {
                 TransitionTo(SessionConnectionState.Failed);
@@ -1014,6 +1111,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             CompleteTownEntry();
             return SessionTransitionResult.Succeeded;
         }
+        catch (OperationCanceledException) when (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
@@ -1022,6 +1123,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
         finally
         {
+            EndTransitionCancellation();
             _operationActive = false;
         }
     }
@@ -1034,6 +1136,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         string sessionName,
         GameMode mode)
     {
+        if (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
+
         if (_operationActive)
         {
             return SessionTransitionResult.Busy;
@@ -1051,6 +1158,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
             ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
@@ -1086,7 +1194,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 SessionConnectionState.ConnectingRaid,
                 launchContext);
             TransitionTo(SessionConnectionState.ConnectingRaid);
-            if (!await ShutdownActiveRunnersAsync())
+            bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
+            if (!shutdownSucceeded)
             {
                 if (!TryRollbackActiveReservation())
                 {
@@ -1098,7 +1212,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.ShutdownFailed;
             }
 
-            CancellationToken cancellationToken = BeginTransitionCancellation();
             bool started = await _raidLauncher.StartCoordinatedSessionAsync(
                 sessionName,
                 mode,
@@ -1106,6 +1219,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 launchContext,
                 reservation,
                 cancellationToken);
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
             if (!started)
             {
                 if (!TryRollbackActiveReservation())
@@ -1165,6 +1283,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private async Task<SessionTransitionResult> RecoverTownAfterRaidFailureAsync(
         SessionTransitionResult failure)
     {
+        if (_isQuitting)
+        {
+            return failure;
+        }
+
         // [AUDIT] Log entry conditions for recovery
         ApplicationStashContext auditStash = FindAnyObjectByType<ApplicationStashContext>();
         Debug.LogError(
@@ -1186,13 +1309,25 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         TransitionTo(SessionConnectionState.ReturningTown);
         UpdateTicketState(SessionConnectionState.ReturningTown);
 
-        if (!await ShutdownActiveRunnersAsync())
+        bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+        if (_isQuitting)
+        {
+            return failure;
+        }
+
+        if (!shutdownSucceeded)
         {
             TransitionTo(SessionConnectionState.Failed);
             return SessionTransitionResult.RecoveryFailed;
         }
 
-        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName);
+        CancellationToken cancellationToken = _activeTransitionCancellation?.Token ?? CancellationToken.None;
+        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+        if (_isQuitting)
+        {
+            return failure;
+        }
+
         if (!recovered)
         {
             TransitionTo(SessionConnectionState.Failed);
@@ -1438,6 +1573,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private async void RecoverFromUnexpectedShutdown()
     {
+        if (_isQuitting)
+        {
+            return;
+        }
+
         if (_operationActive)
         {
             TransitionTo(SessionConnectionState.Failed);
@@ -1445,12 +1585,30 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
             TransitionTo(SessionConnectionState.ReturningTown);
             UpdateTicketState(SessionConnectionState.ReturningTown);
-            if (!await ShutdownActiveRunnersAsync() ||
-                !await _hubLauncher.StartHubSessionAsync(_townSceneName))
+            bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+            if (_isQuitting)
+            {
+                return;
+            }
+
+            if (!shutdownSucceeded)
+            {
+                TransitionTo(SessionConnectionState.Failed);
+                return;
+            }
+
+            bool started = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+            if (_isQuitting)
+            {
+                return;
+            }
+
+            if (!started)
             {
                 TransitionTo(SessionConnectionState.Failed);
                 return;
@@ -1473,11 +1631,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
         catch (Exception exception)
         {
+            if (this == null || _isQuitting)
+            {
+                return;
+            }
+
             Debug.LogException(exception, this);
             TransitionTo(SessionConnectionState.Failed);
         }
         finally
         {
+            EndTransitionCancellation();
             _operationActive = false;
         }
     }

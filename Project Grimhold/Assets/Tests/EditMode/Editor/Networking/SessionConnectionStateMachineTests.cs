@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Fusion;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using Assert = NUnit.Framework.Assert;
 using Object = UnityEngine.Object;
@@ -285,6 +286,39 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
+    public async Task HubStartup_PreCancelledToken_DoesNotCreateRunner()
+    {
+        Assert.That(NetworkSceneBuildIndexResolver.Resolve("Lobby-Town"), Is.GreaterThanOrEqualTo(0));
+
+        ProfileId previousProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        var owner = new GameObject("Cancelled Town startup test");
+        HubSessionLauncher launcher = owner.AddComponent<HubSessionLauncher>();
+        using var cancellation = new CancellationTokenSource();
+
+        try
+        {
+            LocalProfileProvider.SetRemoteCharacterId(new ProfileId("hub-cancel-test"));
+            cancellation.Cancel();
+
+            Assert.That(await launcher.StartHubSessionAsync("Lobby-Town", cancellation.Token), Is.False);
+            Assert.That(launcher.Runner, Is.Null);
+            Assert.That(ReadPrivateField<GameObject>(launcher, "_runnerObject"), Is.Null);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+            if (previousProfile.IsValid)
+            {
+                LocalProfileProvider.SetRemoteCharacterId(previousProfile);
+            }
+            else
+            {
+                LocalProfileProvider.ClearRemoteCharacterId();
+            }
+        }
+    }
+
+    [Test]
     public void NewTownJoinContext_DoesNotInheritDestroyedRaidAdmission()
     {
         var oldRunnerObject = new GameObject("Old raid join context");
@@ -409,15 +443,8 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
-    public void HostMigrationShutdown_DoesNotRouteToUnexpectedRecovery()
+    public void UnexpectedRaidShutdown_RecoversOnlyWhileApplicationIsRunning()
     {
-        Assert.That(
-            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
-                operationActive: false,
-                isQuitting: false,
-                SessionConnectionState.Raid,
-                ShutdownReason.HostMigration),
-            Is.False);
         Assert.That(
             SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
                 operationActive: false,
@@ -425,6 +452,76 @@ public sealed class SessionConnectionStateMachineTests
                 SessionConnectionState.Raid,
                 ShutdownReason.Error),
             Is.True);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: true,
+                SessionConnectionState.Raid,
+                ShutdownReason.Error),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration),
+            Is.False);
+    }
+
+    [Test]
+    public void EditorPlayModeExit_CancelsTransitionBeforeShutdownRecovery()
+    {
+        var owner = new GameObject("Editor teardown coordinator test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var cancellation = new CancellationTokenSource();
+        SetPrivateField(coordinator, "_activeTransitionCancellation", cancellation);
+        SessionConnectionStateMachine stateMachine =
+            ReadPrivateField<SessionConnectionStateMachine>(coordinator, "_stateMachine");
+
+        try
+        {
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingRaid), Is.True);
+            Assert.That(stateMachine.TryTransition(SessionConnectionState.Raid), Is.True);
+
+            InvokePrivateMethod(coordinator, "OnPlayModeStateChanged", PlayModeStateChange.ExitingPlayMode);
+            Assert.That(cancellation.IsCancellationRequested, Is.True);
+
+            InvokePrivateMethod(coordinator, "OnRaidRunnerShutdown", null, ShutdownReason.Error);
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.Raid));
+            Assert.That(coordinator.IsTransitioning, Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task ApplicationQuit_IsIdempotentAndRejectsNewTownConnection()
+    {
+        var owner = new GameObject("Application teardown coordinator test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var cancellation = new CancellationTokenSource();
+        SetPrivateField(coordinator, "_activeTransitionCancellation", cancellation);
+
+        try
+        {
+            InvokePrivateMethod(coordinator, "OnApplicationQuit");
+            InvokePrivateMethod(coordinator, "OnApplicationQuit");
+            InvokePrivateMethod(coordinator, "OnPlayModeStateChanged", PlayModeStateChange.ExitingPlayMode);
+
+            Assert.That(cancellation.IsCancellationRequested, Is.True);
+            Assert.That(await coordinator.ConnectToTownAsync(), Is.EqualTo(SessionTransitionResult.ConnectionFailed));
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.MainMenu));
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
     }
 
     [Test]

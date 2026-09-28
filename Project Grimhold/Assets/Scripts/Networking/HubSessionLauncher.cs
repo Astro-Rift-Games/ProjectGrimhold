@@ -1,5 +1,6 @@
 using Fusion;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,7 +26,9 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         return StartHubSessionAsync("Lobby-Town");
     }
 
-    public async Task<bool> StartHubSessionAsync(string townSceneName)
+    public async Task<bool> StartHubSessionAsync(
+        string townSceneName,
+        CancellationToken cancellationToken = default)
     {
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
         var joinData = new PlayerJoinData(profileId);
@@ -48,6 +51,7 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!HubRunnerFactory.TryCreate(in joinData, _socialPlayerPrefab, out var composition))
             {
                 Debug.LogError("[HubSessionLauncher] Failed to create runner composition via factory.", this);
@@ -74,6 +78,7 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             };
 
             StartGameResult result = await _runner.StartGame(args);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!result.Ok)
             {
@@ -82,7 +87,9 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 return false;
             }
 
-            if (!await _shutdownListener.WaitForInitialSceneAsync())
+            bool initialSceneReady = await _shutdownListener.WaitForInitialSceneAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!initialSceneReady)
             {
                 Debug.LogError("[HubSessionLauncher] Town scene did not finish loading on the active runner.", this);
                 await ShutdownAndDestroyRunnerAsync();
@@ -91,6 +98,11 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
             Debug.Log($"[HubSessionLauncher] Fusion session started in Shared Mode. Session: {_runner.SessionInfo.Name}.", this);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            await ShutdownAndDestroyRunnerAsync();
+            return false;
         }
         catch (Exception ex)
         {
