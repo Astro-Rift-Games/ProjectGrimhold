@@ -17,6 +17,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
+    [SerializeField] private DialoguePresenter _dialoguePresenter;
 
     private TownRaidPreparationView _view;
     private TownRaidPreparationDirectory _directory;
@@ -25,6 +26,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private PlayerInputReader _inputReader;
     private int _presentedRevision = -1;
     private bool _showingNoPreparation;
+    private NetworkObject _openNpc;
 
     private void Awake()
     {
@@ -50,6 +52,11 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         if (!HasInputAuthority || _view == null)
         {
             return;
+        }
+
+        if (_view.IsPanelOpen && (Runner == null || !Runner.IsRunning || _openNpc == null || !_openNpc.IsValid))
+        {
+            ClosePanel();
         }
 
         RefreshPreparationPresentation(false);
@@ -98,6 +105,10 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         _view.StartRequested += StartRaid;
         _view.CloseRequested += ClosePanel;
         _interactionController.InteractionResolved += OnInteractionResolved;
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally += OnDialogueCompletedNormally;
+        }
 
         SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
         if (coordinator != null && coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure))
@@ -108,7 +119,8 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        if (_view == null || !interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
+        if (_view == null || _view.IsPanelOpen || !interactionEvent.Success ||
+            interactionEvent.TargetId.Value == 0 || Runner == null)
         {
             return;
         }
@@ -120,8 +132,54 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             return;
         }
 
+        if (target.GetComponentInChildren<IDialogueTrigger>() != null)
+        {
+            return;
+        }
+
+        OpenForTarget(target, npc);
+    }
+
+    private void OnDialogueCompletedNormally(EntityId targetId)
+    {
+        var networkId = new NetworkId { Raw = unchecked((uint)targetId.Value) };
+        if (Runner == null || !Runner.IsRunning ||
+            !Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
+            !target.TryGetBehaviour(out TownRaidNpcInteractable npc) ||
+            target.GetComponentInChildren<IDialogueTrigger>() == null)
+        {
+            return;
+        }
+
+        if (_view != null && _view.IsPanelOpen)
+        {
+            return;
+        }
+
+        if (_view != null)
+        {
+            OpenForTarget(target, npc);
+            if (_view.IsPanelOpen)
+            {
+                return;
+            }
+        }
+
+        target.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+    }
+
+    private void OpenForTarget(NetworkObject target, TownRaidNpcInteractable npc)
+    {
         _directory = npc.PreparationDirectory;
+        _openNpc = target;
         _view.Open();
+        if (!_view.IsPanelOpen)
+        {
+            ClosePanel();
+            return;
+        }
+
+        target.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
         RefreshPreparationPresentation(true);
         AcquireInputSuppression();
     }
@@ -175,6 +233,11 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private void ClosePanel()
     {
         _view?.Close();
+        if (_openNpc != null)
+        {
+            _openNpc.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+        }
+        _openNpc = null;
         ReleaseInputSuppression();
     }
 
@@ -224,7 +287,13 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             _interactionController.InteractionResolved -= OnInteractionResolved;
         }
 
-        ReleaseInputSuppression();
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally -= OnDialogueCompletedNormally;
+        }
+
+        ClosePanel();
+
         if (_view != null)
         {
             _view.CreateRequested -= CreateRaid;
@@ -253,6 +322,11 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         if (_interactionController == null)
         {
             _interactionController = GetComponent<PlayerInteractionNetworkController>();
+        }
+
+        if (_dialoguePresenter == null)
+        {
+            _dialoguePresenter = GetComponent<DialoguePresenter>();
         }
     }
 

@@ -15,6 +15,7 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
 
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
+    [SerializeField] private DialoguePresenter _dialoguePresenter;
 
     private TownMerchantView _view;
     private NetworkObject _openNpc;
@@ -88,6 +89,10 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         }
 
         _interactionController.InteractionResolved += OnInteractionResolved;
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally += OnDialogueCompletedNormally;
+        }
     }
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
@@ -122,7 +127,45 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         {
             return;
         }
-        
+
+        if (target.GetComponentInChildren<IDialogueTrigger>() != null)
+        {
+            return;
+        }
+
+        OpenForTarget(target);
+    }
+
+    private void OnDialogueCompletedNormally(EntityId targetId)
+    {
+        var networkId = new NetworkId { Raw = unchecked((uint)targetId.Value) };
+        if (Runner == null || !Runner.IsRunning ||
+            !Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
+            !target.TryGetBehaviour(out TownMerchantNpcInteractable _) ||
+            target.GetComponentInChildren<IDialogueTrigger>() == null)
+        {
+            return;
+        }
+
+        if (_view != null && _view.IsOpen)
+        {
+            return;
+        }
+
+        if (_view != null)
+        {
+            OpenForTarget(target);
+            if (_view.IsOpen)
+            {
+                return;
+            }
+        }
+
+        target.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+    }
+
+    private void OpenForTarget(NetworkObject target)
+    {
         if (!target.TryGetBehaviour(out TownMerchantNetworkController merchantController))
         {
             Debug.LogError("Merchant NPC is missing TownMerchantNetworkController.", target);
@@ -149,6 +192,10 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
 
         _openNpc = target;
         _view.Open();
+        if (_view.IsOpen)
+        {
+            target.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
+        }
         AcquireInputSuppression();
     }
 
@@ -216,6 +263,10 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         }
 
         _view?.Close();
+        if (_openNpc != null)
+        {
+            _openNpc.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+        }
         _openNpc = null;
         ReleaseInputSuppression();
     }
@@ -227,7 +278,13 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
             _interactionController.InteractionResolved -= OnInteractionResolved;
         }
 
-        ReleaseInputSuppression();
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally -= OnDialogueCompletedNormally;
+        }
+
+        ClosePanel();
+
         if (_view != null)
         {
             Destroy(_view.gameObject);
@@ -242,6 +299,11 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         if (_interactionController == null)
         {
             _interactionController = GetComponent<PlayerInteractionNetworkController>();
+        }
+
+        if (_dialoguePresenter == null)
+        {
+            _dialoguePresenter = GetComponent<DialoguePresenter>();
         }
     }
 

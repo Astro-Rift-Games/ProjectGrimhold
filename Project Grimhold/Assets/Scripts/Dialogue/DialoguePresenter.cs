@@ -32,11 +32,13 @@ public sealed class DialoguePresenter : NetworkBehaviour
     private GameObject _instantiatedUiInstance;
 
     private NetworkObject _currentNpc;
+    private EntityId _currentTargetId;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
     private bool _isDialogueActive;
 
     public bool IsDialogueActive => _isDialogueActive;
+    public event Action<EntityId> DialogueCompletedNormally;
 
     private void Awake()
     {
@@ -185,6 +187,7 @@ public sealed class DialoguePresenter : NetworkBehaviour
         }
 
         ForceEndDialogue();
+        _interactedEntities.Clear();
 
         if (_instantiatedUiInstance != null)
         {
@@ -242,23 +245,34 @@ public sealed class DialoguePresenter : NetworkBehaviour
             ? trigger.SecondarySequence
             : trigger.PrimarySequence;
 
-        if (sequence == null)
+        if (sequence == null || sequence.Lines == null || sequence.Lines.Length == 0)
         {
-            Debug.LogWarning($"[DialoguePresenter] No dialogue sequence available for target {target.name}.", this);
+            Debug.LogWarning($"[DialoguePresenter] No valid dialogue sequence available for target {target.name}.", this);
             return;
         }
 
-        _interactedEntities.Add(targetId);
         _currentNpc = target;
+        _currentTargetId = targetId;
         _isDialogueActive = true;
+
+        TownNpcDirectionalView directionalView = target.GetComponentInChildren<TownNpcDirectionalView>();
+        directionalView?.FaceTarget(transform.position);
 
         AcquireInputSuppression();
 
         _controller.LineStarted += OnLineStarted;
         _controller.CharacterTyped += OnCharacterTyped;
         _controller.DialogueEnded += OnDialogueEnded;
+        _controller.DialogueCompletedNormally += OnDialogueCompletedNormally;
 
         _controller.StartDialogue(sequence);
+        if (!_controller.IsActive)
+        {
+            CloseDialogue(true);
+            return;
+        }
+
+        _interactedEntities.Add(targetId);
     }
 
     private void OnLineStarted(DialogueLine line, int currentLineIndex, int totalLineCount)
@@ -280,7 +294,23 @@ public sealed class DialoguePresenter : NetworkBehaviour
 
     private void OnDialogueEnded()
     {
-        CloseDialogue();
+        CloseDialogue(true);
+    }
+
+    private void OnDialogueCompletedNormally()
+    {
+        NetworkObject target = _currentNpc;
+        EntityId targetId = _currentTargetId;
+        bool canComplete = Runner != null && Runner.IsRunning && target != null && target.IsValid &&
+                           Vector3.Distance(transform.position, target.transform.position) <= _maxDialogueDistance;
+        // Restore even if no Town presenter can open a panel; a successful presenter
+        // reapplies temporary facing synchronously before the next rendered frame.
+        CloseDialogue(true);
+        if (canComplete)
+        {
+            // The dialogue UI and its input suppression are already released before the next presenter opens.
+            DialogueCompletedNormally?.Invoke(targetId);
+        }
     }
 
     private void OnAdvanceRequested()
@@ -309,24 +339,31 @@ public sealed class DialoguePresenter : NetworkBehaviour
             _controller.ForceEnd();
         }
 
-        CloseDialogue();
+        CloseDialogue(true);
     }
 
-    private void CloseDialogue()
+    private void CloseDialogue(bool restoreFacing)
     {
         if (!_isDialogueActive)
         {
             return;
         }
 
+        if (restoreFacing && _currentNpc != null)
+        {
+            _currentNpc.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+        }
+
         _isDialogueActive = false;
         _currentNpc = null;
+        _currentTargetId = default;
 
         if (_controller != null)
         {
             _controller.LineStarted -= OnLineStarted;
             _controller.CharacterTyped -= OnCharacterTyped;
             _controller.DialogueEnded -= OnDialogueEnded;
+            _controller.DialogueCompletedNormally -= OnDialogueCompletedNormally;
         }
 
         if (_view != null)

@@ -14,6 +14,7 @@ public sealed class DialogueController : MonoBehaviour, IDialogueController
     public event Action<DialogueLine, int, int> LineStarted;
     public event Action<string> CharacterTyped;
     public event Action DialogueEnded;
+    public event Action DialogueCompletedNormally;
 
     private DialogueSequence _currentSequence;
     private int _currentLineIndex;
@@ -47,7 +48,7 @@ public sealed class DialogueController : MonoBehaviour, IDialogueController
             _currentLineIndex++;
             if (_currentLineIndex >= _currentSequence.Lines.Length)
             {
-                ForceEnd();
+                EndDialogue(true);
             }
             else
             {
@@ -60,12 +61,23 @@ public sealed class DialogueController : MonoBehaviour, IDialogueController
     {
         if (!IsActive) return;
 
+        EndDialogue(false);
+    }
+
+    private void EndDialogue(bool completedNormally)
+    {
+        if (!IsActive) return;
+
         StopAllRoutines();
         
         IsActive = false;
         _currentSequence = null;
         _currentLineIndex = 0;
-        
+
+        if (completedNormally)
+        {
+            DialogueCompletedNormally?.Invoke();
+        }
         DialogueEnded?.Invoke();
     }
 

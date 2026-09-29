@@ -103,6 +103,8 @@ State Authority sends each result through a reliable RPC directed to Input Autho
 
 `LocalPlayerHudBinder` enables the prefab HUD only when `HasInputAuthority`. Proxies, animations, and views do not execute interactions or modify authoritative state.
 
+The three functional Town NPCs (Stash, Raid preparation, and Merchant) retain their existing single `IInteractable` endpoints. On a confirmed interaction, local presentation temporarily faces the NPC toward the player and starts its data-only dialogue. Their existing Town presenters defer panel opening until `DialoguePresenter` reports normal completion after hiding the dialogue and releasing its input suppression; each presenter re-resolves and validates the target before opening its existing panel. Cancellation, invalid targets, distance loss, and session teardown do not open a panel, and temporary facing is restored when the flow ends. This handoff adds no authoritative interaction path or cosmetic network state.
+
 ## 4. Loot-container interaction adapter
 
 `NetworkLootContainerInteractable` is a same-root adapter over `NetworkLootContainer`. Both must share exactly one `NetworkObject` and therefore one `EntityId`. The container owns loot-source and collider registration; the adapter independently registers only `IInteractable`, accepting either spawn order. Expected-instance unregistration means either despawn order preserves the other capability and an obsolete owner cannot remove a later instance.

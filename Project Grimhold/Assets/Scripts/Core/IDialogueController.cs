@@ -24,9 +24,12 @@ public interface IDialogueController
     event Action<string> CharacterTyped;
 
     /// <summary>
-    /// Raised when the last line in the sequence finishes and the dialogue closes.
+    /// Raised whenever the dialogue closes, including forced termination.
     /// </summary>
     event Action DialogueEnded;
+
+    /// <summary>Raised only when the final line is advanced normally.</summary>
+    event Action DialogueCompletedNormally;
 
     /// <summary>
     /// Starts playing the given sequence from the first line.

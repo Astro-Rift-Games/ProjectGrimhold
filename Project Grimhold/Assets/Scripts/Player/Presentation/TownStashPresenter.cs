@@ -15,6 +15,7 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
+    [SerializeField] private DialoguePresenter _dialoguePresenter;
 
     private TownStashView _view;
     private NetworkObject _openNpc;
@@ -90,6 +91,10 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
         _view.Close();
         _interactionController.InteractionResolved += OnInteractionResolved;
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally += OnDialogueCompletedNormally;
+        }
     }
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
@@ -111,6 +116,45 @@ public sealed class TownStashPresenter : NetworkBehaviour
             return;
         }
 
+        if (target.GetComponentInChildren<IDialogueTrigger>() != null)
+        {
+            return;
+        }
+
+        OpenForTarget(target);
+    }
+
+    private void OnDialogueCompletedNormally(EntityId targetId)
+    {
+        var networkId = new NetworkId { Raw = unchecked((uint)targetId.Value) };
+        if (Runner == null || !Runner.IsRunning ||
+            !Runner.TryFindObject(networkId, out NetworkObject target) || target == null ||
+            !target.TryGetBehaviour(out TownStashNpcInteractable _) ||
+            target.GetComponentInChildren<IDialogueTrigger>() == null)
+        {
+            return;
+        }
+
+        if (_view != null && _view.IsOpen)
+        {
+            return;
+        }
+
+        if (_view != null)
+        {
+            OpenForTarget(target);
+            if (_view.IsOpen)
+            {
+                return;
+            }
+        }
+
+        // No panel took ownership of the temporary facing.
+        target.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+    }
+
+    private void OpenForTarget(NetworkObject target)
+    {
         ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
         if (context == null)
         {
@@ -144,6 +188,10 @@ public sealed class TownStashPresenter : NetworkBehaviour
 
         _openNpc = target;
         _view.Open();
+        if (_view.IsOpen)
+        {
+            target.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
+        }
         AcquireInputSuppression();
     }
 
@@ -201,6 +249,10 @@ public sealed class TownStashPresenter : NetworkBehaviour
     private void ClosePanel()
     {
         _view?.Close();
+        if (_openNpc != null)
+        {
+            _openNpc.GetComponentInChildren<TownNpcDirectionalView>()?.RestoreInitialFacing();
+        }
         _openNpc = null;
         ReleaseInputSuppression();
     }
@@ -212,7 +264,13 @@ public sealed class TownStashPresenter : NetworkBehaviour
             _interactionController.InteractionResolved -= OnInteractionResolved;
         }
 
-        ReleaseInputSuppression();
+        if (_dialoguePresenter != null)
+        {
+            _dialoguePresenter.DialogueCompletedNormally -= OnDialogueCompletedNormally;
+        }
+
+        ClosePanel();
+
         if (_view != null)
         {
             Destroy(_view.gameObject);
@@ -227,6 +285,11 @@ public sealed class TownStashPresenter : NetworkBehaviour
         if (_interactionController == null)
         {
             _interactionController = GetComponent<PlayerInteractionNetworkController>();
+        }
+
+        if (_dialoguePresenter == null)
+        {
+            _dialoguePresenter = GetComponent<DialoguePresenter>();
         }
     }
 
