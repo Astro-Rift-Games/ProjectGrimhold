@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d824222c91c655c46bc9cb8a11b1b6ab, type: 3}
+  m_Name: TownMerchantNpcDialogue
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueSequence
+  CharactersPerSecond: 40
+  TypingSound:
+    _clips: []
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
+  Lines:
+  - SpeakerName: Merchant
+    Text: Let's see what's for sale.
+    SpeakerPortrait: {fileID: 0}
+    AutoAdvance: 0
+    AutoAdvanceDelay: 0

@@ -81,7 +81,7 @@ SpriteRenderer:
   m_SortingLayer: 2
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 1125379381859389362, guid: da8349851a125f64ebfa5968c4788c4a, type: 3}
+  m_Sprite: {fileID: -6522406300447553488, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -105,6 +105,8 @@ GameObject:
   - component: {fileID: 7988261933027990379}
   - component: {fileID: 7739622267549798780}
   - component: {fileID: 4566576915126835905}
+  - component: {fileID: 3420151832053763800}
+  - component: {fileID: 2304558193067972518}
   m_Layer: 8
   m_Name: TownStashNpc
   m_TagString: Untagged
@@ -209,3 +211,37 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 1
+--- !u!114 &3420151832053763800
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7255589387587354951}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bd4413ff5635034284378fe6dafebec, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownNpcDialogueTrigger
+  _primarySequence: {fileID: 11400000, guid: 6148de39139e9604dbcf0574cd6fd1d7, type: 2}
+  _secondarySequence: {fileID: 0}
+--- !u!114 &2304558193067972518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7255589387587354951}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a00890ec3bfa4144aa48f7e6490dba40, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownNpcDirectionalView
+  _spriteRenderer: {fileID: 3650938777303899813}
+  _initialFacing: 0
+  _north: {fileID: -6247706317300127847, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _northEast: {fileID: -5683629587681733746, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _northWest: {fileID: 8659618546137279770, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _south: {fileID: -6522406300447553488, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _southEast: {fileID: 6982696758239559845, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _southWest: {fileID: -1250059675554311865, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}

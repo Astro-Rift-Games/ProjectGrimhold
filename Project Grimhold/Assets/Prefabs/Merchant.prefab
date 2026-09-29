@@ -81,7 +81,7 @@ SpriteRenderer:
   m_SortingLayer: 2
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 1125379381859389362, guid: da8349851a125f64ebfa5968c4788c4a, type: 3}
+  m_Sprite: {fileID: 919108843684352281, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -106,6 +106,8 @@ GameObject:
   - component: {fileID: 7900664587950221347}
   - component: {fileID: 3916833658978523324}
   - component: {fileID: 4641527976176063025}
+  - component: {fileID: 2573862561549897884}
+  - component: {fileID: 5390424021586029504}
   m_Layer: 8
   m_Name: Merchant
   m_TagString: Untagged
@@ -237,3 +239,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InteractionPromptMetadata
   _promptText: Revisar tienda
+--- !u!114 &2573862561549897884
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8952480835185729331}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bd4413ff5635034284378fe6dafebec, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownNpcDialogueTrigger
+  _primarySequence: {fileID: 11400000, guid: 3363b80511e8bd547a4f4c78e89e8fa2, type: 2}
+  _secondarySequence: {fileID: 0}
+--- !u!114 &5390424021586029504
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8952480835185729331}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a00890ec3bfa4144aa48f7e6490dba40, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TownNpcDirectionalView
+  _spriteRenderer: {fileID: 6254331234531191281}
+  _initialFacing: 0
+  _north: {fileID: -2686564712292425875, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _northEast: {fileID: -8568273696646552219, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _northWest: {fileID: 4050982672043736561, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _south: {fileID: 919108843684352281, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _southEast: {fileID: 6666088886351746315, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}
+  _southWest: {fileID: 2095455199199738055, guid: 90b1ccc8243ddc04c9ff7f1786191193, type: 3}

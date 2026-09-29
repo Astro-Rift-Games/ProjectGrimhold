@@ -1,0 +1,659 @@
+fileFormatVersion: 2
+guid: 90b1ccc8243ddc04c9ff7f1786191193
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 5283242474022282445
+    second: NPCs-spritesheet_0
+  - first:
+      213: 1800612379966420702
+    second: NPCs-spritesheet_1
+  - first:
+      213: 5844067591149900550
+    second: NPCs-spritesheet_2
+  - first:
+      213: 8374955203998566583
+    second: NPCs-spritesheet_3
+  - first:
+      213: -3671502161954321561
+    second: NPCs-spritesheet_4
+  - first:
+      213: -439273940120612180
+    second: NPCs-spritesheet_5
+  - first:
+      213: -55666669668017815
+    second: NPCs-spritesheet_6
+  - first:
+      213: 7603090217135777160
+    second: NPCs-spritesheet_7
+  - first:
+      213: 3783808070640931493
+    second: NPCs-spritesheet_8
+  - first:
+      213: 7938261222974384316
+    second: NPCs-spritesheet_9
+  - first:
+      213: -9085363631638239480
+    second: NPCs-spritesheet_10
+  - first:
+      213: 7735404763108890738
+    second: NPCs-spritesheet_11
+  - first:
+      213: -7393363529839289438
+    second: NPCs-spritesheet_12
+  - first:
+      213: -8988613661991601159
+    second: NPCs-spritesheet_13
+  - first:
+      213: 229920368482083273
+    second: NPCs-spritesheet_14
+  - first:
+      213: -808769766199909845
+    second: NPCs-spritesheet_15
+  - first:
+      213: 116225747076514258
+    second: NPCs-spritesheet_16
+  - first:
+      213: 9030342263518297717
+    second: NPCs-spritesheet_17
+  - first:
+      213: -6247706317300127847
+    second: StashNpc-N
+  - first:
+      213: -5683629587681733746
+    second: StashNpc-NE
+  - first:
+      213: 8659618546137279770
+    second: StashNpc-NW
+  - first:
+      213: -6522406300447553488
+    second: StashNpc-S
+  - first:
+      213: 6982696758239559845
+    second: StashNpc-SE
+  - first:
+      213: -1250059675554311865
+    second: StashNpc-SW
+  - first:
+      213: -7902814029425861237
+    second: RaidNpc-N
+  - first:
+      213: -7101924897363029734
+    second: RaidNpc-NE
+  - first:
+      213: -1986140069827412025
+    second: RaidNpc-NW
+  - first:
+      213: -7191478435507892901
+    second: RaidNpc-S
+  - first:
+      213: 3818162490909513828
+    second: RaidNpc-SE
+  - first:
+      213: 3274712138367404753
+    second: RaidNpc-SW
+  - first:
+      213: -2686564712292425875
+    second: MerchantNpc-N
+  - first:
+      213: -8568273696646552219
+    second: MerchantNpc-NE
+  - first:
+      213: 4050982672043736561
+    second: MerchantNpc-NW
+  - first:
+      213: 919108843684352281
+    second: MerchantNpc-S
+  - first:
+      213: 6666088886351746315
+    second: MerchantNpc-SE
+  - first:
+      213: 2095455199199738055
+    second: MerchantNpc-SW
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 48
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: StashNpc-N
+      rect:
+        serializedVersion: 2
+        x: 108
+        y: 1248
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 997ac58c430bb49a0800000000000000
+      internalID: -6247706317300127847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StashNpc-NE
+      rect:
+        serializedVersion: 2
+        x: 396
+        y: 1248
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e83945fc001bf11b0800000000000000
+      internalID: -5683629587681733746
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StashNpc-NW
+      rect:
+        serializedVersion: 2
+        x: 684
+        y: 1248
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a1da5e4ef252d2870800000000000000
+      internalID: 8659618546137279770
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StashNpc-S
+      rect:
+        serializedVersion: 2
+        x: 972
+        y: 1248
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 038cd05e602cb75a0800000000000000
+      internalID: -6522406300447553488
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StashNpc-SE
+      rect:
+        serializedVersion: 2
+        x: 108
+        y: 960
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5a00429a4b587e060800000000000000
+      internalID: 6982696758239559845
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StashNpc-SW
+      rect:
+        serializedVersion: 2
+        x: 396
+        y: 960
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7419b822955e6aee0800000000000000
+      internalID: -1250059675554311865
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-N
+      rect:
+        serializedVersion: 2
+        x: 684
+        y: 960
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b8d191ad280935290800000000000000
+      internalID: -7902814029425861237
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-NE
+      rect:
+        serializedVersion: 2
+        x: 972
+        y: 960
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a119c27fee4e07d90800000000000000
+      internalID: -7101924897363029734
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-NW
+      rect:
+        serializedVersion: 2
+        x: 108
+        y: 672
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7cf74c72120df64e0800000000000000
+      internalID: -1986140069827412025
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-S
+      rect:
+        serializedVersion: 2
+        x: 396
+        y: 672
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b5d8ba9077cb23c90800000000000000
+      internalID: -7191478435507892901
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-SE
+      rect:
+        serializedVersion: 2
+        x: 684
+        y: 672
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 468d1655e86dcf430800000000000000
+      internalID: 3818162490909513828
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: RaidNpc-SW
+      rect:
+        serializedVersion: 2
+        x: 972
+        y: 672
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1da8c05f65d127d20800000000000000
+      internalID: 3274712138367404753
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-N
+      rect:
+        serializedVersion: 2
+        x: 108
+        y: 384
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d6fd5b1d0a767bad0800000000000000
+      internalID: -2686564712292425875
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-NE
+      rect:
+        serializedVersion: 2
+        x: 396
+        y: 384
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5652f053870671980800000000000000
+      internalID: -8568273696646552219
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-NW
+      rect:
+        serializedVersion: 2
+        x: 684
+        y: 384
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1fdfd66f64bf73830800000000000000
+      internalID: 4050982672043736561
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-S
+      rect:
+        serializedVersion: 2
+        x: 972
+        y: 384
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 911d9b9af9451cc00800000000000000
+      internalID: 919108843684352281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-SE
+      rect:
+        serializedVersion: 2
+        x: 108
+        y: 96
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b05dc201684b28c50800000000000000
+      internalID: 6666088886351746315
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: MerchantNpc-SW
+      rect:
+        serializedVersion: 2
+        x: 396
+        y: 96
+        width: 72
+        height: 96
+      alignment: 9
+      pivot: {x: 0.5, y: 0.125}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7c8bb07c66d841d10800000000000000
+      internalID: 2095455199199738055
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 63950cd96029fd444b3f787eac35a8bd
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      MerchantNpc-N: -2686564712292425875
+      MerchantNpc-NE: -8568273696646552219
+      MerchantNpc-NW: 4050982672043736561
+      MerchantNpc-S: 919108843684352281
+      MerchantNpc-SE: 6666088886351746315
+      MerchantNpc-SW: 2095455199199738055
+      NPCs-spritesheet_0: 5283242474022282445
+      NPCs-spritesheet_1: 1800612379966420702
+      NPCs-spritesheet_10: -9085363631638239480
+      NPCs-spritesheet_11: 7735404763108890738
+      NPCs-spritesheet_12: -7393363529839289438
+      NPCs-spritesheet_13: -8988613661991601159
+      NPCs-spritesheet_14: 229920368482083273
+      NPCs-spritesheet_15: -808769766199909845
+      NPCs-spritesheet_16: 116225747076514258
+      NPCs-spritesheet_17: 9030342263518297717
+      NPCs-spritesheet_2: 5844067591149900550
+      NPCs-spritesheet_3: 8374955203998566583
+      NPCs-spritesheet_4: -3671502161954321561
+      NPCs-spritesheet_5: -439273940120612180
+      NPCs-spritesheet_6: -55666669668017815
+      NPCs-spritesheet_7: 7603090217135777160
+      NPCs-spritesheet_8: 3783808070640931493
+      NPCs-spritesheet_9: 7938261222974384316
+      RaidNpc-N: -7902814029425861237
+      RaidNpc-NE: -7101924897363029734
+      RaidNpc-NW: -1986140069827412025
+      RaidNpc-S: -7191478435507892901
+      RaidNpc-SE: 3818162490909513828
+      RaidNpc-SW: 3274712138367404753
+      StashNpc-N: -6247706317300127847
+      StashNpc-NE: -5683629587681733746
+      StashNpc-NW: 8659618546137279770
+      StashNpc-S: -6522406300447553488
+      StashNpc-SE: 6982696758239559845
+      StashNpc-SW: -1250059675554311865
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
