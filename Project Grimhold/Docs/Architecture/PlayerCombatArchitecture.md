@@ -156,9 +156,11 @@ active gameplay phase, so releasing input, changing Set, removing or displacing 
 phase exit, or loss of input cancels defense on the next authoritative tick. Host Migration keeps a
 restored state only when those reconstructed conditions remain compatible.
 
-Defense has priority over attack when both intentions are present in the same tick. Movement and
-the normal locomotion-facing flow continue while defending; `SecondaryAction` alone does not
-enable a cursor-facing override. `PlayerCombatNetworkController`
+Defense has priority over attack when both intentions are present in the same tick. Movement
+continues while defending, and an accepted defense aims like an attack: while `CanDefend` accepts
+the held `SecondaryAction`, `PlayerMovementNetworkController` turns the replicated `FacingDirection`
+toward the cursor, so the defensive cone and the six-direction presentation follow the aim.
+`SecondaryAction` without a defendable shield keeps the locomotion facing. `PlayerCombatNetworkController`
 does not execute either Press or Hold attacks while the current conditions accept the
 secondary-action intention.
 

@@ -6,8 +6,9 @@
 `Kinematic2DMovementMotor` has applied the current tick displacement. A finite movement
 direction above the minimum magnitude supplies the default facing. Cursor direction may
 override that movement-facing only while `PrimaryAttack` or `Interact` is present in the
-same input tick. Without either contextual action, cursor movement does not rotate the
-character.
+same input tick, or while `SecondaryAction` is accepted as shield defense by
+`PlayerShieldDefenseNetworkController.CanDefend`. `SecondaryAction` without a defendable shield
+is not a contextual action. Without one, cursor movement does not rotate the character.
 
 For a contextual action, the final player transform is the canonical cursor-aim origin.
 `PlayerAimMath` rejects non-finite vectors and directions whose squared magnitude is below

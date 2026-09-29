@@ -29,6 +29,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [SerializeField]
     private PlayerStaminaNetworkController _staminaController;
 
+    [SerializeField]
+    private PlayerShieldDefenseNetworkController _shieldDefenseController;
+
     private bool _dependenciesValid;
 
     private const float ValidMovementSqrThreshold = 0.000001f;
@@ -147,11 +150,14 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         // the cursor using the motor's final position as their canonical origin.
         if (gameplayPhaseActive && hasInput && isAlive)
         {
+            bool isDefenseAccepted = _shieldDefenseController != null &&
+                _shieldDefenseController.CanDefend(input.Buttons);
             FacingDirection = ResolveFacingDirection(
                 in input,
                 moveDirection,
                 (Vector2)transform.position,
-                FacingDirection);
+                FacingDirection,
+                isDefenseAccepted);
         }
     }
 
@@ -184,11 +190,14 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         KnockbackVelocity += impactDirection.normalized * force;
     }
 
+    // Attack, Interact and an accepted shield defense aim at the cursor while held. The secondary
+    // action alone never does: without a defendable shield it keeps the locomotion facing.
     internal static Vector2 ResolveFacingDirection(
         in PlayerNetworkInput input,
         Vector2 moveDirection,
         Vector2 finalPosition,
-        Vector2 previousFacing)
+        Vector2 previousFacing,
+        bool isDefenseAccepted = false)
     {
         Vector2 resolvedFacing = previousFacing;
         if (PlayerAimMath.TryNormalizeDirection(moveDirection, out Vector2 movementFacing))
@@ -198,7 +207,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         bool hasContextualFacingIntent =
             input.Buttons.IsSet(PlayerInputButton.PrimaryAttack) ||
-            input.Buttons.IsSet(PlayerInputButton.Interact);
+            input.Buttons.IsSet(PlayerInputButton.Interact) ||
+            isDefenseAccepted;
         if (hasContextualFacingIntent &&
             PlayerAimMath.TryResolveDirection(
                 finalPosition,
@@ -244,6 +254,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_staminaController == null)
         {
             _staminaController = GetComponent<PlayerStaminaNetworkController>();
+        }
+
+        if (_shieldDefenseController == null)
+        {
+            _shieldDefenseController = GetComponent<PlayerShieldDefenseNetworkController>();
         }
     }
 

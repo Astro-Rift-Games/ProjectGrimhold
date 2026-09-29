@@ -234,6 +234,10 @@ public sealed class ShieldDefendAnimatorTests
         var defense = prefab.GetComponent<PlayerShieldDefenseNetworkController>();
         Assert.That(defense, Is.Not.Null);
 
+        var movement = prefab.GetComponent<PlayerMovementNetworkController>();
+        Assert.That(new SerializedObject(movement).FindProperty("_shieldDefenseController").objectReferenceValue,
+            Is.SameAs(defense));
+
         var view = prefab.GetComponentInChildren<PlayerAnimatorView>(true);
         var presenter = prefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
         Assert.That(new SerializedObject(view).FindProperty("_shieldDefense").objectReferenceValue, Is.SameAs(defense));
