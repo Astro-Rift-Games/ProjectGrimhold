@@ -10,6 +10,7 @@ namespace Tests.EditMode.Presentation
     public sealed class PlayerWeaponPresentationMathTests
     {
         private const float Tolerance = 0.0001f;
+        private const float ReflectionTolerance = 0.00001f;
         private const string BasePlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
         private const string MeleePlayerPrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
         private const string RangedPlayerPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
@@ -67,6 +68,137 @@ namespace Tests.EditMode.Presentation
             Assert.That(
                 PlayerWeaponPresentationMath.ShouldMirror(new Vector2(x, 0f)),
                 Is.EqualTo(expected));
+        }
+
+        [TestCase(-90f)]
+        [TestCase(180f)]
+        [TestCase(0f)]
+        [TestCase(-45f)]
+        [TestCase(30f)]
+        public void ResolveAngleCorrection_KeepsTheCorrectionWhenNotMirrored(float correction)
+        {
+            Assert.That(
+                PlayerWeaponPresentationMath.ResolveAngleCorrection(correction, false),
+                Is.EqualTo(correction));
+        }
+
+        [Test]
+        public void ResolveAngleCorrection_LeavesTheAlignedMinusNinetyCorrectionUnchangedWhenMirrored()
+        {
+            Assert.That(
+                PlayerWeaponPresentationMath.ResolveAngleCorrection(-90f, true),
+                Is.EqualTo(-90f));
+        }
+
+        [Test]
+        public void ResolveAngleCorrection_MirrorsAcrossTheArtAxisForHeldAcrossArt()
+        {
+            Assert.That(
+                PlayerWeaponPresentationMath.ResolveAngleCorrection(180f, true),
+                Is.EqualTo(-360f));
+        }
+
+        // The pivot turns to the facing and reflects Y when facing left, so the mirrored visual needs the resolved
+        // correction to end up as a reflection across the weapon art axis (sprite +Y): in pivot space
+        // diag(1,-1) * R(resolved) * (p - grip) must equal R(correction) * (-(p - grip).x, (p - grip).y).
+        [TestCase(-90f)]
+        [TestCase(180f)]
+        [TestCase(0f)]
+        [TestCase(-45f)]
+        [TestCase(30f)]
+        public void MirroredHeldWeapon_IsAReflectionAcrossTheWeaponArtAxis(float correction)
+        {
+            const float facingAngle = 135f;
+            Vector2 grip = new Vector2(0.2f, -0.35f);
+            Vector2[] points =
+            {
+                grip,
+                new Vector2(0f, 0.75f),
+                new Vector2(0.3f, -0.1f),
+                new Vector2(-0.4f, 0.6f)
+            };
+            Quaternion facing = Quaternion.Euler(0f, 0f, facingAngle);
+            Quaternion art = Quaternion.Euler(0f, 0f, correction);
+            var pivotObject = new GameObject("WeaponPivot");
+            var visualObject = new GameObject("WeaponVisual");
+            try
+            {
+                Transform pivot = pivotObject.transform;
+                Transform visual = visualObject.transform;
+                visual.SetParent(pivot, false);
+                pivot.localRotation = facing;
+
+                foreach (bool mirrored in new[] { false, true })
+                {
+                    float resolved = PlayerWeaponPresentationMath.ResolveAngleCorrection(correction, mirrored);
+                    pivot.localScale = new Vector3(1f, mirrored ? -1f : 1f, 1f);
+                    visual.localPosition = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+                        grip, Vector2.one, resolved);
+                    visual.localRotation = Quaternion.Euler(0f, 0f, resolved);
+
+                    AssertVector(visual.TransformPoint(grip), Vector2.zero, ReflectionTolerance);
+                    foreach (Vector2 point in points)
+                    {
+                        Vector2 offset = point - grip;
+                        Vector2 expectedInPivotSpace = mirrored
+                            ? (Vector2)(art * new Vector3(-offset.x, offset.y, 0f))
+                            : (Vector2)(art * offset);
+                        AssertVector(visual.TransformPoint(point), (Vector2)(facing * expectedInPivotSpace), ReflectionTolerance);
+
+                        if (!mirrored) continue;
+                        Vector2 reflected = (Vector2)(Quaternion.Euler(0f, 0f, resolved) * offset);
+                        reflected.y = -reflected.y;
+                        AssertVector(reflected, expectedInPivotSpace, ReflectionTolerance);
+                    }
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(visualObject);
+                Object.DestroyImmediate(pivotObject);
+            }
+        }
+
+        // Critical regression proof: only the weapons whose sources hold them across the facing (Great Hammer,
+        // Long Sword, Zweihander) moved to the 180 correction; every other weapon keeps -90, for which the resolved
+        // value is bit-identical, so its held pose is exactly what it was before the mirror was generalized.
+        [Test]
+        public void ExistingWeapons_KeepTheirHeldPoseBitIdentical()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:WeaponDefinition",
+                new[] { "Assets/Scriptable Objects/Loot/Definitions" });
+            int checkedWeapons = 0;
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
+                if (weapon == null) continue;
+
+                WeaponDefinition.PresentationConfig presentation = weapon.Presentation;
+                if (path.EndsWith("GreatHammerWeaponDefinition.asset") ||
+                    path.EndsWith("LongSwordCombatDefinition.asset") ||
+                    path.EndsWith("ZweihanderWeaponDefinition.asset"))
+                {
+                    Assert.That(presentation.AngleCorrection, Is.EqualTo(180f), path);
+                    continue;
+                }
+
+                Assert.That(presentation.AngleCorrection, Is.EqualTo(-90f), path);
+                Vector2 expected = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+                    presentation.GripPoint, Vector2.one, presentation.AngleCorrection);
+                foreach (bool mirrored in new[] { false, true })
+                {
+                    float resolved = PlayerWeaponPresentationMath.ResolveAngleCorrection(
+                        presentation.AngleCorrection, mirrored);
+                    Assert.That(resolved, Is.EqualTo(presentation.AngleCorrection), $"{path} mirrored={mirrored}");
+                    Vector2 actual = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+                        presentation.GripPoint, Vector2.one, resolved);
+                    Assert.That(actual.x, Is.EqualTo(expected.x), $"{path} mirrored={mirrored} x");
+                    Assert.That(actual.y, Is.EqualTo(expected.y), $"{path} mirrored={mirrored} y");
+                }
+                checkedWeapons++;
+            }
+            Assert.That(checkedWeapons, Is.GreaterThanOrEqualTo(8), "Every other weapon definition is covered.");
         }
 
         [Test]
@@ -297,10 +429,10 @@ namespace Tests.EditMode.Presentation
             }
         }
 
-        private static void AssertVector(Vector2 actual, Vector2 expected)
+        private static void AssertVector(Vector2 actual, Vector2 expected, float tolerance = Tolerance)
         {
-            Assert.That(actual.x, Is.EqualTo(expected.x).Within(Tolerance));
-            Assert.That(actual.y, Is.EqualTo(expected.y).Within(Tolerance));
+            Assert.That(actual.x, Is.EqualTo(expected.x).Within(tolerance));
+            Assert.That(actual.y, Is.EqualTo(expected.y).Within(tolerance));
         }
     }
 }

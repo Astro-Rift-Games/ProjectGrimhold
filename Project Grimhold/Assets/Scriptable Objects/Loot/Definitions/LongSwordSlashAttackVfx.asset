@@ -15,33 +15,33 @@ MonoBehaviour:
   _visual: {fileID: 11400000, guid: 29cf5fd5ff8b4e27999aaf006e170beb, type: 2}
   _startSeconds: 0.08
   _poses:
-  - _position: {x: 0.02, y: 0.05, z: 0}
-    _rotation: {x: 0, y: 0, z: 85}
-    _reachOffset: -0.06
+  - _position: {x: 0.02, y: 0.15, z: 0}
+    _rotation: {x: 0, y: 0, z: 9}
+    _reachOffset: 0.43
     _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: 0.05, y: 0.02, z: 0}
-    _rotation: {x: 0, y: 0, z: 41}
-    _reachOffset: 0.17
+  - _position: {x: 0.13, y: 0.08, z: 0}
+    _rotation: {x: 0, y: 0, z: -29}
+    _reachOffset: 0.47
     _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: 0, y: 0.05, z: 0}
-    _rotation: {x: 0, y: 0, z: 139}
-    _reachOffset: -0.15
+  - _position: {x: -0.08, y: 0.14, z: 0}
+    _rotation: {x: 0, y: 0, z: 51}
+    _reachOffset: 0.22
     _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: -0.02, y: -0.05, z: 0}
-    _rotation: {x: 0, y: 0, z: -92}
-    _reachOffset: 0.38
+  - _position: {x: -0.02, y: -0.14, z: 0}
+    _rotation: {x: 0, y: 0, z: -158}
+    _reachOffset: 0.5
     _mirrored: 1
     _sortingOrder: 21
-  - _position: {x: 0.02, y: -0.05, z: 0}
-    _rotation: {x: 0, y: 0, z: -51}
-    _reachOffset: 0.14
+  - _position: {x: 0.08, y: -0.13, z: 0}
+    _rotation: {x: 0, y: 0, z: -121}
+    _reachOffset: 0.51
     _mirrored: 1
     _sortingOrder: 21
-  - _position: {x: -0.06, y: -0.01, z: 0}
-    _rotation: {x: 0, y: 0, z: -129}
-    _reachOffset: 0.42
+  - _position: {x: -0.06, y: -0.09, z: 0}
+    _rotation: {x: 0, y: 0, z: 162}
+    _reachOffset: 0.31
     _mirrored: 1
     _sortingOrder: 21

@@ -91,3 +91,5 @@ MonoBehaviour:
     _valuePerUnit: 100
   - _lootDefinition: {fileID: 11400000, guid: b31f0000000000000000000000000004, type: 2}
     _valuePerUnit: 100
+  - _lootDefinition: {fileID: 11400000, guid: 5514cc8fe90e410b8f077d2b6a3efb29, type: 2}
+    _valuePerUnit: 100

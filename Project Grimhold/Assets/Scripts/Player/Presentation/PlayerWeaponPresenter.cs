@@ -32,6 +32,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private LootDefinition _offHandDefinition;
     private Sprite _mainHandWorldSprite;
     private WeaponAttackSpriteAnimation _mainHandAttackSprites;
+    private bool _hasMainHandWeapon;
+    private Vector2 _mainHandGripPoint;
+    private float _mainHandAngleCorrection;
     private Vector3 _mainHandWeaponPivotBaseScale;
     private Vector3 _mainHandWeaponVisualBaseScale;
     private int _weaponPoseHandBaseSortingOrder;
@@ -64,6 +67,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _offHandDefinition = null;
         _mainHandWorldSprite = null;
         _mainHandAttackSprites = null;
+        _hasMainHandWeapon = false;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
@@ -118,6 +122,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         WeaponRig rig = weapon != null ? weapon.Presentation.Rig : WeaponRig.HandHeld;
         AttachMainHandWeapon(rig);
         SetWeaponDriven(rig == WeaponRig.WeaponDriven);
+        _hasMainHandWeapon = weapon != null;
 
         if (weapon == null)
         {
@@ -127,14 +132,30 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             return;
         }
 
-        WeaponDefinition.PresentationConfig presentation = weapon.Presentation;
+        _mainHandGripPoint = weapon.Presentation.GripPoint;
+        _mainHandAngleCorrection = weapon.Presentation.AngleCorrection;
+        ApplyMainHandVisualPose(_mainHandWeaponPivot.localScale.y < 0f);
+    }
+
+    // The grip stays on the pivot for either facing; a mirrored pivot takes the correction resolved for the
+    // weapon's own art axis.
+    private void ApplyMainHandVisualPose(bool mirrored)
+    {
+        if (!_hasMainHandWeapon)
+        {
+            return;
+        }
+
+        float angleCorrection = PlayerWeaponPresentationMath.ResolveAngleCorrection(
+            _mainHandAngleCorrection,
+            mirrored);
         Vector2 gripAlignedPosition =
             PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
-                presentation.GripPoint,
+                _mainHandGripPoint,
                 new Vector2(
                     _mainHandWeaponVisualBaseScale.x,
                     _mainHandWeaponVisualBaseScale.y),
-                presentation.AngleCorrection);
+                angleCorrection);
 
         _mainHandWeaponVisual.localPosition = new Vector3(
             gripAlignedPosition.x,
@@ -143,7 +164,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandWeaponVisual.localRotation = Quaternion.Euler(
             0f,
             0f,
-            presentation.AngleCorrection);
+            angleCorrection);
     }
 
     // Moves the one weapon visual hierarchy under the transform that owns its pose; RefreshPose then resets
@@ -213,6 +234,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             _mainHandWeaponPivotBaseScale.x,
             Mathf.Abs(_mainHandWeaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
             _mainHandWeaponPivotBaseScale.z);
+        ApplyMainHandVisualPose(mirrored);
 
         CharacterVisualDirection direction = CharacterVisualDirectionResolver.Resolve(facing);
         int order = CharacterVisualDirectionResolver.CalculateSortingOrder(

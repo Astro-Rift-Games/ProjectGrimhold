@@ -23,6 +23,7 @@ namespace Tests.EditMode.Loot
         {
             "arming_sword",
             "compound_bow",
+            "great_hammer",
             "long_bow",
             "long_sword",
             "magic_cinquedea",
@@ -114,6 +115,9 @@ namespace Tests.EditMode.Loot
                 typeof(MeleeAttackConfig));
             AssertWeapon("zweihander", 45f, 1.4f, 2f, 22f, 10f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Strength, 10, 0, 0,
+                typeof(MeleeAttackConfig));
+            AssertWeapon("great_hammer", 60f, 1.8f, 1.5f, 28f, 15f, DamageType.Physical,
+                WeaponHandedness.TwoHanded, CharacterAttribute.Strength, 15, 0, 0,
                 typeof(MeleeAttackConfig));
             AssertWeapon("rondel_dagger", 18f, 0.55f, 1f, 10f, 0f, DamageType.Physical,
                 WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 5, 0,

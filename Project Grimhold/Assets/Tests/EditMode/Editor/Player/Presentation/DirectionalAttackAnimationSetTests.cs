@@ -16,6 +16,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("MagicSword", "MagicSword")]
     [TestCase("LongSword", "LongSword")]
     [TestCase("Zweihander", "Zweihander")]
+    [TestCase("GreatHammer", "GreatHammer")]
     [TestCase("MagicStaff", "MagicStaff")]
     [TestCase("LongBow", "LongBow")]
     [TestCase("CompoundBow", "CompoundBow")]
@@ -44,9 +45,12 @@ public sealed class DirectionalAttackAnimationSetTests
         Assert.That(longSword.Presentation.HasGenericAttack, Is.True);
         Assert.That(longSword.Presentation.AttackAnimationSet, Is.SameAs(
             AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "LongSword.asset")));
-        // LongSword.png: the main hand grips the handle row under the guard, the second hand its last row.
+        // LongSword.png: the 3 px handle spans rows 22-26; the main hand grips its first row under the guard and
+        // the second hand its last one. The source holds the blade across the facing, hence the 180 correction.
         Assert.That(longSword.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.46875f)));
-        Assert.That(longSword.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.65625f)));
+        Assert.That(longSword.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.71875f)));
+        Assert.That(longSword.Presentation.AngleCorrection, Is.EqualTo(180f));
+        Assert.That(longSword.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
         Assert.That(longSword.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.HoldsSecondaryGrip));
         Assert.That(longSword.TryValidate(out string validationError), Is.True, validationError);
     }
@@ -64,8 +68,89 @@ public sealed class DirectionalAttackAnimationSetTests
         // the main hand grips the handle row under the guard, the second hand its last row.
         Assert.That(zweihander.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.4375f)));
         Assert.That(zweihander.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.75f)));
+        Assert.That(zweihander.Presentation.AngleCorrection, Is.EqualTo(180f));
+        Assert.That(zweihander.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
         Assert.That(zweihander.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.HoldsSecondaryGrip));
         Assert.That(zweihander.TryValidate(out string validationError), Is.True, validationError);
+    }
+
+    [Test]
+    public void GreatHammer_IsTwoHandedGenericAttackWithItsOwnHandleGeometry()
+    {
+        WeaponDefinition hammer = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset");
+        Assert.That(hammer.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(hammer.Presentation.HasGenericAttack, Is.True);
+        Assert.That(hammer.Presentation.AttackAnimationSet, Is.SameAs(
+            AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + "GreatHammer.asset")));
+        // GreatHammer.png is 17x33 px with a centered pivot. GreatHammer_Attack.anim holds the hammer across the
+        // facing, so it keeps a 180 degree correction: the main hand grips the handle 7 px above the second
+        // hand, which holds the last handle row above the collar.
+        Assert.That(hammer.Presentation.GripPoint, Is.EqualTo(new Vector2(0f, -0.375f)));
+        Assert.That(hammer.Presentation.SecondaryGripPoint, Is.EqualTo(new Vector2(0f, -0.8125f)));
+        Assert.That(hammer.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 1f)));
+        Assert.That(hammer.Presentation.AngleCorrection, Is.EqualTo(180f));
+        Assert.That(hammer.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.HoldsSecondaryGrip));
+        Assert.That(hammer.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
+        Assert.That(hammer.TryValidate(out string validationError), Is.True, validationError);
+    }
+
+    [Test]
+    public void GreatHammer_GripsAndTipLandOnItsDrawnHandleAndHead()
+    {
+        // Decoded from disk so it does not depend on the importer's Read/Write setting. Unity's pixel space is
+        // bottom-up, so rows are counted from the top of the art here.
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/GreatHammer.asset").WorldSprite;
+        WeaponDefinition.PresentationConfig presentation = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset").Presentation;
+        Assert.That(sprite, Is.Not.Null);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(sprite.texture))), Is.True);
+            Rect rect = sprite.rect;
+            Assert.That((int)rect.width, Is.EqualTo(17));
+            Assert.That((int)rect.height, Is.EqualTo(33));
+            Assert.That(sprite.pixelsPerUnit, Is.EqualTo(16f));
+            Assert.That(sprite.pivot, Is.EqualTo(new Vector2(8.5f, 16.5f)), "The pivot is the sprite center.");
+
+            bool Opaque(int column, int row) =>
+                texture.GetPixel((int)rect.x + column, (int)rect.yMax - 1 - row).a > 0f;
+            int RowWidth(int row)
+            {
+                int width = 0;
+                for (int column = 0; column < (int)rect.width; column++)
+                    if (Opaque(column, row)) width++;
+                return width;
+            }
+            // The art pixel under a sprite point, measured from the pivot.
+            int RowOf(Vector2 point) => (int)rect.height - 1 - Mathf.FloorToInt(sprite.pivot.y + point.y * sprite.pixelsPerUnit);
+            int ColumnOf(Vector2 point) => Mathf.FloorToInt(sprite.pivot.x + point.x * sprite.pixelsPerUnit);
+
+            int gripRow = RowOf(presentation.GripPoint);
+            int secondaryRow = RowOf(presentation.SecondaryGripPoint);
+            Assert.That(ColumnOf(presentation.GripPoint), Is.EqualTo(8));
+            Assert.That(ColumnOf(presentation.SecondaryGripPoint), Is.EqualTo(8));
+            Assert.That(gripRow, Is.EqualTo(22));
+            Assert.That(secondaryRow, Is.EqualTo(29));
+            Assert.That(secondaryRow - gripRow, Is.EqualTo(7), "The hands sit 7 px apart.");
+
+            // Both hands hold the 3 px wide handle, and it stays that wide between them.
+            for (int row = gripRow; row <= secondaryRow; row++)
+            {
+                Assert.That(Opaque(8, row), Is.True, $"row {row}");
+                Assert.That(RowWidth(row), Is.EqualTo(3), $"row {row} is handle");
+            }
+            // The second hand holds the last handle row: the next row is the 5 px wide collar.
+            Assert.That(RowWidth(secondaryRow + 1), Is.EqualTo(5), "The collar starts right below the second hand.");
+
+            // The tip is the top opaque row of the sprite, on the center column.
+            Assert.That(ColumnOf(presentation.BladeTip), Is.EqualTo(8));
+            Assert.That(RowOf(presentation.BladeTip), Is.EqualTo(0));
+            Assert.That(Opaque(8, 0), Is.True, "The tip lands on an opaque pixel.");
+        }
+        finally { UnityEngine.Object.DestroyImmediate(texture); }
     }
 
     [Test]
@@ -189,6 +274,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("MagicSwordWeaponDefinition")]
     [TestCase("LongSwordCombatDefinition")]
     [TestCase("ZweihanderWeaponDefinition")]
+    [TestCase("GreatHammerWeaponDefinition")]
     [TestCase("MagicStaffWeaponDefinition")]
     public void OtherGenericWeapons_KeepTheirVisualInTheMainHand(string definition)
     {

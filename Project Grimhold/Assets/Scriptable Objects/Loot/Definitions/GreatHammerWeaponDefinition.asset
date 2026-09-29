@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7f455e2568914a449b3bd9e75ba54a01, type: 3}
-  m_Name: LongSwordWeaponDefinition
+  m_Name: GreatHammerWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
-  _baseDamage: 45
-  _attackIntervalSeconds: 1.4
-  _range: 2
-  _staminaCost: 22
+  _baseDamage: 60
+  _attackIntervalSeconds: 1.8
+  _range: 1.5
+  _staminaCost: 28
   _damageType: 0
-  _knockbackForce: 10
+  _knockbackForce: 15
   _handedness: 1
   _primaryAttack: {fileID: 11400000, guid: 51a16f09a8a5c954dbf55fa2549aed51, type: 2}
   _naturalScalingAttribute: 2
@@ -26,14 +26,14 @@ MonoBehaviour:
     _coefficient: 0
   _presentation:
     _stanceOffset: {x: 0, y: 0}
-    _gripPoint: {x: 0, y: -0.46875}
+    _gripPoint: {x: 0, y: -0.375}
     _angleCorrection: 180
-    _attackAnimationSet: {fileID: 11400000, guid: c3c5b7596704b794eadab5d3d8d81af4, type: 2}
-    _attackVfx: {fileID: 11400000, guid: fb46ed09cf284994a6203df2d7ffce91, type: 2}
-    _bladeTip: {x: 0, y: 0.90625}
-    _secondaryGripPoint: {x: 0, y: -0.71875}
+    _attackAnimationSet: {fileID: 11400000, guid: 1a77ae8613f542ca95784dc30f1ca9f1, type: 2}
+    _attackVfx: {fileID: 0}
+    _bladeTip: {x: 0, y: 1}
+    _secondaryGripPoint: {x: 0, y: -0.8125}
   _attributeRequirements:
-    _minimumStrength: 10
+    _minimumStrength: 15
     _minimumDexterity: 0
     _minimumIntelligence: 0
   _audioConfig: {fileID: 11400000, guid: 7eb3d72e654a35649a9e5d79a653d29f, type: 2}

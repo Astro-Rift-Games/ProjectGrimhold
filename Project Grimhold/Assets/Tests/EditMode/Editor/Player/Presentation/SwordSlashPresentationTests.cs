@@ -322,13 +322,15 @@ public sealed class SwordSlashPresentationTests
         var serialized = new SerializedObject(weaponPresenter);
         var pivot = (Transform)serialized.FindProperty("_mainHandWeaponPivot").objectReferenceValue;
         var visual = (Transform)serialized.FindProperty("_mainHandWeaponVisual").objectReferenceValue;
+        bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
+        float angleCorrection = PlayerWeaponPresentationMath.ResolveAngleCorrection(presentation.AngleCorrection, mirrored);
         pivot.localPosition = Vector3.zero;
         pivot.localRotation = Quaternion.Euler(0f, 0f, PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing));
-        pivot.localScale = new Vector3(1f, PlayerWeaponPresentationMath.ShouldMirror(facing) ? -1f : 1f, 1f);
+        pivot.localScale = new Vector3(1f, mirrored ? -1f : 1f, 1f);
         Vector2 aligned = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
-            presentation.GripPoint, visual.localScale, presentation.AngleCorrection);
+            presentation.GripPoint, visual.localScale, angleCorrection);
         visual.localPosition = new Vector3(aligned.x, aligned.y, visual.localPosition.z);
-        visual.localRotation = Quaternion.Euler(0f, 0f, presentation.AngleCorrection);
+        visual.localRotation = Quaternion.Euler(0f, 0f, angleCorrection);
         return visual;
     }
 
@@ -446,7 +448,8 @@ public sealed class SwordSlashPresentationTests
     // clockwise to rest at 0.6s. Starting at 0.08s keeps the blade tip inside every Slash frame's arc
     // with the widest margin: frame 0 anticipates at the apex, frames 1-2 cover the strike and frame 3
     // the recoil. Its counterclockwise strike plays the Slash mirrored. The poses are fitted to its
-    // own six baked two-handed clips, not taken from another sword's alignment.
+    // own six baked two-handed clips, with the blade held across the facing (AngleCorrection 180) and
+    // mirrored across its own axis in NW/SW, not taken from another sword's alignment.
     [Test]
     public void LongSwordVfxConfiguration_AlignsSharedSlashWithItsOwnTwoHandedSwing()
     {
@@ -462,11 +465,11 @@ public sealed class SwordSlashPresentationTests
         Assert.That(longSword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.90625f)));
         var positions = new[]
         {
-            new Vector3(0.02f, 0.05f, 0f), new Vector3(0.05f, 0.02f, 0f), new Vector3(0f, 0.05f, 0f),
-            new Vector3(-0.02f, -0.05f, 0f), new Vector3(0.02f, -0.05f, 0f), new Vector3(-0.06f, -0.01f, 0f)
+            new Vector3(0.02f, 0.15f, 0f), new Vector3(0.13f, 0.08f, 0f), new Vector3(-0.08f, 0.14f, 0f),
+            new Vector3(-0.02f, -0.14f, 0f), new Vector3(0.08f, -0.13f, 0f), new Vector3(-0.06f, -0.09f, 0f)
         };
-        var rotations = new[] { 85f, 41f, 139f, -92f, -51f, -129f };
-        var reachOffsets = new[] { -0.06f, 0.17f, -0.15f, 0.38f, 0.14f, 0.42f };
+        var rotations = new[] { 9f, -29f, 51f, -158f, -121f, 162f };
+        var reachOffsets = new[] { 0.43f, 0.47f, 0.22f, 0.5f, 0.51f, 0.31f };
         AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
         for (int i = 0; i < 6; i++)
         {
@@ -479,7 +482,8 @@ public sealed class SwordSlashPresentationTests
     // until 0.6s before recovering to rest at 0.95s. Starting at 0.25s keeps the blade tip inside every
     // Slash frame's arc with the widest margin: frame 0 anticipates the windup apex, frames 1-2 cover the
     // strike and frame 3 its end. Its counterclockwise strike plays the Slash mirrored. The poses are
-    // fitted to its own six baked two-handed clips, not taken from Long Sword's alignment.
+    // fitted to its own six baked two-handed clips, with the blade held across the facing
+    // (AngleCorrection 180) and mirrored across its own axis in NW/SW, not taken from Long Sword's alignment.
     [Test]
     public void ZweihanderVfxConfiguration_AlignsSharedSlashWithItsOwnTwoHandedSwing()
     {
@@ -496,11 +500,11 @@ public sealed class SwordSlashPresentationTests
         Assert.That(zweihander.Presentation.BladeReach, Is.EqualTo(1.4375f).Within(0.0001f));
         var positions = new[]
         {
-            new Vector3(-0.03f, 0.27f, 0f), new Vector3(0.17f, 0.21f, 0f), new Vector3(-0.22f, 0.16f, 0f),
-            new Vector3(0.03f, -0.27f, 0f), new Vector3(0.21f, -0.17f, 0f), new Vector3(-0.16f, -0.22f, 0f)
+            new Vector3(-0.06f, 0.22f, 0f), new Vector3(0.12f, 0.19f, 0f), new Vector3(-0.2f, 0.12f, 0f),
+            new Vector3(0.03f, -0.23f, 0f), new Vector3(0.19f, -0.12f, 0f), new Vector3(-0.14f, -0.19f, 0f)
         };
-        var rotations = new[] { 89f, 45f, 143f, -87f, -47f, -125f };
-        var reachOffsets = new[] { -0.06f, 0.16f, -0.16f, 0.37f, 0.14f, 0.4f };
+        var rotations = new[] { 27f, -11f, 70f, -140f, -103f, 179f };
+        var reachOffsets = new[] { 0.51f, 0.56f, 0.3f, 0.58f, 0.6f, 0.37f };
         AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
         for (int i = 0; i < 6; i++)
         {

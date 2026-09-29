@@ -18,6 +18,7 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string LongSwordSource = "Assets/Animations/Weapons/LongSword_Attack.anim";
     private const string LongSwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
     private const string ZweihanderDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset";
+    private const string GreatHammerDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset";
     private const string MagicStaffDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
     private const string LongBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset";
     private const string CompoundBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset";
@@ -37,6 +38,7 @@ public sealed class DirectionalAnimationGeneratorTests
 
     [TestCase("LongSword")]
     [TestCase("Zweihander")]
+    [TestCase("GreatHammer")]
     [TestCase("MagicStaff")]
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
@@ -47,6 +49,7 @@ public sealed class DirectionalAnimationGeneratorTests
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         if (weapon == "LongSword") DirectionalAnimationGenerator.GenerateLongSwordAssets();
         else if (weapon == "Zweihander") DirectionalAnimationGenerator.GenerateZweihanderAssets();
+        else if (weapon == "GreatHammer") DirectionalAnimationGenerator.GenerateGreatHammerAssets();
         else if (weapon == "MagicStaff") DirectionalAnimationGenerator.GenerateMagicStaffAssets();
         else if (weapon == "LongBow") DirectionalAnimationGenerator.GenerateLongBowAssets();
         else DirectionalAnimationGenerator.GenerateCompoundBowAssets();
@@ -115,6 +118,12 @@ public sealed class DirectionalAnimationGeneratorTests
     [TestCase("Zweihander", "S", 0f)]
     [TestCase("Zweihander", "SE", 45f)]
     [TestCase("Zweihander", "SW", -45f)]
+    [TestCase("GreatHammer", "N", 180f)]
+    [TestCase("GreatHammer", "NE", 135f)]
+    [TestCase("GreatHammer", "NW", -135f)]
+    [TestCase("GreatHammer", "S", 0f)]
+    [TestCase("GreatHammer", "SE", 45f)]
+    [TestCase("GreatHammer", "SW", -45f)]
     public void TwoHandedOutput_DirectionalizesBothHandsAndKeepsTheSecondHandOnTheGrip(string weapon, string direction, float angle)
     {
         AnimationClip source = TwoHandedSource(weapon);
@@ -167,8 +176,10 @@ public sealed class DirectionalAnimationGeneratorTests
         Vector2 anchor = SecondHandAnchor(direction);
         float facingDegrees = angle - 90f;
         Vector2 facingVector = new Vector2(Mathf.Cos(facingDegrees * Mathf.Deg2Rad), Mathf.Sin(facingDegrees * Mathf.Deg2Rad));
-        Vector2 handle = Rotate(presentation.SecondaryGripPoint - presentation.GripPoint, presentation.AngleCorrection * Mathf.Deg2Rad);
-        if (facingVector.x < -0.0001f) handle.y = -handle.y;
+        bool mirroredFacing = facingVector.x < -0.0001f;
+        Vector2 handle = Rotate(presentation.SecondaryGripPoint - presentation.GripPoint,
+            PlayerWeaponPresentationMath.ResolveAngleCorrection(presentation.AngleCorrection, mirroredFacing) * Mathf.Deg2Rad);
+        if (mirroredFacing) handle.y = -handle.y;
         Vector2 expected = Rotate(handle, facingDegrees * Mathf.Deg2Rad);
         Assert.That(expected.magnitude, Is.GreaterThan(0.1f));
         for (int step = 0; step <= 60; step++)
@@ -195,6 +206,7 @@ public sealed class DirectionalAnimationGeneratorTests
 
     [TestCase("LongSword")]
     [TestCase("Zweihander")]
+    [TestCase("GreatHammer")]
     public void TwoHandedSouth_RetainsEveryAuthoredCurveExceptTheRealignedSecondHandPosition(string weapon)
     {
         AnimationClip original = TwoHandedSource(weapon);
@@ -205,6 +217,143 @@ public sealed class DirectionalAnimationGeneratorTests
             AnimationCurve source = AnimationUtility.GetEditorCurve(original, binding);
             Assert.That(AnimationUtility.GetEditorCurve(south, binding).keys, Is.EqualTo(source.keys),
                 $"{binding.path}/{binding.propertyName}");
+        }
+    }
+
+    // Clip-level proof that generalizing the held-weapon mirror left every existing two-handed weapon untouched:
+    // their bake (the mirrored NW/SW clips of Long Sword and Zweihander use the changed second-hand line) equals
+    // the committed clip key for key, tangents included, with no tolerance.
+    [TestCase("LongSword")]
+    [TestCase("Zweihander")]
+    [TestCase("MagicStaff")]
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    public void ExistingTwoHandedWeapons_BakeIdenticalToTheirCommittedClips(string weapon)
+    {
+        AnimationClip source = TwoHandedSource(weapon);
+        Assert.That(source, Is.Not.Null);
+        foreach (string direction in new[] { "N", "NE", "NW", "S", "SE", "SW" })
+        {
+            AnimationClip committed = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(weapon, direction));
+            AnimationClip baked = DirectionalAnimationGenerator.CreateClip(source, direction, weapon, TwoHandedDefinition(weapon));
+            try
+            {
+                Assert.That(committed, Is.Not.Null, $"{weapon}/{direction}");
+                Assert.That(AnimationUtility.GetCurveBindings(baked), Is.EquivalentTo(AnimationUtility.GetCurveBindings(committed)),
+                    $"{weapon}/{direction}");
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(baked))
+                    AssertSameKeys(AnimationUtility.GetEditorCurve(committed, binding), AnimationUtility.GetEditorCurve(baked, binding),
+                        $"{weapon}/{direction}/{binding.path}/{binding.propertyName}");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(baked); }
+        }
+    }
+
+    // Great Hammer, Zweihander and Long Sword are held across the facing (AngleCorrection 180): their sources keep
+    // both hands rigid on a handle that rests transverse to the facing. Rebuilt from the committed clip, the idle
+    // poses and the presenter math, both drawn hands stay on the handle (its 3 px rows) and the swing carries the
+    // tip from across the facing onto it in every facing, mirrored or not.
+    [TestCase("GreatHammer", "N", 180f, -0.8125f, 0.4375f)]
+    [TestCase("GreatHammer", "NE", 135f, -0.8125f, 0.4375f)]
+    [TestCase("GreatHammer", "NW", -135f, -0.8125f, 0.4375f)]
+    [TestCase("GreatHammer", "S", 0f, -0.8125f, 0.4375f)]
+    [TestCase("GreatHammer", "SE", 45f, -0.8125f, 0.4375f)]
+    [TestCase("GreatHammer", "SW", -45f, -0.8125f, 0.4375f)]
+    [TestCase("Zweihander", "N", 180f, -0.8125f, -0.4375f)]
+    [TestCase("Zweihander", "NE", 135f, -0.8125f, -0.4375f)]
+    [TestCase("Zweihander", "NW", -135f, -0.8125f, -0.4375f)]
+    [TestCase("Zweihander", "S", 0f, -0.8125f, -0.4375f)]
+    [TestCase("Zweihander", "SE", 45f, -0.8125f, -0.4375f)]
+    [TestCase("Zweihander", "SW", -45f, -0.8125f, -0.4375f)]
+    [TestCase("LongSword", "N", 180f, -0.71875f, -0.46875f)]
+    [TestCase("LongSword", "NE", 135f, -0.71875f, -0.46875f)]
+    [TestCase("LongSword", "NW", -135f, -0.71875f, -0.46875f)]
+    [TestCase("LongSword", "S", 0f, -0.71875f, -0.46875f)]
+    [TestCase("LongSword", "SE", 45f, -0.71875f, -0.46875f)]
+    [TestCase("LongSword", "SW", -45f, -0.71875f, -0.46875f)]
+    public void TwoHandedAcrossFacing_HandsHoldTheHandleAndTheStrikeCrossesTheFacing(
+        string weapon, string direction, float angle, float handleBottomY, float handleTopY)
+    {
+        WeaponDefinition.PresentationConfig presentation = TwoHandedDefinition(weapon).Presentation;
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(weapon, direction));
+        Assert.That(clip, Is.Not.Null);
+        Assert.That(presentation.AngleCorrection, Is.EqualTo(180f));
+
+        float facing = angle - 90f;
+        bool mirrored = Mathf.Cos(facing * Mathf.Deg2Rad) < -0.0001f;
+        float correction = PlayerWeaponPresentationMath.ResolveAngleCorrection(presentation.AngleCorrection, mirrored);
+        Vector2 visualPosition = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(
+            presentation.GripPoint, Vector2.one, correction);
+        Vector2 grip = IdleGrip(direction);
+        Vector2 rightAnchor = IdleHandAnchor("Right", direction);
+        Vector2 leftAnchor = IdleHandAnchor("Left", direction);
+        Vector2 handleBottom = new Vector2(0f, handleBottomY);
+        Vector2 handleTop = new Vector2(0f, handleTopY);
+
+        // A sprite point of the held weapon in the space of the hand pivots, following the presenter: the visual is
+        // grip-aligned and turned by the resolved correction, the pivot mirrors Y and turns to the facing, and
+        // MainHandGrip sits on the main hand, which turns by its own rotation.
+        Vector2 WeaponPoint(float time, Vector2 spritePoint)
+        {
+            Vector2 held = Rotate(spritePoint, correction * Mathf.Deg2Rad) + visualPosition;
+            if (mirrored) held.y = -held.y;
+            Vector2 inHand = grip + Rotate(held, facing * Mathf.Deg2Rad);
+            return Position(clip, Hand, time) + Rotate(inHand, HandAngle(clip, Hand, time));
+        }
+        Vector2 DrawnHand(string path, Vector2 anchor, float time) =>
+            Position(clip, path, time) + Rotate(anchor, HandAngle(clip, path, time));
+        float HeadAngleFromFacing(float time)
+        {
+            Vector2 head = WeaponPoint(time, presentation.BladeTip) - WeaponPoint(time, presentation.GripPoint);
+            return Mathf.DeltaAngle(facing, Mathf.Atan2(head.y, head.x) * Mathf.Rad2Deg);
+        }
+
+        for (int step = 0; step * 0.05f <= clip.length; step++)
+        {
+            float time = step * 0.05f;
+            Vector2 bottom = WeaponPoint(time, handleBottom);
+            Vector2 top = WeaponPoint(time, handleTop);
+            Assert.That(DistanceToSegment(DrawnHand(Hand, rightAnchor, time), bottom, top), Is.LessThanOrEqualTo(1f / 16f),
+                $"{direction}@{time} main hand");
+            Assert.That(DistanceToSegment(DrawnHand(SecondHand, leftAnchor, time), bottom, top), Is.LessThanOrEqualTo(1f / 16f),
+                $"{direction}@{time} second hand");
+        }
+        Assert.That(HeadAngleFromFacing(0f), Is.EqualTo(-90f).Within(1f), $"{direction} rest: the tip lies across the facing");
+        float closest = float.MaxValue;
+        for (int step = 0; step * 0.01f <= clip.length; step++)
+        {
+            closest = Mathf.Min(closest, Mathf.Abs(HeadAngleFromFacing(step * 0.01f)));
+        }
+        // The strike reaches the facing (never 180 degrees away, as mirroring across the facing axis would put it).
+        Assert.That(closest, Is.LessThanOrEqualTo(2f), $"{direction} strike: the tip reaches the facing");
+    }
+
+    // Long Sword's handle is 4 px shorter than the spacing its source animates, so its re-derived second hand
+    // drifts further from the authored path than the other two.
+    [TestCase("GreatHammer", 1.1f)]
+    [TestCase("Zweihander", 1.2f)]
+    [TestCase("LongSword", 3.5f)]
+    public void TwoHandedAcrossFacingSouth_KeepsEveryAuthoredTransformCurveAndTheSecondHandNearItsAuthoredPath(
+        string weapon, float maximumPixels)
+    {
+        AnimationClip source = TwoHandedSource(weapon);
+        AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput(weapon, "S"));
+        Assert.That(source, Is.Not.Null);
+        Assert.That(south, Is.Not.Null);
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(source)
+            .Where(b => b.type == typeof(Transform) &&
+                !(b.path == SecondHand && (b.propertyName == "m_LocalPosition.x" || b.propertyName == "m_LocalPosition.y"))))
+        {
+            AssertSameKeys(AnimationUtility.GetEditorCurve(south, binding), AnimationUtility.GetEditorCurve(source, binding),
+                $"{binding.path}/{binding.propertyName}");
+        }
+
+        // Only the second hand position is re-derived, and it stays near the authored path.
+        for (int step = 0; step * 0.01f <= source.length; step++)
+        {
+            float time = step * 0.01f;
+            Vector2 offset = Position(south, SecondHand, time) - Position(source, SecondHand, time);
+            Assert.That(offset.magnitude, Is.LessThanOrEqualTo(maximumPixels / 16f), $"@{time}");
         }
     }
 
@@ -253,6 +402,7 @@ public sealed class DirectionalAnimationGeneratorTests
     [TestCase("MagicStaff", false)]
     [TestCase("LongSword", true)]
     [TestCase("Zweihander", true)]
+    [TestCase("GreatHammer", true)]
     public void TwoHandedSource_SecondHandRotationShowsWhetherItHoldsTheWeapon(string weapon, bool holds)
     {
         // A hand on the handle turns rigidly with the main hand; the staff's left hand gestures on its own.
@@ -563,6 +713,7 @@ public sealed class DirectionalAnimationGeneratorTests
 
     [TestCase("LongSword")]
     [TestCase("Zweihander")]
+    [TestCase("GreatHammer")]
     [TestCase("MagicStaff")]
     public void HandHeldOutputs_DoNotAnimateTheWeaponPose(string weapon)
     {
@@ -1156,12 +1307,37 @@ public sealed class DirectionalAnimationGeneratorTests
         return Rotate(drawnSecond - gripPoint, -mainAngle);
     }
 
+    private static void AssertSameKeys(AnimationCurve actual, AnimationCurve expected, string context)
+    {
+        Assert.That(actual, Is.Not.Null, context);
+        Assert.That(expected, Is.Not.Null, context);
+        Assert.That(actual.length, Is.EqualTo(expected.length), context);
+        for (int i = 0; i < expected.length; i++)
+        {
+            Assert.That(actual.keys[i].time, Is.EqualTo(expected.keys[i].time), $"{context}[{i}].time");
+            Assert.That(actual.keys[i].value, Is.EqualTo(expected.keys[i].value), $"{context}[{i}].value");
+            Assert.That(actual.keys[i].inTangent, Is.EqualTo(expected.keys[i].inTangent), $"{context}[{i}].inTangent");
+            Assert.That(actual.keys[i].outTangent, Is.EqualTo(expected.keys[i].outTangent), $"{context}[{i}].outTangent");
+        }
+    }
+
+    private static float HandAngle(AnimationClip clip, string path, float time) =>
+        Curve(clip, path, "localEulerAnglesRaw.z").Evaluate(time) * Mathf.Deg2Rad;
+
+    private static float DistanceToSegment(Vector2 point, Vector2 start, Vector2 end)
+    {
+        Vector2 segment = end - start;
+        float along = Mathf.Clamp01(Vector2.Dot(point - start, segment) / segment.sqrMagnitude);
+        return (point - (start + segment * along)).magnitude;
+    }
+
     private static WeaponDefinition LongSwordDefinition() =>
         AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordDefinitionPath);
 
     private static WeaponDefinition TwoHandedDefinition(string weapon) =>
         AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weapon == "LongSword" ? LongSwordDefinitionPath :
             weapon == "Zweihander" ? ZweihanderDefinitionPath :
+            weapon == "GreatHammer" ? GreatHammerDefinitionPath :
             weapon == "MagicStaff" ? MagicStaffDefinitionPath :
             weapon == "LongBow" ? LongBowDefinitionPath : CompoundBowDefinitionPath);
 

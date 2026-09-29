@@ -16,6 +16,17 @@ internal static class PlayerWeaponPresentationMath
         return facing.x < 0f;
     }
 
+    /// <summary>
+    /// Angle correction the held visual uses under the facing pivot. A left facing mirrors the pivot across the
+    /// facing axis; the weapon must instead mirror across its own art axis (sprite +Y), so the mirrored visual
+    /// takes -180 - correction. Art laid along the facing (-90) is unchanged, while art held across it keeps its
+    /// side of the facing instead of flipping to the other one.
+    /// </summary>
+    internal static float ResolveAngleCorrection(float weaponAngleCorrection, bool mirrored)
+    {
+        return mirrored ? -180f - weaponAngleCorrection : weaponAngleCorrection;
+    }
+
     internal static Vector2 CalculateGripAlignedWeaponPosition(
         Vector2 weaponGripPoint,
         Vector2 weaponScale,

@@ -50,6 +50,10 @@ public static class DirectionalAnimationGenerator
     public static void GenerateZweihanderAssets() => GenerateAssets("Zweihander",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset"));
 
+    [MenuItem("Tools/Animations/Generate Great Hammer Directional Attacks")]
+    public static void GenerateGreatHammerAssets() => GenerateAssets("GreatHammer",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset"));
+
     [MenuItem("Tools/Animations/Generate Magic Staff Directional Attacks")]
     public static void GenerateMagicStaffAssets() => GenerateAssets("MagicStaff",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset"));
@@ -311,8 +315,9 @@ public static class DirectionalAnimationGenerator
 
     // The second hand keeps its authored key times and rotation art; its position holds the weapon's
     // secondary grip point. That point follows the same path the presenter gives the held weapon:
-    // MainHandGrip turned by the main-hand rotation, then the facing (blade along the facing, mirrored
-    // when facing left) and the weapon's angle correction. The facing's LeftHand idle sprite anchor is
+    // MainHandGrip turned by the main-hand rotation, then the facing (mirrored when facing left) and the
+    // weapon's angle correction resolved for that mirror by PlayerWeaponPresentationMath, so the handle
+    // mirrors across the weapon's own art axis exactly as the presenter draws it. The facing's LeftHand idle sprite anchor is
     // removed so the drawn hand, not its transform origin, lands on the handle.
     private static void ApplySecondHand(AnimationClip original, AnimationClip result, string direction,
         float radians, AnimationClip idle, WeaponDefinition.PresentationConfig presentation)
@@ -320,9 +325,10 @@ public static class DirectionalAnimationGenerator
         Vector2 anchor = ResolveSpriteAnchor(RequireIdleSprite(
             RequireClip($"Assets/Animations/Player/Idle/LeftHand/LeftHand_Idle_{direction}.anim"), SecondHand, direction));
         float facing = radians + SouthFacingAngle * Mathf.Deg2Rad;
+        bool mirrored = Mathf.Cos(facing) < -0.0001f;
         Vector2 handle = Rotate(presentation.SecondaryGripPoint - presentation.GripPoint,
-            presentation.AngleCorrection * Mathf.Deg2Rad);
-        if (Mathf.Cos(facing) < -0.0001f) handle.y = -handle.y;
+            PlayerWeaponPresentationMath.ResolveAngleCorrection(presentation.AngleCorrection, mirrored) * Mathf.Deg2Rad);
+        if (mirrored) handle.y = -handle.y;
         Vector2 secondGrip = IdleGrip(idle) + Rotate(handle, facing);
         AnimationCurve mainX = RequireCurve(original, Binding(Hand, typeof(Transform), "m_LocalPosition.x"));
         AnimationCurve mainY = RequireCurve(original, Binding(Hand, typeof(Transform), "m_LocalPosition.y"));

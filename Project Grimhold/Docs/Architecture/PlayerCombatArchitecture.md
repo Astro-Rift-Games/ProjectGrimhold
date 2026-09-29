@@ -461,8 +461,8 @@ and replaces only the six neutral `GenericAttack_*` slots in the local per-Anima
 override controller. The generic `Attack` route is the only attack route and depends only
 on `HasGenericAttack`; an unarmed weapon or missing/incomplete set disables it
 and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander,
-Magic Staff, Long Bow and Compound Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword,
-Zweihander, MagicStaff, LongBow and CompoundBow sets. Rondel Dagger and Magic Cinquedea
+Great Hammer, Magic Staff, Long Bow and Compound Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword,
+Zweihander, GreatHammer, MagicStaff, LongBow and CompoundBow sets. Rondel Dagger and Magic Cinquedea
 reference the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
 presentation without editing `Character.controller` or branching on weapon identity.
 `DirectionalAnimationGenerator` bakes each set from one south-authored `<Weapon>_Attack.anim`:
@@ -499,14 +499,24 @@ weapon's angle correction) and subtracts the facing's LeftHand idle sprite ancho
 centroid of that sprite at time zero measured from its pivot, so the drawn hand rather than its transform
 origin lands on the handle. The held weapon visual must keep unit scale for those sprite units to hold.
 Because the second hand follows the rotating handle, its position is keyed at the authored key times plus
-the clip's frame grid. `LongSword_Attack.anim` was authored with a different blade rest pose than the
-presenter's facing-aligned one, so its authored second-hand offset is not reused; Long Sword grips
-`(0, -0.46875)` (the handle row under the guard) and `(0, -0.65625)` (the last handle row).
-Zweihander follows the same rule on its own art: `Zweihander.png` has a six-row handle between guard
-and pommel, so it grips `(0, -0.4375)` and `(0, -0.75)`. `Zweihander_Attack.anim` remains its single
-south source and bakes through the same two-handed contract without weapon-specific code. The
+the clip's frame grid. `LongSword_Attack.anim` and `Zweihander_Attack.anim` hold the blade across the facing:
+both hands turn rigidly on a handle that rests transverse to the facing in S, with the tip toward the screen
+left, and the strike brings the tip onto the facing. Both therefore use `AngleCorrection` `180`, like Great
+Hammer. Long Sword grips `(0, -0.46875)` and `(0, -0.71875)`, the first and last of the five 3 px handle rows
+(22 and 26) of the 13x30 px `LongSword.png`; that 4 px handle is shorter than the ~5.5 px spacing its source
+animates, so its re-derived second hand stays within 3.5 px of the authored path. `Zweihander.png` has a
+3 px handle between guard and pommel, and Zweihander grips `(0, -0.4375)` and `(0, -0.75)` (rows 23 and 28,
+5 px apart, matching the ~5.3 px its source animates). Each source remains its weapon's single south source
+and bakes through the same two-handed contract without weapon-specific code. The
 second-hand sprite is not part of the output: the LeftHand layer keeps owning it, so a walk cycle played
 during an attack can still move the drawn second hand away from the handle.
+`GreatHammer_Attack.anim` holds the hammer the same way: at rest its hands lie on a horizontal handle,
+the head toward the screen left in S, and the strike at 0.55 s brings the head onto the facing. Great Hammer
+therefore uses `AngleCorrection` `180` with grips `(0, -0.375)` and `(0, -0.8125)` (rows 22 and 29 of the
+17x33 px `GreatHammer.png`, 7 px apart, the second on the last handle row above the collar) and `BladeTip`
+`(0, 1)`. It is a two-handed `HoldsSecondaryGrip` weapon: both authored hands turn rigidly together, so the
+bake re-derives the second hand onto the handle. Its clips keep the source's 1.05 s length rather than its
+1.8 s attack interval. It has no attack VFX.
 The second hand draws over the handle and under the main hand: sorting order 25 in front facings (weapon 20,
 attack VFX 21, main hand 30) and -5 in north facings (weapon -10, main hand -2), leaving the next slot for
 its glove.
@@ -567,7 +577,10 @@ never `SecondaryGripPoint`. The two-handed Zweihander has its own alignment from
 anticipates its windup apex at 0.3s, frames 1-2 cover its slower, roughly 190-degree
 counterclockwise strike to 0.6s and frame 3 the strike end, mirrored like Long Sword; its arc
 centers sit farther from the body because its hands travel farther, and its size also follows only
-the grip to blade tip reach. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
+the grip to blade tip reach. Both two-handed sword alignments are fitted to the blade tip of their
+six clips as presented with the blade across the facing and mirrored across its own axis in NW/SW:
+each pose places the arc center where the tip path `grip + reach * axis` keeps a constant radius for any
+blade reach, and its reach offset is that center's distance behind the grip. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
 spanning the path to its extended blade tip across all six facings. Rondel Dagger reuses the same
 Thrust visual through its own alignment from 0.14s: its stroke runs 50 ms earlier than Rapier's and its
 hand tilts the blade about 14 degrees off the facing, so each axis is the facing plus 14 degrees and each
@@ -697,6 +710,7 @@ of future scaling variation.
 | `magic_sword` | 1 | `PlayerMeleeAttackConfig` | MagicSword set |
 | `long_sword` | 2 | `PlayerMeleeAttackConfig` | LongSword set (two-handed) |
 | `zweihander` | 2 | `PlayerMeleeAttackConfig` | Zweihander set (two-handed) |
+| `great_hammer` | 2 | `PlayerMeleeAttackConfig` | GreatHammer set (two-handed) |
 | `rondel_dagger` | 1 | `PlayerMeleeAttackConfig` | shared Dagger set (Rondel clips) |
 | `magic_cinquedea` | 1 | `PlayerMeleeAttackConfig` | same Dagger set |
 | `long_bow` | 2 | `RangePlayerAttackConfig` | LongBow set (two-handed, held by the left hand) |
@@ -706,8 +720,14 @@ of future scaling variation.
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with the owner of the weapon pose (`MainHandGrip` by default). Vertical weapon art uses a `-90` degree correction to align its
-forward axis with the presenter's `+X`. Bow art spans its limbs horizontally and shoots along sprite
+forward axis with the presenter's `+X`; the two-handed weapons whose sources hold them across the facing
+(Long Sword, Zweihander, Great Hammer) use `180` instead. Bow art spans its limbs horizontally and shoots along sprite
 `+Y`, so every bow uses the same `-90` correction.
+A left facing mirrors the held weapon across its own art axis (sprite `+Y`), not across the facing axis.
+`PlayerWeaponPresenter` and `DirectionalAnimationGenerator` share `PlayerWeaponPresentationMath.ResolveAngleCorrection`:
+under the reflected facing pivot the mirrored visual takes `-180 - AngleCorrection`. Art laid along the
+facing (`-90`) is therefore unchanged (`-180 - -90 = -90`), while art held across the facing keeps its side
+and its strike toward the facing instead of flipping to the opposite side.
 These values are static per-weapon presentation data and do not introduce LootId branches in the presenter.
 
 ### Weapon rig
@@ -723,7 +743,8 @@ replicated) selects what owns its pose:
 
 `PlayerWeaponPresenter` reparents the same visual under the selected owner when the presented weapon
 changes, and back to `MainHandGrip` when unarmed. The facing rotation, the left-facing Y mirror, `GripPoint`
-and `AngleCorrection` apply unchanged under either owner. The rig is presentation only: equipment still
+and `AngleCorrection` (resolved for the mirror by `ResolveAngleCorrection`, so the held weapon mirrors across
+its own art axis) apply unchanged under either owner. The rig is presentation only: equipment still
 treats the weapon as Main Hand, a two-handed weapon still blocks the Off Hand, and `OffHandGrip` still
 belongs only to the Off Hand item. Validation allows `WeaponDriven` only for a two-handed weapon whose second
 hand is `FollowsAuthoredMotion`.

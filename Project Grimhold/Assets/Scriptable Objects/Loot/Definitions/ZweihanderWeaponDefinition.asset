@@ -27,7 +27,7 @@ MonoBehaviour:
   _presentation:
     _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.4375}
-    _angleCorrection: -90
+    _angleCorrection: 180
     _attackAnimationSet: {fileID: 11400000, guid: d646be445c7de4c4aa507af4d0852c61, type: 2}
     _attackVfx: {fileID: 11400000, guid: c3f5142aec892fd47a52e2422234e462, type: 2}
     _bladeTip: {x: 0, y: 1}

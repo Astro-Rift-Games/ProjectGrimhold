@@ -336,6 +336,16 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/Zweihander/Zweihander_Attack_{zweihanderDirections[index]}.anim")));
         }
 
+        WeaponDefinition greatHammer = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+            "Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset");
+        Assert.That(greatHammer.Presentation.HasGenericAttack, Is.True);
+        for (int index = 0; index < zweihanderDirections.Length; index++)
+        {
+            Assert.That(greatHammer.Presentation.GetAttackClip(index), Is.SameAs(
+                AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    $"Assets/Animations/Weapons/Directional/GreatHammer/GreatHammer_Attack_{zweihanderDirections[index]}.anim")));
+        }
+
         WeaponDefinition magicStaff = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
             "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset");
         Assert.That(magicStaff.Presentation.HasGenericAttack, Is.True);
@@ -431,6 +441,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("magic_sword")]
     [TestCase("long_sword")]
     [TestCase("zweihander")]
+    [TestCase("great_hammer")]
     [TestCase("magic_cinquedea")]
     [TestCase("magic_wand")]
     [TestCase("magic_staff")]
