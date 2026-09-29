@@ -57,6 +57,10 @@ public sealed class LootDefinition : ScriptableObject
     [Tooltip("Opcional. Configuración visual cuando este loot es una armadura o equipo visualizable.")]
     private EquipmentVisualDefinition _equipmentVisualDefinition;
 
+    [SerializeField]
+    [Tooltip("Optional held shield presentation sprites for each visual direction.")]
+    private DirectionalShieldSpriteSet _defenseSprites;
+
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
@@ -73,6 +77,7 @@ public sealed class LootDefinition : ScriptableObject
     public ShieldDefinition ShieldDefinition => _shieldDefinition;
     public ArmorDefinition ArmorDefinition => _armorDefinition;
     public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
+    public DirectionalShieldSpriteSet DefenseSprites => _defenseSprites;
 
     private void OnValidate()
     {
@@ -224,6 +229,21 @@ public sealed class LootDefinition : ScriptableObject
         {
             error = $"Loot definition '{_id}' has an ArmorDefinition but its category is {_category}.";
             return false;
+        }
+
+        if (_defenseSprites != null)
+        {
+            if (_category != LootCategory.Shield)
+            {
+                error = $"Loot definition '{_id}' has defense sprites but its category is {_category}.";
+                return false;
+            }
+
+            if (!_defenseSprites.TryValidate(out string defenseSpritesError))
+            {
+                error = $"Loot definition '{_id}' has invalid defense sprites: {defenseSpritesError}";
+                return false;
+            }
         }
 
         if (_equipmentVisualDefinition != null && !_equipmentVisualDefinition.TryValidate(out string equipError))

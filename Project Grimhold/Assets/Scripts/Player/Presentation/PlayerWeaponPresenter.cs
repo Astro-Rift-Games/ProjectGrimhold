@@ -5,6 +5,7 @@ using UnityEngine;
 /// The Animator moves the hands; held visuals inherit those transforms through their grips.
 /// The single Main Hand weapon visual follows MainHandGrip, or WeaponPose when the weapon drives its own pose.
 /// During the weapon's confirmed attack clip, an optional attack sprite animation swaps only its sprite.
+/// The Off Hand shield shows its sprite for the visual direction in every pose.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
@@ -31,6 +32,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private LootDefinition _mainHandDefinition;
     private LootDefinition _offHandDefinition;
     private Sprite _mainHandWorldSprite;
+    private Sprite _offHandWorldSprite;
+    private DirectionalShieldSpriteSet _offHandDirectionalSprites;
     private WeaponAttackSpriteAnimation _mainHandAttackSprites;
     private bool _hasMainHandWeapon;
     private Vector2 _mainHandGripPoint;
@@ -66,6 +69,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandDefinition = null;
         _offHandDefinition = null;
         _mainHandWorldSprite = null;
+        _offHandWorldSprite = null;
+        _offHandDirectionalSprites = null;
         _mainHandAttackSprites = null;
         _hasMainHandWeapon = false;
         SetWeaponDriven(false);
@@ -197,9 +202,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void ApplyOffHandDefinition(LootDefinition definition)
     {
         bool isShield = definition != null && definition.Category == LootCategory.Shield;
-        SetRendererSprite(
-            _offHandRenderer,
-            isShield ? definition.WorldSprite ?? definition.Icon : null);
+        _offHandWorldSprite = isShield ? definition.WorldSprite ?? definition.Icon : null;
+        _offHandDirectionalSprites = isShield ? definition.DefenseSprites : null;
+        SetRendererSprite(_offHandRenderer, _offHandWorldSprite);
 
         _offHandVisual.localPosition = Vector3.zero;
         _offHandVisual.localRotation = Quaternion.identity;
@@ -219,6 +224,19 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (_mainHandRenderer.sprite != sprite)
         {
             _mainHandRenderer.sprite = sprite;
+        }
+    }
+
+    // Swaps only the sprite; the Animator poses the hand and OffHandGrip carries the shield.
+    private void RefreshOffHandSprite(CharacterVisualDirection direction)
+    {
+        Sprite sprite = PlayerWeaponPresentationMath.ResolveOffHandSprite(
+            _offHandWorldSprite,
+            _offHandDirectionalSprites,
+            direction);
+        if (_offHandRenderer.sprite != sprite)
+        {
+            _offHandRenderer.sprite = sprite;
         }
     }
 
@@ -243,7 +261,13 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             SortingOrderBack);
 
         _mainHandRenderer.sortingOrder = order;
-        _offHandRenderer.sortingOrder = order;
+        // The weapon-pose hand is the LeftHand renderer that also carries OffHandGrip.
+        _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(
+            CharacterVisualDirectionResolver.IsFrontFacing(direction),
+            SortingOrderFront,
+            SortingOrderBack,
+            _weaponPoseHandRenderer.sortingOrder);
+        RefreshOffHandSprite(direction);
         if (_weaponDriven)
         {
             _weaponPoseHandRenderer.sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(

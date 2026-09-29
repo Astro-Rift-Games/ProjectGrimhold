@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dce96ed5c808594f956c6f575045d6a, type: 3}
+  m_Name: Shield
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalShieldSpriteSet
+  _spriteN: {fileID: 21300000, guid: 63676d332a79d9342a90e3cce742cc92, type: 3}
+  _spriteNE: {fileID: 21300000, guid: 3a68ca786f9ada447a6b99f2157e34ed, type: 3}
+  _spriteNW: {fileID: 21300000, guid: eecbfbbc5fe017b4796d4c15d52a3289, type: 3}
+  _spriteS: {fileID: 21300000, guid: 6ee23bd37a2e68e4eb949f4e23a6d5c4, type: 3}
+  _spriteSE: {fileID: 21300000, guid: abcafdfaae5d4dd4daf2049801eb0063, type: 3}
+  _spriteSW: {fileID: 21300000, guid: d53ed03580fbf1c4fb7de3ab534ae534, type: 3}

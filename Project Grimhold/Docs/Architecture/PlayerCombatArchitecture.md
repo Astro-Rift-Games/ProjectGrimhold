@@ -181,7 +181,7 @@ DamageRequest.Amount
 Physical and Magical damage covered by the Training Shield are reduced by `50%` after armor. True
 Damage returns before both passive armor and shield evaluation. Shield defense does not modify the
 `DamageRequest`, knockback, damage feedback, or presentation contracts. `IsDefending` is the stable
-replicated read model reserved for the separate six-direction shield presentation work.
+replicated read model consumed by the six-direction shield presentation.
 
 ### 4. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
@@ -234,7 +234,7 @@ PvP remains blocked until networking provides an authoritative ally/enemy affili
 | :--- | :--- | :--- | :--- |
 | **`PlayerInputReader`** | Fully Implemented | Captures local buttons/aim and packs into `PlayerNetworkInput`. | Relies on local Unity input wrappers. |
 | **`PlayerCombatNetworkController`** | Fully Implemented | Handles network input, authoritative optional strategy presence, TickTimer cooldowns, and local strategies. | Structural dependencies remain required; an attack strategy is optional. |
-| **`PlayerShieldDefenseNetworkController`** | Implemented | Derives replicated sustained defense and evaluates the active shield's frontal coverage. | Six-direction shield presentation remains in TASK-329. |
+| **`PlayerShieldDefenseNetworkController`** | Implemented | Derives replicated sustained defense and evaluates the active shield's frontal coverage. | Six-direction shield presentation is driven by `IsDefending`. |
 | **`MeleeAttack`** | Fully Implemented | Melee execution strategy, queries targets, resolves damage. | Behavior comes from `MeleeAttackConfig`; resolved statistics come from `AttackExecutionParameters`. |
 | **`Physics2DAttackTargetQuery`** | Fully Implemented | Circular target query with `Physics2D.OverlapCircle`. | Uses `_colliderBuffer` to avoid heap allocations. |
 | **`RangedAttack`** | Fully Implemented | Ranged execution strategy, spawns projectile via `IProjectileSpawner`. | Translates input to `ProjectileSpawnRequest`. |
@@ -638,8 +638,35 @@ point must not be used to compensate for an incorrect hand animation.
 
 the six discrete visual directions (N, NE, NW, S, SE, SW) resolved by `CharacterVisualDirectionResolver`
 serve as the common facing buckets for body, hands and held visuals. The shield remains under
-`OffHandGrip`, ready for separately authored defense clips; this integration does not fabricate
-missing shield animation content. The Animator never owns mitigation or coverage rules. Both held
+`OffHandGrip`. The authored south source `Shield_Block.anim` animates only the
+`LeftHandPivot/LeftHand` transform. `DirectionalAnimationGenerator.GenerateOffHandAssets` bakes it into
+non-looping `Shield_Defend_{N,NE,NW,S,SE,SW}` clips that turn its position trajectory with the facing under
+the Main Hand rule while keeping its rotation art, depth and key times, so south reproduces the source and a
+state that keeps playing a clip holds its final pose. The generator rejects an off-hand source that animates
+anything else. As idle clips key `MainHandGrip` on the drawn right hand, each Defend clip keys `OffHandGrip`
+on its facing's drawn LeftHand idle anchor and keeps that idle hand sprite, so the shield rides the drawn hand.
+
+The `LeftHand` Animator layer owns defense presentation: its `Defend` clips override the locomotion
+`OffHandGrip` keys while `IsDefending` is true. Their initial grip anchors match the facing's Idle keys.
+Its `Defend` state blends the six clips on
+`MoveX`/`MoveY` at the locomotion facings, entered from either locomotion state and left for the matching one
+with instant transitions on the `IsDefending` bool; Base Layer and `RightHand` never observe it. Movement and
+Main Hand locomotion continue while defending. `PlayerAnimatorView` only mirrors
+`PlayerShieldDefenseNetworkController.IsDefending` into that parameter, so every peer presents the replicated
+state and Set change, shield removal, defeat or phase exit leave the pose when gameplay clears it.
+The held shield's six facing sprites live in a `DirectionalShieldSpriteSet` presentation asset referenced by
+the shield's `LootDefinition.DefenseSprites`, separate from the gameplay `ShieldDefinition`.
+`PlayerWeaponPresenter` shows the active Off Hand shield's sprite for the visual direction in Idle, Walk and
+Defend; the world sprite is only a fallback when directional art is unavailable. Defense changes the
+authored hand pose, not the selected shield art.
+
+Each Defend clip also keys the LeftHand renderer's sorting order for its facing: the base order 4 where
+the raised hand stays beside the body (S, SE, NW), the north main hand's -2 behind the body where it
+turns away from the view (N, NE), and 32 in SW, where it crosses in front of the main hand (30) and its
+glove (31); the glove keeps following one slot above. In front facings `PlayerWeaponPresenter` draws the
+Off Hand item at least two slots over its hand (`max(20, hand + 2)`), so locomotion keeps order 20 and
+the SW shield covers the main hand; back facings keep -10.
+The Animator never owns mitigation or coverage rules. Both held
 renderers stay on the existing `Characters` Sorting Layer and derive front/back order from the
 resolved visual bucket.
 
@@ -787,11 +814,12 @@ authored timing: its clip grows from 0.6 s to 0.8 s and is not stretched to its 
 the gameplay cooldown and the presentation length are separate responsibilities. The Animator controller
 and every hand-held weapon are unchanged.
 
-Outside attacks, `WeaponPose` rests in the drawn left hand. The Idle and Walk body clips key its position,
-stepped, at every LeftHand sprite frame of the matching `LeftHand_<Motion>_<Facing>` clip, on the
-opaque-pixel centroid of that frame, and key its rotation to zero. The
-`Tools/Animations/Generate Weapon Pose Locomotion` menu writes those keys; a weapon-driven attack bake
-requires none of them.
+Outside attacks, `WeaponPose` and `OffHandGrip` rest in the drawn left hand. The Idle and Walk body clips
+key both positions, stepped, at every LeftHand sprite frame of the matching
+`LeftHand_<Motion>_<Facing>` clip, on the opaque-pixel centroid of that frame, and hold the final
+anchor through the body clip's end. `WeaponPose` also keys rotation to zero. The
+`Tools/Animations/Generate Weapon Pose Locomotion` menu writes those keys; no runtime item-specific
+offset or branch is needed. A weapon-driven attack bake requires none of them.
 
 Long Bow grips `(0, 0.125)` of the 27x7 px `LongBow.png`: the center of the three-row limb in the sprite's
 center column (outline, wood, outline), 2 px above the centered pivot. The string lies on the bottom row.

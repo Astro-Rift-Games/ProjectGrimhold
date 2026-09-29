@@ -12,6 +12,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private static readonly int LocomotionPlaybackRateHash =
         Animator.StringToHash("LocomotionPlaybackRate");
     private static readonly int HasGenericAttackHash = Animator.StringToHash("HasGenericAttack");
+    private static readonly int IsDefendingHash = Animator.StringToHash("IsDefending");
     private static readonly string[] AttackDirections = { "N", "NE", "NW", "S", "SE", "SW" };
     private const string MainHandCombatLayerName = "RightHand";
 
@@ -20,6 +21,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     [Header("Combat Presentation")]
     [SerializeField] private PlayerCombatNetworkController _combatController;
     [SerializeField] private PlayerWeaponEquipmentNetworkController _equipmentSource;
+    [SerializeField] private PlayerShieldDefenseNetworkController _shieldDefense;
 
     [SerializeField, Min(0f)]
     private float _referenceMovementSpeed = 4f;
@@ -97,6 +99,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         if (AnimatorInstance != null)
         {
             AnimatorInstance.SetBool(HasGenericAttackHash, false);
+            AnimatorInstance.SetBool(IsDefendingHash, false);
             if (_attackOverrides != null && AnimatorInstance.runtimeAnimatorController == _attackOverrides)
             {
                 AnimatorInstance.runtimeAnimatorController = _baseController;
@@ -142,6 +145,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         base.CacheDependencies();
         _combatController ??= GetComponentInParent<PlayerCombatNetworkController>();
         _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+        _shieldDefense ??= GetComponentInParent<PlayerShieldDefenseNetworkController>();
     }
 
     private void SubscribeToCombat()
@@ -196,6 +200,16 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         }
 
         RefreshAttackAnimation();
+        AnimatorInstance.SetBool(IsDefendingHash, IsDefending());
+    }
+
+    // Mirrors the replicated defense state; gameplay alone decides when it holds.
+    private bool IsDefending()
+    {
+        return _shieldDefense != null &&
+            _shieldDefense.Object != null &&
+            _shieldDefense.Object.IsValid &&
+            _shieldDefense.IsDefending;
     }
 
     private void RefreshAttackAnimation()

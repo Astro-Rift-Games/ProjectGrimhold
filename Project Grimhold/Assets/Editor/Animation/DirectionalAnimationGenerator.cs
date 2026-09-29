@@ -9,6 +9,7 @@ public static class DirectionalAnimationGenerator
     private const string Hand = "RightHandPivot/RightHand";
     private const string Grip = Hand + "/MainHandGrip";
     private const string SecondHand = "LeftHandPivot/LeftHand";
+    private const string OffHandGrip = SecondHand + "/OffHandGrip";
     private const string WeaponPose = "WeaponPose";
     private const string AngleZ = "localEulerAnglesRaw.z";
     private const string OutputRoot = "Assets/Animations/Weapons/Directional";
@@ -18,6 +19,11 @@ public static class DirectionalAnimationGenerator
     // north main hand (-2). The next slot of each stays free for its glove.
     private const int FrontSecondHandSortingOrder = 25;
     private const int BackSecondHandSortingOrder = -5;
+    // A raised off hand keeps the LeftHand renderer's base order (4, between the torso and the head) where it
+    // stays beside the body, goes behind the body like the north main hand where it turns away from the view
+    // (N, NE), and crosses in front of the main hand (30) and its glove (31) in SW. Its glove follows one above.
+    public const int OffHandSortingOrder = 4;
+    public const int OffHandOverMainHandSortingOrder = 32;
     // The presenter points the held weapon along the facing, which is -90 degrees for south.
     private const float SouthFacingAngle = -90f;
     private const float DerivativeStep = 0.0005f;
@@ -67,9 +73,12 @@ public static class DirectionalAnimationGenerator
     public static void GenerateCompoundBowAssets() => GenerateAssets("CompoundBow",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset"), "RecurveBow");
 
-    // Outside attacks a weapon-driven rig rests in the drawn left hand. Like MainHandGrip it tracks that hand:
-    // every Idle and Walk body clip keys WeaponPose, at each LeftHand sprite frame of the matching LeftHand clip,
-    // on the opaque-pixel centroid of that frame, stepped like the authored MainHandGrip keys, with no rotation.
+    [MenuItem("Tools/Animations/Generate Shield Directional Defend")]
+    public static void GenerateShieldDefendAssets() => GenerateOffHandAssets("Shield", "Block", "Defend");
+
+    // Outside attacks, OffHandGrip and a weapon-driven WeaponPose rest in the drawn left hand.
+    // Every Idle and Walk body clip keys both at each matching LeftHand sprite frame's opaque-pixel
+    // centroid, stepped like the authored MainHandGrip keys. WeaponPose also rests unrotated.
     [MenuItem("Tools/Animations/Generate Weapon Pose Locomotion")]
     public static void GenerateWeaponPoseLocomotion()
     {
@@ -122,6 +131,7 @@ public static class DirectionalAnimationGenerator
                 AnimationUtility.SetKeyRightTangentMode(curve, i, AnimationUtility.TangentMode.Constant);
             }
             AnimationUtility.SetEditorCurve(body, Binding(WeaponPose, typeof(Transform), "m_LocalPosition." + axis), curve);
+            AnimationUtility.SetEditorCurve(body, Binding(OffHandGrip, typeof(Transform), "m_LocalPosition." + axis), curve);
             AnimationUtility.SetEditorCurve(body, Binding(WeaponPose, typeof(Transform), "localEulerAnglesRaw." + axis),
                 Constant(0f, body.length));
         }
@@ -160,14 +170,92 @@ public static class DirectionalAnimationGenerator
     {
         if (original == null) throw new ArgumentNullException(nameof(original));
         ValidateWeaponName(weaponName);
+        ValidateOutputPath(original, path);
+        WriteGenerated(CreateClip(original, direction, weaponName, weapon), path);
+    }
+
+    // An off-hand item's south source <itemName>_<sourceMotion>.anim drives only the LeftHand transform, which
+    // carries OffHandGrip. Each facing gets <itemName>_<outputMotion>_<direction>.anim.
+    public static void GenerateOffHandAssets(string itemName, string sourceMotion, string outputMotion)
+    {
+        ValidateWeaponName(itemName);
+        ValidateWeaponName(sourceMotion);
+        ValidateWeaponName(outputMotion);
+        AnimationClip original = RequireClip($"Assets/Animations/Weapons/{itemName}_{sourceMotion}.anim");
+        if (!AssetDatabase.IsValidFolder($"{OutputRoot}/{itemName}"))
+            AssetDatabase.CreateFolder(OutputRoot, itemName);
+        foreach (string direction in Directions)
+        {
+            string name = $"{itemName}_{outputMotion}_{direction}";
+            string path = $"{OutputRoot}/{itemName}/{name}.anim";
+            ValidateOutputPath(original, path);
+            WriteGenerated(CreateOffHandClip(original, direction, name), path);
+        }
+    }
+
+    // The off-hand position trajectory turns with the facing under the main hand's rule, while its rotation art,
+    // depth and key times stay authored, so south reproduces the source. As MainHandGrip does for the main hand,
+    // OffHandGrip holds the facing's drawn LeftHand idle anchor, so the held item follows the drawn hand, and the
+    // hand keeps that idle sprite. The output never loops: a state that keeps playing it holds the final pose.
+    public static AnimationClip CreateOffHandClip(AnimationClip original, string direction, string clipName)
+    {
+        if (original == null) throw new ArgumentNullException(nameof(original));
+        ValidateWeaponName(clipName);
+        int index = Array.IndexOf(Directions, direction);
+        if (index < 0) throw new ArgumentException("Unknown facing direction.", nameof(direction));
+        if (AnimationUtility.GetObjectReferenceCurveBindings(original).Length > 0 ||
+            AnimationUtility.GetCurveBindings(original).Any(binding => !IsSecondHandTransform(binding)))
+            throw new ArgumentException($"Off-hand source {original.name} may animate only the {SecondHand} transform.",
+                nameof(original));
+
+        Sprite handSprite = RequireIdleSprite(
+            RequireClip($"Assets/Animations/Player/Idle/LeftHand/LeftHand_Idle_{direction}.anim"), SecondHand, direction);
+        Vector2 anchor = ResolveSpriteAnchor(handSprite);
+        AnimationClip result = UnityEngine.Object.Instantiate(original);
+        try
+        {
+            result.name = clipName;
+            AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(result);
+            settings.loopTime = false;
+            AnimationUtility.SetAnimationClipSettings(result, settings);
+            WriteTrajectory(result, SecondHand, RotateTrajectory(original, SecondHand, Angles[index] * Mathf.Deg2Rad));
+            foreach (string axis in new[] { "x", "y", "z" })
+            {
+                AnimationUtility.SetEditorCurve(result, Binding(OffHandGrip, typeof(Transform), "m_LocalPosition." + axis),
+                    Constant(axis == "x" ? anchor.x : axis == "y" ? anchor.y : 0f, original.length));
+            }
+            AnimationUtility.SetObjectReferenceCurve(result, Binding(SecondHand, typeof(SpriteRenderer), "m_Sprite"),
+                new[] { new ObjectReferenceKeyframe { time = 0f, value = handSprite } });
+            AnimationUtility.SetEditorCurve(result, Binding(SecondHand, typeof(SpriteRenderer), "m_SortingOrder"),
+                Constant(ResolveOffHandSortingOrder(direction), original.length));
+            return result;
+        }
+        catch
+        {
+            UnityEngine.Object.DestroyImmediate(result);
+            throw;
+        }
+    }
+
+    public static int ResolveOffHandSortingOrder(string direction) => direction switch
+    {
+        "N" or "NE" => NorthHandSortingOrder,
+        "SW" => OffHandOverMainHandSortingOrder,
+        _ => OffHandSortingOrder
+    };
+
+    private static void ValidateOutputPath(AnimationClip original, string path)
+    {
         if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/", StringComparison.Ordinal) ||
             !path.EndsWith(".anim", StringComparison.Ordinal))
             throw new ArgumentException("Expected an asset animation path.", nameof(path));
         string sourcePath = AssetDatabase.GetAssetPath(original);
         if (!string.IsNullOrEmpty(sourcePath) && string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Destination cannot overwrite the source animation clip.", nameof(path));
+    }
 
-        AnimationClip generated = CreateClip(original, direction, weaponName, weapon);
+    private static void WriteGenerated(AnimationClip generated, string path)
+    {
         try
         {
             AnimationClip destination = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);

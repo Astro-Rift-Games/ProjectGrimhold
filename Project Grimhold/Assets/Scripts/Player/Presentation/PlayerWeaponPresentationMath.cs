@@ -60,4 +60,30 @@ internal static class PlayerWeaponPresentationMath
                 ? frame
                 : worldSprite;
     }
+
+    /// <summary>
+    /// Front facings draw the Off Hand item over its hand and that hand's glove, which the Animator may raise over
+    /// the main hand; it never drops below the front order. Back facings keep it behind the body.
+    /// </summary>
+    internal static int ResolveOffHandSortingOrder(bool frontFacing, int frontOrder, int backOrder, int handOrder)
+    {
+        return frontFacing ? Mathf.Max(frontOrder, handOrder + 2) : backOrder;
+    }
+
+    /// <summary>
+    /// An equipped shield shows its sprite for the visual direction in every pose. Its world sprite is the
+    /// fallback when a directional sprite is unavailable; an empty Off Hand stays empty.
+    /// </summary>
+    internal static Sprite ResolveOffHandSprite(
+        Sprite worldSprite,
+        DirectionalShieldSpriteSet directionalSprites,
+        CharacterVisualDirection direction)
+    {
+        if (worldSprite == null || directionalSprites == null)
+        {
+            return worldSprite;
+        }
+
+        return directionalSprites.GetSprite(direction) ?? worldSprite;
+    }
 }

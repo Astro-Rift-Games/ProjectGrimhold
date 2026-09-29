@@ -14,6 +14,7 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
     private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
     private const string SecondHand = "LeftHandPivot/LeftHand";
+    private const string OffHandGrip = SecondHand + "/OffHandGrip";
     private const string WeaponPose = "WeaponPose";
     private const string LongSwordSource = "Assets/Animations/Weapons/LongSword_Attack.anim";
     private const string LongSwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset";
@@ -674,7 +675,7 @@ public sealed class DirectionalAnimationGeneratorTests
     [TestCase("Walk", "S")]
     [TestCase("Walk", "SE")]
     [TestCase("Walk", "SW")]
-    public void WeaponPoseLocomotion_RestsInEveryDrawnLeftHandFrame(string motion, string direction)
+    public void LocomotionGrips_RestInEveryDrawnLeftHandFrame(string motion, string direction)
     {
         AnimationClip body = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/{motion}/{motion}_{direction}.anim");
         AnimationClip hand = AssetDatabase.LoadAssetAtPath<AnimationClip>(
@@ -687,6 +688,13 @@ public sealed class DirectionalAnimationGeneratorTests
         AnimationClip regenerated = UnityEngine.Object.Instantiate(body);
         try
         {
+            EditorCurveBinding[] originalBindings = AnimationUtility.GetCurveBindings(regenerated)
+                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip).ToArray();
+            AnimationCurve[] originalCurves = originalBindings
+                .Select(binding => AnimationUtility.GetEditorCurve(regenerated, binding)).ToArray();
+            EditorCurveBinding[] spriteBindings = AnimationUtility.GetObjectReferenceCurveBindings(regenerated);
+            ObjectReferenceKeyframe[][] spriteCurves = spriteBindings
+                .Select(binding => AnimationUtility.GetObjectReferenceCurve(regenerated, binding)).ToArray();
             DirectionalAnimationGenerator.WriteWeaponPoseLocomotion(regenerated, hand);
             foreach (string property in new[] { "m_LocalPosition.x", "m_LocalPosition.y", "m_LocalPosition.z",
                 "localEulerAnglesRaw.x", "localEulerAnglesRaw.y", "localEulerAnglesRaw.z" })
@@ -700,15 +708,103 @@ public sealed class DirectionalAnimationGeneratorTests
                 else
                     Assert.That(keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True, $"{property} is stepped.");
             }
+            foreach (string property in new[] { "m_LocalPosition.x", "m_LocalPosition.y", "m_LocalPosition.z" })
+            {
+                Keyframe[] gripKeys = Curve(body, OffHandGrip, property)?.keys;
+                Assert.That(gripKeys, Is.Not.Null, $"{motion}_{direction} misses its OffHandGrip {property} curve.");
+                Assert.That(gripKeys, Is.EqualTo(Curve(regenerated, OffHandGrip, property).keys), property);
+                Assert.That(gripKeys, Is.EqualTo(Curve(body, WeaponPose, property).keys), property);
+                Assert.That(gripKeys[gripKeys.Length - 1].time, Is.EqualTo(body.length).Within(0.0001f), property);
+                Assert.That(gripKeys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True, $"{property} is stepped.");
+            }
             foreach (ObjectReferenceKeyframe frame in frames)
             {
                 Vector2 anchor = DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)frame.value);
                 Vector2 pose = Position(body, WeaponPose, frame.time + 0.0001f);
                 Assert.That(pose.x, Is.EqualTo(anchor.x).Within(0.00001f), $"{frame.time}");
                 Assert.That(pose.y, Is.EqualTo(anchor.y).Within(0.00001f), $"{frame.time}");
+                Vector2 grip = Position(body, OffHandGrip, frame.time + 0.0001f);
+                Assert.That(grip.x, Is.EqualTo(anchor.x).Within(0.00001f), $"{frame.time}");
+                Assert.That(grip.y, Is.EqualTo(anchor.y).Within(0.00001f), $"{frame.time}");
             }
+            Assert.That(AnimationUtility.GetCurveBindings(regenerated)
+                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip), Is.EquivalentTo(originalBindings));
+            for (int i = 0; i < originalBindings.Length; i++)
+                Assert.That(AnimationUtility.GetEditorCurve(regenerated, originalBindings[i]).keys,
+                    Is.EqualTo(originalCurves[i].keys), originalBindings[i].path);
+            Assert.That(AnimationUtility.GetObjectReferenceCurveBindings(regenerated), Is.EquivalentTo(spriteBindings));
+            for (int i = 0; i < spriteBindings.Length; i++)
+                Assert.That(AnimationUtility.GetObjectReferenceCurve(regenerated, spriteBindings[i]),
+                    Is.EqualTo(spriteCurves[i]), spriteBindings[i].path);
         }
         finally { UnityEngine.Object.DestroyImmediate(regenerated); }
+    }
+
+    [Test]
+    public void WalkNorthWest_HandSheetsKeepAnatomicalIdentityAndGripsFollowDrawnHands()
+    {
+        AnimationClip body = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Player/Walk/Walk_NW.anim");
+        Assert.That(body, Is.Not.Null);
+
+        foreach (string hand in new[] { "Left", "Right" })
+        {
+            string path = hand == "Left" ? SecondHand : Hand;
+            string gripPath = hand == "Left" ? OffHandGrip : Grip;
+            AnimationClip northWest = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Player/Walk/{hand}Hand/{hand}Hand_Walk_NW.anim");
+            string opposite = hand == "Left" ? "Right" : "Left";
+            AnimationClip northEastOpposite = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                $"Assets/Animations/Player/Walk/{opposite}Hand/{opposite}Hand_Walk_NE.anim");
+            Assert.That(northWest, Is.Not.Null);
+            Assert.That(northEastOpposite, Is.Not.Null);
+
+            ObjectReferenceKeyframe[] frames = AnimationUtility.GetObjectReferenceCurve(northWest,
+                new EditorCurveBinding { path = path, type = typeof(SpriteRenderer), propertyName = "m_Sprite" });
+            ObjectReferenceKeyframe[] mirrorFrames = AnimationUtility.GetObjectReferenceCurve(northEastOpposite,
+                new EditorCurveBinding
+                {
+                    path = opposite == "Left" ? SecondHand : Hand,
+                    type = typeof(SpriteRenderer), propertyName = "m_Sprite"
+                });
+            Assert.That(frames, Has.Length.EqualTo(8));
+            Assert.That(mirrorFrames, Has.Length.EqualTo(frames.Length));
+
+            AnimationCurve x = Curve(body, gripPath, "m_LocalPosition.x");
+            AnimationCurve y = Curve(body, gripPath, "m_LocalPosition.y");
+            AnimationCurve z = Curve(body, gripPath, "m_LocalPosition.z");
+            Assert.That(x, Is.Not.Null);
+            Assert.That(y, Is.Not.Null);
+            Assert.That(z, Is.Not.Null);
+            Assert.That(x.keys, Has.Length.EqualTo(frames.Length + 1));
+            Assert.That(y.keys, Has.Length.EqualTo(frames.Length + 1));
+            Assert.That(z.keys, Has.Length.EqualTo(frames.Length + 1));
+            for (int i = 0; i < frames.Length; i++)
+            {
+                Vector2 anchor = DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)frames[i].value);
+                Vector2 mirrored = DirectionalAnimationGenerator.ResolveSpriteAnchor((Sprite)mirrorFrames[i].value);
+                Assert.That(frames[i].time, Is.EqualTo(mirrorFrames[i].time).Within(0.00001f));
+                Assert.That(anchor.x, Is.EqualTo(-mirrored.x).Within(0.00001f), $"{hand} frame {i} identity");
+                Assert.That(anchor.y, Is.EqualTo(mirrored.y).Within(0.00001f), $"{hand} frame {i} height");
+                Assert.That(x.keys[i].time, Is.EqualTo(frames[i].time).Within(0.00001f));
+                Assert.That(y.keys[i].time, Is.EqualTo(frames[i].time).Within(0.00001f));
+                Assert.That(x.keys[i].value, Is.EqualTo(anchor.x).Within(0.00001f));
+                Assert.That(y.keys[i].value, Is.EqualTo(anchor.y).Within(0.00001f));
+                Assert.That(z.keys[i].value, Is.EqualTo(0f));
+            }
+            Assert.That(x.keys[x.length - 1].time, Is.EqualTo(body.length).Within(0.00001f));
+            Assert.That(x.keys[x.length - 1].value, Is.EqualTo(x.keys[x.length - 2].value));
+            Assert.That(y.keys[y.length - 1].value, Is.EqualTo(y.keys[y.length - 2].value));
+            Assert.That(x.keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True);
+            Assert.That(y.keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True);
+            Assert.That(z.keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True);
+
+            if (hand == "Left")
+            {
+                foreach (string axis in new[] { "x", "y", "z" })
+                    Assert.That(Curve(body, WeaponPose, "m_LocalPosition." + axis).keys,
+                        Is.EqualTo(Curve(body, OffHandGrip, "m_LocalPosition." + axis).keys));
+            }
+        }
     }
 
     [TestCase("LongSword")]

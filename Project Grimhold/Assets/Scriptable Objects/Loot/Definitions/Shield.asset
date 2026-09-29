@@ -26,3 +26,4 @@ MonoBehaviour:
   _weaponDefinition: {fileID: 0}
   _shieldDefinition: {fileID: 11400000, guid: ef219d3389bb478282828b58911456bd, type: 2}
   _armorDefinition: {fileID: 0}
+  _defenseSprites: {fileID: 11400000, guid: 3df2e23adecc0504b9bb2f308d3c387a, type: 2}

@@ -7401,6 +7401,7 @@ MonoBehaviour:
   _movementControllerSource: {fileID: 7201000000000000005}
   _combatController: {fileID: 2769229401594790361}
   _equipmentSource: {fileID: 8300000000000000005}
+  _shieldDefense: {fileID: 8400000000000000005}
   _referenceMovementSpeed: 4
 --- !u!95 &5232659655046367733
 Animator:
