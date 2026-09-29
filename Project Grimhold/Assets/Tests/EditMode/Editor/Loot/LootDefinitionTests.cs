@@ -164,6 +164,30 @@ namespace Tests.EditMode.Loot
             Assert.That(error, Does.Contain("negative sell value"));
         }
 
+        [Test]
+        public void NegativeBuyValue_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_buyValuePerUnit", -1);
+
+            Assert.That(_loot.TryValidate(out string error), Is.False);
+            Assert.That(error, Does.Contain("negative buy value"));
+        }
+
+        [Test]
+        public void BuyValue_IsIndependentFromExtractionAndSellValues()
+        {
+            SetValidDefaults();
+            SetField("_extractionValuePerUnit", 7);
+            SetField("_sellValuePerUnit", 50);
+            SetField("_buyValuePerUnit", 120);
+
+            Assert.That(_loot.TryValidate(out string error), Is.True, error);
+            Assert.That(_loot.BuyValuePerUnit, Is.EqualTo(120));
+            Assert.That(_loot.ExtractionValuePerUnit, Is.EqualTo(7));
+            Assert.That(_loot.SellValuePerUnit, Is.EqualTo(50));
+        }
+
         [TestCase(0)]
         [TestCase(-1)]
         public void InvalidDefaultQuantity_FailsValidation(int invalidQty)
@@ -223,6 +247,7 @@ namespace Tests.EditMode.Loot
             Assert.That(typeof(LootDefinition).GetProperty("Rarity").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("ExtractionValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("SellValuePerUnit").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("BuyValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("DefaultPickupQuantity").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("ArmorDefinition").CanWrite, Is.False);
         }

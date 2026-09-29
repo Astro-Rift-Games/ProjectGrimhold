@@ -1,14 +1,15 @@
-using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Controller for the Merchant Shop UI Prefab.
-/// It exposes UnityEvents and public methods to allow the Unity Editor 
-/// to bind UI elements without enforcing a specific framework.
-/// Reads profile state through application services and submits mutations through the shop service.
+/// Presentation of the Merchant Shop Prefab. It renders the <see cref="MerchantShopViewModel"/>
+/// given by <see cref="TownMerchantPresenter"/> through one flow: select a row, choose a quantity,
+/// add or update its line, review the trade, then confirm or clear it. Selection and quantity live
+/// in <see cref="MerchantShopInteraction"/>; this component only binds widgets to it. It holds no
+/// services, network controller or economy rules.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class MerchantShopUI : MonoBehaviour
@@ -23,42 +24,47 @@ public sealed class MerchantShopUI : MonoBehaviour
     [SerializeField] private TMP_Text _topCurrencyText;
 
     [Header("Center Panel - Details")]
-    [SerializeField] private GameObject _centerPanelRoot; // Optional, to hide when nothing is selected
+    [SerializeField] private GameObject _centerPanelRoot; // Hidden while nothing is selected
     [SerializeField] private Image _detailIcon;
     [SerializeField] private TMP_Text _detailName;
     [SerializeField] private TMP_Text _detailType;
     [SerializeField] private TMP_Text _detailRarity;
     [SerializeField] private TMP_Text _detailDescription;
-    [SerializeField] private Transform _statsContainer;
-    [SerializeField] private StatInfoUI _statInfoPrefab;
+    [SerializeField] private TMP_Text _detailPropertiesText;
 
-    [Header("Center Panel - Actions")]
+    [Header("Center Panel - Line")]
     [SerializeField] private Slider _quantitySlider;
     [SerializeField] private TMP_Text _quantityText;
     [SerializeField] private Button _decreaseQtyButton;
     [SerializeField] private Button _increaseQtyButton;
-    [SerializeField] private TMP_Text _totalPriceText;
+    [SerializeField] private TMP_Text _unitPriceText;
+    [SerializeField] private TMP_Text _lineStateText;
     [SerializeField] private Button _actionButton;
     [SerializeField] private TMP_Text _actionButtonText;
+    [SerializeField] private Button _removeLineButton;
 
-    private TownMerchantNetworkController _merchantController;
-    private ApplicationStashContext _context;
-    private IPlayerLoadoutService _loadoutService;
-    private IPlayerCurrencyService _currencyService;
-    private ProfileId _profileId;
-    
-    // State
-    private LootDefinition _selectedItem;
-    private bool _isSelectedFromMerchant;
-    private int _selectedQuantity = 1;
-    private int _maxAvailableQuantity = 1;
-    private System.Collections.Generic.List<StoreItemUI> _instantiatedItems = new System.Collections.Generic.List<StoreItemUI>();
-    
+    [Header("Trade Summary")]
+    [SerializeField] private TMP_Text _purchaseTotalText;
+    [SerializeField] private TMP_Text _saleTotalText;
+    [SerializeField] private TMP_Text _balanceText;
+    [SerializeField] private TMP_Text _capacityText;
+    [SerializeField] private TMP_Text _feedbackText;
+
+    [Header("Trade")]
+    [SerializeField] private Button _confirmButton;
+    [SerializeField] private Button _clearButton;
+
+    // The shop font has no arrow glyph.
+    private const string Projection = " -> ";
+
+    private readonly List<StoreItemUI> _merchantRows = new List<StoreItemUI>();
+    private readonly List<StoreItemUI> _inventoryRows = new List<StoreItemUI>();
+    private MerchantShopInteraction _interaction;
+    private MerchantShopViewModel _viewModel = MerchantShopViewModel.Unavailable;
+    private string _resultMessage = string.Empty;
+
     [Header("Events")]
-    [Tooltip("Fired when a transaction is fully processed and the UI should refresh its displays (e.g., currency, inventory).")]
-    public UnityEvent OnNeedsVisualRefresh;
-    
-    [Tooltip("Fired to notify the player of a transaction result (e.g. Success, InsufficientFunds).")]
+    [Tooltip("Fired to notify the player of a trade result (e.g. Success, RejectedByProfile).")]
     public UnityEvent<MerchantTransactionResult> OnTransactionResult;
 
     [Tooltip("Fired when the user clicks the close button.")]
@@ -66,376 +72,280 @@ public sealed class MerchantShopUI : MonoBehaviour
 
     private void Awake()
     {
-        if (_closeButton != null)
-        {
-            _closeButton.onClick.AddListener(RequestClose);
-        }
-        if (_quantitySlider != null)
-        {
-            _quantitySlider.onValueChanged.AddListener(OnSliderValueChanged);
-        }
-        if (_decreaseQtyButton != null)
-        {
-            _decreaseQtyButton.onClick.AddListener(OnDecreaseQuantityClicked);
-        }
-        if (_increaseQtyButton != null)
-        {
-            _increaseQtyButton.onClick.AddListener(OnIncreaseQuantityClicked);
-        }
-        if (_actionButton != null)
-        {
-            _actionButton.onClick.AddListener(OnCenterActionClicked);
-        }
-        
-        ClearCenterPanel();
+        if (_closeButton != null) _closeButton.onClick.AddListener(RequestClose);
+        if (_quantitySlider != null) _quantitySlider.onValueChanged.AddListener(OnSliderValueChanged);
+        if (_decreaseQtyButton != null) _decreaseQtyButton.onClick.AddListener(OnDecreaseQuantityClicked);
+        if (_increaseQtyButton != null) _increaseQtyButton.onClick.AddListener(OnIncreaseQuantityClicked);
+        if (_actionButton != null) _actionButton.onClick.AddListener(OnApplyLineClicked);
+        if (_removeLineButton != null) _removeLineButton.onClick.AddListener(OnRemoveLineClicked);
+        if (_confirmButton != null) _confirmButton.onClick.AddListener(OnConfirmClicked);
+        if (_clearButton != null) _clearButton.onClick.AddListener(OnClearClicked);
+
+        Render();
     }
 
-    /// <summary>
-    /// Initializes the UI with the necessary controllers and contexts.
-    /// Called by the Presenter when opening the shop.
-    /// </summary>
-    public void Initialize(
-        TownMerchantNetworkController merchantController,
-        ApplicationStashContext context,
-        ProfileId profileId)
-    {
-        Debug.Log("[MerchantShopUI] Initialize called.");
-        ReleaseBindings();
-        _merchantController = merchantController;
-        _context = context;
-        _loadoutService = context != null ? context.LoadoutService : null;
-        _currencyService = context != null ? context.CurrencyService : null;
-        _profileId = profileId;
-
-        if (_merchantController != null)
-        {
-            _merchantController.LocalTransactionCompleted += HandleTransactionCompleted;
-        }
-        if (_context != null)
-        {
-            _context.ProfileCommitted += OnProfileCommitted;
-        }
-
-        // Trigger initial refresh
-        RefreshLists();
-        OnNeedsVisualRefresh?.Invoke();
-        Debug.Log("[MerchantShopUI] Initialize completed.");
-    }
-
-    private void UpdateCurrencyDisplay()
-    {
-        if (_topCurrencyText != null && _currencyService != null)
-        {
-            _topCurrencyText.text = _currencyService.GetCurrency(_profileId).ToString();
-        }
-    }
-
-    /// <summary>
-    /// Re-instantiates the lists. Useful when quantities change.
-    /// </summary>
-    public void RefreshLists()
-    {
-        if (_merchantController == null || _context == null) return;
-
-        UpdateCurrencyDisplay();
-
-        ClearContainer(_merchantStockContainer);
-        ClearContainer(_playerInventoryContainer);
-        _instantiatedItems.Clear();
-
-        PopulateMerchantStock();
-        PopulatePlayerInventory();
-        
-        // Re-validate selection after refresh
-        if (_selectedItem != null)
-        {
-            // Re-select to update max quantities or clear if no longer available
-            OnItemSelected(_selectedItem.Id, _isSelectedFromMerchant);
-        }
-    }
-
-    private void ClearContainer(Transform container)
-    {
-        if (container == null) return;
-        foreach (Transform child in container)
-        {
-            Destroy(child.gameObject);
-        }
-    }
-
-    private void PopulateMerchantStock()
-    {
-        if (_merchantStockContainer == null || _storeItemPrefab == null)
-        {
-            Debug.LogWarning("[MerchantShopUI] _merchantStockContainer or _storeItemPrefab is null.");
-            return;
-        }
-
-        var stock = _merchantController.Stock;
-        var catalog = _merchantController.Catalog;
-
-        if (stock == null || catalog == null)
-        {
-            Debug.LogWarning($"[MerchantShopUI] Stock or Catalog is null. Stock: {stock != null}, Catalog: {catalog != null}");
-            return;
-        }
-
-        Debug.Log($"[MerchantShopUI] Populating stock with {stock.Count} items.");
-        foreach (var stockItem in stock)
-        {
-            if (stockItem.Item != null)
-            {
-                var instance = Instantiate(_storeItemPrefab, _merchantStockContainer);
-                int remaining = _merchantController.GetRemainingStock(stockItem.Item.Id);
-                instance.SetupForPurchase(stockItem.Item, remaining, id => RequestPurchase(id, 1), OnItemSelected);
-                _instantiatedItems.Add(instance);
-            }
-        }
-    }
-
-    private void PopulatePlayerInventory()
-    {
-        if (_playerInventoryContainer == null || _storeItemPrefab == null || _loadoutService == null) return;
-
-        var catalog = _merchantController.Catalog;
-        var loadout = _loadoutService.GetLoadout(_profileId);
-
-        foreach (var item in loadout)
-        {
-            if (catalog.TryGet(item.LootId.Value, out var definition))
-            {
-                var instance = Instantiate(_storeItemPrefab, _playerInventoryContainer);
-                instance.SetupForSale(definition, item.Amount, id => RequestSale(id, 1), OnItemSelected);
-                _instantiatedItems.Add(instance);
-            }
-        }
-    }
-
-    private void OnDisable()
-    {
-        ReleaseBindings();
-    }
-    
     private void OnDestroy()
     {
-        ReleaseBindings();
-
         if (_closeButton != null) _closeButton.onClick.RemoveListener(RequestClose);
         if (_quantitySlider != null) _quantitySlider.onValueChanged.RemoveListener(OnSliderValueChanged);
         if (_decreaseQtyButton != null) _decreaseQtyButton.onClick.RemoveListener(OnDecreaseQuantityClicked);
         if (_increaseQtyButton != null) _increaseQtyButton.onClick.RemoveListener(OnIncreaseQuantityClicked);
-        if (_actionButton != null) _actionButton.onClick.RemoveListener(OnCenterActionClicked);
+        if (_actionButton != null) _actionButton.onClick.RemoveListener(OnApplyLineClicked);
+        if (_removeLineButton != null) _removeLineButton.onClick.RemoveListener(OnRemoveLineClicked);
+        if (_confirmButton != null) _confirmButton.onClick.RemoveListener(OnConfirmClicked);
+        if (_clearButton != null) _clearButton.onClick.RemoveListener(OnClearClicked);
     }
 
     /// <summary>
-    /// Requests a purchase via the Network Controller.
-    /// To be wired in the Unity Editor to a "Buy" button.
+    /// Connects the trade intentions of the session being shown. A session presents its first
+    /// view model while it is created, before binding, so the latest one is applied here.
     /// </summary>
-    public void RequestPurchase(string lootIdRaw, int amount)
+    public void Bind(IMerchantShopIntentions intentions)
     {
-        if (_merchantController == null) return;
-        
-        // Let the controller handle generating sequence and calling RPC
-        _merchantController.RequestPurchase(new LootId(lootIdRaw), amount);
+        _interaction = intentions != null ? new MerchantShopInteraction(intentions) : null;
+        _resultMessage = string.Empty;
+        _interaction?.Present(_viewModel);
+        Render();
     }
 
-    /// <summary>
-    /// Requests a sale via the Network Controller.
-    /// To be wired in the Unity Editor to a "Sell" button.
-    /// </summary>
-    public void RequestSale(string lootIdRaw, int amount)
+    public void Unbind()
     {
-        Debug.Log($"[ShopTransaction] MerchantShopUI.RequestSale: LootId={lootIdRaw}, Amount={amount}");
-        if (_merchantController == null) return;
-        
-        _merchantController.RequestSale(new LootId(lootIdRaw), amount);
+        _interaction = null;
+        _viewModel = MerchantShopViewModel.Unavailable;
+        _resultMessage = string.Empty;
+        ClearRows(_merchantRows);
+        ClearRows(_inventoryRows);
+        Render();
     }
 
-    /// <summary>
-    /// Invokes the close requested event.
-    /// </summary>
-    private void RequestClose()
+    public void Present(MerchantShopViewModel viewModel)
     {
-        OnCloseRequested?.Invoke();
-    }
-
-    private void HandleTransactionCompleted(MerchantTransactionResult result)
-    {
-        Debug.Log($"[ShopTransaction] MerchantShopUI.HandleTransactionCompleted: Result={result}");
-        OnTransactionResult?.Invoke(result);
-
-        // Successful persistent commits refresh through ApplicationStashContext.ProfileCommitted.
-    }
-
-    // --- Center Panel Logic ---
-
-    private void OnItemSelected(string lootId, bool isMerchantStock)
-    {
-        if (_merchantController == null || _context == null) return;
-        var catalog = _merchantController.Catalog;
-        if (!catalog.TryGet(lootId, out LootDefinition definition)) return;
-
-        _selectedItem = definition;
-        _isSelectedFromMerchant = isMerchantStock;
-
-        // Calculate max quantity available
-        if (_isSelectedFromMerchant)
+        _viewModel = viewModel ?? MerchantShopViewModel.Unavailable;
+        if (_interaction == null)
         {
-            int remaining = _merchantController.GetRemainingStock(lootId);
-            _maxAvailableQuantity = remaining == -1 ? 999 : remaining;
+            return;
         }
-        else
+
+        _interaction.Present(_viewModel);
+        Render();
+    }
+
+    public void PresentResult(MerchantTransactionResult result)
+    {
+        _resultMessage = MerchantTradeFeedback.DescribeResult(result);
+        RenderSummary();
+        OnTransactionResult?.Invoke(result);
+    }
+
+    private void Render()
+    {
+        if (_interaction != null)
         {
-            _maxAvailableQuantity = 0;
-            if (_loadoutService != null)
+            PresentRows(_merchantStockContainer, _merchantRows, _interaction.ViewModel.MerchantRows);
+            PresentRows(_playerInventoryContainer, _inventoryRows, _interaction.ViewModel.InventoryRows);
+        }
+
+        RenderSummary();
+        RenderSelection();
+    }
+
+    private void PresentRows(Transform container, List<StoreItemUI> instances, IReadOnlyList<MerchantShopRowViewModel> rows)
+    {
+        if (container == null || _storeItemPrefab == null)
+        {
+            return;
+        }
+
+        if (!HaveSameRows(instances, rows))
+        {
+            ClearRows(instances);
+            for (int i = 0; i < rows.Count; i++)
             {
-                var loadout = _loadoutService.GetLoadout(_profileId);
-                foreach (var item in loadout)
-                {
-                    if (item.LootId.Value == lootId)
-                    {
-                        _maxAvailableQuantity = item.Amount;
-                        break;
-                    }
-                }
+                instances.Add(Instantiate(_storeItemPrefab, container));
             }
         }
 
-        if (_maxAvailableQuantity <= 0)
+        for (int i = 0; i < rows.Count; i++)
         {
-            ClearCenterPanel();
+            instances[i].Present(rows[i], _interaction.IsSelected(rows[i]), OnItemSelected);
+        }
+    }
+
+    private static bool HaveSameRows(List<StoreItemUI> instances, IReadOnlyList<MerchantShopRowViewModel> rows)
+    {
+        if (instances.Count != rows.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (instances[i] == null || instances[i].LootId != rows[i].LootId)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void ClearRows(List<StoreItemUI> instances)
+    {
+        foreach (StoreItemUI instance in instances)
+        {
+            if (instance != null)
+            {
+                Destroy(instance.gameObject);
+            }
+        }
+
+        instances.Clear();
+    }
+
+    private void RenderSummary()
+    {
+        MerchantShopViewModel viewModel = _interaction?.ViewModel ?? MerchantShopViewModel.Unavailable;
+
+        SetText(_topCurrencyText, viewModel.HasDraft
+            ? viewModel.ConfirmedCurrency + Projection + viewModel.ProjectedCurrency
+            : viewModel.ConfirmedCurrency.ToString());
+        SetText(_purchaseTotalText, $"Compra: {viewModel.PurchaseTotal}");
+        SetText(_saleTotalText, $"Venta: {viewModel.SaleTotal}");
+        SetText(_balanceText, $"Balance: {viewModel.Balance.ToString("+#;-#;0")}");
+        SetText(_capacityText,
+            $"Espacio: {viewModel.OccupiedSlots}/{viewModel.SlotCapacity}{Projection}{viewModel.ProjectedOccupiedSlots}/{viewModel.SlotCapacity}");
+
+        // A trade outcome stays visible until the next edit; an in-flight request always wins.
+        SetText(_feedbackText, !viewModel.IsInFlight && !string.IsNullOrEmpty(_resultMessage)
+            ? _resultMessage
+            : MerchantTradeFeedback.DescribePrimaryBlock(viewModel));
+
+        if (_confirmButton != null) _confirmButton.interactable = _interaction != null && _interaction.CanConfirm;
+        if (_clearButton != null) _clearButton.interactable = _interaction != null && _interaction.CanClear;
+    }
+
+    private void RenderSelection()
+    {
+        if (_interaction == null || !_interaction.HasSelection)
+        {
+            if (_centerPanelRoot != null) _centerPanelRoot.SetActive(false);
             return;
         }
 
         if (_centerPanelRoot != null) _centerPanelRoot.SetActive(true);
 
-        // Update Details
-        if (_detailIcon != null) _detailIcon.sprite = definition.Icon;
-        if (_detailName != null) _detailName.text = definition.DisplayName;
-        if (_detailType != null) _detailType.text = definition.Category.ToString();
-        if (_detailRarity != null) _detailRarity.text = definition.Rarity.ToString();
-        if (_detailDescription != null) _detailDescription.text = definition.Description;
-        
-        // Prepare stats container (currently no native stats exist in LootDefinition)
-        ClearContainer(_statsContainer);
-        // Example of how it will be populated later:
-        // foreach (var stat in definition.GetStats()) 
-        // { 
-        //     var statUI = Instantiate(_statInfoPrefab, _statsContainer); 
-        //     statUI.Setup(stat.Icon, stat.Name, stat.Value.ToString()); 
-        // }
+        MerchantShopRowViewModel row = _interaction.SelectedRow;
+        LootDefinition definition = row.Definition;
+        EquipmentTooltipPresentation information = EquipmentTooltipPresentationBuilder.Build(definition);
 
-        // Setup Slider and Quantity
-        _selectedQuantity = 1;
+        if (_detailIcon != null) _detailIcon.sprite = definition != null ? definition.Icon : null;
+        SetText(_detailName, information.CanShow ? information.Title : row.LootId.Value);
+        SetText(_detailType, definition != null ? definition.Category.ToString() : string.Empty);
+        SetText(_detailRarity, definition != null ? definition.Rarity.ToString() : string.Empty);
+        SetText(_detailDescription, definition != null ? definition.Description : string.Empty);
+        SetText(_detailPropertiesText, information.Body);
+
         if (_quantitySlider != null)
         {
             _quantitySlider.minValue = 1;
-            _quantitySlider.maxValue = _maxAvailableQuantity;
-            _quantitySlider.value = _selectedQuantity;
-            _quantitySlider.interactable = _maxAvailableQuantity > 1;
+            _quantitySlider.maxValue = _interaction.MaxQuantity;
+            _quantitySlider.SetValueWithoutNotify(_interaction.Quantity);
+            _quantitySlider.interactable = _interaction.CanChangeQuantity;
         }
-        
-        UpdateQuantityVisuals();
 
-        // Update Action Button
-        if (_actionButtonText != null)
+        SetText(_quantityText, _interaction.Quantity.ToString());
+        if (_decreaseQtyButton != null) _decreaseQtyButton.interactable = _interaction.CanDecreaseQuantity;
+        if (_increaseQtyButton != null) _increaseQtyButton.interactable = _interaction.CanIncreaseQuantity;
+
+        SetText(_unitPriceText, $"{row.UnitPrice} c/u");
+        SetText(_lineStateText, DescribeLine(row));
+        SetText(_actionButtonText, _interaction.LineAction == MerchantShopLineAction.Update ? "Actualizar" : "Agregar");
+        if (_actionButton != null) _actionButton.interactable = _interaction.CanApplyLine;
+        if (_removeLineButton != null) _removeLineButton.interactable = _interaction.CanRemoveLine;
+    }
+
+    private static string DescribeLine(MerchantShopRowViewModel row)
+    {
+        string side = row.IsMerchantStock ? "Compra" : "Venta";
+        return row.DraftAmount > 0
+            ? $"{side} agregada: {row.DraftAmount} ({row.DraftTotal})"
+            : $"{side}: sin agregar";
+    }
+
+    private static void SetText(TMP_Text text, string value)
+    {
+        if (text != null)
         {
-            _actionButtonText.text = _isSelectedFromMerchant ? "Comprar" : "Vender";
-        }
-        if (_actionButton != null)
-        {
-            _actionButton.interactable = true;
+            text.text = value;
         }
     }
 
-    private void UpdateQuantityVisuals()
+    private void RequestClose()
     {
-        if (_selectedItem == null) return;
+        OnCloseRequested?.Invoke();
+    }
 
-        if (_quantityText != null) _quantityText.text = _selectedQuantity.ToString();
-        if (_decreaseQtyButton != null) _decreaseQtyButton.interactable = _selectedQuantity > 1;
-        if (_increaseQtyButton != null) _increaseQtyButton.interactable = _selectedQuantity < _maxAvailableQuantity;
-
-        long unitPrice = _isSelectedFromMerchant ? _selectedItem.ExtractionValuePerUnit : _selectedItem.SellValuePerUnit;
-        long totalPrice = unitPrice * _selectedQuantity;
-
-        if (_totalPriceText != null) _totalPriceText.text = totalPrice.ToString();
+    private void OnItemSelected(LootId lootId, bool isMerchantStock)
+    {
+        if (_interaction != null && _interaction.Select(lootId, isMerchantStock))
+        {
+            Render();
+        }
     }
 
     private void OnSliderValueChanged(float value)
     {
-        _selectedQuantity = Mathf.RoundToInt(value);
-        UpdateQuantityVisuals();
+        if (_interaction != null && _interaction.SetQuantity(Mathf.RoundToInt(value)))
+        {
+            RenderSelection();
+        }
     }
 
     private void OnDecreaseQuantityClicked()
     {
-        if (_selectedQuantity > 1)
+        if (_interaction != null && _interaction.DecreaseQuantity())
         {
-            _selectedQuantity--;
-            if (_quantitySlider != null) _quantitySlider.value = _selectedQuantity;
-            UpdateQuantityVisuals();
+            RenderSelection();
         }
     }
 
     private void OnIncreaseQuantityClicked()
     {
-        if (_selectedQuantity < _maxAvailableQuantity)
+        if (_interaction != null && _interaction.IncreaseQuantity())
         {
-            _selectedQuantity++;
-            if (_quantitySlider != null) _quantitySlider.value = _selectedQuantity;
-            UpdateQuantityVisuals();
+            RenderSelection();
         }
     }
 
-    private void OnCenterActionClicked()
+    // Edits re-render through Present, which the session calls synchronously on every change.
+
+    private void OnApplyLineClicked()
     {
-        if (_selectedItem == null || _selectedQuantity <= 0) return;
-
-        Debug.Log($"[ShopTransaction] MerchantShopUI.OnCenterActionClicked: Merchant={_isSelectedFromMerchant}, Item={_selectedItem.Id}, Qty={_selectedQuantity}");
-
-        if (_isSelectedFromMerchant)
-        {
-            RequestPurchase(_selectedItem.Id, _selectedQuantity);
-        }
-        else
-        {
-            RequestSale(_selectedItem.Id, _selectedQuantity);
-        }
+        _resultMessage = string.Empty;
+        _interaction?.ApplyLine();
     }
 
-    private void ClearCenterPanel()
+    private void OnRemoveLineClicked()
     {
-        _selectedItem = null;
-        if (_centerPanelRoot != null) _centerPanelRoot.SetActive(false);
+        _resultMessage = string.Empty;
+        _interaction?.RemoveLine();
     }
 
-    private void OnProfileCommitted(ProfileId profileId)
+    private void OnClearClicked()
     {
-        if (profileId != _profileId)
+        _resultMessage = string.Empty;
+        _interaction?.Clear();
+    }
+
+    private void OnConfirmClicked()
+    {
+        if (_interaction == null)
         {
             return;
         }
 
-        RefreshLists();
-        OnNeedsVisualRefresh?.Invoke();
-    }
-
-    private void ReleaseBindings()
-    {
-        if (_merchantController != null)
-        {
-            _merchantController.LocalTransactionCompleted -= HandleTransactionCompleted;
-        }
-        if (_context != null)
-        {
-            _context.ProfileCommitted -= OnProfileCommitted;
-        }
-
-        _merchantController = null;
-        _context = null;
-        _loadoutService = null;
-        _currencyService = null;
-        _profileId = default;
+        _resultMessage = string.Empty;
+        _interaction.Confirm();
+        RenderSummary();
     }
 }

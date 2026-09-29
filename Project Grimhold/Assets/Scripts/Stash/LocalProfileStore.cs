@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static ProfileInventoryRules;
 
 /// <summary>
 /// Atomic application-level operations over the local profile aggregate.
@@ -606,88 +607,89 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public StashOperationResult TryCommitPurchase(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice, bool addToLoadout = false)
+    /// <summary>
+    /// Applies one authority-issued trade to the Inventory (Loadout) and Currency as a single
+    /// commit. Sales are checked against the confirmed Inventory, sales may fund purchases, and
+    /// Currency and slot capacity are validated on the final state of every line together, the
+    /// same semantics as <see cref="MerchantTradePreview"/>. Buy and sell lines of the same loot
+    /// stay independent. Any failure leaves the profile unchanged and publishes nothing;
+    /// a ticket whose transaction id was already persisted returns
+    /// <see cref="StashOperationResult.AlreadyApplied"/> without mutating or publishing.
+    /// </summary>
+    /// <summary>
+    /// Whether the trade with this transaction id is already persisted in the confirmed profile.
+    /// A transaction at or below the idempotency watermark counts as applied.
+    /// </summary>
+    public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
     {
-        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredPrice < 0)
-            return StashOperationResult.InvalidInventory;
+        if (!profileId.IsValid || profileId != _profileId || !transactionId.IsValid)
+            return false;
 
-        var current = _repository.Snapshot;
-        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
-            return StashOperationResult.AlreadyApplied;
-
-        foreach (var applied in current.AppliedShopTransactionReceipts)
-            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
-
-        var next = current.Clone();
-        
-        if (next.Currency < declaredPrice)
-            return StashOperationResult.InvalidInventory;
-            
-        next.Currency -= declaredPrice;
-
-        if (addToLoadout)
+        lock (_sync)
         {
-            var purchasedItem = new[] { new StashItem(lootId, amount) };
-            if (next.Loadout.Count + CountNewSlots(next.Loadout, purchasedItem) > LocalProfileSnapshot.MaxLoadoutSlots)
-                return StashOperationResult.PersistenceFailed;
-
-            if (!TryMerge(next.Loadout, purchasedItem))
-                return StashOperationResult.PersistenceFailed;
+            return IsShopReceiptApplied(_repository.Snapshot, new ShopTransactionReceipt(transactionId, _profileId));
         }
-
-        next.AppliedShopTransactionReceipts.Add(receipt);
-        next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
-
-        while (next.AppliedShopTransactionReceipts.Count > LocalProfileSnapshot.MaxAppliedShopTransactionReceipts)
-        {
-            var oldest = next.AppliedShopTransactionReceipts[0];
-            next.AppliedShopTransactionReceipts.RemoveAt(0);
-            if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
-                next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
-        }
-
-        return Commit(next);
     }
 
-    public StashOperationResult TryCommitSale(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue, bool isLobby = true)
+    public StashOperationResult TryCommitTrade(ProfileId profileId, MerchantTradeTicket ticket)
     {
-        if (!receipt.IsValid || receipt.ProfileId != _profileId || !lootId.IsValid || amount <= 0 || declaredSellValue < 0)
+        if (ticket == null || !profileId.IsValid || profileId != _profileId || !ticket.IsWellFormed)
             return StashOperationResult.InvalidInventory;
 
-        var current = _repository.Snapshot;
-        if (receipt.TransactionId.Timestamp <= current.ShopIdempotencyWatermark)
-            return StashOperationResult.AlreadyApplied;
-
-        foreach (var applied in current.AppliedShopTransactionReceipts)
-            if (applied.Equals(receipt)) return StashOperationResult.AlreadyApplied;
-
-        var next = current.Clone();
-
-        if (next.Currency > long.MaxValue - declaredSellValue)
-            return StashOperationResult.InvalidInventory;
-
-        next.Currency += declaredSellValue;
-        
-        int availableInLoadout = FindAmount(next.Loadout, lootId);
-        if (isLobby)
+        lock (_sync)
         {
-            if (availableInLoadout < amount)
+            var receipt = new ShopTransactionReceipt(ticket.TransactionId, _profileId);
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (IsShopReceiptApplied(current, receipt))
+                return StashOperationResult.AlreadyApplied;
+
+            LocalProfileSnapshot next = current.Clone();
+            long saleTotal = 0;
+            foreach (MerchantPricedTradeLine sale in ticket.Sales)
             {
+                if (FindAmount(current.Loadout, sale.LootId) < sale.Amount ||
+                    !TryRemove(next.Loadout, sale.LootId, sale.Amount) ||
+                    saleTotal > long.MaxValue - sale.Total)
+                    return StashOperationResult.InvalidInventory;
+                saleTotal += sale.Total;
+            }
+
+            long purchaseTotal = 0;
+            var purchased = new List<StashItem>(ticket.Purchases.Count);
+            foreach (MerchantPricedTradeLine purchase in ticket.Purchases)
+            {
+                if (purchaseTotal > long.MaxValue - purchase.Total)
+                    return StashOperationResult.InvalidInventory;
+                purchaseTotal += purchase.Total;
+                purchased.Add(new StashItem(purchase.LootId, purchase.Amount));
+            }
+
+            if (next.Currency > long.MaxValue - saleTotal)
                 return StashOperationResult.InvalidInventory;
-            }
-            TryRemove(next.Loadout, lootId, amount);
-        }
-        else
-        {
-            // In a raid, the item might be freshly looted and thus not in the persistent loadout yet.
-            // We only remove it if it was brought from the lobby.
-            if (availableInLoadout > 0)
-            {
-                int amountToRemove = System.Math.Min(availableInLoadout, amount);
-                TryRemove(next.Loadout, lootId, amountToRemove);
-            }
-        }
+            long projectedCurrency = next.Currency + saleTotal - purchaseTotal;
+            if (projectedCurrency < 0 ||
+                ExceedsCapacity(next.Loadout, purchased, LocalProfileSnapshot.MaxLoadoutSlots) ||
+                !TryMerge(next.Loadout, purchased))
+                return StashOperationResult.InvalidInventory;
 
+            next.Currency = projectedCurrency;
+            RecordShopReceipt(next, receipt);
+            return Commit(next);
+        }
+    }
+
+    private static bool IsShopReceiptApplied(LocalProfileSnapshot snapshot, ShopTransactionReceipt receipt)
+    {
+        if (receipt.TransactionId.Timestamp <= snapshot.ShopIdempotencyWatermark)
+            return true;
+
+        foreach (var applied in snapshot.AppliedShopTransactionReceipts)
+            if (applied.Equals(receipt)) return true;
+        return false;
+    }
+
+    private static void RecordShopReceipt(LocalProfileSnapshot next, ShopTransactionReceipt receipt)
+    {
         next.AppliedShopTransactionReceipts.Add(receipt);
         next.AppliedShopTransactionReceipts.Sort((a, b) => a.TransactionId.Timestamp.CompareTo(b.TransactionId.Timestamp));
 
@@ -698,8 +700,6 @@ public sealed class LocalProfileStore
             if (oldest.TransactionId.Timestamp > next.ShopIdempotencyWatermark)
                 next.ShopIdempotencyWatermark = oldest.TransactionId.Timestamp;
         }
-
-        return Commit(next);
     }
 
     public StashOperationResult TryConsumeLoot(LootId lootId, int amount)
@@ -1153,7 +1153,7 @@ public sealed class LocalProfileStore
         if (current.PendingReservation == null || !string.Equals(current.PendingReservation.ReservationId, reservationId, StringComparison.Ordinal))
             return StashOperationResult.InvalidInventory;
         var next = current.Clone();
-        if (next.Loadout.Count + CountNewSlots(next.Loadout, next.PendingReservation.Items) > LocalProfileSnapshot.MaxLoadoutSlots ||
+        if (ExceedsCapacity(next.Loadout, next.PendingReservation.Items, LocalProfileSnapshot.MaxLoadoutSlots) ||
             !TryMerge(next.Loadout, next.PendingReservation.Items)) return StashOperationResult.PersistenceFailed;
         PreparedEquipmentLoadout restoredWeapons = next.PendingReservation.PreparedEquipment;
         if (!PreparedEquipmentLoadout.TryValidate(
@@ -1319,47 +1319,6 @@ public sealed class LocalProfileStore
         foreach (StashItem item in items)
             if (!item.IsValid || !seen.Add(item.LootId)) return false;
         return true;
-    }
-
-    private static bool TryMerge(List<StashItem> destination, IReadOnlyList<StashItem> incoming)
-    {
-        foreach (StashItem item in incoming)
-        {
-            int index = FindIndex(destination, item.LootId);
-            if (index < 0) destination.Add(item);
-            else if (destination[index].Amount > int.MaxValue - item.Amount) return false;
-            else destination[index] = new StashItem(item.LootId, destination[index].Amount + item.Amount);
-        }
-        return true;
-    }
-
-    private static bool TryRemove(List<StashItem> items, LootId lootId, int amount)
-    {
-        int index = FindIndex(items, lootId);
-        if (index < 0 || items[index].Amount < amount) return false;
-        int remaining = items[index].Amount - amount;
-        if (remaining == 0) items.RemoveAt(index);
-        else items[index] = new StashItem(lootId, remaining);
-        return true;
-    }
-
-    private static int FindIndex(IReadOnlyList<StashItem> items, LootId lootId)
-    {
-        for (int i = 0; i < items.Count; i++) if (items[i].LootId == lootId) return i;
-        return -1;
-    }
-
-    private static int FindAmount(IReadOnlyList<StashItem> items, LootId lootId)
-    {
-        int index = FindIndex(items, lootId);
-        return index >= 0 ? items[index].Amount : 0;
-    }
-
-    private static int CountNewSlots(IReadOnlyList<StashItem> destination, IReadOnlyList<StashItem> incoming)
-    {
-        int result = 0;
-        foreach (StashItem item in incoming) if (FindIndex(destination, item.LootId) < 0) result++;
-        return result;
     }
 
 }

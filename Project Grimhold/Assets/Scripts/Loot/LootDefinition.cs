@@ -35,6 +35,10 @@ public sealed class LootDefinition : ScriptableObject
     private int _sellValuePerUnit;
 
     [SerializeField]
+    [Tooltip("Gold paid per unit when buying this loot from a Merchant. Independent from extraction value.")]
+    private int _buyValuePerUnit;
+
+    [SerializeField]
     private int _defaultPickupQuantity = 1;
 
     [SerializeField]
@@ -71,6 +75,7 @@ public sealed class LootDefinition : ScriptableObject
     public LootRarity Rarity => _rarity;
     public int ExtractionValuePerUnit => _extractionValuePerUnit;
     public int SellValuePerUnit => _sellValuePerUnit;
+    public int BuyValuePerUnit => _buyValuePerUnit;
     public int DefaultPickupQuantity => _defaultPickupQuantity;
     public ConsumableDefinition ConsumableDefinition => _consumableDefinition;
     public WeaponDefinition WeaponDefinition => _weaponDefinition;
@@ -83,6 +88,7 @@ public sealed class LootDefinition : ScriptableObject
     {
         _extractionValuePerUnit = Mathf.Max(0, _extractionValuePerUnit);
         _sellValuePerUnit = Mathf.Max(0, _sellValuePerUnit);
+        _buyValuePerUnit = Mathf.Max(0, _buyValuePerUnit);
         _defaultPickupQuantity = Mathf.Max(1, _defaultPickupQuantity);
     }
 
@@ -134,6 +140,12 @@ public sealed class LootDefinition : ScriptableObject
         if (_sellValuePerUnit < 0)
         {
             error = $"Loot definition '{_id}' has a negative sell value: {_sellValuePerUnit}.";
+            return false;
+        }
+
+        if (_buyValuePerUnit < 0)
+        {
+            error = $"Loot definition '{_id}' has a negative buy value: {_buyValuePerUnit}.";
             return false;
         }
 

@@ -4,12 +4,18 @@ using UnityEngine;
 
 /// <summary>
 /// Presents the local merchant shop after a confirmed interaction with a Town Merchant NPC.
-/// Only Input Authority creates the Canvas, initializes the network controller, and manages input.
+/// Only Input Authority creates the Canvas and manages input. Each open session owns one
+/// <see cref="TownMerchantTradeSession"/> (draft, preview, confirmation and outcome) and forwards
+/// its view model to <see cref="MerchantShopUI"/>. Confirmed-profile dependencies are supplied by
+/// the Town profile composition through <see cref="BindProfile"/>.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerInteractionNetworkController))]
 public sealed class TownMerchantPresenter : NetworkBehaviour
 {
+    // Unlocks the draft only; accepted reservations are released by outcome reports, never by time.
+    private const double SubmissionTimeoutSeconds = 35d;
+
     [SerializeField]
     private GameObject _merchantShopPrefab;
 
@@ -21,6 +27,21 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
     private NetworkObject _openNpc;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
+    private TownMerchantProfileSource _profile;
+    private TownMerchantTradeSession _session;
+
+    /// <summary>Supplies the confirmed local profile. Rebinding closes any open session.</summary>
+    public void BindProfile(TownMerchantProfileSource profile)
+    {
+        ClosePanel();
+        _profile = profile ?? throw new ArgumentNullException(nameof(profile));
+    }
+
+    public void UnbindProfile()
+    {
+        ClosePanel();
+        _profile = null;
+    }
 
     private void Awake()
     {
@@ -51,7 +72,10 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         if (Runner == null || !Runner.IsRunning || _openNpc == null || !_openNpc.IsValid)
         {
             ClosePanel();
+            return;
         }
+
+        _session?.Tick();
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -75,7 +99,7 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
         {
             return;
         }
-        
+
         if (_merchantShopPrefab == null)
         {
             Debug.LogError("TownMerchantPresenter failed to bind because MerchantShopPrefab is not assigned in the Inspector.", this);
@@ -97,32 +121,18 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)
     {
-        if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null)
+        if (!interactionEvent.Success || interactionEvent.TargetId.Value == 0 || Runner == null || _view == null || _view.IsOpen)
         {
-            Debug.LogWarning($"[TownMerchantPresenter] Event ignored. Success: {interactionEvent.Success}, TargetId: {interactionEvent.TargetId.Value}, Runner: {Runner != null}", this);
-            return;
-        }
-        
-        if (_view == null)
-        {
-            Debug.LogError("TownMerchantPresenter cannot open UI because _view is null. Did you assign the MerchantShopPrefab in the inspector?");
-            return;
-        }
-        
-        if (_view.IsOpen)
-        {
-            Debug.LogWarning("[TownMerchantPresenter] Event ignored because the view is already open.", this);
             return;
         }
 
         var networkId = new NetworkId { Raw = unchecked((uint)interactionEvent.TargetId.Value) };
         if (!Runner.TryFindObject(networkId, out NetworkObject target) || target == null)
         {
-            // Do not log an error. Other interactions (like looting) destroy the object,
-            // which legitimately causes it to not be found here.
+            // Other interactions (like looting) destroy their target, so it is legitimately missing.
             return;
         }
-        
+
         if (!target.TryGetBehaviour(out TownMerchantNpcInteractable _))
         {
             return;
@@ -166,35 +176,44 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
 
     private void OpenForTarget(NetworkObject target)
     {
-        if (!target.TryGetBehaviour(out TownMerchantNetworkController merchantController))
+        if (!target.TryGetBehaviour(out TownMerchantNetworkController merchant))
         {
             Debug.LogError("Merchant NPC is missing TownMerchantNetworkController.", target);
             return;
         }
 
-        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
-        if (context == null || !context.IsAvailable || context.ShopTransactionService == null ||
-            context.LoadoutService == null || context.CurrencyService == null)
+        if (_profile == null || _view.ShopUI == null)
         {
-            Debug.LogWarning("Merchant is unavailable because local stash context is not ready.", this);
+            Debug.LogWarning("Merchant is unavailable because the local profile is not bound.", this);
             return;
         }
 
-        // Initialize the network controller with the local execution dependencies
-        merchantController.InitializeLocalClient(context.ShopTransactionService, context.ProfileId);
+        OpenSession(merchant, target);
+    }
 
-        // Pass dependencies to the UI
-        if (_view.ShopUI != null)
-        {
-            _view.ShopUI.Initialize(merchantController, context, context.ProfileId);
-            _view.ShopUI.OnCloseRequested.AddListener(ClosePanelFromUI);
-        }
+    private void OpenSession(TownMerchantNetworkController merchant, NetworkObject npc)
+    {
+        TownMerchantProfileSource profile = _profile;
+        MerchantShopUI shopUI = _view.ShopUI;
 
-        _openNpc = target;
+        _session = new TownMerchantTradeSession(
+            profile.ProfileId,
+            merchant,
+            profile.ShopTransactionService,
+            profile.Inventory,
+            () => profile.Currency.GetCurrency(profile.ProfileId),
+            shopUI.Present,
+            () => Time.unscaledTimeAsDouble,
+            SubmissionTimeoutSeconds);
+        _session.TradeCompleted += shopUI.PresentResult;
+        shopUI.Bind(_session);
+        shopUI.OnCloseRequested.AddListener(ClosePanelFromUI);
+
+        _openNpc = npc;
         _view.Open();
         if (_view.IsOpen)
         {
-            target.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
+            npc.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
         }
         AcquireInputSuppression();
     }
@@ -249,17 +268,22 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
             ClosePanel();
         }
     }
-    
+
     private void ClosePanelFromUI()
     {
         ClosePanel();
     }
 
+    /// <summary>Closing discards the draft; the confirmed profile is unchanged by construction.</summary>
     private void ClosePanel()
     {
+        _session?.Dispose();
+        _session = null;
+
         if (_view != null && _view.ShopUI != null)
         {
             _view.ShopUI.OnCloseRequested.RemoveListener(ClosePanelFromUI);
+            _view.ShopUI.Unbind();
         }
 
         _view?.Close();
@@ -290,8 +314,6 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
             Destroy(_view.gameObject);
             _view = null;
         }
-
-        _openNpc = null;
     }
 
     private void CacheDependencies()

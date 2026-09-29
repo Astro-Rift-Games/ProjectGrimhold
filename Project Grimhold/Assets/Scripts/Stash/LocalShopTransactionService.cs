@@ -13,29 +13,14 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
         _store = store ?? throw new System.ArgumentNullException(nameof(store));
     }
 
-    public StashOperationResult TryExecutePurchase(ProfileId profileId, LootId lootId, int amount, long declaredPrice, ShopTransactionId transactionId)
+    public StashOperationResult TryExecuteTrade(ProfileId profileId, MerchantTradeTicket ticket)
     {
         if (_store == null) return StashOperationResult.PersistenceFailed;
-        if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
-
-        var receipt = new ShopTransactionReceipt(transactionId, profileId);
-        
-        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
-        return _store.TryCommitPurchase(receipt, lootId, amount, declaredPrice, isLobby);
+        return _store.TryCommitTrade(profileId, ticket);
     }
 
-    public StashOperationResult TryExecuteSale(ProfileId profileId, LootId lootId, int amount, long declaredSellValue, ShopTransactionId transactionId)
+    public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
     {
-        if (_store == null) return StashOperationResult.PersistenceFailed;
-        if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
-
-        var receipt = new ShopTransactionReceipt(transactionId, profileId);
-        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
-        return _store.TryCommitSale(receipt, lootId, amount, declaredSellValue, isLobby);
-    }
-
-    private bool IsProfile(ProfileId profileId)
-    {
-        return profileId.IsValid && _store.ProfileId == profileId;
+        return _store != null && _store.IsTradeApplied(profileId, transactionId);
     }
 }

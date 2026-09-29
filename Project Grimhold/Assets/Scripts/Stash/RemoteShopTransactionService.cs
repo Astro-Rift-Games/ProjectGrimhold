@@ -35,17 +35,24 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         _reconciliationService = reconciliationService ?? throw new System.ArgumentNullException(nameof(reconciliationService));
     }
 
-    public StashOperationResult TryExecutePurchase(ProfileId profileId, LootId lootId, int amount, long declaredPrice, ShopTransactionId transactionId)
+    /// <summary>
+    /// Commits the ticket locally, then synchronizes it with the backend. The backend only exposes
+    /// single-item buy and sell endpoints, so a ticket with more than one line is refused before any
+    /// mutation: sending several calls would not be atomic remotely. Multi-line tickets need an
+    /// atomic backend trade endpoint (follow-up).
+    /// </summary>
+    public StashOperationResult TryExecuteTrade(ProfileId profileId, MerchantTradeTicket ticket)
     {
         if (_store == null) return StashOperationResult.PersistenceFailed;
-        if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
+        if (!IsProfile(profileId) || ticket == null) return StashOperationResult.InvalidInventory;
+        if (ticket.LineCount != 1)
+        {
+            Debug.LogError($"[RemoteShopTransactionService] Trade {ticket.TransactionId.Value:N} has {ticket.LineCount} lines; the backend has no atomic multi-line trade endpoint.");
+            return StashOperationResult.PersistenceFailed;
+        }
 
-        var receipt = new ShopTransactionReceipt(transactionId, profileId);
-        
         // 1. Attempt local validation & optimistic mutation first
-        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
-        StashOperationResult localResult = _store.TryCommitPurchase(receipt, lootId, amount, declaredPrice, isLobby);
-        
+        StashOperationResult localResult = _store.TryCommitTrade(profileId, ticket);
         if (localResult != StashOperationResult.Success)
         {
             return localResult; // E.g., InvalidInventory (insufficient funds), AlreadyApplied
@@ -54,12 +61,23 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         // 2. Fire-and-forget the backend synchronization wrapped in the remote retry policy.
         // The RemoteOperationPolicy will retry on REVISION_CONFLICT / TransportFailure.
         // If it ultimately fails, it triggers a full ProfileReconciliationService sync which will revert the local optimistic state.
-        _ = ExecutePurchaseAsync(receipt, lootId, amount, declaredPrice);
+        string transactionId = ticket.TransactionId.Value.ToString("N");
+        _ = ticket.Purchases.Count == 1
+            ? ExecutePurchaseAsync(transactionId, ticket.Purchases[0])
+            : ExecuteSaleAsync(transactionId, ticket.Sales[0]);
 
         return StashOperationResult.Success;
     }
 
-    private async Task ExecutePurchaseAsync(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredPrice)
+    /// <summary>
+    /// Reads the local aggregate, which the optimistic commit updates before backend sync.
+    /// </summary>
+    public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
+    {
+        return _store != null && _store.IsTradeApplied(profileId, transactionId);
+    }
+
+    private async Task ExecutePurchaseAsync(string transactionId, MerchantPricedTradeLine line)
     {
         await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
             async () =>
@@ -67,10 +85,10 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 var (success, data, error) = await InventoryClient.ShopBuyAsync(
                     _config, 
                     AuthToken, 
-                    receipt.TransactionId.Value.ToString("N"),
-                    lootId.Value, 
-                    amount, 
-                    declaredPrice, 
+                    transactionId,
+                    line.LootId.Value, 
+                    line.Amount, 
+                    line.Total, 
                     _store.RemoteRevision);
 
                 if (success)
@@ -84,29 +102,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         );
     }
 
-    public StashOperationResult TryExecuteSale(ProfileId profileId, LootId lootId, int amount, long declaredSellValue, ShopTransactionId transactionId)
-    {
-        if (_store == null) return StashOperationResult.PersistenceFailed;
-        if (!IsProfile(profileId)) return StashOperationResult.InvalidInventory;
-
-        var receipt = new ShopTransactionReceipt(transactionId, profileId);
-
-        // 1. Attempt local validation & optimistic mutation first
-        bool isLobby = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby");
-        StashOperationResult localResult = _store.TryCommitSale(receipt, lootId, amount, declaredSellValue, isLobby);
-        
-        if (localResult != StashOperationResult.Success)
-        {
-            return localResult; 
-        }
-
-        // 2. Fire-and-forget the backend synchronization.
-        _ = ExecuteSaleAsync(receipt, lootId, amount, declaredSellValue);
-
-        return StashOperationResult.Success;
-    }
-
-    private async Task ExecuteSaleAsync(ShopTransactionReceipt receipt, LootId lootId, int amount, long declaredSellValue)
+    private async Task ExecuteSaleAsync(string transactionId, MerchantPricedTradeLine line)
     {
         await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
             async () =>
@@ -114,10 +110,10 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 var (success, data, error) = await InventoryClient.ShopSellAsync(
                     _config, 
                     AuthToken, 
-                    receipt.TransactionId.Value.ToString("N"),
-                    lootId.Value, 
-                    amount, 
-                    declaredSellValue, 
+                    transactionId,
+                    line.LootId.Value, 
+                    line.Amount, 
+                    line.Total, 
                     _store.RemoteRevision);
 
                 if (success)

@@ -56,14 +56,11 @@ The Raid `NetworkPlayer` retains its separate authoritative `PlayerLootReceiver`
 extraction continue to cross the existing reservation/receipt boundaries rather than sharing the
 Town projection.
 
-Merchant presentation follows the same persistence ownership. `MerchantShopUI` reads Loadout and
-currency through `IPlayerLoadoutService` and `IPlayerCurrencyService`, and observes matching
-profile commits only to refresh. Purchase and sale intentions continue through
-`IShopTransactionService`; UI, Town presenters and network controllers do not mutate the Loadout,
-currency or `LocalProfileStore` directly. The shared-mode Master owns catalog, stock, request
-sequence, deduplication and response identity, while the local persistent transaction performs the
-final funds, capacity and owned-quantity validation. No replicated inventory shadow participates
-in that decision.
+Commerce crosses this aggregate only through `IShopTransactionService`, whose accepted trade is one
+`LocalProfileStore` transaction performing the final funds, capacity and owned-quantity validation
+and applying shop receipt idempotency. No other Commerce component mutates the Loadout, Currency or
+`LocalProfileStore`, and no replicated inventory shadow participates. Draft, presentation, stock
+and request-identity ownership belong to `CommerceArchitecture.md`.
 
 The productive `InMemoryLocalProfileRepository` accepts an isolated clone of that complete
 candidate after validating its readiness and profile identity. It never encodes or reconstructs

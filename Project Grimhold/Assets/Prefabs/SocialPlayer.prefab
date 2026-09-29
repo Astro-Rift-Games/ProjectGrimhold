@@ -1669,6 +1669,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownInventoryBinder
   _inventoryPresenter: {fileID: 2173389876224565855}
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+  _merchantPresenter: {fileID: 5930331051498512961}
 --- !u!114 &6500000000000000010
 MonoBehaviour:
   m_ObjectHideFlags: 0

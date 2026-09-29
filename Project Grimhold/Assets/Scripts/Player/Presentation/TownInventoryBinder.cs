@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Owns the local Town lifecycle that connects the shared inventory screen to the
-/// confirmed application-level Loadout. It never owns or replicates inventory state.
+/// confirmed application-level Loadout, and supplies the same confirmed-profile reads to the
+/// local merchant presenter. It never owns or replicates inventory state.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class TownInventoryBinder : NetworkBehaviour
@@ -13,6 +14,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
 
     [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
+
+    [SerializeField]
+    private TownMerchantPresenter _merchantPresenter;
 
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
@@ -88,6 +92,27 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
+        BindMerchantProfile();
+    }
+
+    private void BindMerchantProfile()
+    {
+        if (_merchantPresenter == null)
+        {
+            return;
+        }
+
+        if (_profileContext.CurrencyService == null || _profileContext.ShopTransactionService == null)
+        {
+            Debug.LogError($"{nameof(TownInventoryBinder)} could not bind the merchant: the profile has no Currency or shop service.", this);
+            return;
+        }
+
+        _merchantPresenter.BindProfile(new TownMerchantProfileSource(
+            _localProfileId,
+            _inventorySource,
+            _profileContext.CurrencyService,
+            _profileContext.ShopTransactionService));
     }
 
     private void OnInputReaderChanged(PlayerInputReader inputReader)
@@ -152,6 +177,11 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         }
 
         _inventoryPresenter?.Unbind();
+        if (_merchantPresenter != null)
+        {
+            _merchantPresenter.UnbindProfile();
+        }
+
         _inventorySource?.Dispose();
         _inventorySource = null;
         _equipmentEndpoint = null;

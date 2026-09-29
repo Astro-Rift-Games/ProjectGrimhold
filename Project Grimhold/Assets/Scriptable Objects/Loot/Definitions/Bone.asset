@@ -21,5 +21,6 @@ MonoBehaviour:
   _rarity: 0
   _extractionValuePerUnit: 5
   _sellValuePerUnit: 5
+  _buyValuePerUnit: 5
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
