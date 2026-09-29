@@ -300,6 +300,17 @@ public class MerchantShopInteractionTests
         Assert.That(_interaction.CanClear, Is.False);
     }
 
+    [Test]
+    public void LineTotal_FollowsTheChosenQuantityAtTheRowPrice()
+    {
+        Assert.That(_interaction.LineTotal, Is.Zero, "Nothing selected.");
+
+        _interaction.Select(Potion, isMerchantStock: true);
+        _interaction.SetQuantity(3);
+
+        Assert.That(_interaction.LineTotal, Is.EqualTo(90));
+    }
+
     // --- Helpers ---
 
     private static MerchantShopRowViewModel MerchantRow(LootId lootId, int draft, int max, bool canAdd = true) =>

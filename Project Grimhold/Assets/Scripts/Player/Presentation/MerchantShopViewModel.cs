@@ -25,6 +25,9 @@ public readonly struct MerchantShopRowViewModel
 
     public bool IsUnlimited => Available == MerchantStockItem.UnlimitedQuantity;
 
+    /// <summary>Displayed total of a line of this row at the given amount, priced like <see cref="DraftTotal"/>.</summary>
+    public long TotalFor(int amount) => (long)UnitPrice * amount;
+
     public MerchantShopRowViewModel(
         LootDefinition definition,
         LootId lootId,

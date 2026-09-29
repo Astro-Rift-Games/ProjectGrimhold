@@ -1,27 +1,30 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
 /// Presentation of the Merchant Shop Prefab. It renders the <see cref="MerchantShopViewModel"/>
-/// given by <see cref="TownMerchantPresenter"/> through one flow: select a row, choose a quantity,
-/// add or update its line, review the trade, then confirm or clear it. Selection and quantity live
-/// in <see cref="MerchantShopInteraction"/>; this component only binds widgets to it. It holds no
-/// services, network controller or economy rules.
+/// given by <see cref="TownMerchantPresenter"/> in three columns (Inventory grid, selected item,
+/// merchant stock grid) above a footer that always shows the trade summary with Clear and Confirm.
+/// The Inventory grid always shows every slot of its capacity, empty ones included; the merchant
+/// grid shows only what is offered.
+/// Flow: select a slot, choose a quantity, add or update its line, review the trade, then confirm
+/// or clear it. Selection and quantity live in <see cref="MerchantShopInteraction"/>; this component
+/// only binds widgets to it. It holds no services, network controller or economy rules.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class MerchantShopUI : MonoBehaviour
 {
-    [Header("Dynamic UI References")]
-    [SerializeField] private StoreItemUI _storeItemPrefab;
-    [SerializeField] private Transform _merchantStockContainer;
-    [SerializeField] private Transform _playerInventoryContainer;
+    [Header("Header")]
     [SerializeField] private Button _closeButton;
 
-    [Header("Top Panel")]
-    [SerializeField] private TMP_Text _topCurrencyText;
+    [Header("Inventory and Merchant Stock Grids")]
+    [SerializeField] private StoreItemUI _storeItemPrefab;
+    [SerializeField] private Transform _playerInventoryContainer;
+    [SerializeField] private Transform _merchantStockContainer;
 
     [Header("Center Panel - Details")]
     [SerializeField] private GameObject _centerPanelRoot; // Hidden while nothing is selected
@@ -38,21 +41,27 @@ public sealed class MerchantShopUI : MonoBehaviour
     [SerializeField] private Button _decreaseQtyButton;
     [SerializeField] private Button _increaseQtyButton;
     [SerializeField] private TMP_Text _unitPriceText;
+    [SerializeField] private TMP_Text _lineTotalText;
     [SerializeField] private TMP_Text _lineStateText;
     [SerializeField] private Button _actionButton;
     [SerializeField] private TMP_Text _actionButtonText;
     [SerializeField] private Button _removeLineButton;
 
-    [Header("Trade Summary")]
+    [Header("Footer - Trade Summary")]
+    [FormerlySerializedAs("_topCurrencyText")]
+    [SerializeField] private TMP_Text _currencyText;
     [SerializeField] private TMP_Text _purchaseTotalText;
     [SerializeField] private TMP_Text _saleTotalText;
     [SerializeField] private TMP_Text _balanceText;
     [SerializeField] private TMP_Text _capacityText;
     [SerializeField] private TMP_Text _feedbackText;
+    [SerializeField] private Color _positiveBalanceColor = new Color(0.55f, 0.85f, 0.5f);
+    [SerializeField] private Color _negativeBalanceColor = new Color(0.95f, 0.5f, 0.45f);
+    [SerializeField] private Color _neutralBalanceColor = new Color(0.89f, 0.89f, 0.89f);
 
-    [Header("Trade")]
-    [SerializeField] private Button _confirmButton;
+    [Header("Footer - Trade")]
     [SerializeField] private Button _clearButton;
+    [SerializeField] private Button _confirmButton;
 
     // The shop font has no arrow glyph.
     private const string Projection = " -> ";
@@ -141,52 +150,51 @@ public sealed class MerchantShopUI : MonoBehaviour
     {
         if (_interaction != null)
         {
-            PresentRows(_merchantStockContainer, _merchantRows, _interaction.ViewModel.MerchantRows);
-            PresentRows(_playerInventoryContainer, _inventoryRows, _interaction.ViewModel.InventoryRows);
+            MerchantShopViewModel viewModel = _interaction.ViewModel;
+            PresentRows(_merchantStockContainer, _merchantRows, viewModel.MerchantRows, slotCount: 0);
+            PresentRows(_playerInventoryContainer, _inventoryRows, viewModel.InventoryRows, viewModel.SlotCapacity);
         }
 
         RenderSummary();
         RenderSelection();
     }
 
-    private void PresentRows(Transform container, List<StoreItemUI> instances, IReadOnlyList<MerchantShopRowViewModel> rows)
+    /// <summary>
+    /// Presents the rows in order, then empty slots up to <paramref name="slotCount"/>. Slot
+    /// instances are reused; each one is fully re-rendered, so its identity follows its row.
+    /// </summary>
+    private void PresentRows(Transform container, List<StoreItemUI> instances, IReadOnlyList<MerchantShopRowViewModel> rows, int slotCount)
     {
         if (container == null || _storeItemPrefab == null)
         {
             return;
         }
 
-        if (!HaveSameRows(instances, rows))
+        int count = Mathf.Max(rows.Count, slotCount);
+        instances.RemoveAll(instance => instance == null);
+        while (instances.Count > count)
         {
-            ClearRows(instances);
-            for (int i = 0; i < rows.Count; i++)
+            int last = instances.Count - 1;
+            Destroy(instances[last].gameObject);
+            instances.RemoveAt(last);
+        }
+
+        while (instances.Count < count)
+        {
+            instances.Add(Instantiate(_storeItemPrefab, container));
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (i < rows.Count)
             {
-                instances.Add(Instantiate(_storeItemPrefab, container));
+                instances[i].Present(rows[i], _interaction.IsSelected(rows[i]), OnItemSelected);
+            }
+            else
+            {
+                instances[i].PresentEmpty();
             }
         }
-
-        for (int i = 0; i < rows.Count; i++)
-        {
-            instances[i].Present(rows[i], _interaction.IsSelected(rows[i]), OnItemSelected);
-        }
-    }
-
-    private static bool HaveSameRows(List<StoreItemUI> instances, IReadOnlyList<MerchantShopRowViewModel> rows)
-    {
-        if (instances.Count != rows.Count)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < rows.Count; i++)
-        {
-            if (instances[i] == null || instances[i].LootId != rows[i].LootId)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static void ClearRows(List<StoreItemUI> instances)
@@ -206,12 +214,10 @@ public sealed class MerchantShopUI : MonoBehaviour
     {
         MerchantShopViewModel viewModel = _interaction?.ViewModel ?? MerchantShopViewModel.Unavailable;
 
-        SetText(_topCurrencyText, viewModel.HasDraft
-            ? viewModel.ConfirmedCurrency + Projection + viewModel.ProjectedCurrency
-            : viewModel.ConfirmedCurrency.ToString());
+        SetText(_currencyText, viewModel.ConfirmedCurrency + Projection + viewModel.ProjectedCurrency);
         SetText(_purchaseTotalText, $"Compra: {viewModel.PurchaseTotal}");
         SetText(_saleTotalText, $"Venta: {viewModel.SaleTotal}");
-        SetText(_balanceText, $"Balance: {viewModel.Balance.ToString("+#;-#;0")}");
+        RenderBalance(viewModel.Balance);
         SetText(_capacityText,
             $"Espacio: {viewModel.OccupiedSlots}/{viewModel.SlotCapacity}{Projection}{viewModel.ProjectedOccupiedSlots}/{viewModel.SlotCapacity}");
 
@@ -222,6 +228,17 @@ public sealed class MerchantShopUI : MonoBehaviour
 
         if (_confirmButton != null) _confirmButton.interactable = _interaction != null && _interaction.CanConfirm;
         if (_clearButton != null) _clearButton.interactable = _interaction != null && _interaction.CanClear;
+    }
+
+    // The sign and the wording, not only the color, tell whether the trade pays or costs Gold.
+    private void RenderBalance(long balance)
+    {
+        string meaning = balance > 0 ? "a favor" : balance < 0 ? "a pagar" : "sin cambio";
+        SetText(_balanceText, $"Balance: {balance.ToString("+#;-#;0")} {meaning}");
+        if (_balanceText != null)
+        {
+            _balanceText.color = balance > 0 ? _positiveBalanceColor : balance < 0 ? _negativeBalanceColor : _neutralBalanceColor;
+        }
     }
 
     private void RenderSelection()
@@ -257,7 +274,8 @@ public sealed class MerchantShopUI : MonoBehaviour
         if (_decreaseQtyButton != null) _decreaseQtyButton.interactable = _interaction.CanDecreaseQuantity;
         if (_increaseQtyButton != null) _increaseQtyButton.interactable = _interaction.CanIncreaseQuantity;
 
-        SetText(_unitPriceText, $"{row.UnitPrice} c/u");
+        SetText(_unitPriceText, row.UnitPrice.ToString());
+        SetText(_lineTotalText, _interaction.LineTotal.ToString());
         SetText(_lineStateText, DescribeLine(row));
         SetText(_actionButtonText, _interaction.LineAction == MerchantShopLineAction.Update ? "Actualizar" : "Agregar");
         if (_actionButton != null) _actionButton.interactable = _interaction.CanApplyLine;
@@ -266,10 +284,12 @@ public sealed class MerchantShopUI : MonoBehaviour
 
     private static string DescribeLine(MerchantShopRowViewModel row)
     {
-        string side = row.IsMerchantStock ? "Compra" : "Venta";
-        return row.DraftAmount > 0
-            ? $"{side} agregada: {row.DraftAmount} ({row.DraftTotal})"
-            : $"{side}: sin agregar";
+        if (row.DraftAmount <= 0)
+        {
+            return "Sin agregar";
+        }
+
+        return $"{(row.IsMerchantStock ? "Compra" : "Venta")} agregada: {row.DraftAmount}";
     }
 
     private static void SetText(TMP_Text text, string value)

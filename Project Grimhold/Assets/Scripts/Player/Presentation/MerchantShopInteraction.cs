@@ -38,6 +38,9 @@ public sealed class MerchantShopInteraction
     public bool IsSelectedLineInDraft => HasSelection && SelectedRow.DraftAmount > 0;
     public int MaxQuantity => HasSelection ? Math.Max(1, SelectedRow.MaxDraftAmount) : 1;
 
+    /// <summary>Displayed total of the selected line at the chosen quantity, read from its row.</summary>
+    public long LineTotal => HasSelection ? SelectedRow.TotalFor(Quantity) : 0;
+
     public bool CanChangeQuantity => HasSelection && ViewModel.CanEdit && SelectedRow.MaxDraftAmount > 1;
     public bool CanDecreaseQuantity => CanChangeQuantity && Quantity > 1;
     public bool CanIncreaseQuantity => CanChangeQuantity && Quantity < SelectedRow.MaxDraftAmount;

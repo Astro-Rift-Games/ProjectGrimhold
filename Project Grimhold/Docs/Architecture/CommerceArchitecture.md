@@ -91,9 +91,24 @@ permissions from the view model and sends Confirm only when `CanConfirm` holds, 
 While a request is in flight every edit and Confirm are disabled. `MerchantTradeFeedback` maps the
 main `MerchantTradeBlockReason` and each `MerchantTransactionResult` to presentation messages;
 those strings are never domain rules. Item details reuse `EquipmentTooltipPresentationBuilder`.
-`StoreItemUI` renders one priced row with its draft amount and selection and raises only its
-selection; rows have no immediate buy or sell action. None of them holds services, the network
-controller or economy rules.
+The prefab lays out a header (title and Close only), three columns (Inventory grid on the left, the
+selected-item panel in the center, merchant stock grid on the right) and an independent footer. Both
+grids use five fixed columns aligned from the top inside a vertical `ScrollRect` that only scrolls
+when the content exceeds it, so slots keep their size. The Inventory grid always renders
+`SlotCapacity` slots (or more when rows exceed it): empty slots show only their background and raise
+no selection or intention; the merchant grid shows only offered items. The center panel separates
+identity (icon, name, category, rarity), a scrollable block with properties/requirements and
+description, and the line editor (unit price, quantity, line total, line state, Add/Update, Remove)
+that stays in place. The line total is `MerchantShopInteraction.LineTotal`, read from the row view
+model. The footer has a summary row (Gold and occupied slots as current -> projected, purchase and
+sale totals, balance with its sign and a "a favor"/"a pagar"/"sin cambio" label besides its color)
+above a row with feedback on the left and Clear and Confirm on the right. `StoreItemUI` is one
+compact grid slot: icon, confirmed amount (owned units, or finite unreserved stock) bottom-right,
+unit price top-left on merchant slots, a separate "+N"/"-N" badge top-right, colored by side, while
+the draft holds a line for that item, and selection; name, description and properties appear only
+in the center panel. It raises only its selection; slots have no immediate buy or sell action. It is
+not `RaidInventorySlotView`, whose drag, context and tooltip responsibilities do not apply here.
+None of them holds services, the network controller or economy rules.
 
 ### TownMerchantPresenter
 

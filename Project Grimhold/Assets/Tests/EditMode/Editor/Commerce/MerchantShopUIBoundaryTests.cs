@@ -117,9 +117,10 @@ public class MerchantShopUIBoundaryTests
     [TestCase("_quantityText")]
     [TestCase("_actionButtonText")]
     [TestCase("_unitPriceText")]
+    [TestCase("_lineTotalText")]
     [TestCase("_lineStateText")]
     [TestCase("_detailPropertiesText")]
-    [TestCase("_topCurrencyText")]
+    [TestCase("_currencyText")]
     [TestCase("_purchaseTotalText")]
     [TestCase("_saleTotalText")]
     [TestCase("_balanceText")]
@@ -148,6 +149,169 @@ public class MerchantShopUIBoundaryTests
         {
             Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(centerPanel.transform), Is.False, fieldName);
         }
+    }
+
+    private static readonly string[] FooterFields =
+    {
+        "_currencyText", "_purchaseTotalText", "_saleTotalText", "_balanceText", "_capacityText", "_feedbackText",
+        "_clearButton", "_confirmButton"
+    };
+
+    [Test]
+    public void Prefab_LaysOutInventoryLeftSelectedItemCenterAndMerchantRight()
+    {
+        MerchantShopUI ui = LoadMerchantShop();
+        RectTransform inventory = Column(GetField<Transform>(ui, "_playerInventoryContainer"), ui);
+        RectTransform center = Column(GetField<GameObject>(ui, "_centerPanelRoot").transform, ui);
+        RectTransform merchant = Column(GetField<Transform>(ui, "_merchantStockContainer"), ui);
+
+        Assert.That(inventory.anchorMax.x, Is.LessThanOrEqualTo(center.anchorMin.x));
+        Assert.That(center.anchorMax.x, Is.LessThanOrEqualTo(merchant.anchorMin.x));
+    }
+
+    [TestCase("_playerInventoryContainer")]
+    [TestCase("_merchantStockContainer")]
+    public void Prefab_RendersBothListsAsCompactGrids(string containerField)
+    {
+        Transform container = GetField<Transform>(LoadMerchantShop(), containerField);
+
+        Assert.That(container.GetComponent<GridLayoutGroup>(), Is.Not.Null, containerField);
+        Assert.That(container.GetComponent<VerticalLayoutGroup>(), Is.Null, containerField);
+    }
+
+    [TestCase("_playerInventoryContainer")]
+    [TestCase("_merchantStockContainer")]
+    public void Prefab_GridsKeepFiveFixedColumnsAndScrollInsteadOfShrinking(string containerField)
+    {
+        Transform container = GetField<Transform>(LoadMerchantShop(), containerField);
+        var grid = container.GetComponent<GridLayoutGroup>();
+
+        Assert.That(grid.constraint, Is.EqualTo(GridLayoutGroup.Constraint.FixedColumnCount), containerField);
+        Assert.That(grid.constraintCount, Is.EqualTo(5), containerField);
+        Assert.That(grid.childAlignment, Is.EqualTo(TextAnchor.UpperLeft), containerField);
+        Assert.That(container.GetComponent<ContentSizeFitter>().verticalFit, Is.EqualTo(ContentSizeFitter.FitMode.PreferredSize), containerField);
+
+        var scroll = container.GetComponentInParent<ScrollRect>(true);
+        Assert.That(scroll, Is.Not.Null, containerField);
+        Assert.That(scroll.content, Is.SameAs(container), containerField);
+        Assert.That(scroll.vertical && !scroll.horizontal, Is.True, containerField);
+        Assert.That(scroll.verticalScrollbarVisibility, Is.Not.EqualTo(ScrollRect.ScrollbarVisibility.Permanent), containerField);
+    }
+
+    [Test]
+    public void Prefab_ScrollsItemTextWithoutMovingTheLineControls()
+    {
+        MerchantShopUI ui = LoadMerchantShop();
+        var properties = GetField<Component>(ui, "_detailPropertiesText");
+        var scroll = properties.GetComponentInParent<ScrollRect>(true);
+
+        Assert.That(scroll, Is.Not.Null);
+        Assert.That(GetField<Component>(ui, "_detailDescription").transform.IsChildOf(scroll.content), Is.True);
+        Assert.That(properties.transform.IsChildOf(scroll.content), Is.True);
+        foreach (string fieldName in new[] { "_detailName", "_detailType", "_detailRarity", "_quantitySlider", "_unitPriceText",
+                     "_lineTotalText", "_lineStateText", "_actionButton", "_removeLineButton" })
+        {
+            Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(scroll.transform), Is.False, fieldName);
+        }
+    }
+
+    [Test]
+    public void Prefab_FooterSeparatesTheSummaryRowFromFeedbackAndActions()
+    {
+        MerchantShopUI ui = LoadMerchantShop();
+        Transform summaryRow = GetField<Component>(ui, "_purchaseTotalText").transform.parent;
+        Assert.That(summaryRow.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+
+        foreach (string fieldName in new[] { "_currencyText", "_saleTotalText", "_balanceText", "_capacityText" })
+        {
+            Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(summaryRow), Is.True, fieldName);
+        }
+
+        foreach (string fieldName in new[] { "_feedbackText", "_clearButton", "_confirmButton" })
+        {
+            Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(summaryRow), Is.False, fieldName);
+        }
+    }
+
+    [Test]
+    public void StoreItem_PlacesPriceTopLeftBadgeTopRightAndAmountBottomRight()
+    {
+        StoreItemUI slot = AssetDatabase.LoadAssetAtPath<StoreItemUI>(StoreItemPrefabPath);
+
+        Assert.That(((RectTransform)GetField<GameObject>(slot, "_priceRoot").transform).anchorMin, Is.EqualTo(new Vector2(0, 1)));
+        Assert.That(((RectTransform)GetField<GameObject>(slot, "_draftBadge").transform).anchorMin, Is.EqualTo(new Vector2(1, 1)));
+        Assert.That(((RectTransform)GetField<TMPro.TMP_Text>(slot, "_amountText").transform).anchorMin, Is.EqualTo(new Vector2(1, 0)));
+        Assert.That(GetField<Image>(slot, "_draftBadgeImage").gameObject, Is.SameAs(GetField<GameObject>(slot, "_draftBadge")));
+    }
+
+    [Test]
+    public void Prefab_HeaderHoldsOnlyTheTitleAndClose()
+    {
+        MerchantShopUI ui = LoadMerchantShop();
+        Transform header = GetField<Button>(ui, "_closeButton").transform.parent;
+
+        Assert.That(header.GetComponentsInChildren<Button>(true), Is.EqualTo(new[] { GetField<Button>(ui, "_closeButton") }));
+        Assert.That(header.GetComponentsInChildren<TMPro.TMP_Text>(true), Has.Length.EqualTo(1), "Only the title.");
+        foreach (string fieldName in FooterFields)
+        {
+            Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(header), Is.False, fieldName);
+        }
+    }
+
+    [Test]
+    public void Prefab_FooterHoldsTheWholeTradeSummaryWithClearAndConfirm()
+    {
+        MerchantShopUI ui = LoadMerchantShop();
+        Transform footer = ui.transform.Find("Footer");
+        Assert.That(footer, Is.Not.Null);
+
+        foreach (string fieldName in FooterFields)
+        {
+            Assert.That(GetField<Component>(ui, fieldName).transform.IsChildOf(footer), Is.True, fieldName);
+        }
+
+        foreach (string columnField in new[] { "_playerInventoryContainer", "_merchantStockContainer" })
+        {
+            Assert.That(GetField<Transform>(ui, columnField).IsChildOf(footer), Is.False, columnField);
+        }
+
+        Assert.That(GetField<GameObject>(ui, "_centerPanelRoot").transform.IsChildOf(footer), Is.False);
+    }
+
+    [Test]
+    public void StoreItem_IsACompactSlotWithoutNameOrDescription()
+    {
+        Assert.That(typeof(StoreItemUI).GetField("_nameText", PrivateInstance), Is.Null);
+        Assert.That(typeof(StoreItemUI).GetField("_descriptionText", PrivateInstance), Is.Null);
+
+        StoreItemUI slot = AssetDatabase.LoadAssetAtPath<StoreItemUI>(StoreItemPrefabPath);
+        var texts = slot.GetComponentsInChildren<TMPro.TMP_Text>(true);
+        Assert.That(texts, Is.EquivalentTo(new[]
+        {
+            GetField<TMPro.TMP_Text>(slot, "_amountText"),
+            GetField<TMPro.TMP_Text>(slot, "_priceText"),
+            GetField<TMPro.TMP_Text>(slot, "_draftAmountText")
+        }), "A slot shows only its amount, price and draft badge.");
+        Assert.That(GetField<GameObject>(slot, "_draftBadge").activeSelf, Is.False, "Hidden until a draft line exists.");
+        Assert.That(GetField<GameObject>(slot, "_selectionHighlight").activeSelf, Is.False);
+    }
+
+    private static MerchantShopUI LoadMerchantShop()
+    {
+        MerchantShopUI ui = AssetDatabase.LoadAssetAtPath<MerchantShopUI>(MerchantShopPrefabPath);
+        Assert.That(ui, Is.Not.Null, MerchantShopPrefabPath);
+        return ui;
+    }
+
+    private static RectTransform Column(Transform element, MerchantShopUI ui)
+    {
+        Transform column = element;
+        while (column.parent != ui.transform)
+        {
+            column = column.parent;
+        }
+
+        return (RectTransform)column;
     }
 
     private static T GetField<T>(object target, string fieldName) where T : class
