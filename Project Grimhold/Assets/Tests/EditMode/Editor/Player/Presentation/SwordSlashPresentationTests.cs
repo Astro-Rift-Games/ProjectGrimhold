@@ -16,6 +16,8 @@ public sealed class SwordSlashPresentationTests
     private const string LongSwordLootPath = "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
     private const string ZweihanderPath = "Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset";
     private const string ZweihanderLootPath = "Assets/Scriptable Objects/Loot/Definitions/Zweihander.asset";
+    private const string GreatHammerPath = "Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset";
+    private const string GreatHammerLootPath = "Assets/Scriptable Objects/Loot/Definitions/GreatHammer.asset";
     private const string RapierPath = "Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset";
     private const string RapierLootPath = "Assets/Scriptable Objects/Loot/Definitions/Rapier.asset";
     private GameObject _contents;
@@ -137,7 +139,7 @@ public sealed class SwordSlashPresentationTests
         }
         // The swords share the Slash visual but swing in different senses, so each must be checked.
         Assert.That(checkedWeapons, Does.Contain("ArmingSword").And.Contain("MagicSword").And.Contain("LongSword")
-            .And.Contain("Zweihander"));
+            .And.Contain("Zweihander").And.Contain("GreatHammer"));
     }
 
     /// <summary>Signed degrees swept by the frame centroids of the VFX sprite sequence, in root space.</summary>
@@ -224,6 +226,9 @@ public sealed class SwordSlashPresentationTests
         WeaponDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(ZweihanderPath);
         WeaponDefinition shortZweihander = CreateGeometryVariant(zweihander, new Vector2(0f, -0.4f), new Vector2(0f, 0.6f));
         WeaponDefinition longerZweihander = CreateGeometryVariant(zweihander, new Vector2(0.1f, -0.8f), new Vector2(0.1f, 1.4f));
+        WeaponDefinition greatHammer = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(GreatHammerPath);
+        WeaponDefinition shortGreatHammer = CreateGeometryVariant(greatHammer, new Vector2(0f, -0.4f), new Vector2(0f, 0.6f));
+        WeaponDefinition longerGreatHammer = CreateGeometryVariant(greatHammer, new Vector2(0.1f, -0.8f), new Vector2(0.1f, 1.4f));
         try
         {
             Assert.That(shortBlade.Presentation.AttackVfx, Is.SameAs(sword.Presentation.AttackVfx));
@@ -232,10 +237,12 @@ public sealed class SwordSlashPresentationTests
             Assert.That(longerLongSword.Presentation.AttackVfx, Is.SameAs(longSword.Presentation.AttackVfx));
             Assert.That(shortZweihander.Presentation.AttackVfx, Is.SameAs(zweihander.Presentation.AttackVfx));
             Assert.That(longerZweihander.Presentation.AttackVfx, Is.SameAs(zweihander.Presentation.AttackVfx));
+            Assert.That(shortGreatHammer.Presentation.AttackVfx, Is.SameAs(greatHammer.Presentation.AttackVfx));
+            Assert.That(longerGreatHammer.Presentation.AttackVfx, Is.SameAs(greatHammer.Presentation.AttackVfx));
             foreach (WeaponDefinition weapon in new[]
             {
                 sword, shortBlade, longBlade, magicSword, longSword, shortLongSword, longerLongSword,
-                zweihander, shortZweihander, longerZweihander
+                zweihander, shortZweihander, longerZweihander, greatHammer, shortGreatHammer, longerGreatHammer
             })
             {
                 Assert.That(weapon.TryValidate(out string error), Is.True, error);
@@ -250,6 +257,8 @@ public sealed class SwordSlashPresentationTests
             Object.DestroyImmediate(longerLongSword);
             Object.DestroyImmediate(shortZweihander);
             Object.DestroyImmediate(longerZweihander);
+            Object.DestroyImmediate(shortGreatHammer);
+            Object.DestroyImmediate(longerGreatHammer);
         }
     }
 
@@ -513,10 +522,76 @@ public sealed class SwordSlashPresentationTests
         }
     }
 
+    // Provisional: Great Hammer reuses the shared Slash visual until Art delivers its own Smash/Impact visual.
+    // It owns its alignment, fitted to the head of its six baked clips held across the facing (AngleCorrection
+    // 180) and mirrored across its own axis in NW/SW. The hammer winds up until 0.3s and strikes from 0.4s until
+    // the head reaches the facing at 0.55s; starting at 0.26s lets frame 0 anticipate the windup apex, frames
+    // 1-2 cover the strike up to the impact and frame 3 the follow-through.
+    [Test]
+    public void GreatHammerVfxConfiguration_AlignsItsOwnProvisionalSlashWithItsStrike()
+    {
+        WeaponDefinition greatHammer = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(GreatHammerPath);
+        AttackVfxDefinition vfx = greatHammer.Presentation.AttackVfx;
+        Assert.That(vfx, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(vfx),
+            Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset"));
+        foreach (string otherPath in new[] { SwordPath, MagicSwordPath, LongSwordPath, ZweihanderPath })
+        {
+            Assert.That(vfx, Is.Not.SameAs(AssetDatabase.LoadAssetAtPath<WeaponDefinition>(otherPath).Presentation.AttackVfx),
+                otherPath);
+        }
+        Assert.That(greatHammer.TryValidate(out string error), Is.True, error);
+        Assert.That(vfx.StartSeconds, Is.EqualTo(0.26f));
+        Assert.That(greatHammer.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 1f)));
+        var positions = new[]
+        {
+            new Vector3(-0.1f, 0.11f, 0f), new Vector3(0.02f, 0.12f, 0f), new Vector3(-0.15f, -0.01f, 0f),
+            new Vector3(0.03f, -0.11f, 0f), new Vector3(0.13f, 0f, 0f), new Vector3(-0.05f, -0.12f, 0f)
+        };
+        var rotations = new[] { 8f, -31f, 52f, -159f, -121f, 159f };
+        var reachOffsets = new[] { 0.63f, 0.67f, 0.43f, 0.68f, 0.73f, 0.49f };
+        AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
+
+        // The impact is when the head, swinging from across the facing, reaches it. Frames 1-2 must cover the
+        // strike up to that moment in every facing.
+        var directions = new[]
+        {
+            CharacterVisualDirection.North, CharacterVisualDirection.NorthEast, CharacterVisualDirection.NorthWest,
+            CharacterVisualDirection.South, CharacterVisualDirection.SouthEast, CharacterVisualDirection.SouthWest
+        };
+        Transform root = _renderer.transform.parent;
+        for (int i = 0; i < 6; i++)
+        {
+            AnimationClip attack = greatHammer.Presentation.GetAttackClip(i);
+            Assert.That(vfx.StartSeconds + vfx.Clip.length, Is.LessThanOrEqualTo(attack.length), $"clip {i}");
+            Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(directions[i]);
+            Transform visual = PoseHeldWeapon(greatHammer.Presentation, facing);
+            float impact = 0f;
+            float closest = float.MaxValue;
+            for (int step = 0; step * 0.01f <= attack.length; step++)
+            {
+                float time = step * 0.01f;
+                Vector2 head = SampleBladeTip(attack, time, root, visual, greatHammer.Presentation.BladeTip) -
+                    SampleBladeTip(attack, time, root, visual, greatHammer.Presentation.GripPoint);
+                float offset = Vector2.Angle(facing, head);
+                if (offset < closest)
+                {
+                    closest = offset;
+                    impact = time;
+                }
+            }
+            Assert.That(closest, Is.LessThanOrEqualTo(2f), $"{directions[i]}: the head reaches the facing");
+            Assert.That(impact, Is.EqualTo(0.55f).Within(0.01f), $"{directions[i]} impact");
+            Assert.That(impact, Is.InRange(vfx.StartSeconds + 0.1f, vfx.StartSeconds + 0.3f + 0.01f),
+                $"{directions[i]}: Slash frames 1-2 cover the strike up to the impact");
+        }
+    }
+
     // The Slash is sized from the main-hand grip to the blade tip only; the second hand follows the
     // baked animation and must not move or resize the effect.
     [TestCase(LongSwordPath)]
     [TestCase(ZweihanderPath)]
+    [TestCase(GreatHammerPath)]
     public void TwoHandedSwordVfx_DoesNotDependOnSecondaryGripPoint(string weaponPath)
     {
         WeaponDefinition twoHanded = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weaponPath);
@@ -567,10 +642,11 @@ public sealed class SwordSlashPresentationTests
         AttackVfxDefinition magicSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(MagicSwordPath).Presentation.AttackVfx;
         AttackVfxDefinition longSword = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(LongSwordPath).Presentation.AttackVfx;
         AttackVfxDefinition zweihander = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(ZweihanderPath).Presentation.AttackVfx;
+        AttackVfxDefinition greatHammer = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(GreatHammerPath).Presentation.AttackVfx;
         Assert.That(AssetDatabase.GetAssetPath(sword.Visual),
             Is.EqualTo("Assets/Scriptable Objects/Loot/Definitions/SwordSlashVfxVisual.asset"));
         Assert.That(AssetDatabase.GetAssetPath(sword.Clip), Is.EqualTo("Assets/Art/VFX/SwordSlashVfx.anim"));
-        foreach (AttackVfxDefinition other in new[] { magicSword, longSword, zweihander })
+        foreach (AttackVfxDefinition other in new[] { magicSword, longSword, zweihander, greatHammer })
         {
             Assert.That(other, Is.Not.SameAs(sword), other.name);
             Assert.That(other.Visual, Is.SameAs(sword.Visual), other.name);
@@ -693,13 +769,15 @@ public sealed class SwordSlashPresentationTests
         Assert.That(_renderer.sprite, Is.Null);
     }
 
-    // Steps are 50 ms: Arming Sword starts at 0.1s, Long Sword at 0.08s, Magic Sword and Zweihander at 0.25s, so
+    // Steps are 50 ms: Arming Sword starts at 0.1s, Long Sword at 0.08s, Magic Sword and Zweihander at 0.25s and
+    // Great Hammer at 0.26s, so
     // the same Slash frames appear at different hand phases and clear after 0.4s of Slash playback.
     // Rapier plays its 0.2s Thrust from 0.19s through the same generic presenter.
     [TestCase(SwordPath, SwordLootPath, 3, 6, 10, "VFX-Slash")]
     [TestCase(LongSwordPath, LongSwordLootPath, 3, 6, 10, "VFX-Slash")]
     [TestCase(MagicSwordPath, MagicSwordLootPath, 6, 9, 13, "VFX-Slash")]
     [TestCase(ZweihanderPath, ZweihanderLootPath, 6, 9, 13, "VFX-Slash")]
+    [TestCase(GreatHammerPath, GreatHammerLootPath, 6, 10, 14, "VFX-Slash")]
     [TestCase(RapierPath, RapierLootPath, 4, 6, 8, "VFX-Thrust")]
     public void WeaponAttack_SamplesClipAtMatchingHandPhaseAndClearsAtEnd(string weaponPath, string lootPath,
         int firstFrameStep, int thirdFrameStep, int endStep, string spritePrefix)

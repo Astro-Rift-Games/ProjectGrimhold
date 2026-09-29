@@ -516,7 +516,7 @@ therefore uses `AngleCorrection` `180` with grips `(0, -0.375)` and `(0, -0.8125
 17x33 px `GreatHammer.png`, 7 px apart, the second on the last handle row above the collar) and `BladeTip`
 `(0, 1)`. It is a two-handed `HoldsSecondaryGrip` weapon: both authored hands turn rigidly together, so the
 bake re-derives the second hand onto the handle. Its clips keep the source's 1.05 s length rather than its
-1.8 s attack interval. It has no attack VFX.
+1.8 s attack interval. Its attack VFX is a provisional Slash alignment (see below).
 The second hand draws over the handle and under the main hand: sorting order 25 in front facings (weapon 20,
 attack VFX 21, main hand 30) and -5 in north facings (weapon -10, main hand -2), leaving the next slot for
 its glove.
@@ -580,7 +580,13 @@ centers sit farther from the body because its hands travel farther, and its size
 the grip to blade tip reach. Both two-handed sword alignments are fitted to the blade tip of their
 six clips as presented with the blade across the facing and mirrored across its own axis in NW/SW:
 each pose places the arc center where the tip path `grip + reach * axis` keeps a constant radius for any
-blade reach, and its reach offset is that center's distance behind the grip. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
+blade reach, and its reach offset is that center's distance behind the grip.
+Great Hammer's attack VFX is provisional: until Art delivers a dedicated Smash/Impact visual, its own
+`GreatHammerSlashAttackVfx` alignment reuses the shared Slash visual, unchanged, and must be replaced by that
+visual when it exists. The alignment is fitted the same way to the head (`BladeTip`) of its six clips. The hammer
+winds up until 0.3s, strikes from 0.4s and its head reaches the facing, the impact, at 0.55s in every facing;
+the alignment starts at 0.26s, so frame 0 anticipates the windup apex, frames 1-2 cover the strike up to the
+impact and frame 3 the follow-through, mirrored like the two-handed swords. Rapier aligns the four 50 ms frames of the Thrust visual from 0.19s,
 spanning the path to its extended blade tip across all six facings. Rondel Dagger reuses the same
 Thrust visual through its own alignment from 0.14s: its stroke runs 50 ms earlier than Rapier's and its
 hand tilts the blade about 14 degrees off the facing, so each axis is the facing plus 14 degrees and each
