@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: StashNpcIdle
+  m_Controller: {fileID: 9100000, guid: 7b0424e19496f654ab495ddfe33d8272, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 2987c4bbd83d8634eb099da6e7951228, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 565c54eed95c6cc43be1a2b4b5e3e7cf, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a42ec40870433804ea60044ab8a231a4, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: b9088396c04df354caacd32c3b285a93, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 0e57f0671861d584b855e067ca25a71c, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: a610d588f186d7c4e81a93074de5f0ca, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 2a46b11bb2cf717459aca59dce08ad78, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: fd41bb5ed7d5923448a7ff1e9749a935, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a9c2fd052c9f1cd4fbd6023a108cb856, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 561d0a1a698586c44b7b54114a8681b3, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: d7c1732e72a80cf4d842b5eb72a448d4, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 2746bb485e6488143a49b80070b6431c, type: 2}

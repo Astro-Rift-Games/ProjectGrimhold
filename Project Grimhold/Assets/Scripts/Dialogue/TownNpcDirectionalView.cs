@@ -1,41 +1,25 @@
 using UnityEngine;
 
 /// <summary>
-/// Local-only presentation for a Town NPC's five-part, six-direction base body.
+/// Local-only facing presentation for a Town NPC's modular Idle Animator.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class TownNpcDirectionalView : MonoBehaviour
 {
     [SerializeField] private CharacterVisualDirection _initialFacing = CharacterVisualDirection.South;
-    [SerializeField] private SpriteRenderer _legsRenderer;
-    [SerializeField] private SpriteRenderer _bodyRenderer;
-    [SerializeField] private SpriteRenderer _headRenderer;
-    [SerializeField] private SpriteRenderer _leftHandRenderer;
-    [SerializeField] private SpriteRenderer _rightHandRenderer;
-    [SerializeField] private DirectionalSpriteSet _legsSprites = new DirectionalSpriteSet();
-    [SerializeField] private DirectionalSpriteSet _bodySprites = new DirectionalSpriteSet();
-    [SerializeField] private DirectionalSpriteSet _headSprites = new DirectionalSpriteSet();
-    [SerializeField] private DirectionalSpriteSet _leftHandSprites = new DirectionalSpriteSet();
-    [SerializeField] private DirectionalSpriteSet _rightHandSprites = new DirectionalSpriteSet();
+    [SerializeField] private Animator _animator;
 
-    // Match the player's authored base order and RightHand_Idle_NW sorting curve.
-    private const int RightHandDefaultSortingOrder = 30;
-    private const int RightHandNorthWestSortingOrder = -2;
+    private static readonly int MoveXHash = Animator.StringToHash("MoveX");
+    private static readonly int MoveYHash = Animator.StringToHash("MoveY");
 
     public CharacterVisualDirection InitialFacing => _initialFacing;
     public CharacterVisualDirection CurrentFacing { get; private set; }
 
     private void Awake()
     {
-        if (_legsRenderer == null || _bodyRenderer == null || _headRenderer == null ||
-            _leftHandRenderer == null || _rightHandRenderer == null ||
-            _legsSprites == null || !_legsSprites.IsComplete ||
-            _bodySprites == null || !_bodySprites.IsComplete ||
-            _headSprites == null || !_headSprites.IsComplete ||
-            _leftHandSprites == null || !_leftHandSprites.IsComplete ||
-            _rightHandSprites == null || !_rightHandSprites.IsComplete)
+        if (_animator == null || _animator.runtimeAnimatorController == null)
         {
-            Debug.LogError($"[{nameof(TownNpcDirectionalView)}] Missing required body renderer or directional sprites.", this);
+            Debug.LogError($"[{nameof(TownNpcDirectionalView)}] Missing required Idle Animator or controller.", this);
             return;
         }
 
@@ -64,28 +48,13 @@ public sealed class TownNpcDirectionalView : MonoBehaviour
     private void SetFacing(CharacterVisualDirection facing)
     {
         CurrentFacing = facing;
-        if (_legsRenderer != null && _legsSprites != null)
+        if (_animator == null)
         {
-            _legsRenderer.sprite = _legsSprites.GetSprite(facing);
+            return;
         }
-        if (_bodyRenderer != null && _bodySprites != null)
-        {
-            _bodyRenderer.sprite = _bodySprites.GetSprite(facing);
-        }
-        if (_headRenderer != null && _headSprites != null)
-        {
-            _headRenderer.sprite = _headSprites.GetSprite(facing);
-        }
-        if (_leftHandRenderer != null && _leftHandSprites != null)
-        {
-            _leftHandRenderer.sprite = _leftHandSprites.GetSprite(facing);
-        }
-        if (_rightHandRenderer != null && _rightHandSprites != null)
-        {
-            _rightHandRenderer.sprite = _rightHandSprites.GetSprite(facing);
-            _rightHandRenderer.sortingOrder = facing == CharacterVisualDirection.NorthWest
-                ? RightHandNorthWestSortingOrder
-                : RightHandDefaultSortingOrder;
-        }
+
+        Vector2 direction = CharacterVisualDirectionResolver.GetCanonicalVector(facing);
+        _animator.SetFloat(MoveXHash, direction.x);
+        _animator.SetFloat(MoveYHash, direction.y);
     }
 }

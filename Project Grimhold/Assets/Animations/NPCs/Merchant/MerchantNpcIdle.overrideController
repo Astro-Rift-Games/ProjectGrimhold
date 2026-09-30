@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MerchantNpcIdle
+  m_Controller: {fileID: 9100000, guid: 7b0424e19496f654ab495ddfe33d8272, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 2987c4bbd83d8634eb099da6e7951228, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 38e629dae7f34da4bb4b879723a45280, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a42ec40870433804ea60044ab8a231a4, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: ae28a00160700dd4399db7b027268fd1, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 0e57f0671861d584b855e067ca25a71c, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: a449ee9719befe049ad0f11827bfc056, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 2a46b11bb2cf717459aca59dce08ad78, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: d0cd47f0c8d570a43836f4ef8b65617a, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a9c2fd052c9f1cd4fbd6023a108cb856, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 8ae21386cd9dc374b87a0fd427e76613, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: d7c1732e72a80cf4d842b5eb72a448d4, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: b3abdf6a1cdd6d34a9b8280377a91d1e, type: 2}
