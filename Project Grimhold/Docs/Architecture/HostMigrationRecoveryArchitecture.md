@@ -132,6 +132,8 @@ the restored participant exposes its frozen attributes, the Stamina controller d
 clamp, regenerate or consume the copied resource. After fixup it derives
 `75 + (Resistance * 5)` again and resumes from the copied current value, Exhaustion state and delay.
 
+*Note: For Dungeon Pressure (PvE timers, phases, and active population) recovery rules, see `DungeonPressureArchitecture.md`.*
+
 ## Validation boundary
 
 EditMode tests cover role routing, startup suppression, completion semantics, and

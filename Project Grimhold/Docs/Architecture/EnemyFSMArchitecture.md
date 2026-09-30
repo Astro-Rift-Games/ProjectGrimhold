@@ -116,6 +116,7 @@ stateDiagram-v2
 ```
 
 * **Dead state transition**: Triggered via `EnemyCharacter.HandleDeath()` upon reaching zero health, or as a fallback check during `FixedUpdateNetwork` if `!Character.IsAlive`.
+  * *Note: The Dungeon Pressure system relies on authoritative `HandleDeath()` to track active PvE population. See `DungeonPressureArchitecture.md`.*
 
 ---
 
