@@ -148,6 +148,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     /// Exposes the linked coordinator.
     /// </summary>
     public NetworkMatchController MatchController => _matchController;
+    public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
@@ -607,6 +608,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     {
                         _spawnPointLookup.Add(definition.Group, definition.SpawnPoints);
                     }
+                    if (definition.Group == SpawnGroupType.Reinforcements)
+                    {
+                        ReinforcementRegistry.Initialize(definition.SpawnPoints);
+                    }
                 }
             }
         }
@@ -922,6 +927,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                             _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
                             return false;
                         }
+                        break;
+                    case InitialSpawnGroupPolicy.SpawnKind.ReinforcementPoints:
+                        // Silently skipped during bootstrap. They are consumed by the dynamic reinforcement director.
                         break;
                     default:
                         Debug.LogWarning(
@@ -2719,6 +2727,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.None;
         _runner.GetComponent<EntityRegistry>()?.ClearForRaidClosure();
         _runner.GetComponent<ExtractionSanctuaryAssignmentService>()?.ResetForRaidClosure();
+        ReinforcementRegistry.ResetForRaidClosure();
         _cleanupBuffer.Clear();
         _resultsWorldCleanupFailureCount = failureCount;
 

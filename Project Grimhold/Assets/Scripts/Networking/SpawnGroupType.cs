@@ -8,6 +8,7 @@ namespace Spawning
         NPCs,
         Bosses,
         Misc,
-        Breakables
+        Breakables,
+        Reinforcements
     }
 }
