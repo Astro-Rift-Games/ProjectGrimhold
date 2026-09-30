@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 11400000}
   - component: {fileID: 11400002}
   - component: {fileID: 2361456078320602033}
+  - component: {fileID: -678287303909189332}
   m_Layer: 0
   m_Name: NetworkMatchController
   m_TagString: Untagged
@@ -54,6 +55,7 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 11400002}
   - {fileID: 2361456078320602033}
+  - {fileID: -678287303909189332}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &11400002
 MonoBehaviour:
@@ -92,3 +94,16 @@ MonoBehaviour:
   _RemainingTicks: 0
   _Phase: 0
   _State: 0
+--- !u!114 &-678287303909189332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0921687645f3d2f45b87e03a533c4f10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyReinforcementDirector
+  _config: {fileID: 11400000, guid: 8143ae40b1350374fb16d30fcbf233c2, type: 2}

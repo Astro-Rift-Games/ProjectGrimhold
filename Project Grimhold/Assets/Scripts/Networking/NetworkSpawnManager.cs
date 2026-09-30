@@ -151,6 +151,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
     public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
+    public System.Collections.Generic.IEnumerable<NetworkObject> ActivePlayerObjects => _spawnedPlayers.Values;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
     public bool HasRaidingParticipants
@@ -2757,38 +2758,20 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return false;
     }
 
-    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType, Spawning.EnemyPopulationOrigin origin = Spawning.EnemyPopulationOrigin.Bootstrap)
+    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint)
+    {
+        if (spawnPoint == null) return false;
+        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement);
+    }
+
+    private bool SpawnEnemyAtTransform(NetworkRunner runner, Transform spawnPoint, Spawning.EnemyPopulationOrigin origin)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return false;
         }
-        if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
-        {
-            Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
-            return false;
-        }
 
-        System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
-        for (int i = 0; i < spawnPoints.Length; i++)
-        {
-            if (!_usedEnemySpawnPoints.Contains(spawnPoints[i]))
-            {
-                availableIndices.Add(i);
-            }
-        }
-
-        if (availableIndices.Count == 0)
-        {
-            Debug.LogWarning($"Cannot spawn enemy: No available spawn points remaining for {groupType}.");
-            return false;
-        }
-
-        int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
-        _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
-
-        Transform spawnPoint = spawnPoints[selectedIndex];
         Vector3 position = spawnPoint.position;
         Quaternion rotation = spawnPoint.rotation;
 
@@ -2834,8 +2817,44 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _spawnedEnemies.Add(enemyObject);
-        Debug.Log($"Spawned enemy at {position}.");
         return true;
+    }
+
+    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType, Spawning.EnemyPopulationOrigin origin = Spawning.EnemyPopulationOrigin.Bootstrap)
+    {
+        if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
+        {
+            Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
+            return false;
+        }
+
+        System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            if (!_usedEnemySpawnPoints.Contains(spawnPoints[i]))
+            {
+                availableIndices.Add(i);
+            }
+        }
+
+        if (availableIndices.Count == 0)
+        {
+            Debug.LogWarning($"Cannot spawn enemy: No available spawn points remaining for {groupType}.");
+            return false;
+        }
+
+        int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
+        _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
+
+        Transform spawnPoint = spawnPoints[selectedIndex];
+
+        if (SpawnEnemyAtTransform(runner, spawnPoint, origin))
+        {
+            Debug.Log($"Spawned enemy at {spawnPoint.position}.");
+            return true;
+        }
+
+        return false;
     }
 
     private bool SpawnConfiguredLootContainers(NetworkRunner runner, SpawnGroupDefinition definition)

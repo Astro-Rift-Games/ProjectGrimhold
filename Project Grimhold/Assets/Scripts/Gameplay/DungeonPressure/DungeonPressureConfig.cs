@@ -16,6 +16,24 @@ public sealed class DungeonPressureConfig : ScriptableObject
     public int ReinforcementsThresholdSeconds => _reinforcementsThresholdSeconds;
     public int CriticalPressureThresholdSeconds => _criticalPressureThresholdSeconds;
 
+    [Header("Phase Policies")]
+    [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { Budget = 0, SpawnIntervalSeconds = 10f, MaxConcurrentSpawns = 0, MinDistanceToPlayer = 20f };
+    [SerializeField] private Spawning.ReinforcementPolicy _reinforcementsPolicy = new Spawning.ReinforcementPolicy { Budget = 5, SpawnIntervalSeconds = 15f, MaxConcurrentSpawns = 2, MinDistanceToPlayer = 15f };
+    [SerializeField] private Spawning.ReinforcementPolicy _criticalPressurePolicy = new Spawning.ReinforcementPolicy { Budget = 15, SpawnIntervalSeconds = 5f, MaxConcurrentSpawns = 5, MinDistanceToPlayer = 10f };
+    [SerializeField] private Spawning.ReinforcementPolicy _collapsePolicy = Spawning.ReinforcementPolicy.None;
+
+    public Spawning.ReinforcementPolicy GetPolicy(DungeonPressurePhase phase)
+    {
+        return phase switch
+        {
+            DungeonPressurePhase.Normal => _normalPolicy,
+            DungeonPressurePhase.Reinforcements => _reinforcementsPolicy,
+            DungeonPressurePhase.CriticalPressure => _criticalPressurePolicy,
+            DungeonPressurePhase.Collapse => _collapsePolicy,
+            _ => Spawning.ReinforcementPolicy.None
+        };
+    }
+
     public bool IsValid()
     {
         return _totalDurationSeconds > _reinforcementsThresholdSeconds &&

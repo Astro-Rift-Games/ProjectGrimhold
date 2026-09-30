@@ -15,13 +15,13 @@ public sealed class DungeonPressureController : NetworkBehaviour
     private DungeonPressureConfig _config;
 
     [Networked]
-    public int RemainingTicks { get; internal set; }
+    public int RemainingTicks { get; set; }
 
     [Networked]
-    public DungeonPressurePhase Phase { get; internal set; }
+    public DungeonPressurePhase Phase { get; set; }
 
     [Networked]
-    public DungeonPressureState State { get; internal set; }
+    public DungeonPressureState State { get; set; }
 
     private NetworkMatchController _matchController;
     private NetworkSpawnManager _spawnManager;
@@ -34,7 +34,7 @@ public sealed class DungeonPressureController : NetworkBehaviour
 
     public override void Spawned()
     {
-        _matchController = Runner.GetComponent<NetworkMatchController>();
+        _matchController = GetComponent<NetworkMatchController>();
         _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
 
         if (HasStateAuthority)
@@ -44,36 +44,50 @@ public sealed class DungeonPressureController : NetworkBehaviour
                 State = DungeonPressureState.NotStarted;
                 Phase = DungeonPressurePhase.Normal;
                 
-                if (_config != null && _config.IsValid())
+                if (_config == null)
                 {
-                    RemainingTicks = Mathf.CeilToInt(_config.TotalDurationSeconds / Runner.DeltaTime);
+                    Debug.LogError("[DungeonPressureController] _config is NULL! You forgot to assign the DungeonPressureConfig ScriptableObject in the Inspector of DungeonPressureController!");
+                    RemainingTicks = 0;
+                }
+                else if (!_config.IsValid())
+                {
+                    Debug.LogError($"[DungeonPressureController] Config is invalid! Total: {_config.TotalDurationSeconds}, Reinf: {_config.ReinforcementsThresholdSeconds}, Crit: {_config.CriticalPressureThresholdSeconds}");
+                    RemainingTicks = 0;
                 }
                 else
                 {
-                    Debug.LogError("[DungeonPressureController] Invalid or missing config during Spawned.", this);
-                    RemainingTicks = 0;
+                    RemainingTicks = Mathf.CeilToInt(_config.TotalDurationSeconds / Runner.DeltaTime);
+                    Debug.Log($"[DungeonPressureController] Initialized RemainingTicks to {RemainingTicks} from duration {_config.TotalDurationSeconds}");
                 }
             }
         }
     }
 
+    private int _debugFrameCount = 0;
+
     public override void FixedUpdateNetwork()
     {
+        _debugFrameCount++;
         if (!HasStateAuthority || _matchController == null || _spawnManager == null)
         {
+            if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] Early Return 1. Auth: {HasStateAuthority}, MatchController null: {_matchController == null}, SpawnManager null: {_spawnManager == null}");
             return;
         }
 
         if (_spawnManager.IsHostMigrationRecoveryInProgress)
         {
+            if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] Early Return 2. Host Migration.");
             return;
         }
+
+        if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] FUN. State: {State}, MatchPhase: {_matchController.Phase}, Phase: {Phase}, Ticks: {RemainingTicks}");
 
         if (State == DungeonPressureState.NotStarted)
         {
             if (_matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
             {
                 State = DungeonPressureState.Running;
+                Debug.Log($"[DungeonPressureController] State changed to RUNNING.");
             }
             return;
         }
