@@ -7,6 +7,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class TownProgressionPresenter : NetworkBehaviour
 {
+    [SerializeField] private TownProgressionView _viewPrefab;
+
     private TownProgressionBinding _binding;
     private TownProgressionView _view;
     private ApplicationStashContext _profileContext;
@@ -90,12 +92,14 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
     {
         if (_view == null)
         {
-            _view = TownProgressionView.Create(transform);
-            if (_view == null)
+            if (_viewPrefab == null)
             {
                 ReportMissingView();
                 return;
             }
+
+            _view = Instantiate(_viewPrefab, transform, false);
+            _view.name = _viewPrefab.name;
         }
 
         _view.Present(presentation);
@@ -176,7 +180,7 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
 
         _reportedMissingView = true;
         Debug.LogError(
-            $"[{nameof(TownProgressionPresenter)}] Missing required Resources prefab '{TownProgressionView.ResourcesPrefabName}.prefab'.",
+            $"[{nameof(TownProgressionPresenter)}] Missing required serialized {nameof(TownProgressionView)} prefab.",
             this);
     }
 }

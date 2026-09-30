@@ -8,8 +8,6 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class TownAttributeAssignmentView : MonoBehaviour
 {
-    public const string ResourcesPrefabName = "TownAttributeAssignmentView";
-
     [SerializeField] private TMP_Text _availablePointsText;
     [SerializeField] private Button _closeButton;
     [SerializeField] private TownAttributeAssignmentRowView[] _rows;
@@ -21,19 +19,6 @@ public sealed class TownAttributeAssignmentView : MonoBehaviour
 
     public event Action<CharacterAttribute> AssignmentRequested;
     public event Action CloseRequested;
-
-    public static TownAttributeAssignmentView Create(Transform owner)
-    {
-        TownAttributeAssignmentView prefab = Resources.Load<TownAttributeAssignmentView>(ResourcesPrefabName);
-        if (prefab == null)
-        {
-            return null;
-        }
-
-        TownAttributeAssignmentView instance = Instantiate(prefab, owner, false);
-        instance.name = prefab.name;
-        return instance;
-    }
 
     private void Awake()
     {

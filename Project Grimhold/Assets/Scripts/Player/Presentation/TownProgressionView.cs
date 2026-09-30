@@ -8,8 +8,6 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class TownProgressionView : MonoBehaviour
 {
-    public const string ResourcesPrefabName = "TownProgressionView";
-
     [SerializeField] private TMP_Text _levelText;
     [SerializeField] private TMP_Text _statusText;
     [SerializeField] private Image _progressFill;
@@ -17,19 +15,6 @@ public sealed class TownProgressionView : MonoBehaviour
     public TMP_Text LevelText => _levelText;
     public TMP_Text StatusText => _statusText;
     public Image ProgressFill => _progressFill;
-
-    public static TownProgressionView Create(Transform owner)
-    {
-        TownProgressionView prefab = Resources.Load<TownProgressionView>(ResourcesPrefabName);
-        if (prefab == null)
-        {
-            return null;
-        }
-
-        TownProgressionView instance = Instantiate(prefab, owner, false);
-        instance.name = prefab.name;
-        return instance;
-    }
 
     public void Present(in TownProgressionPresentation presentation)
     {

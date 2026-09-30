@@ -10,7 +10,7 @@ namespace Tests.EditMode.Progression
     public sealed class TownProgressionHudConfigurationTests
     {
         private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
-        private const string ViewPath = "Assets/Resources/TownProgressionView.prefab";
+        private const string ViewPath = "Assets/Prefabs/TownProgressionView.prefab";
 
         [Test]
         public void SocialPlayer_HasExactlyOneNetworkedTownProgressionPresenter()
@@ -25,6 +25,10 @@ namespace Tests.EditMode.Progression
             NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
             Assert.That(networkObject, Is.Not.Null);
             Assert.That(networkObject.NetworkedBehaviours, Does.Contain(presenters[0]));
+            var serializedPresenter = new SerializedObject(presenters[0]);
+            Assert.That(
+                serializedPresenter.FindProperty("_viewPrefab").objectReferenceValue,
+                Is.SameAs(AssetDatabase.LoadAssetAtPath<GameObject>(ViewPath).GetComponent<TownProgressionView>()));
         }
 
         [Test]

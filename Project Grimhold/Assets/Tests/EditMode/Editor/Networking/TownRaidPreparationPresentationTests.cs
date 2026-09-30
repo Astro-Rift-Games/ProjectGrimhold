@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Assert = NUnit.Framework.Assert;
 
@@ -41,6 +42,40 @@ public sealed class TownRaidPreparationPresentationTests
         Assert.That(TownRaidPreparationPresentation.TryCreate(
             notReady, notReady.HostProfileId, out TownRaidPreparationPresentation blocked), Is.True);
         Assert.That(blocked.CanStart, Is.False);
+    }
+
+    [Test]
+    public void Members_PreserveAuthoritativeOrderAndRefreshResolvedNamesWithoutSnapshotChange()
+    {
+        TownRaidPreparationSnapshot snapshot = CreateSnapshot("host", "client", false);
+        var names = new Dictionary<ProfileId, string>
+        {
+            [snapshot.HostProfileId] = "Astra",
+            [snapshot.Members[1].ProfileId] = "Bram"
+        };
+
+        bool Resolve(ProfileId profileId, out string displayName) =>
+            names.TryGetValue(profileId, out displayName);
+
+        Assert.That(TownRaidPreparationPresentation.TryCreate(
+            snapshot,
+            snapshot.Members[1].ProfileId,
+            Resolve,
+            out TownRaidPreparationPresentation first), Is.True);
+        Assert.That(first.Members[0].DisplayName, Is.EqualTo("Astra"));
+        Assert.That(first.Members[0].IsHost, Is.True);
+        Assert.That(first.Members[0].IsReady, Is.False);
+        Assert.That(first.Members[1].DisplayName, Is.EqualTo("Bram"));
+        Assert.That(first.Members[1].IsHost, Is.False);
+        Assert.That(first.Members[1].IsReady, Is.False);
+
+        names[snapshot.Members[1].ProfileId] = "Bramble";
+        Assert.That(TownRaidPreparationPresentation.TryCreate(
+            snapshot,
+            snapshot.Members[1].ProfileId,
+            Resolve,
+            out TownRaidPreparationPresentation refreshed), Is.True);
+        Assert.That(refreshed.Members[1].DisplayName, Is.EqualTo("Bramble"));
     }
 
     private static TownRaidPreparationSnapshot CreateSnapshot(string hostValue, string clientValue, bool ready)

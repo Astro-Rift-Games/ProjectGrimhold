@@ -20,7 +20,9 @@ public sealed class SessionCompositionConfigurationTests
     private const string TownRaidNpcPath = "Assets/Prefabs/TownRaidNpc.prefab";
     private const string TownRaidPreparationPath = "Assets/Prefabs/TownRaidPreparation.prefab";
     private const string TownRaidPreparationGuid = "a4c85a62e2f24d0ba0fcdb7dca91ce44";
-    private const string TownRaidPreparationViewPath = "Assets/Resources/TownRaidPreparationView.prefab";
+    private const string TownRaidPreparationViewPath = "Assets/Prefabs/TownRaidPreparationView.prefab";
+    private const string TownProgressionViewPath = "Assets/Prefabs/TownProgressionView.prefab";
+    private const string TownAttributeAssignmentViewPath = "Assets/Prefabs/TownAttributeAssignmentView.prefab";
     private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
     private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
     private const string SharedInventoryPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
@@ -563,6 +565,44 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(status, Is.Not.Null);
         Assert.That(statusViewport.GetComponent<ScrollRect>(), Is.Not.Null);
         Assert.That(statusViewport.GetComponent<LayoutElement>().preferredHeight, Is.GreaterThanOrEqualTo(300f));
+    }
+
+    [Test]
+    public void SocialPlayer_HasSerializedTownUiPrefabsWithCompleteInternalReferences()
+    {
+        GameObject socialPlayer = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+        GameObject raidViewPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownRaidPreparationViewPath);
+        GameObject progressionViewPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownProgressionViewPath);
+        GameObject attributeViewPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TownAttributeAssignmentViewPath);
+
+        Assert.That(socialPlayer, Is.Not.Null);
+        Assert.That(raidViewPrefab, Is.Not.Null);
+        Assert.That(progressionViewPrefab, Is.Not.Null);
+        Assert.That(attributeViewPrefab, Is.Not.Null);
+        TownRaidPreparationView raidView = raidViewPrefab.GetComponent<TownRaidPreparationView>();
+        TownProgressionView progressionView = progressionViewPrefab.GetComponent<TownProgressionView>();
+        TownAttributeAssignmentView attributeView = attributeViewPrefab.GetComponent<TownAttributeAssignmentView>();
+        Assert.That(raidView, Is.Not.Null);
+        Assert.That(progressionView, Is.Not.Null);
+        Assert.That(attributeView, Is.Not.Null);
+        Assert.That(
+            SerializedReference(socialPlayer.GetComponent<TownRaidPreparationPresenter>(), "_viewPrefab"),
+            Is.SameAs(raidView));
+        Assert.That(
+            SerializedReference(socialPlayer.GetComponent<TownProgressionPresenter>(), "_viewPrefab"),
+            Is.SameAs(progressionView));
+        Assert.That(
+            SerializedReference(socialPlayer.GetComponent<TownAttributeAssignmentPresenter>(), "_viewPrefab"),
+            Is.SameAs(attributeView));
+
+        Assert.That(progressionView.LevelText, Is.Not.Null);
+        Assert.That(progressionView.StatusText, Is.Not.Null);
+        Assert.That(progressionView.ProgressFill, Is.Not.Null);
+        Assert.That(attributeView.AvailablePointsText, Is.Not.Null);
+        Assert.That(attributeView.CloseButton, Is.Not.Null);
+        Assert.That(attributeView.Rows.Count, Is.EqualTo(6));
+        Assert.That(raidView.transform.Find("RaidCodePanel/RaidCodeInput")?.GetComponent<TMP_InputField>(), Is.Not.Null);
+        Assert.That(raidView.transform.Find("RaidCodePanel/StatusViewport/Status")?.GetComponent<TMP_Text>(), Is.Not.Null);
     }
 
     [Test]
