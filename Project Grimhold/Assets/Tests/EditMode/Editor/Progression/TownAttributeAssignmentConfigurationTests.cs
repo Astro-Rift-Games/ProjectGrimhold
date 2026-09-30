@@ -14,7 +14,7 @@ namespace Tests.EditMode.Progression
         private const string InputActionsPath = "Assets/Input/PlayerInputActions.inputactions";
         private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
         private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
-        private const string ViewPath = "Assets/Resources/TownAttributeAssignmentView.prefab";
+        private const string ViewPath = "Assets/Prefabs/TownAttributeAssignmentView.prefab";
 
         [Test]
         public void LocalUI_HasToggleAttributesBoundToC()
@@ -66,6 +66,10 @@ namespace Tests.EditMode.Progression
             NetworkObject networkObject = social.GetComponent<NetworkObject>();
             Assert.That(networkObject, Is.Not.Null);
             Assert.That(networkObject.NetworkedBehaviours, Does.Contain(socialPresenters[0]));
+            var serializedPresenter = new SerializedObject(socialPresenters[0]);
+            Assert.That(
+                serializedPresenter.FindProperty("_viewPrefab").objectReferenceValue,
+                Is.SameAs(AssetDatabase.LoadAssetAtPath<GameObject>(ViewPath).GetComponent<TownAttributeAssignmentView>()));
 
             Assert.That(
                 raid.GetComponentsInChildren<TownAttributeAssignmentPresenter>(true),

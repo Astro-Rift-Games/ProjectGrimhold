@@ -6,6 +6,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 {
+    [SerializeField] private TownAttributeAssignmentView _viewPrefab;
+
     private TownAttributeAssignmentBinding _binding;
     private TownAttributeAssignmentView _view;
     private ApplicationStashContext _profileContext;
@@ -54,15 +56,17 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
             return;
         }
 
-        _view = TownAttributeAssignmentView.Create(transform);
-        if (_view == null)
+        if (_viewPrefab == null)
         {
             Debug.LogError(
-                $"[{nameof(TownAttributeAssignmentPresenter)}] Missing required Resources prefab '{TownAttributeAssignmentView.ResourcesPrefabName}.prefab'.",
+                $"[{nameof(TownAttributeAssignmentPresenter)}] Missing required serialized {nameof(TownAttributeAssignmentView)} prefab.",
                 this);
             ClearReferences();
             return;
         }
+
+        _view = Instantiate(_viewPrefab, transform, false);
+        _view.name = _viewPrefab.name;
 
         _view.Close();
         _view.AssignmentRequested += AssignAttribute;

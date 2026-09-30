@@ -18,15 +18,19 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     [SerializeField]
     private PlayerInteractionNetworkController _interactionController;
     [SerializeField] private DialoguePresenter _dialoguePresenter;
+    [SerializeField] private TownRaidPreparationView _viewPrefab;
 
     private TownRaidPreparationView _view;
     private TownRaidPreparationDirectory _directory;
+    private TownPartyDirectory _partyDirectory;
     private TownRaidPreparationNetworkController _presentedPreparation;
+    private TownRaidPreparationPresentation _presentedPresentation;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
     private int _presentedRevision = -1;
     private bool _showingNoPreparation;
     private NetworkObject _openNpc;
+    private bool _reportedMissingViewPrefab;
 
     private void Awake()
     {
@@ -92,11 +96,14 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             return;
         }
 
-        _view = TownRaidPreparationView.Create(transform);
-        if (_view == null)
+        if (_viewPrefab == null)
         {
+            ReportMissingViewPrefab();
             return;
         }
+
+        _view = Instantiate(_viewPrefab, transform, false);
+        _view.name = _viewPrefab.name;
 
         _view.CreateRequested += CreateRaid;
         _view.JoinRequested += JoinRaid;
@@ -171,6 +178,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private void OpenForTarget(NetworkObject target, TownRaidNpcInteractable npc)
     {
         _directory = npc.PreparationDirectory;
+        _partyDirectory = Runner.GetComponent<TownPartyDirectoryContext>()?.Directory;
         _openNpc = target;
         _view.Open();
         if (!_view.IsPanelOpen)
@@ -189,30 +197,89 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         ProfileId localProfile = GetLocalProfile();
         TownRaidPreparationNetworkController preparation = null;
         bool hasPreparation = _directory != null && _directory.TryGetPreparation(localProfile, out preparation);
-        if (!hasPreparation ||
-            !TownRaidPreparationPresentation.TryCreate(preparation.Snapshot, localProfile, out TownRaidPreparationPresentation presentation))
+        TownRaidPreparationSnapshot snapshot = hasPreparation ? preparation.Snapshot : default;
+        if (!hasPreparation)
         {
             if (force || !_showingNoPreparation)
             {
                 _view.PresentNoPreparation();
                 _showingNoPreparation = true;
                 _presentedPreparation = null;
+                _presentedPresentation = default;
                 _presentedRevision = -1;
             }
 
             return;
         }
 
-        if (!force && !_showingNoPreparation && _presentedPreparation == preparation &&
-            _presentedRevision == preparation.SnapshotRevision)
+        if (_partyDirectory == null)
         {
+            _partyDirectory = Runner?.GetComponent<TownPartyDirectoryContext>()?.Directory;
+        }
+
+        if (!force && !_showingNoPreparation && _presentedPreparation == preparation &&
+            _presentedRevision == preparation.SnapshotRevision && NamesMatch(snapshot))
+        {
+            return;
+        }
+
+        TownRaidPreparationPresentation.DisplayNameResolver resolver = _partyDirectory != null
+            ? _partyDirectory.TryGetDisplayName
+            : null;
+        if (!TownRaidPreparationPresentation.TryCreate(
+                snapshot,
+                localProfile,
+                resolver,
+                out TownRaidPreparationPresentation presentation))
+        {
+            if (force || !_showingNoPreparation)
+            {
+                _view.PresentNoPreparation();
+                _showingNoPreparation = true;
+                _presentedPreparation = null;
+                _presentedPresentation = default;
+                _presentedRevision = -1;
+            }
+
             return;
         }
 
         _showingNoPreparation = false;
         _presentedPreparation = preparation;
         _presentedRevision = preparation.SnapshotRevision;
+        _presentedPresentation = presentation;
         _view.PresentPreparation(presentation);
+    }
+
+    private bool NamesMatch(in TownRaidPreparationSnapshot snapshot)
+    {
+        if (_presentedPresentation.Members == null ||
+            _presentedPresentation.Members.Count != snapshot.Members.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < snapshot.Members.Count; index++)
+        {
+            ProfileId profileId = snapshot.Members[index].ProfileId;
+            string displayName = profileId.Value;
+            if (_partyDirectory != null &&
+                _partyDirectory.TryGetDisplayName(profileId, out string resolvedName) &&
+                !string.IsNullOrWhiteSpace(resolvedName))
+            {
+                displayName = resolvedName;
+            }
+
+            if (!string.Equals(
+                    _presentedPresentation.Members[index].DisplayName,
+                    displayName,
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void CreateRaid(string _) => _directory?.RequestCreate();
@@ -307,9 +374,24 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         }
 
         _directory = null;
+        _partyDirectory = null;
         _presentedPreparation = null;
+        _presentedPresentation = default;
         _presentedRevision = -1;
         _showingNoPreparation = false;
+    }
+
+    private void ReportMissingViewPrefab()
+    {
+        if (_reportedMissingViewPrefab)
+        {
+            return;
+        }
+
+        _reportedMissingViewPrefab = true;
+        Debug.LogError(
+            $"[{nameof(TownRaidPreparationPresenter)}] Missing required serialized {nameof(TownRaidPreparationView)} prefab.",
+            this);
     }
 
     private void CacheDependencies()

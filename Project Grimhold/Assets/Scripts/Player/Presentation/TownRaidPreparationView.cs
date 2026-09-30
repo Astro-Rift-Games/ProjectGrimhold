@@ -10,7 +10,6 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class TownRaidPreparationView : MonoBehaviour
 {
-    public const string ResourcesPrefabName = "TownRaidPreparationView";
     private GameObject _promptRoot;
     private TMP_Text _promptText;
     private GameObject _panelRoot;
@@ -35,23 +34,6 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public event Action CloseRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
-
-    public static TownRaidPreparationView Create(Transform owner)
-    {
-        TownRaidPreparationView prefab = Resources.Load<TownRaidPreparationView>(ResourcesPrefabName);
-        if (prefab == null)
-        {
-            Debug.LogError(
-                $"[{nameof(TownRaidPreparationView)}] Missing required Resources prefab " +
-                $"'{ResourcesPrefabName}.prefab'.");
-            return null;
-        }
-
-        TownRaidPreparationView instance = UnityEngine.Object.Instantiate(prefab, owner, false);
-        instance.name = prefab.name;
-        instance.CacheSerializedReferences();
-        return instance;
-    }
 
 #if UNITY_EDITOR
     public static TownRaidPreparationView CreateEditorSource(Transform owner)
@@ -218,13 +200,18 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         }
 
         var status = new System.Text.StringBuilder();
-        status.Append("Código: ").Append(snapshot.RaidCode.Value)
-            .Append("  Jugadores: ").Append(snapshot.Members.Count)
+        status.Append("Jugadores: ").Append(presentation.Members.Count)
             .Append(" / ").Append(TownRaidPreparationRules.MaxMembers).AppendLine();
-        for (int index = 0; index < snapshot.Members.Count; index++)
+        for (int index = 0; index < presentation.Members.Count; index++)
         {
-            TownRaidPreparationMember member = snapshot.Members[index];
-            status.Append(member.ProfileId.Value)
+            TownRaidPreparationPresentation.Member member = presentation.Members[index];
+            status.Append(member.DisplayName);
+            if (member.IsHost)
+            {
+                status.Append(" — Host");
+            }
+
+            status
                 .Append(member.IsReady ? " — Ready" : " — No Ready")
                 .AppendLine();
         }
@@ -359,7 +346,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         }
 
         GUIUtility.systemCopyBuffer = raidCode.Value;
-        ShowStatus($"Código {raidCode.Value} copiado.");
+        ShowStatus("Código copiado.");
     }
 
     private void ShowStatus(string status)

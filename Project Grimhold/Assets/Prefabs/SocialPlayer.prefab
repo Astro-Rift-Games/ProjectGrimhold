@@ -1603,6 +1603,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownRaidPreparationPresenter
   _candidateSource: {fileID: 6856292445654665185}
   _interactionController: {fileID: 1101445917034815865}
+  _viewPrefab: {fileID: 891459738585303682, guid: 95a72cb26fc664e45972dec764a75d67, type: 3}
 --- !u!114 &-4837222205145677922
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1643,6 +1644,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b305844b221c4226932b004585f678fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownProgressionPresenter
+  _viewPrefab: {fileID: 4434149186620999421, guid: 2c611bdcce48ffa40bf46b6dba5eed59, type: 3}
 --- !u!114 &6766885198686593445
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1655,6 +1657,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17d571a37ded46f6b176b2ca399e3582, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownAttributeAssignmentPresenter
+  _viewPrefab: {fileID: 7227192940523254238, guid: 2ffde6c2fe9c41747816e2bbc8fbee91, type: 3}
 --- !u!114 &8056183654169602884
 MonoBehaviour:
   m_ObjectHideFlags: 0
