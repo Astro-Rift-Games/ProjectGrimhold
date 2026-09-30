@@ -1,4 +1,6 @@
 using UnityEngine;
+using Fusion;
+using Spawning;
 
 /// <summary>
 /// Owns the authoritative enemy death transition.
@@ -8,6 +10,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class EnemyCharacter : CharacterBase
 {
+    [Networked]
+    public EnemyPopulationOrigin PopulationOrigin { get; set; }
     [Header("Death Dependencies")]
     [SerializeField]
     private EnemyMovementAIController _movementController;
@@ -34,6 +38,28 @@ public sealed class EnemyCharacter : CharacterBase
         base.Spawned();
         CacheDeathDependencies();
         _deathDependenciesValid = ValidateDeathDependencies();
+
+        if (HasStateAuthority && IsAlive)
+        {
+            var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+            if (spawnManager != null)
+            {
+                spawnManager.PopulationTracker.Register(this);
+            }
+        }
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        if (hasState)
+        {
+            var spawnManager = runner.GetComponent<NetworkSpawnManager>();
+            if (spawnManager != null)
+            {
+                spawnManager.PopulationTracker.Unregister(this);
+            }
+        }
+        base.Despawned(runner, hasState);
     }
 
     /// <summary>
@@ -63,6 +89,15 @@ public sealed class EnemyCharacter : CharacterBase
         // Death is resolved inside authoritative simulation, which is the only safe
         // place to change replicated container availability.
         _lootContainer.SetAvailability(true);
+
+        if (HasStateAuthority)
+        {
+            var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+            if (spawnManager != null)
+            {
+                spawnManager.PopulationTracker.Unregister(this);
+            }
+        }
     }
 
     private void CacheDeathDependencies()

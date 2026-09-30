@@ -149,6 +149,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     /// </summary>
     public NetworkMatchController MatchController => _matchController;
     public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
+    public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
@@ -2728,6 +2729,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _runner.GetComponent<EntityRegistry>()?.ClearForRaidClosure();
         _runner.GetComponent<ExtractionSanctuaryAssignmentService>()?.ResetForRaidClosure();
         ReinforcementRegistry.ResetForRaidClosure();
+        PopulationTracker.ResetForRaidClosure();
         _cleanupBuffer.Clear();
         _resultsWorldCleanupFailureCount = failureCount;
 
@@ -2755,7 +2757,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return false;
     }
 
-    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType)
+    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType, Spawning.EnemyPopulationOrigin origin = Spawning.EnemyPopulationOrigin.Bootstrap)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
@@ -2809,6 +2811,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 if (instance != null)
                 {
+                    if (instance.TryGetBehaviour(out EnemyCharacter character))
+                    {
+                        character.PopulationOrigin = origin;
+                    }
+
                     if (instance.TryGetBehaviour(out EnemyMovementAIController controller))
                     {
                         controller.InitializePatrolRoute(resolvedRoute);
