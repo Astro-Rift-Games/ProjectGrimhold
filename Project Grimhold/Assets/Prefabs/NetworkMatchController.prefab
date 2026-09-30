@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 400000}
   - component: {fileID: 11400000}
   - component: {fileID: 11400002}
+  - component: {fileID: 2361456078320602033}
   m_Layer: 0
   m_Name: NetworkMatchController
   m_TagString: Untagged
@@ -52,6 +53,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 11400002}
+  - {fileID: 2361456078320602033}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &11400002
 MonoBehaviour:
@@ -66,3 +68,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkMatchController
   _Phase: 0
+  _ExpectedAdmissionCount: 0
+  _RaidGenerationId:
+    _length: 0
+    _data:
+      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  _ClosureState: 0
+  _ClosureReason: 0
+  _CleanupFailureCount: 0
+--- !u!114 &2361456078320602033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89074d13f742df848b967fd03d69bbb9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureController
+  _config: {fileID: 11400000, guid: 8143ae40b1350374fb16d30fcbf233c2, type: 2}
+  _RemainingTicks: 0
+  _Phase: 0
+  _State: 0
