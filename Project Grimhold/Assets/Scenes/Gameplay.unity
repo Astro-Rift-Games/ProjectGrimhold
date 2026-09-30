@@ -205,13 +205,6 @@ MonoBehaviour:
     - {fileID: 925598926}
     - {fileID: 925598925}
   _spawnGroups:
-  - Group: 1
-    SpawnPoints:
-    - {fileID: 1364172901}
-    - {fileID: 1495331929}
-    - {fileID: 1236879910}
-    - {fileID: 104836956}
-    Amount: 4
   - Group: 2
     SpawnPoints:
     - {fileID: 868585263}
@@ -238,17 +231,19 @@ MonoBehaviour:
     - {fileID: 229313191}
     - {fileID: 2111354496}
     Amount: 4
+  - Group: 1
+    SpawnPoints:
+    - {fileID: 1364172901}
+    - {fileID: 1495331929}
+    - {fileID: 1236879910}
+    - {fileID: 104836956}
+    Amount: 4
   - Group: 7
     SpawnPoints:
-    - {fileID: 878247915}
-    - {fileID: 1327654342}
-    - {fileID: 1483708235}
-    - {fileID: 1736134023}
-    - {fileID: 844140369}
-    - {fileID: 168012578}
-    - {fileID: 927014223}
-    - {fileID: 229313191}
-    - {fileID: 2111354496}
+    - {fileID: 1364172901}
+    - {fileID: 1495331929}
+    - {fileID: 1236879910}
+    - {fileID: 104836956}
     Amount: 4
 --- !u!1001 &104836955
 PrefabInstance:

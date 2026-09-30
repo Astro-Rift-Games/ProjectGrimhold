@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 11400002}
   - component: {fileID: 2361456078320602033}
   - component: {fileID: -678287303909189332}
+  - component: {fileID: 6306402160097955794}
   m_Layer: 0
   m_Name: NetworkMatchController
   m_TagString: Untagged
@@ -56,6 +57,7 @@ MonoBehaviour:
   - {fileID: 11400002}
   - {fileID: 2361456078320602033}
   - {fileID: -678287303909189332}
+  - {fileID: 6306402160097955794}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &11400002
 MonoBehaviour:
@@ -107,3 +109,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyReinforcementDirector
   _config: {fileID: 11400000, guid: 8143ae40b1350374fb16d30fcbf233c2, type: 2}
+--- !u!114 &6306402160097955794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dda68550e44f54d44b408a6adeeed4b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureAudioPresenter
+  _pressureController: {fileID: 2361456078320602033}
+  _reinforcementsSfx:
+    _clips:
+    - {fileID: 8300000, guid: 070779cdcfbe3ff4688691fb33bc3e4e, type: 3}
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
+  _criticalPressureSfx:
+    _clips:
+    - {fileID: 8300000, guid: 1fd31868d68903d4f9e2c4a3b7ef98f3, type: 3}
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
+  _collapseSfx:
+    _clips:
+    - {fileID: 8300000, guid: 5ae4d298ed547ba4c88587effb75d7e1, type: 3}
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
