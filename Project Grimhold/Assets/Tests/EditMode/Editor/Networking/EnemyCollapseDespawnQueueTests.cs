@@ -66,4 +66,29 @@ public class EnemyCollapseDespawnQueueTests
         Assert.AreEqual(0, _queue.Remaining);
         Assert.AreEqual(0, _queue.CurrentBatch.Count);
     }
+
+    [Test]
+    public void Populate_WhenCalledMidProcess_OverwritesQueueWithNewState()
+    {
+        _tracker.Register(1u, EnemyPopulationOrigin.Bootstrap, 1);
+        _tracker.Register(2u, EnemyPopulationOrigin.Bootstrap, 1);
+        _queue.Populate(_tracker); // 2 items in queue
+
+        _queue.PrepareNextBatch(1); // 1 item in batch, 1 remaining
+        
+        // Mid-process (e.g. host migration), the tracker gets a different set
+        _tracker.ResetForRaidClosure();
+        _tracker.Register(3u, EnemyPopulationOrigin.Reinforcement, 1);
+        _tracker.Register(4u, EnemyPopulationOrigin.Reinforcement, 1);
+        _tracker.Register(5u, EnemyPopulationOrigin.Reinforcement, 1);
+
+        _queue.Populate(_tracker); // Should clear the old 1 remaining and populate 3
+
+        Assert.AreEqual(3, _queue.Remaining);
+        
+        // Ensure previous batch buffer is not accidentally kept if we just do PrepareNextBatch
+        _queue.PrepareNextBatch(5);
+        Assert.AreEqual(3, _queue.CurrentBatch.Count); // only the new 3
+        Assert.AreEqual(0, _queue.Remaining);
+    }
 }

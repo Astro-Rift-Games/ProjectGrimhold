@@ -123,4 +123,24 @@ public class PvePopulationTrackerTests
         Assert.AreEqual(1, _tracker.ActiveReinforcements);
         Assert.AreEqual(4, _tracker.GetActiveThreatByOrigin(EnemyPopulationOrigin.Reinforcement));
     }
+    [Test]
+    public void TryReconcile_ReturnsTrueAndLogWhenMatching()
+    {
+        bool success = PvePopulationTracker.TryReconcile(5, 5, out string log);
+        
+        Assert.IsTrue(success);
+        Assert.IsTrue(log.Contains("successful"));
+        Assert.IsTrue(log.Contains("5"));
+    }
+
+    [Test]
+    public void TryReconcile_ReturnsFalseAndWarningWhenMismatching()
+    {
+        bool success = PvePopulationTracker.TryReconcile(4, 5, out string log);
+        
+        Assert.IsFalse(success);
+        Assert.IsTrue(log.Contains("mismatch"));
+        Assert.IsTrue(log.Contains("4"));
+        Assert.IsTrue(log.Contains("5"));
+    }
 }

@@ -1,7 +1,9 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+
 
 public sealed class DialogueCompletionPlayModeTests
 {
@@ -54,3 +56,4 @@ public sealed class DialogueCompletionPlayModeTests
         Object.Destroy(sequence);
     }
 }
+#endif

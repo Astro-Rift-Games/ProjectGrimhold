@@ -13,13 +13,13 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
     public int TotalSpawnsGenerated { get; private set; }
 
     [Networked]
-    private int _evaluationTimerTicks { get; set; }
+    internal int _evaluationTimerTicks { get; set; }
 
     [Networked]
-    private int _minSpawnTimerTicks { get; set; }
+    internal int _minSpawnTimerTicks { get; set; }
 
     [Networked]
-    private DungeonPressurePhase _lastPhase { get; set; }
+    internal DungeonPressurePhase _lastPhase { get; set; }
 
     private NetworkMatchController _matchController;
     private NetworkSpawnManager _spawnManager;

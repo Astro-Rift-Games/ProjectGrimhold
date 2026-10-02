@@ -2716,7 +2716,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         for (int index = 0; index < _cleanupBuffer.Count; index++)
         {
             NetworkObject networkObject = _cleanupBuffer[index];
-            if (networkObject == null ||
+            if (networkObject == null || !networkObject.IsValid ||
                 networkObject.TryGetBehaviour(out NetworkMatchController _) ||
                 networkObject.NetworkTypeId.IsSceneObject ||
                 IsRetainedResultsObject(networkObject))
@@ -2754,6 +2754,30 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _resultsWorldCleanupFailureCount = failureCount;
 
         return failureCount == 0;
+    }
+
+    public void ReconcilePopulationTracker(IReadOnlyCollection<NetworkObject> restoredObjects)
+    {
+        if (PopulationTracker == null || restoredObjects == null)
+            return;
+
+        int restoredVivos = 0;
+        foreach (var obj in restoredObjects)
+        {
+            if (obj != null && obj.IsValid && obj.TryGetBehaviour(out EnemyCharacter enemy) && enemy.IsAlive)
+            {
+                restoredVivos++;
+            }
+        }
+
+        if (!PvePopulationTracker.TryReconcile(restoredVivos, PopulationTracker.TotalActivePopulation, out string log))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] {log}");
+        }
+        else
+        {
+            Debug.Log($"[NetworkSpawnManager] {log}");
+        }
     }
 
     private bool IsRetainedResultsObject(NetworkObject networkObject)

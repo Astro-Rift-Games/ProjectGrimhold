@@ -89,4 +89,16 @@ public sealed class PvePopulationTracker
         _populationByOrigin.Clear();
         _threatByOrigin.Clear();
     }
+
+    public static bool TryReconcile(int restoredAliveCount, int trackerCount, out string discrepancyLog)
+    {
+        if (restoredAliveCount != trackerCount)
+        {
+            discrepancyLog = $"Host Migration population reconciliation mismatch: Restored alive enemies = {restoredAliveCount}, Tracker population = {trackerCount}.";
+            return false;
+        }
+        
+        discrepancyLog = $"Host Migration population reconciliation successful. Active population: {restoredAliveCount}.";
+        return true;
+    }
 }

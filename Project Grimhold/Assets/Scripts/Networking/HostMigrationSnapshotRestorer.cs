@@ -20,6 +20,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
     private readonly Dictionary<ProfileId, NetworkObject> _restoredParticipants = new Dictionary<ProfileId, NetworkObject>();
 
     public IReadOnlyDictionary<ProfileId, NetworkObject> GetRestoredParticipants() => _restoredParticipants;
+    public IReadOnlyCollection<NetworkObject> RestoredObjects => _allRestoredObjects;
 
     public bool IsRestoringObject(NetworkObject networkObject)
     {
@@ -99,6 +100,7 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
             BuildRestoredParticipantIndex();
 
             Debug.Log("[HM-MULTI] Snapshot restoration finished successfully.", this);
+            _spawnManager.ReconcilePopulationTracker(RestoredObjects);
             _spawnManager.ReportSnapshotRestoreResult(true, GetRestoredParticipants());
         }
         catch (Exception ex)
