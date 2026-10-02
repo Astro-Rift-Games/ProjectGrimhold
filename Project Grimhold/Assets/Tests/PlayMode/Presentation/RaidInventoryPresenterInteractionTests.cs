@@ -268,6 +268,39 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_inputReader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.True);
         }
 
+        [Test]
+        public void ConsumeConfirmation_ShowsSuccessFeedbackAndKeepsRejectionDistinct()
+        {
+            SetPresenterMode(_presenter, 1); // ScreenMode.Personal
+
+            InvokeMethod(_presenter, "OnConsumeConfirmed", new LootId("health_potion"));
+
+            Assert.That(_view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+            Assert.That(_view.TransferFeedbackText.text, Is.EqualTo("Consumible usado."));
+
+            InvokeMethod(_presenter, "OnConsumeRejected", ConsumableFailureReason.HealthFull);
+
+            Assert.That(_view.TransferFeedbackText.gameObject.activeSelf, Is.True);
+            Assert.That(_view.TransferFeedbackText.text, Is.EqualTo("Tu salud ya está al máximo."));
+        }
+
+        [Test]
+        public void ConsumePresentation_MissingCatalogDoesNotThrow()
+        {
+            ConsumableParticlePresenter presenter = _playerInstance.GetComponent<ConsumableParticlePresenter>();
+            Assert.That(presenter, Is.Not.Null);
+            typeof(ConsumableParticlePresenter)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(presenter, null);
+
+            MethodInfo callback = typeof(ConsumableParticlePresenter).GetMethod(
+                "OnConsumeConfirmed",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(callback, Is.Not.Null);
+            Assert.DoesNotThrow(() => callback.Invoke(presenter, new object[] { new LootId("health_potion") }));
+        }
+
         [TestCase(LootTransferFailureReason.Uninitialized, "No se pudo retirar el loot")]
         [TestCase(LootTransferFailureReason.None, "No se pudo retirar el loot")]
         [TestCase(LootTransferFailureReason.InvalidLoot, "Loot no válido")]
@@ -403,11 +436,11 @@ namespace Tests.PlayMode.Presentation
             view.SetContainerPanelVisible(visible);
         }
 
-        private static object InvokeMethod(object target, string methodName)
+        private static object InvokeMethod(object target, string methodName, params object[] arguments)
         {
             MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             Assert.That(method, Is.Not.Null);
-            return method.Invoke(target, null);
+            return method.Invoke(target, arguments);
         }
 
         private static int ReadSuppressionCount(PlayerInputReader reader)
