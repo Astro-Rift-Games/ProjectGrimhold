@@ -1,17 +1,22 @@
 using NUnit.Framework;
 using UnityEngine;
+using System.Reflection;
 
 public class DungeonPressureConfigTests
 {
+    private void SetConfigValues(DungeonPressureConfig config, int total, int reinforcements, int critical)
+    {
+        var type = typeof(DungeonPressureConfig);
+        type.GetField("_totalDurationSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, total);
+        type.GetField("_reinforcementsThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, reinforcements);
+        type.GetField("_criticalPressureThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, critical);
+    }
+
     [Test]
     public void Validate_ValidConfig_ReturnsTrue()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        var so = new UnityEditor.SerializedObject(config);
-        so.FindProperty("_totalDurationSeconds").intValue = 600;
-        so.FindProperty("_reinforcementsThresholdSeconds").intValue = 300;
-        so.FindProperty("_criticalPressureThresholdSeconds").intValue = 120;
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetConfigValues(config, 600, 300, 120);
 
         bool isValid = config.Validate(out string error);
 
@@ -23,11 +28,7 @@ public class DungeonPressureConfigTests
     public void Validate_TotalDurationZero_ReturnsFalse()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        var so = new UnityEditor.SerializedObject(config);
-        so.FindProperty("_totalDurationSeconds").intValue = 0;
-        so.FindProperty("_reinforcementsThresholdSeconds").intValue = 300;
-        so.FindProperty("_criticalPressureThresholdSeconds").intValue = 120;
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetConfigValues(config, 0, 300, 120);
 
         bool isValid = config.Validate(out string error);
 
@@ -39,11 +40,7 @@ public class DungeonPressureConfigTests
     public void Validate_CriticalPressureZero_ReturnsFalse()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        var so = new UnityEditor.SerializedObject(config);
-        so.FindProperty("_totalDurationSeconds").intValue = 600;
-        so.FindProperty("_reinforcementsThresholdSeconds").intValue = 300;
-        so.FindProperty("_criticalPressureThresholdSeconds").intValue = 0;
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetConfigValues(config, 600, 300, 0);
 
         bool isValid = config.Validate(out string error);
 
@@ -55,11 +52,7 @@ public class DungeonPressureConfigTests
     public void Validate_ReinforcementsNotGreaterThanCritical_ReturnsFalse()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        var so = new UnityEditor.SerializedObject(config);
-        so.FindProperty("_totalDurationSeconds").intValue = 600;
-        so.FindProperty("_reinforcementsThresholdSeconds").intValue = 120;
-        so.FindProperty("_criticalPressureThresholdSeconds").intValue = 120; // equal
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetConfigValues(config, 600, 120, 120); // equal
 
         bool isValid = config.Validate(out string error);
 
@@ -71,11 +64,7 @@ public class DungeonPressureConfigTests
     public void Validate_TotalNotGreaterThanReinforcements_ReturnsFalse()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        var so = new UnityEditor.SerializedObject(config);
-        so.FindProperty("_totalDurationSeconds").intValue = 300; // equal
-        so.FindProperty("_reinforcementsThresholdSeconds").intValue = 300;
-        so.FindProperty("_criticalPressureThresholdSeconds").intValue = 120;
-        so.ApplyModifiedPropertiesWithoutUndo();
+        SetConfigValues(config, 300, 300, 120); // equal
 
         bool isValid = config.Validate(out string error);
 
