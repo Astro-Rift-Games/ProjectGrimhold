@@ -10,10 +10,13 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
     private DungeonPressureConfig _config;
 
     [Networked]
-    private int _spawnsConsumedThisPhase { get; set; }
+    public int TotalSpawnsGenerated { get; private set; }
 
     [Networked]
-    private float _spawnCooldownTimer { get; set; }
+    private int _evaluationTimerTicks { get; set; }
+
+    [Networked]
+    private int _minSpawnTimerTicks { get; set; }
 
     [Networked]
     private DungeonPressurePhase _lastPhase { get; set; }
@@ -23,6 +26,9 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
     private DungeonPressureController _pressureController;
 
     private readonly List<Vector3> _playerPositionsCache = new List<Vector3>();
+    private readonly List<Transform> _validPointsBuffer = new List<Transform>();
+
+    public ReinforcementRejection LastRejection { get; private set; } = ReinforcementRejection.None;
 
     public override void Spawned()
     {
@@ -34,8 +40,9 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
         {
             if (_spawnManager != null && _spawnManager.ShouldInitializeMatchPhase)
             {
-                _spawnsConsumedThisPhase = 0;
-                _spawnCooldownTimer = 0f;
+                TotalSpawnsGenerated = 0;
+                _evaluationTimerTicks = 0;
+                _minSpawnTimerTicks = 0;
                 _lastPhase = DungeonPressurePhase.Normal;
             }
         }
@@ -49,88 +56,105 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
         if (_spawnManager.IsHostMigrationRecoveryInProgress)
             return;
 
-        if (_matchController.Phase != NetworkMatchController.MatchPhase.InProgress || !_pressureController.IsRunning)
-            return;
-
-        if (_pressureController.Phase != _lastPhase)
-        {
-            _lastPhase = _pressureController.Phase;
-            _spawnsConsumedThisPhase = 0;
-            _spawnCooldownTimer = 0f;
-        }
-
 #if UNITY_EDITOR
         if (_forceAttemptRequested)
         {
             _forceAttemptRequested = false;
-            var forcePolicy = _config.GetPolicy(_pressureController.Phase);
-            TrySpawn(forcePolicy);
+            if (_matchController.Phase != NetworkMatchController.MatchPhase.InProgress || !_pressureController.IsRunning)
+            {
+                SetRejectionReason(ReinforcementRejection.Disabled);
+                return;
+            }
+            EvaluateAndSpawn(true);
             return;
         }
 #endif
 
-        var policy = _config.GetPolicy(_pressureController.Phase);
-
-        if (policy.Budget <= 0)
+        if (_matchController.Phase != NetworkMatchController.MatchPhase.InProgress || !_pressureController.IsRunning)
         {
-            SetRejectionReason("Disabled / No Budget");
+            SetRejectionReason(ReinforcementRejection.Disabled);
             return;
         }
 
-        if (policy.SpawnIntervalSeconds <= 0f)
+        if (_pressureController.Phase != _lastPhase)
         {
-            SetRejectionReason("Invalid Interval");
-            return;
+            _lastPhase = _pressureController.Phase;
+            var newPolicy = _config.GetPolicy(_lastPhase);
+            _evaluationTimerTicks = Mathf.CeilToInt(newPolicy.EvaluationIntervalSeconds * Runner.TickRate);
         }
 
-        _spawnCooldownTimer -= Runner.DeltaTime;
+        if (_evaluationTimerTicks > 0)
+            _evaluationTimerTicks--;
 
-        if (_spawnCooldownTimer <= 0f)
+        if (_minSpawnTimerTicks > 0)
+            _minSpawnTimerTicks--;
+
+        if (_evaluationTimerTicks <= 0)
         {
-            _spawnCooldownTimer = policy.SpawnIntervalSeconds;
-            TrySpawn(policy);
+            EvaluateAndSpawn(false);
         }
     }
 
-    private void TrySpawn(ReinforcementPolicy policy)
+    private void EvaluateAndSpawn(bool force)
     {
-        if (_spawnsConsumedThisPhase >= policy.Budget)
+        var policy = _config.GetPolicy(_pressureController.Phase);
+        
+        // Restart evaluation timer
+        _evaluationTimerTicks = Mathf.CeilToInt(policy.EvaluationIntervalSeconds * Runner.TickRate);
+
+        if (_pressureController.Phase == DungeonPressurePhase.Normal || _pressureController.Phase == DungeonPressurePhase.Collapse)
         {
-            SetRejectionReason("Population Budget Exhausted");
+            SetRejectionReason(ReinforcementRejection.Disabled);
             return;
         }
 
-        int availableConcurrent = _spawnManager.PopulationTracker.GetAvailableCapacity(policy.MaxConcurrentSpawns, EnemyPopulationOrigin.Reinforcement);
-        if (availableConcurrent <= 0)
-        {
-            SetRejectionReason("Active Threat Cap Reached");
-            return;
-        }
+        bool intervalElapsed = force || (_minSpawnTimerTicks <= 0);
+        
+        int capacityBudget = _spawnManager.PopulationTracker.GetAvailableCapacity(policy.PopulationBudget, EnemyPopulationOrigin.Reinforcement);
+        int capacityGlobal = _spawnManager.PopulationTracker.GetAvailableGlobalCapacity(_config.MaxGlobalEnemies);
+        
+        var registry = _spawnManager.ReinforcementRegistry;
+        bool hasValidPoints = registry != null && registry.Points != null && registry.Points.Length > 0;
 
-        int availableGlobal = _spawnManager.PopulationTracker.GetAvailableGlobalCapacity(_config.MaxGlobalEnemies);
-        if (availableGlobal <= 0)
-        {
-            SetRejectionReason("Global Cap Reached");
-            return;
-        }
+        var plan = ReinforcementSpawnPlanner.Plan(policy, capacityBudget, capacityGlobal, intervalElapsed, hasValidPoints);
 
-        Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
-        if (spawnPoint != null)
+        if (plan.Count > 0)
         {
-            if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
+            int spawnedCount = 0;
+            for (int i = 0; i < plan.Count; i++)
             {
-                _spawnsConsumedThisPhase++;
-                SetRejectionReason("None (Success)");
-                Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name}. Phase Budget: {_spawnsConsumedThisPhase}/{policy.Budget}. Active Threat Capacity: {availableConcurrent - 1}. Global Capacity: {availableGlobal - 1}.");
+                Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
+                if (spawnPoint != null)
+                {
+                    if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
+                    {
+                        spawnedCount++;
+                        TotalSpawnsGenerated++;
+                        Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name}.");
+                    }
+                    else
+                    {
+                        // Stop if manager rejects
+                        if (spawnedCount == 0) SetRejectionReason(ReinforcementRejection.SpawnFailed);
+                        break;
+                    }
+                }
+                else
+                {
+                    if (spawnedCount == 0) SetRejectionReason(ReinforcementRejection.AllPointsTooCloseToPlayer);
+                    break;
+                }
             }
-            else
+
+            if (spawnedCount > 0)
             {
-                SetRejectionReason("Spawn Failed (Manager Rejected)");
+                _minSpawnTimerTicks = Mathf.CeilToInt(policy.MinSecondsBetweenSpawns * Runner.TickRate);
+                SetRejectionReason(ReinforcementRejection.None);
             }
         }
         else
         {
-            SetRejectionReason("No valid Spawn Points (or all too close to player)");
+            SetRejectionReason(plan.Rejection);
         }
     }
 
@@ -149,28 +173,29 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
             }
         }
 
-        return ReinforcementSpawnPlanner.EvaluateAndSelectPoint(registry.Points, _playerPositionsCache, minDistance);
+        return ReinforcementSpawnPlanner.EvaluateAndSelectPoint(registry.Points, _playerPositionsCache, minDistance, _validPointsBuffer);
+    }
+
+    private void SetRejectionReason(ReinforcementRejection reason)
+    {
+        if (LastRejection != reason)
+        {
+            LastRejection = reason;
+            if (reason != ReinforcementRejection.None)
+            {
+                Debug.Log($"[EnemyReinforcementDirector] Rejection reason changed to: {reason}");
+            }
+        }
     }
 
 #if UNITY_EDITOR
-    public string LastRejectionReason { get; private set; } = "None";
-    public int EditorSpawnsConsumedThisPhase => _spawnsConsumedThisPhase;
-    public float EditorSpawnCooldownTimer => _spawnCooldownTimer;
+    public int EditorEvaluationTimerTicks => _evaluationTimerTicks;
+    public int EditorMinSpawnTimerTicks => _minSpawnTimerTicks;
     private bool _forceAttemptRequested;
-
-    private void SetRejectionReason(string reason)
-    {
-        LastRejectionReason = reason;
-    }
 
     public void ForceAttempt()
     {
         _forceAttemptRequested = true;
-    }
-#else
-    private void SetRejectionReason(string reason)
-    {
-        // No-op outside editor
     }
 #endif
 }

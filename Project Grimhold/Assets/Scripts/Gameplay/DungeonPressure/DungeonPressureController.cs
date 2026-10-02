@@ -91,18 +91,35 @@ public sealed class DungeonPressureController : NetworkBehaviour
                                    _matchController.Phase == NetworkMatchController.MatchPhase.Finished;
 
 #if UNITY_EDITOR
+        if (_forceStartRequested)
+        {
+            _forceStartRequested = false;
+            if (state == DungeonPressureState.NotStarted)
+            {
+                state = DungeonPressureState.Running;
+                Debug.Log("[DungeonPressureController] Force started RUNNING via debug request.");
+            }
+        }
+
         if (_advancePhaseRequested)
         {
             _advancePhaseRequested = false;
             AdvancePhaseInternal();
+            phase = Phase;
+            state = State;
             remainingTicks = RemainingTicks;
         }
 
-        int extraTicks = Mathf.RoundToInt(EditorTimeMultiplier) - 1;
-        if (extraTicks > 0 && state == DungeonPressureState.Running)
+        if (EditorTimeMultiplier > 1f && state == DungeonPressureState.Running)
         {
-            remainingTicks -= extraTicks;
-            if (remainingTicks < 0) remainingTicks = 0;
+            _editorAccumulatedExtraTime += (EditorTimeMultiplier - 1f) * Runner.DeltaTime;
+            int ticksToDeduct = Mathf.FloorToInt(_editorAccumulatedExtraTime / Runner.DeltaTime);
+            if (ticksToDeduct > 0)
+            {
+                remainingTicks -= ticksToDeduct;
+                _editorAccumulatedExtraTime -= ticksToDeduct * Runner.DeltaTime;
+                if (remainingTicks < 0) remainingTicks = 0;
+            }
         }
 #endif
 
@@ -150,23 +167,48 @@ public sealed class DungeonPressureController : NetworkBehaviour
 #if UNITY_EDITOR
     [HideInInspector]
     public float EditorTimeMultiplier = 1f;
+    private float _editorAccumulatedExtraTime;
     private bool _advancePhaseRequested;
+    private bool _forceStartRequested;
 
     public void AdvancePhase()
     {
         _advancePhaseRequested = true;
     }
 
+    public void ForceStartTimer()
+    {
+        _forceStartRequested = true;
+    }
+
     private void AdvancePhaseInternal()
     {
         if (!HasStateAuthority || State == DungeonPressureState.Stopped || _config == null) return;
         
+        if (State == DungeonPressureState.NotStarted)
+        {
+            State = DungeonPressureState.Running;
+            Debug.Log("[DungeonPressureController] Force started RUNNING state via AdvancePhase.");
+        }
+
         if (Phase == DungeonPressurePhase.Normal)
+        {
+            Phase = DungeonPressurePhase.Reinforcements;
             RemainingTicks = Mathf.CeilToInt(_config.ReinforcementsThresholdSeconds / Runner.DeltaTime);
+            Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. RemainingTicks: {RemainingTicks}");
+        }
         else if (Phase == DungeonPressurePhase.Reinforcements)
+        {
+            Phase = DungeonPressurePhase.CriticalPressure;
             RemainingTicks = Mathf.CeilToInt(_config.CriticalPressureThresholdSeconds / Runner.DeltaTime);
+            Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. RemainingTicks: {RemainingTicks}");
+        }
         else if (Phase == DungeonPressurePhase.CriticalPressure)
+        {
+            Phase = DungeonPressurePhase.Collapse;
             RemainingTicks = 0;
+            Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. RemainingTicks: {RemainingTicks}");
+        }
     }
 #endif
 }

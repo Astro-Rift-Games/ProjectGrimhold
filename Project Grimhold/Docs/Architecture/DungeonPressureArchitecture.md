@@ -42,6 +42,6 @@ The system must remain deterministic and robust across Host Migration:
 - **Stage 2 (Timer & Phases):** `DungeonPressureController` dictates the phase. Transits sequentially `Normal -> Reinforcements -> CriticalPressure -> Collapse`. Collapse freezes the timer at 0.
 - **Stage 3 (Reinforcement Points):** `SpawnGroupType.Reinforcements` is added. The bootstrap flow explicitly ignores this group (`SpawnKind.ReinforcementPoints`).
 - **Stage 4 (Population Tracker):** Enemies inform the tracker upon `Spawned()` and `HandleDeath()`. Defeated enemies stop consuming population, even if their network object remains alive as a loot container.
-- **Stage 5 & 6 (Director & Config):** The Director retrieves the policy from `DungeonPressureConfig.GetPolicy(Phase)`. It spawns enemies targeting `MinDistanceToPlayer` rules via `ReinforcementSpawnPlanner`.
+- **Stage 5 & 6 (Director & Config):** The Director retrieves the policy from `DungeonPressureConfig.GetPolicy(Phase)`. It relies on a pure `ReinforcementSpawnPlanner` to determine the amount to spawn based on `PopulationBudget` (active reinforcement threat limit), global caps, `MaxSpawnsPerAttempt`, `EvaluationIntervalSeconds`, and `MinSecondsBetweenSpawns`. It surfaces rejections through the `ReinforcementRejection` enum.
 - **Stage 7 (Host Migration):** Validates the snapshot integration, tracker reconstruction, and recovery pause logic.
 - **Stage 8 (Debug):** Provides a strict `#if UNITY_EDITOR` overlay for timeline manipulation and spawn verification.

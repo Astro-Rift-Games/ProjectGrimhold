@@ -21,9 +21,9 @@ public sealed class DungeonPressureConfig : ScriptableObject
     public int MaxGlobalEnemies => _maxGlobalEnemies;
 
     [Header("Phase Policies")]
-    [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { Budget = 0, SpawnIntervalSeconds = 10f, MaxConcurrentSpawns = 0, MinDistanceToPlayer = 20f };
-    [SerializeField] private Spawning.ReinforcementPolicy _reinforcementsPolicy = new Spawning.ReinforcementPolicy { Budget = 5, SpawnIntervalSeconds = 15f, MaxConcurrentSpawns = 2, MinDistanceToPlayer = 15f };
-    [SerializeField] private Spawning.ReinforcementPolicy _criticalPressurePolicy = new Spawning.ReinforcementPolicy { Budget = 15, SpawnIntervalSeconds = 5f, MaxConcurrentSpawns = 5, MinDistanceToPlayer = 10f };
+    [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 0, EvaluationIntervalSeconds = 10f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 20f };
+    [SerializeField] private Spawning.ReinforcementPolicy _reinforcementsPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 2, EvaluationIntervalSeconds = 15f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 15f };
+    [SerializeField] private Spawning.ReinforcementPolicy _criticalPressurePolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 5f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 10f };
     [SerializeField] private Spawning.ReinforcementPolicy _collapsePolicy = Spawning.ReinforcementPolicy.None;
 
     public Spawning.ReinforcementPolicy GetPolicy(DungeonPressurePhase phase)
@@ -70,16 +70,11 @@ public sealed class DungeonPressureConfig : ScriptableObject
         foreach (var phase in phases)
         {
             var policy = GetPolicy(phase);
-            if (policy.Budget > 0)
+            if (policy.PopulationBudget > 0)
             {
-                if (policy.MaxConcurrentSpawns <= 0)
+                if (policy.EvaluationIntervalSeconds <= 0)
                 {
-                    error = $"Policy for phase {phase} has Budget > 0 but MaxConcurrentSpawns is <= 0.";
-                    return false;
-                }
-                if (policy.SpawnIntervalSeconds <= 0)
-                {
-                    error = $"Policy for phase {phase} has Budget > 0 but SpawnIntervalSeconds is <= 0.";
+                    error = $"Policy for phase {phase} has PopulationBudget > 0 but EvaluationIntervalSeconds is <= 0.";
                     return false;
                 }
             }

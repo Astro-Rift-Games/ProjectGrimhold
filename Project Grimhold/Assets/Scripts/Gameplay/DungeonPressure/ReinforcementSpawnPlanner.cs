@@ -6,20 +6,59 @@ namespace Spawning
     public enum ReinforcementRejection
     {
         None,
-        TooCloseToPlayer
+        Disabled,
+        IntervalNotElapsed,
+        PopulationBudgetExhausted,
+        GlobalCapReached,
+        NoReinforcementPoints,
+        AllPointsTooCloseToPlayer,
+        SpawnFailed
+    }
+
+    public struct ReinforcementPlan
+    {
+        public int Count;
+        public ReinforcementRejection Rejection;
     }
 
     public static class ReinforcementSpawnPlanner
     {
+        public static ReinforcementPlan Plan(
+            ReinforcementPolicy policy, 
+            int capacityBudget, 
+            int capacityGlobal, 
+            bool intervalElapsed, 
+            bool hasValidPoints)
+        {
+            if (policy.PopulationBudget <= 0)
+                return new ReinforcementPlan { Count = 0, Rejection = ReinforcementRejection.Disabled };
+
+            if (!intervalElapsed)
+                return new ReinforcementPlan { Count = 0, Rejection = ReinforcementRejection.IntervalNotElapsed };
+
+            if (capacityBudget <= 0)
+                return new ReinforcementPlan { Count = 0, Rejection = ReinforcementRejection.PopulationBudgetExhausted };
+
+            if (capacityGlobal <= 0)
+                return new ReinforcementPlan { Count = 0, Rejection = ReinforcementRejection.GlobalCapReached };
+
+            if (!hasValidPoints)
+                return new ReinforcementPlan { Count = 0, Rejection = ReinforcementRejection.NoReinforcementPoints };
+
+            int cost = 1; // 1 for now (EnemyThreatCost)
+            int affordableCount = capacityBudget / cost;
+            int count = Mathf.Min(policy.MaxSpawnsPerAttempt, affordableCount, capacityGlobal);
+
+            return new ReinforcementPlan { Count = count, Rejection = ReinforcementRejection.None };
+        }
+
         public static bool IsPointValid(
             Transform point, 
             IEnumerable<Vector3> playerPositions, 
-            float minDistanceToPlayer, 
-            out ReinforcementRejection rejectionReason)
+            float minDistanceToPlayer)
         {
             if (point == null)
             {
-                rejectionReason = ReinforcementRejection.None;
                 return false;
             }
 
@@ -28,41 +67,40 @@ namespace Spawning
             {
                 if (Vector3.Distance(pointPos, playerPos) < minDistanceToPlayer)
                 {
-                    rejectionReason = ReinforcementRejection.TooCloseToPlayer;
                     return false;
                 }
             }
 
-            rejectionReason = ReinforcementRejection.None;
             return true;
         }
 
         public static Transform EvaluateAndSelectPoint(
             IReadOnlyList<Transform> availablePoints, 
             IEnumerable<Vector3> playerPositions, 
-            float minDistanceToPlayer)
+            float minDistanceToPlayer,
+            List<Transform> validPointsBuffer)
         {
-            if (availablePoints == null || availablePoints.Count == 0)
+            if (availablePoints == null || availablePoints.Count == 0 || validPointsBuffer == null)
             {
                 return null;
             }
 
-            List<Transform> validPoints = new List<Transform>();
+            validPointsBuffer.Clear();
             
             foreach (var point in availablePoints)
             {
-                if (IsPointValid(point, playerPositions, minDistanceToPlayer, out _))
+                if (IsPointValid(point, playerPositions, minDistanceToPlayer))
                 {
-                    validPoints.Add(point);
+                    validPointsBuffer.Add(point);
                 }
             }
 
-            if (validPoints.Count == 0)
+            if (validPointsBuffer.Count == 0)
             {
                 return null;
             }
 
-            return validPoints[Random.Range(0, validPoints.Count)];
+            return validPointsBuffer[Random.Range(0, validPointsBuffer.Count)];
         }
     }
 }

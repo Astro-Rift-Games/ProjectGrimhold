@@ -1,28 +1,35 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Spawning
 {
     [Serializable]
     public struct ReinforcementPolicy
     {
-        [Tooltip("Number of enemies this phase can spawn. 0 means no spawns.")]
-        public int Budget;
+        [Tooltip("Maximum active reinforcement threat allowed concurrently.")]
+        [FormerlySerializedAs("MaxConcurrentSpawns")]
+        public int PopulationBudget;
         
-        [Tooltip("Seconds between each reinforcement spawn attempt.")]
-        public float SpawnIntervalSeconds;
+        [Tooltip("Seconds between each evaluation of the spawn conditions.")]
+        [FormerlySerializedAs("SpawnIntervalSeconds")]
+        public float EvaluationIntervalSeconds;
         
-        [Tooltip("Maximum alive reinforcements allowed concurrently.")]
-        public int MaxConcurrentSpawns;
+        [Tooltip("Minimum seconds required between successful generation of enemies.")]
+        public float MinSecondsBetweenSpawns;
+        
+        [Tooltip("Maximum number of enemies to generate in a single evaluation attempt.")]
+        public int MaxSpawnsPerAttempt;
         
         [Tooltip("Minimum distance to any player required to pick a spawn point.")]
         public float MinDistanceToPlayer;
 
         public static ReinforcementPolicy None => new ReinforcementPolicy
         {
-            Budget = 0,
-            SpawnIntervalSeconds = 0f,
-            MaxConcurrentSpawns = 0,
+            PopulationBudget = 0,
+            EvaluationIntervalSeconds = 0f,
+            MinSecondsBetweenSpawns = 0f,
+            MaxSpawnsPerAttempt = 0,
             MinDistanceToPlayer = 0f
         };
     }

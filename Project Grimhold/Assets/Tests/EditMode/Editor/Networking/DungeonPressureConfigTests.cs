@@ -79,32 +79,17 @@ public class DungeonPressureConfigTests
     }
 
     [Test]
-    public void Validate_PolicyWithBudgetButZeroConcurrentSpawns_ReturnsFalse()
-    {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 300, 120);
-        
-        var badPolicy = new Spawning.ReinforcementPolicy { Budget = 5, MaxConcurrentSpawns = 0, SpawnIntervalSeconds = 10f };
-        SetPolicyValue(config, "_reinforcementsPolicy", badPolicy);
-
-        bool isValid = config.Validate(out string error);
-
-        Assert.IsFalse(isValid);
-        StringAssert.Contains("Budget > 0 but MaxConcurrentSpawns is <= 0", error);
-    }
-
-    [Test]
     public void Validate_PolicyWithBudgetButZeroInterval_ReturnsFalse()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
         SetConfigValues(config, 600, 300, 120);
         
-        var badPolicy = new Spawning.ReinforcementPolicy { Budget = 5, MaxConcurrentSpawns = 2, SpawnIntervalSeconds = 0f };
+        var badPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 0f };
         SetPolicyValue(config, "_criticalPressurePolicy", badPolicy);
 
         bool isValid = config.Validate(out string error);
 
         Assert.IsFalse(isValid);
-        StringAssert.Contains("Budget > 0 but SpawnIntervalSeconds is <= 0", error);
+        StringAssert.Contains("PopulationBudget > 0 but EvaluationIntervalSeconds is <= 0", error);
     }
 }
