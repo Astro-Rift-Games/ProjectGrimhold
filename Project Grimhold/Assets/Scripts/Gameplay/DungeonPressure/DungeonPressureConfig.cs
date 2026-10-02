@@ -12,9 +12,13 @@ public sealed class DungeonPressureConfig : ScriptableObject
     [Tooltip("Remaining seconds when Critical Pressure phase begins.")]
     [SerializeField] private int _criticalPressureThresholdSeconds = 120;
 
+    [Tooltip("Global maximum number of active enemies allowed at any given time.")]
+    [SerializeField] private int _maxGlobalEnemies = 40;
+
     public int TotalDurationSeconds => _totalDurationSeconds;
     public int ReinforcementsThresholdSeconds => _reinforcementsThresholdSeconds;
     public int CriticalPressureThresholdSeconds => _criticalPressureThresholdSeconds;
+    public int MaxGlobalEnemies => _maxGlobalEnemies;
 
     [Header("Phase Policies")]
     [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { Budget = 0, SpawnIntervalSeconds = 10f, MaxConcurrentSpawns = 0, MinDistanceToPlayer = 20f };
@@ -34,11 +38,55 @@ public sealed class DungeonPressureConfig : ScriptableObject
         };
     }
 
-    public bool IsValid()
+    public bool Validate(out string error)
     {
-        return _totalDurationSeconds > _reinforcementsThresholdSeconds &&
-               _reinforcementsThresholdSeconds > _criticalPressureThresholdSeconds &&
-               _criticalPressureThresholdSeconds > 0;
+        if (_totalDurationSeconds <= 0)
+        {
+            error = "TotalDurationSeconds must be greater than 0.";
+            return false;
+        }
+        if (_criticalPressureThresholdSeconds <= 0)
+        {
+            error = "CriticalPressureThresholdSeconds must be greater than 0.";
+            return false;
+        }
+        if (_reinforcementsThresholdSeconds <= _criticalPressureThresholdSeconds)
+        {
+            error = "ReinforcementsThresholdSeconds must be strictly greater than CriticalPressureThresholdSeconds.";
+            return false;
+        }
+        if (_totalDurationSeconds <= _reinforcementsThresholdSeconds)
+        {
+            error = "TotalDurationSeconds must be strictly greater than ReinforcementsThresholdSeconds.";
+            return false;
+        }
+        if (_maxGlobalEnemies <= 0)
+        {
+            error = "MaxGlobalEnemies must be greater than 0.";
+            return false;
+        }
+
+        var phases = new[] { DungeonPressurePhase.Normal, DungeonPressurePhase.Reinforcements, DungeonPressurePhase.CriticalPressure, DungeonPressurePhase.Collapse };
+        foreach (var phase in phases)
+        {
+            var policy = GetPolicy(phase);
+            if (policy.Budget > 0)
+            {
+                if (policy.MaxConcurrentSpawns <= 0)
+                {
+                    error = $"Policy for phase {phase} has Budget > 0 but MaxConcurrentSpawns is <= 0.";
+                    return false;
+                }
+                if (policy.SpawnIntervalSeconds <= 0)
+                {
+                    error = $"Policy for phase {phase} has Budget > 0 but SpawnIntervalSeconds is <= 0.";
+                    return false;
+                }
+            }
+        }
+
+        error = string.Empty;
+        return true;
     }
 
 #if UNITY_EDITOR

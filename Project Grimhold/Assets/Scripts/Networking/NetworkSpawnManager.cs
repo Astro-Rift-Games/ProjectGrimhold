@@ -603,6 +603,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (config.SpawnGroups != null)
         {
+            Transform[] reinforcementPoints = null;
+            Transform[] enemyPoints = null;
+
             foreach (var definition in config.SpawnGroups)
             {
                 if (definition != null && definition.SpawnPoints != null)
@@ -613,7 +616,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     }
                     if (definition.Group == SpawnGroupType.Reinforcements)
                     {
-                        ReinforcementRegistry.Initialize(definition.SpawnPoints);
+                        reinforcementPoints = definition.SpawnPoints;
+                    }
+                    else if (definition.Group == SpawnGroupType.Enemies)
+                    {
+                        enemyPoints = definition.SpawnPoints;
+                    }
+                }
+            }
+
+            if (reinforcementPoints != null)
+            {
+                if (!ReinforcementRegistry.Initialize(reinforcementPoints, enemyPoints, out var diagnostics))
+                {
+                    foreach (var diag in diagnostics)
+                    {
+                        Debug.LogError($"[NetworkSpawnManager] ReinforcementRegistry validation failed in scene '{config.gameObject.scene.name}': {diag}");
                     }
                 }
             }

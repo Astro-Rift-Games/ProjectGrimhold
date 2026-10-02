@@ -39,12 +39,7 @@ public class DungeonPressureHudPresenter : MonoBehaviour
             return;
         }
 
-        // Convert networked Ticks back to Seconds
-        int currentSeconds = 0;
-        if (_controller.Runner != null && _controller.Runner.DeltaTime > 0)
-        {
-            currentSeconds = Mathf.CeilToInt(_controller.RemainingTicks * _controller.Runner.DeltaTime);
-        }
+        int currentSeconds = _controller.RemainingSeconds;
 
         if (currentSeconds != _lastSeconds)
         {
@@ -56,9 +51,22 @@ public class DungeonPressureHudPresenter : MonoBehaviour
         if (currentPhase != _lastPhase)
         {
             Color phaseColor = GetPhaseColor(currentPhase);
-            _view.UpdatePhase(currentPhase.ToString(), phaseColor);
+            string phaseText = GetPhaseText(currentPhase);
+            _view.UpdatePhase(phaseText, phaseColor);
             _lastPhase = currentPhase;
         }
+    }
+
+    private string GetPhaseText(DungeonPressurePhase phase)
+    {
+        return phase switch
+        {
+            DungeonPressurePhase.Normal => "Exploración",
+            DungeonPressurePhase.Reinforcements => "Refuerzos",
+            DungeonPressurePhase.CriticalPressure => "Presión Crítica",
+            DungeonPressurePhase.Collapse => "COLAPSO",
+            _ => phase.ToString()
+        };
     }
 
     private Color GetPhaseColor(DungeonPressurePhase phase)

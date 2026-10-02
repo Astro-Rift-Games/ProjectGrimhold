@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 2361456078320602033}
   - component: {fileID: -678287303909189332}
   - component: {fileID: 6306402160097955794}
+  - component: {fileID: 8246614277232400815}
   m_Layer: 0
   m_Name: NetworkMatchController
   m_TagString: Untagged
@@ -58,6 +59,7 @@ MonoBehaviour:
   - {fileID: 2361456078320602033}
   - {fileID: -678287303909189332}
   - {fileID: 6306402160097955794}
+  - {fileID: 8246614277232400815}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &11400002
 MonoBehaviour:
@@ -143,3 +145,16 @@ MonoBehaviour:
     _pitch: 0
     _spatialBlend: 0
     _loop: 0
+--- !u!114 &8246614277232400815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8722c570de200b94b889ff78a8285537, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyCollapseDespawner
+  _despawnsPerTick: 5

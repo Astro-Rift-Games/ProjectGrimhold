@@ -46,12 +46,14 @@ public sealed class DungeonPressureController : NetworkBehaviour
                 
                 if (_config == null)
                 {
-                    Debug.LogError("[DungeonPressureController] _config is NULL! You forgot to assign the DungeonPressureConfig ScriptableObject in the Inspector of DungeonPressureController!");
+                    Debug.LogError("[DungeonPressureController] _config is NULL! Timer will not start.");
+                    State = DungeonPressureState.Stopped;
                     RemainingTicks = 0;
                 }
-                else if (!_config.IsValid())
+                else if (!_config.Validate(out string error))
                 {
-                    Debug.LogError($"[DungeonPressureController] Config is invalid! Total: {_config.TotalDurationSeconds}, Reinf: {_config.ReinforcementsThresholdSeconds}, Crit: {_config.CriticalPressureThresholdSeconds}");
+                    Debug.LogError($"[DungeonPressureController] Config is invalid! Timer will not start. Reason: {error}");
+                    State = DungeonPressureState.Stopped;
                     RemainingTicks = 0;
                 }
                 else
@@ -63,71 +65,108 @@ public sealed class DungeonPressureController : NetworkBehaviour
         }
     }
 
-    private int _debugFrameCount = 0;
-
     public override void FixedUpdateNetwork()
     {
-        _debugFrameCount++;
         if (!HasStateAuthority || _matchController == null || _spawnManager == null)
         {
-            if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] Early Return 1. Auth: {HasStateAuthority}, MatchController null: {_matchController == null}, SpawnManager null: {_spawnManager == null}");
             return;
         }
 
         if (_spawnManager.IsHostMigrationRecoveryInProgress)
         {
-            if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] Early Return 2. Host Migration.");
             return;
         }
 
-        if (_debugFrameCount % 60 == 0) Debug.Log($"[DungeonPressureController] FUN. State: {State}, MatchPhase: {_matchController.Phase}, Phase: {Phase}, Ticks: {RemainingTicks}");
-
-        if (State == DungeonPressureState.NotStarted)
+        if (_config == null || State == DungeonPressureState.Stopped)
         {
-            if (_matchController.Phase == NetworkMatchController.MatchPhase.InProgress)
+            return;
+        }
+
+        var state = State;
+        var phase = Phase;
+        var remainingTicks = RemainingTicks;
+        
+        bool isInProgress = _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
+        bool isClosingOrFinished = _matchController.Phase == NetworkMatchController.MatchPhase.Closing || 
+                                   _matchController.Phase == NetworkMatchController.MatchPhase.Finished;
+
+#if UNITY_EDITOR
+        if (_advancePhaseRequested)
+        {
+            _advancePhaseRequested = false;
+            AdvancePhaseInternal();
+            remainingTicks = RemainingTicks;
+        }
+
+        int extraTicks = Mathf.RoundToInt(EditorTimeMultiplier) - 1;
+        if (extraTicks > 0 && state == DungeonPressureState.Running)
+        {
+            remainingTicks -= extraTicks;
+            if (remainingTicks < 0) remainingTicks = 0;
+        }
+#endif
+
+        DungeonPressureClock.Step(
+            ref remainingTicks,
+            ref state,
+            ref phase,
+            isInProgress,
+            isClosingOrFinished,
+            _config.ReinforcementsThresholdSeconds,
+            _config.CriticalPressureThresholdSeconds,
+            Runner.DeltaTime);
+
+        if (State != state)
+        {
+            State = state;
+            if (state == DungeonPressureState.Running)
             {
-                State = DungeonPressureState.Running;
                 Debug.Log($"[DungeonPressureController] State changed to RUNNING.");
             }
-            return;
+            else if (state == DungeonPressureState.Stopped)
+            {
+                Debug.Log($"[DungeonPressureController] State changed to STOPPED.");
+            }
         }
-
-        if (State == DungeonPressureState.Running)
+        
+        if (Phase != phase)
         {
-            if (_matchController.Phase == NetworkMatchController.MatchPhase.Closing || 
-                _matchController.Phase == NetworkMatchController.MatchPhase.Finished)
-            {
-                State = DungeonPressureState.Stopped;
-                return;
-            }
+            Phase = phase;
+            Debug.Log($"[DungeonPressureController] Phase changed to {phase}.");
+        }
+        
+        RemainingTicks = remainingTicks;
+    }
 
-            if (Phase == DungeonPressurePhase.Collapse)
-            {
-                RemainingTicks = 0;
-                return;
-            }
-
-            RemainingTicks--;
-
-            if (RemainingTicks <= 0)
-            {
-                RemainingTicks = 0;
-            }
-
-            int remainingSecs = Mathf.CeilToInt(RemainingTicks * Runner.DeltaTime);
-            
-            if (_config != null)
-            {
-                DungeonPressurePhase newPhase = DungeonPhaseResolver.Resolve(
-                    remainingSecs, 
-                    _config.ReinforcementsThresholdSeconds, 
-                    _config.CriticalPressureThresholdSeconds);
-
-                if (newPhase > Phase)
-                {
-                    Phase = newPhase;
-                }
-            }
+    public void StopForcefully()
+    {
+        if (HasStateAuthority && State != DungeonPressureState.Stopped)
+        {
+            State = DungeonPressureState.Stopped;
+            Debug.Log("[DungeonPressureController] Forcefully stopped by external system (Collapse).");
         }
     }
+
+#if UNITY_EDITOR
+    [HideInInspector]
+    public float EditorTimeMultiplier = 1f;
+    private bool _advancePhaseRequested;
+
+    public void AdvancePhase()
+    {
+        _advancePhaseRequested = true;
+    }
+
+    private void AdvancePhaseInternal()
+    {
+        if (!HasStateAuthority || State == DungeonPressureState.Stopped || _config == null) return;
+        
+        if (Phase == DungeonPressurePhase.Normal)
+            RemainingTicks = Mathf.CeilToInt(_config.ReinforcementsThresholdSeconds / Runner.DeltaTime);
+        else if (Phase == DungeonPressurePhase.Reinforcements)
+            RemainingTicks = Mathf.CeilToInt(_config.CriticalPressureThresholdSeconds / Runner.DeltaTime);
+        else if (Phase == DungeonPressurePhase.CriticalPressure)
+            RemainingTicks = 0;
+    }
+#endif
 }

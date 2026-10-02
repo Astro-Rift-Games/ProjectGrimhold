@@ -59,36 +59,78 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
             _spawnCooldownTimer = 0f;
         }
 
+#if UNITY_EDITOR
+        if (_forceAttemptRequested)
+        {
+            _forceAttemptRequested = false;
+            var forcePolicy = _config.GetPolicy(_pressureController.Phase);
+            TrySpawn(forcePolicy);
+            return;
+        }
+#endif
+
         var policy = _config.GetPolicy(_pressureController.Phase);
 
-        if (policy.Budget <= 0 || policy.SpawnIntervalSeconds <= 0f)
+        if (policy.Budget <= 0)
+        {
+            SetRejectionReason("Disabled / No Budget");
             return;
+        }
+
+        if (policy.SpawnIntervalSeconds <= 0f)
+        {
+            SetRejectionReason("Invalid Interval");
+            return;
+        }
 
         _spawnCooldownTimer -= Runner.DeltaTime;
 
         if (_spawnCooldownTimer <= 0f)
         {
             _spawnCooldownTimer = policy.SpawnIntervalSeconds;
+            TrySpawn(policy);
+        }
+    }
 
-            if (_spawnsConsumedThisPhase >= policy.Budget)
-                return;
+    private void TrySpawn(ReinforcementPolicy policy)
+    {
+        if (_spawnsConsumedThisPhase >= policy.Budget)
+        {
+            SetRejectionReason("Population Budget Exhausted");
+            return;
+        }
 
-            if (_spawnManager.PopulationTracker.ActiveReinforcements >= policy.MaxConcurrentSpawns)
-                return;
+        int availableConcurrent = _spawnManager.PopulationTracker.GetAvailableCapacity(policy.MaxConcurrentSpawns, EnemyPopulationOrigin.Reinforcement);
+        if (availableConcurrent <= 0)
+        {
+            SetRejectionReason("Active Threat Cap Reached");
+            return;
+        }
 
-            Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
-            if (spawnPoint != null)
+        int availableGlobal = _spawnManager.PopulationTracker.GetAvailableGlobalCapacity(_config.MaxGlobalEnemies);
+        if (availableGlobal <= 0)
+        {
+            SetRejectionReason("Global Cap Reached");
+            return;
+        }
+
+        Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
+        if (spawnPoint != null)
+        {
+            if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
             {
-                if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
-                {
-                    _spawnsConsumedThisPhase++;
-                    Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.position}. Budget used: {_spawnsConsumedThisPhase}/{policy.Budget}. Phase: {_pressureController.Phase}");
-                }
+                _spawnsConsumedThisPhase++;
+                SetRejectionReason("None (Success)");
+                Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name}. Phase Budget: {_spawnsConsumedThisPhase}/{policy.Budget}. Active Threat Capacity: {availableConcurrent - 1}. Global Capacity: {availableGlobal - 1}.");
             }
             else
             {
-                Debug.LogWarning($"[EnemyReinforcementDirector] Failed to find a valid spawn point! (All points are closer than {policy.MinDistanceToPlayer} units to players, or no points exist).");
+                SetRejectionReason("Spawn Failed (Manager Rejected)");
             }
+        }
+        else
+        {
+            SetRejectionReason("No valid Spawn Points (or all too close to player)");
         }
     }
 
@@ -109,4 +151,26 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
 
         return ReinforcementSpawnPlanner.EvaluateAndSelectPoint(registry.Points, _playerPositionsCache, minDistance);
     }
+
+#if UNITY_EDITOR
+    public string LastRejectionReason { get; private set; } = "None";
+    public int EditorSpawnsConsumedThisPhase => _spawnsConsumedThisPhase;
+    public float EditorSpawnCooldownTimer => _spawnCooldownTimer;
+    private bool _forceAttemptRequested;
+
+    private void SetRejectionReason(string reason)
+    {
+        LastRejectionReason = reason;
+    }
+
+    public void ForceAttempt()
+    {
+        _forceAttemptRequested = true;
+    }
+#else
+    private void SetRejectionReason(string reason)
+    {
+        // No-op outside editor
+    }
+#endif
 }
