@@ -4,12 +4,13 @@ using System.Reflection;
 
 public class DungeonPressureConfigTests
 {
-    private void SetConfigValues(DungeonPressureConfig config, int total, int reinforcements, int critical)
+    private void SetConfigValues(DungeonPressureConfig config, int total, int reinforcements, int critical, int maxGlobal = 40)
     {
         var type = typeof(DungeonPressureConfig);
         type.GetField("_totalDurationSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, total);
         type.GetField("_reinforcementsThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, reinforcements);
         type.GetField("_criticalPressureThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, critical);
+        type.GetField("_maxGlobalEnemies", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, maxGlobal);
     }
 
     [Test]

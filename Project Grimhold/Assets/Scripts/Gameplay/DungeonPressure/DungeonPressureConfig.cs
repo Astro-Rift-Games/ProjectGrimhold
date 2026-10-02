@@ -12,9 +12,13 @@ public sealed class DungeonPressureConfig : ScriptableObject
     [Tooltip("Remaining seconds when Critical Pressure phase begins.")]
     [SerializeField] private int _criticalPressureThresholdSeconds = 120;
 
+    [Tooltip("Global maximum number of active enemies allowed at any given time.")]
+    [SerializeField] private int _maxGlobalEnemies = 40;
+
     public int TotalDurationSeconds => _totalDurationSeconds;
     public int ReinforcementsThresholdSeconds => _reinforcementsThresholdSeconds;
     public int CriticalPressureThresholdSeconds => _criticalPressureThresholdSeconds;
+    public int MaxGlobalEnemies => _maxGlobalEnemies;
 
     [Header("Phase Policies")]
     [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { Budget = 0, SpawnIntervalSeconds = 10f, MaxConcurrentSpawns = 0, MinDistanceToPlayer = 20f };
@@ -54,6 +58,11 @@ public sealed class DungeonPressureConfig : ScriptableObject
         if (_totalDurationSeconds <= _reinforcementsThresholdSeconds)
         {
             error = "TotalDurationSeconds must be strictly greater than ReinforcementsThresholdSeconds.";
+            return false;
+        }
+        if (_maxGlobalEnemies <= 0)
+        {
+            error = "MaxGlobalEnemies must be greater than 0.";
             return false;
         }
         error = string.Empty;

@@ -73,7 +73,12 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
             if (_spawnsConsumedThisPhase >= policy.Budget)
                 return;
 
-            if (_spawnManager.PopulationTracker.ActiveReinforcements >= policy.MaxConcurrentSpawns)
+            int availableConcurrent = _spawnManager.PopulationTracker.GetAvailableCapacity(policy.MaxConcurrentSpawns, EnemyPopulationOrigin.Reinforcement);
+            if (availableConcurrent <= 0)
+                return;
+
+            int availableGlobal = _spawnManager.PopulationTracker.GetAvailableGlobalCapacity(_config.MaxGlobalEnemies);
+            if (availableGlobal <= 0)
                 return;
 
             Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
@@ -82,12 +87,14 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
                 if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
                 {
                     _spawnsConsumedThisPhase++;
-                    Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.position}. Budget used: {_spawnsConsumedThisPhase}/{policy.Budget}. Phase: {_pressureController.Phase}");
+                    Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name}. Phase Budget: {_spawnsConsumedThisPhase}/{policy.Budget}. Active Threat Capacity: {availableConcurrent - 1}. Global Capacity: {availableGlobal - 1}.");
                 }
             }
             else
             {
-                Debug.LogWarning($"[EnemyReinforcementDirector] Failed to find a valid spawn point! (All points are closer than {policy.MinDistanceToPlayer} units to players, or no points exist).");
+                // Solo logueamos si el diagnóstico es útil, pero para no spamear cada tick, evitamos logs en tick regular fallido a menos que se desee. El plan pide: "remover logs de debug spam excesivo".
+                // Dejaremos un log muy esporádico o simplemente lo quitamos para evitar spam si no hay puntos libres durante mucho tiempo.
+                // Lo quitamos.
             }
         }
     }
