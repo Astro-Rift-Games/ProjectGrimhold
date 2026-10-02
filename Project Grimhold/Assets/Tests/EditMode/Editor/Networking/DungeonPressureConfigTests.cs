@@ -13,6 +13,11 @@ public class DungeonPressureConfigTests
         type.GetField("_maxGlobalEnemies", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, maxGlobal);
     }
 
+    private void SetPolicyValue(DungeonPressureConfig config, string fieldName, Spawning.ReinforcementPolicy policy)
+    {
+        typeof(DungeonPressureConfig).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, policy);
+    }
+
     [Test]
     public void Validate_ValidConfig_ReturnsTrue()
     {
@@ -71,5 +76,35 @@ public class DungeonPressureConfigTests
 
         Assert.IsFalse(isValid);
         Assert.AreEqual("TotalDurationSeconds must be strictly greater than ReinforcementsThresholdSeconds.", error);
+    }
+
+    [Test]
+    public void Validate_PolicyWithBudgetButZeroConcurrentSpawns_ReturnsFalse()
+    {
+        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
+        SetConfigValues(config, 600, 300, 120);
+        
+        var badPolicy = new Spawning.ReinforcementPolicy { Budget = 5, MaxConcurrentSpawns = 0, SpawnIntervalSeconds = 10f };
+        SetPolicyValue(config, "_reinforcementsPolicy", badPolicy);
+
+        bool isValid = config.Validate(out string error);
+
+        Assert.IsFalse(isValid);
+        StringAssert.Contains("Budget > 0 but MaxConcurrentSpawns is <= 0", error);
+    }
+
+    [Test]
+    public void Validate_PolicyWithBudgetButZeroInterval_ReturnsFalse()
+    {
+        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
+        SetConfigValues(config, 600, 300, 120);
+        
+        var badPolicy = new Spawning.ReinforcementPolicy { Budget = 5, MaxConcurrentSpawns = 2, SpawnIntervalSeconds = 0f };
+        SetPolicyValue(config, "_criticalPressurePolicy", badPolicy);
+
+        bool isValid = config.Validate(out string error);
+
+        Assert.IsFalse(isValid);
+        StringAssert.Contains("Budget > 0 but SpawnIntervalSeconds is <= 0", error);
     }
 }

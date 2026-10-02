@@ -65,6 +65,26 @@ public sealed class DungeonPressureConfig : ScriptableObject
             error = "MaxGlobalEnemies must be greater than 0.";
             return false;
         }
+
+        var phases = new[] { DungeonPressurePhase.Normal, DungeonPressurePhase.Reinforcements, DungeonPressurePhase.CriticalPressure, DungeonPressurePhase.Collapse };
+        foreach (var phase in phases)
+        {
+            var policy = GetPolicy(phase);
+            if (policy.Budget > 0)
+            {
+                if (policy.MaxConcurrentSpawns <= 0)
+                {
+                    error = $"Policy for phase {phase} has Budget > 0 but MaxConcurrentSpawns is <= 0.";
+                    return false;
+                }
+                if (policy.SpawnIntervalSeconds <= 0)
+                {
+                    error = $"Policy for phase {phase} has Budget > 0 but SpawnIntervalSeconds is <= 0.";
+                    return false;
+                }
+            }
+        }
+
         error = string.Empty;
         return true;
     }

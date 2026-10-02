@@ -15,6 +15,7 @@ MonoBehaviour:
   _totalDurationSeconds: 60
   _reinforcementsThresholdSeconds: 45
   _criticalPressureThresholdSeconds: 20
+  _maxGlobalEnemies: 40
   _normalPolicy:
     Budget: 0
     SpawnIntervalSeconds: 10
