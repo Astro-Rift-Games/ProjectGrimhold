@@ -37,6 +37,22 @@ and Off Hand destinations in Set A and Set B.
 
 ## Context and decision
 
+Chest-only first-opening presentation reuses the replicated `FirstOpenResolved` flag.
+After a confirmed local interaction, `RaidInventoryPresenter` binds the container and
+suppresses gameplay input while its configured `ChestOpeningPresenter` finishes the
+brief opening animation. It then displays the existing inventory screen, including
+empty chests. Sound duration never gates the screen. Missing or unavailable chest
+presentation falls back to immediate display; corpse endpoints remain immediate.
+Close, local E/Escape, inventory toggle, defeat, disable/unbind, target loss and range
+loss cancel the pending screen and release its input token without reverting the
+authoritative chest opening. Restored/already-open snapshots show the final sprite
+without replaying animation or sound. Confirmed results and replicated observation
+converge on one local playback latch, so their arrival order cannot restart opening.
+The chest presenter is a presentation-only `NetworkBehaviour` with no replicated
+fields or RPCs. Its baked position follows the interactable, allowing `Spawned()`
+to capture fresh/restored state before presentation observations. Missing/looping
+audio configuration skips only sound, never the animation or inventory flow.
+
 The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. It supports symmetric single-unit and full-stack mouse intentions in both transfer directions, plus a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
 The personal Raid inventory projects all eight replicated Equipment slots: Main Hand and Off Hand

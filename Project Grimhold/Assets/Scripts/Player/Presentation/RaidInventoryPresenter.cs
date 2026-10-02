@@ -14,7 +14,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         Closed,
         Personal,
-        ContainerLoot
+        ContainerLoot,
+        OpeningContainer
     }
 
     [SerializeField]
@@ -78,6 +79,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private NetworkLootContainer _container;
     private NetworkLootContainerInteractable _containerInteractable;
     private Collider2D[] _containerColliders = Array.Empty<Collider2D>();
+    private ChestOpeningPresenter _pendingChestOpening;
 
     public bool IsOpen => _mode != ScreenMode.Closed;
     public bool GameplayMutationsBlocked => _gameplayMutationsBlocked;
@@ -289,7 +291,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             RefreshEquipmentSlots();
         }
 
-        if (_mode != ScreenMode.ContainerLoot)
+        if (_mode != ScreenMode.ContainerLoot && _mode != ScreenMode.OpeningContainer)
         {
             return;
         }
@@ -297,6 +299,15 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (!IsContainerBindingValidAndInRange())
         {
             Close();
+            return;
+        }
+
+        if (_mode == ScreenMode.OpeningContainer)
+        {
+            if (_pendingChestOpening == null || !_pendingChestOpening.IsOpening)
+            {
+                ShowBoundContainer();
+            }
             return;
         }
 
@@ -501,7 +512,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnInteractPressedLocally()
     {
-        if (_mode != ScreenMode.ContainerLoot)
+        if (_mode != ScreenMode.ContainerLoot && _mode != ScreenMode.OpeningContainer)
         {
             return;
         }
@@ -587,6 +598,28 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _mode = ScreenMode.ContainerLoot;
         _observedContainerLootSequence = container.LootChangeSequence;
 
+        ChestOpeningPresenter chestOpening = networkObject.GetComponent<ChestOpeningPresenter>();
+        if (chestOpening != null)
+        {
+            chestOpening.ObserveConfirmedOpen();
+            if (chestOpening.IsOpening)
+            {
+                _pendingChestOpening = chestOpening;
+                _mode = ScreenMode.OpeningContainer;
+                EnsureInputSuppression();
+                _view.SetContainerPanelVisible(false);
+                _view.SetScreenVisible(false);
+                return;
+            }
+        }
+
+        ShowBoundContainer();
+    }
+
+    private void ShowBoundContainer()
+    {
+        _pendingChestOpening = null;
+        _mode = ScreenMode.ContainerLoot;
         RefreshPlayerPanel();
         RefreshContainerPanel();
         EnsureInputSuppression();
@@ -1555,6 +1588,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _containerPanelPresenter.Clear();
         _view?.ContainerPanel?.ClearContent();
         _containerNetworkId = default;
+        _pendingChestOpening = null;
         _containerNetworkObject = null;
         _container = null;
         _containerInteractable = null;

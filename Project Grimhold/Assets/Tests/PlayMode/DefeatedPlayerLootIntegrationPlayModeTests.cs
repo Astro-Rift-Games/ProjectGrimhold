@@ -221,6 +221,69 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator ChestOpening_CloseDuringPlayback_DoesNotReopenAfterCompletion()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            NetworkObject chest = SpawnLootSource(ChestPrefabGuid, new LootEntry(BoneLootId, 1));
+            RaidInventoryPresenter presenter = _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            Assert.That(ResolveInteraction(chest.GetComponent<NetworkLootContainer>().Id, out InteractionResult result), Is.True);
+            Assert.That(result.Success, Is.True);
+            OpenFromConfirmedInteraction(presenter, chest.GetComponent<NetworkLootContainer>().Id);
+            Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("OpeningContainer"));
+            Assert.That(view.IsOpen, Is.False);
+            presenter.Close();
+            yield return new WaitForSecondsRealtime(0.6f);
+            Assert.That(chest.GetComponent<ChestOpeningPresenter>().IsOpening, Is.False);
+            Assert.That(presenter.IsOpen, Is.False);
+            Assert.That(view.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator ChestOpening_DisabledPresentation_OpensImmediately()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            NetworkObject chest = SpawnLootSource(ChestPrefabGuid, new LootEntry(BoneLootId, 1));
+            chest.GetComponent<ChestOpeningPresenter>().enabled = false;
+            RaidInventoryPresenter presenter = _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            Assert.That(ResolveInteraction(chest.GetComponent<NetworkLootContainer>().Id, out InteractionResult result), Is.True);
+            Assert.That(result.Success, Is.True);
+            OpenFromConfirmedInteraction(presenter, chest.GetComponent<NetworkLootContainer>().Id);
+            Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("ContainerLoot"));
+            Assert.That(view.IsOpen, Is.True);
+            Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator ChestOpening_RefreshesLatestLootSnapshotWhenRevealed()
+        {
+            yield return StartRunnerAndSpawnPlayers();
+            NetworkObject chest = SpawnLootSource(ChestPrefabGuid, new LootEntry(BoneLootId, 1));
+            NetworkLootContainer container = chest.GetComponent<NetworkLootContainer>();
+            PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
+            PlayerLootTransferNetworkController transfer = _looterObject.GetComponent<PlayerLootTransferNetworkController>();
+            RaidInventoryPresenter presenter = _looterObject.GetComponentInChildren<RaidInventoryPresenter>(true);
+            RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
+            Assert.That(ResolveInteraction(container.Id, out InteractionResult result), Is.True);
+            Assert.That(result.Success, Is.True);
+            OpenFromConfirmedInteraction(presenter, container.Id);
+            Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("OpeningContainer"));
+            Assert.That(view.IsOpen, Is.False);
+            Assert.That(transfer.TryRequestTransfer(container.Id, receiver.Id, BoneLootId,
+                LootTransferQuantityMode.FullStack), Is.True);
+            yield return WaitUntil(() => !transfer.HasRequestInFlight && container.IsEmpty,
+                "The fixture transfer did not change the loot snapshot during opening.");
+            yield return WaitForChestUi(presenter, view);
+            Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("ContainerLoot"));
+            Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.Zero);
+            Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.EqualTo(1));
+            AssertContainerEmptyState(view.ContainerPanel);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator DefeatedEnemy_AcceptsFullStackFromOccupiedPlayerSlot()
         {
             yield return StartRunnerAndSpawnPlayers();
@@ -276,6 +339,7 @@ namespace Tests.PlayMode.Loot
             RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
             OpenFromConfirmedInteraction(presenter, container.Id);
 
+            yield return WaitForChestUi(presenter, view);
             ClickOccupiedSlot(view.PlayerPanel, BoneLootId);
             yield return WaitUntil(
                 () => !transferController.HasRequestInFlight &&
@@ -323,6 +387,7 @@ namespace Tests.PlayMode.Loot
             Assert.That(result.Success, Is.True);
             OpenFromConfirmedInteraction(presenter, container.Id);
 
+            yield return WaitForChestUi(presenter, view);
             ClickOccupiedSlot(view.ContainerPanel, BoneLootId);
             yield return WaitUntil(
                 () => !transferController.HasRequestInFlight &&
@@ -368,6 +433,7 @@ namespace Tests.PlayMode.Loot
             };
 
             OpenFromConfirmedInteraction(presenter, container.Id);
+            yield return WaitForChestUi(presenter, view);
             Assert.That(view.TakeAllButton.interactable, Is.True);
 
             int sourceSequence = container.LootChangeSequence;
@@ -420,6 +486,7 @@ namespace Tests.PlayMode.Loot
             RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
             OpenFromConfirmedInteraction(presenter, container.Id);
 
+            yield return WaitForChestUi(presenter, view);
             view.TakeAllButton.onClick.Invoke();
             yield return WaitUntil(
                 () => !transferController.HasRequestInFlight &&
@@ -457,6 +524,7 @@ namespace Tests.PlayMode.Loot
             RaidInventoryView view = _looterObject.GetComponentInChildren<RaidInventoryView>(true);
             OpenFromConfirmedInteraction(presenter, container.Id);
 
+            yield return WaitForChestUi(presenter, view);
             view.TakeAllButton.onClick.Invoke();
             Assert.That(transferController.HasRequestInFlight, Is.True);
             presenter.Close();
@@ -716,6 +784,10 @@ namespace Tests.PlayMode.Loot
             Assert.That(ResolveInteraction(container.Id, out InteractionResult result), Is.True);
             Assert.That(result.Success, Is.True);
             OpenFromConfirmedInteraction(presenter, container.Id);
+            if (sourceObject.GetComponent<ChestOpeningPresenter>() != null)
+            {
+                yield return WaitForChestUi(presenter, view);
+            }
             Assert.That(CountOccupiedSlots(view.ContainerPanel), Is.EqualTo(1));
 
             ClickOccupiedSlot(view.ContainerPanel, BoneLootId);
@@ -747,7 +819,20 @@ namespace Tests.PlayMode.Loot
 
             Assert.That(container, Is.Not.Null);
             Assert.That((bool)container.IsAvailable, Is.True);
+            if (destinationObject.GetComponent<ChestOpeningPresenter>() != null)
+            {
+                Assert.That(ResolveInteraction(container.Id, out InteractionResult result), Is.True);
+                Assert.That(result.Success, Is.True);
+            }
             OpenFromConfirmedInteraction(presenter, container.Id);
+            if (destinationObject.GetComponent<ChestOpeningPresenter>() != null)
+            {
+                Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("OpeningContainer"));
+                Assert.That(view.IsOpen, Is.False);
+                Assert.That(ReadSuppressionCount(_inputReader), Is.EqualTo(1));
+                yield return WaitForChestUi(presenter, view);
+                Assert.That(ReadPresenterModeName(presenter), Is.EqualTo("ContainerLoot"));
+            }
             Assert.That(CountOccupiedSlots(view.PlayerPanel), Is.EqualTo(1));
 
             int containerSequence = container.LootChangeSequence;
@@ -825,6 +910,19 @@ namespace Tests.PlayMode.Loot
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(presenter, new object[] { interactionEvent });
+        }
+
+        private static IEnumerator WaitForChestUi(RaidInventoryPresenter presenter, RaidInventoryView view)
+        {
+            Assert.That(presenter.isActiveAndEnabled, Is.True, "The fixture must run the productive presenter Update.");
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (!view.IsOpen && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(view.IsOpen, Is.True,
+                $"The chest UI did not appear after playback; presenter mode: {ReadPresenterModeName(presenter)}.");
         }
 
         private static IEnumerator WaitUntil(Func<bool> predicate, string failureMessage)

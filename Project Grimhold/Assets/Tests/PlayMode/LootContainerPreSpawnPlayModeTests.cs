@@ -31,6 +31,34 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator FirstOpenBeforeFirstPresentationFrame_StillPlaysAndOpenBaselineDoesNotReplay()
+        {
+            yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);
+            NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity);
+            ChestOpeningPresenter presenter = spawned.GetComponent<ChestOpeningPresenter>();
+            NetworkLootContainerInteractable interactable = spawned.GetComponent<NetworkLootContainerInteractable>();
+            Assert.That(presenter, Is.Not.Null);
+            Assert.That(presenter.IsOpening, Is.False);
+
+            // Simulate an authoritative first-open snapshot before any LateUpdate.
+            typeof(NetworkLootContainerInteractable).GetProperty(nameof(NetworkLootContainerInteractable.FirstOpenResolved))
+                .SetValue(interactable, (NetworkBool)true);
+            presenter.ObserveConfirmedOpen();
+            Assert.That(presenter.IsOpening, Is.True);
+            presenter.ObserveConfirmedOpen();
+            Assert.That(presenter.IsOpening, Is.True);
+
+            // A newly captured already-open baseline must not replay a transient.
+            presenter.Spawned();
+            Assert.That(presenter.IsOpening, Is.False);
+            Assert.That(spawned.GetComponentInChildren<SpriteRenderer>().sprite.name,
+                Is.EqualTo("doors_lever_chest_animation_5"));
+            presenter.ObserveConfirmedOpen();
+            Assert.That(presenter.IsOpening, Is.False);
+            _runner.Despawn(spawned);
+        }
+
+        [UnityTest]
         public IEnumerator AuthoritativeCallback_AppliesEmptyOverrideBeforeSpawned()
         {
             yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);

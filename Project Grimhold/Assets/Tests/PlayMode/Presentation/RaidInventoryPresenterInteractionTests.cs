@@ -80,10 +80,11 @@ namespace Tests.PlayMode.Presentation
             _inputTestFixtureType.GetMethod("TearDown").Invoke(_inputTestFixture, null);
         }
 
-        [Test]
-        public void LocalInteractPress_WhileInContainerLootMode_ClosesScreenAndReleasesSuppression()
+        [TestCase(2)]
+        [TestCase(3)]
+        public void LocalInteractPress_WhileLootIsOpenOrPending_ClosesScreenAndReleasesSuppression(int mode)
         {
-            SetPresenterMode(_presenter, 2); // ScreenMode.ContainerLoot
+            SetPresenterMode(_presenter, mode);
             SetViewScreenVisible(_view, true);
             SetViewContainerVisible(_view, true);
             IDisposable suppression = _inputReader.AcquireGameplayInputSuppression();
@@ -121,6 +122,7 @@ namespace Tests.PlayMode.Presentation
 
         [TestCase(1)] // ScreenMode.Personal
         [TestCase(2)] // ScreenMode.ContainerLoot
+        [TestCase(3)] // ScreenMode.OpeningContainer
         public void Escape_WhileInventoryIsOpen_ClosesScreenAndReleasesSuppression(int mode)
         {
             SetPresenterMode(_presenter, mode);
@@ -165,6 +167,45 @@ namespace Tests.PlayMode.Presentation
             {
                 _inputReader.InventoryCloseRequested -= closeHandler;
             }
+        }
+
+        [TestCase("OnInventoryToggleRequested")]
+        [TestCase("OnDisable")]
+        [TestCase("Unbind")]
+        public void PendingOpeningCancellation_ReleasesInputWithoutReopening(string method)
+        {
+            SetPresenterMode(_presenter, 3);
+            SetPresenterField(_presenter, "_inputSuppression", _inputReader.AcquireGameplayInputSuppression());
+            InvokeMethod(_presenter, method);
+            Assert.That(GetPresenterMode(_presenter), Is.EqualTo(0));
+            Assert.That(_view.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+            Assert.That(_presenter.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void DefeatWhileOpening_CancelsPendingScreenAndInputSuppression()
+        {
+            SetPresenterMode(_presenter, 3);
+            SetPresenterField(_presenter, "_inputSuppression", _inputReader.AcquireGameplayInputSuppression());
+            _presenter.SetGameplayMutationsBlocked(true);
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+            Assert.That(_view.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void LostTargetWhileOpening_CancelsPendingScreenAndInputSuppression()
+        {
+            SetPresenterMode(_presenter, 3);
+            SetPresenterField(_presenter, "_isBound", true);
+            SetPresenterField(_presenter, "_isRaidBinding", true);
+            SetPresenterField(_presenter, "_inventorySource", _playerInstance.GetComponent<PlayerLootReceiver>());
+            SetPresenterField(_presenter, "_inputSuppression", _inputReader.AcquireGameplayInputSuppression());
+            InvokeMethod(_presenter, "Update");
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+            Assert.That(_view.IsOpen, Is.False);
         }
 
         [Test]
