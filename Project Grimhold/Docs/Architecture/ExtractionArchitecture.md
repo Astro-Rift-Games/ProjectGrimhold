@@ -179,16 +179,23 @@ complete quota transition produces the local, unscaled confirmation feedback.
 update from `Runner.LocalPlayer` and never retains a private player identity. Invalid or
 replaced runner/player context immediately falls back to the public visual state.
 
-The Sanctuary presenter exposes only public ritual progress to rivals: an unreserved/base
+The Sanctuary presenter consumes `IExtractionSanctuary.TryGetRitualProgress` and rebuilds its
+visual from the confirmed snapshot. Rivals see only public ritual progress: an unreserved/base
 state, a global `InProgress` pulse, or a permanent `Completed` state. Reserved and cancelled
-tints are private to the currently resolved local owner. The pulse uses unscaled time only as
-an aesthetic phase and never represents ritual duration or progress. All presenters preserve
-the alpha authored on each renderer; state changes modify RGB only and never alter zone
-transparency. Presentation components
-write no simulation state and add no replicated properties, RPCs or gameplay timers.
+tints and their one-shot cues are private to the currently resolved local owner. Ritual start
+and completion cues are public world feedback. A first valid snapshot (including a late join or
+re-enable) establishes a baseline without replaying cues; only subsequently observed state or
+reservation transitions emit them. Missing or invalid snapshots reset that baseline. Progress
+intensifies the in-progress pulse as an aesthetic response, but timing remains derived only
+from the confirmed `TickTimer` snapshot. Audio uses the existing `AudioManager` with authored
+spatial `CustomClip` cues at the Sanctuary; one-shot completion particles use
+`ParticleEffectPlayer` with an authored cue reference. Missing optional cue references or
+presentation services never affect gameplay. All presenters preserve the alpha
+authored on each renderer; state changes modify RGB only and never alter zone transparency.
+Presentation components write no simulation state and add no replicated properties, RPCs or
+gameplay timers.
 
-The local minimap presentation is described below. Spatial audio remains outside
-the extraction presentation boundary.
+The local minimap presentation is described below.
 
 ## Local minimap presentation
 

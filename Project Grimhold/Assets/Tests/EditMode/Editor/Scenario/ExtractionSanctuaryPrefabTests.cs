@@ -99,15 +99,97 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
-        public void ExtractionPresentationAddsNoAudioOrVfxResources()
+        public void ExtractionPresentationUsesAuthoredCuesWithoutAddingGameplayOrAudioComponents()
         {
             GameObject sanctuary = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            ExtractionSanctuaryPresenter presenter = sanctuary.GetComponent<ExtractionSanctuaryPresenter>();
+            SerializedObject serializedPresenter = new SerializedObject(presenter);
 
             Assert.That(sanctuary.GetComponentsInChildren<AudioSource>(true), Is.Empty);
             Assert.That(sanctuary.GetComponentsInChildren<ParticleSystem>(true), Is.Empty);
-            Assert.That(
-                AssetDatabase.FindAssets("t:AudioClip", new[] { "Assets/Scripts/Scenario/Extraction" }),
-                Is.Empty);
+            Assert.That(sanctuary.GetComponentsInChildren<NetworkBehaviour>(true),
+                Has.Length.EqualTo(1));
+            Assert.That(sanctuary.GetComponent<NetworkBehaviour>(), Is.SameAs(sanctuary.GetComponent<ExtractionSanctuary>()));
+
+            string[] audioCueFields =
+            {
+                "_assignedCue",
+                "_ritualStartedCue",
+                "_ritualCancelledCue",
+                "_ritualCompletedCue"
+            };
+            foreach (string fieldName in audioCueFields)
+            {
+                SerializedProperty cue = serializedPresenter.FindProperty(fieldName);
+                SerializedProperty clips = cue.FindPropertyRelative("_clips");
+                Assert.That(
+                    clips.arraySize,
+                    Is.GreaterThan(0),
+                    $"Expected an authored clip for {fieldName}.");
+                Assert.That(clips.GetArrayElementAtIndex(0).objectReferenceValue, Is.Not.Null);
+                Assert.That(cue.FindPropertyRelative("_spatialBlend").floatValue, Is.EqualTo(1f));
+            }
+
+            ParticleSystem authoredParticleCue = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/VFX/HealingParticles.prefab").GetComponent<ParticleSystem>();
+            Assert.That(serializedPresenter.FindProperty("_ritualCompletedParticles").objectReferenceValue,
+                Is.SameAs(authoredParticleCue));
+        }
+
+        [Test]
+        public void Presenter_OnlyEmitsCuesForObservedConfirmedTransitions()
+        {
+            AssertCue(
+                "None",
+                false,
+                ExtractionRitualState.NotStarted,
+                ExtractionRitualState.InProgress,
+                false,
+                true,
+                true);
+            AssertCue(
+                "None",
+                true,
+                ExtractionRitualState.InProgress,
+                ExtractionRitualState.InProgress,
+                true,
+                true,
+                true);
+            AssertCue("Started", true, ExtractionRitualState.NotStarted,
+                ExtractionRitualState.InProgress, true, true, false);
+            AssertCue("Assigned", true, ExtractionRitualState.NotStarted,
+                ExtractionRitualState.NotStarted, false, true, true);
+            AssertCue("Cancelled", true, ExtractionRitualState.InProgress,
+                ExtractionRitualState.Cancelled, true, true, true);
+            AssertCue("None", true, ExtractionRitualState.InProgress,
+                ExtractionRitualState.Cancelled, true, true, false);
+            AssertCue("Completed", true, ExtractionRitualState.InProgress,
+                ExtractionRitualState.Completed, true, true, false);
+        }
+
+        private static void AssertCue(
+            string expected,
+            bool hasPreviousSnapshot,
+            ExtractionRitualState previousState,
+            ExtractionRitualState currentState,
+            bool previouslyReserved,
+            bool currentlyReserved,
+            bool isLocalOwner)
+        {
+            MethodInfo resolver = typeof(ExtractionSanctuaryPresenter).GetMethod(
+                "ResolveObservedCues",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(resolver, Is.Not.Null);
+            object result = resolver.Invoke(null, new object[]
+            {
+                hasPreviousSnapshot,
+                previousState,
+                currentState,
+                previouslyReserved,
+                currentlyReserved,
+                isLocalOwner
+            });
+            Assert.That(result.ToString(), Is.EqualTo(expected));
         }
 
         private static void AssertZoneFootprintIsOnFloor(ExtractionZone zone, Tilemap floor)

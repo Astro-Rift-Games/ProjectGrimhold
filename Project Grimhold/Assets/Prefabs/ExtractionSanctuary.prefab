@@ -324,6 +324,35 @@ MonoBehaviour:
   _sanctuary: {fileID: 3315208112669804750}
   _spriteRenderer: {fileID: 5786374723593555651}
   _pulseFrequency: 1.5
+  _assignedCue:
+    _clips:
+    - {fileID: 8300000, guid: 44a5d716536c11248a09ee1a54d5d168, type: 3}
+    _volume: 1
+    _pitch: 1
+    _spatialBlend: 1
+    _loop: 0
+  _ritualStartedCue:
+    _clips:
+    - {fileID: 8300000, guid: eec3bf121b316d64ca1c8aac7573a2f4, type: 3}
+    _volume: 1
+    _pitch: 1
+    _spatialBlend: 1
+    _loop: 0
+  _ritualCancelledCue:
+    _clips:
+    - {fileID: 8300000, guid: 7f4aa26d5b55226409cda231ffaf869b, type: 3}
+    _volume: 1
+    _pitch: 1
+    _spatialBlend: 1
+    _loop: 0
+  _ritualCompletedCue:
+    _clips:
+    - {fileID: 8300000, guid: cc6699269b4c1d44ea1e860518b9bb73, type: 3}
+    _volume: 1
+    _pitch: 1
+    _spatialBlend: 1
+    _loop: 0
+  _ritualCompletedParticles: {fileID: 3102856796109358856, guid: f8bfdd594ba798d46a62ed5d087d00b1, type: 3}
 --- !u!114 &6655921470210224870
 MonoBehaviour:
   m_ObjectHideFlags: 0
