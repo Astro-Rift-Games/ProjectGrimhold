@@ -5219,6 +5219,7 @@ GameObject:
   - component: {fileID: 4716473767476056966}
   - component: {fileID: -977575455703964601}
   - component: {fileID: -2736405989838392395}
+  - component: {fileID: 987654321012345678}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -6014,3 +6015,17 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 2.1135025}
   m_EdgeRadius: 0
+
+--- !u!114 &987654321012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 431f074a18be4793a761ccb743377ae9, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LootContainerRandomContentConfig
+  _table: {fileID: 11400000, guid: 030d210da55b4a74a692dd0c9de23ee5, type: 2}

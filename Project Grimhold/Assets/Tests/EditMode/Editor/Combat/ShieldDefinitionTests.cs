@@ -46,7 +46,7 @@ namespace Tests.EditMode.Combat
                     continue;
                 }
 
-                Assert.That(entry.FindPropertyRelative("_weight").intValue, Is.EqualTo(6));
+                Assert.That(entry.FindPropertyRelative("_weight").intValue, Is.EqualTo(5));
                 Assert.That(entry.FindPropertyRelative("_minimumAmount").intValue, Is.EqualTo(1));
                 Assert.That(entry.FindPropertyRelative("_maximumAmount").intValue, Is.EqualTo(1));
                 return;

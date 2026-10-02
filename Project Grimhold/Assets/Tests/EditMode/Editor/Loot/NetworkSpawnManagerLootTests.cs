@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Fusion.Editor;
 using NUnit.Framework;
 using Spawning;
@@ -36,6 +37,40 @@ namespace Tests.EditMode.Loot
                 Is.EqualTo(InitialSpawnGroupPolicy.SpawnKind.Unsupported));
             Assert.That(InitialSpawnGroupPolicy.Resolve(SpawnGroupType.Misc),
                 Is.EqualTo(InitialSpawnGroupPolicy.SpawnKind.Unsupported));
+        }
+
+        [Test]
+        public void EnemyLootRoll_UsesConfiguredTableAndDeterministicLuckRules()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyPrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            Assert.That(container, Is.Not.Null);
+
+            const ulong seed = 145_976UL;
+            const int guaranteedLuckChance = 10_000;
+            Assert.That(NetworkSpawnManager.TryRollEnemyLootContent(
+                container,
+                seed,
+                guaranteedLuckChance,
+                out IReadOnlyList<LootEntry> firstRoll,
+                out string error), Is.True, error);
+            Assert.That(firstRoll.Count, Is.InRange(2, 3));
+            Assert.That(firstRoll.Select(entry => entry.LootId).Distinct().Count(),
+                Is.EqualTo(firstRoll.Count));
+            Assert.That(firstRoll.Count, Is.LessThanOrEqualTo(container.SlotCapacity));
+
+            Assert.That(NetworkSpawnManager.TryRollEnemyLootContent(
+                container,
+                seed,
+                guaranteedLuckChance,
+                out IReadOnlyList<LootEntry> repeatedRoll,
+                out error), Is.True, error);
+            CollectionAssert.AreEqual(firstRoll, repeatedRoll);
+
+            ulong firstSourceSeed = LootContainerSeedRules.Derive(123UL, 1, (int)SpawnGroupType.Enemies, 0);
+            ulong secondSourceSeed = LootContainerSeedRules.Derive(123UL, 1, (int)SpawnGroupType.Enemies, 1);
+            Assert.That(firstSourceSeed, Is.Not.EqualTo(secondSourceSeed));
         }
 
         [Test]

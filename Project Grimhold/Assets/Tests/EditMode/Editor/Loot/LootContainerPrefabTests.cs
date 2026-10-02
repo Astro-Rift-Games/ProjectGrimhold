@@ -137,7 +137,25 @@ namespace Tests.EditMode.Loot
 
             Assert.That(container, Is.Not.Null, prefabPath);
             Assert.That(container.StartsAvailable, Is.False, prefabPath);
-            Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null, prefabPath);
+            NetworkLootContainerInteractable interactable = prefab.GetComponent<NetworkLootContainerInteractable>();
+            Assert.That(interactable, Is.Not.Null, prefabPath);
+            Assert.That(container.SlotCapacity, Is.EqualTo(NetworkLootContainer.DefaultWorldSlotCapacity), prefabPath);
+            Assert.That(container.LootCatalog, Is.Not.Null, prefabPath);
+            LootContainerRandomContentConfig randomConfig = prefab.GetComponent<LootContainerRandomContentConfig>();
+            Assert.That(randomConfig, Is.Not.Null, prefabPath);
+            Assert.That(randomConfig.enabled, Is.True, prefabPath);
+            Assert.That(randomConfig.Table, Is.Not.Null, prefabPath);
+            Assert.That(randomConfig.Table.name, Is.EqualTo("EnemyLootContainerContentTable"), prefabPath);
+            Assert.That(LootContainerContentTableValidation.TryCreateSnapshot(
+                randomConfig.Table,
+                container.LootCatalog,
+                container.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out ValidatedLootContainerContentSnapshot snapshot,
+                out string validationError), Is.True, $"{prefabPath}: {validationError}");
+            Assert.That(LootContainerContentTableValidation.HasAdditionalStackCapacity(
+                snapshot,
+                out string capacityError), Is.True, $"{prefabPath}: {capacityError}");
             Assert.That(defeatPresenter, Is.Not.Null, prefabPath);
             Assert.That(physicalCollider, Is.Not.Null, prefabPath);
             Assert.That(physicalCollider.isTrigger, Is.False, prefabPath);
@@ -169,6 +187,12 @@ namespace Tests.EditMode.Loot
             Assert.That(configuredDefeatColliders.Contains(damageHitbox), Is.True, prefabPath);
             Assert.That(configuredDefeatColliders.Contains(interactionCollider), Is.False, prefabPath);
 
+            var serializedInteractable = new SerializedObject(interactable);
+            Assert.That(serializedInteractable.FindProperty("_firstOpenProgressReward").intValue,
+                Is.Zero, prefabPath);
+            Assert.That(serializedInteractable.FindProperty("_firstOpenExperienceReward").longValue,
+                Is.Zero, prefabPath);
+
             var serializedContainer = new SerializedObject(container);
             SerializedProperty interactionColliders = serializedContainer.FindProperty("_interactionColliders");
             Assert.That(interactionColliders.arraySize, Is.EqualTo(1), prefabPath);
@@ -176,6 +200,7 @@ namespace Tests.EditMode.Loot
                 interactionColliders.GetArrayElementAtIndex(0).objectReferenceValue,
                 Is.SameAs(interactionCollider),
                 prefabPath);
+            Assert.That(serializedContainer.FindProperty("_initialContent").arraySize, Is.Zero, prefabPath);
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]

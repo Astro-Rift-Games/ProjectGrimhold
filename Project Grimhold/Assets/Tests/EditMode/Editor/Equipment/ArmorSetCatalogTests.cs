@@ -182,7 +182,7 @@ namespace Tests.EditMode.Equipment
                 Assert.That(configuredDefinitions, Does.Contain(definition), spec.AssetName);
 
                 LootContainerContentTableEntry entry = FindEntry(table, definition);
-                Assert.That(entry.Weight, Is.GreaterThan(0), spec.AssetName);
+                Assert.That(entry.Weight, Is.EqualTo(2), spec.AssetName);
                 Assert.That(entry.MinimumAmount, Is.EqualTo(1), spec.AssetName);
                 Assert.That(entry.MaximumAmount, Is.EqualTo(1), spec.AssetName);
             }

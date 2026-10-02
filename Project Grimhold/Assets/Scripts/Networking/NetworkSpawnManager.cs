@@ -103,6 +103,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
+    private int _nextEnemyLootSpawnIndex;
     private readonly HashSet<Transform> _usedEnemySpawnPoints = new();
     private readonly List<NetworkObject> _cleanupBuffer = new();
     private readonly InitialLootSpawnState _lootSpawnState = new();
@@ -2772,6 +2773,36 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        if (!EnsureLootSessionSeed(runner))
+        {
+            Debug.LogError(
+                "Cannot spawn enemy: authoritative Loot seed is unavailable.",
+                this);
+            return false;
+        }
+
+        if (!TryCalculateEffectiveAdditionalLootChance(
+                out int additionalLootChanceBasisPoints,
+                out string luckError))
+        {
+            Debug.LogError(
+                $"Cannot spawn enemy: effective Luck is unavailable. {luckError}",
+                this);
+            return false;
+        }
+
+        int enemyLootSpawnIndex = _nextEnemyLootSpawnIndex;
+        unchecked
+        {
+            _nextEnemyLootSpawnIndex++;
+        }
+
+        ulong enemyLootSeed = LootContainerSeedRules.Derive(
+            _lootSessionSeed,
+            _currentSceneLoadGeneration,
+            (int)SpawnGroupType.Enemies,
+            enemyLootSpawnIndex);
+
         Vector3 position = spawnPoint.position;
         Quaternion rotation = spawnPoint.rotation;
 
@@ -2785,6 +2816,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
+        bool lootConfigured = false;
+        string lootError = null;
+
         NetworkObject enemyObject = runner.Spawn(
             _enemyPrefabs[UnityEngine.Random.Range(0, _enemyPrefabs.Length)],
             position,
@@ -2797,6 +2831,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     if (instance.TryGetBehaviour(out EnemyCharacter character))
                     {
                         character.PopulationOrigin = origin;
+                    }
+
+                    if (instance.TryGetBehaviour(out NetworkLootContainer container))
+                    {
+                        lootConfigured = TryConfigureEnemyLootBeforeSpawn(
+                            callbackRunner,
+                            instance,
+                            enemyLootSeed,
+                            additionalLootChanceBasisPoints,
+                            out lootError);
+                        if (!lootConfigured)
+                        {
+                            Debug.LogError(
+                                $"Cannot initialize spawned enemy Loot before Spawned(). {lootError}",
+                                instance);
+                        }
+                    }
+                    else
+                    {
+                        lootError = $"Spawned enemy has no {nameof(NetworkLootContainer)}.";
+                        Debug.LogError($"Cannot initialize spawned enemy Loot. {lootError}", instance);
                     }
 
                     if (instance.TryGetBehaviour(out EnemyMovementAIController controller))
@@ -2816,7 +2871,105 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        NetworkLootContainer spawnedContainer = enemyObject.GetComponent<NetworkLootContainer>();
+        if (!lootConfigured || spawnedContainer == null ||
+            !(bool)spawnedContainer.IsInitialized ||
+            (bool)spawnedContainer.IsAvailable ||
+            spawnedContainer.OccupiedSlotCount == 0)
+        {
+            Debug.LogError(
+                $"Cannot retain spawned enemy because its Loot container did not initialize with unavailable content. {lootError}",
+                enemyObject);
+            runner.Despawn(enemyObject);
+            return false;
+        }
+
         _spawnedEnemies.Add(enemyObject);
+        return true;
+    }
+
+    internal static bool TryRollEnemyLootContent(
+        NetworkLootContainer container,
+        ulong seed,
+        int additionalLootChanceBasisPoints,
+        out IReadOnlyList<LootEntry> content,
+        out string error)
+    {
+        content = Array.Empty<LootEntry>();
+        error = null;
+        if (container == null)
+        {
+            error = $"{nameof(NetworkLootContainer)} is missing.";
+            return false;
+        }
+
+        LootContainerRandomContentConfig randomConfig =
+            container.GetComponent<LootContainerRandomContentConfig>();
+        if (randomConfig == null || !randomConfig.enabled)
+        {
+            error = $"Enemy prefab requires an enabled {nameof(LootContainerRandomContentConfig)}.";
+            return false;
+        }
+
+        if (!LootContainerContentTableValidation.TryCreateSnapshot(
+                randomConfig.Table,
+                container.LootCatalog,
+                container.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out ValidatedLootContainerContentSnapshot snapshot,
+                out error) ||
+            !LootContainerContentTableValidation.HasAdditionalStackCapacity(snapshot, out error) ||
+            !LootContainerContentRoller.TryRoll(
+                snapshot,
+                seed,
+                additionalLootChanceBasisPoints,
+                out content,
+                out error) ||
+            !LootContainerInitializationRules.TryBuild(
+                content,
+                container.LootCatalog,
+                container.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out _,
+                out error))
+        {
+            return false;
+        }
+
+        return content.Count > 0;
+    }
+
+    internal static bool TryConfigureEnemyLootBeforeSpawn(
+        NetworkRunner runner,
+        NetworkObject instance,
+        ulong seed,
+        int additionalLootChanceBasisPoints,
+        out string error)
+    {
+        error = null;
+        if (instance == null)
+        {
+            error = "The enemy NetworkObject is missing.";
+            return false;
+        }
+
+        NetworkLootContainer container = instance.GetComponent<NetworkLootContainer>();
+        if (!TryRollEnemyLootContent(
+                container,
+                seed,
+                additionalLootChanceBasisPoints,
+                out IReadOnlyList<LootEntry> content,
+                out error))
+        {
+            return false;
+        }
+
+        if (!container.TrySetInitialContentOverride(runner, instance, content))
+        {
+            error = "The enemy NetworkLootContainer rejected its authoritative pre-spawn content.";
+            return false;
+        }
+
         return true;
     }
 

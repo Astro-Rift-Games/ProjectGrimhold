@@ -177,13 +177,26 @@ namespace Tests.PlayMode.Loot
         {
             yield return StartRunnerAndLoadPrefab(EnemyMeleePrefabGuid);
 
+            bool lootConfigured = false;
+            string lootError = null;
             NetworkObject spawned = _runner.Spawn(
                 _prefab,
                 Vector3.zero,
                 Quaternion.identity,
-                inputAuthority: null);
+                inputAuthority: null,
+                onBeforeSpawned: (callbackRunner, instance) =>
+                {
+                    lootConfigured = NetworkSpawnManager.TryConfigureEnemyLootBeforeSpawn(
+                        callbackRunner,
+                        instance,
+                        145_976UL,
+                        0,
+                        out lootError);
+                });
 
             Assert.That(spawned, Is.Not.Null);
+            Assert.That(lootConfigured, Is.True, lootError);
+            NetworkId originalNetworkId = spawned.Id;
             EnemyCharacter enemy = spawned.GetComponent<EnemyCharacter>();
             EnemyMovementAIController movement = spawned.GetComponent<EnemyMovementAIController>();
             EnemyCombatAIController combat = spawned.GetComponent<EnemyCombatAIController>();
@@ -194,6 +207,8 @@ namespace Tests.PlayMode.Loot
             Assert.That(interactable, Is.Not.Null);
             Assert.That((bool)container.IsInitialized, Is.True);
             Assert.That((bool)container.IsAvailable, Is.False);
+            Assert.That(container.IsEmpty, Is.False);
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> rolledContent), Is.True);
             Assert.That(interactable.CanInteract(new InteractionRequest(
                 new EntityId(int.MaxValue), enemy.Id, _runner.Tick)), Is.False);
 
@@ -210,14 +225,34 @@ namespace Tests.PlayMode.Loot
             Assert.That((bool)movement.IsControlEnabled, Is.False);
             Assert.That((bool)combat.IsAttackEnabled, Is.False);
             Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> contentAfterDeath), Is.True);
+            CollectionAssert.AreEqual(rolledContent, contentAfterDeath);
+            Assert.That(spawned.Id, Is.EqualTo(originalNetworkId));
+            Assert.That(_runner.TryFindObject(originalNetworkId, out NetworkObject sameObject), Is.True);
+            Assert.That(sameObject, Is.SameAs(spawned));
             Assert.That(interactable.CanInteract(new InteractionRequest(
                 new EntityId(int.MaxValue), enemy.Id, _runner.Tick)), Is.True);
             Assert.That(spawned.gameObject.activeInHierarchy, Is.True);
+
+            yield return Interact(interactable);
+            Assert.That(_interactionDriver.LastContainerInteractionResult.Success, Is.True);
+            Assert.That(container.GenerationState, Is.EqualTo(LootSourceGenerationState.NotApplicable));
+            int contentChangeSequence = container.LootChangeSequence;
+            Assert.That(container.TryGetLootContent(out contentAfterDeath), Is.True);
+            CollectionAssert.AreEqual(rolledContent, contentAfterDeath);
+
+            yield return Interact(interactable);
+            Assert.That(_interactionDriver.LastContainerInteractionResult.Success, Is.True);
+            Assert.That(container.LootChangeSequence, Is.EqualTo(contentChangeSequence));
+            Assert.That(container.TryGetLootContent(out contentAfterDeath), Is.True);
+            CollectionAssert.AreEqual(rolledContent, contentAfterDeath);
 
             yield return new WaitForSeconds(2.1f);
             Transform body = spawned.transform.Find("Body");
             Assert.That(body, Is.Not.Null);
             Assert.That(body.gameObject.activeSelf, Is.True);
+            Assert.That(container.TryGetLootContent(out contentAfterDeath), Is.True);
+            CollectionAssert.AreEqual(rolledContent, contentAfterDeath);
         }
 
         private IEnumerator StartRunnerAndLoadPrefab(string prefabGuidValue)

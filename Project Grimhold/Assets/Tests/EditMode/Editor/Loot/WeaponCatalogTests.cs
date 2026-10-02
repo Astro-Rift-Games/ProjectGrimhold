@@ -39,6 +39,23 @@ namespace Tests.EditMode.Loot
             .Concat(new[] { "shield" })
             .ToArray();
 
+        private static readonly Dictionary<string, ulong> DefaultLootWeights = new Dictionary<string, ulong>
+        {
+            ["arming_sword"] = 6,
+            ["compound_bow"] = 1,
+            ["great_hammer"] = 1,
+            ["long_bow"] = 8,
+            ["long_sword"] = 3,
+            ["magic_cinquedea"] = 12,
+            ["magic_staff"] = 3,
+            ["magic_sword"] = 6,
+            ["magic_wand"] = 10,
+            ["rapier"] = 6,
+            ["rondel_dagger"] = 12,
+            ["zweihander"] = 3,
+            ["shield"] = 5
+        };
+
         private static readonly string[] LegacyIds =
         {
             "recovery_sword",
@@ -140,11 +157,16 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void DefaultLootTable_ContainsEveryEquipmentDefinitionOnceAtUniformWeight()
+        public void DefaultLootTable_ContainsEveryEquipmentDefinitionOnceAtConfiguredWeight()
         {
             LootContainerContentTable table =
                 AssetDatabase.LoadAssetAtPath<LootContainerContentTable>(TablePath);
             Assert.That(table, Is.Not.Null);
+
+            Assert.That(table.MinimumDistinctStacks, Is.EqualTo(2));
+            Assert.That(table.MaximumDistinctStacks, Is.EqualTo(3));
+            Assert.That(table.AllowEmpty, Is.False);
+            Assert.That(table.Entries.Count, Is.EqualTo(40));
 
             foreach (string id in EquipmentIds)
             {
@@ -152,10 +174,70 @@ namespace Tests.EditMode.Loot
                     .Where(entry => entry.Definition != null && entry.Definition.Id == id)
                     .ToArray();
                 Assert.That(entries, Has.Length.EqualTo(1), id);
-                Assert.That(entries[0].Weight, Is.EqualTo(6), id);
+                Assert.That(entries[0].Weight, Is.EqualTo(DefaultLootWeights[id]), id);
                 Assert.That(entries[0].MinimumAmount, Is.EqualTo(1), id);
                 Assert.That(entries[0].MaximumAmount, Is.EqualTo(1), id);
             }
+        }
+
+        [Test]
+        public void DefaultLootTable_UsesConfiguredConsumableWeightsAndAmounts()
+        {
+            LootContainerContentTable table =
+                AssetDatabase.LoadAssetAtPath<LootContainerContentTable>(TablePath);
+            Assert.That(table, Is.Not.Null);
+
+            AssertTableEntry(table, "coins", 50, 3, 8);
+            AssertTableEntry(table, "bone", 40, 1, 3);
+            AssertTableEntry(table, "healthpotion", 30, 1, 2);
+        }
+
+        [Test]
+        public void EnemyLootTable_ContainsRequestedCataloguedEntriesAndBounds()
+        {
+            LootContainerContentTable table = AssetDatabase.LoadAssetAtPath<LootContainerContentTable>(
+                "Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset");
+            Assert.That(table, Is.Not.Null);
+            Assert.That(table.MinimumDistinctStacks, Is.EqualTo(1));
+            Assert.That(table.MaximumDistinctStacks, Is.EqualTo(2));
+            Assert.That(table.AllowEmpty, Is.False);
+
+            AssertTableEntry(table, "coins", 45, 1, 4);
+            AssertTableEntry(table, "bone", 35, 1, 2);
+            AssertTableEntry(table, "healthpotion", 20, 1, 1);
+            AssertTableEntry(table, "magic_cinquedea", 6, 1, 1);
+            AssertTableEntry(table, "rondel_dagger", 6, 1, 1);
+            AssertTableEntry(table, "magic_wand", 5, 1, 1);
+            AssertTableEntry(table, "long_bow", 4, 1, 1);
+            AssertTableEntry(table, "arming_sword", 3, 1, 1);
+            AssertTableEntry(table, "rapier", 3, 1, 1);
+            AssertTableEntry(table, "magic_sword", 3, 1, 1);
+            AssertTableEntry(table, "long_sword", 1, 1, 1);
+            AssertTableEntry(table, "zweihander", 1, 1, 1);
+            AssertTableEntry(table, "magic_staff", 1, 1, 1);
+            AssertTableEntry(table, "compound_bow", 1, 1, 1);
+            AssertTableEntry(table, "great_hammer", 1, 1, 1);
+            AssertTableEntry(table, "shield", 2, 1, 1);
+
+            foreach (string id in ArmorIds)
+            {
+                AssertTableEntry(table, id, 1, 1, 1);
+            }
+
+            Assert.That(table.Entries.Count, Is.EqualTo(40));
+            Assert.That(table.Entries.Select(entry => entry.Definition.Id).Distinct().Count(),
+                Is.EqualTo(table.Entries.Count));
+            Assert.That(_catalog.TryValidate(out string catalogError), Is.True, catalogError);
+            Assert.That(LootContainerContentTableValidation.TryCreateSnapshot(
+                table,
+                _catalog,
+                NetworkLootContainer.DefaultWorldSlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out ValidatedLootContainerContentSnapshot snapshot,
+                out string validationError), Is.True, validationError);
+            Assert.That(LootContainerContentTableValidation.HasAdditionalStackCapacity(
+                snapshot,
+                out string capacityError), Is.True, capacityError);
         }
 
         [Test]
@@ -231,6 +313,35 @@ namespace Tests.EditMode.Loot
             Assert.That(weapon.AttributeRequirements.MinimumDexterity, Is.EqualTo(dexterity), id);
             Assert.That(weapon.AttributeRequirements.MinimumIntelligence, Is.EqualTo(intelligence), id);
             Assert.That(weapon.PrimaryAttack.GetType(), Is.EqualTo(attackConfigType), id);
+        }
+
+        private static readonly string[] ArmorIds =
+        {
+            "placeholder_helmet", "placeholder_armor", "placeholder_gloves", "placeholder_boots",
+            "army_ranger_hat", "army_ranger_armor", "army_ranger_gloves", "army_ranger_trousers",
+            "heavy_armor_helmet", "heavy_armor_breastplate", "heavy_armor_gauntlets", "heavy_armor_leg_plate",
+            "light_armor_open_sallet", "light_armor_chain_mail_armor", "light_armor_gloves",
+            "light_armor_chain_mail_trousers", "forest_ranger_hood", "forest_ranger_leather_armor",
+            "forest_ranger_gloves", "forest_ranger_trousers", "fire_mage_hood", "fire_mage_garb",
+            "fire_mage_gloves", "fire_mage_trousers"
+        };
+
+        private void AssertTableEntry(
+            LootContainerContentTable table,
+            string id,
+            ulong expectedWeight,
+            int expectedMinimumAmount,
+            int expectedMaximumAmount)
+        {
+            LootContainerContentTableEntry[] entries = table.Entries
+                .Where(entry => entry.Definition != null && entry.Definition.Id == id)
+                .ToArray();
+            Assert.That(entries, Has.Length.EqualTo(1), id);
+            Assert.That(entries[0].Weight, Is.EqualTo(expectedWeight), id);
+            Assert.That(entries[0].MinimumAmount, Is.EqualTo(expectedMinimumAmount), id);
+            Assert.That(entries[0].MaximumAmount, Is.EqualTo(expectedMaximumAmount), id);
+            Assert.That(_catalog.TryGet(id, out LootDefinition catalogDefinition), Is.True, id);
+            Assert.That(entries[0].Definition, Is.SameAs(catalogDefinition), id);
         }
     }
 }
