@@ -34,11 +34,30 @@ public sealed class DungeonPressureConfig : ScriptableObject
         };
     }
 
-    public bool IsValid()
+    public bool Validate(out string error)
     {
-        return _totalDurationSeconds > _reinforcementsThresholdSeconds &&
-               _reinforcementsThresholdSeconds > _criticalPressureThresholdSeconds &&
-               _criticalPressureThresholdSeconds > 0;
+        if (_totalDurationSeconds <= 0)
+        {
+            error = "TotalDurationSeconds must be greater than 0.";
+            return false;
+        }
+        if (_criticalPressureThresholdSeconds <= 0)
+        {
+            error = "CriticalPressureThresholdSeconds must be greater than 0.";
+            return false;
+        }
+        if (_reinforcementsThresholdSeconds <= _criticalPressureThresholdSeconds)
+        {
+            error = "ReinforcementsThresholdSeconds must be strictly greater than CriticalPressureThresholdSeconds.";
+            return false;
+        }
+        if (_totalDurationSeconds <= _reinforcementsThresholdSeconds)
+        {
+            error = "TotalDurationSeconds must be strictly greater than ReinforcementsThresholdSeconds.";
+            return false;
+        }
+        error = string.Empty;
+        return true;
     }
 
 #if UNITY_EDITOR
