@@ -70,13 +70,78 @@ public sealed class DungeonPressureConfig : ScriptableObject
         foreach (var phase in phases)
         {
             var policy = GetPolicy(phase);
+            
+            if (phase == DungeonPressurePhase.Normal && policy.PopulationBudget > 0)
+            {
+                error = $"Policy for phase {phase} must have PopulationBudget = 0 (reinforcements disabled).";
+                return false;
+            }
+
+            if (phase == DungeonPressurePhase.Collapse && policy.PopulationBudget > 0)
+            {
+                error = $"Policy for phase {phase} must have PopulationBudget = 0 (collapse does not generate reinforcements).";
+                return false;
+            }
+
+            if (policy.PopulationBudget > _maxGlobalEnemies)
+            {
+                error = $"Policy for phase {phase} has PopulationBudget ({policy.PopulationBudget}) exceeding MaxGlobalEnemies ({_maxGlobalEnemies}).";
+                return false;
+            }
+
+            if (policy.MaxSpawnsPerAttempt > policy.PopulationBudget && policy.PopulationBudget > 0)
+            {
+                error = $"Policy for phase {phase} has MaxSpawnsPerAttempt ({policy.MaxSpawnsPerAttempt}) exceeding PopulationBudget ({policy.PopulationBudget}).";
+                return false;
+            }
+
+            if (policy.MinSecondsBetweenSpawns < 0f)
+            {
+                error = $"Policy for phase {phase} has MinSecondsBetweenSpawns < 0.";
+                return false;
+            }
+
+            if (policy.MinDistanceToPlayer < 0f)
+            {
+                error = $"Policy for phase {phase} has MinDistanceToPlayer < 0.";
+                return false;
+            }
+
             if (policy.PopulationBudget > 0)
             {
-                if (policy.EvaluationIntervalSeconds <= 0)
+                if (policy.EvaluationIntervalSeconds <= 0f)
                 {
                     error = $"Policy for phase {phase} has PopulationBudget > 0 but EvaluationIntervalSeconds is <= 0.";
                     return false;
                 }
+                if (policy.MaxSpawnsPerAttempt < 1)
+                {
+                    error = $"Policy for phase {phase} has PopulationBudget > 0 but MaxSpawnsPerAttempt is < 1.";
+                    return false;
+                }
+            }
+        }
+
+        var reinPolicy = GetPolicy(DungeonPressurePhase.Reinforcements);
+        var critPolicy = GetPolicy(DungeonPressurePhase.CriticalPressure);
+
+        if (critPolicy.PopulationBudget < reinPolicy.PopulationBudget)
+        {
+            error = "CriticalPressure PopulationBudget cannot be less than Reinforcements PopulationBudget.";
+            return false;
+        }
+
+        if (critPolicy.PopulationBudget > 0 && reinPolicy.PopulationBudget > 0)
+        {
+            if (critPolicy.EvaluationIntervalSeconds > reinPolicy.EvaluationIntervalSeconds)
+            {
+                error = "CriticalPressure EvaluationIntervalSeconds cannot be greater than Reinforcements EvaluationIntervalSeconds (Critical should be more frequent).";
+                return false;
+            }
+            if (critPolicy.MaxSpawnsPerAttempt < reinPolicy.MaxSpawnsPerAttempt)
+            {
+                error = "CriticalPressure MaxSpawnsPerAttempt cannot be less than Reinforcements MaxSpawnsPerAttempt.";
+                return false;
             }
         }
 

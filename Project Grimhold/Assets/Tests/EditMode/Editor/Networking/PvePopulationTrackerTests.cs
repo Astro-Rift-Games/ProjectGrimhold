@@ -103,4 +103,24 @@ public class PvePopulationTrackerTests
         Assert.AreEqual(0, _tracker.GetActiveThreatByOrigin(EnemyPopulationOrigin.Bootstrap));
         Assert.AreEqual(0, _tracker.GetActiveThreatByOrigin(EnemyPopulationOrigin.Reinforcement));
     }
+
+    [Test]
+    public void GetAvailableCapacity_WhenBudgetReducedBelowCurrentThreat_DoesNotRemoveEnemiesAndReturnsZero()
+    {
+        // 1. Initial budget is 5, we register 4 threat
+        _tracker.Register(1u, EnemyPopulationOrigin.Reinforcement, 4);
+        
+        Assert.AreEqual(1, _tracker.ActiveReinforcements);
+        Assert.AreEqual(4, _tracker.GetActiveThreatByOrigin(EnemyPopulationOrigin.Reinforcement));
+        
+        // 2. We change phase, new budget is 2 (less than current threat 4)
+        int capacity = _tracker.GetAvailableCapacity(2, EnemyPopulationOrigin.Reinforcement);
+        
+        // 3. Capacity should be 0 (not negative)
+        Assert.AreEqual(0, capacity);
+        
+        // 4. The population should remain intact (changing budget doesn't despawn them here)
+        Assert.AreEqual(1, _tracker.ActiveReinforcements);
+        Assert.AreEqual(4, _tracker.GetActiveThreatByOrigin(EnemyPopulationOrigin.Reinforcement));
+    }
 }

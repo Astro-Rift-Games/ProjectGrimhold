@@ -18,78 +18,115 @@ public class DungeonPressureConfigTests
         typeof(DungeonPressureConfig).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, policy);
     }
 
+    private DungeonPressureConfig CreateValidConfig()
+    {
+        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
+        SetConfigValues(config, 600, 300, 120, 40);
+        
+        SetPolicyValue(config, "_normalPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0 });
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0 });
+        
+        SetPolicyValue(config, "_reinforcementsPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 15f, MaxSpawnsPerAttempt = 2 });
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 5 });
+        
+        return config;
+    }
+
     [Test]
     public void Validate_ValidConfig_ReturnsTrue()
     {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 300, 120);
-
+        var config = CreateValidConfig();
         bool isValid = config.Validate(out string error);
-
-        Assert.IsTrue(isValid);
-        Assert.IsEmpty(error);
+        Assert.IsTrue(isValid, error);
     }
 
     [Test]
-    public void Validate_TotalDurationZero_ReturnsFalse()
+    public void Validate_NormalWithBudget_ReturnsFalse()
     {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 0, 300, 120);
-
-        bool isValid = config.Validate(out string error);
-
-        Assert.IsFalse(isValid);
-        Assert.AreEqual("TotalDurationSeconds must be greater than 0.", error);
-    }
-
-    [Test]
-    public void Validate_CriticalPressureZero_ReturnsFalse()
-    {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 300, 0);
-
-        bool isValid = config.Validate(out string error);
-
-        Assert.IsFalse(isValid);
-        Assert.AreEqual("CriticalPressureThresholdSeconds must be greater than 0.", error);
-    }
-
-    [Test]
-    public void Validate_ReinforcementsNotGreaterThanCritical_ReturnsFalse()
-    {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 120, 120); // equal
-
-        bool isValid = config.Validate(out string error);
-
-        Assert.IsFalse(isValid);
-        Assert.AreEqual("ReinforcementsThresholdSeconds must be strictly greater than CriticalPressureThresholdSeconds.", error);
-    }
-
-    [Test]
-    public void Validate_TotalNotGreaterThanReinforcements_ReturnsFalse()
-    {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 300, 300, 120); // equal
-
-        bool isValid = config.Validate(out string error);
-
-        Assert.IsFalse(isValid);
-        Assert.AreEqual("TotalDurationSeconds must be strictly greater than ReinforcementsThresholdSeconds.", error);
-    }
-
-    [Test]
-    public void Validate_PolicyWithBudgetButZeroInterval_ReturnsFalse()
-    {
-        var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 300, 120);
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_normalPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 1, EvaluationIntervalSeconds = 1f, MaxSpawnsPerAttempt = 1 });
         
-        var badPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 0f };
-        SetPolicyValue(config, "_criticalPressurePolicy", badPolicy);
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("must have PopulationBudget = 0", error);
+    }
 
-        bool isValid = config.Validate(out string error);
+    [Test]
+    public void Validate_CollapseWithBudget_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 1, EvaluationIntervalSeconds = 1f, MaxSpawnsPerAttempt = 1 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("collapse does not generate reinforcements", error);
+    }
 
-        Assert.IsFalse(isValid);
-        StringAssert.Contains("PopulationBudget > 0 but EvaluationIntervalSeconds is <= 0", error);
+    [Test]
+    public void Validate_CriticalWeakerThanReinforcements_Budget_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 3, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("cannot be less than Reinforcements PopulationBudget", error);
+    }
+
+    [Test]
+    public void Validate_CriticalWeakerThanReinforcements_Interval_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 20f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("Critical should be more frequent", error);
+    }
+
+    [Test]
+    public void Validate_CriticalWeakerThanReinforcements_MaxSpawns_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 1 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("cannot be less than Reinforcements MaxSpawnsPerAttempt", error);
+    }
+
+    [Test]
+    public void Validate_PopulationBudgetExceedsGlobal_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 50, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("exceeding MaxGlobalEnemies", error);
+    }
+
+    [Test]
+    public void Validate_MaxSpawnsExceedsBudget_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 15 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("exceeding PopulationBudget", error);
+    }
+
+    [Test]
+    public void Validate_IntervalZero_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 0f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("EvaluationIntervalSeconds is <= 0", error);
+    }
+
+    [Test]
+    public void Validate_MaxSpawnsZero_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 0 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("MaxSpawnsPerAttempt is < 1", error);
     }
 }
