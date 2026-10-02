@@ -12,6 +12,7 @@ public static class InitialSpawnGroupPolicy
         Enemies,
         LootContainers,
         Breakables,
+        ReinforcementPoints,
         Unsupported
     }
 
@@ -22,6 +23,7 @@ public static class InitialSpawnGroupPolicy
             SpawnGroupType.Enemies => SpawnKind.Enemies,
             SpawnGroupType.Loot => SpawnKind.LootContainers,
             SpawnGroupType.Breakables => SpawnKind.Breakables,
+            SpawnGroupType.Reinforcements => SpawnKind.ReinforcementPoints,
             _ => SpawnKind.Unsupported
         };
     }

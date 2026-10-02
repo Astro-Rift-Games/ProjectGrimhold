@@ -148,7 +148,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     /// Exposes the linked coordinator.
     /// </summary>
     public NetworkMatchController MatchController => _matchController;
+    public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
+    public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
+    public System.Collections.Generic.IEnumerable<NetworkObject> ActivePlayerObjects => _spawnedPlayers.Values;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
     public bool HasRaidingParticipants
@@ -607,6 +610,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     {
                         _spawnPointLookup.Add(definition.Group, definition.SpawnPoints);
                     }
+                    if (definition.Group == SpawnGroupType.Reinforcements)
+                    {
+                        ReinforcementRegistry.Initialize(definition.SpawnPoints);
+                    }
                 }
             }
         }
@@ -922,6 +929,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                             _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
                             return false;
                         }
+                        break;
+                    case InitialSpawnGroupPolicy.SpawnKind.ReinforcementPoints:
+                        // Silently skipped during bootstrap. They are consumed by the dynamic reinforcement director.
                         break;
                     default:
                         Debug.LogWarning(
@@ -2719,6 +2729,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _sceneLoadState = SceneLoadProcessingState.None;
         _runner.GetComponent<EntityRegistry>()?.ClearForRaidClosure();
         _runner.GetComponent<ExtractionSanctuaryAssignmentService>()?.ResetForRaidClosure();
+        ReinforcementRegistry.ResetForRaidClosure();
+        PopulationTracker.ResetForRaidClosure();
         _cleanupBuffer.Clear();
         _resultsWorldCleanupFailureCount = failureCount;
 
@@ -2746,13 +2758,70 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return false;
     }
 
-    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType)
+    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint)
+    {
+        if (spawnPoint == null) return false;
+        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement);
+    }
+
+    private bool SpawnEnemyAtTransform(NetworkRunner runner, Transform spawnPoint, Spawning.EnemyPopulationOrigin origin)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
             return false;
         }
+
+        Vector3 position = spawnPoint.position;
+        Quaternion rotation = spawnPoint.rotation;
+
+        EnemyPatrolRoute resolvedRoute = null;
+        if (spawnPoint != null)
+        {
+            EnemySpawnPoint es = spawnPoint.GetComponent<EnemySpawnPoint>();
+            if (es != null)
+            {
+                resolvedRoute = es.PatrolRoute;
+            }
+        }
+
+        NetworkObject enemyObject = runner.Spawn(
+            _enemyPrefabs[UnityEngine.Random.Range(0, _enemyPrefabs.Length)],
+            position,
+            rotation,
+            inputAuthority: null,
+            onBeforeSpawned: (callbackRunner, instance) =>
+            {
+                if (instance != null)
+                {
+                    if (instance.TryGetBehaviour(out EnemyCharacter character))
+                    {
+                        character.PopulationOrigin = origin;
+                    }
+
+                    if (instance.TryGetBehaviour(out EnemyMovementAIController controller))
+                    {
+                        controller.InitializePatrolRoute(resolvedRoute);
+                    }
+                    else
+                    {
+                        Debug.LogError("[NetworkSpawnManager] Spawned enemy has no EnemyMovementAIController.", instance);
+                    }
+                }
+            });
+
+        if (enemyObject == null)
+        {
+            Debug.LogError("Cannot spawn enemy: Fusion returned a null NetworkObject.", this);
+            return false;
+        }
+
+        _spawnedEnemies.Add(enemyObject);
+        return true;
+    }
+
+    private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType, Spawning.EnemyPopulationOrigin origin = Spawning.EnemyPopulationOrigin.Bootstrap)
+    {
         if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
         {
             Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
@@ -2778,48 +2847,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
 
         Transform spawnPoint = spawnPoints[selectedIndex];
-        Vector3 position = spawnPoint.position;
-        Quaternion rotation = spawnPoint.rotation;
 
-        EnemyPatrolRoute resolvedRoute = null;
-        if (spawnPoint != null)
+        if (SpawnEnemyAtTransform(runner, spawnPoint, origin))
         {
-            EnemySpawnPoint es = spawnPoint.GetComponent<EnemySpawnPoint>();
-            if (es != null)
-            {
-                resolvedRoute = es.PatrolRoute;
-            }
+            Debug.Log($"Spawned enemy at {spawnPoint.position}.");
+            return true;
         }
 
-        NetworkObject enemyObject = runner.Spawn(
-            _enemyPrefabs[UnityEngine.Random.Range(0, _enemyPrefabs.Length)],
-            position,
-            rotation,
-            inputAuthority: null,
-            onBeforeSpawned: (callbackRunner, instance) =>
-            {
-                if (instance != null)
-                {
-                    if (instance.TryGetBehaviour(out EnemyMovementAIController controller))
-                    {
-                        controller.InitializePatrolRoute(resolvedRoute);
-                    }
-                    else
-                    {
-                        Debug.LogError("[NetworkSpawnManager] Spawned enemy has no EnemyMovementAIController.", instance);
-                    }
-                }
-            });
-
-        if (enemyObject == null)
-        {
-            Debug.LogError("Cannot spawn enemy: Fusion returned a null NetworkObject.", this);
-            return false;
-        }
-
-        _spawnedEnemies.Add(enemyObject);
-        Debug.Log($"Spawned enemy at {position}.");
-        return true;
+        return false;
     }
 
     private bool SpawnConfiguredLootContainers(NetworkRunner runner, SpawnGroupDefinition definition)
