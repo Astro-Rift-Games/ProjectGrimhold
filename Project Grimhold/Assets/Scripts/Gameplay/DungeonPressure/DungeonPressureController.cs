@@ -90,6 +90,22 @@ public sealed class DungeonPressureController : NetworkBehaviour
         bool isClosingOrFinished = _matchController.Phase == NetworkMatchController.MatchPhase.Closing || 
                                    _matchController.Phase == NetworkMatchController.MatchPhase.Finished;
 
+#if UNITY_EDITOR
+        if (_advancePhaseRequested)
+        {
+            _advancePhaseRequested = false;
+            AdvancePhaseInternal();
+            remainingTicks = RemainingTicks;
+        }
+
+        int extraTicks = Mathf.RoundToInt(EditorTimeMultiplier) - 1;
+        if (extraTicks > 0 && state == DungeonPressureState.Running)
+        {
+            remainingTicks -= extraTicks;
+            if (remainingTicks < 0) remainingTicks = 0;
+        }
+#endif
+
         DungeonPressureClock.Step(
             ref remainingTicks,
             ref state,
@@ -130,4 +146,27 @@ public sealed class DungeonPressureController : NetworkBehaviour
             Debug.Log("[DungeonPressureController] Forcefully stopped by external system (Collapse).");
         }
     }
+
+#if UNITY_EDITOR
+    [HideInInspector]
+    public float EditorTimeMultiplier = 1f;
+    private bool _advancePhaseRequested;
+
+    public void AdvancePhase()
+    {
+        _advancePhaseRequested = true;
+    }
+
+    private void AdvancePhaseInternal()
+    {
+        if (!HasStateAuthority || State == DungeonPressureState.Stopped || _config == null) return;
+        
+        if (Phase == DungeonPressurePhase.Normal)
+            RemainingTicks = Mathf.CeilToInt(_config.ReinforcementsThresholdSeconds / Runner.DeltaTime);
+        else if (Phase == DungeonPressurePhase.Reinforcements)
+            RemainingTicks = Mathf.CeilToInt(_config.CriticalPressureThresholdSeconds / Runner.DeltaTime);
+        else if (Phase == DungeonPressurePhase.CriticalPressure)
+            RemainingTicks = 0;
+    }
+#endif
 }
