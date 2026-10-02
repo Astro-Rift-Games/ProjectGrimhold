@@ -44,7 +44,7 @@ public sealed class EnemyCharacter : CharacterBase
             var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
             if (spawnManager != null)
             {
-                spawnManager.PopulationTracker.Register(this);
+                spawnManager.PopulationTracker.Register(Object.Id.Raw, PopulationOrigin, EnemyThreatCost.GetCost());
             }
         }
     }
@@ -56,7 +56,7 @@ public sealed class EnemyCharacter : CharacterBase
             var spawnManager = runner.GetComponent<NetworkSpawnManager>();
             if (spawnManager != null)
             {
-                spawnManager.PopulationTracker.Unregister(this);
+                spawnManager.PopulationTracker.Unregister(Object.Id.Raw);
             }
         }
         base.Despawned(runner, hasState);
@@ -95,7 +95,7 @@ public sealed class EnemyCharacter : CharacterBase
             var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
             if (spawnManager != null)
             {
-                spawnManager.PopulationTracker.Unregister(this);
+                spawnManager.PopulationTracker.Unregister(Object.Id.Raw);
             }
         }
     }

@@ -3,44 +3,81 @@ using Spawning;
 
 public sealed class PvePopulationTracker
 {
-    private readonly HashSet<EnemyCharacter> _activeEnemies = new HashSet<EnemyCharacter>();
-    private int _reinforcementsCount = 0;
-
-    public int TotalActivePopulation => _activeEnemies.Count;
-    public int ActiveReinforcements => _reinforcementsCount;
-
-    public void Register(EnemyCharacter enemy)
+    private struct EnemyEntry
     {
-        if (enemy == null || !enemy.IsAlive) return;
-
-        if (_activeEnemies.Add(enemy))
-        {
-            if (enemy.PopulationOrigin == EnemyPopulationOrigin.Reinforcement)
-            {
-                _reinforcementsCount++;
-            }
-            UnityEngine.Debug.Log($"[PveTracker] Enemigo registrado ({enemy.PopulationOrigin}). Total vivos: {_activeEnemies.Count} | Refuerzos vivos: {_reinforcementsCount}");
-        }
+        public EnemyPopulationOrigin Origin;
+        public int Cost;
     }
 
-    public void Unregister(EnemyCharacter enemy)
-    {
-        if (enemy == null) return;
+    private readonly Dictionary<uint, EnemyEntry> _activeEnemies = new Dictionary<uint, EnemyEntry>();
 
-        if (_activeEnemies.Remove(enemy))
-        {
-            if (enemy.PopulationOrigin == EnemyPopulationOrigin.Reinforcement)
-            {
-                _reinforcementsCount--;
-                if (_reinforcementsCount < 0) _reinforcementsCount = 0;
-            }
-            UnityEngine.Debug.Log($"[PveTracker] Enemigo desregistrado ({enemy.PopulationOrigin}). Total vivos: {_activeEnemies.Count} | Refuerzos vivos: {_reinforcementsCount}");
-        }
+    private int _totalPopulation = 0;
+    
+    private readonly Dictionary<EnemyPopulationOrigin, int> _populationByOrigin = new Dictionary<EnemyPopulationOrigin, int>();
+    private readonly Dictionary<EnemyPopulationOrigin, int> _threatByOrigin = new Dictionary<EnemyPopulationOrigin, int>();
+
+    public int TotalActivePopulation => _totalPopulation;
+    
+    public int ActiveReinforcements => GetActivePopulationByOrigin(EnemyPopulationOrigin.Reinforcement);
+
+    public void Register(uint id, EnemyPopulationOrigin origin, int cost)
+    {
+        if (_activeEnemies.ContainsKey(id)) return;
+        
+        _activeEnemies[id] = new EnemyEntry { Origin = origin, Cost = cost };
+        
+        _totalPopulation++;
+
+        if (!_populationByOrigin.ContainsKey(origin)) _populationByOrigin[origin] = 0;
+        if (!_threatByOrigin.ContainsKey(origin)) _threatByOrigin[origin] = 0;
+
+        _populationByOrigin[origin]++;
+        _threatByOrigin[origin] += cost;
+    }
+
+    public void Unregister(uint id)
+    {
+        if (!_activeEnemies.TryGetValue(id, out var entry)) return;
+
+        _activeEnemies.Remove(id);
+        
+        _totalPopulation--;
+        
+        if (_populationByOrigin.ContainsKey(entry.Origin))
+            _populationByOrigin[entry.Origin]--;
+        
+        if (_threatByOrigin.ContainsKey(entry.Origin))
+            _threatByOrigin[entry.Origin] -= entry.Cost;
+    }
+
+    public int GetActivePopulationByOrigin(EnemyPopulationOrigin origin)
+    {
+        return _populationByOrigin.TryGetValue(origin, out int count) ? count : 0;
+    }
+
+    public int GetActiveThreatByOrigin(EnemyPopulationOrigin origin)
+    {
+        return _threatByOrigin.TryGetValue(origin, out int threat) ? threat : 0;
+    }
+
+    public int GetAvailableCapacity(int budget, EnemyPopulationOrigin origin)
+    {
+        int activeThreat = GetActiveThreatByOrigin(origin);
+        int available = budget - activeThreat;
+        return available < 0 ? 0 : available;
+    }
+
+    public int GetAvailableGlobalCapacity(int maxActive)
+    {
+        int available = maxActive - _totalPopulation;
+        return available < 0 ? 0 : available;
     }
 
     public void ResetForRaidClosure()
     {
         _activeEnemies.Clear();
-        _reinforcementsCount = 0;
+        _totalPopulation = 0;
+        _populationByOrigin.Clear();
+        _threatByOrigin.Clear();
     }
 }
