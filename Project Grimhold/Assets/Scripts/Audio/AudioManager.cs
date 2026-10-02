@@ -86,6 +86,23 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Reproduce un clip SFX individual utilizando un AudioSource del pool.
+    /// </summary>
+    public void PlaySfx(AudioClip clip, Vector3 worldPosition = default)
+    {
+        if (clip == null) return;
+
+        AudioSource source = GetNextSfxSource();
+        source.transform.position = worldPosition;
+        source.clip = clip;
+        source.volume = 1f;
+        source.pitch = 1f;
+        source.spatialBlend = 0f;
+        source.loop = false;
+        source.Play();
+    }
+
+    /// <summary>
     /// Reproduce un SFX inyectando la configuración en un AudioSource externo.
     /// Útil para objetos que controlan su propio AudioSource (ej: un motor loopeando).
     /// </summary>

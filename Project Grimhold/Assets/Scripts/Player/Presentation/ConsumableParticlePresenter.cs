@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Observa el evento local de consumo exitoso y emite el sistema de partículas
-/// configurado en la definición del consumible.
+/// Observa el evento local de consumo exitoso y emite la presentación configurada
+/// en la definición del consumible.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ConsumableParticlePresenter : MonoBehaviour
@@ -46,9 +46,16 @@ public sealed class ConsumableParticlePresenter : MonoBehaviour
         }
 
         ConsumableDefinition consumableDef = lootDef.ConsumableDefinition;
-        if (consumableDef != null && consumableDef.ConsumeParticles != null)
+        if (consumableDef == null)
+        {
+            return;
+        }
+
+        if (consumableDef.ConsumeParticles != null)
         {
             ParticleEffectPlayer.InstantiateAndPlay(consumableDef.ConsumeParticles, transform.position);
         }
+
+        AudioManager.Instance?.PlaySfx(consumableDef.ConsumeSound, transform.position);
     }
 }

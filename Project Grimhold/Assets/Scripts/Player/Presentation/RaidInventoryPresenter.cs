@@ -1055,7 +1055,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshPlayerPanel();
         if (_mode == ScreenMode.Personal)
         {
-            _view.HideTransferFeedback();
+            _view.ShowTransferFeedback("Consumible usado.");
         }
 
         RefreshTransferInteraction();
