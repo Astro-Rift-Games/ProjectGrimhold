@@ -16,9 +16,11 @@ TDD: Strict TDD enabled (user global CLAUDE.md). Runner: Unity Test Runner via U
 - [x] T4 Action gates (attack, shield, equipment/weapon sets, consumables, transfer, drop, interaction) + CanReceiveStatusEffects. Route: delegated direct (2+ non-trivial files). Commit 066356fc. Shared PlayerDownedGate.IsDowned(ICharacter); no prefab change. RED job bed982fe 0/5 + stashed-gate equipment/shield REDs; GREEN job fec68481 (only 2 baseline equipment failures). Private authoritative gates tested via reflection because combat suite fails at baseline.
 - [x] T5 Limited movement (speed multiplier, no sprint, knockback intact). Route: delegated direct. Commit 5d21e50d. GREEN EditMode d55f8f50 23/23, PlayMode 4547d29d 11/11 (speed ratio 0.35).
 - [x] T5b Weapons: hide weapon sprites while Downed, restore on exit. Route: delegated direct. Commit 5ff7c40e. PlayerWeaponPresenter combines equipped-sprite and not-Downed conditions; PlayerAttackVfxPresenter.CancelAndRestore on hide edge. Attacks resolve instantly (no windup), shield drops via CanSustainDefense each tick, so no extra cancel path. GREEN jobs 429fb1c2, 32b321fb. Final PlayMode 9cccf13b: 56 tests, 10 failures identical to stashed baseline a3f818ea; EditMode Player+Presentation 232 tests, 3 baseline failures (b1a6b89f).
-- [ ] T6 OnPlayerLeft keeps Downed Raiding avatar/participant alive; drain continues to Defeat. Route: delegated direct.
-- [ ] T7 Architecture docs + player prefab wiring + PlayMode coverage. Route: delegated direct.
+- [x] T6 OnPlayerLeft keeps Downed Raiding avatar/participant alive; drain continues to Defeat. Route: delegated direct. Commit dc4745d5. Pure RaidPlayerDeparturePolicy + _retainedDownedParticipants (keeps raid open via HasRaidingParticipants, aborted on closure). RED CS0103; GREEN job a5e6c4cd 12/12; related suites 2c7f6f10 only pre-existing ProgressionAck source-test failure. Runtime disconnect->Defeat NOT validated (no Fusion harness) -> manual check pending. Reported: retained list not in Host Migration snapshot; downed retained raider keeps raid open up to ~30 s; reinforcement targeting ignores retained avatar.
+- [x] T7 Architecture docs. Route: delegated direct. Commit ff95a44b (PlayerCombat, RaidDefeatAndSpectator, HostMigrationRecovery, PlayerMovement docs). Prefab wiring and PlayMode coverage were delivered in T2/T3-T5b.
 
-Progress: T1-T5b done. Slice 07cadabe..226d138a: RDD medium, review declined by user for that candidate. T4-T5b slice: 588 lines.
+Progress: T1-T7 done. Reviews declined by user for slices 07cadabe..226d138a and 226d138a..6bcc3a08.
 
-Next step: T6 disconnect continuity + T7 docs.
+Pending manual checks: Host/Client two-instance Downed flow, disconnect while Downed reaching Defeat, Host Migration with a Downed player, visual check of hidden weapons.
+
+Next step: review decision for T6-T7 slice; then user decides push/PR.
