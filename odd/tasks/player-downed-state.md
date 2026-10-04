@@ -13,12 +13,12 @@ TDD: Strict TDD enabled (user global CLAUDE.md). Runner: Unity Test Runner via U
 - [x] T1 Pure DownedHealthRules + EditMode tests. Route: delegated direct (writer; trigger 2+ non-trivial files). Commit 562b077f. RED: CS0103 missing type. GREEN: EditMode job c6c4b2aa 21/21.
 - [x] T2 PlayerDownedStateNetworkController (networked IsDowned/DownedHealth/DownedCycle, authoritative drain, restore-safe Spawned). Route: delegated direct. Commit 5765d017 (shared with T3, compile dependency) + prefab wiring in NetworkPlayer.prefab.
 - [x] T3 CharacterBase/PlayerCharacter damage + healing hooks. Route: delegated direct. Commits 5765d017, 2af5a355 (PlayMode). RED: PlayMode job 046ec0a1 0/5 (component missing). GREEN: PlayerDownedPlayModeTests job ef81f59f 5/5. TDD deviation: controller/hooks written before the PlayMode test file. Collapse finding: Dungeon collapse never defeats players today (no ApplyDamage on players), so no forced-defeat entry added; GD doc 10 absolute close defeat is pre-existing missing behavior -> follow-up. Pre-existing PlayMode failures identical with changes stashed (jobs 3c30f1d2 vs 5672f5fb; bccd0fe7 vs 8964fef2). EditMode full run 42092bd2 has unrelated failures, not baselined. Legacy corpse tests use driver AllowDowned=false via internal TestDisableEntry seam.
-- [ ] T4 Action gates (attack, shield, equipment/weapon sets, consumables, transfer, drop, interaction) + CanReceiveStatusEffects. Route: delegated direct.
-- [ ] T5 Limited movement (speed multiplier, no sprint, knockback intact). Route: delegated direct.
-- [ ] T5b Weapons: cancel in-flight attack/defense on entry; hide weapon sprites while Downed, restore on exit. Route: delegated direct.
+- [x] T4 Action gates (attack, shield, equipment/weapon sets, consumables, transfer, drop, interaction) + CanReceiveStatusEffects. Route: delegated direct (2+ non-trivial files). Commit 066356fc. Shared PlayerDownedGate.IsDowned(ICharacter); no prefab change. RED job bed982fe 0/5 + stashed-gate equipment/shield REDs; GREEN job fec68481 (only 2 baseline equipment failures). Private authoritative gates tested via reflection because combat suite fails at baseline.
+- [x] T5 Limited movement (speed multiplier, no sprint, knockback intact). Route: delegated direct. Commit 5d21e50d. GREEN EditMode d55f8f50 23/23, PlayMode 4547d29d 11/11 (speed ratio 0.35).
+- [x] T5b Weapons: hide weapon sprites while Downed, restore on exit. Route: delegated direct. Commit 5ff7c40e. PlayerWeaponPresenter combines equipped-sprite and not-Downed conditions; PlayerAttackVfxPresenter.CancelAndRestore on hide edge. Attacks resolve instantly (no windup), shield drops via CanSustainDefense each tick, so no extra cancel path. GREEN jobs 429fb1c2, 32b321fb. Final PlayMode 9cccf13b: 56 tests, 10 failures identical to stashed baseline a3f818ea; EditMode Player+Presentation 232 tests, 3 baseline failures (b1a6b89f).
 - [ ] T6 OnPlayerLeft keeps Downed Raiding avatar/participant alive; drain continues to Defeat. Route: delegated direct.
 - [ ] T7 Architecture docs + player prefab wiring + PlayMode coverage. Route: delegated direct.
 
-Progress: T1-T3 done (719 authored lines incl. tests/prefab). RDD assess on 07cadabe..HEAD: medium, slice_budget_reached -> review due.
+Progress: T1-T5b done. Slice 07cadabe..226d138a: RDD medium, review declined by user for that candidate. T4-T5b slice: 588 lines.
 
-Next step: native review of T1-T3 slice, then T4+T5+T5b writer.
+Next step: T6 disconnect continuity + T7 docs.
