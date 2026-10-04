@@ -94,6 +94,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
+    // Raiding participants whose peer disconnected while Downed; the drain keeps running on the Host.
+    private readonly List<NetworkObject> _retainedDownedParticipants = new();
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
@@ -169,8 +171,29 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 }
             }
 
-            return false;
+            return HasUnresolvedRetainedDownedParticipant();
         }
+    }
+
+    private bool HasUnresolvedRetainedDownedParticipant()
+    {
+        bool unresolved = false;
+        for (int index = _retainedDownedParticipants.Count - 1; index >= 0; index--)
+        {
+            NetworkObject participantObject = _retainedDownedParticipants[index];
+            if (participantObject == null ||
+                !participantObject.IsValid ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                RaidPlayerDeparturePolicy.IsRetainedDownedRaiderResolved(participant.State))
+            {
+                _retainedDownedParticipants.RemoveAt(index);
+                continue;
+            }
+
+            unresolved = true;
+        }
+
+        return unresolved;
     }
 
     /// <summary>Returns whether any participant still awaits durable local finalization.</summary>
@@ -376,6 +399,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
+        _retainedDownedParticipants.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -445,6 +469,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
+        _retainedDownedParticipants.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -2686,6 +2711,15 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 participant.TryAbortForClosure();
             }
         }
+
+        foreach (NetworkObject participantObject in _retainedDownedParticipants)
+        {
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+            {
+                participant.TryAbortForClosure();
+            }
+        }
     }
 
     /// <summary>
@@ -3743,6 +3777,26 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
+        if (RaidPlayerDeparturePolicy.ShouldRetainDownedRaider(
+                participant.State,
+                IsAvatarDowned(avatarObject)))
+        {
+            // Disconnecting never pauses or resolves Downed. Keep the avatar and participant so the
+            // Host drain can still deplete the reserve; HandleDeath then converts the body and
+            // TryMarkDefeated runs through CurrentAvatarId, which this bookkeeping does not touch.
+            if (!avatarObject.InputAuthority.IsNone)
+            {
+                avatarObject.AssignInputAuthority(PlayerRef.None);
+            }
+
+            _retainedDownedParticipants.Add(participantObject);
+            Debug.Log(
+                $"[RAID-DOWNED] Downed participant '{profileId}' disconnected. " +
+                "Objects retained until definitive Defeat.",
+                participant);
+            return;
+        }
+
         bool preserveMaterialBody = participant.State == RaidParticipantState.Aborted &&
             participant.FinalizationCause ==
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
@@ -3780,6 +3834,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         Debug.Log($"Despawned participant for player {player}.");
     }
+
+    private static bool IsAvatarDowned(NetworkObject avatarObject) =>
+        avatarObject != null &&
+        avatarObject.TryGetBehaviour(out PlayerCharacter character) &&
+        character.IsDowned;
 
     private bool TryResolveHostMigrationProfile(
         PlayerRef player,
@@ -3841,6 +3900,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _admittedPlayers.Clear();
             _spawnedPlayers.Clear();
             _spawnedAvatars.Clear();
+            _retainedDownedParticipants.Clear();
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
             _spawnedEnemies.Clear();
