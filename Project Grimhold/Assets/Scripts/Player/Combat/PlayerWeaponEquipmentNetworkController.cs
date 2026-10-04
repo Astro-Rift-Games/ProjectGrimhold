@@ -693,6 +693,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        PlayerReviveGate.InterruptIfReviving(_character);
 
         if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null ||
             !EquipmentSlotRules.IsCompatible(definition, targetSlot))
@@ -836,6 +837,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        PlayerReviveGate.InterruptIfReviving(_character);
         if (!Runner.TryFindObject(containerId, out NetworkObject networkObject) || networkObject == null) return EquipmentOperationResult.InvalidRequest;
         NetworkLootContainer container = networkObject.GetComponent<NetworkLootContainer>();
         if (container == null || !container.HasStateAuthority) return EquipmentOperationResult.InvalidRequest;
@@ -905,6 +907,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        PlayerReviveGate.InterruptIfReviving(_character);
         if (!EquipmentSlotRules.IsEquipmentSlot(slot)) return EquipmentOperationResult.InvalidRequest;
         if (!TryGetSlotLoot(slot, out LootEntry equipped)) return EquipmentOperationResult.EmptySlot;
 
@@ -985,6 +988,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         {
             return;
         }
+
+        PlayerReviveGate.InterruptIfReviving(_character);
 
         WeaponSetSlot requested = slot1Pressed ? WeaponSetSlot.SetA : WeaponSetSlot.SetB;
         if (requested == ActiveWeaponSetSlot || !IsSlotOccupied(requested))

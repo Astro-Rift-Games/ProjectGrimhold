@@ -94,10 +94,7 @@ public sealed class PlayerDownedRecoveryNetworkController :
     /// </summary>
     public bool TryBeginAssisted(PlayerCharacter reviver)
     {
-        if (!HasStateAuthority || !_isConfigurationValid || _downedState == null ||
-            reviver == null || reviver == _playerCharacter ||
-            reviver.Object == null || !reviver.Object.IsValid ||
-            !reviver.TryGetComponent(out PlayerDownedRecoveryNetworkController reviverRecovery))
+        if (!HasStateAuthority || !CanBeginAssisted(reviver, out PlayerDownedRecoveryNetworkController reviverRecovery))
         {
             return false;
         }
@@ -107,20 +104,6 @@ public sealed class PlayerDownedRecoveryNetworkController :
             ClearSession();
         }
 
-        float distance = Vector2.Distance(transform.position, reviver.transform.position);
-        if (!DownedRecoveryRules.CanStartAssisted(
-                reviver.IsAlive,
-                reviver.IsDowned,
-                IsInitialTeammate(reviver),
-                distance,
-                _reviveRange,
-                _downedState.IsDowned,
-                HasValidSession,
-                reviverRecovery.IsRevivingAnotherAvatar))
-        {
-            return false;
-        }
-
         Kind = RecoveryKind.Assisted;
         ReviverId = reviver.Object.Id;
         SessionCycle = _downedState.DownedCycle;
@@ -128,6 +111,58 @@ public sealed class PlayerDownedRecoveryNetworkController :
         reviverRecovery.RevivingTargetId = Object.Id;
         _previousReviverHealth = reviver.Health;
         _hasPreviousReviverHealth = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Side-effect-free start check shared by the interaction entry point and
+    /// <see cref="TryBeginAssisted"/>: Active initial teammate, in range, target Downed with no valid
+    /// session, reviver not already reviving someone else.
+    /// </summary>
+    public bool CanBeginAssisted(PlayerCharacter reviver)
+    {
+        return CanBeginAssisted(reviver, out _);
+    }
+
+    private bool CanBeginAssisted(
+        PlayerCharacter reviver,
+        out PlayerDownedRecoveryNetworkController reviverRecovery)
+    {
+        reviverRecovery = null;
+        if (!_isConfigurationValid || _downedState == null ||
+            reviver == null || reviver == _playerCharacter ||
+            reviver.Object == null || !reviver.Object.IsValid ||
+            !reviver.TryGetComponent(out reviverRecovery))
+        {
+            return false;
+        }
+
+        float distance = Vector2.Distance(transform.position, reviver.transform.position);
+        return DownedRecoveryRules.CanStartAssisted(
+            reviver.IsAlive,
+            reviver.IsDowned,
+            IsInitialTeammate(reviver),
+            distance,
+            _reviveRange,
+            _downedState.IsDowned,
+            HasValidSession,
+            reviverRecovery.IsRevivingAnotherAvatar);
+    }
+
+    /// <summary>
+    /// Reviver-side: interrupts the session this avatar is running on a Downed teammate, if any.
+    /// State Authority only; a stale <see cref="RevivingTargetId"/> is ignored.
+    /// </summary>
+    internal bool InterruptRevivedTarget(DownedRecoveryInterruptReason reason)
+    {
+        if (!HasStateAuthority || !IsRevivingAnotherAvatar ||
+            !Runner.TryFindObject(RevivingTargetId, out NetworkObject targetObject) ||
+            !targetObject.TryGetBehaviour(out PlayerDownedRecoveryNetworkController target))
+        {
+            return false;
+        }
+
+        target.Interrupt(reason);
         return true;
     }
 

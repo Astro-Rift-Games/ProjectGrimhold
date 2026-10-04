@@ -82,7 +82,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
             Runner.Tick,
             _config.MaximumDistance,
             candidates,
-            _registry.TryGetInteractable,
+            _registry.TryGetInteractionHandler,
             out InteractionTarget selectedTarget,
             out _,
             out _);

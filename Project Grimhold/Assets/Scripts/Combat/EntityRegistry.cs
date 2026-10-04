@@ -12,6 +12,8 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IDamageable> _entities = new();
     private readonly Dictionary<EntityId, ICharacter> _characters = new();
     private readonly Dictionary<EntityId, IInteractable> _interactables = new();
+    private readonly Dictionary<EntityId, List<IInteractable>> _supplementalInteractables = new();
+    private readonly Dictionary<EntityId, InteractionHandler> _interactionHandlers = new();
     private readonly Dictionary<EntityId, ILootReceiver> _lootReceivers = new();
     private readonly Dictionary<EntityId, LootSourceRegistration> _lootSources = new();
     private readonly Dictionary<EntityId, IExtractionZone> _extractionZones = new();
@@ -37,6 +39,8 @@ public sealed class EntityRegistry : MonoBehaviour
         _entities.Clear();
         _characters.Clear();
         _interactables.Clear();
+        _supplementalInteractables.Clear();
+        _interactionHandlers.Clear();
         _lootReceivers.Clear();
         _lootSources.Clear();
         _extractionZones.Clear();
@@ -572,6 +576,125 @@ public sealed class EntityRegistry : MonoBehaviour
         }
 
         return _damageColliders.TryGetValue(collider, out EntityId registeredId) && registeredId == id;
+    }
+
+    /// <summary>
+    /// Registers an additional interactable for an entity whose primary interactable slot is already
+    /// owned by another capability (for example a player avatar that is also a corpse loot container).
+    /// The primary slot and every collider mapping stay untouched.
+    /// </summary>
+    public bool TryRegisterSupplementalInteractable(EntityId id, IInteractable interactable)
+    {
+        if (interactable == null || id.Value == 0 || interactable.Id != id)
+        {
+            return false;
+        }
+
+        if (!_supplementalInteractables.TryGetValue(id, out List<IInteractable> list))
+        {
+            list = new List<IInteractable>();
+            _supplementalInteractables.Add(id, list);
+        }
+
+        if (!list.Contains(interactable))
+        {
+            list.Add(interactable);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a supplemental interactable only when the expected instance still owns it.
+    /// </summary>
+    public bool TryUnregisterSupplementalInteractable(EntityId id, IInteractable expectedInteractable)
+    {
+        if (expectedInteractable == null ||
+            !_supplementalInteractables.TryGetValue(id, out List<IInteractable> list) ||
+            !list.Remove(expectedInteractable))
+        {
+            return false;
+        }
+
+        if (list.Count == 0)
+        {
+            _supplementalInteractables.Remove(id);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves what the interaction pipeline should use for an entity: the primary interactable when
+    /// there are no supplemental ones, otherwise one handler that tries the primary first and then each
+    /// supplemental interactable in registration order. Presenters that need the concrete primary
+    /// capability keep using <see cref="TryGetInteractable"/>.
+    /// </summary>
+    public bool TryGetInteractionHandler(EntityId id, out IInteractable handler)
+    {
+        if (!_supplementalInteractables.ContainsKey(id))
+        {
+            return _interactables.TryGetValue(id, out handler);
+        }
+
+        if (!_interactionHandlers.TryGetValue(id, out InteractionHandler cached))
+        {
+            cached = new InteractionHandler(this, id);
+            _interactionHandlers.Add(id, cached);
+        }
+
+        handler = cached;
+        return true;
+    }
+
+    private sealed class InteractionHandler : IInteractable
+    {
+        private readonly EntityRegistry _registry;
+
+        public InteractionHandler(EntityRegistry registry, EntityId id)
+        {
+            _registry = registry;
+            Id = id;
+        }
+
+        public EntityId Id { get; }
+
+        public bool CanInteract(in InteractionRequest request)
+        {
+            return TrySelect(request, out _);
+        }
+
+        public InteractionResult Interact(in InteractionRequest request)
+        {
+            return TrySelect(request, out IInteractable selected)
+                ? selected.Interact(request)
+                : InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
+        }
+
+        private bool TrySelect(in InteractionRequest request, out IInteractable selected)
+        {
+            if (_registry._interactables.TryGetValue(Id, out IInteractable primary) &&
+                primary.CanInteract(request))
+            {
+                selected = primary;
+                return true;
+            }
+
+            if (_registry._supplementalInteractables.TryGetValue(Id, out List<IInteractable> supplementals))
+            {
+                for (int i = 0; i < supplementals.Count; i++)
+                {
+                    if (supplementals[i].CanInteract(request))
+                    {
+                        selected = supplementals[i];
+                        return true;
+                    }
+                }
+            }
+
+            selected = null;
+            return false;
+        }
     }
 
     /// <summary>

@@ -145,6 +145,8 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
             return ConsumableResult.Rejected(ConsumableFailureReason.TargetUnavailable);
         }
 
+        PlayerReviveGate.InterruptIfReviving(_character);
+
         if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition))
         {
             return ConsumableResult.Rejected(ConsumableFailureReason.InvalidLoot);

@@ -44,6 +44,10 @@ public sealed class PlayerShieldDefenseNetworkController : NetworkBehaviour
         }
 
         IsDefending = GetInput(out PlayerNetworkInput input) && CanDefend(input.Buttons);
+        if (IsDefending)
+        {
+            PlayerReviveGate.InterruptIfReviving(_character);
+        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)

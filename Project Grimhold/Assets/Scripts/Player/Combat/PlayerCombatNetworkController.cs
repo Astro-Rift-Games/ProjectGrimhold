@@ -187,6 +187,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
+        PlayerReviveGate.InterruptIfReviving(_character);
         AttackFailureReason prerequisiteFailure = GetPrimaryAttackFailureReason();
         if (prerequisiteFailure != AttackFailureReason.None)
         {

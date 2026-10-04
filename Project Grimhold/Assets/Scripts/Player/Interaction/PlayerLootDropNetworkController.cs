@@ -291,6 +291,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.PlayerUnavailable);
         }
 
+        PlayerReviveGate.InterruptIfReviving(_character);
+
         if (_lootCatalog == null ||
             !_lootCatalog.TryGetByIndex(identity.CatalogIndex, out LootDefinition definition))
         {

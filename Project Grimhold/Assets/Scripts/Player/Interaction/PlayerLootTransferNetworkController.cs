@@ -435,6 +435,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.PlayerUnavailable);
         }
 
+        PlayerReviveGate.InterruptIfReviving(_character);
+
         if (identity.SourceId.Value == 0)
         {
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.SourceNotFound);

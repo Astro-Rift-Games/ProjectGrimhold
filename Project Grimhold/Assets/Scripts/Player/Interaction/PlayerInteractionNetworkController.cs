@@ -142,6 +142,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             return;
         }
 
+        PlayerReviveGate.InterruptIfReviving(_character);
         TryProcessInteraction();
     }
 
@@ -168,7 +169,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             Runner.Tick,
             _config.MaximumDistance,
             candidates,
-            _registry.TryGetInteractable,
+            _registry.TryGetInteractionHandler,
             out var resolvedRequest,
             out var resolvedResult
         );
