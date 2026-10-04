@@ -29,6 +29,7 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField, Min(0.0001f)]
     private float _defenseMitigationConstant = 100f;
 
+    private PlayerStaminaNetworkController _staminaController;
     private bool _reportedMissingExtractionController;
     private bool _hasCachedEquipmentStatistics;
     private EquipmentStatisticsModifiers _cachedEquipmentStatistics;
@@ -283,6 +284,29 @@ public sealed class PlayerCharacter : CharacterBase
     }
 
     /// <summary>
+    /// Completes a recovery from Downed in one authoritative step: leaves Downed (reserve
+    /// discarded), restores Health and empties Stamina. Returns false with no side effects when a
+    /// precondition fails. Grants no invulnerability and never touches Mana.
+    /// </summary>
+    internal bool TryRestoreFromDowned(float restoredHealth)
+    {
+        if (!HasStateAuthority || !IsDowned ||
+            float.IsNaN(restoredHealth) || float.IsInfinity(restoredHealth) || restoredHealth <= 0f)
+        {
+            return false;
+        }
+
+        if (!_downedStateController.TryExitDownedToActive())
+        {
+            return false;
+        }
+
+        RestoreHealthAuthoritatively(restoredHealth);
+        _staminaController?.ForceDepleteForRecovery();
+        return true;
+    }
+
+    /// <summary>
     /// Starts the authoritative player-corpse transaction after this character's
     /// health has transitioned to zero through the shared damage pipeline.
     /// </summary>
@@ -341,6 +365,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_downedStateController == null)
         {
             _downedStateController = GetComponent<PlayerDownedStateNetworkController>();
+        }
+
+        if (_staminaController == null)
+        {
+            _staminaController = GetComponent<PlayerStaminaNetworkController>();
         }
     }
 

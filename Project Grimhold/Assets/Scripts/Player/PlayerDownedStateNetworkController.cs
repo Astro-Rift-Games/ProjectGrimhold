@@ -134,6 +134,22 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         DownedHealth = 0f;
     }
 
+    /// <summary>
+    /// Leaves Downed for Active after a completed recovery: clears the flag and discards the
+    /// reserve while keeping <see cref="DownedCycle"/> so a later entry starts a new cycle.
+    /// </summary>
+    internal bool TryExitDownedToActive()
+    {
+        if (!HasStateAuthority || !IsDowned)
+        {
+            return false;
+        }
+
+        IsDowned = false;
+        DownedHealth = 0f;
+        return true;
+    }
+
     private void CacheDependencies()
     {
         if (_playerCharacter == null)

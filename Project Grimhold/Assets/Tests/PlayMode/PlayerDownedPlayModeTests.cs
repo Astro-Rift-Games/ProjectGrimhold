@@ -127,6 +127,100 @@ namespace Tests.PlayMode.Loot
             Assert.That(player.CanReceiveStatusEffects, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator RestoreFromDowned_LeavesActiveWithOneHealthZeroStaminaAndNoReserve()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            SetField(downed, "_downedDrainPerSecond", 0f);
+            PlayerStaminaNetworkController stamina = player.GetComponent<PlayerStaminaNetworkController>();
+            SetNetworkedProperty(stamina, nameof(PlayerStaminaNetworkController.CurrentStamina), 50f);
+            yield return Hit(100000f);
+            int cycleBefore = downed.DownedCycle;
+
+            bool restored = player.TryRestoreFromDowned(1f);
+
+            Assert.That(restored, Is.True);
+            Assert.That(player.Health, Is.EqualTo(1f));
+            Assert.That(player.IsAlive, Is.True);
+            Assert.That(player.IsDowned, Is.False);
+            Assert.That((bool)downed.IsDowned, Is.False);
+            Assert.That(downed.DownedHealth, Is.EqualTo(0f));
+            Assert.That(downed.DownedCycle, Is.EqualTo(cycleBefore));
+            Assert.That(stamina.CurrentStamina, Is.EqualTo(0f));
+            Assert.That((bool)stamina.IsExhausted, Is.True);
+            Assert.That(PlayerDownedGate.IsDowned(player), Is.False);
+            Assert.That((bool)container.IsAvailable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator RestoreFromDowned_WhenNotDowned_ChangesNothing()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            PlayerStaminaNetworkController stamina = player.GetComponent<PlayerStaminaNetworkController>();
+            SetNetworkedProperty(stamina, nameof(PlayerStaminaNetworkController.CurrentStamina), 50f);
+            yield return WaitFrames(2);
+            float healthBefore = player.Health;
+
+            bool restored = player.TryRestoreFromDowned(1f);
+
+            Assert.That(restored, Is.False);
+            Assert.That(player.Health, Is.EqualTo(healthBefore));
+            Assert.That(stamina.CurrentStamina, Is.GreaterThan(0f));
+        }
+
+        private static readonly float[] InvalidRestoredHealthValues =
+            { 0f, -3f, float.NaN, float.PositiveInfinity };
+
+        [UnityTest]
+        public IEnumerator RestoreFromDowned_InvalidHealth_IsRejectedWithoutSideEffects(
+            [ValueSource(nameof(InvalidRestoredHealthValues))] float value)
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            SetField(downed, "_downedDrainPerSecond", 0f);
+            yield return Hit(100000f);
+
+            bool restored = player.TryRestoreFromDowned(value);
+
+            Assert.That(restored, Is.False);
+            Assert.That((bool)downed.IsDowned, Is.True);
+            Assert.That(downed.DownedHealth, Is.EqualTo(75f).Within(0.001f));
+            Assert.That(player.Health, Is.EqualTo(0f));
+        }
+
+        [UnityTest]
+        public IEnumerator FatalHitAfterRestore_StartsNewFullCycle()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            SetField(downed, "_downedDrainPerSecond", 0f);
+            yield return Hit(100000f);
+            Assert.That(player.TryRestoreFromDowned(1f), Is.True);
+
+            yield return Hit(100000f);
+
+            Assert.That((bool)downed.IsDowned, Is.True);
+            Assert.That(downed.DownedCycle, Is.EqualTo(2));
+            Assert.That(downed.DownedHealth, Is.EqualTo(75f).Within(0.001f));
+            Assert.That(player.Health, Is.EqualTo(0f));
+            Assert.That((bool)container.IsAvailable, Is.False);
+        }
+
+        private static void SetNetworkedProperty(object target, string name, object value)
+        {
+            PropertyInfo property = target.GetType().GetProperty(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null, name);
+            property.SetValue(target, value);
+        }
+
         private void Spawn(
             out PlayerCharacter player,
             out PlayerDownedStateNetworkController downed,

@@ -57,6 +57,16 @@ internal static class StaminaResourceRules
         return true;
     }
 
+    /// <summary>
+    /// Authoritative depletion outside a normal spend (e.g. recovery from Downed).
+    /// Matches the outcome of a continuous spend that empties Stamina: zero and Exhausted.
+    /// </summary>
+    internal static void ForceDeplete(out float resultingCurrent, out bool resultingExhaustion)
+    {
+        resultingCurrent = 0f;
+        resultingExhaustion = true;
+    }
+
     internal static float ClampCurrent(float current, float maximum)
     {
         if (!IsFinite(current) || !IsFinite(maximum))

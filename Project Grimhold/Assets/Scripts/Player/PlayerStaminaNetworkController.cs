@@ -223,6 +223,25 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
         return wasSpent;
     }
 
+    /// <summary>
+    /// Empties Stamina after recovering from Downed. Applies the same Exhaustion and
+    /// regeneration-delay semantics as a continuous spend that depletes Stamina.
+    /// State Authority only.
+    /// </summary>
+    internal bool ForceDepleteForRecovery()
+    {
+        if (!HasStateAuthority)
+        {
+            return false;
+        }
+
+        StaminaResourceRules.ForceDeplete(out float current, out bool exhausted);
+        CurrentStamina = current;
+        IsExhausted = exhausted;
+        RestartRegenerationDelay();
+        return true;
+    }
+
     private bool TryInitializeFreshState()
     {
         if (IsInitialized || !TryGetMaximumStamina(out float maximumStamina))

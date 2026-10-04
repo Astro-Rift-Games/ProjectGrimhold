@@ -269,6 +269,21 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     }
 
     /// <summary>
+    /// Sets Health authoritatively for a state transition that is not conventional healing
+    /// (e.g. recovering from Downed). Requires State Authority and a finite positive value;
+    /// the result is clamped to the effective maximum.
+    /// </summary>
+    protected void RestoreHealthAuthoritatively(float health)
+    {
+        if (!HasStateAuthority || float.IsNaN(health) || float.IsInfinity(health) || health <= 0f)
+        {
+            return;
+        }
+
+        Health = Mathf.Min(health, ResolveMaximumHealth());
+    }
+
+    /// <summary>
     /// Called when mitigated damage brings Health to zero, before <see cref="HandleDeath"/>.
     /// Return true to defer definitive defeat (e.g. enter Downed); excess damage is discarded.
     /// </summary>

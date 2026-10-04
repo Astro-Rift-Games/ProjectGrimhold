@@ -109,5 +109,14 @@ namespace Tests.EditMode.Player
             Assert.That(StaminaResourceRules.HasRecoveredFromExhaustion(24.99f, 100f, 0.25f), Is.False);
             Assert.That(StaminaResourceRules.HasRecoveredFromExhaustion(25f, 100f, 0.25f), Is.True);
         }
+
+        [Test]
+        public void ForceDeplete_EmptiesStaminaAndExhaustsLikeContinuousDepletion()
+        {
+            StaminaResourceRules.ForceDeplete(out float current, out bool exhausted);
+
+            Assert.That(current, Is.Zero);
+            Assert.That(exhausted, Is.True);
+        }
     }
 }
