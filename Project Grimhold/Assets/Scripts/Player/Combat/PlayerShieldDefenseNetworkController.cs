@@ -84,6 +84,7 @@ public sealed class PlayerShieldDefenseNetworkController : NetworkBehaviour
         bool gameplayPhaseActive = _matchController == null ||
             _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         return _dependenciesValid && gameplayPhaseActive && _character.IsAlive &&
+            !PlayerDownedGate.IsDowned(_character) &&
             _equipmentController.TryGetActiveShieldDefinition(out _);
     }
 

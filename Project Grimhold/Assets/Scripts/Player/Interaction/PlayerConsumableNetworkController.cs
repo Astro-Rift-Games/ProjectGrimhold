@@ -66,7 +66,8 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     /// </summary>
     public bool TryRequestConsume(LootId lootId)
     {
-        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() || HasRequestInFlight)
+        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() || HasRequestInFlight ||
+            PlayerDownedGate.IsDowned(_character))
         {
             return false;
         }
@@ -139,6 +140,11 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
 
     private ConsumableResult ProcessAuthoritativeConsume(int catalogIndex)
     {
+        if (PlayerDownedGate.IsDowned(_character))
+        {
+            return ConsumableResult.Rejected(ConsumableFailureReason.TargetUnavailable);
+        }
+
         if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition))
         {
             return ConsumableResult.Rejected(ConsumableFailureReason.InvalidLoot);

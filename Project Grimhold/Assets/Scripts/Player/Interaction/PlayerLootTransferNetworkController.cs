@@ -129,7 +129,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId playerId = _character?.Id ?? default;
         bool playerIsSource = sourceId == playerId;
         bool playerIsDestination = destinationId == playerId;
-        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() || sourceId.Value == 0 ||
+        if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
+            PlayerDownedGate.IsDowned(_character) || sourceId.Value == 0 ||
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
             !IsSupportedQuantityMode(quantityMode) ||
@@ -428,7 +429,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId playerId = _character?.Id ?? default;
         int tick = Runner.Tick;
 
-        if (_extractionController != null && _extractionController.State == ExtractionState.Extracted)
+        if (PlayerDownedGate.IsDowned(_character) ||
+            (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.PlayerUnavailable);
         }

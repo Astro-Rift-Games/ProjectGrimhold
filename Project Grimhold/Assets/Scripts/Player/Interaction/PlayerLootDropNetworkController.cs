@@ -114,6 +114,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
+            PlayerDownedGate.IsDowned(_character) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex) ||
             !_clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out LootDropRequestIdentity identity))
@@ -282,7 +283,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.MissingAuthority);
         }
 
-        if (_character == null || !_character.IsAlive || _lootReceiver == null ||
+        if (_character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+            _lootReceiver == null ||
             _lootReceiver.Id.Value == 0 ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {

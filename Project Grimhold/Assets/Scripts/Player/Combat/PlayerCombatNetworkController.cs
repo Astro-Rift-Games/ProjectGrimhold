@@ -356,7 +356,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.MissingConfiguration;
         }
 
-        if (!IsAttackEnabled || !_character.IsAlive)
+        if (!IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
         {
             return AttackFailureReason.ControlDisabled;
         }

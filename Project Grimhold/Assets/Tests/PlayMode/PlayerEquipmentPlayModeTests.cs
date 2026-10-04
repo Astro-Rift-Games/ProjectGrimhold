@@ -26,6 +26,8 @@ namespace Tests.PlayMode.Equipment
             "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
         private const string RangedWeaponPath =
             "Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset";
+        private const string ShieldPath =
+            "Assets/Scriptable Objects/Loot/Definitions/Shield.asset";
         private const string GreatswordPath =
             "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
 
@@ -43,6 +45,7 @@ namespace Tests.PlayMode.Equipment
         private LootDefinition _meleeWeapon;
         private LootDefinition _rangedWeapon;
         private LootDefinition _greatsword;
+        private LootDefinition _shield;
         private LootDefinition _helmet;
         private LootDefinition _armor;
         private LootDefinition _gloves;
@@ -119,6 +122,47 @@ namespace Tests.PlayMode.Equipment
             }
 
             Assert.That(_equipment.HasAnyEquipment, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentMutations_AreRefusedWhileDowned()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            PlayerDownedStateNetworkController downed =
+                _character.GetComponent<PlayerDownedStateNetworkController>();
+            Assert.That(downed.TryEnterDowned(), Is.True);
+
+            yield return EquipThroughAuthority(_helmet, EquipmentOperationResult.PlayerUnavailable);
+            yield return Unequip(
+                EquipmentSlot.WeaponSetAMainHand,
+                EquipmentOperationResult.PlayerUnavailable);
+
+            Assert.That(_equipment.IsSlotOccupied(EquipmentSlot.WeaponSetAMainHand), Is.True);
+            Assert.That(_equipment.IsSlotOccupied(EquipmentSlot.Helmet), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator ShieldDefense_StopsWhileDowned()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(
+                _shield,
+                EquipmentSlot.WeaponSetAOffHand,
+                EquipmentOperationResult.Succeeded);
+            PlayerShieldDefenseNetworkController shield =
+                _character.GetComponent<PlayerShieldDefenseNetworkController>();
+            PlayerDownedStateNetworkController downed =
+                _character.GetComponent<PlayerDownedStateNetworkController>();
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            input.SecondaryHeld = true;
+            yield return WaitUntil(() => shield.IsDefending, "The shield never raised before Downed.");
+
+            Assert.That(downed.TryEnterDowned(), Is.True);
+
+            yield return WaitUntil(() => !shield.IsDefending, "The shield stayed raised while Downed.");
         }
 
         [UnityTest]
@@ -695,7 +739,8 @@ namespace Tests.PlayMode.Equipment
                 new LootEntry(_armor.LootId, 1),
                 new LootEntry(_gloves.LootId, 1),
                 new LootEntry(_boots.LootId, 1),
-                new LootEntry(_trinket.LootId, 1)
+                new LootEntry(_trinket.LootId, 1),
+                new LootEntry(_shield.LootId, 1)
             });
         }
 
@@ -707,6 +752,8 @@ namespace Tests.PlayMode.Equipment
             Assert.That(_meleeWeapon, Is.Not.Null, MeleeWeaponPath);
             Assert.That(_rangedWeapon, Is.Not.Null, RangedWeaponPath);
             Assert.That(_greatsword, Is.Not.Null, GreatswordPath);
+            _shield = AssetDatabase.LoadAssetAtPath<LootDefinition>(ShieldPath);
+            Assert.That(_shield, Is.Not.Null, ShieldPath);
 
             _helmet = EquipmentTestContent.CreateArmorDefinition(
                 "test_helmet", LootCategory.Helmet, 10, 1, MaximumResourceType.Health, 20);
@@ -720,7 +767,7 @@ namespace Tests.PlayMode.Equipment
 
             _catalog = EquipmentTestContent.CreateCatalog(
                 _meleeWeapon, _rangedWeapon, _greatsword,
-                _helmet, _armor, _gloves, _boots, _trinket);
+                _helmet, _armor, _gloves, _boots, _trinket, _shield);
         }
 
         private NetworkObject SpawnParticipant(CharacterAttributeState attributes)
@@ -1038,6 +1085,18 @@ namespace Tests.PlayMode.Equipment
             }
 
             Assert.That(predicate(), Is.True, failureMessage);
+        }
+
+        private sealed class SecondaryActionInputDriver : NetworkRunnerCallbacksAdapter
+        {
+            public bool SecondaryHeld { get; set; }
+
+            public override void OnInput(NetworkRunner runner, NetworkInput input)
+            {
+                PlayerNetworkInput playerInput = default;
+                playerInput.Buttons.Set(PlayerInputButton.SecondaryAction, SecondaryHeld);
+                input.Set(playerInput);
+            }
         }
     }
 }

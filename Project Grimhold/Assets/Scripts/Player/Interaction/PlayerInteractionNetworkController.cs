@@ -120,7 +120,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             return;
         }
 
-        if (_character == null || !_character.IsAlive || (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
+        if (_character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+            (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
             RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable));
             return;
