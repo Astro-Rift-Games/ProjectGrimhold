@@ -49,13 +49,19 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     /// <summary>
     /// Indicates whether the character is currently alive.
     /// </summary>
-    public bool IsAlive => Object != null && Object.IsValid ? Health > 0f : true;
+    public virtual bool IsAlive => Object != null && Object.IsValid ? Health > 0f : true;
 
     /// <summary>
     /// Indicates whether the character can receive damage at this moment.
     /// Can be overridden to apply temporary invulnerability states.
     /// </summary>
     public virtual bool CanReceiveDamage => IsAlive;
+
+    /// <summary>
+    /// Indicates whether conventional healing may restore Health at this moment.
+    /// Can be overridden by states that reject healing (e.g. Downed).
+    /// </summary>
+    protected virtual bool CanReceiveHealing => IsAlive;
 
     protected virtual void Awake()
     {
@@ -137,11 +143,29 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
 
         float finalDamage = CalculateMitigatedDamage(request);
 
+        if (TryApplyAlternateDamage(request, finalDamage, out DamageResult alternateResult))
+        {
+            return alternateResult;
+        }
+
         float previousHealth = Health;
         Health = Mathf.Max(0f, Health - finalDamage);
         float actualDamageApplied = previousHealth - Health;
 
         bool isFatal = Health <= 0f;
+
+        if (isFatal && TryInterceptFatalDamage())
+        {
+            // Defeat was deferred (e.g. Downed); excess damage is discarded.
+            return new DamageResult(
+                Id,
+                true,
+                actualDamageApplied,
+                Health,
+                false,
+                DamageFailureReason.None
+            );
+        }
 
         if (isFatal)
         {
@@ -168,7 +192,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             return new HealResult(Id, false, 0f, Health, HealFailureReason.MissingAuthority);
         }
 
-        if (!IsAlive)
+        if (!CanReceiveHealing)
         {
             return new HealResult(Id, false, 0f, Health, HealFailureReason.TargetDead);
         }
@@ -242,6 +266,28 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
         {
             Health = maximumHealth;
         }
+    }
+
+    /// <summary>
+    /// Called when mitigated damage brings Health to zero, before <see cref="HandleDeath"/>.
+    /// Return true to defer definitive defeat (e.g. enter Downed); excess damage is discarded.
+    /// </summary>
+    protected virtual bool TryInterceptFatalDamage()
+    {
+        return false;
+    }
+
+    /// <summary>
+    /// Called after mitigation and before Health is touched. Return true when an alternate
+    /// reserve absorbed the damage and <paramref name="result"/> describes the outcome.
+    /// </summary>
+    protected virtual bool TryApplyAlternateDamage(
+        in DamageRequest request,
+        float mitigatedDamage,
+        out DamageResult result)
+    {
+        result = default;
+        return false;
     }
 
     /// <summary>

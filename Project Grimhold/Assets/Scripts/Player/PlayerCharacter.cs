@@ -23,6 +23,9 @@ public sealed class PlayerCharacter : CharacterBase
     [SerializeField]
     private PlayerShieldDefenseNetworkController _shieldDefenseController;
 
+    [SerializeField]
+    private PlayerDownedStateNetworkController _downedStateController;
+
     [SerializeField, Min(0.0001f)]
     private float _defenseMitigationConstant = 100f;
 
@@ -42,6 +45,23 @@ public sealed class PlayerCharacter : CharacterBase
 
     [Networked]
     public NetworkString<_32> ProfileIdString { get; set; }
+
+    /// <summary>Indicates whether the player is in the Downed state (Health 0, reserve active).</summary>
+    public bool IsDowned => _downedStateController != null &&
+                            _downedStateController.Object != null &&
+                            _downedStateController.Object.IsValid &&
+                            _downedStateController.IsDowned;
+
+    /// <summary>
+    /// Contract for future crowd-control and status-effect systems: false while Downed or defeated.
+    /// </summary>
+    public bool CanReceiveStatusEffects => IsAlive && !IsDowned;
+
+    /// <summary>A Downed player is still alive until the reserve is depleted.</summary>
+    public override bool IsAlive => base.IsAlive || IsDowned;
+
+    /// <summary>Conventional healing does not restore Health while Downed.</summary>
+    protected override bool CanReceiveHealing => !IsDowned && base.CanReceiveHealing;
 
     /// <summary>
     /// Indicates whether the player character can receive damage.
@@ -220,6 +240,48 @@ public sealed class PlayerCharacter : CharacterBase
                 : mitigatedDamage;
     }
 
+    protected override bool TryInterceptFatalDamage()
+    {
+        return _downedStateController != null && _downedStateController.TryEnterDowned();
+    }
+
+    protected override bool TryApplyAlternateDamage(
+        in DamageRequest request,
+        float mitigatedDamage,
+        out DamageResult result)
+    {
+        result = default;
+        if (!IsDowned ||
+            !_downedStateController.TryApplyDownedDamage(mitigatedDamage, out float applied, out bool depleted))
+        {
+            return false;
+        }
+
+        result = new DamageResult(
+            Id,
+            true,
+            applied,
+            Health,
+            depleted,
+            DamageFailureReason.None);
+
+        if (depleted)
+        {
+            HandleDeath();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Called by the Downed controller after its reserve drained to zero and the Downed state
+    /// was cleared. Resolves the definitive defeat through the existing corpse path.
+    /// </summary>
+    internal void ResolveDefinitiveDefeatFromDowned()
+    {
+        HandleDeath();
+    }
+
     /// <summary>
     /// Starts the authoritative player-corpse transaction after this character's
     /// health has transitioned to zero through the shared damage pipeline.
@@ -274,6 +336,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_shieldDefenseController == null)
         {
             _shieldDefenseController = GetComponent<PlayerShieldDefenseNetworkController>();
+        }
+
+        if (_downedStateController == null)
+        {
+            _downedStateController = GetComponent<PlayerDownedStateNetworkController>();
         }
     }
 

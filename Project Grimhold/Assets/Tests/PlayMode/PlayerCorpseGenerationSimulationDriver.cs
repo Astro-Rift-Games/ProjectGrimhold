@@ -17,6 +17,11 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
     public PlayerLootReceiver Receiver { get; set; }
     public bool IsRequested { get; set; }
     public bool RepeatFatalDamage { get; set; }
+
+    /// <summary>
+    /// When false (default) a fatal hit resolves the legacy immediate defeat; Downed tests set it true.
+    /// </summary>
+    public bool AllowDowned { get; set; }
     public float RequestedDamageAmount { get; set; } = 1000f;
     public float RequestedHealingAmount { get; set; }
     public DamageResult FirstResult { get; private set; }
@@ -36,6 +41,11 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         }
 
         IsRequested = false;
+        if (Target.TryGetComponent(out PlayerDownedStateNetworkController downed))
+        {
+            downed.TestDisableEntry = !AllowDowned;
+        }
+
         if (_entries != null)
         {
             for (int index = 0; index < _entries.Count; index++)

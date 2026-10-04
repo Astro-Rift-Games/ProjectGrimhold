@@ -6035,6 +6035,7 @@ GameObject:
   - component: {fileID: 7997196603447741410}
   - component: {fileID: 2234995063959400674}
   - component: {fileID: 4758981447037605228}
+  - component: {fileID: 1608558313308446850}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6086,6 +6087,7 @@ MonoBehaviour:
   _participantLink: {fileID: 5489547608340585132}
   _equipmentController: {fileID: 8300000000000000005}
   _shieldDefenseController: {fileID: 8400000000000000005}
+  _downedStateController: {fileID: 1608558313308446850}
   _defenseMitigationConstant: 100
   _ProfileIdString:
     _length: 0
@@ -6467,6 +6469,7 @@ MonoBehaviour:
   - {fileID: 176522636574861152}
   - {fileID: 7062006960257999095}
   - {fileID: 4758981447037605228}
+  - {fileID: 1608558313308446850}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -7049,6 +7052,27 @@ MonoBehaviour:
   _dialogueController: {fileID: 0}
   _dialogueViewBehaviour: {fileID: 0}
   _interactionController: {fileID: 2425433471524800765}
+--- !u!114 &1608558313308446850
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28eec498af074014d9473f9480122b33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDownedStateNetworkController
+  _initialDownedHealth: 75
+  _downedDrainPerSecond: 2.5
+  _downedDamageMultiplier: 1
+  _downedMovementSpeedMultiplier: 0.35
+  _playerCharacter: {fileID: 729366679366126330}
+  _IsDowned:
+    RawValue: 0
+  _DownedHealth: 0
+  _DownedCycle: 0
 --- !u!1 &5519409559228361831
 GameObject:
   m_ObjectHideFlags: 0
