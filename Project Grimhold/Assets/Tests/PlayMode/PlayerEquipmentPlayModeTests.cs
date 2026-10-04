@@ -166,6 +166,73 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator WeaponVisuals_AreHiddenWhileDownedAndRestoredWhenAlive()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(
+                _shield,
+                EquipmentSlot.WeaponSetAOffHand,
+                EquipmentOperationResult.Succeeded);
+            PlayerWeaponPresenter presenter = _character.GetComponentInChildren<PlayerWeaponPresenter>(true);
+            Assert.That(presenter, Is.Not.Null);
+            SpriteRenderer mainHand = ReadRenderer(presenter, "_mainHandRenderer");
+            SpriteRenderer offHand = ReadRenderer(presenter, "_offHandRenderer");
+            PlayerDownedStateNetworkController downed =
+                _character.GetComponent<PlayerDownedStateNetworkController>();
+            yield return WaitUntil(
+                () => mainHand.enabled && offHand.enabled,
+                "The equipped weapon and shield were not visible before Downed.");
+
+            Assert.That(downed.TryEnterDowned(), Is.True);
+
+            yield return WaitUntil(
+                () => !mainHand.enabled && !offHand.enabled,
+                "The weapon visuals stayed visible while Downed.");
+
+            downed.ClearDownedState();
+
+            yield return WaitUntil(
+                () => mainHand.enabled && offHand.enabled,
+                "The weapon visuals were not restored after Downed ended while alive.");
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponVisuals_StayHiddenWhenDownedEndsInDefeat()
+        {
+            yield return StartRaidPlayer();
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            PlayerWeaponPresenter presenter = _character.GetComponentInChildren<PlayerWeaponPresenter>(true);
+            SpriteRenderer mainHand = ReadRenderer(presenter, "_mainHandRenderer");
+            PlayerDownedStateNetworkController downed =
+                _character.GetComponent<PlayerDownedStateNetworkController>();
+            var driver = _runner.gameObject.AddComponent<PlayerCombatStrategySimulationDriver>();
+            _runner.AddGlobal(driver);
+            yield return WaitUntil(() => mainHand.enabled, "The weapon was not visible before Downed.");
+            driver.RequestDefeatCharacter(_character);
+            yield return WaitUntil(() => downed.IsDowned, "The fatal hit did not leave the player Downed.");
+            yield return WaitUntil(() => !mainHand.enabled, "The weapon stayed visible while Downed.");
+
+            driver.RequestDefeatCharacter(_character);
+            yield return WaitUntil(() => !_character.IsAlive, "The Downed player was not defeated.");
+            for (int frame = 0; frame < 10; frame++)
+            {
+                yield return null;
+            }
+
+            Assert.That(mainHand.enabled, Is.False, "A defeated player must keep its weapon hidden.");
+        }
+
+        private static SpriteRenderer ReadRenderer(PlayerWeaponPresenter presenter, string fieldName)
+        {
+            FieldInfo field = typeof(PlayerWeaponPresenter).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            return (SpriteRenderer)field.GetValue(presenter);
+        }
+
+        [UnityTest]
         public IEnumerator CopyStateFrom_PreservesRaidParticipantIdsAndEquipmentOrigins()
         {
             yield return StartRaidPlayer();

@@ -6,6 +6,8 @@ using UnityEngine;
 /// The single Main Hand weapon visual follows MainHandGrip, or WeaponPose when the weapon drives its own pose.
 /// During the weapon's confirmed attack clip, an optional attack sprite animation swaps only its sprite.
 /// The Off Hand shield shows its sprite for the visual direction in every pose.
+/// While the player is Downed the held visuals are hidden and any attack VFX is cancelled. They return
+/// when Downed ends only if the player is still alive, so a definitive defeat keeps them hidden.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerWeaponPresenter : MonoBehaviour
@@ -43,6 +45,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private int _weaponPoseHandBaseSortingOrder;
     private bool _weaponDriven;
     private bool _hasCapturedBaseState;
+    private PlayerDownedStateNetworkController _downedState;
+    private CharacterBase _character;
+    private PlayerAttackVfxPresenter _attackVfx;
+    private bool _hiddenByDowned;
 
     private void Awake()
     {
@@ -73,6 +79,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _offHandDirectionalSprites = null;
         _mainHandAttackSprites = null;
         _hasMainHandWeapon = false;
+        _hiddenByDowned = false;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
@@ -80,9 +87,51 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private void LateUpdate()
     {
+        RefreshDownedVisibility();
         RefreshEquipment(force: false);
         RefreshMainHandSprite();
         RefreshPose();
+    }
+
+    // Presentation only: observes the networked Downed state. Visibility combines with the equipment
+    // sprite (an empty slot stays hidden) instead of forcing the renderers on.
+    private void RefreshDownedVisibility()
+    {
+        bool isDowned = _downedState != null &&
+            _downedState.Object != null &&
+            _downedState.Object.IsValid &&
+            _downedState.IsDowned;
+        bool hidden = _hiddenByDowned;
+        if (isDowned)
+        {
+            hidden = true;
+        }
+        else if (_hiddenByDowned && _character != null && _character.IsAlive)
+        {
+            hidden = false;
+        }
+
+        if (hidden == _hiddenByDowned)
+        {
+            return;
+        }
+
+        _hiddenByDowned = hidden;
+        if (hidden && _attackVfx != null)
+        {
+            _attackVfx.CancelAndRestore();
+        }
+
+        ApplyRendererVisibility(_mainHandRenderer, _mainHandWorldSprite);
+        ApplyRendererVisibility(_offHandRenderer, _offHandWorldSprite);
+    }
+
+    private void ApplyRendererVisibility(SpriteRenderer renderer, Sprite worldSprite)
+    {
+        if (renderer != null)
+        {
+            renderer.enabled = worldSprite != null && !_hiddenByDowned;
+        }
     }
 
     private void RefreshEquipment(bool force)
@@ -288,6 +337,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+        Transform root = _equipmentSource != null ? _equipmentSource.transform : transform.root;
+        _downedState ??= root.GetComponent<PlayerDownedStateNetworkController>();
+        _character ??= root.GetComponent<CharacterBase>();
+        _attackVfx ??= root.GetComponentInChildren<PlayerAttackVfxPresenter>(true);
     }
 
     private void CaptureBaseState()
@@ -345,7 +398,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         return false;
     }
 
-    private static void SetRendererSprite(SpriteRenderer renderer, Sprite sprite)
+    private void SetRendererSprite(SpriteRenderer renderer, Sprite sprite)
     {
         if (renderer == null)
         {
@@ -353,7 +406,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         renderer.sprite = sprite;
-        renderer.enabled = sprite != null;
+        renderer.enabled = sprite != null && !_hiddenByDowned;
     }
 
 #if UNITY_EDITOR

@@ -132,6 +132,9 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _vfxRenderer.enabled = true;
     }
 
+    /// <summary>Cancels any pending or playing attack VFX, e.g. when the player becomes Downed.</summary>
+    public void CancelAndRestore() => Clear();
+
     private void Clear()
     {
         _pending = false;
