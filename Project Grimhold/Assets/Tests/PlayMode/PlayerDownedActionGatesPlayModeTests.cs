@@ -163,6 +163,42 @@ namespace Tests.PlayMode.Downed
             Assert.That(confirmation.Result.FailureReason, Is.EqualTo(LootDropFailureReason.PlayerUnavailable));
         }
 
+        [UnityTest]
+        public IEnumerator Movement_WhileDowned_UsesReducedSpeedAndIgnoresSprint()
+        {
+            yield return StartRunnerAndSpawnPlayer();
+            _input.MoveRight = true;
+            yield return WaitFrames(5);
+            float normalSpeed = 0f;
+            yield return MeasureSpeed(speed => normalSpeed = speed);
+
+            _input.SprintHeld = true;
+            Assert.That(_downed.TryEnterDowned(), Is.True);
+            yield return WaitFrames(5);
+            float downedSprintSpeed = 0f;
+            yield return MeasureSpeed(speed => downedSprintSpeed = speed);
+
+            Assert.That(normalSpeed, Is.GreaterThan(0.5f), "The player did not move before Downed.");
+            Assert.That(
+                downedSprintSpeed / normalSpeed,
+                Is.EqualTo(_downed.DownedMovementSpeedMultiplier).Within(0.05f));
+        }
+
+        private IEnumerator MeasureSpeed(Action<float> report)
+        {
+            float startX = _playerObject.transform.position.x;
+            int startTick = _runner.Tick;
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (_runner.Tick - startTick < 30 && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            int elapsedTicks = _runner.Tick - startTick;
+            Assert.That(elapsedTicks, Is.GreaterThanOrEqualTo(30));
+            report((_playerObject.transform.position.x - startX) / (elapsedTicks * _runner.DeltaTime));
+        }
+
         private IEnumerator StartRunnerAndSpawnPlayer()
         {
             var runnerObject = new GameObject("PlayerDownedActionGatesRunner");
@@ -217,10 +253,14 @@ namespace Tests.PlayMode.Downed
         private sealed class GateInputDriver : NetworkRunnerCallbacksAdapter
         {
             public bool InteractPulse { get; set; }
+            public bool MoveRight { get; set; }
+            public bool SprintHeld { get; set; }
 
             public override void OnInput(NetworkRunner runner, NetworkInput input)
             {
                 PlayerNetworkInput playerInput = default;
+                playerInput.MoveDirection = MoveRight ? Vector2.right : Vector2.zero;
+                playerInput.Buttons.Set(PlayerInputButton.Sprint, SprintHeld);
                 if (InteractPulse)
                 {
                     playerInput.Buttons.Set(PlayerInputButton.Interact, true);

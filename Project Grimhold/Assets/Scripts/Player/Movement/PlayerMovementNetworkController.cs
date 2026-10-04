@@ -60,6 +60,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private Vector2 KnockbackVelocity { get; set; }
 
     private CharacterBase _characterBase;
+    private PlayerDownedStateNetworkController _downedState;
     private NetworkMatchController _matchController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
 
@@ -118,10 +119,16 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
         bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive;
 
-        bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove);
-        float effectiveSpeed = shouldSprint && CanSprint(Runner.DeltaTime)
-            ? _moveSpeed * _sprintSpeedMultiplier
-            : _moveSpeed;
+        // Downed is networked state, so reading it here stays resimulation-safe.
+        bool isDowned = _downedState != null && _downedState.IsDowned;
+        bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned);
+        bool isSprinting = shouldSprint && CanSprint(Runner.DeltaTime);
+        float effectiveSpeed = ResolveVoluntarySpeed(
+            _moveSpeed,
+            isSprinting,
+            _sprintSpeedMultiplier,
+            isDowned,
+            isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f);
 
         Vector2 displacement = canMove
             ? moveDirection * effectiveSpeed * Runner.DeltaTime
@@ -225,11 +232,31 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         in PlayerNetworkInput input,
         bool hasInput,
         Vector2 moveDirection,
-        bool canMove)
+        bool canMove,
+        bool isDowned = false)
     {
-        return hasInput && canMove &&
+        return hasInput && canMove && !isDowned &&
                moveDirection.sqrMagnitude > ValidMovementSqrThreshold &&
                input.Buttons.IsSet(PlayerInputButton.Sprint);
+    }
+
+    /// <summary>
+    /// Resolves voluntary locomotion speed. Downed players move at a reduced speed and never sprint.
+    /// Knockback is composed separately and is unaffected.
+    /// </summary>
+    internal static float ResolveVoluntarySpeed(
+        float moveSpeed,
+        bool isSprinting,
+        float sprintSpeedMultiplier,
+        bool isDowned,
+        float downedSpeedMultiplier)
+    {
+        if (isDowned)
+        {
+            return moveSpeed * downedSpeedMultiplier;
+        }
+
+        return isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
     }
 
     private bool CanSprint(float deltaTime)
@@ -254,6 +281,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_staminaController == null)
         {
             _staminaController = GetComponent<PlayerStaminaNetworkController>();
+        }
+
+        if (_downedState == null)
+        {
+            _downedState = GetComponent<PlayerDownedStateNetworkController>();
         }
 
         if (_shieldDefenseController == null)

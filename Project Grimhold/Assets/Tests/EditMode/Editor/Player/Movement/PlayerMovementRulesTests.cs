@@ -107,6 +107,44 @@ namespace Tests.EditMode.Player.Movement
         }
 
         [Test]
+        public void ShouldSprint_WhileDowned_IsAlwaysFalse()
+        {
+            PlayerNetworkInput input = default;
+            input.Buttons.Set(PlayerInputButton.Sprint, true);
+
+            Assert.That(
+                PlayerMovementNetworkController.ShouldSprint(
+                    in input,
+                    hasInput: true,
+                    moveDirection: Vector2.right,
+                    canMove: true,
+                    isDowned: true),
+                Is.False);
+        }
+
+        [Test]
+        public void ResolveVoluntarySpeed_AppliesSprintOnlyWhenActive()
+        {
+            Assert.That(
+                PlayerMovementNetworkController.ResolveVoluntarySpeed(5f, false, 1.5f, false, 0.35f),
+                Is.EqualTo(5f).Within(0.0001f));
+            Assert.That(
+                PlayerMovementNetworkController.ResolveVoluntarySpeed(5f, true, 1.5f, false, 0.35f),
+                Is.EqualTo(7.5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ResolveVoluntarySpeed_WhileDowned_UsesDownedMultiplierAndIgnoresSprint()
+        {
+            Assert.That(
+                PlayerMovementNetworkController.ResolveVoluntarySpeed(5f, false, 1.5f, true, 0.35f),
+                Is.EqualTo(1.75f).Within(0.0001f));
+            Assert.That(
+                PlayerMovementNetworkController.ResolveVoluntarySpeed(5f, true, 1.5f, true, 0.35f),
+                Is.EqualTo(1.75f).Within(0.0001f));
+        }
+
+        [Test]
         public void Facing_MovementWithoutContextualAction_IgnoresCursor()
         {
             PlayerNetworkInput input = CreateInput(
