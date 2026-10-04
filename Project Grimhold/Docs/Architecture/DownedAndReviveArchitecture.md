@@ -42,7 +42,7 @@ Related documents: `PlayerCombatArchitecture.md` (damage pipeline, corpse),
 | `PlayerCharacter` (Implemented, extended) | Health; the fatal-damage redirection; Defeat resolution (`HandleDeath`); Health restoration on exit | The reserve, the recovery session |
 | `CharacterBase` (Implemented) | Damage pipeline and its hooks (`TryApplyAlternateDamage`, `TryInterceptFatalDamage`, `CanReceiveHealing`) | Anything player-specific |
 | `PlayerDownedGate` (Implemented) | Shared "is Downed" predicate for action choke points | State |
-| `PlayerDownedRecoveryNetworkController` (Planned, TASK 452) | The recovery session: kind, reviver, progress, cycle; interruption rules | Reserve value, Health, interaction targeting |
+| `PlayerDownedRecoveryNetworkController` (Implemented, TASK 452) | The recovery session: kind, reviver, progress, cycle; interruption rules | Reserve value, Health, interaction targeting |
 | `PlayerInteractionNetworkController` + `IInteractable` (Implemented) | Instant, press-edge interaction targeting | Held progress, recovery rules |
 | `DownedTeamResolutionCoordinator` (Planned, no task) | Host-side Accelerated Resolution evaluation | The reserve (it only requests a rate) |
 | `PlayerStaminaNetworkController` (Implemented, extended) | Stamina value | Any Downed rule |
@@ -84,10 +84,10 @@ Status: **Implemented**.
 | # | Transition | Trigger | Owning component | Authority | Side effects | Status |
 |---|---|---|---|---|---|---|
 | T1 | Active -> Downed | Mitigated damage takes `Health` to 0 | `PlayerCharacter.TryInterceptFatalDamage` -> `PlayerDownedStateNetworkController.TryEnterDowned` | State Authority | `IsDowned`, full reserve, `DownedCycle++`; excess of the entry hit discarded; result is non-fatal (`IsFatal = false`); records Downed causer (section 11); Mana-drain skills deactivated (no Mana runtime exists, see section 9) | Implemented (causer: Planned TASK 453) |
-| T2 | Downed -> Downed (damage) | Damage while Downed | `PlayerCharacter.TryApplyAlternateDamage` -> `TryApplyDownedDamage` | State Authority | Reserve reduced; `Health` untouched; notifies the recovery session (section 7) | Implemented (notify: Planned TASK 452) |
+| T2 | Downed -> Downed (damage) | Damage while Downed | `PlayerCharacter.TryApplyAlternateDamage` -> `TryApplyDownedDamage` | State Authority | Reserve reduced; `Health` untouched; notifies the recovery session (section 7) | Implemented (notify: `5ff5208b`, TASK 452) |
 | T3 | Downed -> definitive Defeat (drain) | Reserve reaches 0 in `FixedUpdateNetwork` | `PlayerDownedStateNetworkController` clears `IsDowned`, then `PlayerCharacter.ResolveDefinitiveDefeatFromDowned` | State Authority | `HandleDeath` runs exactly once (section 12) | Implemented |
 | T4 | Downed -> definitive Defeat (damage) | Damage depletes the reserve | `TryApplyDownedDamage` clears `IsDowned`; `PlayerCharacter.TryApplyAlternateDamage` calls `HandleDeath` | State Authority | Result is fatal (`IsFatal = true`); records Defeat causer | Implemented (causer: Planned TASK 453) |
-| T5 | Downed -> Active | A recovery session completes | `PlayerDownedRecoveryNetworkController` -> `PlayerCharacter.TryRestoreFromDowned` -> `TryExitDownedToActive` | State Authority | Section 6 | Planned (TASK 452; Self-revive: no task) |
+| T5 | Downed -> Active | A recovery session completes | `PlayerDownedRecoveryNetworkController` -> `PlayerCharacter.TryRestoreFromDowned` -> `TryExitDownedToActive` | State Authority | Section 6 | Implemented (Assisted: `93ac7eeb`, `5ff5208b`, `d88d5c01`, TASK 452; Self-revive: no task) |
 | T6 | Downed -> definitive Defeat (forced) | Dungeon absolute close or equivalent rule | `PlayerCharacter.ForceDefinitiveDefeat` | State Authority | Section 14 | Planned (no task) |
 | T7 | Downed -> Aborted participant | Raid closure with the avatar Downed | `NetworkSpawnManager.AbortRaidingParticipantsForClosure` -> `TryAbortForClosure` | Host | No Defeat, no corpse (existing behavior; see section 14) | Implemented |
 
@@ -101,7 +101,7 @@ turns entry off.
 Excess damage: the entry hit sets `Health` to 0 and its excess is discarded. A hit that
 depletes the reserve also discards its excess. There is no carry-over between the two values.
 
-## 6. Downed -> Active exit contract (Planned, TASK 452)
+## 6. Downed -> Active exit contract (Implemented, TASK 452: `93ac7eeb`)
 
 Only a recovery owner calls the exit. Conventional healing stays rejected.
 
@@ -113,7 +113,7 @@ PlayerCharacter
 CharacterBase
     protected void RestoreHealthAuthoritatively(float health)   // Health has a private setter
 PlayerStaminaNetworkController
-    internal void ForceDepleteForRecovery()                     // sets CurrentStamina to 0
+    internal bool ForceDepleteForRecovery()                     // sets CurrentStamina to 0
 ```
 
 `PlayerCharacter.TryRestoreFromDowned(restoredHealth)` runs in this order, on State Authority
@@ -134,18 +134,24 @@ only, and returns false without side effects if any precondition fails:
 The order guarantees `IsAlive` never flickers false between steps 2 and 3, because the whole
 method runs inside one simulation tick on State Authority.
 
-## 7. Recovery ownership (Planned, TASK 452)
+## 7. Recovery ownership (Implemented, TASK 452: `5ff5208b`, `d88d5c01`)
 
 `PlayerDownedRecoveryNetworkController` lives on the Downed avatar and owns at most one session.
 One session per Downed avatar enforces the 1 reviver : 1 Downed rule structurally.
 
 ```text
-[Networked] RecoveryKind Kind          // None | Assisted | Self
-[Networked] int           ReviverEntityId   // 0 for Self
-[Networked] int           SessionCycle      // DownedCycle at start
-[Networked] TickTimer     Completion        // started at begin; duration from config
+[Networked] RecoveryKind Kind              // None | Assisted | Self (Self reserved, not used yet)
+[Networked] NetworkId     ReviverId        // reviver avatar NetworkId, resolved on the Host with Runner.TryFindObject
+[Networked] int           SessionCycle     // DownedCycle at start
+[Networked] TickTimer     Completion       // started at begin; duration from config (default 4 s)
+[Networked] NetworkId     RevivingTargetId // reviver side: the Downed avatar this avatar is reviving
 ```
 
+* Pure rules live in `DownedRecoveryRules` (`CanStartAssisted`, `EvaluateInterruption`,
+  `IsSessionValid`); the component only gathers the snapshot and applies the verdict.
+* **One session per reviver** is answered by `RevivingTargetId`, which is trusted only while the
+  target's session is valid and still names the reviver (`IsRevivingAnotherAvatar`), so a stale
+  value can never block anyone.
 * A session is **valid** only if `Kind != None`, `SessionCycle == DownedCycle` and `IsDowned`.
   A stale session from an old cycle is ignored and cleared.
 * **Drain pause is derived, never stored.** The Downed controller reads a small read-only
@@ -153,17 +159,24 @@ One session per Downed avatar enforces the 1 reviver : 1 Downed rule structurall
   "has a valid session". The reserve drain rate is `0` while paused. Damage still reduces the
   reserve during a session (GD 13). The Downed controller depends on the interface only, so there
   is no circular dependency and no duplicated flag.
+* Damage to the Downed reaches the component through `IDownedDamageObserver.NotifyDownedDamaged()`,
+  called by `TryApplyDownedDamage` when the applied damage is greater than 0.
+* Defaults (serialized, GD 13 leaves them to balance): duration 4 s, range 1.5 units, restored
+  Health fixed at 1.
+
 * **Interruption** (Assisted), all evaluated on State Authority in the recovery component's
   `FixedUpdateNetwork`; partial progress is discarded by clearing the session:
 
 | Interrupt | Detection |
 |---|---|
 | Damage to the Downed | `TryApplyDownedDamage` returns `applied > 0` and calls `NotifyDownedDamaged()` (direct call in the same authority) |
-| Damage to the reviver | Reviver `Health` lower than at the last tick (polling), or reviver Downed |
-| Movement | `PlayerMovementNetworkController.IsMoving` (already `[Networked]`) on either avatar |
+| Damage to the reviver | Reviver `Health` lower than at the last tick (polling), or reviver Downed. Detectability decision: damage means `Health` loss; a fully mitigated hit does not interrupt (Q8) |
+| Movement | `PlayerMovementNetworkController.IsMoving` (already `[Networked]`) on either avatar. Knockback interrupts only when it breaks the range (Q7) |
 | Range loss | Distance between the two avatars above the configured range |
 | Reviver disconnect | Reviver avatar invalid, or reviver participant no longer `Raiding` |
 | Downed definitive Defeat | `IsDowned` false without a completed exit, or `DownedCycle` changed |
+| Release of Interact | Reviver `[Networked] IsInteractHeld` is false (section 8) |
+| Incompatible reviver action | `PlayerReviveGate.InterruptIfReviving(character)` at the authoritative choke points (section 8) |
 
 * **Not an interruption:** the Downed player disconnecting (GD 13 §11); the session continues.
 * **Completion:** when `Completion` expires with the session still valid, the recovery component
@@ -189,22 +202,39 @@ Facts verified in code: interactions are **instant and press-edge** (`WasPressed
 A Downed player is rejected at the controller by `PlayerDownedGate`. There is no held-interaction
 concept.
 
-Planned minimal extension (TASK 452):
+Implemented extension (TASK 452, `d88d5c01`):
 
-1. The Downed avatar exposes an `IInteractable` revive target (registered in `EntityRegistry`,
-   on a collider the interaction layer mask includes). `CanInteract(request)` accepts only an
-   Active teammate: interactor resolves to a `PlayerCharacter` that is alive, not Downed, a
-   frozen initial teammate, in range, and the target has no valid session.
-2. `Interact` does **not** complete anything. It calls
-   `PlayerDownedRecoveryNetworkController.TryBeginAssisted(reviverEntityId)`, which opens the
+1. `DownedReviveInteractable` on the player avatar is the revive target. The avatar's **primary**
+   interactable slot in `EntityRegistry` is already owned by its corpse loot container
+   (`NetworkLootContainerInteractable`, which presenters resolve with `TryGetInteractable`), and a
+   registry slot holds one interactable per entity id. The revive interactable therefore registers
+   through `EntityRegistry.TryRegisterSupplementalInteractable`, leaving the primary slot and
+   every collider mapping untouched. `EntityRegistry.TryGetInteractionHandler` is what the
+   interaction pipeline (`PlayerInteractionNetworkController`, `LocalInteractionCandidateSource`)
+   now uses: with no supplemental it returns the primary interactable unchanged; otherwise one
+   handler that tries the primary first and then each supplemental one. The avatar's existing
+   interaction-layer trigger collider is already mapped to the avatar id, so no collider was added.
+   `CanInteract` is false for every non-Downed avatar, so it never shadows another interactable,
+   and false for the avatar's own interactor. It delegates the rules to
+   `PlayerDownedRecoveryNetworkController.CanBeginAssisted`: interactor resolves to a
+   `PlayerCharacter` that is alive, not Downed, a frozen initial teammate, in range, and the target
+   has no valid session while the reviver is not already reviving.
+2. `Interact` does **not** complete anything. It calls `TryBeginAssisted(reviver)`, which opens the
    session and starts `Completion`. The press edge stays the start gesture.
 3. "Held" is a continuation condition, not a new interaction type. The reviver's
    `PlayerInteractionNetworkController` publishes `[Networked] IsInteractHeld`
    (`NetworkButtons.IsSet(PlayerInputButton.Interact)`) so the recovery component, which runs on
    the Downed avatar and cannot read the reviver's input, can cancel on release.
-4. Downed players stay blocked from general interactions. Self-revive does not use targeting; it
-   starts from the Downed player's own input in a dedicated component (no task).
-5. Self-reviver handoff (GD 13 §8) is a normal short instant interaction on an Active teammate,
+4. Downed players stay blocked from general interactions: `PlayerDownedGate` rejects the
+   interactor, so a Downed player can be a target but never an interactor. Self-revive does not use
+   targeting; it starts from the Downed player's own input in a dedicated component (no task).
+5. **Incompatible reviver action:** `PlayerReviveGate.InterruptIfReviving(ICharacter)` (State
+   Authority) interrupts the session the character is running, with `IncompatibleReviverAction`,
+   and the action then proceeds under its normal rules. It is called at the authoritative choke
+   points next to the Downed gates: primary attack, shield defense, equipment and Weapon Set
+   changes, consumables, Loot transfer, Loot drop and new interactions. Sprint and movement already
+   interrupt through `IsMoving`.
+6. Self-reviver handoff (GD 13 §8) is a normal short instant interaction on an Active teammate,
    not a revive. It belongs to the item/inventory feature (no task).
 
 `ExtractionSanctuary.CanInteract` checks `IsAlive`, which is true while Downed; the Downed
@@ -373,12 +403,12 @@ Implemented (`NetworkSpawnManager.OnPlayerLeft`, `RaidPlayerDeparturePolicy.Shou
 * While retained and still `Raiding`, the participant counts in `HasRaidingParticipants` and is
   aborted by `AbortRaidingParticipantsForClosure`; it is not a connected remote participant.
 
-Planned recovery behavior (TASK 452):
+Recovery behavior (TASK 452; the Self-revive row remains planned):
 
 | Case | Behavior |
 |---|---|
 | Downed player disconnects, no session | Continues draining; can still be revived or defeated (GD 13 §11) |
-| Downed player disconnects during a session | Session continues and may complete |
+| Downed player disconnects during a session | Session continues and may complete (PlayMode test removes the Downed avatar's input authority) |
 | Reviver disconnects | Session is interrupted (section 7) |
 | Downed disconnected player is revived | Returns Active with Health 1 and no input authority until reconnect; reconnect policy is deferred |
 | Self-revive started, then disconnect | Not interrupted (GD 13) |
@@ -397,11 +427,16 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 * Every new `Spawned()` must follow the existing guard
   `HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this)` before any fresh
   initialization, as `PlayerDownedStateNetworkController` does today.
-* `TickTimer Completion` is a Fusion value that survives migration; the recovery component must
-  revalidate it against the new runner tick on the first authoritative tick and clear the session
-  if reviver, cycle or range no longer validate.
+* `TickTimer Completion` is a Fusion value that survives migration; the recovery component
+  revalidates the session on every authoritative tick (reviver resolves, cycle, range) and clears
+  it when any check fails, which is what interrupts an open session after a migration.
 * The coordinator keeps no state of its own: it recomputes from restored avatar and participant
   state on its first tick after the recovery window.
+* **Known limitation (TASK 452):** an open recovery session is **interrupted, not resumed**, by
+  Host Migration. `ReviverId` and `RevivingTargetId` are `NetworkId`s that migration does not
+  remap, so the restored session fails to resolve its reviver on the first authoritative tick and
+  is cleared safely (the Downed player keeps the reserve and a reviver can start again). Not
+  validated with a real migration.
 * **Known limitation (Implemented, unvalidated):** `_retainedDownedParticipants` is runtime-only
   Host bookkeeping and is not in the snapshot. A Downed player who is also disconnected during
   migration is not guaranteed to be re-retained, so reaching Defeat is not guaranteed.
@@ -414,11 +449,11 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Q1 | Final Downed drain rate, damage multiplier, movement multiplier | Game Design / balance | 2.5/s, 1.0, 0.35 (provisional, serialized) |
 | Q2 | Does Accelerated Resolution revert if a route reappears? | Game Design | Latches until exit or Defeat |
 | Q3 | Self-revive restored Health per item variant | Game Design | Parameter of `TryRestoreFromDowned` |
-| Q4 | Revive range, hold duration, Accelerated Resolution seconds | Game Design / balance | Serialized config; ~5 s for acceleration |
-| Q5 | Can a Downed player start the Sanctuary ritual, or only continue one in progress? | Game Design (GD 06 / 13) | Only continue (gate unchanged) |
-| Q6 | Does Dungeon absolute close force Defeat or Abort for Downed players? | Game Design (GD 10) | Abort (current behavior) |
-| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Any `IsMoving` on either avatar cancels |
-| Q8 | Reviver damage detection: any `Health` loss, or any hit including fully mitigated ones? | Combat Design | `Health` loss (polling) |
+| Q4 | Revive range, hold duration, Accelerated Resolution seconds | Game Design / balance | Revive resolved: 4 s and 1.5 u, serialized on `PlayerDownedRecoveryNetworkController`. Acceleration (~5 s) still open |
+| Q5 | Can a Downed player start the Sanctuary ritual, or only continue one in progress? | Game Design (GD 06 / 13) | Resolved by GD 06 §11 (only an Active member starts the ritual; becoming Downed does not cancel it) and GD 06 §13/§16 (the countdown starts by presence, so a connected Downed player in the area counts and can complete). The interaction gate already matches the start rule. Presence-based countdown acceptance of a Downed player is not yet verified by tests |
+| Q6 | Does Dungeon absolute close force Defeat or Abort for Downed players? | Game Design (GD 10) | Resolved by GD 10 §5.1 and GD 13 §13: absolute close gives definitive Defeat to everyone still inside, ignoring reserve and recovery. **Implementation gap:** closure currently aborts `Raiding` participants, Active ones included (pre-existing). Owner: TASK 453 or a Dungeon Session task; section 14 describes `ForceDefinitiveDefeat` |
+| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Resolved: voluntary movement (`IsMoving`) of either avatar interrupts; knockback interrupts only when it breaks the range (GD: a displacement that breaks the condition) |
+| Q8 | Reviver damage detection: any `Health` loss, or any hit including fully mitigated ones? | Combat Design | Resolved as a detectability decision: `Health` loss (polling); fully mitigated hits do not interrupt |
 | Q9 | PvP Last Hit attribution rules and amounts | Combat Design (US-50 / TASK 442), GD 05 | Data only (section 11) |
 
 ## 18. Implementation status
@@ -431,8 +466,13 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Weapon visuals hidden | Implemented (TASK 451) | `5ff7c40e` |
 | Disconnect retention | Implemented (TASK 451) | `dc4745d5` |
 | Downed docs (combat, movement, defeat, migration) | Implemented (TASK 451) | `ff95a44b`, `ea9be1d4` |
-| Exit contract, recovery component, Assisted revive, `IsInteractHeld`, `ForceDepleteForRecovery`, `RestoreHealthAuthoritatively` | Planned | TASK 452 |
-| Attribution fields and hook signature changes, extraction re-evaluation on Defeat, forced Defeat | Planned | TASK 453 (forced Defeat: no task until Q6) |
+| Exit contract, `ForceDepleteForRecovery`, `RestoreHealthAuthoritatively`, pure rules | Implemented (TASK 452) | `84063f59`, `93ac7eeb` |
+| Recovery session owner, `IsInteractHeld`, drain gate, damage observer | Implemented (TASK 452) | `5ff5208b` |
+| Revive interactable (supplemental registry slot), incompatible-action gate | Implemented (TASK 452) | `d88d5c01` |
+| End-to-end and interruption PlayMode coverage | Implemented (TASK 452) | `4bdf7d7f` |
+| Revive progress UI and feedback (GD 13 §14), revive pose | Planned | follow-up, outside TASK 452 |
+| Attribution fields and hook signature changes, extraction re-evaluation on Defeat | Planned | TASK 453 |
+| Forced definitive Defeat on absolute close (Q6 gap) | Planned | TASK 453 or a Dungeon Session task |
 | Self-revive item, consumption, handoff, Self session | Planned | no task |
 | Accelerated Resolution coordinator | Planned | no task, needs a task |
 | Mana runtime interaction | Planned | no task (no Mana runtime exists) |
@@ -471,3 +511,22 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Disconnect and Host Migration interaction defined | 15, 16 |
 | No duplicated extraction / Loot / Results responsibilities | 12, 13 |
 | Assisted revive and future recovery forms share the base state, outside the Health controller | 6, 7 |
+
+## 20. TASK 452 coverage
+
+| GD 13 interruption row | Covered at |
+|---|---|
+| Release of Interact | PlayMode (`PlayerDownedRecoveryPlayModeTests`) |
+| Voluntary movement of the reviver | PlayMode with real input (`PlayerDownedReviveFlowPlayModeTests`) |
+| Voluntary movement of the Downed | PlayMode with real input (`PlayerDownedReviveFlowPlayModeTests`) |
+| Range loss | PlayMode (teleport); a knockback that breaks range: rule level only |
+| Damage to the reviver / to the Downed | PlayMode |
+| Incompatible reviver action | PlayMode: attack, consumable, equipment, Loot transfer and drop. Shield defense and a new interaction by the reviver: rule level and code review only |
+| Reviver Downed | PlayMode |
+| Reviver disconnect | PlayMode (avatar despawn); participant leaving `Raiding`: rule level only |
+| Downed definitive Defeat | PlayMode |
+| Downed disconnect does not interrupt | PlayMode (input authority removed); the real retention path is covered by TASK 451 tests |
+| Retry from zero, no replay of a held input, full flow to Active with 1 HP and Stamina 0 | PlayMode |
+
+Not validated (manual): Host and Client with two instances in both directions, a real disconnect
+of either player during a session, and Host Migration in the middle of a session (section 16).
