@@ -707,6 +707,8 @@ Host Migration restore spawns.
   `PlayerMovementArchitecture.md`.
 * **Disconnect and Host Migration.** A disconnected Downed player keeps draining, see
   `RaidDefeatAndSpectatorArchitecture.md` and `HostMigrationRecoveryArchitecture.md`.
+* **Full contract.** Ownership of every transition, recovery, Accelerated Resolution, attribution,
+  extraction and Host Migration rules are defined in `DownedAndReviveArchitecture.md`.
 * **Out of scope (follow-ups):** Revive, Self-revive, Accelerated Resolution, a dedicated Downed
   pose/HUD, and PvP last-hit attribution.
 
