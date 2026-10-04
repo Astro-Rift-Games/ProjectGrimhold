@@ -27,6 +27,8 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     [SerializeField]
     private PlayerCharacter _playerCharacter;
 
+    private IDownedDrainGate _drainGate;
+    private IDownedDamageObserver _damageObserver;
     private bool _isConfigurationValid;
     private bool _reportedInvalidConfiguration;
 
@@ -67,6 +69,11 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority || !IsDowned)
+        {
+            return;
+        }
+
+        if (_drainGate != null && _drainGate.IsDrainPaused)
         {
             return;
         }
@@ -119,6 +126,11 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
             ClearDownedState();
         }
 
+        if (applied > 0f)
+        {
+            _damageObserver?.NotifyDownedDamaged();
+        }
+
         return true;
     }
 
@@ -156,6 +168,10 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         {
             _playerCharacter = GetComponent<PlayerCharacter>();
         }
+
+        // Optional collaborators: absent means the drain is never paused and nobody is notified.
+        _drainGate ??= GetComponent<IDownedDrainGate>();
+        _damageObserver ??= GetComponent<IDownedDamageObserver>();
     }
 
     private void ValidateConfiguration()

@@ -37,6 +37,13 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     [Networked]
     private NetworkButtons PreviousButtons { get; set; }
 
+    /// <summary>
+    /// True while the Interact input is held. Published by State Authority so a recovery session
+    /// running on another avatar can cancel when the reviver releases the button.
+    /// </summary>
+    [Networked]
+    public NetworkBool IsInteractHeld { get; private set; }
+
     [Networked]
     private int InteractionSequence { get; set; }
 
@@ -102,6 +109,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             _matchController.Phase != NetworkMatchController.MatchPhase.InProgress)
         {
             PreviousButtons = default;
+            IsInteractHeld = false;
             return;
         }
 
@@ -111,6 +119,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         }
 
         NetworkButtons currentButtons = input.Buttons;
+        IsInteractHeld = currentButtons.IsSet(PlayerInputButton.Interact);
         bool interactPressed = currentButtons.WasPressed(PreviousButtons, PlayerInputButton.Interact);
 
         PreviousButtons = currentButtons;

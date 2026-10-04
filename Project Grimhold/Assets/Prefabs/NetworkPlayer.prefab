@@ -6036,6 +6036,7 @@ GameObject:
   - component: {fileID: 2234995063959400674}
   - component: {fileID: 4758981447037605228}
   - component: {fileID: 1608558313308446850}
+  - component: {fileID: 2585386924524232646}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6192,6 +6193,8 @@ MonoBehaviour:
   _querySource: {fileID: 3133108637029622038}
   _movementController: {fileID: 7201000000000000005}
   _interactionOrigin: {fileID: 2520259848855165086}
+  _IsInteractHeld:
+    RawValue: 0
 --- !u!114 &7490000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6470,6 +6473,7 @@ MonoBehaviour:
   - {fileID: 7062006960257999095}
   - {fileID: 4758981447037605228}
   - {fileID: 1608558313308446850}
+  - {fileID: 2585386924524232646}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -7073,6 +7077,26 @@ MonoBehaviour:
     RawValue: 0
   _DownedHealth: 0
   _DownedCycle: 0
+--- !u!114 &2585386924524232646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b884b300b9a0a61468c7fbdff4167b48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDownedRecoveryNetworkController
+  _reviveDurationSeconds: 4
+  _reviveRange: 1.5
+  _Kind: 0
+  _ReviverId:
+    Raw: 0
+  _SessionCycle: 0
+  _RevivingTargetId:
+    Raw: 0
 --- !u!1 &5519409559228361831
 GameObject:
   m_ObjectHideFlags: 0
