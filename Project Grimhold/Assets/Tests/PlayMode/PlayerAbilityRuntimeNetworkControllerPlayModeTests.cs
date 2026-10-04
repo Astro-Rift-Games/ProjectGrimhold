@@ -19,6 +19,318 @@ namespace Tests.PlayMode.Abilities
         private AbilityInputDriver _inputDriver;
 
         [UnityTest]
+        public IEnumerator AbilityCycle_EffectiveAttributeChangesAreRevalidatedAtUse()
+        {
+            yield return StartRunner();
+            var participant = SpawnParticipant("ability-attributes", new PreparedAbilityLoadout(new AbilityId("charge"), default));
+            var runtime = SpawnAvatar(participant, true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var attributeOverride = participant.GetComponent<RuntimeAttributeOverrideNetworkController>();
+            for (int index = 0; index < 3; index++)
+            {
+                Assert.That(attributeOverride.RequestAdjustment(CharacterAttribute.Strength, -5), Is.True);
+                yield return WaitTicks();
+            }
+            yield return PressSlot1();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.RequirementsNotMet));
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.Zero);
+            Assert.That(runtime.IsOnCooldown(UniversalAbilitySlot.Slot1), Is.False);
+            Assert.That(attributeOverride.RequestReset(CharacterAttribute.Strength), Is.True);
+            yield return WaitTicks();
+            yield return PressSlot1();
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_DownedStopsExecutionAndRetainedAvatarKeepsCooldown()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-downed",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
+            float before = runtime.GetRemainingCooldownSeconds(UniversalAbilitySlot.Slot1);
+            yield return InSimulation(() =>
+            {
+                runtime.Object.AssignInputAuthority(PlayerRef.None);
+                Assert.That(runtime.GetComponent<PlayerDownedStateNetworkController>().TryEnterDowned(), Is.True);
+            });
+            yield return WaitTicks();
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            Assert.That(behaviour.LastStop, Is.EqualTo(AbilityExecutionStopReason.Downed));
+            Assert.That(behaviour.Stops, Is.EqualTo(1));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var stopped);
+            Assert.That(stopped.Cooldown.TargetTick, Is.EqualTo(accepted.Cooldown.TargetTick));
+            Assert.That(runtime.GetRemainingCooldownSeconds(UniversalAbilitySlot.Slot1), Is.LessThan(before));
+            yield return WaitTicks();
+            Assert.That(behaviour.Begins, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_AcceptedAbilityInterruptsReviveButRejectedAbilityDoesNot()
+        {
+            yield return StartRunner();
+            var reviver = SpawnAvatar(SpawnParticipant("ability-reviver",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            var target = SpawnAvatar(SpawnParticipant("ability-revive-target", default), true);
+            yield return WaitUntil(() => reviver.IsInitialized && target.IsInitialized);
+            var recovery = target.GetComponent<PlayerDownedRecoveryNetworkController>();
+            typeof(PlayerDownedRecoveryNetworkController).GetProperty("TestTeamOverride", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(recovery, (bool?)true);
+            SetField(recovery, "_reviveDurationSeconds", 30f);
+            Assert.That(target.GetComponent<PlayerDownedStateNetworkController>().TryEnterDowned(), Is.True);
+            _inputDriver.Buttons.Set(PlayerInputButton.Interact, true);
+            yield return WaitTicks();
+            // The real interaction press may already have opened this exact session.
+            if (!recovery.HasValidSession)
+                Assert.That(recovery.TryBeginAssisted(reviver.GetComponent<PlayerCharacter>()), Is.True);
+            Assert.That(recovery.HasValidSession, Is.True);
+            Assert.That(recovery.ReviverId, Is.EqualTo(reviver.Object.Id));
+            var behaviour = reviver.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.RejectStart = true;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(recovery.HasValidSession, Is.True);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, false);
+            yield return WaitTicks();
+            behaviour.RejectStart = false;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(behaviour.Begins, Is.EqualTo(1));
+            Assert.That(recovery.HasValidSession, Is.False);
+            Assert.That(recovery.CanBeginAssisted(reviver.GetComponent<PlayerCharacter>()), Is.False);
+            behaviour.Complete = true;
+            yield return WaitTicks();
+            Assert.That(recovery.CanBeginAssisted(reviver.GetComponent<PlayerCharacter>()), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_WeaponSetChangeWaitsForExecutionToFinish()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-weaponset",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return PressSlot1();
+            var equipment = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var catalog = (LootDefinitionCatalog)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(equipment);
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            Assert.That(catalog.TryGetIndex(sword.LootId, out int index), Is.True);
+            yield return InSimulation(() =>
+            {
+                SetNetworked(equipment, "WeaponSetAMainHandCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "WeaponSetBMainHandCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "ActiveWeaponSetSlotValue", (int)WeaponSetSlot.SetA);
+            });
+            _inputDriver.Buttons.Set(PlayerInputButton.WeaponSetB, true);
+            yield return WaitTicks();
+            Assert.That(equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
+            runtime.GetComponent<TestAbilityExecutionBehaviour>().Complete = true;
+            _inputDriver.Buttons.Set(PlayerInputButton.WeaponSetB, false);
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.WeaponSetB, true);
+            yield return WaitTicks();
+            Assert.That(equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetB));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_MissingBehaviourAndManaRejectWithoutPayment()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-closed",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("arcane_projectile"))),
+                true, "arcane_projectile");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var stamina = runtime.GetComponent<PlayerStaminaNetworkController>();
+            float before = stamina.CurrentStamina;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.MissingBehaviour));
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot2), Is.EqualTo(AbilityActivationFailure.ResourceUnavailable));
+            Assert.That(stamina.CurrentStamina, Is.EqualTo(before));
+            foreach (var slot in new[] { UniversalAbilitySlot.Slot1, UniversalAbilitySlot.Slot2 })
+            {
+                runtime.TryGetExecutionSnapshot(slot, out var snapshot);
+                Assert.That(snapshot.Sequence, Is.Zero);
+                Assert.That(snapshot.Cooldown.IsRunning, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_RejectedPlanAndInsufficientStaminaHaveNoCostOrCooldown()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-rejected",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            var stamina = runtime.GetComponent<PlayerStaminaNetworkController>();
+            float before = stamina.CurrentStamina;
+            behaviour.RejectStart = true;
+            yield return PressSlot1();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.BehaviourRejected));
+            Assert.That(stamina.CurrentStamina, Is.EqualTo(before));
+            behaviour.RejectStart = false;
+            yield return InSimulation(() => typeof(PlayerStaminaNetworkController).GetProperty("CurrentStamina").SetValue(stamina, 1f));
+            yield return PressSlot1();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.InsufficientResource));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var state);
+            Assert.That(state.Sequence, Is.Zero);
+            Assert.That(state.Cooldown.IsRunning, Is.False);
+            Assert.That(stamina.CurrentStamina, Is.EqualTo(1f));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_IndependentSlotsCompleteAndCooldownExpiresWithoutQueuedHeldPress()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-independent",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("trap"))), true, "charge", "trap");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+            var behaviours = runtime.GetComponents<TestAbilityExecutionBehaviour>();
+            Assert.That(behaviours[0].Begins, Is.EqualTo(1));
+            Assert.That(behaviours[1].Begins, Is.EqualTo(1));
+            Assert.That(runtime.IsOnCooldown(UniversalAbilitySlot.Slot1), Is.True);
+            Assert.That(runtime.IsOnCooldown(UniversalAbilitySlot.Slot2), Is.True);
+            Assert.That(runtime.GetRemainingCooldownSeconds(UniversalAbilitySlot.Slot1),
+                Is.GreaterThan(runtime.GetRemainingCooldownSeconds(UniversalAbilitySlot.Slot2)));
+            behaviours[0].Complete = true;
+            yield return WaitTicks();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var first);
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot2, out var second);
+            Assert.That(first.Phase, Is.EqualTo(AbilityExecutionPhase.Idle));
+            Assert.That(second.Phase, Is.EqualTo(AbilityExecutionPhase.Executing));
+            Assert.That(behaviours[0].Stops, Is.EqualTo(1));
+            Assert.That(runtime.IsSlotAvailable(UniversalAbilitySlot.Slot1), Is.True, "Prepared-slot availability retains its original meaning.");
+            yield return WaitUntil(() => !runtime.IsOnCooldown(UniversalAbilitySlot.Slot1), 12f);
+            Assert.That(runtime.GetRemainingCooldownSeconds(UniversalAbilitySlot.Slot1), Is.Zero);
+            Assert.That(behaviours[0].Begins, Is.EqualTo(1), "Held input cannot queue across cooldown expiry.");
+            behaviours[0].Complete = false;
+            yield return PressSlot1();
+            Assert.That(behaviours[0].Begins, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_PreparationProgressesWithoutInputAndInterruptIsSequenceScoped()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-preparing",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.PreparingSeconds = 0.2f;
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var preparing);
+            Assert.That(preparing.Phase, Is.EqualTo(AbilityExecutionPhase.Preparing));
+            var targetTick = preparing.Cooldown.TargetTick;
+            _inputDriver.ProvidePayload = false;
+            yield return WaitUntil(() => runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var s) &&
+                s.Phase == AbilityExecutionPhase.Executing);
+            bool staleAccepted = true;
+            bool accepted = false;
+            yield return InSimulation(() =>
+            {
+                staleAccepted = runtime.TryInterrupt(UniversalAbilitySlot.Slot1, preparing.Sequence + 1, AbilityExecutionStopReason.Knockback);
+                accepted = runtime.TryInterrupt(UniversalAbilitySlot.Slot1, preparing.Sequence, AbilityExecutionStopReason.Stun);
+            });
+            Assert.That(staleAccepted, Is.False);
+            Assert.That(accepted, Is.True);
+            Assert.That(behaviour.Stops, Is.EqualTo(1));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var stopped);
+            Assert.That(stopped.Phase, Is.EqualTo(AbilityExecutionPhase.Idle));
+            Assert.That(stopped.Cooldown.TargetTick, Is.EqualTo(targetTick));
+            Assert.That(runtime.TryInterrupt(UniversalAbilitySlot.Slot1, preparing.Sequence, AbilityExecutionStopReason.Stun), Is.False,
+                "An operation outside simulation is rejected.");
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_CopiedActiveStateWaitsForFixupAndRebindsWithoutStartingOrPaying()
+        {
+            yield return StartRunner();
+            var prepared = new PreparedAbilityLoadout(new AbilityId("charge"), default);
+            var source = SpawnAvatar(SpawnParticipant("ability-cycle-source", prepared), true, "charge");
+            yield return WaitUntil(() => source.IsInitialized);
+            yield return PressSlot1();
+            source.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var original);
+            var target = SpawnAvatar(null, false, "charge");
+            SetRestoreGuard(target);
+            yield return CopyState(target, source);
+            yield return WaitTicks();
+            Assert.That(target.IsInitialized, Is.False);
+            var participant = SpawnParticipant("ability-cycle-copy", prepared);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            yield return WaitUntil(() => target.IsInitialized);
+            yield return WaitTicks();
+            var behaviour = target.GetComponent<TestAbilityExecutionBehaviour>();
+            Assert.That(behaviour.Begins, Is.Zero);
+            Assert.That(behaviour.Rebinds, Is.EqualTo(1));
+            target.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var copied);
+            Assert.That(copied.Sequence, Is.EqualTo(original.Sequence));
+            Assert.That(copied.Cooldown.TargetTick, Is.EqualTo(original.Cooldown.TargetTick));
+            target.enabled = false;
+            Assert.That(target.HasActiveExecution, Is.True,
+                "Disabling the runtime must not make authoritative action gates ignore its copied active phase.");
+            target.enabled = true;
+            yield return WaitTicks();
+            Assert.That(behaviour.Rebinds, Is.EqualTo(2));
+            Assert.That(behaviour.Begins, Is.Zero);
+            Assert.That(participant.TryMarkDefeated(target.Object), Is.True);
+            yield return WaitTicks();
+            Assert.That(behaviour.Stops, Is.EqualTo(1));
+            Assert.That(target.IsInitialized, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_ConsumablesAndInteractionsRejectWhileExecutionIsActive()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-actions",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return PressSlot1();
+            ConsumableResult result = default;
+            yield return InSimulation(() => result = (ConsumableResult)typeof(PlayerConsumableNetworkController)
+                .GetMethod("ProcessAuthoritativeConsume", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(runtime.GetComponent<PlayerConsumableNetworkController>(), new object[] { -1 }));
+            Assert.That(result.FailureReason, Is.EqualTo(ConsumableFailureReason.TargetUnavailable));
+            var interaction = runtime.GetComponent<PlayerInteractionNetworkController>();
+            _inputDriver.Buttons.Set(PlayerInputButton.Interact, true);
+            yield return WaitTicks();
+            var failure = (int)typeof(PlayerInteractionNetworkController)
+                .GetProperty("LastInteractionFailureReasonValue", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(interaction);
+            Assert.That(failure, Is.EqualTo((int)InteractionFailureReason.InteractorUnavailable));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_ValidIntentPaysAndStartsExactlyOnce()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-cycle",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized && runtime.GetComponent<PlayerStaminaNetworkController>().CanSpend(20f));
+            var stamina = runtime.GetComponent<PlayerStaminaNetworkController>();
+            float before = stamina.CurrentStamina;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.EqualTo(1),
+                "A valid authoritative intent must accept one execution.");
+            Assert.That(runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var snapshot), Is.True);
+            Assert.That(snapshot.Sequence, Is.EqualTo(1));
+            Assert.That(snapshot.Phase, Is.EqualTo(AbilityExecutionPhase.Executing));
+            Assert.That(snapshot.Cooldown.IsRunning, Is.True);
+            Assert.That(stamina.CurrentStamina, Is.EqualTo(before - 20f).Within(0.01f));
+            yield return WaitTicks();
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator AbilityIntent_IndependentPressEdgesAreTickScopedAndDoNotRepeatWhileHeld()
         {
             yield return StartRunner();
@@ -299,15 +611,36 @@ namespace Tests.PlayMode.Abilities
             return participant.GetComponent<NetworkRaidParticipant>();
         }
 
-        private PlayerAbilityRuntimeNetworkController SpawnAvatar(NetworkRaidParticipant participant, bool publishAvatar)
+        private PlayerAbilityRuntimeNetworkController SpawnAvatar(NetworkRaidParticipant participant, bool publishAvatar,
+            params string[] behaviourIds)
         {
             LogAssert.Expect(UnityEngine.LogType.Error,
                 "PlayerExtractionProgressController requires character, extraction controller, " +
                 "registry, assignment service, and valid receiver/reader registrations.");
             var avatar = _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"),
                 Vector3.zero, Quaternion.identity, _runner.LocalPlayer,
-                onBeforeSpawned: (_, instance) => instance.GetComponent<RaidAvatarParticipantLink>()
-                    .Initialize(participant != null ? participant.Object : null));
+                onBeforeSpawned: (_, instance) =>
+                {
+                    instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participant != null ? participant.Object : null);
+                    var runtime = instance.GetComponent<PlayerAbilityRuntimeNetworkController>();
+                    SetField(runtime, "_playerCharacter", instance.GetComponent<PlayerCharacter>());
+                    SetField(runtime, "_staminaController", instance.GetComponent<PlayerStaminaNetworkController>());
+                    SetField(instance.GetComponent<PlayerStaminaNetworkController>(), "_regenerationPerSecond", 0f);
+                    if (behaviourIds.Length > 0)
+                    {
+                        var catalog = (AbilityDefinitionCatalog)typeof(PlayerAbilityRuntimeNetworkController)
+                            .GetField("_catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+                        var behaviours = new AbilityExecutionBehaviour[behaviourIds.Length];
+                        for (int index = 0; index < behaviours.Length; index++)
+                        {
+                            Assert.That(catalog.TryGet(new AbilityId(behaviourIds[index]), out var definition), Is.True);
+                            var behaviour = instance.gameObject.AddComponent<TestAbilityExecutionBehaviour>();
+                            SetField(behaviour, "_definition", definition, typeof(AbilityExecutionBehaviour));
+                            behaviours[index] = behaviour;
+                        }
+                        SetField(runtime, "_executionBehaviours", behaviours);
+                    }
+                });
             if (publishAvatar) Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             var runtime = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             Assert.That(runtime, Is.Not.Null);
@@ -334,11 +667,26 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => _runner.Tick.Raw >= until);
         }
 
-        private static IEnumerator WaitUntil(Func<bool> predicate)
+        private static IEnumerator WaitUntil(Func<bool> predicate, float timeoutSeconds = 5f)
         {
-            float deadline = Time.realtimeSinceStartup + 5f;
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while (!predicate() && Time.realtimeSinceStartup < deadline) yield return null;
             Assert.That(predicate(), Is.True, "Ability runtime did not reach the expected state.");
+        }
+
+        private IEnumerator PressSlot1()
+        {
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+        }
+
+        private IEnumerator InSimulation(Action operation)
+        {
+            int previous = _driver.CompletionSequence;
+            _driver.RequestOperation(operation);
+            yield return WaitUntil(() => _driver.CompletionSequence != previous);
         }
 
         private static void AssertSlot(PlayerAbilityRuntimeNetworkController runtime, UniversalAbilitySlot slot, string id)
@@ -361,6 +709,13 @@ namespace Tests.PlayMode.Abilities
         private static void SetRestoreGuard(PlayerAbilityRuntimeNetworkController runtime) =>
             typeof(PlayerAbilityRuntimeNetworkController)
                 .GetField("_restoreSpawn", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(runtime, true);
+
+        private static void SetField(object target, string name, object value, Type declaringType = null) =>
+            (declaringType ?? target.GetType()).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(target, value);
+
+        private static void SetNetworked(object target, string name, object value) =>
+            target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
 
         private sealed class AbilityInputDriver : NetworkRunnerCallbacksAdapter
         {

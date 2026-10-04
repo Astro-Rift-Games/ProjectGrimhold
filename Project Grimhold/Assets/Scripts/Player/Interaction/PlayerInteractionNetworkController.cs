@@ -31,6 +31,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private EntityRegistry _registry;
     private PlayerExtractionController _extractionController;
     private NetworkMatchController _matchController;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private bool _dependenciesValid;
     private readonly Queue<InteractionPresentationEvent> _pendingPresentationEvents = new();
 
@@ -130,6 +131,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         }
 
         if (_character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+            (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
             RecordInteractionResult(default, Runner.Tick, InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable));
@@ -282,6 +284,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
     private void CacheDependencies()
     {
+        _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
         if (_characterSource != null)
         {
             _character = _characterSource as ICharacter;

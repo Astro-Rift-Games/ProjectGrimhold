@@ -6,6 +6,7 @@ public sealed class PlayerAbilityRuntimeSimulationDriver : SimulationBehaviour, 
 {
     private PlayerAbilityRuntimeNetworkController _target;
     private PlayerAbilityRuntimeNetworkController _source;
+    private System.Action _operation;
     public int CompletionSequence { get; private set; }
     public PlayerAbilityRuntimeNetworkController ObservedRuntime { get; set; }
     public int Slot1Requests { get; private set; }
@@ -28,8 +29,17 @@ public sealed class PlayerAbilityRuntimeSimulationDriver : SimulationBehaviour, 
         _source = source;
     }
 
+    public void RequestOperation(System.Action operation) => _operation = operation;
+
     public override void FixedUpdateNetwork()
     {
+        if (_operation != null)
+        {
+            var operation = _operation;
+            _operation = null;
+            operation();
+            CompletionSequence++;
+        }
         if (_target == null)
         {
             return;

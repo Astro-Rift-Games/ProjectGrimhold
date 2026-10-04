@@ -18,6 +18,12 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         var catalog = AssetDatabase.LoadAssetAtPath<AbilityDefinitionCatalog>(
             "Assets/Scriptable Objects/Abilities/Catalogs/AbilityDefinitionCatalog.asset");
         Assert.That(serialized.FindProperty("_catalog").objectReferenceValue, Is.SameAs(catalog));
+        Assert.That(serialized.FindProperty("_playerCharacter").objectReferenceValue,
+            Is.SameAs(prefab.GetComponent<PlayerCharacter>()));
+        Assert.That(serialized.FindProperty("_staminaController").objectReferenceValue,
+            Is.SameAs(prefab.GetComponent<PlayerStaminaNetworkController>()));
+        Assert.That(serialized.FindProperty("_executionBehaviours").arraySize, Is.Zero,
+            "Concrete effects are not implemented by TASK447; production must not compose a placeholder.");
         Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(runtimes[0]));
     }
 }

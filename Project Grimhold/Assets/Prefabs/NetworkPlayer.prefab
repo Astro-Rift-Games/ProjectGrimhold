@@ -6493,6 +6493,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAbilityRuntimeNetworkController
   _participantLink: {fileID: 5489547608340585132}
   _catalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
+  _playerCharacter: {fileID: 729366679366126330}
+  _staminaController: {fileID: 7201000000000000006}
+  _executionBehaviours: []
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -2,11 +2,11 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. The runtime contract defines one owner, activation, execution state, cooldowns, resource boundaries and lifecycle continuity. TASK 445 implements slot binding and TASK 446 implements activation intentions. Accepted execution, concrete abilities, targeting, Current Mana, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. Concrete abilities, targeting, Current Mana, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
-TASK 445 implements the slot-binding foundation as `PlayerAbilityRuntimeNetworkController` on `Assets/Prefabs/NetworkPlayer.prefab`. It exposes `IsInitialized`, `TryGetSlot` and `IsSlotAvailable`, backed by independent read-only `AbilityRuntimeSlot` descriptors resolved atomically through `AbilityRuntimeSlots`. Availability here means a confirmed, current avatar with an occupied prepared slot, not activation eligibility, affordability or cooldown readiness. Accepted activation, execution phases and cooldown behavior remain deferred.
+TASK 445 implements the slot-binding foundation as `PlayerAbilityRuntimeNetworkController` on `Assets/Prefabs/NetworkPlayer.prefab`. It exposes `IsInitialized`, `TryGetSlot` and `IsSlotAvailable`, backed by independent read-only `AbilityRuntimeSlot` descriptors resolved atomically through `AbilityRuntimeSlots`. Availability here means a confirmed, current avatar with an occupied prepared slot, not activation eligibility, affordability or cooldown readiness. TASK 447 extends this same owner, rather than replacing prepared-slot availability with activation readiness.
 
 The component replicates its initialization marker and previous ability-button history. The prepared identities still belong to `NetworkRaidParticipant`; resolved definitions are derived local references. Fresh State Authority initializes once after bidirectional avatar/participant binding. Restore preserves the copied marker, including an uninitialized snapshot, and waits for reference fixup. Terminal participation/generation cleanup clears availability; disable/re-enable releases and reconstructs local references without resetting confirmed state.
 
@@ -42,7 +42,7 @@ Ability identity -> definition       unlocked repertoire
                                       NetworkRaidParticipant
                                       frozen Raid entitlement
                                                  |
-                                      Future ability runtime boundary
+                                      Raid ability runtime boundary
                                       authoritative session state
 ```
 
@@ -199,6 +199,20 @@ The runtime processes input edges without queuing stale presses for later cooldo
 The common owner controls binding, validation, payment coordination, phases, execution identity, cooldowns and lifecycle transitions. Concrete behavior controls authored preparation/duration, valid targets, resolution and configured interruption/compatibility rules. It uses the accepted execution context and existing damage, healing, movement or knockback services without becoming another owner of the slot state.
 
 Ordinary C# notifications are not authoritative transition sources. Simulation reads authoritative character/lifecycle state or receives explicit authoritative operations at the owning boundary. Outcomes and irreversible effects must be tied to the accepted execution identity/progress and not repeated by resimulation, presentation, rebind or Host Migration.
+
+### TASK 447 common-cycle implementation
+
+Each slot copies an `AbilityExecutionSnapshot`: phase (`Idle`, `Preparing`, `Executing`), accepted sequence, cooldown `TickTimer` and optional phase-deadline `TickTimer`. Cooldown is independent of execution phase; normal completion or interruption clears the phase deadline but retains the paid cost, sequence and cooldown. No replicated remaining-time, configuration reference or derived readiness flag is added. `TryGetExecutionSnapshot`, `IsOnCooldown`, `GetRemainingCooldownSeconds` and `HasActiveExecution` are read-only queries. `GetLastActivationFailure` reports the local authoritative attempt only, not replicated feedback.
+
+The runtime runs after the existing Stamina (-11), movement (-10) and equipment (-9) boundaries, and before primary combat (-7), using order -8. It processes Slot 1 then Slot 2 deterministically, rechecking available resources for each request. This is not universal cross-slot exclusivity. Existing executions progress without input; held/rejected presses never queue for later availability.
+
+`AbilityExecutionBehaviour` is an abstract, avatar-local composition seam, bound through a serialized array and a canonical `AbilityDefinition` reference. Duplicate definitions, foreign-avatar behaviors and non-catalog references are configuration errors. The production array is deliberately empty: an occupied slot without a concrete behavior rejects before payment. Mana likewise rejects as unavailable; no temporary resource pool or instant placeholder execution is supplied.
+
+`TryPlanStart` is side-effect-free and returns an authored phase/duration plan before the all-or-nothing Stamina spend. `Begin` runs only after acceptance. `Simulate` requests continued execution, a preparation-to-execution transition after its original deadline, or completion; the owner alone commits phase changes. An unchanged phase never restarts its timer. `Stop` receives the accepted snapshot after the owner has cleared its active phase. `TryInterrupt(slot, sequence, reason)` accepts only a matching active execution at the authoritative forward-simulation boundary. Downed/Stun and participation closure cannot be vetoed; concrete behaviors own configured exceptions for other interruption categories. Effects already created by a future behavior remain independently owned.
+
+On restore or runtime re-enable, `Rebind` reconstructs local references once for each bound active execution without `Begin`, payment or timer restart. Temporary participant fixup gaps preserve the copied state. Installed Fusion 2.1.1 restores the server simulation tick from the host snapshot's resume tick, so copied `TickTimer` targets remain in the same epoch: no custom timer rebase or wall-clock downtime subtraction is performed. Local state-copy fixtures verify payload/rebind behavior, not actual multi-runner Host Migration.
+
+Authoritative consumable, object-interaction, Weapon Set-change and assisted-revive start owners consult the active-execution query for existing global restrictions. This does not block unrelated armor operations or invent primary-attack/movement compatibility. A rejected ability leaves assisted revival untouched; a valid accepted ability uses `PlayerReviveGate.InterruptIfReviving` before `Begin`, preserving the existing incompatible-action recovery contract.
 
 Execution and already-created effects are different lifecycles. Completing/interruption of an execution does not universally delete projectiles, traps or applied buffs/debuffs. Future effect owners retain Source/Caster attribution and follow their own authored persistence rules; the base runtime does not add a general effect manager.
 

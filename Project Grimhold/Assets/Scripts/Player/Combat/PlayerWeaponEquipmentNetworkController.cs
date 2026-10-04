@@ -51,6 +51,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private ICharacter _character;
     private PlayerRaidLootOriginState _raidOriginState;
     private NetworkMatchController _matchController;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private bool _hasPendingAuthorityRequest;
     private EquipmentRequestKind _pendingRequestKind;
     private int _pendingCatalogIndex;
@@ -741,6 +742,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             becomesActive = EquipmentSlotRules.IsMainHandSlot(targetSlot) &&
                 (ActiveWeaponSetSlot == WeaponSetSlot.None ||
                  ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
+            if (becomesActive && ActiveWeaponSetSlot != EquipmentSlotRules.GetWeaponSet(targetSlot) &&
+                _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+                return EquipmentOperationResult.PlayerUnavailable;
             if (becomesActive && !TryConfigureStrategy(
                     definition.WeaponDefinition,
                     attackConfig,
@@ -854,6 +858,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             if (eligibility == WeaponEligibilityFailure.RequirementsNotMet) return EquipmentOperationResult.AttributeRequirementsNotMet;
             if (eligibility != WeaponEligibilityFailure.None) return EquipmentOperationResult.InvalidEquipment;
             becomesActive = EquipmentSlotRules.IsMainHandSlot(targetSlot) && (ActiveWeaponSetSlot == WeaponSetSlot.None || ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
+            if (becomesActive && ActiveWeaponSetSlot != EquipmentSlotRules.GetWeaponSet(targetSlot) &&
+                _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+                return EquipmentOperationResult.PlayerUnavailable;
             if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _)) return EquipmentOperationResult.InvalidEquipment;
         }
 
@@ -907,6 +914,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        if (EquipmentSlotRules.IsMainHandSlot(slot) && ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(slot) &&
+            _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+            return EquipmentOperationResult.PlayerUnavailable;
         PlayerReviveGate.InterruptIfReviving(_character);
         if (!EquipmentSlotRules.IsEquipmentSlot(slot)) return EquipmentOperationResult.InvalidRequest;
         if (!TryGetSlotLoot(slot, out LootEntry equipped)) return EquipmentOperationResult.EmptySlot;
@@ -984,7 +994,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         bool slot2Pressed = current.WasPressed(PreviousButtons, PlayerInputButton.WeaponSetB);
         PreviousButtons = current;
 
-        if (slot1Pressed == slot2Pressed || !CanMutateEquipment())
+        if (slot1Pressed == slot2Pressed || !CanMutateEquipment() ||
+            (_abilityRuntime != null && _abilityRuntime.HasActiveExecution))
         {
             return;
         }
@@ -1396,6 +1407,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
     private void CacheDependencies()
     {
+        _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
         _character = _characterSource as ICharacter;
         _character ??= GetComponent<ICharacter>();
         _raidOriginState ??= GetComponent<PlayerRaidLootOriginState>();

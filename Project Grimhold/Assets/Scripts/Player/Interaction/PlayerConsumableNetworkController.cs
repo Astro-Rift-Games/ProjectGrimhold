@@ -21,6 +21,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     private ICharacter _character;
     private PlayerLootReceiver _lootReceiver;
     private NetworkMatchController _matchController;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private bool _dependenciesValid;
 
     // Tracking para evitar duplicados en concurrencia
@@ -140,7 +141,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
 
     private ConsumableResult ProcessAuthoritativeConsume(int catalogIndex)
     {
-        if (PlayerDownedGate.IsDowned(_character))
+        if (PlayerDownedGate.IsDowned(_character) || (_abilityRuntime != null && _abilityRuntime.HasActiveExecution))
         {
             return ConsumableResult.Rejected(ConsumableFailureReason.TargetUnavailable);
         }
@@ -232,6 +233,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     {
         _character = _characterSource != null ? _characterSource as ICharacter : GetComponent<ICharacter>();
         _lootReceiver = GetComponent<PlayerLootReceiver>();
+        _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
     }
 
     private bool ValidateDependencies()

@@ -34,6 +34,7 @@ public sealed class PlayerDownedRecoveryNetworkController :
     private PlayerCharacter _playerCharacter;
     private PlayerDownedStateNetworkController _downedState;
     private PlayerMovementNetworkController _movement;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private bool _isConfigurationValid;
     private bool _reportedInvalidConfiguration;
     private float _previousReviverHealth;
@@ -132,7 +133,8 @@ public sealed class PlayerDownedRecoveryNetworkController :
         if (!_isConfigurationValid || _downedState == null ||
             reviver == null || reviver == _playerCharacter ||
             reviver.Object == null || !reviver.Object.IsValid ||
-            !reviver.TryGetComponent(out reviverRecovery))
+            !reviver.TryGetComponent(out reviverRecovery) ||
+            (reviverRecovery._abilityRuntime != null && reviverRecovery._abilityRuntime.HasActiveExecution))
         {
             return false;
         }
@@ -349,6 +351,7 @@ public sealed class PlayerDownedRecoveryNetworkController :
         _playerCharacter ??= GetComponent<PlayerCharacter>();
         _downedState ??= GetComponent<PlayerDownedStateNetworkController>();
         _movement ??= GetComponent<PlayerMovementNetworkController>();
+        _abilityRuntime ??= GetComponent<PlayerAbilityRuntimeNetworkController>();
     }
 
     private void ValidateConfiguration()
