@@ -61,6 +61,17 @@ state are preserved, and only invalid PlayerRef routing is removed. Recovery/rec
 is deliberately deferred. Pending and terminal markers are cleared with runner/generation
 cleanup.
 
+A Raiding participant whose avatar is Downed (`RaidPlayerDeparturePolicy.ShouldRetainDownedRaider`)
+is neither despawned nor finalized as a definitive disconnect: disconnecting does not pause or
+resolve Downed. The Host removes the PlayerRef routing, removes input authority from the avatar,
+and tracks the participant in `NetworkSpawnManager._retainedDownedParticipants`. The reserve keeps
+draining and the avatar can still take damage; on depletion the normal `HandleDeath` path converts
+the body and `TryMarkDefeated` (keyed by `CurrentAvatarId`, not by PlayerRef) records Defeat, after
+which the ordinary Defeated finalization runs. While such a participant is still Raiding it counts
+in `HasRaidingParticipants` (the raid does not close under it) and is aborted by
+`AbortRaidingParticipantsForClosure`; it does not count as a connected remote participant.
+Reconnect and revive policy remain deferred.
+
 ## Local spectator selection
 
 Candidates come from `Runner.ActivePlayers`, their PlayerObjects and

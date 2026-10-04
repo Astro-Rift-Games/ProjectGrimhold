@@ -679,6 +679,37 @@ When a character takes damage (authoritatively confirmed by `Health` changes on 
 * **Scale Pulse**: Briefly scales the character's transform down/up to provide physical impact feedback.
 * These reactions run completely client-side in the presentation loop (`Render` or via network property changed callbacks).
 
+
+Players do not go from Active straight to definitive Defeat. The lifecycle is
+**Active -> Downed -> definitive Defeat**; the pipeline below describes the final step and
+only runs when the Downed reserve is exhausted.
+
+**Downed state.** `PlayerDownedStateNetworkController` owns `[Networked] IsDowned`, `DownedHealth`
+and `DownedCycle`. Only State Authority writes them; `Spawned()` skips fresh initialization on
+Host Migration restore spawns.
+* `Health` stays `0` while Downed and `PlayerCharacter.IsAlive` stays `true` (`Health > 0 || IsDowned`).
+  Systems that must distinguish the two read `PlayerCharacter.IsDowned` (via `PlayerDownedGate`).
+* **Damage routing.** The hit that takes `Health` to zero enters Downed and is non-fatal; its
+  excess damage is discarded and the reserve starts full (`_initialDownedHealth`, 75 baseline).
+  While Downed, reserve damage is `mitigated damage x _downedDamageMultiplier`, after the normal
+  mitigation. The hit that depletes the reserve is fatal.
+* **Drain.** State Authority drains the reserve each tick (`_downedDrainPerSecond`, 2.5/s baseline).
+  Depletion clears `IsDowned` in the same tick and then resolves definitive Defeat exactly once.
+  Pure rules live in `DownedHealthRules`.
+* **No corpse or loot while Downed.** Corpse conversion runs only on definitive Defeat.
+* **Rejected while Downed:** conventional healing (`CanReceiveHealing`), and status effects
+  (`CanReceiveStatusEffects` is `IsAlive && !IsDowned`; this is a predicate only, no CC system exists yet).
+* **Action gates** (`PlayerDownedGate`, enforced on State Authority): primary attack, shield
+  defense, equipment/weapon-set changes, consumables, loot transfer, loot drop and world
+  interaction. Extraction is intentionally allowed.
+* **Presentation.** Weapon visuals are hidden while Downed and restored on exit
+  (`PlayerWeaponPresenter`, `PlayerAttackVfxPresenter`). Voluntary movement is limited, see
+  `PlayerMovementArchitecture.md`.
+* **Disconnect and Host Migration.** A disconnected Downed player keeps draining, see
+  `RaidDefeatAndSpectatorArchitecture.md` and `HostMigrationRecoveryArchitecture.md`.
+* **Out of scope (follow-ups):** Revive, Self-revive, Accelerated Resolution, a dedicated Downed
+  pose/HUD, and PvP last-hit attribution.
+
 ### 2. Player Defeat and Persistent Body
 When player health drops to or below zero, a strict death/defeat pipeline is executed:
 * **Gameplay Simulation Disabling**: 

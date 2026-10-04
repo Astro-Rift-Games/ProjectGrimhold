@@ -1013,6 +1013,15 @@ movimiento final = movimiento voluntario + desplazamiento externo
 
 La intención voluntaria puede ignorarse temporalmente, pero el motor debe continuar aplicando el desplazamiento externo.
 
+### 20.6.1 Estado Downed (Abatido)
+
+Mientras `PlayerDownedStateNetworkController.IsDowned` es verdadero, `PlayerMovementNetworkController`
+reduce la velocidad voluntaria multiplicándola por `DownedMovementSpeedMultiplier` (0.35 provisional) y
+desactiva Sprint (no se paga Stamina). `IsAlive` sigue siendo verdadero, por lo que el movimiento no se
+bloquea por muerte. Se lee estado `[Networked]`, por lo que es seguro ante resimulación. El knockback
+no cambia: se aplica igual que fuera de Downed. Mecánicas futuras (Revive, Self-revive, Accelerated
+Resolution, pose y HUD de Downed) quedan fuera de este alcance.
+
 ### 20.7 Carga de objetos
 
 Componente afectado:

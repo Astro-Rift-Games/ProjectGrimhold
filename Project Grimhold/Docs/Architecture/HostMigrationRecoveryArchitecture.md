@@ -132,6 +132,16 @@ the restored participant exposes its frozen attributes, the Stamina controller d
 clamp, regenerate or consume the copied resource. After fixup it derives
 `75 + (Resistance * 5)` again and resumes from the copied current value, Exhaustion state and delay.
 
+`PlayerDownedStateNetworkController` follows the same pattern. `IsDowned`, `DownedHealth` and
+`DownedCycle` are networked and restored by `CopyStateFrom`; its `Spawned()` skips the fresh reset on
+restore spawns (`HostMigrationRestoreUtility.IsRestoreSpawn`), so a Downed avatar resumes draining from
+the copied reserve on the new Host.
+
+Known limitation: a Downed player who is also disconnected during migration is not covered. The
+disconnect-retention path (`RaidDefeatAndSpectatorArchitecture.md`, "Player departure") is runtime-only
+Host bookkeeping and is not part of the snapshot, so recovery eligibility for that participant follows
+the existing Raiding/unresolved rules rather than guaranteeing the drain reaches Defeat. Not validated.
+
 *Note: For Dungeon Pressure (PvE timers, phases, and active population) recovery rules, see `DungeonPressureArchitecture.md`.*
 
 ## Validation boundary
