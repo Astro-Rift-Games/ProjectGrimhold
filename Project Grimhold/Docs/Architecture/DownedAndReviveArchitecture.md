@@ -288,12 +288,11 @@ definitive Defeat arrives after a configurable time (about 5 s). The bar is not 
   saw a short timer, and a route can only reappear through reconnect or a handoff, both deferred.
   Needs a Game Design decision (section 17).
 
-## 11. Attribution of Downed and Defeat causers (Planned, TASK 453)
+## 11. Attribution of Downed and Defeat causers (Fields and damage hooks implemented; credit awards pending)
 
 GD 13 §13 and GD 05 require recording separately who caused Downed and who caused definitive
-Defeat. Today `TryInterceptFatalDamage()` and `TryApplyDownedDamage` do not receive the
-`DamageRequest`, so no attacker is known. `DamageRequest.AttackerId` (`EntityId`, `0` = none)
-is the available identity.
+Defeat. The damage path now threads `DamageRequest.AttackerId` through the fatal-hit and Downed
+reserve hooks. `EntityId` value `0` means environment or no identified attacker.
 
 Data lives on the Downed controller, next to the cycle it belongs to:
 
@@ -303,7 +302,7 @@ Data lives on the Downed controller, next to the cycle it belongs to:
 [Networked] int DefeatedCycle          // DownedCycle at definitive Defeat; 0 = never defeated
 ```
 
-Required hook changes: `TryInterceptFatalDamage(in DamageRequest)` and
+Implemented hooks: `TryInterceptFatalDamage(in DamageRequest)` and
 `TryEnterDowned(EntityId attackerId)`; `TryApplyDownedDamage(..., EntityId attackerId, ...)`.
 
 Rules:
@@ -319,8 +318,10 @@ Rules:
 * Amounts belong to GD 05; attribution rules belong to Combat Design (US-50, TASK 442, not yet
   written). This document defines only where the data lives. `DamageResolver` and
   `ICombatContributionTracker` are not extended here.
-* Note: the entry hit returns `IsFatal = false`, so `DamageResolver` fatal-reward paths
-  (`TryAwardFatal*`) do not fire at Downed entry; they fire only on definitive Defeat.
+* Reward attribution remains pending: `DamageResolver` currently awards fatal-attacker rewards
+  at definitive Defeat, which does not match GD 13 §7's rule that the provisional Last Hit is
+  frozen at Downed entry and later hits on a Downed target cannot replace it. PvP reward and
+  assist tracking are outside this fields-and-hooks slice.
 
 ## 12. NetworkRaidParticipant, corpse, Loot, spectator and Results
 
@@ -471,7 +472,8 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Revive interactable (supplemental registry slot), incompatible-action gate | Implemented (TASK 452) | `d88d5c01` |
 | End-to-end and interruption PlayMode coverage | Implemented (TASK 452) | `4bdf7d7f` |
 | Revive progress UI and feedback (GD 13 §14), revive pose | Planned | follow-up, outside TASK 452 |
-| Attribution fields and hook signature changes, extraction re-evaluation on Defeat | Planned | TASK 453 |
+| Attribution fields and damage hook signatures | Implemented (initial TASK 453 slice; section 11) | This change |
+| PvP credit consolidation/freeze at Downed and extraction re-evaluation on Defeat | Pending | TASK 453 |
 | Forced definitive Defeat on absolute close (Q6 gap) | Planned | TASK 453 or a Dungeon Session task |
 | Self-revive item, consumption, handoff, Self session | Planned | no task |
 | Accelerated Resolution coordinator | Planned | no task, needs a task |
@@ -530,3 +532,27 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 
 Not validated (manual): Host and Client with two instances in both directions, a real disconnect
 of either player during a session, and Host Migration in the middle of a session (section 16).
+
+## 21. TASK 453 technical debt (2026-10-04)
+
+**TASK 453 remains partial.** The initial attribution fields and damage hooks are implemented;
+the remaining integration and validation gaps below are recorded as debt, not waived acceptance
+criteria. HacknPlan remains the work-tracking source of truth; this section records technical
+evidence and closure checks without creating another tracker or changing approved contracts.
+
+| Debt | Current evidence and impact | Closure check |
+|---|---|---|
+| Frozen PvP Last Hit / Assist | Section 11: attribution fields distinguish Downed and Defeat causers, but `DamageResolver` still awards fatal-attacker rewards at definitive Defeat. Later hits must not replace the credit frozen at Downed entry. | Integrate the existing contribution/reward owner: freeze eligible credit at entry, consolidate once for that cycle on Defeat, invalidate on revive, and prove later hits cannot replace or duplicate it. |
+| Required-team extraction composition | Section 13: extraction is currently per player; no owning composition path has been identified for required-team re-evaluation. A member's definitive Defeat must update eligibility without treating Downed as terminal. | Identify the existing extraction owner before changing it; verify connected Downed presence/countdown, Defeat interruption and required-team re-evaluation. Do not invent a second coordinator. |
+| Disconnected Downed retention after migration | Section 16: `_retainedDownedParticipants` is Host runtime-only bookkeeping, absent from the snapshot. A disconnected Downed avatar is not guaranteed to remain retained or reach Defeat after migration. | Resolve recovery ownership through the existing migration/departure path; verify retention, drain, damage and exactly-once terminal resolution after a real Host Migration. |
+| Absolute close: Abort versus definitive Defeat | Sections 14 and 17/Q6: closure currently aborts `Raiding` participants; the documented GD rule requires definitive Defeat for everyone still inside. Ownership between TASK 453 and a Dungeon Session task remains unresolved. | Confirm the owning task/system, then verify authoritative, idempotent forced Defeat for Active and Downed avatars, ignoring reserve/recovery and using existing corpse/Loot/Results owners. |
+| Multiplayer and migration proof | The focused tests reported for the initial slice do not establish Host/Client or migration behavior. Sections 12-16 still require runtime evidence. | Run Host/Client in both roles, damage/drain Defeat, revive and a second Downed cycle, extraction races, real disconnect and Host Migration; check exactly-once corpse, Loot and terminal Results. |
+
+### Operational blockers (separate from gameplay debt)
+
+The implementation attempt reported a commit blocked by `.git/index.lock`, a test-associated
+`ProjectSettings/EditorSettings.asset` change from `0` to `1`, and extraction-configuration errors
+in the Unity Console. Their root causes are not established here. Preserve the current source
+slice, font and serialized settings; do not remove the lock or revert assets speculatively.
+Native review and the work-unit commit remain pending. These observations are not new gameplay
+requirements and do not prove the extraction integration debt caused the Console errors.

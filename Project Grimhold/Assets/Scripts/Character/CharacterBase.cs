@@ -154,7 +154,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
 
         bool isFatal = Health <= 0f;
 
-        if (isFatal && TryInterceptFatalDamage())
+        if (isFatal && TryInterceptFatalDamage(request))
         {
             // Defeat was deferred (e.g. Downed); excess damage is discarded.
             return new DamageResult(
@@ -287,7 +287,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     /// Called when mitigated damage brings Health to zero, before <see cref="HandleDeath"/>.
     /// Return true to defer definitive defeat (e.g. enter Downed); excess damage is discarded.
     /// </summary>
-    protected virtual bool TryInterceptFatalDamage()
+    protected virtual bool TryInterceptFatalDamage(in DamageRequest request)
     {
         return false;
     }

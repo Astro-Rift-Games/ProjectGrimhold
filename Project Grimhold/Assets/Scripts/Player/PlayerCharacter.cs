@@ -241,9 +241,10 @@ public sealed class PlayerCharacter : CharacterBase
                 : mitigatedDamage;
     }
 
-    protected override bool TryInterceptFatalDamage()
+    protected override bool TryInterceptFatalDamage(in DamageRequest request)
     {
-        return _downedStateController != null && _downedStateController.TryEnterDowned();
+        return _downedStateController != null &&
+            _downedStateController.TryEnterDowned(request.AttackerId);
     }
 
     protected override bool TryApplyAlternateDamage(
@@ -253,7 +254,11 @@ public sealed class PlayerCharacter : CharacterBase
     {
         result = default;
         if (!IsDowned ||
-            !_downedStateController.TryApplyDownedDamage(mitigatedDamage, out float applied, out bool depleted))
+            !_downedStateController.TryApplyDownedDamage(
+                mitigatedDamage,
+                request.AttackerId,
+                out float applied,
+                out bool depleted))
         {
             return false;
         }

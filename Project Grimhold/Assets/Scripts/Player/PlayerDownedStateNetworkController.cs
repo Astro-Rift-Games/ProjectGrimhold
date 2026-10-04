@@ -41,6 +41,15 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     [Networked]
     public int DownedCycle { get; private set; }
 
+    [Networked]
+    public int DownedCauserEntityId { get; private set; }
+
+    [Networked]
+    public int DefeatCauserEntityId { get; private set; }
+
+    [Networked]
+    public int DefeatedCycle { get; private set; }
+
     /// <summary>Multiplier applied to voluntary movement speed while Downed.</summary>
     public float DownedMovementSpeedMultiplier => _downedMovementSpeedMultiplier;
 
@@ -63,6 +72,9 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
             IsDowned = false;
             DownedHealth = 0f;
             DownedCycle = 0;
+            DownedCauserEntityId = 0;
+            DefeatCauserEntityId = 0;
+            DefeatedCycle = 0;
         }
     }
 
@@ -90,7 +102,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     }
 
     /// <summary>Enters Downed with a full reserve. Refused unless authoritative and not already Downed.</summary>
-    public bool TryEnterDowned()
+    public bool TryEnterDowned(EntityId attackerId = default)
     {
         if (!HasStateAuthority || IsDowned || TestDisableEntry || !_isConfigurationValid ||
             !DownedHealthRules.TryCreateReserve(_initialDownedHealth, out float reserve))
@@ -98,6 +110,9 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
             return false;
         }
 
+        DownedCauserEntityId = attackerId.Value;
+        DefeatCauserEntityId = 0;
+        DefeatedCycle = 0;
         IsDowned = true;
         DownedHealth = reserve;
         DownedCycle++;
@@ -108,7 +123,11 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     /// Applies already-mitigated damage to the reserve, scaled by the Downed multiplier.
     /// Depletion clears the Downed state before returning; the caller resolves defeat.
     /// </summary>
-    public bool TryApplyDownedDamage(float mitigatedDamage, out float applied, out bool depleted)
+    public bool TryApplyDownedDamage(
+        float mitigatedDamage,
+        EntityId attackerId,
+        out float applied,
+        out bool depleted)
     {
         applied = 0f;
         depleted = false;
@@ -123,7 +142,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         depleted = DownedHealthRules.IsDepleted(DownedHealth);
         if (depleted)
         {
-            ClearDownedState();
+            ClearDownedState(attackerId);
         }
 
         if (applied > 0f)
@@ -135,11 +154,17 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     }
 
     /// <summary>Clears Downed state without notifying anyone (used by forced definitive defeat).</summary>
-    internal void ClearDownedState()
+    internal void ClearDownedState(EntityId defeatCauserId = default)
     {
         if (!HasStateAuthority)
         {
             return;
+        }
+
+        if (IsDowned)
+        {
+            DefeatCauserEntityId = defeatCauserId.Value;
+            DefeatedCycle = DownedCycle;
         }
 
         IsDowned = false;
@@ -159,6 +184,8 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
 
         IsDowned = false;
         DownedHealth = 0f;
+        DefeatCauserEntityId = 0;
+        DefeatedCycle = 0;
         return true;
     }
 

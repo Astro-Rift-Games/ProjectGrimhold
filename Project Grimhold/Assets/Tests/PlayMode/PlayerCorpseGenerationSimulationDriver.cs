@@ -23,6 +23,7 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
     /// </summary>
     public bool AllowDowned { get; set; }
     public float RequestedDamageAmount { get; set; } = 1000f;
+    public EntityId RequestedAttackerId { get; set; } = new EntityId(int.MaxValue);
     public float RequestedHealingAmount { get; set; }
     public DamageResult FirstResult { get; private set; }
     public DamageResult SecondResult { get; private set; }
@@ -78,7 +79,7 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         }
 
         var damage = new DamageRequest(
-            new EntityId(int.MaxValue),
+            RequestedAttackerId,
             Target.Id,
             RequestedDamageAmount,
             DamageType.TrueDamage,

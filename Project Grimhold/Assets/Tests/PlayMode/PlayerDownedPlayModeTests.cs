@@ -46,6 +46,71 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator DownedAttribution_TracksCausersAcrossReviveAndPreservesDefeatedCycle()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            SetField(downed, "_downedDrainPerSecond", 0f);
+            _driver.RequestedAttackerId = new EntityId(101);
+
+            yield return Hit(100000f);
+
+            Assert.That(GetNetworkedValue<int>(downed, "DownedCauserEntityId"), Is.EqualTo(101));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(0));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(0));
+            int firstCycle = downed.DownedCycle;
+            Assert.That(firstCycle, Is.EqualTo(1));
+
+            Assert.That(player.TryRestoreFromDowned(1f), Is.True);
+            Assert.That(downed.DownedCycle, Is.EqualTo(firstCycle));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.Not.EqualTo(firstCycle));
+
+            _driver.RequestedAttackerId = new EntityId(202);
+            yield return Hit(100000f);
+
+            Assert.That(downed.DownedCycle, Is.EqualTo(firstCycle + 1));
+            Assert.That(GetNetworkedValue<int>(downed, "DownedCauserEntityId"), Is.EqualTo(202));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(0));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(0));
+
+            _driver.RequestedAttackerId = new EntityId(303);
+            yield return Hit(100000f);
+
+            int terminalCycle = downed.DownedCycle;
+            Assert.That(terminalCycle, Is.EqualTo(firstCycle + 1));
+            Assert.That(GetNetworkedValue<int>(downed, "DownedCauserEntityId"), Is.EqualTo(202));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(303));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(terminalCycle));
+
+            _driver.RequestedAttackerId = new EntityId(404);
+            yield return Hit(100000f);
+
+            Assert.That(_driver.FirstResult.IsApplied, Is.False);
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(303));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(terminalCycle));
+        }
+
+        [UnityTest]
+        public IEnumerator DownedAttribution_EnvironmentFinisherUsesZeroEntityId()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            SetField(downed, "_downedDrainPerSecond", 0f);
+            _driver.RequestedAttackerId = new EntityId(101);
+
+            yield return Hit(100000f);
+
+            _driver.RequestedAttackerId = default;
+            yield return Hit(100000f);
+
+            Assert.That(GetNetworkedValue<int>(downed, "DownedCauserEntityId"), Is.EqualTo(101));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(0));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator HitWhileDowned_ReducesReserveByMitigatedTimesMultiplier()
         {
             yield return StartRunnerAndLoadPlayer();
@@ -106,6 +171,8 @@ namespace Tests.PlayMode.Loot
             Assert.That(player.IsAlive, Is.False);
             Assert.That((bool)downed.IsDowned, Is.False);
             Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatCauserEntityId"), Is.EqualTo(0));
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.EqualTo(1));
         }
 
         [UnityTest]
@@ -142,6 +209,7 @@ namespace Tests.PlayMode.Loot
             bool restored = player.TryRestoreFromDowned(1f);
 
             Assert.That(restored, Is.True);
+            Assert.That(GetNetworkedValue<int>(downed, "DefeatedCycle"), Is.Not.EqualTo(cycleBefore));
             Assert.That(player.Health, Is.EqualTo(1f));
             Assert.That(player.IsAlive, Is.True);
             Assert.That(player.IsDowned, Is.False);
@@ -219,6 +287,15 @@ namespace Tests.PlayMode.Loot
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             Assert.That(property, Is.Not.Null, name);
             property.SetValue(target, value);
+        }
+
+        private static T GetNetworkedValue<T>(object target, string name)
+        {
+            PropertyInfo property = target.GetType().GetProperty(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null, name);
+            return (T)property.GetValue(target);
         }
 
         private void Spawn(
