@@ -742,8 +742,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             becomesActive = EquipmentSlotRules.IsMainHandSlot(targetSlot) &&
                 (ActiveWeaponSetSlot == WeaponSetSlot.None ||
                  ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
-            if (becomesActive && ActiveWeaponSetSlot != EquipmentSlotRules.GetWeaponSet(targetSlot) &&
-                _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+            if (becomesActive && _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
                 return EquipmentOperationResult.PlayerUnavailable;
             if (becomesActive && !TryConfigureStrategy(
                     definition.WeaponDefinition,
@@ -858,8 +857,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             if (eligibility == WeaponEligibilityFailure.RequirementsNotMet) return EquipmentOperationResult.AttributeRequirementsNotMet;
             if (eligibility != WeaponEligibilityFailure.None) return EquipmentOperationResult.InvalidEquipment;
             becomesActive = EquipmentSlotRules.IsMainHandSlot(targetSlot) && (ActiveWeaponSetSlot == WeaponSetSlot.None || ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
-            if (becomesActive && ActiveWeaponSetSlot != EquipmentSlotRules.GetWeaponSet(targetSlot) &&
-                _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+            if (becomesActive && _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
                 return EquipmentOperationResult.PlayerUnavailable;
             if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _)) return EquipmentOperationResult.InvalidEquipment;
         }

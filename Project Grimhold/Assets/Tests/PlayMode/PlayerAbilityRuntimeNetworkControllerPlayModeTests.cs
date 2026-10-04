@@ -136,6 +136,63 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator AbilityCycle_EquipIntoActiveMainHandIsRejectedWhileExecutionIsActive()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-equip-active",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return PressSlot1();
+            var equipment = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var catalog = (LootDefinitionCatalog)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(equipment);
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            Assert.That(catalog.TryGetIndex(sword.LootId, out int index), Is.True);
+            yield return InSimulation(() =>
+            {
+                SetNetworked(equipment, "WeaponSetAMainHandCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "ActiveWeaponSetSlotValue", (int)WeaponSetSlot.SetA);
+            });
+            Assert.That(runtime.HasActiveExecution, Is.True);
+            EquipmentOperationResult result = default;
+            yield return InSimulation(() => result = (EquipmentOperationResult)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetMethod("TryEquipAuthority", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(equipment, new object[] { index, EquipmentSlot.WeaponSetAMainHand }));
+            Assert.That(result, Is.EqualTo(EquipmentOperationResult.PlayerUnavailable),
+                "Replacing the active main-hand weapon is forbidden during an ability execution.");
+            Assert.That(equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_StopIsDeliveredWhenSlotsWereUnboundBeforeParticipationEnded()
+        {
+            yield return StartRunner();
+            var participant = SpawnParticipant("ability-stop-unbound",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default));
+            var runtime = SpawnAvatar(participant, true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return PressSlot1();
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            Assert.That(behaviour.Begins, Is.EqualTo(1));
+            var link = runtime.GetComponent<RaidAvatarParticipantLink>();
+            var participantId = link.ParticipantId;
+            var idProperty = typeof(RaidAvatarParticipantLink).GetProperty("ParticipantId");
+            // Transient unresolve: the runtime clears its slots but keeps its cached behaviours.
+            yield return InSimulation(() => idProperty.SetValue(link, default(NetworkId)));
+            yield return WaitTicks();
+            Assert.That(runtime.IsInitialized, Is.False);
+            Assert.That(behaviour.Stops, Is.Zero);
+            yield return InSimulation(() =>
+            {
+                idProperty.SetValue(link, participantId);
+                Assert.That(participant.TryMarkDefeated(runtime.Object), Is.True);
+            });
+            yield return WaitTicks();
+            Assert.That(behaviour.Stops, Is.EqualTo(1), "Stop must reach the behaviour even when slots were unbound.");
+            Assert.That(behaviour.LastStop, Is.EqualTo(AbilityExecutionStopReason.ParticipationEnded));
+        }
+
+        [UnityTest]
         public IEnumerator AbilityCycle_MissingBehaviourAndManaRejectWithoutPayment()
         {
             yield return StartRunner();

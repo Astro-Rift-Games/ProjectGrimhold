@@ -241,7 +241,17 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         state.PhaseDeadline = TickTimer.None;
         WriteExecution(slot, state); // Commit before callback: no repeated completion/reentrant stop.
         var behaviour = ReadBehaviour(slot);
-        if (behaviour != null && TryBuildContext(slot, out var context)) behaviour.Stop(context, stopped, reason);
+        // Stop must not depend on live slot binding: the cached behaviour survives a transient unresolve.
+        if (behaviour != null && TryBuildStopContext(slot, behaviour, out var context)) behaviour.Stop(context, stopped, reason);
+    }
+
+    private bool TryBuildStopContext(UniversalAbilitySlot slot, AbilityExecutionBehaviour behaviour,
+        out AbilityExecutionContext context)
+    {
+        context = default;
+        if (behaviour.Definition == null || !_participantLink.TryGetCharacterAttributeState(out var attributes)) return false;
+        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, behaviour.Definition, attributes);
+        return true;
     }
 
     private void RebindExecutions()
