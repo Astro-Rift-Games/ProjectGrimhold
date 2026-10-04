@@ -16,6 +16,129 @@ namespace Tests.PlayMode.Abilities
     {
         private NetworkRunner _runner;
         private PlayerAbilityRuntimeSimulationDriver _driver;
+        private AbilityInputDriver _inputDriver;
+
+        [UnityTest]
+        public IEnumerator AbilityIntent_IndependentPressEdgesAreTickScopedAndDoNotRepeatWhileHeld()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-input",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("trap"))), true);
+            yield return WaitUntil(() => runtime.IsInitialized);
+            _driver.ObservedRuntime = runtime;
+            _inputDriver.Buttons.Set((PlayerInputButton)6, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+            Assert.That(_driver.Slot2Requests, Is.Zero);
+            Assert.That(runtime.WasActivationRequested(UniversalAbilitySlot.Slot1), Is.False,
+                "A render/coroutine read must not expose a previous simulation request.");
+            _inputDriver.Buttons.Set((PlayerInputButton)7, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+            Assert.That(_driver.Slot2Requests, Is.EqualTo(1));
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set((PlayerInputButton)6, true);
+            _inputDriver.Buttons.Set((PlayerInputButton)7, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(2));
+            Assert.That(_driver.Slot2Requests, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityIntent_MissingInputDoesNotReplayHeldButtons()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-missing-input",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("trap"))), true);
+            yield return WaitUntil(() => runtime.IsInitialized);
+            _driver.ObservedRuntime = runtime;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+            _inputDriver.ProvidePayload = false;
+            yield return WaitTicks();
+            Assert.That(_driver.MissingInputTicks, Is.GreaterThan(0), "The fixture must actually omit Fusion input.");
+            Assert.That(ReadPreviousAbilityButtons(runtime).IsSet(PlayerInputButton.AbilitySlot1), Is.True);
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+            _inputDriver.ProvidePayload = true;
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityIntent_PendingBindingConsumesPressAndEmptySlotNeverRequests()
+        {
+            yield return StartRunner();
+            var participant = SpawnParticipant("ability-pending-input",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default));
+            var runtime = SpawnAvatar(participant, false);
+            _driver.ObservedRuntime = runtime;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+            Assert.That(ReadPreviousAbilityButtons(runtime).IsSet(PlayerInputButton.AbilitySlot1), Is.True);
+            Assert.That(participant.TrySetCurrentAvatar(runtime.Object), Is.True);
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.Zero);
+            Assert.That(_driver.Slot2Requests, Is.Zero);
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+            Assert.That(_driver.Slot2Requests, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityIntent_ReenableBaselinesHeldInputWithoutReplay()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-input-reenable",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("trap"))), true);
+            yield return WaitUntil(() => runtime.IsInitialized);
+            _driver.ObservedRuntime = runtime;
+            runtime.enabled = false;
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            runtime.enabled = true;
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.Zero);
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityIntent_CopiedHistoryIsPreservedAndRestoreBaselinesFirstInput()
+        {
+            yield return StartRunner();
+            var loadout = new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("trap"));
+            var source = SpawnAvatar(SpawnParticipant("ability-input-copy-source", loadout), true);
+            yield return WaitUntil(() => source.IsInitialized);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            var target = SpawnAvatar(null, false);
+            SetRestoreGuard(target);
+            yield return CopyState(target, source);
+            Assert.That(ReadPreviousAbilityButtons(target).IsSet(PlayerInputButton.AbilitySlot1), Is.True);
+            var participant = SpawnParticipant("ability-input-copy-target", loadout);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            _driver.ObservedRuntime = target;
+            yield return WaitUntil(() => target.IsInitialized);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.Zero);
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            yield return WaitTicks();
+            Assert.That(_driver.Slot1Requests, Is.EqualTo(1));
+        }
 
         [UnityTearDown]
         public IEnumerator TearDown()
@@ -151,6 +274,9 @@ namespace Tests.PlayMode.Abilities
             _runner = runnerObject.AddComponent<NetworkRunner>();
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
+            _inputDriver = runnerObject.AddComponent<AbilityInputDriver>();
+            _runner.AddCallbacks(_inputDriver);
+            _runner.ProvideInput = true;
             var start = _runner.StartGame(new StartGameArgs
             {
                 GameMode = GameMode.Single,
@@ -228,9 +354,25 @@ namespace Tests.PlayMode.Abilities
                 .GetProperty("InitializationConfirmed", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(runtime);
 
+        private static NetworkButtons ReadPreviousAbilityButtons(PlayerAbilityRuntimeNetworkController runtime) =>
+            (NetworkButtons)typeof(PlayerAbilityRuntimeNetworkController)
+                .GetProperty("PreviousAbilityButtons", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+
         private static void SetRestoreGuard(PlayerAbilityRuntimeNetworkController runtime) =>
             typeof(PlayerAbilityRuntimeNetworkController)
                 .GetField("_restoreSpawn", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(runtime, true);
+
+        private sealed class AbilityInputDriver : NetworkRunnerCallbacksAdapter
+        {
+            public NetworkButtons Buttons;
+            public bool ProvidePayload = true;
+
+            public override void OnInput(NetworkRunner runner, NetworkInput input)
+            {
+                if (!ProvidePayload) return;
+                input.Set(new PlayerNetworkInput { Buttons = Buttons });
+            }
+        }
     }
 }
 #endif

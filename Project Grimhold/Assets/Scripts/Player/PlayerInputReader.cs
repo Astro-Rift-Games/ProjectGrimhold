@@ -2,6 +2,7 @@ using System;
 using Fusion;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 /// <summary>
 /// Captures local device input and exposes it as gameplay intentions.
@@ -26,6 +27,8 @@ public sealed class PlayerInputReader : MonoBehaviour
     private InputAction _sprintAction;
     private InputAction _secondaryAction;
     private InputAction _toggleAttributesAction;
+    private InputAction _abilitySlot1Action;
+    private InputAction _abilitySlot2Action;
 
     private Vector2 _moveDirection;
     private Vector2 _aimWorldPosition;
@@ -37,6 +40,8 @@ public sealed class PlayerInputReader : MonoBehaviour
     private bool _primaryAttackRequiresRelease;
     private bool _secondaryActionRequiresRelease;
     private bool _interactRequiresRelease;
+    private bool _abilitySlot1RequiresRelease;
+    private bool _abilitySlot2RequiresRelease;
 
     /// <summary>
     /// Raised for the local-only action that opens or closes the raid inventory.
@@ -79,6 +84,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         _sprintAction = _inputActions.asset.FindAction("Gameplay/Sprint", true);
         _secondaryAction = _inputActions.asset.FindAction("Gameplay/SecondaryAction", true);
         _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
+        _abilitySlot1Action = _inputActions.asset.FindAction("Gameplay/AbilitySlot1", true);
+        _abilitySlot2Action = _inputActions.asset.FindAction("Gameplay/AbilitySlot2", true);
     }
 
     private void OnEnable()
@@ -90,8 +97,16 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.LocalUI.ToggleInventory.performed += OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed += OnCloseInventoryPerformed;
         _toggleAttributesAction.performed += OnToggleAttributesPerformed;
+        _abilitySlot1Action.performed += OnAbilityPerformed;
+        _abilitySlot2Action.performed += OnAbilityPerformed;
+        _abilitySlot1Action.canceled += OnAbilityCanceled;
+        _abilitySlot2Action.canceled += OnAbilityCanceled;
         _inputActions.Gameplay.Enable();
         _inputActions.LocalUI.Enable();
+        // Action state is initially unchecked after enabling. Inspect the controls
+        // as well so a held key cannot become a new request on the next input update.
+        _abilitySlot1RequiresRelease = IsAbilityControlHeld(_abilitySlot1Action);
+        _abilitySlot2RequiresRelease = IsAbilityControlHeld(_abilitySlot2Action);
     }
 
     private void Update()
@@ -101,6 +116,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         UpdateDiscreteButtonRearm();
         ReadPrimaryAttack();
         ReadSecondaryAction();
+        ReadAbility(_abilitySlot1Action, PlayerInputButton.AbilitySlot1, ref _abilitySlot1RequiresRelease);
+        ReadAbility(_abilitySlot2Action, PlayerInputButton.AbilitySlot2, ref _abilitySlot2RequiresRelease);
         ReadSprint();
         ReadWeaponSelection();
     }
@@ -114,6 +131,10 @@ public sealed class PlayerInputReader : MonoBehaviour
         _inputActions.LocalUI.ToggleInventory.performed -= OnToggleInventoryPerformed;
         _inputActions.LocalUI.CloseInventory.performed -= OnCloseInventoryPerformed;
         _toggleAttributesAction.performed -= OnToggleAttributesPerformed;
+        _abilitySlot1Action.performed -= OnAbilityPerformed;
+        _abilitySlot2Action.performed -= OnAbilityPerformed;
+        _abilitySlot1Action.canceled -= OnAbilityCanceled;
+        _abilitySlot2Action.canceled -= OnAbilityCanceled;
         _inputActions.Gameplay.Disable();
         _inputActions.LocalUI.Disable();
         ResetInputState();
@@ -188,6 +209,44 @@ public sealed class PlayerInputReader : MonoBehaviour
         _secondaryActionRequiresRelease = false;
     }
 
+    private void OnAbilityPerformed(InputAction.CallbackContext context)
+    {
+        if (IsGameplayInputSuppressed) return;
+        bool isSlot1 = context.action == _abilitySlot1Action;
+        if (isSlot1 ? _abilitySlot1RequiresRelease : _abilitySlot2RequiresRelease) return;
+        // Latch the press even if a tap ends before the next reader Update.
+        _pendingButtons.Set(isSlot1 ? PlayerInputButton.AbilitySlot1 : PlayerInputButton.AbilitySlot2, true);
+    }
+
+    private void ReadAbility(InputAction action, PlayerInputButton button, ref bool requiresRelease)
+    {
+        if (IsGameplayInputSuppressed || requiresRelease)
+        {
+            if (requiresRelease && !IsAbilityControlHeld(action)) requiresRelease = false;
+            _buttons.Set(button, false);
+            _pendingButtons.Set(button, false);
+            return;
+        }
+        AccumulateButton(button, action.IsPressed(),
+            action.WasPressedThisFrame() || _pendingButtons.IsSet(button));
+    }
+
+    private void OnAbilityCanceled(InputAction.CallbackContext context)
+    {
+        if (context.action == _abilitySlot1Action) _abilitySlot1RequiresRelease = false;
+        else _abilitySlot2RequiresRelease = false;
+    }
+
+    private static bool IsAbilityControlHeld(InputAction action)
+    {
+        if (action.IsPressed()) return true;
+        foreach (var control in action.controls)
+        {
+            if (control is ButtonControl button && button.isPressed) return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Acquires ownership of a local gameplay-input suppression.
     /// Continuous and discrete gameplay intentions produce a default network payload
@@ -226,6 +285,13 @@ public sealed class PlayerInputReader : MonoBehaviour
         // same rendered frame.
         _resetAccumulatedButtons = true;
 
+        // A new ability tap can arrive after the previous collection requested
+        // a deferred reset. Keep it in pending state until it is collected.
+        _buttons.Set(PlayerInputButton.AbilitySlot1,
+            _buttons.IsSet(PlayerInputButton.AbilitySlot1) || _pendingButtons.IsSet(PlayerInputButton.AbilitySlot1));
+        _buttons.Set(PlayerInputButton.AbilitySlot2,
+            _buttons.IsSet(PlayerInputButton.AbilitySlot2) || _pendingButtons.IsSet(PlayerInputButton.AbilitySlot2));
+
         NetworkButtons combinedButtons = _buttons;
 
         if (_pendingButtons.IsSet(PlayerInputButton.Interact))
@@ -253,6 +319,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         _pendingButtons.Set(PlayerInputButton.Interact, false);
         _pendingButtons.Set(PlayerInputButton.WeaponSetA, false);
         _pendingButtons.Set(PlayerInputButton.WeaponSetB, false);
+        _pendingButtons.Set(PlayerInputButton.AbilitySlot1, false);
+        _pendingButtons.Set(PlayerInputButton.AbilitySlot2, false);
 
         return input;
     }
@@ -458,6 +526,8 @@ public sealed class PlayerInputReader : MonoBehaviour
         _primaryAttackRequiresRelease = _inputActions.Gameplay.PrimaryAttack.IsPressed();
         _secondaryActionRequiresRelease = _secondaryAction.IsPressed();
         _interactRequiresRelease = _inputActions.Gameplay.Interact.IsPressed();
+        _abilitySlot1RequiresRelease = IsAbilityControlHeld(_abilitySlot1Action);
+        _abilitySlot2RequiresRelease = IsAbilityControlHeld(_abilitySlot2Action);
     }
 
     private sealed class GameplayInputSuppression : IDisposable

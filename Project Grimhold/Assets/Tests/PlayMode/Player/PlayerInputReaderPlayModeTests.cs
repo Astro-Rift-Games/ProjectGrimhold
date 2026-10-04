@@ -226,6 +226,93 @@ namespace Assets.Tests.PlayMode.Player
             SetControl(_keyboard[key], pressed ? 1f : 0f);
         }
 
+        [TestCase(Key.Q, 6, 7)]
+        [TestCase(Key.R, 7, 6)]
+        public void AbilityKey_TransportsOnlyItsIndependentSlot(Key key, int ownBit, int otherBit)
+        {
+            SetKey(key, true);
+            InvokeReaderLifecycle("Update");
+            PlayerNetworkInput input = _reader.ConsumeNetworkInput();
+            Assert.That(input.Buttons.IsSet((PlayerInputButton)ownBit), Is.True);
+            Assert.That(input.Buttons.IsSet((PlayerInputButton)otherBit), Is.False);
+        }
+
+        [Test]
+        public void AbilityKeys_SimultaneousPressTransportsBothWithoutOtherActions()
+        {
+            SetKey(Key.Q, true);
+            SetKey(Key.R, true);
+            InvokeReaderLifecycle("Update");
+            var buttons = _reader.ConsumeNetworkInput().Buttons;
+            Assert.That(buttons.IsSet(PlayerInputButton.AbilitySlot1), Is.True);
+            Assert.That(buttons.IsSet(PlayerInputButton.AbilitySlot2), Is.True);
+            Assert.That(buttons.IsSet(PlayerInputButton.PrimaryAttack), Is.False);
+            Assert.That(buttons.IsSet(PlayerInputButton.Interact), Is.False);
+            Assert.That(buttons.IsSet(PlayerInputButton.WeaponSetA), Is.False);
+            Assert.That(buttons.IsSet(PlayerInputButton.WeaponSetB), Is.False);
+        }
+
+        [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
+        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        public void AbilityTap_BeforeReaderUpdateIsLatchedAcrossRepeatedCollection(Key key, PlayerInputButton bit)
+        {
+            SetKey(key, true);
+            SetKey(key, false);
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.False);
+        }
+
+        [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
+        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        public void AbilitySuppression_NestedOwnersDiscardPressAndRequireRelease(Key key, PlayerInputButton bit)
+        {
+            IDisposable first = _reader.AcquireGameplayInputSuppression();
+            IDisposable second = _reader.AcquireGameplayInputSuppression();
+            SetKey(key, true);
+            InvokeReaderLifecycle("Update");
+            first.Dispose();
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.False);
+            second.Dispose();
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.False);
+            SetKey(key, false);
+            SetKey(key, true);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+        }
+
+        [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
+        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        public void AbilityTap_AfterPreviousCollectionSurvivesDeferredReset(Key key, PlayerInputButton bit)
+        {
+            _reader.ConsumeNetworkInput();
+            SetKey(key, true);
+            SetKey(key, false);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.False);
+        }
+
+        [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
+        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        public void AbilityReenable_HeldKeyCannotBecomeANewRequest(Key key, PlayerInputButton bit)
+        {
+            SetKey(key, true);
+            _reader.enabled = false;
+            _reader.enabled = true;
+            InputSystem.Update();
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.False);
+            SetKey(key, false);
+            SetKey(key, true);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(bit), Is.True);
+        }
+
         private void SetMousePosition(Vector2 position)
         {
             SetControl(_mouse.position, position);

@@ -2,13 +2,17 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. The runtime contract defines one owner, activation, execution state, cooldowns, resource boundaries and lifecycle continuity. Beyond the TASK 445 slot-binding foundation below, it does **not** implement activation, concrete abilities, targeting, Current Mana, Status Effects, Assist, input bindings, UI, balance, toggles or summons.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. The runtime contract defines one owner, activation, execution state, cooldowns, resource boundaries and lifecycle continuity. TASK 445 implements slot binding and TASK 446 implements activation intentions. Accepted execution, concrete abilities, targeting, Current Mana, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
-TASK 445 implements the slot-binding foundation as `PlayerAbilityRuntimeNetworkController` on `Assets/Prefabs/NetworkPlayer.prefab`. It exposes `IsInitialized`, `TryGetSlot` and `IsSlotAvailable`, backed by independent read-only `AbilityRuntimeSlot` descriptors resolved atomically through `AbilityRuntimeSlots`. Availability here means a confirmed, current avatar with an occupied prepared slot, not activation eligibility, affordability or cooldown readiness. Activation, inputs, execution phases and cooldown behavior remain deferred.
+TASK 445 implements the slot-binding foundation as `PlayerAbilityRuntimeNetworkController` on `Assets/Prefabs/NetworkPlayer.prefab`. It exposes `IsInitialized`, `TryGetSlot` and `IsSlotAvailable`, backed by independent read-only `AbilityRuntimeSlot` descriptors resolved atomically through `AbilityRuntimeSlots`. Availability here means a confirmed, current avatar with an occupied prepared slot, not activation eligibility, affordability or cooldown readiness. Accepted activation, execution phases and cooldown behavior remain deferred.
 
-The component's only new replicated state is its initialization marker. The prepared identities still belong to `NetworkRaidParticipant`; resolved definitions are derived local references. Fresh State Authority initializes once after bidirectional avatar/participant binding. Restore preserves the copied marker, including an uninitialized snapshot, and waits for reference fixup. Terminal participation/generation cleanup clears availability; disable/re-enable releases and reconstructs local references without resetting confirmed state.
+The component replicates its initialization marker and previous ability-button history. The prepared identities still belong to `NetworkRaidParticipant`; resolved definitions are derived local references. Fresh State Authority initializes once after bidirectional avatar/participant binding. Restore preserves the copied marker, including an uninitialized snapshot, and waits for reference fixup. Terminal participation/generation cleanup clears availability; disable/re-enable releases and reconstructs local references without resetting confirmed state.
+
+TASK 446 adds `Gameplay/AbilitySlot1` on Q and `Gameplay/AbilitySlot2` on R, through the owning InputActions asset and Unity-generated wrapper. `PlayerInputReader` transports independent button intentions through the existing `FusionInputProvider` and `PlayerNetworkInput.Buttons`, preserving short taps, held state and gameplay suppression. A held key after suppression or reader re-enable requires physical release before another intention.
+
+State Authority consumes rising edges in the avatar runtime's `FixedUpdateNetwork`. `WasActivationRequested` is a read-only current-simulation-tick query, false outside simulation and on proxies; it is not an accepted execution or queued request. History is consumed before slot availability, so empty/unbound slots cannot defer a press until later binding. Missing input produces no request and retains history. Restore and runtime re-enable baseline the first valid sample without emitting intentions; terminal cleanup clears transient intentions. Execution validation, resource payment and cooldowns belong to TASK 447.
 
 ## Design constraints
 
@@ -182,7 +186,7 @@ PlayerInputReader
   -> concrete behavior through existing gameplay services
 ```
 
-Input Authority expresses slot intentions, not an arbitrary ability identity, resource balance or accepted outcome. Input bindings and transport fields are later implementation work. They must preserve the existing input flow and gameplay suppression, without routing through Primary Attack or per-frame RPCs.
+Input Authority expresses slot intentions, not an arbitrary ability identity, resource balance or accepted outcome. TASK 446 implements independent button bindings and transport, preserving the existing input flow and gameplay suppression without routing through Primary Attack or per-frame RPCs.
 
 State Authority validates the current participation/avatar, gameplay phase, Active state, occupied slot, resolved configuration, effective attribute requirements, execution compatibility, cooldown and full resource cost. It also requires the concrete behavior's start validation, including its targeting rules when implemented. Downed uses the existing `PlayerDownedGate`; recovery restrictions follow [Downed and Revive Architecture](DownedAndReviveArchitecture.md), not a new ability-owned character state.
 
@@ -278,9 +282,9 @@ The following implementation belongs to later tasks; this document defines its c
 - targeting and target validation;
 - the Current Mana resource owner and its resource/lifecycle operations;
 - Status Effects, Assist, toggles, summons, and persistent spawned effects;
-- ability input, UI, HUD, audio, VFX, and animation;
+- ability UI, HUD, audio, VFX, and animation;
 - balance values and concrete ability content;
-- runtime input transport/bindings and execution-specific prefab composition beyond the implemented slot-binding references;
+- execution-specific prefab composition beyond the implemented slot-binding references;
 - general disconnected-character retention/reconnection under the session owner's contract.
 
 Those tasks must extend this boundary rather than add a parallel catalog, persistent repertoire, prepared loadout, admission path, participant snapshot, or weapon-controller integration.

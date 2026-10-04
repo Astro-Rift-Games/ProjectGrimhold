@@ -2,6 +2,8 @@ using System;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEditor;
+using UnityEngine.InputSystem;
 
 namespace Tests.EditMode.Player
 {
@@ -30,6 +32,39 @@ namespace Tests.EditMode.Player
             using IDisposable suppression = _reader.AcquireGameplayInputSuppression();
 
             Assert.That(_reader.ConsumeNetworkInput().Equals(default(PlayerNetworkInput)), Is.True);
+        }
+
+        [TestCase("AbilitySlot1", "<Keyboard>/q")]
+        [TestCase("AbilitySlot2", "<Keyboard>/r")]
+        public void AbilityInputAsset_DefinesIndependentPressOnlyKeyboardActions(string name, string path)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/Input/PlayerInputActions.inputactions");
+            Assert.That(asset, Is.Not.Null);
+            InputAction action = asset.FindAction("Gameplay/" + name);
+            Assert.That(action, Is.Not.Null, "The owning InputActions asset must define " + name);
+            Assert.That(action.type, Is.EqualTo(InputActionType.Button));
+            Assert.That(action.wantsInitialStateCheck, Is.True, "Held input must enter the action phase so release can rearm it.");
+            Assert.That(action.interactions, Is.EqualTo("Press(behavior=0)"));
+            Assert.That(action.bindings.Count, Is.EqualTo(1));
+            Assert.That(action.bindings[0].path, Is.EqualTo(path));
+        }
+
+        [TestCase("AbilitySlot1", "<Keyboard>/q")]
+        [TestCase("AbilitySlot2", "<Keyboard>/r")]
+        public void GeneratedAbilityActions_MatchOwningAsset(string name, string path)
+        {
+            var actions = new PlayerInputActions();
+            try
+            {
+                InputAction action = actions.asset.FindAction("Gameplay/" + name);
+                Assert.That(action, Is.Not.Null, "Unity must generate the ability action wrapper from its asset.");
+                Assert.That(action.bindings[0].path, Is.EqualTo(path));
+            }
+            finally
+            {
+                // The generated Dispose uses Destroy, which is PlayMode-only.
+                UnityEngine.Object.DestroyImmediate(actions.asset);
+            }
         }
 
         [Test]

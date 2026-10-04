@@ -5,5 +5,7 @@ public enum PlayerInputButton
     WeaponSetA = 2,
     WeaponSetB = 3,
     Sprint = 4,
-    SecondaryAction = 5
+    SecondaryAction = 5,
+    AbilitySlot1 = 6,
+    AbilitySlot2 = 7
 }

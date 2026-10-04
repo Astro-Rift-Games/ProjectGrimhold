@@ -163,6 +163,24 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""AbilitySlot1"",
+                    ""type"": ""Button"",
+                    ""id"": ""64ceb1cb-c178-41d3-9f93-29774d524234"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""AbilitySlot2"",
+                    ""type"": ""Button"",
+                    ""id"": ""a6b50baf-0671-43b3-a006-ad70527c4566"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": true
                 }
             ],
             ""bindings"": [
@@ -297,6 +315,28 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""Sprint"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""43bf55f3-206f-462c-9524-35f34c22ecf6"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""AbilitySlot1"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a92beabe-7317-41de-ace3-aa0adfc29068"",
+                    ""path"": ""<Keyboard>/r"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""AbilitySlot2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         },
@@ -381,6 +421,8 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         m_Gameplay_SelectWeaponSetA = m_Gameplay.FindAction("SelectWeaponSetA", throwIfNotFound: true);
         m_Gameplay_SelectWeaponSetB = m_Gameplay.FindAction("SelectWeaponSetB", throwIfNotFound: true);
         m_Gameplay_Sprint = m_Gameplay.FindAction("Sprint", throwIfNotFound: true);
+        m_Gameplay_AbilitySlot1 = m_Gameplay.FindAction("AbilitySlot1", throwIfNotFound: true);
+        m_Gameplay_AbilitySlot2 = m_Gameplay.FindAction("AbilitySlot2", throwIfNotFound: true);
         // LocalUI
         m_LocalUI = asset.FindActionMap("LocalUI", throwIfNotFound: true);
         m_LocalUI_ToggleInventory = m_LocalUI.FindAction("ToggleInventory", throwIfNotFound: true);
@@ -475,6 +517,8 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Gameplay_SelectWeaponSetA;
     private readonly InputAction m_Gameplay_SelectWeaponSetB;
     private readonly InputAction m_Gameplay_Sprint;
+    private readonly InputAction m_Gameplay_AbilitySlot1;
+    private readonly InputAction m_Gameplay_AbilitySlot2;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -518,6 +562,14 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/Sprint".
         /// </summary>
         public InputAction @Sprint => m_Wrapper.m_Gameplay_Sprint;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/AbilitySlot1".
+        /// </summary>
+        public InputAction @AbilitySlot1 => m_Wrapper.m_Gameplay_AbilitySlot1;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/AbilitySlot2".
+        /// </summary>
+        public InputAction @AbilitySlot2 => m_Wrapper.m_Gameplay_AbilitySlot2;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -568,6 +620,12 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @Sprint.started += instance.OnSprint;
             @Sprint.performed += instance.OnSprint;
             @Sprint.canceled += instance.OnSprint;
+            @AbilitySlot1.started += instance.OnAbilitySlot1;
+            @AbilitySlot1.performed += instance.OnAbilitySlot1;
+            @AbilitySlot1.canceled += instance.OnAbilitySlot1;
+            @AbilitySlot2.started += instance.OnAbilitySlot2;
+            @AbilitySlot2.performed += instance.OnAbilitySlot2;
+            @AbilitySlot2.canceled += instance.OnAbilitySlot2;
         }
 
         /// <summary>
@@ -603,6 +661,12 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @Sprint.started -= instance.OnSprint;
             @Sprint.performed -= instance.OnSprint;
             @Sprint.canceled -= instance.OnSprint;
+            @AbilitySlot1.started -= instance.OnAbilitySlot1;
+            @AbilitySlot1.performed -= instance.OnAbilitySlot1;
+            @AbilitySlot1.canceled -= instance.OnAbilitySlot1;
+            @AbilitySlot2.started -= instance.OnAbilitySlot2;
+            @AbilitySlot2.performed -= instance.OnAbilitySlot2;
+            @AbilitySlot2.canceled -= instance.OnAbilitySlot2;
         }
 
         /// <summary>
@@ -817,6 +881,20 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSprint(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "AbilitySlot1" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnAbilitySlot1(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "AbilitySlot2" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnAbilitySlot2(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "LocalUI" which allows adding and removing callbacks.

@@ -9,6 +9,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     [SerializeField] private AbilityDefinitionCatalog _catalog;
 
     [Networked] private NetworkBool InitializationConfirmed { get; set; }
+    [Networked] private NetworkButtons PreviousAbilityButtons { get; set; }
 
     private AbilityRuntimeSlots _slots;
     private NetworkRaidParticipant _boundParticipant;
@@ -18,6 +19,10 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private bool _restoreSpawn;
     private bool _ended;
     private bool _invalid;
+    private bool _baselineAbilityInput;
+    private bool _restoreInputBaselined;
+    private NetworkButtons _activationRequests;
+    private int _requestTick;
 
     /// <summary>True only for the confirmed, resolved runtime of the current productive avatar.</summary>
     public bool IsInitialized => isActiveAndEnabled && _spawned && Object != null && Object.IsValid &&
@@ -28,6 +33,9 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     {
         _spawned = true;
         _restoreSpawn = HostMigrationRestoreUtility.IsRestoreSpawn(this);
+        _baselineAbilityInput = _restoreSpawn;
+        _restoreInputBaselined = false;
+        _activationRequests = default;
         _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         _ended = false;
         _invalid = false;
@@ -40,7 +48,28 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
+        _activationRequests = default;
         RefreshBinding();
+        if (!isActiveAndEnabled || !HasStateAuthority || _ended || _invalid ||
+            !GetInput(out PlayerNetworkInput input)) return;
+
+        NetworkButtons current = default;
+        current.Set(PlayerInputButton.AbilitySlot1, input.Buttons.IsSet(PlayerInputButton.AbilitySlot1));
+        current.Set(PlayerInputButton.AbilitySlot2, input.Buttons.IsSet(PlayerInputButton.AbilitySlot2));
+        NetworkButtons previous = PreviousAbilityButtons;
+        // Consume edges before availability so held input cannot queue for binding.
+        PreviousAbilityButtons = current;
+        if (_baselineAbilityInput || (_restoreSpawn && !_restoreInputBaselined))
+        {
+            _baselineAbilityInput = false;
+            _restoreInputBaselined = true;
+            return;
+        }
+        _requestTick = Runner.Tick.Raw;
+        _activationRequests.Set(PlayerInputButton.AbilitySlot1,
+            current.WasPressed(previous, PlayerInputButton.AbilitySlot1) && IsSlotAvailable(UniversalAbilitySlot.Slot1));
+        _activationRequests.Set(PlayerInputButton.AbilitySlot2,
+            current.WasPressed(previous, PlayerInputButton.AbilitySlot2) && IsSlotAvailable(UniversalAbilitySlot.Slot2));
     }
 
     public override void Render()
@@ -61,6 +90,20 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     public bool IsSlotAvailable(UniversalAbilitySlot slot) =>
         TryGetSlot(slot, out var state) && state.IsPrepared;
 
+    /// <summary>Reports a slot intention only within the current authoritative simulation tick.</summary>
+    public bool WasActivationRequested(UniversalAbilitySlot slot)
+    {
+        if (!isActiveAndEnabled || !_spawned || Object == null || !Object.IsValid ||
+            !HasStateAuthority || !Runner.IsSimulationUpdating || _requestTick != Runner.Tick.Raw ||
+            !IsSlotAvailable(slot)) return false;
+        return slot switch
+        {
+            UniversalAbilitySlot.Slot1 => _activationRequests.IsSet(PlayerInputButton.AbilitySlot1),
+            UniversalAbilitySlot.Slot2 => _activationRequests.IsSet(PlayerInputButton.AbilitySlot2),
+            _ => false
+        };
+    }
+
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         _spawned = false;
@@ -69,6 +112,8 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
 
     private void OnDisable()
     {
+        _activationRequests = default;
+        _baselineAbilityInput = true;
         _slots = null;
         _boundParticipant = null;
     }
@@ -155,6 +200,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         if (HasStateAuthority)
         {
             InitializationConfirmed = false;
+            PreviousAbilityButtons = default;
         }
         _ended = true;
         ClearLocalBinding();
