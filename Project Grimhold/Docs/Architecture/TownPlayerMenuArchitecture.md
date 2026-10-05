@@ -72,6 +72,14 @@ Only statistics the Game Design defines are shown (docs 08 and 09):
 | Weapons | One row per equipped weapon with its effective damage (base x attribute scaling), slot and damage type |
 | Utility | Loot Bonus (additional loot chance from Luck) |
 
+The Inventory tab's equipment panel (`EquipmentPanel.prefab`, shared with Raid) uses exactly the same grid as the
+sheet's center column: three columns, 130 px cells, 12 px spacing, the same slot distribution with its empty cells
+(Helmet; Set A Main Hand / Set A Off Hand; Gloves, Armor, Boots; Set B Main Hand / Set B Off Hand), the same slot
+frame sprite and the same icon placement. `EquipmentLayoutParityTests` compares both prefabs, so the Attributes
+sheet is the reference and a change to either layout must be mirrored. The grid and slots live in the nested
+`EquipmentPanel.prefab`: children of a nested prefab instance cannot be reordered as overrides, only the panel
+width is overridden in `RaidInventoryUI.prefab`.
+
 There is deliberately no Melee/Ranged/Magic Power or Move Speed row, and no ring or amulet slot: the Game Design
 defines no global damage stat (FUE, DES and INT only feed weapon scaling and requirements), no attribute or
 equipment influence on move speed, and only four armor slots plus two Weapon Sets. `K` is read from

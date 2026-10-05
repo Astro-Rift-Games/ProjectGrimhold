@@ -35,6 +35,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
   - [x] T9b Binding/presenter read prepared equipment + loot catalog; refresh on ProfileCommitted
   - [x] T9c View + prefab redesign (left attributes with +, center read-only equipment slots, right statistics)
   - [x] T9d Update `TownAttributeAssignmentConfigurationTests`, docs
+- [x] T10 Inventory equipment panel matches the Attributes sheet layout exactly (parity test against the Attributes prefab)
 - [x] T5 Docs + test updates (new TownPlayerMenuArchitecture.md; RaidInventoryUIArchitecture.md and ProgressionArchitecture.md updated; no existing test needed changes)
 
 ## Route declaration
@@ -59,6 +60,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - T9b/T9c: RED observed at each step (CS1729 binding ctor, CS0246 TownStatLine/TownStatLineView, 3 failing wording tests, 1 failing scale test). GREEN: EditMode 422 run (only the 5 pre-existing failures), PlayMode Presentation 107 run (only the 12 pre-existing). New: binding tests 4, lines tests 8, view tests 6, builder tests 26. The SocialPlayer catalog wiring test was written before the code but only run after both, so its RED was not observed.
 - Visual verification (Play Mode screenshots with real catalog data) found a T4 bug: the hosted Attributes panel was invisible because its Canvas-root prefab is saved with localScale (0,0,0). `TownPlayerMenuPresenter.HostContent` now resets the scale (PlayMode test added, RED observed). Edit-mode rendering of this panel was unreliable, so Play Mode was used. Numbers match the Game Design: VIT 21 -> 75+105+20 gear = 200 Health; Physical Defense 55 -> 35.5%.
 - Not verified: the real Town scene with a Fusion session (hotkey -> panel with the real profile); the PlayMode party test `TownPartyLocalAuthorityPlayModeTests` still fails on base for an unrelated reason.
+- T10 (user request): RED = 3 of 4 `EquipmentLayoutParityTests` failed (2 columns/125 px/UI_5 vs 3 columns/130 px/UI_11; 8 vs 12 cells). First attempt edited the nested instance in `RaidInventoryUI.prefab`: child order cannot be saved as an override of a nested prefab, so it was reverted (`git checkout`, my own uncommitted change) and applied to the source `EquipmentPanel.prefab` (only user: `RaidInventoryUI`); only the panel width (372 -> 470) is an override in `RaidInventoryUI`. GREEN: parity 4/4, EditMode 426 run (5 pre-existing failures), PlayMode Presentation 107 run (12 pre-existing). Visual check in Play Mode confirmed the distribution. The panel frame sprite (UI_1) was not changed: it matches the Player inventory panel beside it. The slot caption keeps the existing Spanish text from `RaidInventorySlotView` ("Slot / item name").
 
 ## Next step
 Manual verification in the Town scene (Tab / C / tabs / Escape / equip / assign points), visual layout of hosted content inside the frame, Escape vs TownPauseMenuPresenter double handling. Then Abilities tab as a separate task.
