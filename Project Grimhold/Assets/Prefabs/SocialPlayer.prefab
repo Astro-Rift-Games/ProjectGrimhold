@@ -79,7 +79,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -785,7 +785,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 2
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -1015,7 +1015,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 6
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -1229,7 +1229,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 4
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -1277,6 +1277,7 @@ GameObject:
   - component: {fileID: 1043761088201932208}
   - component: {fileID: 2404112211900569815}
   - component: {fileID: 9100000000000000010}
+  - component: {fileID: 8889365110912467133}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -1339,6 +1340,7 @@ MonoBehaviour:
   _sprintStaminaCostPerSecond: 10
   _movementMotor: {fileID: 8301594188737266618}
   _staminaController: {fileID: 0}
+  _shieldDefenseController: {fileID: 0}
   _knockbackFriction: 10
   _defaultFacingDirection: {x: 0, y: -1}
   _IsControlEnabled:
@@ -1363,6 +1365,8 @@ MonoBehaviour:
   _querySource: {fileID: 1836968044176270091}
   _movementController: {fileID: 2352702510446743587}
   _interactionOrigin: {fileID: 891612859894551732}
+  _IsInteractHeld:
+    RawValue: 0
 --- !u!114 &4885434492284130459
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1603,6 +1607,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownRaidPreparationPresenter
   _candidateSource: {fileID: 6856292445654665185}
   _interactionController: {fileID: 1101445917034815865}
+  _dialoguePresenter: {fileID: 5001776840842009073}
   _viewPrefab: {fileID: 891459738585303682, guid: 95a72cb26fc664e45972dec764a75d67, type: 3}
 --- !u!114 &-4837222205145677922
 MonoBehaviour:
@@ -1618,6 +1623,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownStashPresenter
   _stashInventoryPrefab: {fileID: 5586755783176356032, guid: 021f9a522f4fa8247b4a03df5d020060, type: 3}
   _interactionController: {fileID: 1101445917034815865}
+  _dialoguePresenter: {fileID: 5001776840842009073}
 --- !u!114 &5930331051498512961
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1632,6 +1638,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownMerchantPresenter
   _merchantShopPrefab: {fileID: 2538062899881950617, guid: 30f0948df126b504c9887131ea504d2d, type: 3}
   _interactionController: {fileID: 1101445917034815865}
+  _dialoguePresenter: {fileID: 5001776840842009073}
 --- !u!114 &3167084725009871997
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1658,6 +1665,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownAttributeAssignmentPresenter
   _viewPrefab: {fileID: 7227192940523254238, guid: 2ffde6c2fe9c41747816e2bbc8fbee91, type: 3}
+  _menu: {fileID: 8889365110912467133}
 --- !u!114 &8056183654169602884
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1673,6 +1681,7 @@ MonoBehaviour:
   _inventoryPresenter: {fileID: 2173389876224565855}
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _merchantPresenter: {fileID: 5930331051498512961}
+  _menuPresenter: {fileID: 8889365110912467133}
 --- !u!114 &6500000000000000010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1777,6 +1786,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownPartyHudPresenter
   _identity: {fileID: 2815579535755130247}
   _view: {fileID: 9100000000000000004}
+--- !u!114 &8889365110912467133
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a48351130494874bad562dc99a092d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownPlayerMenuPresenter
+  _viewPrefab: {fileID: 8822755112855520021, guid: 013a27af936b9094abe10c948a71800f, type: 3}
 --- !u!1 &4839046221378639172
 GameObject:
   m_ObjectHideFlags: 0
@@ -1909,7 +1931,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 30
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -2079,7 +2101,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 7
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -2171,7 +2193,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 3
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -2263,7 +2285,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 5
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -2355,7 +2377,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 31
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -2447,7 +2469,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -3045,6 +3067,7 @@ MonoBehaviour:
   _movementControllerSource: {fileID: 2352702510446743587}
   _combatController: {fileID: 0}
   _equipmentSource: {fileID: 0}
+  _shieldDefense: {fileID: 0}
   _referenceMovementSpeed: 4
 --- !u!95 &7244625612161386911
 Animator:

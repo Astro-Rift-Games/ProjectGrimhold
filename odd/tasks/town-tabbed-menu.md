@@ -24,9 +24,9 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 
 ## Tasks
 - [x] T1 `TownMenuTabState` pure logic + EditMode tests
-- [ ] T2 Shell view/presenter + `TownPlayerMenu.prefab`, wired from `TownInventoryBinder`
+- [x] T2 Shell view/presenter + `TownPlayerMenu.prefab`, wired from `TownInventoryBinder`
 - [x] T3 Inventory hosting mode in `RaidInventoryPresenter.BindTown`
-- [ ] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
+- [x] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
 - [ ] T5 Docs + test updates
 
 ## Route declaration
@@ -39,6 +39,9 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 
 - T3 RED observed in Unity (CS1739 `externallyHosted`, CS1061 `ShowHosted`/`HideHosted`). GREEN: PlayMode TownInventoryPresenterPlayModeTests + RaidInventoryPresenterInteractionTests 44/44 passed (route: inline; 2 non-trivial files, planned writer delegation skipped because the design was already fully resolved in the parent).
 - Decision: framed window (user choice), shell instantiated by a presenter on SocialPlayer, content reparented at runtime (`RaidInventoryView.ScreenRootRect`, attributes view root).
+- T2 RED: CS0246 (`TownPlayerMenuPresenter`, `TownMenuTabRegistration`). GREEN: `TownPlayerMenuPresenterPlayModeTests` 9/9. Prefab `TownPlayerMenu.prefab` built by an editor script (window, tab bar, template, content root).
+- T4 RED: `TownPlayerMenuConfigurationTests.SocialPlayer_Wires...` failed (0 presenters on SocialPlayer). GREEN after wiring `SocialPlayer.prefab` (`TownPlayerMenuPresenter` on the root, `TownInventoryBinder._menuPresenter`, `TownAttributeAssignmentPresenter._menu`).
+- Full EditMode (Presentation+Progression) 359 run: 5 failures, none reference menu/binder/attribute symbols; PlayMode Presentation 91 run: 12 failures (Raid HUD/menu/loot, Fusion 'Invalid prefab id', missing NetworkPlayerMelee.prefab). Baseline comparison against 8ab041de pending.
 
 ## Next step
 T2 shell view/presenter. Read `TownInventoryBinder.cs`, `PlayerInputReader.cs` suppression/Escape API and `SocialPlayer.prefab` canvas first.

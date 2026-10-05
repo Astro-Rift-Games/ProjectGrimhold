@@ -7,8 +7,10 @@ using UnityEngine;
 public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 {
     [SerializeField] private TownAttributeAssignmentView _viewPrefab;
+    [SerializeField] private TownPlayerMenuPresenter _menu;
 
     private TownAttributeAssignmentBinding _binding;
+    private bool _isMenuHosted;
     private TownAttributeAssignmentView _view;
     private ApplicationStashContext _profileContext;
     private LocalProfileStore _store;
@@ -71,8 +73,23 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
         _view.Close();
         _view.AssignmentRequested += AssignAttribute;
         _view.CloseRequested += ClosePanel;
-        _inputReader.AttributesToggleRequested += TogglePanel;
-        _inputReader.InventoryCloseRequested += TryClosePanelFromInput;
+        if (_menu != null)
+        {
+            // The Town player menu owns the hotkey, Escape and the input-suppression token.
+            _isMenuHosted = true;
+            _view.SetCloseButtonVisible(false);
+            _menu.RegisterTab(new TownMenuTabRegistration(
+                TownMenuTabIds.Attributes,
+                "Attributes",
+                (RectTransform)_view.transform,
+                _view.Open,
+                _view.Close));
+        }
+        else
+        {
+            _inputReader.AttributesToggleRequested += TogglePanel;
+            _inputReader.InventoryCloseRequested += TryClosePanelFromInput;
+        }
 
         ApplicationStashContext boundContext = _profileContext;
         LocalProfileStore boundStore = _store;
@@ -185,6 +202,13 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
     {
         _binding?.Dispose();
         _binding = null;
+
+        if (_isMenuHosted && _menu != null)
+        {
+            _menu.UnregisterTab(TownMenuTabIds.Attributes);
+        }
+
+        _isMenuHosted = false;
 
         if (_inputReader != null)
         {

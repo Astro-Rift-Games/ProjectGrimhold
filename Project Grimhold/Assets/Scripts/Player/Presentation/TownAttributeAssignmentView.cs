@@ -83,6 +83,15 @@ public sealed class TownAttributeAssignmentView : MonoBehaviour
         }
     }
 
+    /// <summary>Hides the panel's own close button when a host window provides one.</summary>
+    public void SetCloseButtonVisible(bool visible)
+    {
+        if (_closeButton != null)
+        {
+            _closeButton.gameObject.SetActive(visible);
+        }
+    }
+
     public void Open() => gameObject.SetActive(true);
     public void Close() => gameObject.SetActive(false);
 

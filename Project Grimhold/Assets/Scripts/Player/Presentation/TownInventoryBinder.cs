@@ -18,6 +18,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     [SerializeField]
     private TownMerchantPresenter _merchantPresenter;
 
+    [SerializeField]
+    private TownPlayerMenuPresenter _menuPresenter;
+
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
@@ -122,14 +125,33 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             return;
         }
 
+        _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
         _inventoryPresenter.Unbind();
-        if (inputReader != null)
+        if (inputReader == null)
         {
-            _inventoryPresenter.BindTown(
-                _inventorySource,
-                _inventorySource,
-                _equipmentEndpoint,
-                inputReader);
+            _menuPresenter?.Unbind();
+            return;
+        }
+
+        bool hosted = _menuPresenter != null;
+        _inventoryPresenter.BindTown(
+            _inventorySource,
+            _inventorySource,
+            _equipmentEndpoint,
+            inputReader,
+            hosted);
+        if (hosted)
+        {
+            _menuPresenter.RegisterTab(new TownMenuTabRegistration(
+                TownMenuTabIds.Inventory,
+                "Inventory",
+                _inventoryPresenter.HostedContentRoot,
+                _inventoryPresenter.ShowHosted,
+                _inventoryPresenter.HideHosted));
+            Transform uiParent = _inventoryPresenter.transform.parent != null
+                ? _inventoryPresenter.transform.parent
+                : _inventoryPresenter.transform;
+            _menuPresenter.Bind(inputReader, uiParent);
         }
     }
 
@@ -176,6 +198,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _inputContext.ReaderChanged -= OnInputReaderChanged;
         }
 
+        _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
+        _menuPresenter?.Unbind();
         _inventoryPresenter?.Unbind();
         if (_merchantPresenter != null)
         {
