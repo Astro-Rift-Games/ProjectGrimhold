@@ -34,7 +34,11 @@ public sealed class TownPartyHudPresenter : NetworkBehaviour
         if (!HasInputAuthority || _identity == null || _view == null) return;
         EnsureDirectory();
         ProfileId local = new(_identity.ProfileId.ToString());
-        if (_directory == null || !_directory.TryGetParty(local, out TownPartySnapshot party)) return;
+        if (_directory == null || !_directory.TryGetParty(local, out TownPartySnapshot party))
+        {
+            ClearPresentedParty();
+            return;
+        }
         _directory.TryGetDisplayName(local, out string localName);
         string companionName = null;
         if (party.Members.Count == TownPartyRules.MaxMembers)
@@ -74,6 +78,16 @@ public sealed class TownPartyHudPresenter : NetworkBehaviour
         }
         _directory = null;
         _bound = false;
+        _presentedPartyId = 0;
+        _presentedRevision = -1;
+        _presentedLocalName = null;
+        _presentedCompanionName = null;
+    }
+
+    private void ClearPresentedParty()
+    {
+        if (_presentedPartyId == 0) return;
+        _view.ClearParty();
         _presentedPartyId = 0;
         _presentedRevision = -1;
         _presentedLocalName = null;

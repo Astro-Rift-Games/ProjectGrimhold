@@ -11,7 +11,9 @@ using UnityEngine;
 public sealed class TownPlayerMenuPresenter : MonoBehaviour
 {
     [SerializeField] private TownPlayerMenuView _viewPrefab;
+    [SerializeField] private GameObject[] _hudRoots;
 
+    private readonly TownHudVisibility _hud = new();
     private readonly Dictionary<string, TownMenuTabRegistration> _tabs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HostedContentSnapshot> _hosted = new(StringComparer.Ordinal);
     private readonly TownMenuTabState _state = new(TownMenuTabIds.All);
@@ -61,6 +63,24 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         if (_view != null)
         {
             RefreshTabBar();
+        }
+    }
+
+    /// <summary>Hides this HUD root while the menu is open. Safe to call at any time.</summary>
+    public void RegisterHud(GameObject hudRoot) => _hud.Register(hudRoot);
+
+    public void UnregisterHud(GameObject hudRoot) => _hud.Unregister(hudRoot);
+
+    private void Awake()
+    {
+        if (_hudRoots == null)
+        {
+            return;
+        }
+
+        foreach (GameObject hudRoot in _hudRoots)
+        {
+            _hud.Register(hudRoot);
         }
     }
 
@@ -173,6 +193,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         {
             case TownMenuTabTransition.Opened:
                 _inputSuppression = _reader.AcquireGameplayInputSuppression();
+                _hud.SetHidden(true);
                 _view.SetOpen(true);
                 _view.SetSelected(tabId);
                 ShowTab(tabId);
@@ -185,6 +206,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
             case TownMenuTabTransition.Closed:
                 HideTab(tabId);
                 _view.SetOpen(false);
+                _hud.SetHidden(false);
                 ReleaseSuppression();
                 break;
         }
@@ -199,6 +221,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
 
         HideTab(_state.SelectedTabId);
         _view?.SetOpen(false);
+        _hud.SetHidden(false);
         ReleaseSuppression();
         return true;
     }

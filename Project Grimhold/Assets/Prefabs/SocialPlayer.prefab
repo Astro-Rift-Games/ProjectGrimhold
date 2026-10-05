@@ -1652,6 +1652,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownProgressionPresenter
   _viewPrefab: {fileID: 4434149186620999421, guid: 2c611bdcce48ffa40bf46b6dba5eed59, type: 3}
+  _menu: {fileID: 8889365110912467133}
 --- !u!114 &6766885198686593445
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1799,6 +1800,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownPlayerMenuPresenter
   _viewPrefab: {fileID: 8822755112855520021, guid: 013a27af936b9094abe10c948a71800f, type: 3}
+  _hudRoots:
+  - {fileID: 6442764775396684237}
+  - {fileID: 9100000000000000000}
 --- !u!1 &4839046221378639172
 GameObject:
   m_ObjectHideFlags: 0

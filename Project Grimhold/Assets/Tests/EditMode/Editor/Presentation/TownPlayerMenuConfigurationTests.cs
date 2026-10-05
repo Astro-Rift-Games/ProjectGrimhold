@@ -57,6 +57,31 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void SocialPlayer_MenuControlsTownHudAndProgressionRegistersItsView()
+        {
+            GameObject social = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+            var menu = social.GetComponentInChildren<TownPlayerMenuPresenter>(true);
+            Assert.That(menu, Is.Not.Null);
+
+            SerializedProperty hudRoots = new SerializedObject(menu).FindProperty("_hudRoots");
+            Assert.That(hudRoots, Is.Not.Null, "The menu must expose the HUD roots it hides while open.");
+            var hudObjects = new System.Collections.Generic.List<GameObject>();
+            for (int i = 0; i < hudRoots.arraySize; i++)
+            {
+                hudObjects.Add((GameObject)hudRoots.GetArrayElementAtIndex(i).objectReferenceValue);
+            }
+
+            Assert.That(hudObjects, Has.Member(social.GetComponentInChildren<TownPartyHudView>(true).gameObject));
+            Assert.That(hudObjects, Has.Member(social.GetComponentInChildren<InteractionHudPresenter>(true).gameObject));
+
+            var progression = social.GetComponentInChildren<TownProgressionPresenter>(true);
+            Assert.That(progression, Is.Not.Null);
+            Assert.That(
+                new SerializedObject(progression).FindProperty("_menu").objectReferenceValue,
+                Is.SameAs(menu));
+        }
+
+        [Test]
         public void RaidParticipant_DoesNotCarryTheTownMenu()
         {
             GameObject raid = AssetDatabase.LoadAssetAtPath<GameObject>(RaidParticipantPath);

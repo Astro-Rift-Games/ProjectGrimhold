@@ -61,7 +61,12 @@ public sealed class TownPartyLocalAuthorityPlayModeTests
 
         Assert.That(directory.TryGetParty(localProfile, out TownPartySnapshot party), Is.True);
         Assert.That(party.Members, Is.EqualTo(new[] { localProfile }));
-        Assert.That(localPlayer.GetComponentInChildren<TownPartyHudView>(true).gameObject.activeSelf, Is.True);
+        for (int frame = 0; frame < 10; frame++) yield return null;
+
+        Assert.That(
+            localPlayer.GetComponentInChildren<TownPartyHudView>(true).gameObject.activeSelf,
+            Is.False,
+            "A solo party is not an active party: its HUD must stay hidden.");
         Assert.That(proxy.GetComponentInChildren<TownPartyHudView>(true).gameObject.activeSelf, Is.False);
     }
 

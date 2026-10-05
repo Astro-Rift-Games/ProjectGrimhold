@@ -27,6 +27,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - [x] T2 Shell view/presenter + `TownPlayerMenu.prefab`, wired from `TownInventoryBinder`
 - [x] T3 Inventory hosting mode in `RaidInventoryPresenter.BindTown`
 - [x] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
+- [x] T6 Hide Town HUD while the menu is open; party HUD only for an active party (companion present)
 - [x] T5 Docs + test updates (new TownPlayerMenuArchitecture.md; RaidInventoryUIArchitecture.md and ProgressionArchitecture.md updated; no existing test needed changes)
 
 ## Route declaration
@@ -42,6 +43,8 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - T2 RED: CS0246 (`TownPlayerMenuPresenter`, `TownMenuTabRegistration`). GREEN: `TownPlayerMenuPresenterPlayModeTests` 9/9. Prefab `TownPlayerMenu.prefab` built by an editor script (window, tab bar, template, content root).
 - T4 RED: `TownPlayerMenuConfigurationTests.SocialPlayer_Wires...` failed (0 presenters on SocialPlayer). GREEN after wiring `SocialPlayer.prefab` (`TownPlayerMenuPresenter` on the root, `TownInventoryBinder._menuPresenter`, `TownAttributeAssignmentPresenter._menu`).
 - Full EditMode (Presentation+Progression) 359 run: 5 failures, none reference menu/binder/attribute symbols; PlayMode Presentation 91 run: 12 failures (Raid HUD/menu/loot, Fusion 'Invalid prefab id', missing NetworkPlayerMelee.prefab). Baseline comparison done: checked out 8ab041de, same 5 EditMode and same 12 PlayMode failures (pre-existing, unrelated); branch has +14 EditMode and +11 PlayMode tests, all passing.
+- T6 (user request): RED = CS1061 (`RegisterHud`) + new view/visibility tests. GREEN: EditMode 374 run (5 pre-existing failures only), PlayMode Presentation 95 run (12 pre-existing failures only; +4 new menu/HUD tests pass). Assumption: 'active party' = party with a companion (solo parties are auto-created for every player). `TownPartyLocalAuthorityPlayModeTests` assertion changed to expect a hidden HUD for solo; that Fusion test also fails identically on base 8ab041de (party not created in the test environment, line 62), so the changed assertion is not exercised yet.
+- Not committed on purpose: `TownPlayerMenu.prefab` layout tweak made in the Editor by the user.
 
 ## Next step
 Manual verification in the Town scene (Tab / C / tabs / Escape / equip / assign points), visual layout of hosted content inside the frame, Escape vs TownPauseMenuPresenter double handling. Then Abilities tab as a separate task.

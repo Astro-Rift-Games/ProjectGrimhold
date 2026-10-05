@@ -8,6 +8,7 @@ using UnityEngine;
 public sealed class TownProgressionPresenter : NetworkBehaviour
 {
     [SerializeField] private TownProgressionView _viewPrefab;
+    [SerializeField] private TownPlayerMenuPresenter _menu;
 
     private TownProgressionBinding _binding;
     private TownProgressionView _view;
@@ -100,6 +101,7 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
 
             _view = Instantiate(_viewPrefab, transform, false);
             _view.name = _viewPrefab.name;
+            _menu?.RegisterHud(_view.gameObject);
         }
 
         _view.Present(presentation);
@@ -135,6 +137,7 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
         }
 
         _view.Hide();
+        _menu?.UnregisterHud(_view.gameObject);
         Destroy(_view.gameObject);
         _view = null;
     }

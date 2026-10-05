@@ -47,6 +47,23 @@ input-suppression token. Without a wired menu (`TownAttributeAssignmentPresenter
 `BindTown` called without `externallyHosted`) the previous standalone behavior is unchanged, and the Raid
 inventory binding never uses hosted mode.
 
+## HUD while the menu is open
+
+While the menu is open, the Town HUD is hidden so it never overlaps the window. `TownHudVisibility` (plain C#)
+hides each registered HUD root through a `CanvasGroup` (alpha 0, not interactable, no raycasts) and restores
+the original group values when the menu closes. It never calls `SetActive`, so each HUD keeps its own
+activation logic. `TownPlayerMenuPresenter` serializes the static roots (`TownInteractionHud`, `TownPartyHud`)
+and exposes `RegisterHud` / `UnregisterHud` for HUD created at runtime: `TownProgressionPresenter` registers
+its instantiated view and unregisters it before destroying it. A HUD registered while the menu is open is
+hidden immediately.
+
+## Party HUD visibility
+
+Every local player is given a solo party by `TownPartyDirectory`, so "has a party" is always true. The party
+HUD therefore shows only for an **active party**, meaning a party with a companion
+(`TownPartyPresentation.HasCompanion`), and only for the Input Authority player. A solo party, a missing
+party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
+
 ## Known limits
 
 - Ability slot 2 is bound to R, not E. The reference mock-up shows Q/E; decide labels and bindings before

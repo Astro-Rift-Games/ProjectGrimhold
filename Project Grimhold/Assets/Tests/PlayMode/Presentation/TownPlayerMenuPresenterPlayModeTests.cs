@@ -183,6 +183,93 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_presenter.IsOpen, Is.False, "An unbound presenter must not react to hotkeys.");
         }
 
+        [Test]
+        public void OpeningTheMenu_HidesRegisteredHudAndClosingRestoresIt()
+        {
+            var hud = new GameObject("Hud", typeof(RectTransform));
+            try
+            {
+                BindWithBothTabs();
+                _presenter.RegisterHud(hud);
+
+                PressInventory();
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.Zero);
+
+                PressInventory();
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hud);
+            }
+        }
+
+        [Test]
+        public void SwitchingTabs_KeepsTheHudHiddenAndEscapeRestoresIt()
+        {
+            var hud = new GameObject("Hud", typeof(RectTransform));
+            try
+            {
+                BindWithBothTabs();
+                _presenter.RegisterHud(hud);
+                PressInventory();
+
+                PressAttributes();
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.Zero);
+
+                InvokeReader("OnCloseInventoryPerformed");
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hud);
+            }
+        }
+
+        [Test]
+        public void HudRegisteredWhileOpen_IsHiddenImmediately_AndUnbindRestoresIt()
+        {
+            var hud = new GameObject("Hud", typeof(RectTransform));
+            try
+            {
+                BindWithBothTabs();
+                PressInventory();
+
+                _presenter.RegisterHud(hud);
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.Zero);
+
+                _presenter.Unbind();
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hud);
+            }
+        }
+
+        [Test]
+        public void UnregisteredHud_IsRestoredAndNoLongerControlled()
+        {
+            var hud = new GameObject("Hud", typeof(RectTransform));
+            try
+            {
+                BindWithBothTabs();
+                _presenter.RegisterHud(hud);
+                PressInventory();
+
+                _presenter.UnregisterHud(hud);
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+
+                PressInventory();
+                PressInventory();
+                Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hud);
+            }
+        }
+
         private void BindWithBothTabs()
         {
             _presenter.RegisterTab(CreateInventoryTab());
