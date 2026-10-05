@@ -30,6 +30,11 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - [x] T6 Hide Town HUD while the menu is open; party HUD only for an active party (companion present)
 - [x] T7 Escape owned by PlayerInputReader; pause menu follows MenuToggleRequested
 - [x] T8 Options tab replaces the Town pause menu; Escape opens it when no other panel is open
+- [ ] T9 Attributes tab redesign (3 columns: attributes / equipment / statistics) following the user's reference image
+  - [ ] T9a Pure `TownCharacterStatisticsBuilder` + presentation model + EditMode tests (delegated writer)
+  - [ ] T9b Binding/presenter read prepared equipment + loot catalog; refresh on ProfileCommitted
+  - [ ] T9c View + prefab redesign (left attributes with +, center read-only equipment slots, right statistics)
+  - [ ] T9d Update `TownAttributeAssignmentConfigurationTests`, docs
 - [x] T5 Docs + test updates (new TownPlayerMenuArchitecture.md; RaidInventoryUIArchitecture.md and ProgressionArchitecture.md updated; no existing test needed changes)
 
 ## Route declaration
@@ -49,6 +54,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - Not committed on purpose: `TownPlayerMenu.prefab` layout tweak made in the Editor by the user.
 - T7 (Escape double handling): RED = 3 of 4 new `TownPauseMenuPresenterPlayModeTests` failed (pause ignored the reader). Fix: `TownPauseMenuPresenter` listens to `PlayerInputReader.MenuToggleRequested` via `LocalInputContext`, legacy polling only without a reader. GREEN: PlayMode Presentation 99 run, only the 12 pre-existing failures. Remaining: `MissionBoardUI` legacy Escape.
 - T8 (user request): RED = CS0117 (`TownMenuTabIds.Options`) then missing TownOptions types. GREEN: PlayMode Presentation 106 run (only the 12 pre-existing failures), EditMode 377 run (only the 5 pre-existing). Found by the new tests: restoring hosted content to its original parent on teardown logs 'Cannot set the parent ... being destroyed' (would also happen on SocialPlayer despawn); removed restoration, content is never moved back. Removed TownPauseMenuPresenter/View, their test and the TownPauseMenu object in Lobby-Town (scene re-serialization adds default Unity fields). Exit game = Application.Quit (ExitPlaymode in Editor) is new behavior inferred from the request. Known gap: no Escape-to-logout before the player binds.
+- T9 decisions: Game Design (docs 08 and 09) defines only Max Health/Stamina/Mana (+gear modifiers), Physical/Magical Defense (+mitigation D/(D+100)), per-weapon damage (base x scaling) and additional loot chance (Luck). It does NOT define Melee/Ranged/Magic Power or Move Speed, nor ring/amulet slots, so those mock-up rows are omitted. User chose 'damage per weapon' for the offense section. Center equipment column is read-only (equipping stays in the Inventory tab) and no character preview widget exists, so none is built now. Code/GD conflict reported, not fixed: GD fixes max attribute value at 30, `ProgressionBalanceDefaults` uses 25.
 
 ## Next step
 Manual verification in the Town scene (Tab / C / tabs / Escape / equip / assign points), visual layout of hosted content inside the frame, Escape vs TownPauseMenuPresenter double handling. Then Abilities tab as a separate task.
