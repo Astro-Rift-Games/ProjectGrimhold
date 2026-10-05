@@ -32,7 +32,9 @@ canvas content, so the inventory tooltip and drag preview, which live under that
 
 A feature plugs in with a `TownMenuTabRegistration` (id, label, content `RectTransform`, shown and hidden
 callbacks). The menu reparents the content under its content root, stretches it, and calls `Shown` and
-`Hidden`. It never moves content back: hosted content belongs to the same hierarchy as the window and is
+`Hidden`. It also resets the content's local scale to one: a prefab whose root is a Canvas can be saved with a
+zero scale that Unity only drives while it is a root canvas, which left the Attributes tab invisible once it was
+hosted. It never moves content back: hosted content belongs to the same hierarchy as the window and is
 destroyed with it, and reparenting during teardown would target a parent that is already being destroyed.
 A feature that owns its content instance (Attributes, Options) destroys it when it unregisters; the
 inventory screen stays hosted, hidden, until it is registered again. The feature keeps ownership of its own
@@ -45,6 +47,37 @@ tab means adding an id there and a registration from the feature.
 | Inventory | `TownInventoryBinder` | `RaidInventoryView.ScreenRootRect` | `RaidInventoryPresenter.BindTown(..., externallyHosted: true)`, `ShowHosted`, `HideHosted` |
 | Attributes | `TownAttributeAssignmentPresenter` | the instantiated `TownAttributeAssignmentView` root | `Open` / `Close`; the panel's own close button is hidden |
 | Options | `TownOptionsPresenter`, registered by `TownInventoryBinder` | the instantiated `TownOptionsView` root (`TownOptions.prefab`) | `Open` / `Close`; Log out and Exit game buttons |
+
+## Attributes tab: character sheet
+
+The Attributes tab is a three-column character sheet: attributes with their assignment buttons (left), the
+eight prepared equipment slots (center, read-only; equipping stays in the Inventory tab) and the derived
+statistics (right). Everything is projected from the confirmed profile and refreshes on the single
+`ApplicationStashContext.ProfileCommitted` signal, so attribute assignment and equipment changes both update it.
+
+`TownCharacterStatisticsBuilder` (pure, EditMode-tested) builds `TownCharacterStatisticsPresentation` from
+`CharacterAttributeState`, `PreparedEquipmentLoadout` and the loot catalog. It reuses the calculators the Raid
+player uses (`CharacterDerivedStatisticsCalculator`, `EquipmentStatisticsCalculator`,
+`PlayerRuntimeStatisticsCalculator`, `WeaponScalingContributionsResolver`, `WeaponDamageCalculator`) with
+`ProgressionBalanceDefaults`, so Town and Raid numbers match. `TownAttributeAssignmentBinding` optionally
+rebuilds it together with the attributes and clears it when they or the builder are unavailable;
+`TownCharacterStatisticsLines` turns it into culture-independent rows.
+
+Only statistics the Game Design defines are shown (docs 08 and 09):
+
+| Section | Rows |
+|---|---|
+| Core | Max Health, Max Stamina, Max Mana, each with its equipment contribution ("+20 from equipment") |
+| Defense | Physical and Magical Defense from armor, with the mitigation `Defense / (Defense + K)`, K = 100 |
+| Weapons | One row per equipped weapon with its effective damage (base x attribute scaling), slot and damage type |
+| Utility | Loot Bonus (additional loot chance from Luck) |
+
+There is deliberately no Melee/Ranged/Magic Power or Move Speed row, and no ring or amulet slot: the Game Design
+defines no global damage stat (FUE, DES and INT only feed weapon scaling and requirements), no attribute or
+equipment influence on move speed, and only four armor slots plus two Weapon Sets. `K` is read from
+`TownCharacterStatisticsBuilder.DefaultDefenseMitigationConstant`, which mirrors the serialized
+`PlayerCharacter._defenseMitigationConstant`. All authored weapons currently have a zero scaling coefficient, so
+effective damage equals base damage today.
 
 ## Hosted mode contract
 

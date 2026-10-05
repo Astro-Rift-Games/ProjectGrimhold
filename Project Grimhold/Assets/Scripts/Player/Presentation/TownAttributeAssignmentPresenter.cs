@@ -8,9 +8,11 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 {
     [SerializeField] private TownAttributeAssignmentView _viewPrefab;
     [SerializeField] private TownPlayerMenuPresenter _menu;
+    [SerializeField] private LootDefinitionCatalog _lootCatalog;
 
     private TownAttributeAssignmentBinding _binding;
     private bool _isMenuHosted;
+    private bool _reportedStatisticsFailure;
     private TownAttributeAssignmentView _view;
     private ApplicationStashContext _profileContext;
     private LocalProfileStore _store;
@@ -100,8 +102,63 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
             handler => boundContext.ProfileCommitted += handler,
             handler => boundContext.ProfileCommitted -= handler,
             Present,
-            PresentUnavailable);
+            PresentUnavailable,
+            TryBuildStatistics,
+            PresentStatistics,
+            PresentStatisticsUnavailable);
     }
+
+    /// <summary>
+    /// Builds the character sheet from the confirmed attributes and the prepared equipment, with the same
+    /// calculators and balance defaults the Raid player uses.
+    /// </summary>
+    private bool TryBuildStatistics(
+        in CharacterAttributeState state,
+        out TownCharacterStatisticsPresentation statistics)
+    {
+        statistics = default;
+        if (_store == null || _lootCatalog == null)
+        {
+            ReportStatisticsFailure("the profile store or the loot catalog is unavailable");
+            return false;
+        }
+
+        if (!TownCharacterStatisticsBuilder.TryBuild(
+                state,
+                _store.GetPreparedEquipment(),
+                ResolveLoot,
+                ProgressionBalanceDefaults.InitialCharacterDerivedStatisticsConfiguration,
+                TownCharacterStatisticsBuilder.DefaultDefenseMitigationConstant,
+                out statistics,
+                out string failure))
+        {
+            ReportStatisticsFailure(failure);
+            return false;
+        }
+
+        return true;
+    }
+
+    private LootDefinition ResolveLoot(LootId lootId) =>
+        _lootCatalog.TryGet(lootId.Value, out LootDefinition definition) ? definition : null;
+
+    private void ReportStatisticsFailure(string reason)
+    {
+        if (_reportedStatisticsFailure)
+        {
+            return;
+        }
+
+        _reportedStatisticsFailure = true;
+        Debug.LogError(
+            $"[{nameof(TownAttributeAssignmentPresenter)}] The character sheet could not be built: {reason}",
+            this);
+    }
+
+    private void PresentStatistics(TownCharacterStatisticsPresentation statistics) =>
+        _view?.PresentStatistics(statistics);
+
+    private void PresentStatisticsUnavailable() => _view?.PresentStatisticsUnavailable();
 
     private void TogglePanel()
     {

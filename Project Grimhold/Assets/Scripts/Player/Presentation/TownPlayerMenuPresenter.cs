@@ -278,6 +278,9 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         }
 
         content.SetParent(_view.ContentRoot, false);
+        // A prefab whose root is a Canvas can be saved with a zero scale (Unity drives it while it is a
+        // root canvas); nothing restores it once the content lives under the window.
+        content.localScale = Vector3.one;
         content.anchorMin = Vector2.zero;
         content.anchorMax = Vector2.one;
         content.offsetMin = Vector2.zero;

@@ -47,7 +47,7 @@ public static class TownCharacterStatisticsLines
         breakdown.FromEquipment == 0
             ? string.Empty
             : (breakdown.FromEquipment > 0 ? "+" : string.Empty) +
-              breakdown.FromEquipment.ToString(CultureInfo.InvariantCulture));
+              breakdown.FromEquipment.ToString(CultureInfo.InvariantCulture) + " from equipment");
 
     private static TownStatLine Defense(string label, int defense, float mitigationPercent) => new(
         TownStatLineKind.Stat,

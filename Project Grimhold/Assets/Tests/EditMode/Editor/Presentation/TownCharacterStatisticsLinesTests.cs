@@ -47,7 +47,7 @@ namespace Tests.EditMode.Presentation
 
             TownStatLine health = Find(lines, "Max Health");
             Assert.That(health.Value, Is.EqualTo("145"));
-            Assert.That(health.Detail, Is.EqualTo("+20"));
+            Assert.That(health.Detail, Is.EqualTo("+20 from equipment"));
             TownStatLine stamina = Find(lines, "Max Stamina");
             Assert.That(stamina.Value, Is.EqualTo("100"));
             Assert.That(stamina.Detail, Is.Empty);
@@ -61,7 +61,7 @@ namespace Tests.EditMode.Presentation
                 Create(health: new TownStatBreakdown(125, -5)));
 
             Assert.That(Find(lines, "Max Health").Value, Is.EqualTo("120"));
-            Assert.That(Find(lines, "Max Health").Detail, Is.EqualTo("-5"));
+            Assert.That(Find(lines, "Max Health").Detail, Is.EqualTo("-5 from equipment"));
         }
 
         [Test]

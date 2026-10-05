@@ -1668,6 +1668,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownAttributeAssignmentPresenter
   _viewPrefab: {fileID: 7227192940523254238, guid: 2ffde6c2fe9c41747816e2bbc8fbee91, type: 3}
   _menu: {fileID: 8889365110912467133}
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
 --- !u!114 &8056183654169602884
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -110,6 +110,21 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void SocialPlayer_AttributesPresenterSharesTheLootCatalogWithTheInventoryBinder()
+        {
+            GameObject social = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+            var binder = social.GetComponentInChildren<TownInventoryBinder>(true);
+            var attributes = social.GetComponentInChildren<TownAttributeAssignmentPresenter>(true);
+
+            Object binderCatalog = new SerializedObject(binder).FindProperty("_lootCatalog").objectReferenceValue;
+            SerializedProperty attributesCatalog = new SerializedObject(attributes).FindProperty("_lootCatalog");
+
+            Assert.That(binderCatalog, Is.Not.Null);
+            Assert.That(attributesCatalog, Is.Not.Null, "The attributes presenter needs the catalog to resolve equipment.");
+            Assert.That(attributesCatalog.objectReferenceValue, Is.SameAs(binderCatalog));
+        }
+
+        [Test]
         public void TownScene_NoLongerHasTheStandalonePauseMenu()
         {
             string scene = System.IO.File.ReadAllText("Assets/Scenes/Lobby-Town.unity");

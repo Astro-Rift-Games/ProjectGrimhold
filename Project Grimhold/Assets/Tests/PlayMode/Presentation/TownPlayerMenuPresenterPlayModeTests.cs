@@ -79,6 +79,26 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void HostedContent_IsStretchedAndItsScaleIsNormalized()
+        {
+            // A prefab whose root is a Canvas can be saved with a zero scale (Unity drives it while the
+            // canvas is a root); once reparented under the window nobody restores it and it is invisible.
+            _inventoryContent.localScale = Vector3.zero;
+            _attributesContent.localScale = Vector3.zero;
+
+            BindWithBothTabs();
+
+            foreach (RectTransform content in new[] { _inventoryContent, _attributesContent })
+            {
+                Assert.That(content.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(content.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(content.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(content.offsetMin, Is.EqualTo(Vector2.zero));
+                Assert.That(content.offsetMax, Is.EqualTo(Vector2.zero));
+            }
+        }
+
+        [Test]
         public void SameHotkeyAgain_ClosesAndReleasesSuppression()
         {
             BindWithBothTabs();
