@@ -1,0 +1,40 @@
+# Town tabbed player menu
+
+Branch: `feat/town-tabbed-menu` (from `New-Testing`). Plan: `C:\Users\Dani\.claude\plans\quiero-integrar-dentro-de-transient-clock.md`.
+Engram mirror topic: `odd/town-tabbed-menu/tasks`.
+
+## Objective
+One Town window with a tab bar hosting Inventory and Attributes now, with a registry that lets Abilities (and later Stash / Raid Prep) plug in without changing the shell.
+
+## Problem
+Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canvas, input-suppression token and Escape handling. They can be open simultaneously. No tab host exists.
+
+## Scope
+- In: Town only. Shell + tab state, Inventory hosting mode, Attributes hosting, docs, test updates.
+- Out: Raid UI (unchanged), Abilities tab, Stash / Raid Prep tabs, Ready gating for attributes.
+
+## Constraints
+- Raid behavior of `RaidInventoryPresenter` must not change.
+- Keep child names looked up by tests (`EquipmentPanel`).
+- Planning heuristic ~400 authored changed lines per task (advisory only).
+
+## Resolved test configuration
+- TDD: enabled (Strict TDD Mode, source: user CLAUDE.md).
+- Runner: Unity Test Runner (EditMode/PlayMode). UnityMCP bridge not connected at session start; pure-logic tests are additionally run through a scratchpad `dotnet test` harness.
+
+## Tasks
+- [x] T1 `TownMenuTabState` pure logic + EditMode tests
+- [ ] T2 Shell view/presenter + `TownPlayerMenu.prefab`, wired from `TownInventoryBinder`
+- [ ] T3 Inventory hosting mode in `RaidInventoryPresenter.BindTown`
+- [ ] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
+- [ ] T5 Docs + test updates
+
+## Route declaration
+- T1: direct inline (one new file + one test file, understood).
+- T2-T4: delegated writer or inline per trigger evidence; recorded below.
+
+## Progress / evidence
+- T1 RED observed: scratchpad `dotnet test` harness failed to compile (`TownMenuTabState` missing). GREEN observed: 11 passed, 0 failed. Not yet run in Unity Test Runner (bridge down).
+
+## Next step
+T2 shell view/presenter. Read `TownInventoryBinder.cs`, `PlayerInputReader.cs` suppression/Escape API and `SocialPlayer.prefab` canvas first.
