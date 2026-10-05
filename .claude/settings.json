@@ -1,5 +1,27 @@
 {
   "enabledPlugins": {
     "unity@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "mcp__blender__get_viewport_screenshot",
+      "mcp__blender__get_scene_info",
+      "mcp__blender__get_addon_status",
+      "mcp__unityMCP__get_test_job",
+      "mcp__unityMCP__read_console",
+      "mcp__grimhold-docs__get_document",
+      "mcp__grimhold-docs__search_documents",
+      "mcp__hacknplan__list_work_items",
+      "mcp__hacknplan__get_work_item",
+      "mcp__hacknplan__list_boards",
+      "mcp__codegraph__codegraph_explore",
+      "mcp__context7__query-docs",
+      "mcp__engram__mem_get_observation",
+      "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read",
+      "mcp__bd6593e9-4203-40d7-8ae8-6d3dc0c2fe44__read_file_content",
+      "mcp__Claude_Browser__read_console_messages",
+      "Bash(eza *)",
+      "PowerShell(Get-Process Unity*)"
+    ]
   }
 }
