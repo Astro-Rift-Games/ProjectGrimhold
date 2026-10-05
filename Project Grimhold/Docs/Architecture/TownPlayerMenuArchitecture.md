@@ -47,6 +47,16 @@ input-suppression token. Without a wired menu (`TownAttributeAssignmentPresenter
 `BindTown` called without `externallyHosted`) the previous standalone behavior is unchanged, and the Raid
 inventory binding never uses hosted mode.
 
+## Escape ownership
+
+Escape has one owner, `PlayerInputReader`. It offers the press to every `InventoryCloseRequested` handler
+(the Town menu, Stash, standalone panels); only when none consumes it does it raise `MenuToggleRequested`.
+`TownPauseMenuPresenter` toggles the pause panel from `MenuToggleRequested`, so the press that closes the
+menu never also opens the pause panel. It finds the reader through `LocalInputContext` (looked up every
+0.5 s until found, then followed through `ReaderChanged`). Only while no local reader exists, for example
+before the player spawns, does it fall back to reading the Escape key directly, so the logout escape hatch
+keeps working.
+
 ## HUD while the menu is open
 
 While the menu is open, the Town HUD is hidden so it never overlaps the window. `TownHudVisibility` (plain C#)
@@ -70,6 +80,6 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
   building the Abilities tab.
 - The Abilities tab still needs display metadata on `AbilityDefinition`, a read-only catalog enumerator
   and a Town/Ready-gated equip endpoint (see `AbilitySystemArchitecture.md`).
-- `TownPauseMenuPresenter` polls the legacy Escape key independently of `PlayerInputReader`, so Escape
-  can still toggle the pause menu while a panel is open.
+- `MissionBoardUI` still reads Escape (and its toggle key) through the legacy `Input` API, so closing the
+  Mission Board with Escape can also open the Town pause menu.
 - The framed window uses placeholder colors; final art is authored in `TownPlayerMenu.prefab`.

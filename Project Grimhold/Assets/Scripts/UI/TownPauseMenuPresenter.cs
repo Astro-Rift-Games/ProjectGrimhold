@@ -3,7 +3,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Listens for the ESC key each frame and toggles the Town pause panel.
+/// Toggles the Town pause panel when Escape is not consumed by an open panel. While a local
+/// <see cref="PlayerInputReader"/> exists, Escape reaches this presenter only through
+/// <see cref="PlayerInputReader.MenuToggleRequested"/>, which fires after every
+/// <see cref="PlayerInputReader.InventoryCloseRequested"/> handler declined the press. Without a local
+/// reader (for example before the player spawns) it falls back to reading the Escape key directly.
 /// Delegates the logout sequence to <see cref="SessionConnectionCoordinator"/> and
 /// <see cref="LoginFlowController"/>, both of which are DontDestroyOnLoad singletons.
 /// This component lives in the Lobby-Town scene and is destroyed when the scene unloads.
@@ -13,7 +17,12 @@ using UnityEngine.SceneManagement;
 [DisallowMultipleComponent]
 public sealed class TownPauseMenuPresenter : MonoBehaviour
 {
+    private const float ContextLookupIntervalSeconds = 0.5f;
+
     private TownPauseMenuView _view;
+    private LocalInputContext _inputContext;
+    private PlayerInputReader _reader;
+    private float _nextContextLookupTime;
     private bool _logoutInProgress;
 
     private void Awake()
@@ -25,23 +34,92 @@ public sealed class TownPauseMenuPresenter : MonoBehaviour
     {
         _view.ResumeClicked += OnResumeClicked;
         _view.LogoutClicked += OnLogoutClicked;
+        ResolveInputContext();
     }
 
     private void OnDisable()
     {
         _view.ResumeClicked -= OnResumeClicked;
         _view.LogoutClicked -= OnLogoutClicked;
+        ReleaseInputContext();
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape) && !_logoutInProgress)
+        if (_inputContext == null)
         {
-            if (_view.IsVisible)
-                _view.Hide();
-            else
-                _view.Show();
+            ReleaseInputContext();
+            if (Time.unscaledTime >= _nextContextLookupTime)
+            {
+                _nextContextLookupTime = Time.unscaledTime + ContextLookupIntervalSeconds;
+                ResolveInputContext();
+            }
         }
+
+        if (_reader == null && Input.GetKeyDown(KeyCode.Escape))
+        {
+            TogglePause();
+        }
+    }
+
+    private void ResolveInputContext()
+    {
+        if (_inputContext != null)
+        {
+            return;
+        }
+
+        _inputContext = FindAnyObjectByType<LocalInputContext>();
+        if (_inputContext == null)
+        {
+            return;
+        }
+
+        _inputContext.ReaderChanged += OnReaderChanged;
+        OnReaderChanged(_inputContext.Reader);
+    }
+
+    private void ReleaseInputContext()
+    {
+        if (_inputContext != null)
+        {
+            _inputContext.ReaderChanged -= OnReaderChanged;
+        }
+
+        _inputContext = null;
+        OnReaderChanged(null);
+    }
+
+    private void OnReaderChanged(PlayerInputReader reader)
+    {
+        if (_reader == reader)
+        {
+            return;
+        }
+
+        if (_reader != null)
+        {
+            _reader.MenuToggleRequested -= TogglePause;
+        }
+
+        _reader = reader;
+        if (_reader != null)
+        {
+            _reader.MenuToggleRequested += TogglePause;
+        }
+    }
+
+    private void TogglePause()
+    {
+        if (_logoutInProgress)
+        {
+            return;
+        }
+
+        if (_view.IsVisible)
+            _view.Hide();
+        else
+            _view.Show();
     }
 
     private void OnResumeClicked()
