@@ -34,7 +34,8 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - T2-T4: delegated writer or inline per trigger evidence; recorded below.
 
 ## Progress / evidence
-- T1 RED observed: scratchpad `dotnet test` harness failed to compile (`TownMenuTabState` missing). GREEN observed: 11 passed, 0 failed. Not yet run in Unity Test Runner (bridge down).
+- T1 RED observed: scratchpad `dotnet test` harness failed to compile (`TownMenuTabState` missing). GREEN observed: 11 passed, 0 failed. Unity Test Runner EditMode (UnityMCP bridge connected later): 11/11 passed, 0 failed.
+- T1 review: `gentle-ai review assess --base-ref 8ab041de --committed-only` -> medium, `review_due: false` (`under_budget`). A separate workspace candidate (`.claude/settings.json`, user's pre-existing change, not part of this feature) got the consent prompt; the user chose "Skip this time" (`declined_this_candidate`).
 
 ## Next step
 T2 shell view/presenter. Read `TownInventoryBinder.cs`, `PlayerInputReader.cs` suppression/Escape API and `SocialPlayer.prefab` canvas first.
