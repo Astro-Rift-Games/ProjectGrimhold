@@ -15,7 +15,6 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
 
     private readonly TownHudVisibility _hud = new();
     private readonly Dictionary<string, TownMenuTabRegistration> _tabs = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, HostedContentSnapshot> _hosted = new(StringComparer.Ordinal);
     private readonly TownMenuTabState _state = new(TownMenuTabIds.All);
     private TownPlayerMenuView _view;
     private PlayerInputReader _reader;
@@ -58,7 +57,6 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
             CloseMenu();
         }
 
-        RestoreContent(registration);
         _tabs.Remove(tabId);
         if (_view != null)
         {
@@ -119,6 +117,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         _reader.InventoryToggleRequested += OnInventoryToggleRequested;
         _reader.AttributesToggleRequested += OnAttributesToggleRequested;
         _reader.InventoryCloseRequested += OnCloseRequested;
+        _reader.MenuToggleRequested += OnMenuToggleRequested;
     }
 
     /// <summary>Stops listening, closes the menu and releases input suppression.</summary>
@@ -129,6 +128,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
             _reader.InventoryToggleRequested -= OnInventoryToggleRequested;
             _reader.AttributesToggleRequested -= OnAttributesToggleRequested;
             _reader.InventoryCloseRequested -= OnCloseRequested;
+            _reader.MenuToggleRequested -= OnMenuToggleRequested;
         }
 
         CloseMenu();
@@ -138,11 +138,6 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
     private void OnDestroy()
     {
         Unbind();
-        foreach (TownMenuTabRegistration registration in _tabs.Values)
-        {
-            RestoreContent(registration);
-        }
-
         if (_view != null)
         {
             _view.TabSelected -= OnTabSelected;
@@ -157,6 +152,12 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
     private void OnAttributesToggleRequested() => TryOpenTab(TownMenuTabIds.Attributes);
 
     private bool OnCloseRequested() => CloseMenu();
+
+    /// <summary>
+    /// Raised by the reader only when no <c>InventoryCloseRequested</c> handler consumed Escape, so
+    /// reaching it means no panel was open: Escape then opens the Options tab.
+    /// </summary>
+    private void OnMenuToggleRequested() => TryOpenTab(TownMenuTabIds.Options);
 
     private void OnCloseButton() => CloseMenu();
 
@@ -263,69 +264,23 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         _view.SetSelected(_state.SelectedTabId);
     }
 
+    /// <summary>
+    /// Reparents the tab content under the window and stretches it. Content is never moved back: it
+    /// belongs to the same hierarchy as the window and is destroyed with it, and moving it during
+    /// teardown would target a parent that is already being destroyed.
+    /// </summary>
     private void HostContent(TownMenuTabRegistration registration)
     {
         RectTransform content = registration.Content;
-        if (content == null || _view == null || _view.ContentRoot == null || _hosted.ContainsKey(registration.Id))
+        if (content == null || _view == null || _view.ContentRoot == null)
         {
             return;
         }
 
-        _hosted[registration.Id] = HostedContentSnapshot.Capture(content);
         content.SetParent(_view.ContentRoot, false);
         content.anchorMin = Vector2.zero;
         content.anchorMax = Vector2.one;
         content.offsetMin = Vector2.zero;
         content.offsetMax = Vector2.zero;
-    }
-
-    private void RestoreContent(TownMenuTabRegistration registration)
-    {
-        if (registration.Content != null && _hosted.TryGetValue(registration.Id, out HostedContentSnapshot snapshot))
-        {
-            snapshot.Restore(registration.Content);
-        }
-
-        _hosted.Remove(registration.Id);
-    }
-
-    private readonly struct HostedContentSnapshot
-    {
-        private readonly Transform _parent;
-        private readonly int _siblingIndex;
-        private readonly Vector2 _anchorMin;
-        private readonly Vector2 _anchorMax;
-        private readonly Vector2 _anchoredPosition;
-        private readonly Vector2 _sizeDelta;
-        private readonly Vector2 _pivot;
-
-        private HostedContentSnapshot(RectTransform content)
-        {
-            _parent = content.parent;
-            _siblingIndex = content.GetSiblingIndex();
-            _anchorMin = content.anchorMin;
-            _anchorMax = content.anchorMax;
-            _anchoredPosition = content.anchoredPosition;
-            _sizeDelta = content.sizeDelta;
-            _pivot = content.pivot;
-        }
-
-        public static HostedContentSnapshot Capture(RectTransform content) => new(content);
-
-        public void Restore(RectTransform content)
-        {
-            if (_parent == null)
-            {
-                return;
-            }
-
-            content.SetParent(_parent, false);
-            content.SetSiblingIndex(_siblingIndex);
-            content.anchorMin = _anchorMin;
-            content.anchorMax = _anchorMax;
-            content.pivot = _pivot;
-            content.anchoredPosition = _anchoredPosition;
-            content.sizeDelta = _sizeDelta;
-        }
     }
 }

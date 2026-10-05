@@ -3,7 +3,9 @@
 ## Scope
 
 The Town player menu is one framed window with a tab bar that hosts the local player's personal screens
-in Town. It currently hosts **Inventory** and **Attributes**. Abilities is the planned next tab. Raid keeps
+in Town. It currently hosts **Inventory**, **Attributes** and **Options**. Abilities is the planned next
+tab. Options replaces the former standalone Town pause menu and is where sound, graphics and other
+settings will be added; today it only offers Log out and Exit game. Raid keeps
 the standalone personal inventory and does not use this menu. Stash, Merchant, Mission Board and Raid
 Preparation stay NPC-opened panels: they depend on a confirmed interaction and are not tabs yet.
 
@@ -14,7 +16,7 @@ Preparation stay NPC-opened panels: they depend on a confirmed interaction and a
 - the Tab (inventory) and C (attributes) hotkeys, as `PlayerInputReader.InventoryToggleRequested` and
   `AttributesToggleRequested`;
 - the Escape close, as a `PlayerInputReader.InventoryCloseRequested` handler that returns true only while
-  the menu is open;
+  the menu is open, and the Escape open of the Options tab (see Escape ownership);
 - the one `AcquireGameplayInputSuppression()` token held while the menu is open;
 - tab switching, through the pure `TownMenuTabState`.
 
@@ -30,8 +32,11 @@ canvas content, so the inventory tooltip and drag preview, which live under that
 
 A feature plugs in with a `TownMenuTabRegistration` (id, label, content `RectTransform`, shown and hidden
 callbacks). The menu reparents the content under its content root, stretches it, and calls `Shown` and
-`Hidden`; it restores the original parent, anchors and sibling index when the tab is unregistered or the
-menu is destroyed. The feature keeps ownership of its own state and visibility. A tab whose registration is
+`Hidden`. It never moves content back: hosted content belongs to the same hierarchy as the window and is
+destroyed with it, and reparenting during teardown would target a parent that is already being destroyed.
+A feature that owns its content instance (Attributes, Options) destroys it when it unregisters; the
+inventory screen stays hosted, hidden, until it is registered again. The feature keeps ownership of its own
+state and visibility. A tab whose registration is
 absent is not listed and its hotkey is ignored. Tab ids and their order live in `TownMenuTabIds`; adding a
 tab means adding an id there and a registration from the feature.
 
@@ -39,6 +44,7 @@ tab means adding an id there and a registration from the feature.
 |---|---|---|---|
 | Inventory | `TownInventoryBinder` | `RaidInventoryView.ScreenRootRect` | `RaidInventoryPresenter.BindTown(..., externallyHosted: true)`, `ShowHosted`, `HideHosted` |
 | Attributes | `TownAttributeAssignmentPresenter` | the instantiated `TownAttributeAssignmentView` root | `Open` / `Close`; the panel's own close button is hidden |
+| Options | `TownOptionsPresenter`, registered by `TownInventoryBinder` | the instantiated `TownOptionsView` root (`TownOptions.prefab`) | `Open` / `Close`; Log out and Exit game buttons |
 
 ## Hosted mode contract
 
@@ -51,11 +57,15 @@ inventory binding never uses hosted mode.
 
 Escape has one owner, `PlayerInputReader`. It offers the press to every `InventoryCloseRequested` handler
 (the Town menu, Stash, standalone panels); only when none consumes it does it raise `MenuToggleRequested`.
-`TownPauseMenuPresenter` toggles the pause panel from `MenuToggleRequested`, so the press that closes the
-menu never also opens the pause panel. It finds the reader through `LocalInputContext` (looked up every
-0.5 s until found, then followed through `ReaderChanged`). Only while no local reader exists, for example
-before the player spawns, does it fall back to reading the Escape key directly, so the logout escape hatch
-keeps working.
+`TownPlayerMenuPresenter` opens the Options tab from `MenuToggleRequested`, so Escape opens Options only when
+no other panel is open: the press that closes the menu or another panel never also opens Options, and the
+open is refused while any panel still holds an input-suppression token. While the menu is open Escape closes
+it from any tab. The old standalone pause menu (`TownPauseMenuPresenter`, `TownPauseMenuView` and the
+`TownPauseMenu` object in `Lobby-Town`) no longer exists; its logout sequence now lives in
+`TownOptionsPresenter`.
+
+Exit game calls `Application.Quit()` (`EditorApplication.ExitPlaymode()` in the Editor). Both actions are
+disabled while a logout is running.
 
 ## HUD while the menu is open
 
@@ -81,5 +91,8 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
 - The Abilities tab still needs display metadata on `AbilityDefinition`, a read-only catalog enumerator
   and a Town/Ready-gated equip endpoint (see `AbilitySystemArchitecture.md`).
 - `MissionBoardUI` still reads Escape (and its toggle key) through the legacy `Input` API, so closing the
-  Mission Board with Escape can also open the Town pause menu.
+  Mission Board with Escape can also open the Options tab.
+- Options is only reachable once the local player exists and its menu is bound. Before the player spawns,
+  or if the Town lifecycle fails to bind, there is no Escape-to-logout path; the standalone pause menu that
+  covered that case was removed.
 - The framed window uses placeholder colors; final art is authored in `TownPlayerMenu.prefab`.

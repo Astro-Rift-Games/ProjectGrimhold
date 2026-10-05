@@ -11,6 +11,7 @@ namespace Tests.EditMode.Presentation
         private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
         private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
         private const string MenuViewPath = "Assets/Prefabs/UI/PlayerUI/TownPlayerMenu.prefab";
+        private const string OptionsViewPath = "Assets/Prefabs/UI/PlayerUI/TownOptions.prefab";
 
         [Test]
         public void MenuViewPrefab_HasWindowTabBarContentAndTemplate()
@@ -79,6 +80,41 @@ namespace Tests.EditMode.Presentation
             Assert.That(
                 new SerializedObject(progression).FindProperty("_menu").objectReferenceValue,
                 Is.SameAs(menu));
+        }
+
+        [Test]
+        public void OptionsViewPrefab_HasLogoutAndExitButtons()
+        {
+            var view = AssetDatabase.LoadAssetAtPath<TownOptionsView>(OptionsViewPath);
+            Assert.That(view, Is.Not.Null);
+
+            var serialized = new SerializedObject(view);
+            Assert.That(serialized.FindProperty("_logoutButton").objectReferenceValue, Is.Not.Null);
+            Assert.That(serialized.FindProperty("_exitButton").objectReferenceValue, Is.Not.Null);
+        }
+
+        [Test]
+        public void SocialPlayer_WiresTheOptionsTabThroughTheBinder()
+        {
+            GameObject social = AssetDatabase.LoadAssetAtPath<GameObject>(SocialPlayerPath);
+            TownOptionsPresenter[] options = social.GetComponentsInChildren<TownOptionsPresenter>(true);
+            Assert.That(options, Has.Length.EqualTo(1));
+            Assert.That(
+                new SerializedObject(options[0]).FindProperty("_viewPrefab").objectReferenceValue,
+                Is.SameAs(AssetDatabase.LoadAssetAtPath<TownOptionsView>(OptionsViewPath)));
+
+            var binder = social.GetComponentInChildren<TownInventoryBinder>(true);
+            Assert.That(
+                new SerializedObject(binder).FindProperty("_optionsPresenter").objectReferenceValue,
+                Is.SameAs(options[0]));
+        }
+
+        [Test]
+        public void TownScene_NoLongerHasTheStandalonePauseMenu()
+        {
+            string scene = System.IO.File.ReadAllText("Assets/Scenes/Lobby-Town.unity");
+
+            Assert.That(scene, Does.Not.Contain("TownPauseMenu"));
         }
 
         [Test]

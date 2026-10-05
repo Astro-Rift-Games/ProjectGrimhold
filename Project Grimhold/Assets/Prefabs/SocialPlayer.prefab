@@ -1278,6 +1278,7 @@ GameObject:
   - component: {fileID: 2404112211900569815}
   - component: {fileID: 9100000000000000010}
   - component: {fileID: 8889365110912467133}
+  - component: {fileID: 8008320923748191077}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -1683,6 +1684,7 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _merchantPresenter: {fileID: 5930331051498512961}
   _menuPresenter: {fileID: 8889365110912467133}
+  _optionsPresenter: {fileID: 8008320923748191077}
 --- !u!114 &6500000000000000010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1803,6 +1805,19 @@ MonoBehaviour:
   _hudRoots:
   - {fileID: 6442764775396684237}
   - {fileID: 9100000000000000000}
+--- !u!114 &8008320923748191077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3853da661cd3f6e41a76f8b6d2d14f71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownOptionsPresenter
+  _viewPrefab: {fileID: 4938861417260816762, guid: ba17ee52591d56345b77f6e06e4f357e, type: 3}
 --- !u!1 &4839046221378639172
 GameObject:
   m_ObjectHideFlags: 0

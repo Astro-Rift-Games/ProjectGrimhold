@@ -21,6 +21,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     [SerializeField]
     private TownPlayerMenuPresenter _menuPresenter;
 
+    [SerializeField]
+    private TownOptionsPresenter _optionsPresenter;
+
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
@@ -126,6 +129,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         }
 
         _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
+        _optionsPresenter?.Unregister();
         _inventoryPresenter.Unbind();
         if (inputReader == null)
         {
@@ -148,6 +152,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
                 _inventoryPresenter.HostedContentRoot,
                 _inventoryPresenter.ShowHosted,
                 _inventoryPresenter.HideHosted));
+            _optionsPresenter?.Register(_menuPresenter);
             Transform uiParent = _inventoryPresenter.transform.parent != null
                 ? _inventoryPresenter.transform.parent
                 : _inventoryPresenter.transform;
@@ -199,6 +204,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         }
 
         _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
+        _optionsPresenter?.Unregister();
         _menuPresenter?.Unbind();
         _inventoryPresenter?.Unbind();
         if (_merchantPresenter != null)

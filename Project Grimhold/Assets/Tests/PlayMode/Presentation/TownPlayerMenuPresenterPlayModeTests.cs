@@ -20,10 +20,13 @@ namespace Tests.PlayMode.Presentation
         private PlayerInputReader _reader;
         private RectTransform _inventoryContent;
         private RectTransform _attributesContent;
+        private RectTransform _optionsContent;
         private int _inventoryShown;
         private int _inventoryHidden;
         private int _attributesShown;
         private int _attributesHidden;
+        private int _optionsShown;
+        private int _optionsHidden;
 
         [SetUp]
         public void SetUp()
@@ -42,7 +45,9 @@ namespace Tests.PlayMode.Presentation
             _uiParent = new GameObject("TownPlayerMenuCanvas", typeof(RectTransform), typeof(Canvas));
             _inventoryContent = new GameObject("InventoryContent", typeof(RectTransform)).GetComponent<RectTransform>();
             _attributesContent = new GameObject("AttributesContent", typeof(RectTransform)).GetComponent<RectTransform>();
+            _optionsContent = new GameObject("OptionsContent", typeof(RectTransform)).GetComponent<RectTransform>();
             _inventoryShown = _inventoryHidden = _attributesShown = _attributesHidden = 0;
+            _optionsShown = _optionsHidden = 0;
         }
 
         [TearDown]
@@ -53,6 +58,7 @@ namespace Tests.PlayMode.Presentation
             Object.DestroyImmediate(_uiParent);
             Object.DestroyImmediate(_inventoryContent != null ? _inventoryContent.gameObject : null);
             Object.DestroyImmediate(_attributesContent != null ? _attributesContent.gameObject : null);
+            Object.DestroyImmediate(_optionsContent != null ? _optionsContent.gameObject : null);
         }
 
         [Test]
@@ -184,6 +190,91 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void Escape_WhenClosedAndNoOtherPanelIsOpen_OpensTheOptionsTab()
+        {
+            BindWithBothTabs();
+            RegisterOptionsTab();
+
+            PressEscape();
+
+            Assert.That(_presenter.IsOpen, Is.True);
+            Assert.That(_presenter.SelectedTabId, Is.EqualTo(TownMenuTabIds.Options));
+            Assert.That(_optionsShown, Is.EqualTo(1));
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
+        }
+
+        [Test]
+        public void Escape_WhenOptionsIsOpen_ClosesTheMenu()
+        {
+            BindWithBothTabs();
+            RegisterOptionsTab();
+            PressEscape();
+
+            PressEscape();
+
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(_optionsHidden, Is.EqualTo(1));
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.False);
+        }
+
+        [Test]
+        public void Escape_WhileAnotherTabIsOpen_ClosesInsteadOfSwitchingToOptions()
+        {
+            BindWithBothTabs();
+            RegisterOptionsTab();
+            PressInventory();
+
+            PressEscape();
+
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(_optionsShown, Is.Zero);
+        }
+
+        [Test]
+        public void Escape_WhenAnotherPanelHoldsSuppression_DoesNotOpenOptions()
+        {
+            BindWithBothTabs();
+            RegisterOptionsTab();
+            using var otherPanel = _reader.AcquireGameplayInputSuppression();
+
+            PressEscape();
+
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(_optionsShown, Is.Zero);
+        }
+
+        [Test]
+        public void Escape_ConsumedByAnotherPanel_DoesNotOpenOptions()
+        {
+            BindWithBothTabs();
+            RegisterOptionsTab();
+            bool otherPanelOpen = true;
+            _reader.InventoryCloseRequested += () =>
+            {
+                bool consumed = otherPanelOpen;
+                otherPanelOpen = false;
+                return consumed;
+            };
+
+            PressEscape();
+            Assert.That(_presenter.IsOpen, Is.False, "The press that closes another panel must not open Options.");
+
+            PressEscape();
+            Assert.That(_presenter.SelectedTabId, Is.EqualTo(TownMenuTabIds.Options));
+            Assert.That(_presenter.IsOpen, Is.True);
+        }
+
+        [Test]
+        public void Escape_WithoutAnOptionsTab_DoesNothing()
+        {
+            BindWithBothTabs();
+
+            PressEscape();
+
+            Assert.That(_presenter.IsOpen, Is.False);
+        }
+
+        [Test]
         public void OpeningTheMenu_HidesRegisteredHudAndClosingRestoresIt()
         {
             var hud = new GameObject("Hud", typeof(RectTransform));
@@ -269,6 +360,18 @@ namespace Tests.PlayMode.Presentation
                 Object.DestroyImmediate(hud);
             }
         }
+
+        private void RegisterOptionsTab()
+        {
+            _presenter.RegisterTab(new TownMenuTabRegistration(
+                TownMenuTabIds.Options,
+                "Options",
+                _optionsContent,
+                () => _optionsShown++,
+                () => _optionsHidden++));
+        }
+
+        private void PressEscape() => InvokeReader("OnCloseInventoryPerformed");
 
         private void BindWithBothTabs()
         {

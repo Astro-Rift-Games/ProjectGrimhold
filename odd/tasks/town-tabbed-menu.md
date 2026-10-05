@@ -29,6 +29,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - [x] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
 - [x] T6 Hide Town HUD while the menu is open; party HUD only for an active party (companion present)
 - [x] T7 Escape owned by PlayerInputReader; pause menu follows MenuToggleRequested
+- [x] T8 Options tab replaces the Town pause menu; Escape opens it when no other panel is open
 - [x] T5 Docs + test updates (new TownPlayerMenuArchitecture.md; RaidInventoryUIArchitecture.md and ProgressionArchitecture.md updated; no existing test needed changes)
 
 ## Route declaration
@@ -47,6 +48,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 - T6 (user request): RED = CS1061 (`RegisterHud`) + new view/visibility tests. GREEN: EditMode 374 run (5 pre-existing failures only), PlayMode Presentation 95 run (12 pre-existing failures only; +4 new menu/HUD tests pass). Assumption: 'active party' = party with a companion (solo parties are auto-created for every player). `TownPartyLocalAuthorityPlayModeTests` assertion changed to expect a hidden HUD for solo; that Fusion test also fails identically on base 8ab041de (party not created in the test environment, line 62), so the changed assertion is not exercised yet.
 - Not committed on purpose: `TownPlayerMenu.prefab` layout tweak made in the Editor by the user.
 - T7 (Escape double handling): RED = 3 of 4 new `TownPauseMenuPresenterPlayModeTests` failed (pause ignored the reader). Fix: `TownPauseMenuPresenter` listens to `PlayerInputReader.MenuToggleRequested` via `LocalInputContext`, legacy polling only without a reader. GREEN: PlayMode Presentation 99 run, only the 12 pre-existing failures. Remaining: `MissionBoardUI` legacy Escape.
+- T8 (user request): RED = CS0117 (`TownMenuTabIds.Options`) then missing TownOptions types. GREEN: PlayMode Presentation 106 run (only the 12 pre-existing failures), EditMode 377 run (only the 5 pre-existing). Found by the new tests: restoring hosted content to its original parent on teardown logs 'Cannot set the parent ... being destroyed' (would also happen on SocialPlayer despawn); removed restoration, content is never moved back. Removed TownPauseMenuPresenter/View, their test and the TownPauseMenu object in Lobby-Town (scene re-serialization adds default Unity fields). Exit game = Application.Quit (ExitPlaymode in Editor) is new behavior inferred from the request. Known gap: no Escape-to-logout before the player binds.
 
 ## Next step
 Manual verification in the Town scene (Tab / C / tabs / Escape / equip / assign points), visual layout of hosted content inside the frame, Escape vs TownPauseMenuPresenter double handling. Then Abilities tab as a separate task.

@@ -5,8 +5,9 @@ public static class TownMenuTabIds
 {
     public const string Inventory = "inventory";
     public const string Attributes = "attributes";
+    public const string Options = "options";
 
-    private static readonly string[] OrderedIds = { Inventory, Attributes };
+    private static readonly string[] OrderedIds = { Inventory, Attributes, Options };
 
     public static IReadOnlyList<string> All => OrderedIds;
 }
