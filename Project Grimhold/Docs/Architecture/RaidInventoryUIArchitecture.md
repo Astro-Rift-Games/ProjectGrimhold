@@ -171,6 +171,14 @@ When `RaidInventoryPresenter` is in container looting mode (`ScreenMode.Containe
 
 On final suppression release (transition from 1 to 0 active tokens), movement and aim are read directly from current continuous controls. Any discrete action (attack or interaction) held at the moment of release sets a rearm requirement (`_interactRequiresRelease`). Physical release of the key clears the requirement regardless of suppression state, and only a subsequent physical press edge can be transported to Fusion. The same press that closes the container cannot reopen or execute a new interaction. Chests and defeated persistent players and enemies share this exact local presentation logic through their common `NetworkLootContainer` and `NetworkLootContainerInteractable` composition.
 
+## Town hosted mode
+
+In Town the personal-inventory screen is a tab of the Town player menu (`TownPlayerMenuArchitecture.md`).
+`TownInventoryBinder` binds with `BindTown(..., externallyHosted: true)` when a menu is wired. In that
+mode the presenter does not subscribe to Tab or Escape and does not acquire the input-suppression token;
+the menu owns both and drives the screen through `ShowHosted` and `HideHosted`. Raid binding and
+unwired Town binding are unchanged.
+
 ## Runner-scoped binding and lifecycle
 
 `LocalInputContext` is a local-only component created on the runner. It stores at most one active `PlayerInputReader`, notifies changes, and clears on shutdown. It contains no networked state, inventory knowledge, or general service registry. `FusionInputProvider` registers its serialized reader through the runner reference obtained by its existing lookup flow. Replacing that lookup is separate technical debt.

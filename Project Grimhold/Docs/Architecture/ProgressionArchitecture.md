@@ -275,6 +275,10 @@ The UI neither grants Level-up points nor mutates attributes optimistically. Att
 form part of the character state currently maintained by the process-local aggregate and are
 intended for durable persistence through the future backend integration.
 
+The attribute panel is a tab of the Town player menu (`TownPlayerMenuArchitecture.md`). The menu owns
+its hotkey, Escape handling and input-suppression token; the presenter only registers the tab and keeps
+the binding and assignment flow described above.
+
 ## Producer idempotency
 
 The ledger receives only a reward that its authoritative producer has already recognized
