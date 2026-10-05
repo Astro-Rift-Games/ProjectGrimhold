@@ -70,6 +70,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private LootContextActionContext _contextActionContext;
     private bool _gameplayMutationsBlocked;
     private bool _isRaidBinding;
+    private bool _isExternallyHosted;
     private bool _observedTownEquipmentCanMutate;
     private bool _isEquipmentContext;
     private EquipmentSlot _equipmentContextSlot;
@@ -167,12 +168,16 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     /// <summary>
     /// Binds the existing personal inventory screen to confirmed persistent Town state.
     /// Containers and Raid-only mutation endpoints remain unavailable.
+    /// When <paramref name="externallyHosted"/> is true, a host (the Town tabbed menu) owns the
+    /// open/close hotkeys and the input-suppression token and drives the screen through
+    /// <see cref="ShowHosted"/> and <see cref="HideHosted"/>.
     /// </summary>
     public void BindTown(
         IInventoryReadSource inventorySource,
         IPreparedEquipmentReadSource preparedEquipmentSource,
         ITownEquipmentMutationEndpoint equipmentEndpoint,
-        PlayerInputReader inputReader)
+        PlayerInputReader inputReader,
+        bool externallyHosted = false)
     {
         Unbind();
 
@@ -192,6 +197,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_townEquipActionProvider);
         _isRaidBinding = false;
+        _isExternallyHosted = externallyHosted;
         _observedTownEquipmentCanMutate = equipmentEndpoint.CanMutate;
         _view.SetContainerPanelVisible(false);
         _view.SetEquipmentPanelVisible(true);
@@ -219,9 +225,31 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _lastObservedInteractionSequence = 0;
         _gameplayMutationsBlocked = false;
         _isRaidBinding = false;
+        _isExternallyHosted = false;
         _observedTownEquipmentCanMutate = false;
         _isBound = false;
         ClearBindingReferences();
+    }
+
+    /// <summary>The inventory screen content a host reparents into its window.</summary>
+    public RectTransform HostedContentRoot => _view != null ? _view.ScreenRootRect : null;
+
+    /// <summary>Shows the personal inventory for a host that owns hotkeys and input suppression.</summary>
+    public void ShowHosted()
+    {
+        if (_isExternallyHosted)
+        {
+            OpenPersonalInventory();
+        }
+    }
+
+    /// <summary>Hides the personal inventory for a host that owns hotkeys and input suppression.</summary>
+    public void HideHosted()
+    {
+        if (_isExternallyHosted)
+        {
+            Close();
+        }
     }
 
     public void Close()
@@ -328,8 +356,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ? _interactionController.CurrentInteractionSequence
             : 0;
         _inventorySource.Changed += OnInventorySourceChanged;
-        _inputReader.InventoryToggleRequested += OnInventoryToggleRequested;
-        _inputReader.InventoryCloseRequested += OnInventoryCloseRequested;
+        if (!_isExternallyHosted)
+        {
+            _inputReader.InventoryToggleRequested += OnInventoryToggleRequested;
+            _inputReader.InventoryCloseRequested += OnInventoryCloseRequested;
+        }
         if (_contextActionProviders.Count > 0)
         {
             _view.PlayerPanel.ContextRequested += OnPlayerSlotContextRequested;
@@ -1568,6 +1599,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void EnsureInputSuppression()
     {
+        if (_isExternallyHosted)
+        {
+            return;
+        }
+
         if (_inputSuppression == null)
         {
             _inputSuppression = _inputReader.AcquireGameplayInputSuppression();

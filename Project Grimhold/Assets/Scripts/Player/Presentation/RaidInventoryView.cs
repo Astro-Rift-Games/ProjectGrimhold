@@ -89,6 +89,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
 
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
+
+    /// <summary>The screen content a host may reparent into its own window.</summary>
+    public RectTransform ScreenRootRect => _screenRoot != null ? _screenRoot.transform as RectTransform : null;
     public RaidLootPanelView PlayerPanel => _playerPanel;
     public RaidLootPanelView ContainerPanel => _containerPanel;
 

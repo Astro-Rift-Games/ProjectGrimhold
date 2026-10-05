@@ -25,7 +25,7 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 ## Tasks
 - [x] T1 `TownMenuTabState` pure logic + EditMode tests
 - [ ] T2 Shell view/presenter + `TownPlayerMenu.prefab`, wired from `TownInventoryBinder`
-- [ ] T3 Inventory hosting mode in `RaidInventoryPresenter.BindTown`
+- [x] T3 Inventory hosting mode in `RaidInventoryPresenter.BindTown`
 - [ ] T4 Attributes hosting (`TownAttributeAssignmentPresenter` / view)
 - [ ] T5 Docs + test updates
 
@@ -36,6 +36,9 @@ Inventory (Tab) and Attributes (C) are separate overlays, each with its own Canv
 ## Progress / evidence
 - T1 RED observed: scratchpad `dotnet test` harness failed to compile (`TownMenuTabState` missing). GREEN observed: 11 passed, 0 failed. Unity Test Runner EditMode (UnityMCP bridge connected later): 11/11 passed, 0 failed.
 - T1 review: `gentle-ai review assess --base-ref 8ab041de --committed-only` -> medium, `review_due: false` (`under_budget`). A separate workspace candidate (`.claude/settings.json`, user's pre-existing change, not part of this feature) got the consent prompt; the user chose "Skip this time" (`declined_this_candidate`).
+
+- T3 RED observed in Unity (CS1739 `externallyHosted`, CS1061 `ShowHosted`/`HideHosted`). GREEN: PlayMode TownInventoryPresenterPlayModeTests + RaidInventoryPresenterInteractionTests 44/44 passed (route: inline; 2 non-trivial files, planned writer delegation skipped because the design was already fully resolved in the parent).
+- Decision: framed window (user choice), shell instantiated by a presenter on SocialPlayer, content reparented at runtime (`RaidInventoryView.ScreenRootRect`, attributes view root).
 
 ## Next step
 T2 shell view/presenter. Read `TownInventoryBinder.cs`, `PlayerInputReader.cs` suppression/Escape API and `SocialPlayer.prefab` canvas first.

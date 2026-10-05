@@ -70,6 +70,38 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void TownBinding_ExternallyHosted_IgnoresOwnHotkeysAndTakesNoSuppression()
+        {
+            _presenter.BindTown(_source, _source, _source, _reader, externallyHosted: true);
+
+            InvokeReader("OnToggleInventoryPerformed");
+            Assert.That(_presenter.IsOpen, Is.False, "The host owns the Tab hotkey.");
+
+            _presenter.ShowHosted();
+            Assert.That(_presenter.IsOpen, Is.True);
+            Assert.That(_view.IsOpen, Is.True);
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.False, "The host owns the suppression token.");
+
+            InvokeReader("OnCloseInventoryPerformed");
+            Assert.That(_presenter.IsOpen, Is.True, "The host owns the Escape handling.");
+
+            _presenter.HideHosted();
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(_view.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void TownBinding_NotHosted_KeepsOwnHotkeyAndSuppression()
+        {
+            _presenter.BindTown(_source, _source, _source, _reader);
+
+            InvokeReader("OnToggleInventoryPerformed");
+
+            Assert.That(_presenter.IsOpen, Is.True);
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
+        }
+
+        [Test]
         public void TownBinding_ProjectsEightPreparedSlotsAndAppliesReadyGate()
         {
             _source.PreparedEquipment = new PreparedEquipmentLoadout(
@@ -120,6 +152,15 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(_view.ContextMenu.IsOpen, Is.True);
             Assert.That(_view.ContextMenu.CurrentAnchor, Is.SameAs(helmet));
+        }
+
+        private void InvokeReader(string methodName)
+        {
+            MethodInfo method = typeof(PlayerInputReader).GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(_reader, new object[] { default(UnityEngine.InputSystem.InputAction.CallbackContext) });
         }
 
         private void InvokePresenter(string methodName)
