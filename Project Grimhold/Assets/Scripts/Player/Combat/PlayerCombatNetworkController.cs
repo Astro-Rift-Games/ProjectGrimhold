@@ -39,9 +39,16 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private IAttack _activeAttack;
     private bool _dependenciesValid;
     private NetworkMatchController _matchController;
+    private NetworkSpawnManager _spawnManager;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
     private int _lastObservedSequence;
+    private bool _resumePendingPresentation;
+    private IProjectileSpawner _releaseSpawner;
+
+    [Networked] private RangedAttackRelease PendingRangedRelease { get; set; }
+    [Networked] private int LastAttackReleaseTick { get; set; }
+    [Networked] private int LastAttackCancellationTick { get; set; }
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
     [Networked]
@@ -82,9 +89,12 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private int CombatFeedbackSequence { get; set; }
 
     /// <summary>
-    /// Local event raised during Render when a successful attack execution is detected in the simulation.
+    /// Local event raised during Render for successful melee execution or confirmed ranged acceptance.
     /// </summary>
     public event Action<AttackPerformedEvent> AttackPerformed;
+
+    // Reconstruct an in-flight wind-up on spawn/migration without replaying attack-start audio.
+    public event Action<AttackPerformedEvent> AttackPresentationResumed;
 
     /// <summary>
     /// Local event raised during Render for authoritative combat feedback addressed
@@ -106,7 +116,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     {
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
-        _matchController = Runner.GetComponent<NetworkMatchController>();
+        _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        _matchController = _spawnManager != null ? _spawnManager.MatchController : Runner.GetComponent<NetworkMatchController>();
         _lastObservedPhase = _matchController != null
             ? _matchController.Phase
             : NetworkMatchController.MatchPhase.InProgress;
@@ -114,6 +125,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         // Initialize the local observed sequence with the current network sequence
         // to prevent triggering events from attacks performed before this proxy spawned.
         _lastObservedSequence = AttackSequence;
+        _resumePendingPresentation = PendingRangedRelease.Pending;
         _pendingFeedbackEvents.Clear();
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
@@ -121,6 +133,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             HasActiveAttack = _activeAttack != null;
             AttackCooldown = TickTimer.None;
             AttackCooldownDurationSeconds = 0f;
+            PendingRangedRelease = default;
+            LastAttackReleaseTick = -1;
+            LastAttackCancellationTick = -1;
             IsAttackEnabled = _matchController == null ||
                               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         }
@@ -133,6 +148,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
+        // Restore order may spawn the avatar before the match object; resolve again before ticking.
+        _matchController ??= _spawnManager != null ? _spawnManager.MatchController : Runner.GetComponent<NetworkMatchController>();
         bool gameplayPhaseActive = _matchController == null ||
                                     _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         if (HasStateAuthority && _matchController != null &&
@@ -146,7 +163,16 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             ? _matchController.Phase
             : NetworkMatchController.MatchPhase.InProgress;
 
-        // Read input from Fusion. If no input is available for this tick, exit immediately.
+        // Pending work is authority-only, forward-only, and independent of input/current equipment.
+        if (HasStateAuthority && Runner.IsForward)
+        {
+            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+                CancelPendingRelease();
+            else
+                AdvancePendingRelease();
+        }
+
+        // Input absence must not stall an already accepted release.
         if (!GetInput(out PlayerNetworkInput input))
         {
             return;
@@ -177,7 +203,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         PreviousButtons = currentButtons;
 
         // Only State Authority decides and executes the authoritative attack strategy.
-        if (!HasStateAuthority)
+        if (!HasStateAuthority || !Runner.IsForward)
         {
             return;
         }
@@ -214,20 +240,20 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
-        // Detect changes in the attack sequence to notify the local presentation layer
-        if (AttackSequence != _lastObservedSequence)
+        // Use the projectile timeframe even on an Input-Authority client (player movement is predicted,
+        // projectiles are not). Do not present an acceptance ahead of that render timeline.
+        AttackPerformedEvent performedEvent = GetLastAttackEvent();
+        if ((AttackSequence != _lastObservedSequence || _resumePendingPresentation) &&
+            (!performedEvent.HasReleaseTimeline || GetAttackElapsedSeconds(performedEvent) >= 0f))
         {
-            AttackPerformedEvent performedEvent = new AttackPerformedEvent(
-                _character.Id,
-                (AttackType)LastAttackTypeValue,
-                LastAttackOrigin,
-                LastAttackDirection,
-                LastAttackTick,
-                LastAttackWeaponCatalogIndexPlusOne
-            );
-
-            AttackPerformed?.Invoke(performedEvent);
+            bool resume = _resumePendingPresentation && AttackSequence == _lastObservedSequence;
+            _resumePendingPresentation = false;
             _lastObservedSequence = AttackSequence;
+            if (!performedEvent.HasReleaseTimeline || TryGetAttackPresentationSeconds(performedEvent, out _))
+            {
+                if (resume) AttackPresentationResumed?.Invoke(performedEvent);
+                else AttackPerformed?.Invoke(performedEvent);
+            }
         }
 
         if (_character != null && !_character.IsAlive)
@@ -321,9 +347,24 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         );
 
         IAttack executedAttack = _activeAttack;
-        AttackResult result = executedAttack.Execute(in request);
+        bool accepted;
+        int releaseTick = -1;
+        if (executedAttack is RangedAttack rangedAttack)
+        {
+            RangedAttackRelease release = default;
+            accepted = _releaseSpawner != null &&
+                rangedAttack.TryAcceptRelease(request, Runner.DeltaTime, out release);
+            if (!accepted) return;
+            // Capture all projectile data before the shared executor can be reconfigured.
+            PendingRangedRelease = release;
+            releaseTick = release.ReleaseTick;
+        }
+        else
+        {
+            accepted = executedAttack.Execute(in request).WasExecuted;
+        }
 
-        if (result.WasExecuted)
+        if (accepted)
         {
             float cooldownSeconds = executedAttack.CooldownSeconds;
             AttackCooldownDurationSeconds = cooldownSeconds;
@@ -340,13 +381,63 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             LastAttackDirection = request.Direction;
             LastAttackTypeValue = (int)executedAttack.Type;
             LastAttackTick = request.SimulationTick;
+            LastAttackReleaseTick = releaseTick;
+            LastAttackCancellationTick = -1;
             LastAttackWeaponCatalogIndexPlusOne = _equipmentController != null
                 ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
                 : 0;
             
             // Increment sequence last to ensure correct replication of all related fields
             AttackSequence++;
+            // Zero-delay configurations retain same-tick release, still through consume-before-spawn.
+            AdvancePendingRelease();
         }
+    }
+
+    private void AdvancePendingRelease()
+    {
+        RangedAttackRelease release = PendingRangedRelease;
+        if (!release.Pending || Runner.Tick < release.ReleaseTick) return;
+        bool valid = release.TryConsume(Runner.Tick, _character.Id, _attackOrigin.position, out ProjectileSpawnRequest request);
+        PendingRangedRelease = release; // Commit consumption BEFORE the irreversible spawn, even on failure.
+        // A throwing adapter must also leave a consumed/cancelled shot; do not hide its exception.
+        LastAttackCancellationTick = Runner.Tick;
+        if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+            LastAttackCancellationTick = -1;
+    }
+
+    private void CancelPendingRelease()
+    {
+        RangedAttackRelease release = PendingRangedRelease;
+        if (!release.Pending) return;
+        release.Cancel();
+        PendingRangedRelease = release;
+        LastAttackCancellationTick = Runner.Tick;
+        // AttackCooldown and its duration are deliberately untouched.
+    }
+
+    private AttackPerformedEvent GetLastAttackEvent() => new AttackPerformedEvent(
+        _character.Id, (AttackType)LastAttackTypeValue, LastAttackOrigin, LastAttackDirection,
+        LastAttackTick, LastAttackWeaponCatalogIndexPlusOne, AttackSequence, LastAttackReleaseTick,
+        LastAttackReleaseTick >= LastAttackTick ? (LastAttackReleaseTick - LastAttackTick) * Runner.DeltaTime : 0f);
+
+    private double AttackRenderTime => HasStateAuthority ? Runner.LocalRenderTime : Runner.RemoteRenderTime;
+
+    private float GetAttackElapsedSeconds(in AttackPerformedEvent attack) =>
+        AttackTiming.ElapsedSeconds(AttackRenderTime, attack.SimulationTick, Runner.DeltaTime);
+
+    /// <summary>One confirmed ranged clock shared by animation/stringing/VFX, never receipt-relative.</summary>
+    public bool TryGetAttackPresentationSeconds(in AttackPerformedEvent attack, out float seconds)
+    {
+        seconds = 0f;
+        if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
+            attack.Sequence != _lastObservedSequence || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+            return false;
+        seconds = GetAttackElapsedSeconds(attack);
+        // A newer received snapshot may still be ahead of the remote render clock. It must not
+        // prematurely replace the currently observed attack or apply another sequence's cancellation.
+        return seconds >= 0f && (attack.Sequence != AttackSequence || LastAttackCancellationTick < 0 ||
+            AttackRenderTime < (double)LastAttackCancellationTick * Runner.DeltaTime);
     }
 
     private AttackFailureReason GetPrimaryAttackFailureReason()
@@ -361,6 +452,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         {
             return AttackFailureReason.ControlDisabled;
         }
+
+        if (PendingRangedRelease.Pending) return AttackFailureReason.CooldownActive;
 
         return AttackCooldown.ExpiredOrNotRunning(Runner)
             ? AttackFailureReason.None
@@ -417,6 +510,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
 
         IsAttackEnabled = enabled;
+        if (!enabled) CancelPendingRelease();
         return true;
     }
 
@@ -480,6 +574,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         _activeAttack = _activeAttackSource as IAttack;
         _equipmentController ??= GetComponent<PlayerWeaponEquipmentNetworkController>();
+        _releaseSpawner ??= GetComponent<IProjectileSpawner>();
 
         if (_attackOrigin == null)
         {

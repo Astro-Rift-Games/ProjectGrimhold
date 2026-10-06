@@ -35,19 +35,19 @@ public sealed class RangedAttackConfig : AttackConfig
             return false;
         }
 
-        if (_projectileSpeed <= 0f)
+        if (!AttackTiming.IsFinite(_projectileSpeed) || _projectileSpeed <= 0f)
         {
             error = $"{nameof(ProjectileSpeed)} must be greater than zero (current: {_projectileSpeed}).";
             return false;
         }
 
-        if (_lifetimeSeconds <= 0f)
+        if (!AttackTiming.IsFinite(_lifetimeSeconds) || _lifetimeSeconds <= 0f)
         {
             error = $"{nameof(LifetimeSeconds)} must be greater than zero (current: {_lifetimeSeconds}).";
             return false;
         }
 
-        if (_projectileSpawnOffset < 0f)
+        if (!AttackTiming.IsFinite(_projectileSpawnOffset) || _projectileSpawnOffset < 0f)
         {
             error = $"{nameof(ProjectileSpawnOffset)} must be greater than or equal to zero (current: {_projectileSpawnOffset}).";
             return false;

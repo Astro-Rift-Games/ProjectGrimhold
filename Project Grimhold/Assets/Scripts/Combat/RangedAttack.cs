@@ -29,6 +29,14 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     public float CooldownSeconds => _runtimeParameters.CooldownSeconds;
     public AttackInputMode InputMode => _config != null ? _config.InputMode : AttackInputMode.Press;
 
+    /// <summary>Captures a player wind-up without spawning. Executor reconfiguration cannot mutate it.</summary>
+    public bool TryAcceptRelease(in AttackRequest request, float deltaTime, out RangedAttackRelease release)
+    {
+        release = default;
+        return (_isValid || TryInitialize()) &&
+            release.TryAccept(request, _config, _runtimeParameters, deltaTime);
+    }
+
     private void Awake()
     {
         _runtimeParameters = _defaultParameters;
@@ -117,14 +125,12 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
         }
 
         // Validate attack direction
-        if (request.Direction.sqrMagnitude < 0.0001f)
+        if (!AttackTiming.IsFinite(request.Origin) ||
+            !PlayerAimMath.TryNormalizeDirection(request.Direction, out Vector2 normalizedDirection))
         {
             return AttackResult.Rejected(
                 AttackFailureReason.InvalidDirection);
         }
-
-        Vector2 normalizedDirection =
-            request.Direction.normalized;
 
         Vector2 projectileOrigin =
             request.Origin +
@@ -142,7 +148,9 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
                 _config.LifetimeSeconds,
                 _runtimeParameters.Range,
                 request.SimulationTick,
-                _runtimeParameters.KnockbackForce);
+                _runtimeParameters.KnockbackForce,
+                _config.ProjectilePrefab,
+                _config.ImpactLayerMask.value);
 
         ProjectileSpawnResult spawnResult =
             _projectileSpawner.Spawn(in spawnRequest);

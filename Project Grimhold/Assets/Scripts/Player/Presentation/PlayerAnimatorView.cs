@@ -35,6 +35,12 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private DirectionalAttackAnimationSet _activeAttackSet;
     private LootDefinition _confirmedAttackWeapon;
     private bool _attackWeaponPinned;
+    private bool _hasTimedAttack;
+    private AttackPerformedEvent _timedAttack;
+    private AnimationClip _timedAttackClip;
+    private float _authoredReleaseSeconds;
+    private static readonly int AttackStateHash = Animator.StringToHash("RightHand.Attack");
+    private static readonly int IdleStateHash = Animator.StringToHash("RightHand.RightHand-Idle");
     private readonly List<AnimatorClipInfo> _attackClipBuffer = new List<AnimatorClipInfo>(2);
 
     public bool TryGetPresentedAttackWeapon(out LootDefinition definition)
@@ -50,6 +56,12 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     public bool TryGetPresentedAttackSeconds(out float seconds)
     {
         seconds = 0f;
+        if (_hasTimedAttack)
+        {
+            if (!_combatController.TryGetAttackPresentationSeconds(_timedAttack, out float elapsed)) return false;
+            seconds = AttackTiming.ClipSeconds(elapsed, _timedAttack.ScheduledWindupSeconds, _authoredReleaseSeconds);
+            return _timedAttackClip != null && seconds < _timedAttackClip.length;
+        }
         WeaponDefinition weapon = _attackWeaponPinned && _confirmedAttackWeapon != null
             ? _confirmedAttackWeapon.WeaponDefinition : null;
         DirectionalAttackAnimationSet attackSet = weapon != null ? weapon.Presentation.AttackAnimationSet : null;
@@ -117,6 +129,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _confirmedAttackWeapon = null;
         _attackWeaponPinned = false;
         _hasObservedAttackState = false;
+        _hasTimedAttack = false;
+        _timedAttackClip = null;
         base.OnDisable();
         ResetVisualPositionSample();
     }
@@ -137,7 +151,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             playbackRate);
 
         RefreshCombatParameters();
-        RefreshAttackFacingLifetime();
+        if (_hasTimedAttack) RefreshTimedAttack();
+        else RefreshAttackFacingLifetime();
     }
 
     protected override void CacheDependencies()
@@ -160,6 +175,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         if (_subscribedCombatController != null)
         {
             _subscribedCombatController.AttackPerformed += OnAttackPerformed;
+            _subscribedCombatController.AttackPresentationResumed += OnAttackPerformed;
         }
     }
 
@@ -168,6 +184,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         if (_subscribedCombatController != null)
         {
             _subscribedCombatController.AttackPerformed -= OnAttackPerformed;
+            _subscribedCombatController.AttackPresentationResumed -= OnAttackPerformed;
             _subscribedCombatController = null;
         }
     }
@@ -179,6 +196,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             return;
         }
 
+        _hasTimedAttack = false;
+        _timedAttackClip = null;
         _attackWeaponPinned = _equipmentSource != null &&
             _equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
                 attackEvent.WeaponCatalogIndexPlusOne, out _confirmedAttackWeapon);
@@ -189,7 +208,47 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         RefreshAttackAnimation();
         ApplyTemporalFacingDirection(attackEvent.Direction);
         _hasObservedAttackState = false;
-        TriggerAttack();
+        if (attackEvent.HasReleaseTimeline && _attackWeaponPinned && _activeWeapon.Presentation.HasGenericAttack)
+        {
+            CharacterVisualDirection facing = CharacterVisualDirectionResolver.Resolve(attackEvent.Direction);
+            int index = facing switch
+            {
+                CharacterVisualDirection.North => 0, CharacterVisualDirection.NorthEast => 1,
+                CharacterVisualDirection.NorthWest => 2, CharacterVisualDirection.South => 3,
+                CharacterVisualDirection.SouthEast => 4, _ => 5
+            };
+            _timedAttack = attackEvent;
+            _timedAttackClip = _activeWeapon.Presentation.GetAttackClip(index);
+            _authoredReleaseSeconds = _activeWeapon.RangedReleaseSeconds;
+            _hasTimedAttack = true;
+            AnimatorInstance.ResetTrigger("OnAttack");
+            RefreshTimedAttack();
+        }
+        else
+        {
+            TriggerAttack(); // Melee and non-scheduled legacy consumers retain their trigger route.
+        }
+    }
+
+    private void RefreshTimedAttack()
+    {
+        if (_mainHandCombatLayerIndex < 0) CacheCombatLayerIndex();
+        if (_mainHandCombatLayerIndex < 0) return;
+        if (!TryGetPresentedAttackSeconds(out float seconds))
+        {
+            _hasTimedAttack = false;
+            _timedAttackClip = null;
+            _confirmedAttackWeapon = null;
+            _attackWeaponPinned = false;
+            ClearTemporalFacingDirection();
+            AnimatorInstance.Play(IdleStateHash, _mainHandCombatLayerIndex, 0f);
+            RefreshAttackAnimation();
+            return;
+        }
+        // Absolute phase on every observation, including late joins and migrated wind-ups.
+        // The main-hand layer alone is sought; locomotion and off-hand defense keep running.
+        AnimatorInstance.Play(AttackStateHash, _mainHandCombatLayerIndex, seconds / _timedAttackClip.length);
+        AnimatorInstance.Update(0f);
     }
 
     private void RefreshCombatParameters()

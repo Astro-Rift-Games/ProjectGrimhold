@@ -7,6 +7,7 @@ using Fusion;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEditor;
 using Assert = NUnit.Framework.Assert;
 using Object = UnityEngine.Object;
 
@@ -33,6 +34,7 @@ namespace Tests.PlayMode.Combat
         private static readonly MethodInfo CacheDependenciesMethod =
             GetMethod("CacheDependencies");
 
+        private static readonly PropertyInfo PendingReleaseProperty = GetProperty("PendingRangedRelease");
         private NetworkRunner _runner;
         private PlayerCombatInputDriver _inputDriver;
         private PlayerCombatStrategySimulationDriver _strategyDriver;
@@ -268,6 +270,145 @@ namespace Tests.PlayMode.Combat
                 (Vector2)LastAttackDirectionProperty.GetValue(combatController);
             Assert.That(attackDirection.x, Is.GreaterThan(0.99f));
             Assert.That(Mathf.Abs(attackDirection.y), Is.LessThan(0.1f));
+        }
+
+        [UnityTest]
+        public IEnumerator RangedWindup_AdvancesWithoutInputOrActiveStrategyAndKeepsAcceptedPayload()
+        {
+            yield return StartRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            RangedAttack ranged = ConfigureScheduledAttack(player, 0.6f, 0.05f, out RecordingProjectileSpawner spawner);
+            yield return SetStrategy(combat, ranged, true);
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
+            RangedAttackRelease accepted = ReadPending(combat);
+            int sequence = ReadAttackSequence(combat);
+            Vector2 acceptanceOrigin = spawner.AttackOrigin.position;
+            Assert.That(spawner.Count, Is.Zero);
+            _inputDriver.AimWorldPosition = Vector2.left * 10f;
+            _inputDriver.MoveDirection = Vector2.up;
+            yield return PressAttackForFrames(combat, 4);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence), "An expired cooldown must not overwrite wind-up.");
+            Assert.That(ReadPending(combat).ReleaseTick, Is.EqualTo(accepted.ReleaseTick));
+
+            // This is the same shared-executor reconfiguration path used by an Equipment switch.
+            var config = AssetDatabase.LoadAssetAtPath<RangedAttackConfig>("Assets/Scriptable Objects/RangePlayerAttackConfig.asset");
+            Assert.That(ranged.TryConfigure(config, new AttackExecutionParameters(99f, DamageType.Magical, 0f, 12f, 8f)), Is.True);
+            yield return ClearStrategy(combat, true);
+            _inputDriver.MoveDirection = Vector2.zero;
+            _runner.ProvideInput = false;
+            yield return WaitUntil(() => spawner.Count == 1, "Missing input/strategy stalled the accepted deadline.");
+            Assert.That(spawner.WasAuthoritativeForward, Is.True);
+            Assert.That(spawner.LastRequest.SimulationTick, Is.EqualTo(accepted.ReleaseTick));
+            Assert.That(spawner.LastRequest.Direction.x, Is.GreaterThan(0.99f));
+            Assert.That(spawner.LastRequest.Damage, Is.EqualTo(28f));
+            Assert.That(spawner.LastRequest.DamageType, Is.EqualTo(DamageType.Physical));
+            Assert.That(spawner.LastRequest.MaximumRange, Is.EqualTo(6f));
+            Assert.That(spawner.LastRequest.Origin,
+                Is.EqualTo(spawner.OriginAtSpawn + spawner.LastRequest.Direction * accepted.SpawnOffset));
+            Assert.That(spawner.OriginAtSpawn.y, Is.GreaterThan(acceptanceOrigin.y), "Release must sample the moved authoritative origin.");
+            for (int i = 0; i < 12; i++) yield return null;
+            Assert.That(spawner.Count, Is.EqualTo(1));
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator RangedWindup_DisableDownedAndDeathCancelWithoutRefundingCooldown()
+        {
+            yield return StartRunner();
+            for (int cancellation = 0; cancellation < 3; cancellation++)
+            {
+                LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+                NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.right * cancellation * 3f);
+                var combat = player.GetComponent<PlayerCombatNetworkController>();
+                RangedAttack ranged = ConfigureScheduledAttack(player, 0.45f, 1.5f, out RecordingProjectileSpawner spawner);
+                yield return SetStrategy(combat, ranged, true);
+                yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
+                TickTimer cooldown = ReadCooldown(combat);
+                int deadline = ReadPending(combat).ReleaseTick;
+                if (cancellation == 0) yield return SetAttackEnabled(combat, false, true);
+                else
+                {
+                    if (cancellation == 2)
+                    {
+                        // Existing seam disables Downed entry to exercise definitive death directly.
+                        var downed = player.GetComponent<PlayerDownedStateNetworkController>();
+                        typeof(PlayerDownedStateNetworkController).GetProperty("TestDisableEntry",
+                            BindingFlags.Instance | BindingFlags.NonPublic).SetValue(downed, true);
+                    }
+                    yield return DefeatCharacter(player.GetComponent<PlayerCharacter>(), cancellation == 2);
+                    Assert.That(PlayerDownedGate.IsDowned(player.GetComponent<PlayerCharacter>()), Is.EqualTo(cancellation == 1));
+                }
+                yield return WaitUntil(() => !(bool)ReadPending(combat).Pending, "Cancellation did not clear wind-up.");
+                Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+                Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+                yield return WaitUntil(() => (int)_runner.Tick > deadline + 2, "Runner did not cross cancelled deadline.");
+                Assert.That(spawner.Count, Is.Zero);
+                _runner.Despawn(player);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RangedWindup_FailedSpawnConsumesAttemptAndCannotReplay()
+        {
+            yield return StartRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            RangedAttack ranged = ConfigureScheduledAttack(player, 0.2f, 1f, out RecordingProjectileSpawner spawner);
+            spawner.Succeeds = false;
+            AttackPerformedEvent observed = default;
+            combat.AttackPerformed += attack => observed = attack;
+            yield return SetStrategy(combat, ranged, true);
+            yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
+            yield return WaitUntil(() => spawner.Count == 1, "Release attempt did not reach spawner.");
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(observed.HasReleaseTimeline, Is.True);
+            Assert.That(combat.TryGetAttackPresentationSeconds(observed, out _), Is.False,
+                "A failed release must stop presentation as well as consume simulation state.");
+            for (int i = 0; i < 12; i++) yield return null;
+            Assert.That(spawner.Count, Is.EqualTo(1));
+        }
+
+        private static RangedAttackRelease ReadPending(PlayerCombatNetworkController combat) =>
+            (RangedAttackRelease)PendingReleaseProperty.GetValue(combat);
+
+        private static RangedAttack ConfigureScheduledAttack(NetworkObject player, float delay, float cooldown,
+            out RecordingProjectileSpawner spawner)
+        {
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            spawner = player.gameObject.AddComponent<RecordingProjectileSpawner>();
+            spawner.Combat = combat;
+            spawner.AttackOrigin = (Transform)GetField("_attackOrigin").GetValue(combat);
+            GetField("_releaseSpawner").SetValue(combat, spawner);
+            RangedAttack ranged = player.GetComponent<RangedAttack>();
+            typeof(RangedAttack).GetField("_projectileSpawnerSource", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(ranged, spawner);
+            var config = AssetDatabase.LoadAssetAtPath<RangedAttackConfig>("Assets/Scriptable Objects/RangePlayerAttackConfig.asset");
+            Assert.That(ranged.TryConfigure(config, new AttackExecutionParameters(28f, DamageType.Physical, cooldown, 6f, 3f, delay)), Is.True);
+            return ranged;
+        }
+
+        private sealed class RecordingProjectileSpawner : MonoBehaviour, IProjectileSpawner
+        {
+            public PlayerCombatNetworkController Combat;
+            public Transform AttackOrigin;
+            public bool Succeeds = true;
+            public int Count;
+            public bool WasAuthoritativeForward;
+            public Vector2 OriginAtSpawn;
+            public ProjectileSpawnRequest LastRequest;
+            public ProjectileSpawnResult Spawn(in ProjectileSpawnRequest request)
+            {
+                Count++;
+                OriginAtSpawn = AttackOrigin.position;
+                WasAuthoritativeForward = Combat.HasStateAuthority && Combat.Runner.IsForward;
+                LastRequest = request;
+                Assert.That((bool)ReadPending(Combat).Pending, Is.False, "Consume must commit before spawn.");
+                return new ProjectileSpawnResult(Succeeds);
+            }
         }
 
         private IEnumerator StartRunner()

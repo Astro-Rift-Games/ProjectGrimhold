@@ -137,6 +137,34 @@ clamp, regenerate or consume the copied resource. After fixup it derives
 restore spawns (`HostMigrationRestoreUtility.IsRestoreSpawn`), so a Downed avatar resumes draining from
 the copied reserve on the new Host.
 
+### Accepted ranged release restoration
+
+`PlayerCombatNetworkController` copies its `RangedAttackRelease` network value with the avatar:
+pending flag, absolute release tick, locked direction and committed projectile prefab/mask/offset,
+speed/lifetime, damage/type, range and knockback. Cooldown, original weapon catalog identity,
+acceptance/release/cancellation ticks and sequence are networked too. The restore-spawn guard
+skips fresh initialization; `CopyStateFrom` is the restoration mechanism, not local executor state.
+Equipment may rebuild or clear its strategy before participant reference fixups finish, but that
+cannot overwrite the pending shot. The first forward authoritative tick revalidates death, Downed,
+combat enablement and the restored gameplay phase, then consumes a due shot independently of input.
+The combat boundary retries resolving the match controller because dynamic restoration order may
+spawn the avatar first. Restore and reference fixups are synchronous before normal simulation.
+
+The pending shot belongs structurally to its containing avatar. It stores no old EntityId or
+NetworkObject reference to remap: release uses that avatar's current `CharacterBase.Id` and current
+AttackOrigin after restoration. It does not resolve the currently equipped weapon to rebuild payload.
+The deadline is preserved exactly in Fusion's resumed tick domain, not restarted by wall time.
+Consumption commits the network pending flag before attempting spawn; a snapshot with a consumed
+flag cannot replay it, including on spawn failure. Existing projectile restoration/remapping remains
+unchanged. This guarantee is relative to the received migration snapshot: Fusion's periodic snapshot
+cannot preserve attacks/projectiles committed after that snapshot, and this change adds no durable
+history beyond Fusion recovery state.
+
+Presentation baselines completed sequences and reconstructs only a saved pending wind-up at its
+confirmed elapsed phase, through a presentation-only resume event without repeating attack-start
+audio. Animator state and mutable shared executor config are neither copied nor required for release.
+Real multi-process migration during wind-up and immediately after consumption remains unvalidated.
+
 Known limitation: a Downed player who is also disconnected during migration is not covered. The
 disconnect-retention path (`RaidDefeatAndSpectatorArchitecture.md`, "Player departure") is runtime-only
 Host bookkeeping and is not part of the snapshot, so recovery eligibility for that participant follows

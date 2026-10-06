@@ -1,0 +1,8 @@
+{
+  "model_profiles": {
+    "unity-operator": {
+      "model": "openai-codex/gpt-6.1-sol",
+      "effort": "high"
+    }
+  }
+}

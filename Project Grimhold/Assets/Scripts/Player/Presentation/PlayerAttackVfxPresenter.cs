@@ -23,6 +23,8 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     private bool _pending;
     private bool _observed;
     private float _pendingSince;
+    private AttackPerformedEvent _attack;
+    private float _lastSampleSeconds;
     private readonly List<AnimatorClipInfo> _clipBuffer = new List<AnimatorClipInfo>(2);
 
     private void OnEnable()
@@ -38,6 +40,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         }
         _subscribedCombat = _combatController;
         _subscribedCombat.AttackPerformed += OnAttackPerformed;
+        _subscribedCombat.AttackPresentationResumed += OnAttackPerformed;
         Clear();
     }
 
@@ -46,6 +49,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         if (_subscribedCombat != null)
         {
             _subscribedCombat.AttackPerformed -= OnAttackPerformed;
+            _subscribedCombat.AttackPresentationResumed -= OnAttackPerformed;
             _subscribedCombat = null;
         }
         Clear();
@@ -54,7 +58,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     private void OnAttackPerformed(AttackPerformedEvent attack)
     {
         Clear();
-        if (!_character.IsAlive || !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
+        if (!_character.IsAlive || PlayerDownedGate.IsDowned(_character) || !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
             attack.WeaponCatalogIndexPlusOne, out LootDefinition loot))
         {
             return;
@@ -76,7 +80,9 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             _ => 5
         };
         _attackClip = presentation.GetAttackClip(index);
-        if (_attackClip == null || _attackClip.length < vfx.StartSeconds + vfx.Clip.length ||
+        float start = attack.HasReleaseTimeline
+            ? loot.WeaponDefinition.RangedReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
+        if (_attackClip == null || start < 0f || _attackClip.length < start + vfx.Clip.length ||
             !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose))
         {
             Clear();
@@ -87,18 +93,31 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _vfxTransform.localScale = pose.Scale;
         _vfxRenderer.sortingOrder = pose.SortingOrder;
         _vfx = vfx;
+        _attack = attack;
+        _lastSampleSeconds = -1f;
         _pending = true;
         _pendingSince = Time.time;
     }
 
     private void LateUpdate()
     {
-        if (!_character.IsAlive)
+        if (!_character.IsAlive || PlayerDownedGate.IsDowned(_character))
         {
             Clear();
             return;
         }
         if (!_pending) return;
+        if (_attack.HasReleaseTimeline)
+        {
+            if (!_combatController.TryGetAttackPresentationSeconds(_attack, out float elapsed))
+            {
+                Clear();
+                return;
+            }
+            // Same deadline as the projectile, with an explicit art lead; never an Animator receipt timer.
+            SampleVfx(AttackTiming.ReleaseVfxSeconds(elapsed, _attack.ScheduledWindupSeconds, _vfx.ReleaseLeadSeconds));
+            return;
+        }
         AnimatorStateInfo state = _animator.GetCurrentAnimatorStateInfo(_layer);
         if (!state.IsTag("Attack"))
         {
@@ -122,7 +141,19 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         }
         _observed = true;
         float seconds = state.normalizedTime * _attackClip.length - _vfx.StartSeconds;
+        SampleVfx(seconds);
+    }
+
+    private void SampleVfx(float seconds)
+    {
         if (seconds < -BoundaryToleranceSeconds) return;
+        // Never rewind an already observed ranged impulse during clock corrections.
+        // Melee keeps its existing clip-relative sampling behavior.
+        if (_attack.HasReleaseTimeline)
+        {
+            seconds = Mathf.Max(seconds, _lastSampleSeconds);
+            _lastSampleSeconds = seconds;
+        }
         if (seconds + BoundaryToleranceSeconds >= _vfx.Clip.length)
         {
             Clear();

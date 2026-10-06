@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Evento inmutable emitido al culminar la ejecución exitosa de un ataque.
-/// Utilizado por los componentes de presentación para disparar efectos visuales, sonoros o animación.
+/// Confirmed attack-start notification: successful melee execution or accepted ranged wind-up.
+/// Presentation only; a ranged notification does not guarantee a later successful projectile spawn.
 /// </summary>
 public readonly struct AttackPerformedEvent
 {
@@ -12,6 +12,10 @@ public readonly struct AttackPerformedEvent
     public Vector2 Direction { get; }
     public int SimulationTick { get; }
     public int WeaponCatalogIndexPlusOne { get; }
+    public int Sequence { get; }
+    public int ReleaseTick { get; }
+    public float ScheduledWindupSeconds { get; }
+    public bool HasReleaseTimeline => ReleaseTick >= SimulationTick;
 
     public AttackPerformedEvent(
         EntityId attackerId,
@@ -19,7 +23,10 @@ public readonly struct AttackPerformedEvent
         Vector2 origin,
         Vector2 direction,
         int simulationTick,
-        int weaponCatalogIndexPlusOne = 0)
+        int weaponCatalogIndexPlusOne = 0,
+        int sequence = 0,
+        int releaseTick = -1,
+        float scheduledWindupSeconds = 0f)
     {
         AttackerId = attackerId;
         AttackType = attackType;
@@ -27,5 +34,8 @@ public readonly struct AttackPerformedEvent
         Direction = direction.normalized;
         SimulationTick = simulationTick;
         WeaponCatalogIndexPlusOne = weaponCatalogIndexPlusOne;
+        Sequence = sequence;
+        ReleaseTick = releaseTick;
+        ScheduledWindupSeconds = scheduledWindupSeconds;
     }
 }

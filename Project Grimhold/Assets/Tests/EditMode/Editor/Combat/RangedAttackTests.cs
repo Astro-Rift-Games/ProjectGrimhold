@@ -218,6 +218,43 @@ namespace Tests.EditMode.Combat
             Assert.IsTrue(_spawner.WasCalled);
         }
 
+        [UnityTest]
+        public IEnumerator AcceptedShot_IsIndependentOfSharedExecutorAndAssetReconfiguration()
+        {
+            yield return CreateValidAttack();
+            var parameters = new AttackExecutionParameters(28f, DamageType.Magical, 0.9f, 6f, 2f, 0.45f);
+            Assert.That(_attack.TryConfigure(_config, parameters), Is.True);
+            var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 100);
+            Assert.That(_attack.TryAcceptRelease(request, 0.02f, out RangedAttackRelease accepted), Is.True);
+            Assert.That(_spawner.WasCalled, Is.False, "Acceptance must not spawn.");
+            NetworkPrefabRef originalPrefab = _config.ProjectilePrefab;
+            SetPrivateField(_config, "_projectilePrefab", new NetworkPrefabRef("00000000000000000000000000000002"));
+            SetPrivateField(_config, "_projectileSpeed", 20f);
+            SetPrivateField(_config, "_projectileSpawnOffset", 2f);
+            SetPrivateField(_config, "_impactLayerMask", new LayerMask { value = 2 });
+            Assert.That(_attack.TryConfigure(_config, DefaultParameters), Is.True);
+            Assert.That(accepted.TryConsume(123, new EntityId(1), Vector2.one, out var shot), Is.True);
+            Assert.That(shot.Damage, Is.EqualTo(28f));
+            Assert.That(shot.DamageType, Is.EqualTo(DamageType.Magical));
+            Assert.That(shot.Speed, Is.EqualTo(10f));
+            Assert.That(shot.Origin, Is.EqualTo(Vector2.one + Vector2.right * 0.7f));
+            Assert.That(shot.ImpactLayerMask, Is.EqualTo(1));
+            Assert.That(shot.ProjectilePrefab, Is.EqualTo(originalPrefab));
+            Assert.That(shot.MaximumRange, Is.EqualTo(6f));
+            Assert.That(shot.KnockbackForce, Is.EqualTo(2f));
+        }
+
+        [UnityTest]
+        public IEnumerator Execute_WithConfiguredWindup_RemainsImmediateForExistingConsumers()
+        {
+            yield return CreateValidAttack();
+            Assert.That(_attack.TryConfigure(_config,
+                new AttackExecutionParameters(10f, DamageType.Physical, 1f, 6f, 0f, 0.45f)), Is.True);
+            Assert.That(_attack.Execute(new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 10)).WasExecuted, Is.True);
+            Assert.That(_spawner.WasCalled, Is.True);
+            Assert.That(_spawner.LastRequest.SimulationTick, Is.EqualTo(10));
+        }
+
         private sealed class FakeProjectileSpawner : MonoBehaviour, IProjectileSpawner
         {
             public bool SpawnSucceeds { get; set; } = true;

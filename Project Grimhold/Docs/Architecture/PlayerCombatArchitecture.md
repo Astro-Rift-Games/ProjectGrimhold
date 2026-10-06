@@ -10,8 +10,8 @@ simulation tick. Melee and ranged both validate and consume that same finite, no
 contextual facing; combat does not recompute aim from cursor input or `_attackOrigin`.
 
 `_attackOrigin` remains the physical `AttackRequest.Origin`. `LastAttackDirection` is
-not continuous aim state: it is replicated only after a strategy successfully executes,
-together with the attack origin, type, tick and sequence for presentation.
+not continuous aim state: it commits after successful melee execution or accepted ranged wind-up,
+together with the original weapon identity, origin, type, acceptance tick and sequence for presentation.
 
 This document describes the design, components, network authority, data contracts, and simulation mechanics of the Player Combat System in Project Grimhold.
 
@@ -68,7 +68,8 @@ The current basic weapon attack strategies implement this contract:
 Serves as the network boundary for the current basic weapon attack flow:
 * Owns the current basic weapon attack flow; it is not the runtime contract or owner for character abilities.
 * Extends `NetworkBehaviour` and processes combat input during Fusion simulation ticks.
-* Only State Authority validates and executes attacks.
+* Only State Authority validates and executes attacks. Irreversible player execution/spawning runs on forward ticks, not resimulation.
+* Owns one networked `RangedAttackRelease` value (deadline and committed projectile payload). It advances before reading input, independently of the active strategy.
 * Listens to player input commands (e.g., `PrimaryAttack` button and `AimWorldPosition`).
 * Synchronizes `AttackSequence` using a `[Networked]` state variable to ensure clients replicate visual presentation smoothly.
 * Handles combat cooldowns authoritatively via network tick timers (`TickTimer`).
@@ -128,7 +129,9 @@ selection without removing the equipped unit.
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
 slot again, rebuilding the strategy and recalculating effective damage from the restored effective
 attributes without replaying equipment requests. Effective damage, equipment modifiers and final
-player runtime statistics are derived local state and are not replicated or persisted. The armor
+player runtime statistics are derived local state and are not generally replicated or persisted.
+An already accepted ranged shot is the narrow exception: the combat snapshot copies its resolved
+projectile payload, so rebuilding Equipment cannot recalculate that shot. The armor
 slots need no dedicated restore logic — they are ordinary `[Networked]` properties. Restored slots,
 `EquipmentRevision`, effective attributes and active Weapon Set reconstruct the same projections.
 ScriptableObjects and presentation state are never replicated.
@@ -273,14 +276,16 @@ references `WeaponDefinition`; an armor template references `ArmorDefinition`. T
 objects are functional configurations, not competing template identities. Presentation remains a
 separate `EquipmentVisualDefinition` concern.
 
-`WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, effective `Range`,
+`WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, `RangedReleaseSeconds`, effective `Range`,
 `StaminaCost`, `DamageType`, `KnockbackForce`, handedness, requirements and natural scaling
 attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and one flat maximum
 Health, Stamina or Mana modifier. `EquipmentStatisticsCalculator` rebuilds a complete immutable
 `EquipmentStatisticsModifiers` snapshot from the four equipped armor definitions whenever
 `EquipmentRevision` changes; it never accumulates deltas. `StaminaCost` is validated weapon
 configuration but is not consumed yet. Bow, wand and staff templates reuse the shared ranged
-behavior; weapon-specific projectile manifestation remains outside this contract.
+behavior. Long Bow, Compound Bow, Magic Wand and Magic Staff own gameplay release delays of
+0.45, 0.40, 0.35 and 0.90 seconds respectively;
+weapon-specific projectile manifestation remains outside this contract.
 
 The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
 `WeaponScalingModifier` slots using grades E through S. `WeaponScalingGrade.None` is only the default
@@ -361,13 +366,17 @@ After `IDamageable.ApplyDamage` returns, `DamageResolver` contributes only for a
 
 ## Ranged Attack Flow
 
-1. **Input Collection**: `PlayerInputReader` reads primary attack button and mouse world position `AimWorldPosition`.
-2. **Facing**: `PlayerMovementNetworkController` has already resolved `FacingDirection`. A valid primary-attack cursor direction from the final simulated player position overrides locomotion-facing; invalid cursor direction falls back to valid movement and otherwise preserves the prior facing.
-3. **Execution**: If ready, calls `RangedAttack.Execute(in AttackRequest)` with the same facing used by melee.
-4. **Build Request**: `RangedAttack` calculates origin using `SpawnOffset` along the normalized direction and builds `ProjectileSpawnRequest`.
-5. **Spawn**: `RangedAttack` calls `IProjectileSpawner.Spawn()`.
-6. **Spawner Validation**: `FusionProjectileSpawner` runs only under State Authority. It validates its configs and executes `Runner.TrySpawn()`.
-7. **Pre-initialization**: In the `onBeforeSpawned` callback of `TrySpawn`, `NetworkProjectile.InitializeNetworkState()` is invoked to setup the networked variables before replication.
+Player ranged attacks have one gameplay-owned acceptance-to-release timeline. `RangedAttack.Execute`
+remains an immediate executor for existing enemies/tests/other consumers; scheduling belongs only to
+the player combat boundary. No Animator, animation event, VFX, local input or RPC releases a shot.
+
+1. **Input and facing**: transport remains `PlayerNetworkInput`. Movement resolves the normalized contextual `FacingDirection` before combat; it is locked at acceptance.
+2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
+3. **Deadline and cooldown**: `ReleaseTick = AcceptedTick + ceil(RangedReleaseSeconds / Runner.DeltaTime)`. Attack Interval begins now, not at release. An outstanding shot blocks another acceptance even if that interval expires first; acceptance validates finite origin/direction/config/timing before committing anything.
+4. **Continuation/cancellation**: the match phase comes from the runner-scoped `NetworkSpawnManager.MatchController` (the match is a spawned object, not necessarily a component on the runner). Before input processing, State Authority advances the pending value on forward ticks. Missing input, a cleared/reconfigured strategy or an Equipment switch cannot stall or alter it. Movement continues. Death, Downed, phase exit and explicit combat disable cancel it without refunding cooldown. Defense prevents same-tick acceptance but does not cancel an accepted wind-up.
+5. **Consume and spawn**: at or after the exact deadline, sample current authoritative AttackOrigin plus committed offset along committed aim, and use the containing avatar's current EntityId. Commit `Pending = false` before calling the spawner. Invalid release origin, absent spawner or spawn failure consumes the attempt and marks presentation cancelled; no perpetual pending state or retry loop remains.
+6. **Spawner validation**: `FusionProjectileSpawner` requires State Authority and a forward tick. A committed request supplies prefab/mask directly rather than the newly equipped config; legacy requests without a prefab retain the configured fallback. Validate finite projectile parameters before `Runner.TrySpawn`.
+7. **Pre-initialization**: `onBeforeSpawned` initializes `NetworkProjectile` with the committed request and mask before replication, retaining its existing collision and trajectory rules.
 8. **Kinematic Simulation**: `NetworkProjectile` updates in `FixedUpdateNetwork`:
    * Checks `LifetimeTimer` expiration.
    * Moves transform and Rigidbody2D based on `Direction * Speed * DeltaTime`.
@@ -449,7 +458,7 @@ Attack presentation follows one path:
 ```text
 PlayerCombatNetworkController.AttackSequence
 -> AttackPerformed during Render
--> PlayerAnimatorView.OnAttack trigger + equipment presentation configuration
+-> PlayerAnimatorView: melee trigger / ranged confirmed-phase seek + pinned weapon configuration
 -> Main Hand Combat Animator layer
 -> RightHand transform
 -> MainHandGrip
@@ -528,11 +537,12 @@ weapon, melee or ranged, uses the generic `Attack` route through its `Directiona
 serializes no animation category. `HasGenericAttack` is local presentation state,
 not a replicated or authoritative combat decision.
 
-The trigger represents an already accepted gameplay execution; local mouse input never starts
-the animation. Proxies observe the same replicated sequence and therefore reproduce it. Attack
+The melee trigger represents successful gameplay execution; ranged presentation begins at confirmed
+wind-up acceptance, not at projectile spawn. Local mouse input never starts the animation. Proxies
+observe the same replicated sequence. Attack
 clips are one-shot presentation only. They do not apply damage or emit gameplay decisions, and
 Animation Events are not part of hit timing. The confirmed attack snapshot carries the deterministic
-Main Hand catalog index captured only after successful execution. Animation, held Main Hand
+Main Hand catalog index captured on successful melee execution or ranged acceptance. Animation, held Main Hand
 presentation, and attack-start audio resolve that snapshot identity rather than current Equipment,
 so a Weapon Set change cannot rewrite an attack already in progress; once the tagged attack state
 ends, presentation resumes reading current Equipment. The attack direction from the confirmed event
@@ -564,9 +574,10 @@ uses the weapon reach. The presenter resolves each pose through the
 visual's `TryResolvePose`, so weapons sharing an animation can share one alignment without
 per-weapon sizes, and it never reads weapon-specific measurements.
 `PlayerAttackVfxPresenter` snapshots confirmed weapon identity and direction from `AttackPerformed`,
-not the currently equipped Set, and waits for the matching RightHand attack clip. It samples the
-VFX clip at that clip's phase minus the configured start offset on the *existing* `VisualRoot`
-Animator root. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
+not the currently equipped Set. Melee still waits for the matching RightHand clip and samples its phase
+minus `StartSeconds` on the *existing* `VisualRoot` Animator root. Ranged instead samples the shared
+confirmed elapsed clock minus rounded wind-up duration plus `ReleaseLeadSeconds`: a release-relative
+art lead, never an independent start timer or simulation authority. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
 and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
 the animated hand or weapon pivot, so the effect never inherits the swing twice. The Sword Slash
 visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s, mirrored to
@@ -614,7 +625,8 @@ Long Bow is the first Bow Shot consumer. `VFX-BowShot.png` is four 96x96 px cell
 pivots: a release flash, then a streak, rings and remnants that travel along +X from the flash center. That
 center, `(-0.875, -0.03125)` in sprite local units, is the `BowShotVfxVisual` origin in every frame.
 `LongBowBowShotAttackVfx` plays the four 50 ms frames from 0.45s, the end of the Long Bow stringing sequence
-where the string hand releases, so the stringing stays the single source of that timing. Each facing
+where the string hand releases. This authored phase calibrates the weapon's gameplay release
+configuration; stringing is presentation, not the runtime timing authority. Each facing
 anchors the bow's pivot at that release: the grip on `WeaponPose`, with the facing as rotation, because the
 presenter turns the bow along its shooting axis. The reach offset is 0.09375, from the grip to the limb's
 front edge on the center column of `LongBow.png`, so the flash leaves the bow's front in every facing. NW
@@ -671,6 +683,30 @@ the SW shield covers the main hand; back facings keep -10.
 The Animator never owns mitigation or coverage rules. Both held
 renderers stay on the existing `Characters` Sorting Layer and derive front/back order from the
 resolved visual bucket.
+
+### Confirmed ranged presentation clock
+
+Installed Fusion 2.1.1 XML defines `LocalRenderTime` and `RemoteRenderTime` relative to Tick 0.
+Projectiles have no Input Authority: use LocalRenderTime on State Authority, RemoteRenderTime on
+all observing Clients (including the predicted player's Input Authority). The latest confirmed
+attack snapshot is not presented before its acceptance tick reaches that clock. Observation latency
+never restarts its phase at zero. `AttackTiming.ClipSeconds` maps the rounded wind-up to the original
+weapon's authored release point, then preserves recovery speed; only the RightHand layer is sought.
+Locomotion and off-hand defense keep their existing owners.
+
+Ranged animation, held-weapon stringing and release VFX read this one clock. Bow VFX has zero lead;
+wand/staff Cast Flash ignites 0.025 s ahead of gameplay release, preserving the authored 0.325/0.875 s
+alignment without making VFX timing gameplay configuration. Ranged VFX never rewinds an observed
+impulse and clears on completion or authoritative cancellation. No new VFX network state is added.
+The replicated cancellation tick also ends the ranged attack pose and pin; a failed release uses
+the same presentation-stop contract.
+
+`Spawned` baselines completed sequences without replay. Only a pending ranged wind-up reconstructs
+presentation from its saved phase through `AttackPresentationResumed`; that event is separate from
+`AttackPerformed`, so migration/late spawn never replays attack-start audio. Normal attack-start audio
+continues at acceptance with the original weapon identity. Dedicated projectile-release audio is
+not implemented here. Sequence replication retains the existing latest-attack semantics, not an event
+history: intermediate attacks missed entirely between snapshots are not reconstructed.
 
 ### 1. Damage Feedback Visuals
 When a character takes damage (authoritatively confirmed by `Health` changes on State Authority):

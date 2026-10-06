@@ -53,12 +53,15 @@ public sealed class AttackVfxDefinition : ScriptableObject
     [SerializeField] private AttackVfxVisualDefinition _visual;
     [SerializeField, Min(0f), Tooltip("Attack clip time, in seconds, at which the visual starts playing.")]
     private float _startSeconds;
+    [SerializeField, Min(0f), Tooltip("Ranged only: visual ignition lead before the confirmed gameplay release. Melee still uses StartSeconds.")]
+    private float _releaseLeadSeconds;
     [SerializeField] private DirectionalPose[] _poses;
 
     public AttackVfxVisualDefinition Visual => _visual;
     public AnimationClip Clip => _visual != null ? _visual.Clip : null;
     public bool UsesWeaponReach => _visual != null && _visual.UsesWeaponReach;
     public float StartSeconds => _startSeconds;
+    public float ReleaseLeadSeconds => _releaseLeadSeconds;
     public DirectionalPose GetPose(int direction) => _poses[direction];
 
     /// <summary>
@@ -86,7 +89,8 @@ public sealed class AttackVfxDefinition : ScriptableObject
             return false;
         }
         if (!_visual.TryValidate(out error)) return false;
-        if (!IsFinite(_startSeconds) || _startSeconds < 0f || _poses == null || _poses.Length != 6)
+        if (!IsFinite(_startSeconds) || _startSeconds < 0f ||
+            !IsFinite(_releaseLeadSeconds) || _releaseLeadSeconds < 0f || _poses == null || _poses.Length != 6)
         {
             error = "Attack VFX requires a nonnegative finite start and six directional poses.";
             return false;

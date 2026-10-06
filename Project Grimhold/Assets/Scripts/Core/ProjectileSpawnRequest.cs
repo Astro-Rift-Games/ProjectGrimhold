@@ -1,3 +1,4 @@
+using Fusion;
 using UnityEngine;
 
 /// <summary>
@@ -15,6 +16,9 @@ public readonly struct ProjectileSpawnRequest
     public float LifetimeSeconds { get; }
     public float MaximumRange { get; }
     public int SimulationTick { get; }
+    // Optional committed projectile configuration. Legacy consumers still use the spawner's config.
+    public NetworkPrefabRef ProjectilePrefab { get; }
+    public int ImpactLayerMask { get; }
 
     /// <summary>
     /// Knockback force in world units per second applied to the target on impact.
@@ -33,7 +37,9 @@ public readonly struct ProjectileSpawnRequest
         float lifetimeSeconds,
         float maximumRange,
         int simulationTick,
-        float knockbackForce = 0f)
+        float knockbackForce = 0f,
+        NetworkPrefabRef projectilePrefab = default,
+        int impactLayerMask = 0)
     {
         OwnerId        = ownerId;
         Origin         = origin;
@@ -45,5 +51,14 @@ public readonly struct ProjectileSpawnRequest
         MaximumRange   = maximumRange;
         SimulationTick = simulationTick;
         KnockbackForce = Mathf.Max(0f, knockbackForce);
+        ProjectilePrefab = projectilePrefab;
+        ImpactLayerMask = impactLayerMask;
     }
+
+    public bool TryValidate() =>
+        AttackTiming.IsFinite(Origin) && AttackTiming.IsFinite(Direction) && Direction.sqrMagnitude > 0.0001f &&
+        AttackTiming.IsFinite(Damage) && Damage > 0f && System.Enum.IsDefined(typeof(DamageType), DamageType) &&
+        AttackTiming.IsFinite(Speed) && Speed > 0f && AttackTiming.IsFinite(LifetimeSeconds) && LifetimeSeconds > 0f &&
+        AttackTiming.IsFinite(MaximumRange) && MaximumRange > 0f &&
+        AttackTiming.IsFinite(KnockbackForce) && KnockbackForce >= 0f;
 }

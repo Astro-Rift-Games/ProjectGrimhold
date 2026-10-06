@@ -22,6 +22,26 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void AcceptedRangedAttack_CarriesOriginalIdentityAndConfirmedDeadline()
+        {
+            var attack = new AttackPerformedEvent(new EntityId(7), AttackType.Ranged, Vector2.one,
+                Vector2.right, 100, 12, 3, 123, 0.46f);
+            Assert.That(attack.HasReleaseTimeline, Is.True);
+            Assert.That(attack.WeaponCatalogIndexPlusOne, Is.EqualTo(12));
+            Assert.That(attack.Sequence, Is.EqualTo(3));
+            Assert.That(attack.ReleaseTick, Is.EqualTo(123));
+            Assert.That(attack.ScheduledWindupSeconds, Is.EqualTo(0.46f));
+        }
+
+        [Test]
+        public void ImmediateLegacyAttack_DoesNotOptIntoRangedTimeline()
+        {
+            var attack = new AttackPerformedEvent(new EntityId(7), AttackType.Ranged,
+                Vector2.zero, Vector2.right, 100);
+            Assert.That(attack.HasReleaseTimeline, Is.False);
+        }
+
+        [Test]
         public void ConfirmedWeaponWithoutAudioConfig_UsesConfiguredFallback()
         {
             LootDefinitionCatalog source = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(

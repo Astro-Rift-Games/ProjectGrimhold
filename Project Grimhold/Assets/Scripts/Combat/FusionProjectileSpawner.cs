@@ -69,14 +69,18 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
     public ProjectileSpawnResult Spawn(in ProjectileSpawnRequest request)
     {
         // 1. Validate network authority
-        if (!HasStateAuthority)
+        if (!HasStateAuthority || Runner == null || !Runner.IsForward)
         {
             Debug.LogWarning($"[CombatTrace] Projectile spawn rejected: Lack of State Authority on {gameObject.name}.", this);
             return new ProjectileSpawnResult(false);
         }
 
         // 2. Validate configuration and dependencies
-        if (_config == null || !_config.ProjectilePrefab.IsValid)
+        NetworkPrefabRef prefab = request.ProjectilePrefab.IsValid
+            ? request.ProjectilePrefab : _config != null ? _config.ProjectilePrefab : default;
+        int impactMask = request.ProjectilePrefab.IsValid
+            ? request.ImpactLayerMask : _config != null ? _config.ImpactLayerMask.value : 0;
+        if (!prefab.IsValid || impactMask == 0)
         {
             Debug.LogError($"[CombatTrace] Projectile spawn rejected: Missing or invalid RangedAttackConfig/ProjectilePrefab.", this);
             return new ProjectileSpawnResult(false);
@@ -89,7 +93,7 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
         }
 
         // 3. Validate request parameters
-        if (request.Direction.sqrMagnitude < 0.0001f)
+        if (!request.TryValidate())
         {
             Debug.LogWarning($"[CombatTrace] Projectile spawn rejected: Invalid direction.", this);
             return new ProjectileSpawnResult(false);
@@ -109,7 +113,7 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
 
         // 4. Invoke authoritative network spawn with inline pre-initialization
         NetworkSpawnStatus spawnStatus = Runner.TrySpawn(
-            _config.ProjectilePrefab,
+            prefab,
             out NetworkObject spawnedObject,
             request.Origin,
             rotation: spawnRotation,
@@ -118,7 +122,7 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
             {
                 if (networkObject.TryGetComponent(out NetworkProjectile projectile))
                 {
-                    projectile.InitializeNetworkState(in localRequest, _config.ImpactLayerMask.value);
+                    projectile.InitializeNetworkState(in localRequest, impactMask);
                     projectile.SetRuntimeDependencies(_damageResolver);
                     projectileInitialized = true;
                     Debug.Log($"[CombatTrace] Projectile inlined onBeforeSpawned initialized.", networkObject);
