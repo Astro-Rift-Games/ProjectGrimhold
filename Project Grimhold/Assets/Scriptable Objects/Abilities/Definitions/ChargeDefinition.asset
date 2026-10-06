@@ -20,3 +20,7 @@ MonoBehaviour:
   _resource: 1
   _cost: 20
   _cooldownSeconds: 8
+  _displayName: Charge
+  _description: Dashes the character forward in a straight line. On colliding with
+    the first valid enemy it stops, pushes the enemy back and stuns it.
+  _icon: {fileID: 0}

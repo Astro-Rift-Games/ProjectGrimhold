@@ -20,3 +20,7 @@ MonoBehaviour:
   _resource: 2
   _cost: 25
   _cooldownSeconds: 15
+  _displayName: Restoration
+  _description: After a brief preparation, restores a fixed amount of health to yourself
+    or an ally. It does not heal downed allies or revive them.
+  _icon: {fileID: 0}

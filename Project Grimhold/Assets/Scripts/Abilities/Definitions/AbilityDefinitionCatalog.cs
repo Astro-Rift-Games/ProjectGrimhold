@@ -24,6 +24,10 @@ public sealed class AbilityDefinitionCatalog : ScriptableObject
         }
     }
 
+    /// <summary>Read-only view of the authored definitions in catalog order.</summary>
+    public IReadOnlyList<AbilityDefinition> Definitions =>
+        _definitions != null ? _definitions.AsReadOnly() : System.Array.Empty<AbilityDefinition>();
+
     private void OnEnable()
     {
         _isCacheDirty = true;

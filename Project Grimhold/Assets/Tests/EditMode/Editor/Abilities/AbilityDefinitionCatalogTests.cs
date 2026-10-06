@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -28,6 +29,29 @@ public sealed class AbilityDefinitionCatalogTests
         Assert.That(resolved, Is.SameAs(_second));
         Assert.That(_catalog.TryGetId(_first, out AbilityId abilityId), Is.True);
         Assert.That(abilityId, Is.EqualTo(new AbilityId("charge")));
+    }
+
+    [Test]
+    public void Definitions_EnumeratesAuthoredOrderWithoutExposingTheMutableList()
+    {
+        _first = AbilityTestFactory.CreateDefinition("trap");
+        _second = AbilityTestFactory.CreateDefinition("charge");
+        _catalog = AbilityTestFactory.CreateCatalog(_first, _second);
+
+        IReadOnlyList<AbilityDefinition> definitions = _catalog.Definitions;
+
+        Assert.That(definitions, Has.Count.EqualTo(2));
+        Assert.That(definitions[0], Is.SameAs(_first));
+        Assert.That(definitions[1], Is.SameAs(_second));
+        Assert.That(definitions is List<AbilityDefinition>, Is.False);
+    }
+
+    [Test]
+    public void Definitions_IsEmptyWhenCatalogHasNoEntries()
+    {
+        _catalog = AbilityTestFactory.CreateCatalog();
+
+        Assert.That(_catalog.Definitions, Is.Empty);
     }
 
     [Test]

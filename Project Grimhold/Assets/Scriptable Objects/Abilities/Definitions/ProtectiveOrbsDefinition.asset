@@ -20,3 +20,7 @@ MonoBehaviour:
   _resource: 2
   _cost: 30
   _cooldownSeconds: 25
+  _displayName: Protective Orbs
+  _description: Summons orbs that orbit the caster. Each orb blocks one enemy projectile
+    or melee hit, or damages an enemy on contact, and is consumed in the process.
+  _icon: {fileID: 0}

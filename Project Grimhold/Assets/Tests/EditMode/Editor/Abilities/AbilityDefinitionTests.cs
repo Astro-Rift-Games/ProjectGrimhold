@@ -32,6 +32,35 @@ public sealed class AbilityDefinitionTests
         Assert.That(_definition.CooldownSeconds, Is.EqualTo(20f));
     }
 
+    [Test]
+    public void DisplayMetadata_ExposesAuthoredValues()
+    {
+        _definition = AbilityTestFactory.CreateDefinition("charge");
+        AbilityTestFactory.SetPrivateField(_definition, "_displayName", "Charge");
+        AbilityTestFactory.SetPrivateField(_definition, "_description", "Dash forward.");
+
+        Assert.That(_definition.DisplayName, Is.EqualTo("Charge"));
+        Assert.That(_definition.Description, Is.EqualTo("Dash forward."));
+        Assert.That(_definition.Icon, Is.Null);
+    }
+
+    [Test]
+    public void DisplayName_FallsBackToIdWhenNotAuthored()
+    {
+        _definition = AbilityTestFactory.CreateDefinition("seismic_strike");
+
+        Assert.That(_definition.DisplayName, Is.EqualTo("seismic_strike"));
+        Assert.That(_definition.Description, Is.Empty);
+    }
+
+    [Test]
+    public void DisplayMetadata_IsNotRequiredForValidation()
+    {
+        _definition = AbilityTestFactory.CreateDefinition("charge");
+
+        Assert.That(_definition.TryValidate(out string error), Is.True, error);
+    }
+
     [TestCase("Invalid", AbilityResourceType.Mana, 10, 5f)]
     [TestCase("invalid_resource", AbilityResourceType.None, 10, 5f)]
     [TestCase("invalid_cost", AbilityResourceType.Mana, 0, 5f)]
