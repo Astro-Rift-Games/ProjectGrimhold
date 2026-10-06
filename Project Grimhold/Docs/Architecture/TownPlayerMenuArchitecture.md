@@ -152,8 +152,11 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
 
 ## Known limits
 
-- No production source unlocks abilities yet (`LocalProfileStore.TryUnlockAbility` is only called by tests), so a
-  fresh profile shows the empty-repertoire note in the Abilities tab. There is also no ability art: the optional
+- No production source unlocks abilities yet (`LocalProfileStore.TryUnlockAbility` is only called by tests and
+  developer tools), so a fresh profile shows the empty-repertoire note in the Abilities tab. For testing, the
+  local player's `TownAbilitiesPresenter` adds the `AbilityPlayModeDebugger` overlay (F8, compiled only in the
+  Editor and development builds) that unlocks abilities through `AbilityDebugUnlocker` and the normal store
+  transaction; unlocks are saved in the local profile. There is also no ability art: the optional
   `AbilityDefinition._icon` is empty and the tab shows placeholder frames.
 - The Abilities tab has no hotkey; opening it needs a new Input Action and a `PlayerInputReader` event.
 - The interaction hint texts ("F — Interactuar" and the dialogue continue hint) are hardcoded strings, not derived

@@ -93,6 +93,25 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void Register_AddsTheDeveloperUnlockOverlay()
+        {
+            Start(Charge);
+
+            Assert.That(_host.GetComponent<AbilityPlayModeDebugger>(), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator Unregister_RemovesTheDeveloperUnlockOverlay()
+        {
+            Start(Charge);
+
+            _abilities.Unregister();
+            yield return null;
+
+            Assert.That(_host.GetComponent<AbilityPlayModeDebugger>(), Is.Null);
+        }
+
+        [Test]
         public void Tab_ShowsOnlyTheUnlockedAbilitiesAsCards()
         {
             Start(Charge, Trap, Arcane);

@@ -20,6 +20,9 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
     private TownAbilitiesFilter _filter = TownAbilitiesFilter.All;
     private AbilityId _selected;
     private bool _isListening;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private AbilityPlayModeDebugger _debugger;
+#endif
 
     /// <summary>
     /// Creates the Abilities content and registers it as a tab of the menu. <paramref name="canMutate"/>
@@ -59,6 +62,12 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
             (RectTransform)_view.transform,
             OnShown,
             OnHidden));
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // No production source unlocks abilities yet; the F8 overlay fills the repertoire for testing.
+        _debugger = gameObject.AddComponent<AbilityPlayModeDebugger>();
+        _debugger.Initialize(context, _abilityCatalog);
+#endif
     }
 
     public void Unregister()
@@ -73,6 +82,13 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
         _context = null;
         _endpoint = null;
         _canMutate = null;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (_debugger != null)
+        {
+            Destroy(_debugger);
+            _debugger = null;
+        }
+#endif
         if (_view == null)
         {
             return;
