@@ -22,3 +22,7 @@ MonoBehaviour:
   _resource: 2
   _cost: 30
   _cooldownSeconds: 20
+  _displayName: Purification
+  _description: Removes all purifiable states from yourself or an ally and grants
+    brief protection against new ones.
+  _icon: {fileID: 0}

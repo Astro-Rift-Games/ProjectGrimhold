@@ -19,7 +19,20 @@ public sealed class AbilityDefinition : ScriptableObject
     [SerializeField]
     private float _cooldownSeconds;
 
+    [Header("Display (presentation only, not validated)")]
+    [SerializeField]
+    private string _displayName;
+
+    [SerializeField, TextArea]
+    private string _description;
+
+    [SerializeField]
+    private Sprite _icon;
+
     public string Id => _id;
+    public string DisplayName => string.IsNullOrWhiteSpace(_displayName) ? _id ?? string.Empty : _displayName;
+    public string Description => _description ?? string.Empty;
+    public Sprite Icon => _icon;
     public AbilityId AbilityId => AbilityId.TryCreate(_id, out AbilityId abilityId) ? abilityId : default;
     public CharacterAttributeRequirements AttributeRequirements => _attributeRequirements;
     public AbilityResourceType Resource => _resource;

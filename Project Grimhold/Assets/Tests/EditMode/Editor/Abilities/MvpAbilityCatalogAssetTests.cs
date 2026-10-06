@@ -37,6 +37,20 @@ public sealed class MvpAbilityCatalogAssetTests
         Assert.That(catalog.DefinitionCount, Is.EqualTo(9));
     }
 
+    [Test]
+    public void CatalogAsset_EveryDefinitionHasDisplayNameAndDescription()
+    {
+        AbilityDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<AbilityDefinitionCatalog>(CatalogPath);
+        Assert.That(catalog, Is.Not.Null);
+
+        foreach (AbilityDefinition definition in catalog.Definitions)
+        {
+            Assert.That(definition.DisplayName, Is.Not.Empty, definition.Id);
+            Assert.That(definition.DisplayName, Is.Not.EqualTo(definition.Id), $"{definition.Id} has no authored display name.");
+            Assert.That(definition.Description, Is.Not.Empty, definition.Id);
+        }
+    }
+
     [TestCaseSource(nameof(MvpDefinitions))]
     public void SingleRequirementDefinition_MatchesGameDesign(
         string id,

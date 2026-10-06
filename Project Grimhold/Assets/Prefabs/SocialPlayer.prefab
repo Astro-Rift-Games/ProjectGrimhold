@@ -158,7 +158,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "E \u2014 Interactuar"
+  m_text: "F \u2014 Interactuar"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1279,6 +1279,7 @@ GameObject:
   - component: {fileID: 9100000000000000010}
   - component: {fileID: 8889365110912467133}
   - component: {fileID: 8008320923748191077}
+  - component: {fileID: 8295819271924384899}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -1686,6 +1687,7 @@ MonoBehaviour:
   _merchantPresenter: {fileID: 5930331051498512961}
   _menuPresenter: {fileID: 8889365110912467133}
   _optionsPresenter: {fileID: 8008320923748191077}
+  _abilitiesPresenter: {fileID: 8295819271924384899}
 --- !u!114 &6500000000000000010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1819,6 +1821,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TownOptionsPresenter
   _viewPrefab: {fileID: 4938861417260816762, guid: ba17ee52591d56345b77f6e06e4f357e, type: 3}
+--- !u!114 &8295819271924384899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2779defc1c7ad63409c6c0153cc33bc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownAbilitiesPresenter
+  _viewPrefab: {fileID: 1165251226373206900, guid: c1d59bbb2f18631409a424995a5ff37c, type: 3}
+  _abilityCatalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
 --- !u!1 &4839046221378639172
 GameObject:
   m_ObjectHideFlags: 0

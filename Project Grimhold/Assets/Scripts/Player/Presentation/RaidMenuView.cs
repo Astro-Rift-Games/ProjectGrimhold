@@ -13,7 +13,7 @@ public sealed class RaidMenuView : MonoBehaviour
     private const string DefaultControlsText =
         "W, A, S, D — Moverse\n" +
         "Click Izquierdo — Atacar\n" +
-        "E — Interactuar\n" +
+        "F — Interactuar\n" +
         "Tab — Inventario\n" +
         "Escape — Menú / Cerrar";
 

@@ -24,6 +24,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     [SerializeField]
     private TownOptionsPresenter _optionsPresenter;
 
+    [SerializeField]
+    private TownAbilitiesPresenter _abilitiesPresenter;
+
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
@@ -130,6 +133,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
 
         _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
         _optionsPresenter?.Unregister();
+        _abilitiesPresenter?.Unregister();
         _inventoryPresenter.Unbind();
         if (inputReader == null)
         {
@@ -152,6 +156,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
                 _inventoryPresenter.HostedContentRoot,
                 _inventoryPresenter.ShowHosted,
                 _inventoryPresenter.HideHosted));
+            _abilitiesPresenter?.Register(_menuPresenter, _profileContext, CanMutateEquipment);
             _optionsPresenter?.Register(_menuPresenter);
             Transform uiParent = _inventoryPresenter.transform.parent != null
                 ? _inventoryPresenter.transform.parent
@@ -205,6 +210,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
 
         _menuPresenter?.UnregisterTab(TownMenuTabIds.Inventory);
         _optionsPresenter?.Unregister();
+        _abilitiesPresenter?.Unregister();
         _menuPresenter?.Unbind();
         _inventoryPresenter?.Unbind();
         if (_merchantPresenter != null)

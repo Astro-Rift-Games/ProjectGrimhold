@@ -35,7 +35,7 @@ namespace Tests.EditMode.Player
         }
 
         [TestCase("AbilitySlot1", "<Keyboard>/q")]
-        [TestCase("AbilitySlot2", "<Keyboard>/r")]
+        [TestCase("AbilitySlot2", "<Keyboard>/e")]
         public void AbilityInputAsset_DefinesIndependentPressOnlyKeyboardActions(string name, string path)
         {
             var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/Input/PlayerInputActions.inputactions");
@@ -49,8 +49,39 @@ namespace Tests.EditMode.Player
             Assert.That(action.bindings[0].path, Is.EqualTo(path));
         }
 
+        [Test]
+        public void InteractInputAsset_UsesTheFKey()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/Input/PlayerInputActions.inputactions");
+            InputAction interact = asset.FindAction("Gameplay/Interact");
+
+            Assert.That(interact, Is.Not.Null);
+            Assert.That(interact.bindings.Count, Is.EqualTo(1));
+            Assert.That(interact.bindings[0].path, Is.EqualTo("<Keyboard>/f"));
+        }
+
+        [TestCase("<Keyboard>/e", "AbilitySlot2")]
+        [TestCase("<Keyboard>/f", "Interact")]
+        [TestCase("<Keyboard>/q", "AbilitySlot1")]
+        public void GameplayMap_BindsEachActionKeyToASingleAction(string path, string expectedAction)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>("Assets/Input/PlayerInputActions.inputactions");
+            InputActionMap gameplay = asset.FindActionMap("Gameplay");
+
+            var owners = new System.Collections.Generic.List<string>();
+            foreach (InputBinding binding in gameplay.bindings)
+            {
+                if (binding.path == path)
+                {
+                    owners.Add(binding.action);
+                }
+            }
+
+            Assert.That(owners, Is.EqualTo(new[] { expectedAction }));
+        }
+
         [TestCase("AbilitySlot1", "<Keyboard>/q")]
-        [TestCase("AbilitySlot2", "<Keyboard>/r")]
+        [TestCase("AbilitySlot2", "<Keyboard>/e")]
         public void GeneratedAbilityActions_MatchOwningAsset(string name, string path)
         {
             var actions = new PlayerInputActions();

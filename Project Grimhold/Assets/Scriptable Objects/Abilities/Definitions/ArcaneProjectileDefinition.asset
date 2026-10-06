@@ -20,3 +20,7 @@ MonoBehaviour:
   _resource: 2
   _cost: 15
   _cooldownSeconds: 5
+  _displayName: Arcane Projectile
+  _description: After a brief preparation, launches a projectile in a straight line
+    that damages the first valid target it hits.
+  _icon: {fileID: 0}

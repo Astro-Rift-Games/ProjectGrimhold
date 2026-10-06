@@ -20,3 +20,8 @@ MonoBehaviour:
   _resource: 1
   _cost: 15
   _cooldownSeconds: 6
+  _displayName: Trap
+  _description: Places a trap on the ground that immobilizes the first enemy to trigger
+    it and deals damage over time while it holds. Immobilized targets can still attack
+    and use abilities.
+  _icon: {fileID: 0}

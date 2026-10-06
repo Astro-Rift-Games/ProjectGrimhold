@@ -93,7 +93,7 @@ namespace Tests.PlayMode.Presentation
 
             SubscribeLocalInteract();
 
-            SetKey(_keyboard, Key.E, true);
+            SetKey(_keyboard, Key.F, true);
 
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(0)); // ScreenMode.Closed
             Assert.That(_view.IsOpen, Is.False);
@@ -111,7 +111,7 @@ namespace Tests.PlayMode.Presentation
 
             SubscribeLocalInteract();
 
-            SetKey(_keyboard, Key.E, true);
+            SetKey(_keyboard, Key.F, true);
 
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(1)); // ScreenMode.Personal
             Assert.That(_view.IsOpen, Is.True);
@@ -225,7 +225,7 @@ namespace Tests.PlayMode.Presentation
 
             SubscribeLocalInteract();
 
-            SetKey(_keyboard, Key.E, true);
+            SetKey(_keyboard, Key.F, true);
 
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(0));
             Assert.That(GetPresenterField(_presenter, "_container"), Is.Null);
@@ -275,7 +275,7 @@ namespace Tests.PlayMode.Presentation
 
             SubscribeLocalInteract();
 
-            SetKey(_keyboard, Key.E, true);
+            SetKey(_keyboard, Key.F, true);
 
             PlayerNetworkInput networkInput = _inputReader.ConsumeNetworkInput();
             Assert.That(networkInput.Buttons.IsSet(PlayerInputButton.Interact), Is.False);
@@ -291,7 +291,7 @@ namespace Tests.PlayMode.Presentation
 
             SubscribeLocalInteract();
 
-            SetKey(_keyboard, Key.E, true); // Press E to close
+            SetKey(_keyboard, Key.F, true); // Press F to close
 
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(0));
 
@@ -299,10 +299,10 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_inputReader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False);
 
             // Release E physically
-            SetKey(_keyboard, Key.E, false);
+            SetKey(_keyboard, Key.F, false);
 
-            // Press E physically again
-            SetKey(_keyboard, Key.E, true);
+            // Press F physically again
+            SetKey(_keyboard, Key.F, true);
             InvokeReaderLifecycle(_inputReader, "Update");
 
             // Now Interact should be transported!
