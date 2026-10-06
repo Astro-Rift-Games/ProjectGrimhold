@@ -115,7 +115,7 @@ namespace Assets.Tests.PlayMode.Player
         {
             IDisposable suppression = _reader.AcquireGameplayInputSuppression();
             SetMouseLeft(true);
-            SetKey(Key.E, true);
+            SetKey(Key.F, true);
 
             suppression.Dispose();
             PlayerNetworkInput heldAfterClose = _reader.ConsumeNetworkInput();
@@ -123,9 +123,9 @@ namespace Assets.Tests.PlayMode.Player
             Assert.That(heldAfterClose.Buttons.IsSet(PlayerInputButton.Interact), Is.False);
 
             SetMouseLeft(false);
-            SetKey(Key.E, false);
+            SetKey(Key.F, false);
             SetMouseLeft(true);
-            SetKey(Key.E, true);
+            SetKey(Key.F, true);
             InvokeReaderLifecycle("Update");
 
             PlayerNetworkInput newPress = _reader.ConsumeNetworkInput();
@@ -179,7 +179,7 @@ namespace Assets.Tests.PlayMode.Player
             _reader.InteractPressedLocally += () => localPressCount++;
             using IDisposable suppression = _reader.AcquireGameplayInputSuppression();
 
-            SetKey(Key.E, true);
+            SetKey(Key.F, true);
 
             Assert.That(localPressCount, Is.EqualTo(1));
             Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False);
@@ -189,14 +189,14 @@ namespace Assets.Tests.PlayMode.Player
         public void ReleasingSuppressionWhileHoldingInteract_RequiresPhysicalReleaseBeforeNewInteractTransport()
         {
             IDisposable suppression = _reader.AcquireGameplayInputSuppression();
-            SetKey(Key.E, true);
+            SetKey(Key.F, true);
 
             suppression.Dispose();
 
             Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False);
 
-            SetKey(Key.E, false);
-            SetKey(Key.E, true);
+            SetKey(Key.F, false);
+            SetKey(Key.F, true);
             InvokeReaderLifecycle("Update");
 
             Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.True);
@@ -205,7 +205,7 @@ namespace Assets.Tests.PlayMode.Player
         [Test]
         public void DisableEnable_ClearsPendingDiscreteInputAndKeepsMapsUsable()
         {
-            SetKey(Key.E, true);
+            SetKey(Key.F, true);
             _reader.enabled = false;
             _reader.enabled = true;
 
@@ -213,8 +213,8 @@ namespace Assets.Tests.PlayMode.Player
                 _reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact),
                 Is.False);
 
-            SetKey(Key.E, false);
-            SetKey(Key.E, true);
+            SetKey(Key.F, false);
+            SetKey(Key.F, true);
 
             Assert.That(
                 _reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact),
@@ -227,7 +227,7 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [TestCase(Key.Q, 6, 7)]
-        [TestCase(Key.R, 7, 6)]
+        [TestCase(Key.E, 7, 6)]
         public void AbilityKey_TransportsOnlyItsIndependentSlot(Key key, int ownBit, int otherBit)
         {
             SetKey(key, true);
@@ -241,7 +241,7 @@ namespace Assets.Tests.PlayMode.Player
         public void AbilityKeys_SimultaneousPressTransportsBothWithoutOtherActions()
         {
             SetKey(Key.Q, true);
-            SetKey(Key.R, true);
+            SetKey(Key.E, true);
             InvokeReaderLifecycle("Update");
             var buttons = _reader.ConsumeNetworkInput().Buttons;
             Assert.That(buttons.IsSet(PlayerInputButton.AbilitySlot1), Is.True);
@@ -253,7 +253,7 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
-        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        [TestCase(Key.E, PlayerInputButton.AbilitySlot2)]
         public void AbilityTap_BeforeReaderUpdateIsLatchedAcrossRepeatedCollection(Key key, PlayerInputButton bit)
         {
             SetKey(key, true);
@@ -265,7 +265,7 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
-        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        [TestCase(Key.E, PlayerInputButton.AbilitySlot2)]
         public void AbilitySuppression_NestedOwnersDiscardPressAndRequireRelease(Key key, PlayerInputButton bit)
         {
             IDisposable first = _reader.AcquireGameplayInputSuppression();
@@ -284,7 +284,7 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
-        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        [TestCase(Key.E, PlayerInputButton.AbilitySlot2)]
         public void AbilityTap_AfterPreviousCollectionSurvivesDeferredReset(Key key, PlayerInputButton bit)
         {
             _reader.ConsumeNetworkInput();
@@ -298,7 +298,7 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [TestCase(Key.Q, PlayerInputButton.AbilitySlot1)]
-        [TestCase(Key.R, PlayerInputButton.AbilitySlot2)]
+        [TestCase(Key.E, PlayerInputButton.AbilitySlot2)]
         public void AbilityReenable_HeldKeyCannotBecomeANewRequest(Key key, PlayerInputButton bit)
         {
             SetKey(key, true);

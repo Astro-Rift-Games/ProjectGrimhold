@@ -124,7 +124,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _promptRoot.SetActive(visible && !IsPanelOpen);
         if (visible)
         {
-            _promptText.text = $"E — {(string.IsNullOrWhiteSpace(action) ? "Interactuar" : action)}";
+            _promptText.text = $"F — {(string.IsNullOrWhiteSpace(action) ? "Interactuar" : action)}";
         }
     }
 

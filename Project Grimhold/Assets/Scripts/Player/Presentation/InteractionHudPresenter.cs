@@ -176,7 +176,7 @@ public sealed class InteractionHudPresenter : MonoBehaviour
             string action = _candidateSource != null && !string.IsNullOrWhiteSpace(_candidateSource.CurrentPromptText)
                 ? _candidateSource.CurrentPromptText
                 : "Interactuar";
-            _promptText.text = $"E — {action}";
+            _promptText.text = $"F — {action}";
         }
     }
 
