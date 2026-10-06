@@ -73,15 +73,6 @@ public sealed class PvePopulationTracker
         return available < 0 ? 0 : available;
     }
 
-    public void GetActiveEnemyIds(List<uint> buffer)
-    {
-        buffer.Clear();
-        foreach (var id in _activeEnemies.Keys)
-        {
-            buffer.Add(id);
-        }
-    }
-
     public void ResetForRaidClosure()
     {
         _activeEnemies.Clear();

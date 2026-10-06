@@ -155,15 +155,6 @@ public sealed class DungeonPressureController : NetworkBehaviour
         RemainingTicks = remainingTicks;
     }
 
-    public void StopForcefully()
-    {
-        if (HasStateAuthority && State != DungeonPressureState.Stopped)
-        {
-            State = DungeonPressureState.Stopped;
-            Debug.Log("[DungeonPressureController] Forcefully stopped by external system (Collapse).");
-        }
-    }
-
 #if UNITY_EDITOR
     [HideInInspector]
     public float EditorTimeMultiplier = 1f;

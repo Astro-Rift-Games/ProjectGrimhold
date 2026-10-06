@@ -24,10 +24,10 @@ public class DungeonPressureConfigTests
         SetConfigValues(config, 600, 300, 120, 40);
         
         SetPolicyValue(config, "_normalPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0 });
-        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0 });
         
         SetPolicyValue(config, "_reinforcementsPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 15f, MaxSpawnsPerAttempt = 2 });
         SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 10, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 5 });
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 15, EvaluationIntervalSeconds = 3f, MaxSpawnsPerAttempt = 5 });
         
         return config;
     }
@@ -51,20 +51,50 @@ public class DungeonPressureConfigTests
     }
 
     [Test]
-    public void Validate_CollapseWithBudget_ReturnsFalse()
+    public void Validate_CollapseWithoutBudget_ReturnsFalse()
     {
         var config = CreateValidConfig();
-        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 1, EvaluationIntervalSeconds = 1f, MaxSpawnsPerAttempt = 1 });
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0, EvaluationIntervalSeconds = 3f, MaxSpawnsPerAttempt = 5 });
         
         Assert.IsFalse(config.Validate(out string error));
-        StringAssert.Contains("collapse does not generate reinforcements", error);
+        StringAssert.Contains("collapse applies maximum PvE pressure", error);
+    }
+
+    [Test]
+    public void Validate_CollapseWeakerThanCritical_Budget_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 8, EvaluationIntervalSeconds = 3f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("cannot be less than CriticalPressure PopulationBudget", error);
+    }
+
+    [Test]
+    public void Validate_CollapseWeakerThanCritical_Interval_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 15, EvaluationIntervalSeconds = 10f, MaxSpawnsPerAttempt = 5 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("Collapse should be more frequent", error);
+    }
+
+    [Test]
+    public void Validate_CollapseWeakerThanCritical_MaxSpawns_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        SetPolicyValue(config, "_collapsePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 15, EvaluationIntervalSeconds = 3f, MaxSpawnsPerAttempt = 2 });
+        
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("cannot be less than CriticalPressure MaxSpawnsPerAttempt", error);
     }
 
     [Test]
     public void Validate_CriticalWeakerThanReinforcements_Budget_ReturnsFalse()
     {
         var config = CreateValidConfig();
-        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 3, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 5 });
+        SetPolicyValue(config, "_criticalPressurePolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 3, EvaluationIntervalSeconds = 5f, MaxSpawnsPerAttempt = 2 });
         
         Assert.IsFalse(config.Validate(out string error));
         StringAssert.Contains("cannot be less than Reinforcements PopulationBudget", error);

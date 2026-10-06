@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6cce0bb2a589d44d912ad7f051a64a4, type: 3}
   m_Name: DefaultDungeonPressureConfig
   m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureConfig
-  _totalDurationSeconds: 60
-  _reinforcementsThresholdSeconds: 45
-  _criticalPressureThresholdSeconds: 20
+  _totalDurationSeconds: 900
+  _reinforcementsThresholdSeconds: 300
+  _criticalPressureThresholdSeconds: 120
   _maxGlobalEnemies: 20
   _normalPolicy:
     PopulationBudget: 0
@@ -35,8 +35,8 @@ MonoBehaviour:
     MaxSpawnsPerAttempt: 1
     MinDistanceToPlayer: 5
   _collapsePolicy:
-    PopulationBudget: 0
-    EvaluationIntervalSeconds: 0
-    MinSecondsBetweenSpawns: 0
-    MaxSpawnsPerAttempt: 0
-    MinDistanceToPlayer: 0
+    PopulationBudget: 12
+    EvaluationIntervalSeconds: 4
+    MinSecondsBetweenSpawns: 1
+    MaxSpawnsPerAttempt: 2
+    MinDistanceToPlayer: 5

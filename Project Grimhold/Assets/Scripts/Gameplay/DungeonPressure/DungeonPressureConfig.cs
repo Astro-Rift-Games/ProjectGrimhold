@@ -4,7 +4,7 @@ using UnityEngine;
 public sealed class DungeonPressureConfig : ScriptableObject
 {
     [Tooltip("Total duration of the expedition in seconds. Provisory default.")]
-    [SerializeField] private int _totalDurationSeconds = 600;
+    [SerializeField] private int _totalDurationSeconds = 900;
     
     [Tooltip("Remaining seconds when Reinforcements phase begins.")]
     [SerializeField] private int _reinforcementsThresholdSeconds = 300;
@@ -24,7 +24,7 @@ public sealed class DungeonPressureConfig : ScriptableObject
     [SerializeField] private Spawning.ReinforcementPolicy _normalPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 0, EvaluationIntervalSeconds = 10f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 20f };
     [SerializeField] private Spawning.ReinforcementPolicy _reinforcementsPolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 2, EvaluationIntervalSeconds = 15f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 15f };
     [SerializeField] private Spawning.ReinforcementPolicy _criticalPressurePolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 5, EvaluationIntervalSeconds = 5f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 1, MinDistanceToPlayer = 10f };
-    [SerializeField] private Spawning.ReinforcementPolicy _collapsePolicy = Spawning.ReinforcementPolicy.None;
+    [SerializeField] private Spawning.ReinforcementPolicy _collapsePolicy = new Spawning.ReinforcementPolicy { PopulationBudget = 8, EvaluationIntervalSeconds = 3f, MinSecondsBetweenSpawns = 0f, MaxSpawnsPerAttempt = 2, MinDistanceToPlayer = 10f };
 
     public Spawning.ReinforcementPolicy GetPolicy(DungeonPressurePhase phase)
     {
@@ -77,9 +77,9 @@ public sealed class DungeonPressureConfig : ScriptableObject
                 return false;
             }
 
-            if (phase == DungeonPressurePhase.Collapse && policy.PopulationBudget > 0)
+            if (phase == DungeonPressurePhase.Collapse && policy.PopulationBudget <= 0)
             {
-                error = $"Policy for phase {phase} must have PopulationBudget = 0 (collapse does not generate reinforcements).";
+                error = $"Policy for phase {phase} must have PopulationBudget > 0 (collapse applies maximum PvE pressure).";
                 return false;
             }
 
@@ -141,6 +141,28 @@ public sealed class DungeonPressureConfig : ScriptableObject
             if (critPolicy.MaxSpawnsPerAttempt < reinPolicy.MaxSpawnsPerAttempt)
             {
                 error = "CriticalPressure MaxSpawnsPerAttempt cannot be less than Reinforcements MaxSpawnsPerAttempt.";
+                return false;
+            }
+        }
+
+        var collapsePolicy = GetPolicy(DungeonPressurePhase.Collapse);
+
+        if (collapsePolicy.PopulationBudget < critPolicy.PopulationBudget)
+        {
+            error = "Collapse PopulationBudget cannot be less than CriticalPressure PopulationBudget.";
+            return false;
+        }
+
+        if (critPolicy.PopulationBudget > 0)
+        {
+            if (collapsePolicy.EvaluationIntervalSeconds > critPolicy.EvaluationIntervalSeconds)
+            {
+                error = "Collapse EvaluationIntervalSeconds cannot be greater than CriticalPressure EvaluationIntervalSeconds (Collapse should be more frequent).";
+                return false;
+            }
+            if (collapsePolicy.MaxSpawnsPerAttempt < critPolicy.MaxSpawnsPerAttempt)
+            {
+                error = "Collapse MaxSpawnsPerAttempt cannot be less than CriticalPressure MaxSpawnsPerAttempt.";
                 return false;
             }
         }

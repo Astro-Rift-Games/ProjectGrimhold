@@ -133,5 +133,26 @@ namespace Grimhold.Tests.Networking
             Object.DestroyImmediate(go1);
             Object.DestroyImmediate(go2);
         }
+
+        [Test]
+        public void EvaluateAndSelectPoint_WhenOnePointNearPlayer_SelectsFarPoint()
+        {
+            var points = new List<Transform>();
+            var nearGo = new GameObject("near"); nearGo.transform.position = Vector3.right * 2f;
+            var farGo = new GameObject("far"); farGo.transform.position = Vector3.right * 20f;
+            points.Add(nearGo.transform);
+            points.Add(farGo.transform);
+
+            var playerPositions = new List<Vector3> { Vector3.zero };
+            var buffer = new List<Transform>();
+
+            var selected = ReinforcementSpawnPlanner.EvaluateAndSelectPoint(points, playerPositions, 5f, buffer);
+
+            Assert.AreSame(farGo.transform, selected);
+            Assert.AreEqual(1, buffer.Count);
+
+            Object.DestroyImmediate(nearGo);
+            Object.DestroyImmediate(farGo);
+        }
     }
 }

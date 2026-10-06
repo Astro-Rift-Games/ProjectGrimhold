@@ -102,7 +102,7 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
         // Restart evaluation timer
         _evaluationTimerTicks = Mathf.CeilToInt(policy.EvaluationIntervalSeconds * Runner.TickRate);
 
-        if (_pressureController.Phase == DungeonPressurePhase.Normal || _pressureController.Phase == DungeonPressurePhase.Collapse)
+        if (_pressureController.Phase == DungeonPressurePhase.Normal)
         {
             SetRejectionReason(ReinforcementRejection.Disabled);
             return;
@@ -126,7 +126,8 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
                 Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
                 if (spawnPoint != null)
                 {
-                    if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint))
+                    bool disableLoot = _pressureController.Phase == DungeonPressurePhase.Collapse;
+                    if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint, disableLoot))
                     {
                         spawnedCount++;
                         TotalSpawnsGenerated++;
@@ -165,11 +166,11 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
             return null;
 
         _playerPositionsCache.Clear();
-        foreach (var playerObj in _spawnManager.ActivePlayerObjects)
+        foreach (var avatarObj in _spawnManager.ActiveAvatarObjects)
         {
-            if (playerObj != null)
+            if (avatarObj != null)
             {
-                _playerPositionsCache.Add(playerObj.transform.position);
+                _playerPositionsCache.Add(avatarObj.transform.position);
             }
         }
 

@@ -154,7 +154,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
     public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
-    public System.Collections.Generic.IEnumerable<NetworkObject> ActivePlayerObjects => _spawnedPlayers.Values;
+    public System.Collections.Generic.IEnumerable<NetworkObject> ActiveAvatarObjects => _spawnedAvatars.Values;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
     public bool HasRaidingParticipants
@@ -2835,13 +2835,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return false;
     }
 
-    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint)
+    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint, bool disableLoot = false)
     {
         if (spawnPoint == null) return false;
-        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement);
+        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement, disableLoot);
     }
 
-    private bool SpawnEnemyAtTransform(NetworkRunner runner, Transform spawnPoint, Spawning.EnemyPopulationOrigin origin)
+    private bool SpawnEnemyAtTransform(NetworkRunner runner, Transform spawnPoint, Spawning.EnemyPopulationOrigin origin, bool disableLoot = false)
     {
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
@@ -2911,17 +2911,29 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
                     if (instance.TryGetBehaviour(out NetworkLootContainer container))
                     {
-                        lootConfigured = TryConfigureEnemyLootBeforeSpawn(
-                            callbackRunner,
-                            instance,
-                            enemyLootSeed,
-                            additionalLootChanceBasisPoints,
-                            out lootError);
-                        if (!lootConfigured)
+                        if (disableLoot)
                         {
-                            Debug.LogError(
-                                $"Cannot initialize spawned enemy Loot before Spawned(). {lootError}",
-                                instance);
+                            lootConfigured = container.TrySetInitialContentOverride(callbackRunner, instance, Array.Empty<LootEntry>());
+                            if (!lootConfigured)
+                            {
+                                lootError = "Failed to apply empty loot override for disableLoot.";
+                                Debug.LogError($"Cannot initialize spawned enemy Loot before Spawned(). {lootError}", instance);
+                            }
+                        }
+                        else
+                        {
+                            lootConfigured = TryConfigureEnemyLootBeforeSpawn(
+                                callbackRunner,
+                                instance,
+                                enemyLootSeed,
+                                additionalLootChanceBasisPoints,
+                                out lootError);
+                            if (!lootConfigured)
+                            {
+                                Debug.LogError(
+                                    $"Cannot initialize spawned enemy Loot before Spawned(). {lootError}",
+                                    instance);
+                            }
                         }
                     }
                     else
@@ -2951,7 +2963,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!lootConfigured || spawnedContainer == null ||
             !(bool)spawnedContainer.IsInitialized ||
             (bool)spawnedContainer.IsAvailable ||
-            spawnedContainer.OccupiedSlotCount == 0)
+            (!disableLoot && spawnedContainer.OccupiedSlotCount == 0))
         {
             Debug.LogError(
                 $"Cannot retain spawned enemy because its Loot container did not initialize with unavailable content. {lootError}",
