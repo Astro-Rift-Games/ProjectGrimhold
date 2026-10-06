@@ -3,8 +3,7 @@
 ## Scope
 
 The Town player menu is one framed window with a tab bar that hosts the local player's personal screens
-in Town. It currently hosts **Inventory**, **Attributes** and **Options**. Abilities is the planned next
-tab. Options replaces the former standalone Town pause menu and is where sound, graphics and other
+in Town. It currently hosts **Inventory**, **Attributes**, **Abilities** and **Options**. Options replaces the former standalone Town pause menu and is where sound, graphics and other
 settings will be added; today it only offers Log out and Exit game. Raid keeps
 the standalone personal inventory and does not use this menu. Stash, Merchant, Mission Board and Raid
 Preparation stay NPC-opened panels: they depend on a confirmed interaction and are not tabs yet.
@@ -46,6 +45,7 @@ tab means adding an id there and a registration from the feature.
 |---|---|---|---|
 | Inventory | `TownInventoryBinder` | `RaidInventoryView.ScreenRootRect` | `RaidInventoryPresenter.BindTown(..., externallyHosted: true)`, `ShowHosted`, `HideHosted` |
 | Attributes | `TownAttributeAssignmentPresenter` | the instantiated `TownAttributeAssignmentView` root | `Open` / `Close`; the panel's own close button is hidden |
+| Abilities | `TownAbilitiesPresenter`, registered by `TownInventoryBinder` | the instantiated `TownAbilitiesView` root (`TownAbilities.prefab`) | `Open` / `Close`; refreshes every time it is shown |
 | Options | `TownOptionsPresenter`, registered by `TownInventoryBinder` | the instantiated `TownOptionsView` root (`TownOptions.prefab`) | `Open` / `Close`; Log out and Exit game buttons |
 
 ## Attributes tab: character sheet
@@ -87,6 +87,31 @@ equipment influence on move speed, and only four armor slots plus two Weapon Set
 `PlayerCharacter._defenseMitigationConstant`. All authored weapons currently have a zero scaling coefficient, so
 effective damage equals base damage today.
 
+## Abilities tab
+
+Three columns: the unlocked abilities (resource filter All / Stamina / Mana, 3-column card grid), the selected
+ability's details (description, requirement, resource and cost, cooldown, Equip to Slot 1 / 2) and the right
+column with the two universal slots (key label, ability, Clear), the requirement check for the selected ability,
+the preparation rules and a combat bar preview. Only data the model defines is shown: `AbilityDefinition` has no
+cast time, targeting or effect fields, so none of those rows exist.
+
+Ownership follows `AbilitySystemArchitecture.md`: the view never touches the profile. `TownAbilitiesBuilder` (pure)
+projects the unlocked repertoire, the prepared slots and the confirmed attributes into entries
+(Available / Equipped / RequirementsNotMet); an unlocked ability whose requirements are not met is still listed,
+because unlocking is independent of attributes. `TownAbilitiesPresenter` owns the filter and the selection,
+refreshes on `ApplicationStashContext.ProfileCommitted` while the tab is shown and always when it is shown (the
+Ready state changes without a commit), and routes equip and clear through `TownAbilityMutationEndpoint`. The
+endpoint is the only writer: it applies the same Town Ready gate as equipment (`TownInventoryBinder.CanMutateEquipment`),
+never reaches the store while blocked, and returns its own outcome (Success / BlockedByReadyState / Rejected) so the
+Raid-consumed `AbilityPreparationResult` is untouched; the presenter decides from `Outcome`, never from
+`Preparation` when blocked. While Ready, the buttons are disabled and a locked note is shown. The store still
+validates unlock, requirements and duplicates, so the view's `CanEquip` hint is advisory.
+
+The slot key labels are Q and E (`TownAbilitySlotKeyLabels`), matching `Gameplay/AbilitySlot1` and
+`Gameplay/AbilitySlot2`; Interact is on F. A test compares the labels with the bindings in
+`PlayerInputActions.inputactions`, so they cannot drift. The tab has no hotkey of its own; it is opened from the
+tab bar.
+
 ## Hosted mode contract
 
 When hosted, a feature presenter does not subscribe to its own hotkeys or Escape and does not acquire an
@@ -127,10 +152,12 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
 
 ## Known limits
 
-- Ability slot 2 is bound to R, not E. The reference mock-up shows Q/E; decide labels and bindings before
-  building the Abilities tab.
-- The Abilities tab still needs display metadata on `AbilityDefinition`, a read-only catalog enumerator
-  and a Town/Ready-gated equip endpoint (see `AbilitySystemArchitecture.md`).
+- No production source unlocks abilities yet (`LocalProfileStore.TryUnlockAbility` is only called by tests), so a
+  fresh profile shows the empty-repertoire note in the Abilities tab. There is also no ability art: the optional
+  `AbilityDefinition._icon` is empty and the tab shows placeholder frames.
+- The Abilities tab has no hotkey; opening it needs a new Input Action and a `PlayerInputReader` event.
+- The interaction hint texts ("F — Interactuar" and the dialogue continue hint) are hardcoded strings, not derived
+  from the Interact binding.
 - `MissionBoardUI` still reads Escape (and its toggle key) through the legacy `Input` API, so closing the
   Mission Board with Escape can also open the Options tab.
 - Options is only reachable once the local player exists and its menu is bound. Before the player spawns,

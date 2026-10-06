@@ -296,7 +296,7 @@ The following implementation belongs to later tasks; this document defines its c
 - targeting and target validation;
 - the Current Mana resource owner and its resource/lifecycle operations;
 - Status Effects, Assist, toggles, summons, and persistent spawned effects;
-- ability UI, HUD, audio, VFX, and animation;
+- the Raid ability HUD, audio, VFX, and animation (the Town preparation UI is the Abilities tab of the Town player menu, see [Town Player Menu Architecture](TownPlayerMenuArchitecture.md): it reads the profile through `LocalProfileStore` and mutates prepared slots only through the Ready-gated `TownAbilityMutationEndpoint`);
 - balance values and concrete ability content;
 - execution-specific prefab composition beyond the implemented slot-binding references;
 - general disconnected-character retention/reconnection under the session owner's contract.
