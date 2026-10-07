@@ -17,6 +17,13 @@ public sealed class LootHudPresenter : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _toastDuration = 1.5f;
 
+    [Header("Optional Pickup Feedback")]
+    [SerializeField]
+    private CustomClip _pickupSound;
+
+    [SerializeField]
+    private ParticleSystem _pickupParticles;
+
     private PlayerLootReceiver _lootReceiver;
     private int _lastGrantSequence;
     private float _toastRemaining;
@@ -70,7 +77,7 @@ public sealed class LootHudPresenter : MonoBehaviour
 
     private void OnLootGranted(LootGrantPresentationEvent grantEvent)
     {
-        if (grantEvent.Sequence == _lastGrantSequence)
+        if (!_isBound || _lootReceiver == null || grantEvent.Sequence == _lastGrantSequence)
         {
             return;
         }
@@ -94,6 +101,10 @@ public sealed class LootHudPresenter : MonoBehaviour
         }
 
         _toastRemaining = _toastDuration;
+
+        Vector3 pickupPosition = _lootReceiver.transform.position;
+        AudioManager.Instance?.PlaySfx(_pickupSound, pickupPosition);
+        ParticleEffectPlayer.InstantiateAndPlay(_pickupParticles, pickupPosition);
     }
 
     private void HideToast()

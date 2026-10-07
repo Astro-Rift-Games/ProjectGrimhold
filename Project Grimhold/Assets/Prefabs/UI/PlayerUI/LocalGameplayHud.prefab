@@ -356,6 +356,14 @@ MonoBehaviour:
   _toastRoot: {fileID: 1187550265258275513}
   _toastText: {fileID: 1187550265258275510}
   _toastDuration: 1.5
+  _pickupSound:
+    _clips:
+    - {fileID: 8300000, guid: 818ceeca65489e14ab6864f21ac80fd5, type: 3}
+    _volume: 1
+    _pitch: 1
+    _spatialBlend: 0
+    _loop: 0
+  _pickupParticles: {fileID: 2864673287031232819, guid: d8ade4b5c170b5f4ea33417bea86d88f, type: 3}
 --- !u!114 &1187550265258275395
 MonoBehaviour:
   m_ObjectHideFlags: 0
