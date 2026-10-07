@@ -24,7 +24,10 @@ All icons currently use Multiple import mode; disconnected art was split into fr
 - RDD: enabled by global preference. Assess the committed work unit against base; follow native transitions if due.
 - Verified: Unity read-only inspection returned textures=11, definitions=9, issues=[]; Single/Point and full 32x32 rectangles; exact references include both V1 selections. PNG hashes and all GUIDs unchanged. EditorSettings SHA256 unchanged. Console returned zero errors; Editor idle/not compiling.
 - Diff: eleven importer files change only mode, filter and Unity-generated Single spriteID; nine definitions change only _icon. git diff --check passed (line-ending warnings only). No gameplay, scene, prefab or source changes.
-- Pending: work-unit commit and committed risk assessment; in-game rendered appearance not exercised. No automated C# tests run because this unit is serialized-only.
+- T1 work-unit commit: 4df8ab899b5622919eda87b064d15372702321fa, feat(ui): configure and assign ability icons.
+- Committed range: 114 total changed lines (72 additions, 42 deletions); generated importer metadata accounts for 66. Authored total including task record: 48, below delivery budget.
+- Native assessment: medium; review_due=false, under_budget against 6db814eae412882c0c1cb265bd2303c036d98f1c. No review receipt claimed; this range stays pending until a later slice reaches its budget.
+- Pending manual check: in-game rendered appearance. No automated C# tests run because this unit is serialized-only. No push, PR or merge performed.
 
 ## Next step
-Commit the verified work unit, assess native review risk and record delivery evidence. In-game appearance remains a manual follow-up.
+Optionally check in-game UI appearance. Implementation and Editor reference/import verification are complete.
