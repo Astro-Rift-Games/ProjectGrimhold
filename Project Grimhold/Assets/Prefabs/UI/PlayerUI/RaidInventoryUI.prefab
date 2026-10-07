@@ -418,6 +418,8 @@ MonoBehaviour:
   _view: {fileID: 4108063214961049924}
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _interactionConfig: {fileID: 11400000, guid: efb011a4088a7ce4b8331b1d1162bcc3, type: 2}
+  _transferSuccessSound: {fileID: 8300000, guid: 818ceeca65489e14ab6864f21ac80fd5, type: 3}
+  _transferRejectedSound: {fileID: 8300000, guid: 3d1fc54a2f6df7840a89b832c0c32427, type: 3}
 --- !u!1 &3798384918383715654
 GameObject:
   m_ObjectHideFlags: 0

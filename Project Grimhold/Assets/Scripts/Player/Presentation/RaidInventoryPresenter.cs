@@ -27,6 +27,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     [SerializeField]
     private PlayerInteractionConfig _interactionConfig;
 
+    [SerializeField] private AudioClip _transferSuccessSound;
+    [SerializeField] private AudioClip _transferRejectedSound;
+
+    private readonly LootTransferFeedbackState _playerTransferFeedback = new();
+    private readonly LootTransferFeedbackState _containerTransferFeedback = new();
+    private float _nextTransferSoundTime;
+
     private readonly RaidLootPanelPresenter _playerPanelPresenter = new();
     private readonly RaidLootPanelPresenter _containerPanelPresenter = new();
     private readonly RaidLootSelectionState _playerSelection = new();
@@ -669,7 +676,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _playerSelection.Clear();
         _view.HideTransferFeedback();
-        if (!_transferController.TryRequestTransfer(
+        if (!TryRequestTransferWithFeedback(
                 _container.Id,
                 _lootReceiver.Id,
                 lootId,
@@ -693,7 +700,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _containerSelection.Clear();
         _view.HideTransferFeedback();
-        if (!_transferController.TryRequestTransfer(
+        if (!TryRequestTransferWithFeedback(
                 _lootReceiver.Id,
                 _container.Id,
                 lootId,
@@ -753,12 +760,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Container)
         {
             if (_container != null && _transferController != null)
-                _transferController.TryRequestTransfer(_lootReceiver.Id, _container.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+                TryRequestTransferWithFeedback(_lootReceiver.Id, _container.Id, payload.LootId, LootTransferQuantityMode.FullStack);
         }
         else if (payload.Source == DragSlotLocation.Container && targetLocation == DragSlotLocation.Inventory)
         {
             if (_container != null && _transferController != null)
-                _transferController.TryRequestTransfer(_container.Id, _lootReceiver.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+                TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, payload.LootId, LootTransferQuantityMode.FullStack);
         }
         else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
         {
@@ -1149,10 +1156,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnTransportRejected(LootTransferTransportRejectionReason reason)
     {
+        _playerTransferFeedback.CompleteRequest(null, false);
+        _containerTransferFeedback.CompleteRequest(null, false);
         if (_mode != ScreenMode.ContainerLoot)
         {
             return;
         }
+
+        PlayTransferSound(_transferRejectedSound);
 
         if (_takeAllState.IsAwaitingCompletion)
         {
@@ -1171,8 +1182,48 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshTransferInteraction();
     }
 
+    private bool TryRequestTransferWithFeedback(
+        EntityId sourceId, EntityId destinationId, LootId lootId, LootTransferQuantityMode mode)
+    {
+        // Capture the displayed destination before either snapshots or confirmation can arrive.
+        LootTransferFeedbackState feedback = destinationId == _container.Id
+            ? _containerTransferFeedback : _playerTransferFeedback;
+        if (_transferController.HasRequestInFlight) return false;
+        feedback.CaptureRequest(lootId);
+        if (_transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode)) return true;
+        feedback.CompleteRequest(null, false);
+        return false;
+    }
+
+    private void PresentTransferFeedback(
+        LootTransferFeedbackState feedback, RaidLootPanelPresenter presenter, RaidLootPanelView panel)
+    {
+        IReadOnlyList<LootId> ready = feedback.Observe(presenter.OccupiedEntries);
+        if (_mode != ScreenMode.ContainerLoot) return;
+        bool presented = false;
+        for (int i = 0; i < ready.Count; i++) presented |= panel.ShowTransferSuccess(ready[i]);
+        if (presented) PlayTransferSound(_transferSuccessSound);
+    }
+
+    private void PlayTransferSound(AudioClip clip)
+    {
+        if (clip == null || AudioManager.Instance == null || Time.unscaledTime < _nextTransferSoundTime) return;
+        AudioManager.Instance.PlaySfx(clip);
+        _nextTransferSoundTime = Time.unscaledTime + 0.2f;
+    }
+
     private void OnTransferConfirmed(LootTransferConfirmation confirmation)
     {
+        bool isBoundTransfer = _mode == ScreenMode.ContainerLoot && _container != null &&
+            _lootReceiver != null &&
+            ((confirmation.SourceId == _container.Id && confirmation.DestinationId == _lootReceiver.Id) ||
+             (confirmation.SourceId == _lootReceiver.Id && confirmation.DestinationId == _container.Id));
+        if (isBoundTransfer)
+        {
+            LootTransferFeedbackState feedback = confirmation.DestinationId == _container.Id
+                ? _containerTransferFeedback : _playerTransferFeedback;
+            feedback.CompleteRequest(confirmation.ResolvedLootId, confirmation.Result.Success);
+        }
         RefreshPlayerPanel();
         if (_mode == ScreenMode.ContainerLoot && _container != null &&
             (confirmation.SourceId == _container.Id || confirmation.DestinationId == _container.Id))
@@ -1187,6 +1238,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             }
             else
             {
+                PlayTransferSound(_transferRejectedSound);
                 bool isDeposit = confirmation.DestinationId == _container.Id;
                 bool isCapacityRejection =
                     confirmation.Result.FailureReason == LootTransferFailureReason.InventoryFull;
@@ -1262,7 +1314,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             }
 
             LootId lootId = _takeAllState.CurrentLootId;
-            if (_transferController.TryRequestTransfer(
+            if (TryRequestTransferWithFeedback(
                     _container.Id,
                     _lootReceiver.Id,
                     lootId,
@@ -1449,6 +1501,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _playerSelection.Reconcile(_playerPanelPresenter.OccupiedEntries);
+        PresentTransferFeedback(_playerTransferFeedback, _playerPanelPresenter, _view.PlayerPanel);
         if (_view.ContextMenu != null && _view.ContextMenu.IsOpen && !_playerSelection.HasSelection)
         {
             HideContextMenu();
@@ -1514,6 +1567,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+        PresentTransferFeedback(_containerTransferFeedback, _containerPanelPresenter, _view.ContainerPanel);
         RefreshTransferInteraction();
     }
 
@@ -1618,6 +1672,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void ClearContainerBinding()
     {
+        _playerTransferFeedback.Clear();
+        _containerTransferFeedback.Clear();
+        _view?.PlayerPanel?.ClearTransferFeedback();
+        _view?.ContainerPanel?.ClearTransferFeedback();
         CancelTakeAll();
         _playerSelection.Clear();
         _containerSelection.Clear();

@@ -16,8 +16,8 @@ namespace Tests.PlayMode.Combat
     public sealed class PlayerCombatNetworkControllerPlayModeTests
     {
         private const string BasePrefabGuid = "fea3a7b256f965a4eb9b965832939741";
-        private const string MeleePrefabGuid = "982f360e5acbdd344a8a75bbc0af94ec";
-        private const string RangedPrefabGuid = "5ac01b0bb782cc04c8ccfc9c41612d57";
+        private const string MatchPrefabGuid = "b91f8c7e96a4d784a92c3bd1a88dfec8";
+        private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string MissingExtractionProgressDependenciesMessage =
             "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.";
 
@@ -61,9 +61,9 @@ namespace Tests.PlayMode.Combat
         [UnityTest]
         public IEnumerator NeutralAssignmentAndCooldownFlow_UsesAuthoritativeStrategyPresence()
         {
-            yield return StartRunner();
+            yield return StartGameplayRunner();
             LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject playerObject = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            NetworkObject playerObject = SpawnPlayerWithParticipant();
             PlayerCombatNetworkController controller =
                 playerObject.GetComponent<PlayerCombatNetworkController>();
 
@@ -208,8 +208,21 @@ namespace Tests.PlayMode.Combat
             Assert.That(enabledProxyStatus.IsAvailable, Is.True);
 
             PlayerCharacter character = playerObject.GetComponent<PlayerCharacter>();
+            DisableDownedEntry(playerObject);
+            TickTimer cooldownBeforeDeath = ReadCooldown(controller);
             yield return DefeatCharacter(character, true);
             Assert.That(character.IsAlive, Is.False);
+            Assert.That(character.IsDowned, Is.False);
+            Assert.That(ReadHasActiveAttack(controller), Is.False, "Definitive corpse conversion clears Equipment's active strategy.");
+            Assert.That(controller.TryGetPrimaryAttackStatus(out _), Is.False);
+            Assert.That(ReadCooldown(controller), Is.EqualTo(cooldownBeforeDeath));
+            Assert.That(ReadCooldownDuration(controller), Is.EqualTo(0.4f).Within(0.0001f));
+
+            // Isolate dead-character readiness from the neutral state produced by corpse conversion.
+            // Strategy presence is assigned through the same State Authority API as the rest of this test.
+            yield return SetStrategy(controller, firstAttack, true);
+            ActiveAttackField.SetValue(controller, null);
+            Assert.That(ReadHasActiveAttack(controller), Is.True);
             Assert.That(controller.TryGetPrimaryAttackStatus(out PrimaryAttackStatus defeatedProxyStatus), Is.True);
             Assert.That(defeatedProxyStatus.IsAvailable, Is.False);
 
@@ -219,37 +232,92 @@ namespace Tests.PlayMode.Combat
         }
 
         [UnityTest]
-        public IEnumerator FreshVariants_InitializeAuthoritativeAttackPresence()
+        public IEnumerator FreshPlayer_InitializesNeutralAndEquipmentAssignsAuthoritativeAttackPresence()
         {
-            yield return StartRunner();
+            yield return StartGameplayRunner();
+            // The productive prefab contains extraction progress; this combat fixture deliberately
+            // has no sanctuary assignment service. Expect its actual dependency diagnostic once.
             LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject melee = Spawn(MeleePrefabGuid, null, Vector3.zero);
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject ranged = Spawn(RangedPrefabGuid, null, Vector3.right * 3f);
-            yield return null;
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var receiver = player.GetComponent<PlayerLootReceiver>();
+            Assert.That(equipment.HasStateAuthority, Is.True);
+            Assert.That(equipment.HasInputAuthority, Is.True);
+            Assert.That(equipment.HasAnyEquipment, Is.False);
+            Assert.That(ReadHasActiveAttack(combat), Is.False);
+            Assert.That(ReadActiveAttack(combat), Is.Null);
+            Assert.That(ReadActiveAttackSource(combat), Is.Null);
+            Assert.That(combat.TryGetPrimaryAttackStatus(out _), Is.False);
+            int neutralSequence = ReadAttackSequence(combat);
+            int performedCount = 0;
+            int feedbackCount = 0;
+            combat.AttackPerformed += _ => performedCount++;
+            combat.CombatFeedbackResolved += _ => feedbackCount++;
+            yield return PressAttackUntil(combat,
+                () => ReadPreviousButtons(combat).IsSet(PlayerInputButton.PrimaryAttack),
+                "The fresh neutral player did not consume primary input.");
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(neutralSequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(TickTimer.None));
+            Assert.That(ReadCooldownDuration(combat), Is.Zero);
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(performedCount, Is.Zero);
+            Assert.That(feedbackCount, Is.Zero);
 
-            PlayerCombatNetworkController meleeController =
-                melee.GetComponent<PlayerCombatNetworkController>();
-            PlayerCombatNetworkController rangedController =
-                ranged.GetComponent<PlayerCombatNetworkController>();
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            var wand = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+            Assert.That(sword, Is.Not.Null);
+            Assert.That(wand, Is.Not.Null);
+            var inventoryDriver = _runner.gameObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _runner.AddGlobal(inventoryDriver);
+            int inventorySequence = inventoryDriver.CompletionSequence;
+            inventoryDriver.RequestInitializeLoadout(receiver, new[]
+            {
+                new LootEntry(sword.LootId, 1),
+                new LootEntry(wand.LootId, 1)
+            });
+            yield return WaitUntil(() => inventoryDriver.CompletionSequence != inventorySequence,
+                "Raid inventory setup did not run in simulation.");
+            Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
+            Assert.That(ReadHasActiveAttack(combat), Is.False, "Inventory ownership alone must not assign an attack.");
 
-            Assert.That(ReadHasActiveAttack(meleeController), Is.True);
-            Assert.That(ReadActiveAttack(meleeController), Is.TypeOf<MeleeAttack>());
-            Assert.That(meleeController.TryGetPrimaryAttackStatus(out PrimaryAttackStatus meleeStatus), Is.True);
+            yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAMainHand);
+            Assert.That(equipment.TryGetSlotDefinition(EquipmentSlot.WeaponSetAMainHand, out LootDefinition equippedSword), Is.True);
+            Assert.That(equippedSword, Is.SameAs(sword));
+            Assert.That(receiver.GetLootAmount(sword.LootId), Is.Zero);
+            Assert.That(receiver.GetLootAmount(wand.LootId), Is.EqualTo(1));
+            Assert.That(ReadHasActiveAttack(combat), Is.True);
+            Assert.That(ReadActiveAttack(combat), Is.TypeOf<MeleeAttack>());
+            Assert.That(ReadActiveAttackSource(combat), Is.SameAs(player.GetComponent<MeleeAttack>()));
+            Assert.That(ReadActiveAttack(combat).CooldownSeconds, Is.EqualTo(sword.WeaponDefinition.AttackIntervalSeconds));
+            Assert.That(combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus meleeStatus), Is.True);
             Assert.That(meleeStatus.IsAvailable, Is.True);
 
-            Assert.That(ReadHasActiveAttack(rangedController), Is.True);
-            Assert.That(ReadActiveAttack(rangedController), Is.TypeOf<RangedAttack>());
-            Assert.That(rangedController.TryGetPrimaryAttackStatus(out PrimaryAttackStatus rangedStatus), Is.True);
+            // Replace the active Main Hand through a real request, not direct strategy assignment.
+            yield return Equip(equipment, wand, EquipmentSlot.WeaponSetAMainHand);
+            Assert.That(equipment.TryGetSlotDefinition(EquipmentSlot.WeaponSetAMainHand, out LootDefinition equippedWand), Is.True);
+            Assert.That(equippedWand, Is.SameAs(wand));
+            Assert.That(receiver.GetLootAmount(sword.LootId), Is.EqualTo(1));
+            Assert.That(receiver.GetLootAmount(wand.LootId), Is.Zero);
+            Assert.That(ReadHasActiveAttack(combat), Is.True);
+            Assert.That(ReadActiveAttack(combat), Is.TypeOf<RangedAttack>());
+            Assert.That(ReadActiveAttackSource(combat), Is.SameAs(player.GetComponent<RangedAttack>()));
+            Assert.That(ReadActiveAttack(combat).CooldownSeconds, Is.EqualTo(wand.WeaponDefinition.AttackIntervalSeconds));
+            Assert.That(combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus rangedStatus), Is.True);
             Assert.That(rangedStatus.IsAvailable, Is.True);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(neutralSequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(TickTimer.None));
+            Assert.That(ReadCooldownDuration(combat), Is.Zero);
+            Assert.That(performedCount, Is.Zero);
+            Assert.That(feedbackCount, Is.Zero);
         }
 
         [UnityTest]
         public IEnumerator ContextualAttackFacing_IsConsumedByCombatInTheSameTick()
         {
-            yield return StartRunner();
+            yield return StartGameplayRunner();
             LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject playerObject = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            NetworkObject playerObject = SpawnPlayerWithParticipant();
             PlayerCombatNetworkController combatController =
                 playerObject.GetComponent<PlayerCombatNetworkController>();
             PlayerCombatTestAttack attack =
@@ -275,9 +343,9 @@ namespace Tests.PlayMode.Combat
         [UnityTest]
         public IEnumerator RangedWindup_AdvancesWithoutInputOrActiveStrategyAndKeepsAcceptedPayload()
         {
-            yield return StartRunner();
+            yield return StartGameplayRunner();
             LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.6f, 0.05f, out RecordingProjectileSpawner spawner);
             yield return SetStrategy(combat, ranged, true);
@@ -297,12 +365,21 @@ namespace Tests.PlayMode.Combat
             var config = AssetDatabase.LoadAssetAtPath<RangedAttackConfig>("Assets/Scriptable Objects/RangePlayerAttackConfig.asset");
             Assert.That(ranged.TryConfigure(config, new AttackExecutionParameters(99f, DamageType.Magical, 0f, 12f, 8f)), Is.True);
             yield return ClearStrategy(combat, true);
+            Assert.That(ReadHasActiveAttack(combat), Is.False);
+            Assert.That(ReadActiveAttack(combat), Is.Null);
+            Assert.That(ReadPending(combat), Is.EqualTo(accepted), "Reconfiguration and clear must retain the complete accepted payload.");
             _inputDriver.MoveDirection = Vector2.zero;
             _runner.ProvideInput = false;
             yield return WaitUntil(() => spawner.Count == 1, "Missing input/strategy stalled the accepted deadline.");
             Assert.That(spawner.WasAuthoritativeForward, Is.True);
             Assert.That(spawner.LastRequest.SimulationTick, Is.EqualTo(accepted.ReleaseTick));
             Assert.That(spawner.LastRequest.Direction.x, Is.GreaterThan(0.99f));
+            Assert.That(spawner.LastRequest.Direction, Is.EqualTo(accepted.Direction));
+            Assert.That(spawner.LastRequest.ProjectilePrefab, Is.EqualTo(accepted.Prefab));
+            Assert.That(spawner.LastRequest.ImpactLayerMask, Is.EqualTo(accepted.ImpactMask));
+            Assert.That(spawner.LastRequest.Speed, Is.EqualTo(accepted.Speed));
+            Assert.That(spawner.LastRequest.LifetimeSeconds, Is.EqualTo(accepted.Lifetime));
+            Assert.That(spawner.LastRequest.KnockbackForce, Is.EqualTo(accepted.Knockback));
             Assert.That(spawner.LastRequest.Damage, Is.EqualTo(28f));
             Assert.That(spawner.LastRequest.DamageType, Is.EqualTo(DamageType.Physical));
             Assert.That(spawner.LastRequest.MaximumRange, Is.EqualTo(6f));
@@ -317,45 +394,206 @@ namespace Tests.PlayMode.Combat
         [UnityTest]
         public IEnumerator RangedWindup_DisableDownedAndDeathCancelWithoutRefundingCooldown()
         {
-            yield return StartRunner();
+            yield return StartGameplayRunner();
             for (int cancellation = 0; cancellation < 3; cancellation++)
             {
                 LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-                NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.right * cancellation * 3f);
+                NetworkObject player = SpawnPlayerWithParticipant(Vector3.right * cancellation * 3f, cancellation + 1);
                 var combat = player.GetComponent<PlayerCombatNetworkController>();
                 RangedAttack ranged = ConfigureScheduledAttack(player, 0.45f, 1.5f, out RecordingProjectileSpawner spawner);
                 yield return SetStrategy(combat, ranged, true);
                 yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
                 TickTimer cooldown = ReadCooldown(combat);
                 int deadline = ReadPending(combat).ReleaseTick;
+                int acceptedTick = (int)_runner.Tick;
+                int sequence = ReadAttackSequence(combat);
+                Assert.That(spawner.Count, Is.Zero);
+                Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f));
                 if (cancellation == 0) yield return SetAttackEnabled(combat, false, true);
                 else
                 {
                     if (cancellation == 2)
                     {
-                        // Existing seam disables Downed entry to exercise definitive death directly.
-                        var downed = player.GetComponent<PlayerDownedStateNetworkController>();
-                        typeof(PlayerDownedStateNetworkController).GetProperty("TestDisableEntry",
-                            BindingFlags.Instance | BindingFlags.NonPublic).SetValue(downed, true);
+                        DisableDownedEntry(player);
                     }
                     yield return DefeatCharacter(player.GetComponent<PlayerCharacter>(), cancellation == 2);
                     Assert.That(PlayerDownedGate.IsDowned(player.GetComponent<PlayerCharacter>()), Is.EqualTo(cancellation == 1));
+                    Assert.That(player.GetComponent<PlayerCharacter>().IsAlive, Is.EqualTo(cancellation == 1));
                 }
                 yield return WaitUntil(() => !(bool)ReadPending(combat).Pending, "Cancellation did not clear wind-up.");
+                int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+                Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
+                Assert.That(cancellationTick, Is.LessThan(deadline));
+                Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cancellation must not refund recovery.");
                 Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
                 Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
                 yield return WaitUntil(() => (int)_runner.Tick > deadline + 2, "Runner did not cross cancelled deadline.");
                 Assert.That(spawner.Count, Is.Zero);
+                Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+                Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
                 _runner.Despawn(player);
             }
         }
 
         [UnityTest]
-        public IEnumerator RangedWindup_FailedSpawnConsumesAttemptAndCannotReplay()
+        public IEnumerator RangedWindup_PhaseExitCancelsWithoutRefundingCooldown()
+        {
+            yield return StartRunner(includeMatchController: true);
+            NetworkObject matchObject = Spawn(MatchPrefabGuid, null, Vector3.zero);
+            var match = matchObject.GetComponent<NetworkMatchController>();
+            var phaseDriver = _runner.gameObject.AddComponent<MatchPhaseSimulationDriver>();
+            _runner.AddGlobal(phaseDriver);
+            Assert.That(match.HasStateAuthority, Is.True);
+            Assert.That(_runner.GetComponent<NetworkSpawnManager>().MatchController, Is.SameAs(match));
+            yield return SetPhase(phaseDriver, match, NetworkMatchController.MatchPhase.InProgress);
+
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            RangedAttack ranged = ConfigureScheduledAttack(player, 0.8f, 1.5f, out RecordingProjectileSpawner spawner);
+            yield return SetStrategy(combat, ranged, true);
+            Assert.That(GetField("_matchController").GetValue(combat), Is.SameAs(match));
+            yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted in the active phase.");
+            int deadline = ReadPending(combat).ReleaseTick;
+            int sequence = ReadAttackSequence(combat);
+            TickTimer cooldown = ReadCooldown(combat);
+            Assert.That(spawner.Count, Is.Zero);
+            Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cooldown must start at acceptance.");
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+
+            // Change only the real match phase, not the combat-enabled flag or character state.
+            // No input is supplied: cancellation must still run before the input gate.
+            _runner.ProvideInput = false;
+            yield return SetPhase(phaseDriver, match, NetworkMatchController.MatchPhase.Finished);
+            yield return WaitUntil(() => !(bool)ReadPending(combat).Pending, "Phase exit did not cancel the accepted wind-up.");
+            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(phaseDriver.ChangedTick));
+            Assert.That(cancellationTick, Is.LessThan(deadline), "The phase must exit before release is due.");
+            Assert.That((bool)combat.IsAttackEnabled, Is.True, "This case must exercise phase gating, not explicit disable.");
+            Assert.That(player.GetComponent<PlayerCharacter>().IsAlive, Is.True);
+            Assert.That(PlayerDownedGate.IsDowned(player.GetComponent<PlayerCharacter>()), Is.False);
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+            Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cancellation must not refund recovery.");
+
+            yield return WaitUntil(() => (int)_runner.Tick > deadline + 3, "Runner did not cross the cancelled release deadline.");
+            Assert.That(spawner.Count, Is.Zero);
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(cancellationTick));
+        }
+
+        [UnityTest]
+        public IEnumerator RangedWindup_DefenseAfterAcceptanceKeepsPayloadAndBlocksNewAcceptance()
         {
             yield return StartRunner();
             LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
-            NetworkObject player = Spawn(BasePrefabGuid, _runner.LocalPlayer, Vector3.zero);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var defense = player.GetComponent<PlayerShieldDefenseNetworkController>();
+            var wand = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+            var shield = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/Shield.asset");
+            Assert.That(wand, Is.Not.Null);
+            Assert.That(shield, Is.Not.Null);
+
+            var inventoryDriver = _runner.gameObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _runner.AddGlobal(inventoryDriver);
+            int inventorySequence = inventoryDriver.CompletionSequence;
+            inventoryDriver.RequestInitializeLoadout(player.GetComponent<PlayerLootReceiver>(), new[]
+            {
+                new LootEntry(wand.LootId, 1),
+                new LootEntry(shield.LootId, 1)
+            });
+            yield return WaitUntil(() => inventoryDriver.CompletionSequence != inventorySequence, "Raid inventory setup did not run in simulation.");
+            Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
+            yield return Equip(equipment, wand, EquipmentSlot.WeaponSetAMainHand);
+            yield return Equip(equipment, shield, EquipmentSlot.WeaponSetAOffHand);
+            Assert.That(equipment.TryGetActiveShieldDefinition(out ShieldDefinition activeShield), Is.True);
+            Assert.That(activeShield, Is.SameAs(shield.ShieldDefinition));
+
+            RangedAttack ranged = ConfigureScheduledAttack(player, 0.9f, 1.5f, out RecordingProjectileSpawner spawner);
+            yield return SetStrategy(combat, ranged, true);
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted before defense.");
+            RangedAttackRelease accepted = ReadPending(combat);
+            int sequence = ReadAttackSequence(combat);
+            TickTimer cooldown = ReadCooldown(combat);
+            Assert.That(spawner.Count, Is.Zero);
+            Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cooldown must start at acceptance.");
+            Assert.That(accepted.Direction.x, Is.GreaterThan(0.99f));
+
+            _inputDriver.AimWorldPosition = Vector2.left * 10f;
+            _inputDriver.SecondaryHeld = true;
+            yield return WaitUntil(() => defense.IsDefending, "The equipped shield did not accept defense input during wind-up.");
+            Assert.That(defense.CanDefend(ReadPreviousButtons(combat)), Is.True);
+            Assert.That((int)_runner.Tick, Is.LessThan(accepted.ReleaseTick), "Defense must be accepted before release is due.");
+            Assert.That(ReadPending(combat), Is.EqualTo(accepted), "Defense must preserve the complete accepted payload and deadline.");
+            Assert.That(player.GetComponent<PlayerMovementNetworkController>().FacingDirection.x, Is.LessThan(-0.99f));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(spawner.Count, Is.Zero);
+
+            yield return WaitUntil(() => spawner.Count == 1, "Defense input cancelled or stalled the accepted release.");
+            Assert.That((bool)defense.IsDefending, Is.True);
+            Assert.That(spawner.WasAuthoritativeForward, Is.True);
+            Assert.That(spawner.LastRequest.SimulationTick, Is.EqualTo(accepted.ReleaseTick));
+            Assert.That(spawner.LastRequest.Direction, Is.EqualTo(accepted.Direction));
+            Assert.That(spawner.LastRequest.ProjectilePrefab, Is.EqualTo(accepted.Prefab));
+            Assert.That(spawner.LastRequest.ImpactLayerMask, Is.EqualTo(accepted.ImpactMask));
+            Assert.That(spawner.LastRequest.Damage, Is.EqualTo(accepted.Damage));
+            Assert.That(spawner.LastRequest.DamageType, Is.EqualTo(accepted.DamageType));
+            Assert.That(spawner.LastRequest.Speed, Is.EqualTo(accepted.Speed));
+            Assert.That(spawner.LastRequest.LifetimeSeconds, Is.EqualTo(accepted.Lifetime));
+            Assert.That(spawner.LastRequest.MaximumRange, Is.EqualTo(accepted.Range));
+            Assert.That(spawner.LastRequest.KnockbackForce, Is.EqualTo(accepted.Knockback));
+            Assert.That(spawner.LastRequest.Origin, Is.EqualTo(spawner.OriginAtSpawn + accepted.Direction * accepted.SpawnOffset));
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+
+            // Remove cooldown/pending as alternative blockers before pressing again under defense.
+            yield return WaitUntil(
+                () => combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus status) && status.IsAvailable,
+                "The accepted attack's cooldown did not expire.");
+            Assert.That((bool)defense.IsDefending, Is.True);
+            _inputDriver.AttackHeld = true;
+            yield return WaitUntil(
+                () => ReadPreviousButtons(combat).IsSet(PlayerInputButton.PrimaryAttack),
+                "Combat did not consume the fresh attack press under defense.");
+            Assert.That(defense.CanDefend(ReadPreviousButtons(combat)), Is.True);
+            int blockedTick = (int)_runner.Tick;
+            yield return WaitUntil(() => (int)_runner.Tick > blockedTick + 3, "Runner did not advance while both intentions were held.");
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence), "Defense must block a new acceptance even after cooldown expires.");
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(spawner.Count, Is.EqualTo(1), "The consumed release must not replay.");
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+            _inputDriver.AttackHeld = false;
+            yield return WaitUntil(() => !ReadPreviousButtons(combat).IsSet(PlayerInputButton.PrimaryAttack), "Combat did not consume the blocked press release.");
+            _inputDriver.SecondaryHeld = false;
+            yield return WaitUntil(() => !defense.IsDefending, "Defense did not stop after releasing secondary input.");
+
+            yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "A fresh attack was not accepted after defense ended.");
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence + 1));
+            int secondDeadline = ReadPending(combat).ReleaseTick;
+            yield return WaitUntil(() => (int)_runner.Tick > secondDeadline + 3, "Runner did not cross the second release deadline.");
+            Assert.That(spawner.Count, Is.EqualTo(2));
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+        }
+
+        [UnityTest]
+        public IEnumerator RangedWindup_FailedSpawnConsumesAttemptAndCannotReplay()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.2f, 1f, out RecordingProjectileSpawner spawner);
             spawner.Succeeds = false;
@@ -363,13 +601,48 @@ namespace Tests.PlayMode.Combat
             combat.AttackPerformed += attack => observed = attack;
             yield return SetStrategy(combat, ranged, true);
             yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
+            int sequence = ReadAttackSequence(combat);
+            int deadline = ReadPending(combat).ReleaseTick;
+            TickTimer cooldown = ReadCooldown(combat);
+            Assert.That(spawner.Count, Is.Zero);
             yield return WaitUntil(() => spawner.Count == 1, "Release attempt did not reach spawner.");
+            Assert.That(spawner.WasAuthoritativeForward, Is.True);
+            Assert.That(spawner.LastRequest.SimulationTick, Is.EqualTo(deadline));
+            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            Assert.That(cancellationTick, Is.EqualTo(deadline));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1f));
             Assert.That((bool)ReadPending(combat).Pending, Is.False);
             Assert.That(observed.HasReleaseTimeline, Is.True);
+
+            // Simulation consumes the failed release before presentation reaches its cancellation tick.
+            yield return WaitUntil(
+                () => _runner.LocalRenderTime >= (double)cancellationTick * _runner.DeltaTime,
+                "The authority render clock did not reach the failed release's cancellation tick.");
+            Assert.That(_runner.IsRunning, Is.True);
+            Assert.That(combat.Runner, Is.SameAs(_runner));
+            Assert.That(combat.Object, Is.SameAs(player));
+            Assert.That(player.IsValid, Is.True);
+            Assert.That(combat.HasStateAuthority, Is.True);
+            var character = player.GetComponent<PlayerCharacter>();
+            Assert.That(character.IsAlive, Is.True);
+            Assert.That(PlayerDownedGate.IsDowned(character), Is.False);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+            Assert.That(observed.Sequence, Is.EqualTo(sequence));
+            Assert.That((int)GetField("_lastObservedSequence").GetValue(combat), Is.EqualTo(sequence));
+            Assert.That(observed.ReleaseTick, Is.EqualTo(deadline));
+            Assert.That(_runner.LocalRenderTime, Is.GreaterThanOrEqualTo((double)observed.SimulationTick * _runner.DeltaTime));
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(cancellationTick));
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1f));
             Assert.That(combat.TryGetAttackPresentationSeconds(observed, out _), Is.False,
                 "A failed release must stop presentation as well as consume simulation state.");
             for (int i = 0; i < 12; i++) yield return null;
             Assert.That(spawner.Count, Is.EqualTo(1));
+            Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
         }
 
         private static RangedAttackRelease ReadPending(PlayerCombatNetworkController combat) =>
@@ -411,7 +684,117 @@ namespace Tests.PlayMode.Combat
             }
         }
 
-        private IEnumerator StartRunner()
+        private static void DisableDownedEntry(NetworkObject player)
+        {
+            // Existing production test seam refuses Downed entry, allowing the real fatal damage path.
+            var downed = player.GetComponent<PlayerDownedStateNetworkController>();
+            Assert.That(downed, Is.Not.Null);
+            PropertyInfo disableEntry = typeof(PlayerDownedStateNetworkController).GetProperty("TestDisableEntry",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(disableEntry, Is.Not.Null);
+            disableEntry.SetValue(downed, true);
+        }
+
+        private NetworkObject SpawnPlayerWithParticipant(Vector3 position = default, int participantNumber = 1)
+        {
+            Assert.That(RaidParticipantId.TryCreate(participantNumber, out RaidParticipantId participantId), Is.True);
+            NetworkPrefabId participantPrefabId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid));
+            NetworkObject participantPrefab = _runner.Config.PrefabTable.Load(participantPrefabId, true);
+            Assert.That(participantPrefab, Is.Not.Null);
+            NetworkObject participant = _runner.Spawn(participantPrefab, Vector3.zero, Quaternion.identity, null,
+                onBeforeSpawned: (_, instance) => instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                    $"combat-test-profile-{participantNumber}", participantId, ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                    ExperienceCurve.InitialLevel, 0, "combat-test-generation"));
+            NetworkPrefabId playerPrefabId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(BasePrefabGuid));
+            NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(playerPrefabId, true);
+            Assert.That(playerPrefab, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(playerPrefab), Is.EqualTo("Assets/Prefabs/NetworkPlayer.prefab"));
+            NetworkObject player = _runner.Spawn(playerPrefab, position, Quaternion.identity, _runner.LocalPlayer,
+                onBeforeSpawned: (_, instance) => instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participant));
+            var link = player.GetComponent<RaidAvatarParticipantLink>();
+            Assert.That(link.TryResolveParticipant(out NetworkRaidParticipant resolved), Is.True);
+            Assert.That(resolved.Object, Is.SameAs(participant));
+            Assert.That(link.TryGetCharacterAttributeState(out _), Is.True);
+            Assert.That(link.TryGetCharacterAttributeRevision(out _), Is.True,
+                "Equipment must observe a stable admitted attribute revision, not clear the strategy every tick.");
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            Assert.That(combat.HasStateAuthority, Is.True);
+            Assert.That(combat.HasInputAuthority, Is.True);
+            Assert.That(player.InputAuthority, Is.EqualTo(_runner.LocalPlayer));
+            Assert.That(player.GetComponent<PlayerWeaponEquipmentNetworkController>().isActiveAndEnabled, Is.True);
+            Assert.That(player.GetComponent<PlayerCharacter>().IsAlive, Is.True);
+            NetworkMatchController match = _runner.GetComponent<NetworkSpawnManager>()?.MatchController;
+            if (match != null)
+            {
+                Assert.That(match.Phase, Is.EqualTo(NetworkMatchController.MatchPhase.InProgress));
+                Assert.That(GetField("_matchController").GetValue(combat), Is.SameAs(match));
+            }
+            return player;
+        }
+
+        private static IEnumerator Equip(PlayerWeaponEquipmentNetworkController equipment, LootDefinition definition, EquipmentSlot slot)
+        {
+            EquipmentOperationResult result = EquipmentOperationResult.None;
+            void OnResolved(EquipmentOperationResult resolved) => result = resolved;
+            equipment.EquipRequestResolved += OnResolved;
+            try
+            {
+                Assert.That(equipment.TryRequestEquip(definition.LootId, slot), Is.True);
+                yield return WaitUntil(() => result != EquipmentOperationResult.None, "Equipment request was not confirmed.");
+                Assert.That(result, Is.EqualTo(EquipmentOperationResult.Succeeded));
+            }
+            finally
+            {
+                equipment.EquipRequestResolved -= OnResolved;
+            }
+        }
+
+        private static IEnumerator SetPhase(MatchPhaseSimulationDriver driver, NetworkMatchController match,
+            NetworkMatchController.MatchPhase phase)
+        {
+            int previous = driver.CompletionSequence;
+            driver.RequestPhase(match, phase);
+            yield return WaitUntil(() => driver.CompletionSequence != previous, "Match phase change did not run in simulation.");
+            Assert.That(match.Phase, Is.EqualTo(phase));
+        }
+
+        private sealed class MatchPhaseSimulationDriver : SimulationBehaviour
+        {
+            private NetworkMatchController _match;
+            private NetworkMatchController.MatchPhase _phase;
+            public int CompletionSequence { get; private set; }
+            public int ChangedTick { get; private set; }
+
+            public void RequestPhase(NetworkMatchController match, NetworkMatchController.MatchPhase phase)
+            {
+                _match = match;
+                _phase = phase;
+            }
+
+            public override void FixedUpdateNetwork()
+            {
+                if (_match == null) return;
+                Assert.That(_match.HasStateAuthority, Is.True);
+                _match.Phase = _phase;
+                _match = null;
+                ChangedTick = (int)Runner.Tick;
+                CompletionSequence++;
+            }
+        }
+
+        private IEnumerator StartGameplayRunner()
+        {
+            yield return StartRunner(includeMatchController: true);
+            NetworkObject matchObject = Spawn(MatchPrefabGuid, null, Vector3.zero);
+            var match = matchObject.GetComponent<NetworkMatchController>();
+            Assert.That(match.HasStateAuthority, Is.True);
+            Assert.That(_runner.GetComponent<NetworkSpawnManager>().MatchController, Is.SameAs(match));
+            var phaseDriver = _runner.gameObject.AddComponent<MatchPhaseSimulationDriver>();
+            _runner.AddGlobal(phaseDriver);
+            yield return SetPhase(phaseDriver, match, NetworkMatchController.MatchPhase.InProgress);
+        }
+
+        private IEnumerator StartRunner(bool includeMatchController = false)
         {
             var runnerObject = new GameObject("PlayerCombatNetworkControllerTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
@@ -420,6 +803,12 @@ namespace Tests.PlayMode.Combat
             _strategyDriver = runnerObject.AddComponent<PlayerCombatStrategySimulationDriver>();
             _runner.AddCallbacks(_inputDriver);
             _runner.ProvideInput = true;
+            if (includeMatchController)
+            {
+                var spawnManager = runnerObject.AddComponent<NetworkSpawnManager>();
+                Assert.That(spawnManager.InitializeForRunner(_runner, default, default,
+                    Array.Empty<NetworkPrefabRef>(), SessionStartupContext.FreshSession, null), Is.True);
+            }
 
             var start = _runner.StartGame(new StartGameArgs
             {
@@ -584,6 +973,7 @@ namespace Tests.PlayMode.Combat
         private sealed class PlayerCombatInputDriver : NetworkRunnerCallbacksAdapter
         {
             public bool AttackHeld { get; set; }
+            public bool SecondaryHeld { get; set; }
             public Vector2 MoveDirection { get; set; }
             public Vector2 AimWorldPosition { get; set; }
 
@@ -593,6 +983,7 @@ namespace Tests.PlayMode.Combat
                 playerInput.MoveDirection = MoveDirection;
                 playerInput.AimWorldPosition = AimWorldPosition;
                 playerInput.Buttons.Set(PlayerInputButton.PrimaryAttack, AttackHeld);
+                playerInput.Buttons.Set(PlayerInputButton.SecondaryAction, SecondaryHeld);
                 input.Set(playerInput);
             }
         }

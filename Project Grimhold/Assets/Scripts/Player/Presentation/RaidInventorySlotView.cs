@@ -40,6 +40,12 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private DragSlotLocation _dragLocation;
     private EquipmentSlot _assignedEquipmentSlot;
     private bool _isDragging;
+    private bool _isSelected;
+    private DropHighlightState _dropHighlight;
+    private float _transferPulseRemaining;
+    private const float TransferPulseDuration = 0.2f;
+
+    public bool IsTransferFeedbackActive => _transferPulseRemaining > 0f;
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
@@ -74,6 +80,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
         if (_isOccupied && _lootId != data.LootId)
         {
+            ClearTransferFeedback();
             TooltipDismissRequested?.Invoke(transform as RectTransform);
         }
 
@@ -151,6 +158,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void Clear()
     {
+        _transferPulseRemaining = 0f;
+        _dropHighlight = DropHighlightState.None;
         if (_isOccupied)
         {
             TooltipDismissRequested?.Invoke(transform as RectTransform);
@@ -188,16 +197,14 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void SetInteraction(RaidLootSlotInteractionMode mode, bool selected)
     {
+        _isSelected = selected;
         _interactionMode = _isOccupied ? mode : RaidLootSlotInteractionMode.ReadOnly;
         if (_button != null)
         {
             _button.interactable = _interactionMode != RaidLootSlotInteractionMode.ReadOnly;
         }
 
-        if (_background != null)
-        {
-            _background.color = selected && _isOccupied ? _selectedColor : _normalColor;
-        }
+        RefreshBackground();
     }
 
     /// <summary>
@@ -247,25 +254,43 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void SetDropHighlight(DropHighlightState state)
     {
+        _dropHighlight = state;
+        RefreshBackground();
+    }
+
+    public void ShowTransferSuccess()
+    {
+        if (!_isOccupied) return;
+        _transferPulseRemaining = TransferPulseDuration;
+        RefreshBackground();
+    }
+
+    public void ClearTransferFeedback()
+    {
+        _transferPulseRemaining = 0f;
+        RefreshBackground();
+    }
+
+    private void OnDisable() => ClearTransferFeedback();
+
+    private void Update()
+    {
+        if (_transferPulseRemaining <= 0f) return;
+        _transferPulseRemaining = Mathf.Max(0f, _transferPulseRemaining - Time.unscaledDeltaTime);
+        RefreshBackground();
+    }
+
+    private void RefreshBackground()
+    {
         if (_background == null) return;
-        
-        switch (state)
+        Color restingColor = _dropHighlight switch
         {
-            case DropHighlightState.None:
-                _background.color = _isOccupied && _button != null && !_button.interactable ? _normalColor : _normalColor; // Simplified for now, relies on SetInteraction to restore proper color later if needed
-                // Better approach: just trigger a re-eval of interaction state
-                if (_isOccupied)
-                {
-                    _background.color = _normalColor;
-                }
-                break;
-            case DropHighlightState.Valid:
-                _background.color = new Color(0.2f, 0.6f, 0.2f, 0.8f);
-                break;
-            case DropHighlightState.Invalid:
-                _background.color = new Color(0.6f, 0.2f, 0.2f, 0.8f);
-                break;
-        }
+            DropHighlightState.Valid => new Color(0.2f, 0.6f, 0.2f, 0.8f),
+            DropHighlightState.Invalid => new Color(0.6f, 0.2f, 0.2f, 0.8f),
+            _ => _isSelected && _isOccupied ? _selectedColor : _normalColor
+        };
+        _background.color = Color.Lerp(restingColor, new Color(0.25f, 0.8f, 0.4f, 1f),
+            _transferPulseRemaining / TransferPulseDuration);
     }
 
     public void OnBeginDrag(PointerEventData eventData)

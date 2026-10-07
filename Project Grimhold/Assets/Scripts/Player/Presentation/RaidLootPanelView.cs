@@ -66,6 +66,25 @@ public sealed class RaidLootPanelView : MonoBehaviour
     /// <summary>The complete slot pool authored in the prefab, shown or hidden but never created.</summary>
     public int AuthoredSlotCount => _authoredSlots?.Length ?? 0;
 
+    /// <summary>Targets the current destination projection, never a stale source slot index.</summary>
+    public bool ShowTransferSuccess(LootId lootId)
+    {
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            if (_slots[i].IsOccupied && _slots[i].LootId == lootId)
+            {
+                _slots[i].ShowTransferSuccess();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void ClearTransferFeedback()
+    {
+        for (int i = 0; i < _slots.Count; i++) _slots[i].ClearTransferFeedback();
+    }
+
     /// <summary>Gets the panel-local capacity feedback label.</summary>
     public TMP_Text CapacityFeedbackText => _capacityFeedbackText;
 
