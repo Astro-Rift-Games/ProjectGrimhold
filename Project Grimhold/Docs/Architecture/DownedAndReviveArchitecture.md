@@ -83,7 +83,7 @@ Status: **Implemented**.
 
 | # | Transition | Trigger | Owning component | Authority | Side effects | Status |
 |---|---|---|---|---|---|---|
-| T1 | Active -> Downed | Mitigated damage takes `Health` to 0 | `PlayerCharacter.TryInterceptFatalDamage` -> `PlayerDownedStateNetworkController.TryEnterDowned` | State Authority | `IsDowned`, full reserve, `DownedCycle++`; excess of the entry hit discarded; result is non-fatal (`IsFatal = false`); records Downed causer (section 11); Mana-drain skills deactivated (no Mana runtime exists, see section 9) | Implemented (causer: Planned TASK 453) |
+| T1 | Active -> Downed | Mitigated damage takes `Health` to 0 | `PlayerCharacter.TryInterceptFatalDamage` -> `PlayerDownedStateNetworkController.TryEnterDowned` | State Authority | `IsDowned`, full reserve, `DownedCycle++`; excess of the entry hit discarded; result is non-fatal (`IsFatal = false`); records Downed causer (section 11); Mana-drain execution stopped through the ability runtime (see section 9) | Implemented (causer: Planned TASK 453) |
 | T2 | Downed -> Downed (damage) | Damage while Downed | `PlayerCharacter.TryApplyAlternateDamage` -> `TryApplyDownedDamage` | State Authority | Reserve reduced; `Health` untouched; notifies the recovery session (section 7) | Implemented (notify: `5ff5208b`, TASK 452) |
 | T3 | Downed -> definitive Defeat (drain) | Reserve reaches 0 in `FixedUpdateNetwork` | `PlayerDownedStateNetworkController` clears `IsDowned`, then `PlayerCharacter.ResolveDefinitiveDefeatFromDowned` | State Authority | `HandleDeath` runs exactly once (section 12) | Implemented |
 | T4 | Downed -> definitive Defeat (damage) | Damage depletes the reserve | `TryApplyDownedDamage` clears `IsDowned`; `PlayerCharacter.TryApplyAlternateDamage` calls `HandleDeath` | State Authority | Result is fatal (`IsFatal = true`); records Defeat causer | Implemented (causer: Planned TASK 453) |
@@ -127,7 +127,7 @@ only, and returns false without side effects if any precondition fails:
    Self-revive passes the item-variant value (open question, section 17).
 4. `PlayerStaminaNetworkController.ForceDepleteForRecovery()`: Stamina to 0 with the existing
    exhaustion and regeneration-delay rules (today the controller only offers `TrySpend` and
-   `TrySpendContinuous`, which cannot force a value). Mana is not touched (no Mana runtime exists).
+   `TrySpendContinuous`, which cannot force a value). Mana is not touched: `PlayerManaNetworkController` preserves the current balance through recovery.
 5. No invulnerability and no resumption of interrupted actions: nothing is queued or granted.
    Control returns immediately because the Downed predicates read the networked flag.
 
@@ -255,7 +255,7 @@ ritual (see section 13).
 | No new CC/status | `PlayerCharacter.CanReceiveStatusEffects` is `IsAlive && !IsDowned`; predicate only, no CC system exists | Implemented (predicate) |
 | Healing does not restore or revive | `PlayerCharacter.CanReceiveHealing` is `!IsDowned && base` | Implemented |
 | Weapon visuals hidden | `PlayerWeaponPresenter` | Implemented |
-| Mana-drain skills deactivate, Mana preserved | No Mana runtime exists (only `AbilityResourceType.Mana` and maximum-resource modifiers). Contract: the future Mana owner deactivates persistent drain on `IsDowned` rising and never restores Mana on exit | Planned (no task) |
+| Mana-drain skills deactivate, Mana preserved | `PlayerManaNetworkController` does not reset Mana on Downed/recovery. The existing ability runtime stops active execution on Downed; periodic drain schedules and concrete abilities remain deferred. | Resource preservation implemented (TASK 199); periodic consumers deferred |
 | Downed pose / HUD | Presentation only, reads `IsDowned` | Planned (no task) |
 
 Unlisted abilities are blocked by the same rule: any new action choke point must call

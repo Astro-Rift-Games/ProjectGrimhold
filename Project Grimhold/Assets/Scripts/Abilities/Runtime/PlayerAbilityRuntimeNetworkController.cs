@@ -10,6 +10,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     [SerializeField] private AbilityDefinitionCatalog _catalog;
     [SerializeField] private PlayerCharacter _playerCharacter;
     [SerializeField] private PlayerStaminaNetworkController _staminaController;
+    [SerializeField] private PlayerManaNetworkController _manaController;
     [SerializeField] private AbilityExecutionBehaviour[] _executionBehaviours = System.Array.Empty<AbilityExecutionBehaviour>();
 
     [Networked] private NetworkBool InitializationConfirmed { get; set; }
@@ -51,9 +52,9 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         _ended = false;
         _invalid = false;
         ClearLocalBinding();
-        if (_participantLink == null || _catalog == null || _playerCharacter == null || _staminaController == null)
+        if (_participantLink == null || _catalog == null || _playerCharacter == null || _staminaController == null || _manaController == null)
         {
-            RejectConfiguration("Raid ability runtime requires participant, catalog, character and Stamina references.");
+            RejectConfiguration("Raid ability runtime requires participant, catalog, character, Stamina and Mana references.");
             return;
         }
         ValidateBehaviours();
@@ -183,10 +184,20 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         if (!state.Cooldown.ExpiredOrNotRunning(Runner)) return AbilityActivationFailure.Cooldown;
         if (!behaviour.TryPlanStart(context, out var plan)) return AbilityActivationFailure.BehaviourRejected;
         if (!plan.IsValidStart) return AbilityActivationFailure.InvalidPlan;
-        if (context.Definition.Resource != AbilityResourceType.Stamina)
-            return AbilityActivationFailure.ResourceUnavailable;
-        if (!_staminaController.CanSpend(context.Definition.Cost) || !_staminaController.TrySpend(context.Definition.Cost))
-            return AbilityActivationFailure.InsufficientResource;
+        switch (context.Definition.Resource)
+        {
+            case AbilityResourceType.Stamina:
+                if (!_staminaController.CanSpend(context.Definition.Cost) || !_staminaController.TrySpend(context.Definition.Cost))
+                    return AbilityActivationFailure.InsufficientResource;
+                break;
+            case AbilityResourceType.Mana:
+                if (!_manaController.IsInitialized) return AbilityActivationFailure.ResourceUnavailable;
+                if (!_manaController.CanSpend(context.Definition.Cost) || !_manaController.TrySpend(context.Definition.Cost))
+                    return AbilityActivationFailure.InsufficientResource;
+                break;
+            default:
+                return AbilityActivationFailure.ResourceUnavailable;
+        }
 
         state.Sequence++;
         state.Phase = plan.Phase;

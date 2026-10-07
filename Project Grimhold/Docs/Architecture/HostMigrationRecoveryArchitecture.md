@@ -132,6 +132,7 @@ the restored participant exposes its frozen attributes, the Stamina controller d
 clamp, regenerate or consume the copied resource. After fixup it derives
 `75 + (Resistance * 5)` again and resumes from the copied current value, Exhaustion state and delay.
 
+`PlayerManaNetworkController` copies `CurrentMana` and its initialization marker with the same avatar snapshot. Restore spawns never refill Mana, including an uninitialized copied snapshot. While participant/avatar fixups or effective statistics are unavailable, the copied balance is frozen. Once the bidirectional binding resolves, the new Host derives Maximum Mana from current attributes/equipment and clamps only excess. No regeneration, restoration or accepted ability payment is replayed by resource rebind. Terminal participation and Raid closure dispose temporary Mana; it is not persisted to Town. State-copy tests are not proof of actual multi-process Host Migration.
 `PlayerDownedStateNetworkController` follows the same pattern. `IsDowned`, `DownedHealth` and
 `DownedCycle` are networked and restored by `CopyStateFrom`; its `Spawned()` skips the fresh reset on
 restore spawns (`HostMigrationRestoreUtility.IsRestoreSpawn`), so a Downed avatar resumes draining from

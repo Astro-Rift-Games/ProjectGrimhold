@@ -17,6 +17,7 @@ namespace Tests.PlayMode.Abilities
         private NetworkRunner _runner;
         private PlayerAbilityRuntimeSimulationDriver _driver;
         private AbilityInputDriver _inputDriver;
+        private readonly System.Collections.Generic.List<ScriptableObject> _manaTestAssets = new();
 
         [UnityTest]
         public IEnumerator AbilityCycle_EffectiveAttributeChangesAreRevalidatedAtUse()
@@ -193,7 +194,7 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
-        public IEnumerator AbilityCycle_MissingBehaviourAndManaRejectWithoutPayment()
+        public IEnumerator AbilityCycle_MissingBehaviourRejectsAndManaPaysOnce()
         {
             yield return StartRunner();
             var runtime = SpawnAvatar(SpawnParticipant("ability-closed",
@@ -206,14 +207,302 @@ namespace Tests.PlayMode.Abilities
             _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
             yield return WaitTicks();
             Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.MissingBehaviour));
-            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot2), Is.EqualTo(AbilityActivationFailure.ResourceUnavailable));
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot2), Is.EqualTo(AbilityActivationFailure.None),
+                "A valid Mana ability must be accepted by the existing authoritative runtime.");
             Assert.That(stamina.CurrentStamina, Is.EqualTo(before));
-            foreach (var slot in new[] { UniversalAbilitySlot.Slot1, UniversalAbilitySlot.Slot2 })
+            var mana = GetMana(runtime);
+            runtime.TryGetSlot(UniversalAbilitySlot.Slot2, out var prepared);
+            Assert.That(ReadMana(mana), Is.EqualTo(100f - prepared.Definition.Cost));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var rejected);
+            Assert.That(rejected.Sequence, Is.Zero);
+            Assert.That(rejected.Cooldown.IsRunning, Is.False);
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot2, out var accepted);
+            Assert.That(accepted.Sequence, Is.EqualTo(1));
+            Assert.That(accepted.Cooldown.IsRunning, Is.True);
+            yield return WaitTicks();
+            Assert.That(ReadMana(mana), Is.EqualTo(100f - prepared.Definition.Cost), "Held input cannot repeat payment.");
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_InsufficientManaLeavesExecutionAndCooldownUnchanged()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-mana-poor",
+                new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), default)), true, "arcane_projectile");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var mana = GetMana(runtime);
+            yield return InSimulation(() => mana.GetType().GetProperty("CurrentMana").SetValue(mana, 1f));
+            yield return PressSlot1();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.InsufficientResource));
+            Assert.That(ReadMana(mana), Is.EqualTo(1f));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var state);
+            Assert.That(state.Sequence, Is.Zero);
+            Assert.That(state.Cooldown.IsRunning, Is.False);
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.Zero);
+        }
+
+        private static PlayerManaNetworkController GetMana(PlayerAbilityRuntimeNetworkController runtime)
+        {
+            var mana = runtime.GetComponent<PlayerManaNetworkController>();
+            Assert.That(mana, Is.Not.Null, "The production Raid avatar must compose its Mana owner.");
+            return mana;
+        }
+
+        private static float ReadMana(PlayerManaNetworkController mana) => mana.CurrentMana;
+
+        [UnityTest]
+        public IEnumerator ManaResource_NoPassiveRegenerationAndExplicitRestore()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("mana-resource", default), true);
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized);
+            Assert.That(mana.CurrentMana, Is.EqualTo(100f));
+            Assert.That(mana.TrySpend(0f), Is.False, "Zero spend must not bypass the simulation boundary.");
+            Assert.That(mana.TryRestore(0f), Is.False);
+            yield return InSimulation(() =>
             {
-                runtime.TryGetExecutionSnapshot(slot, out var snapshot);
-                Assert.That(snapshot.Sequence, Is.Zero);
-                Assert.That(snapshot.Cooldown.IsRunning, Is.False);
-            }
+                Assert.That(mana.TrySpend(60f), Is.True);
+                Assert.That(mana.TrySpend(float.NaN), Is.False);
+                Assert.That(mana.TryRestore(float.PositiveInfinity), Is.False);
+                Assert.That(mana.CurrentMana, Is.EqualTo(40f));
+            });
+            yield return WaitTicks();
+            Assert.That(mana.CurrentMana, Is.EqualTo(40f));
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TryRestore(10f), Is.True);
+                Assert.That(mana.CurrentMana, Is.EqualTo(50f));
+                Assert.That(mana.TryRestore(1000f), Is.True);
+                Assert.That(mana.CurrentMana, Is.EqualTo(100f));
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator ManaResource_DownedReviveAndReenablePreserveBalance()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("mana-downed", default), true);
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized);
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TrySpend(60f), Is.True);
+                Assert.That(runtime.GetComponent<PlayerDownedStateNetworkController>().TryEnterDowned(), Is.True);
+                runtime.Object.AssignInputAuthority(PlayerRef.None);
+            });
+            yield return WaitTicks();
+            Assert.That(mana.CurrentMana, Is.EqualTo(40f));
+            yield return InSimulation(() => Assert.That(typeof(PlayerCharacter)
+                .GetMethod("TryRestoreFromDowned", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(runtime.GetComponent<PlayerCharacter>(), new object[] { 20f }), Is.True));
+            mana.enabled = false;
+            yield return WaitTicks();
+            mana.enabled = true;
+            yield return WaitTicks();
+            Assert.That(mana.IsInitialized, Is.True);
+            Assert.That(mana.CurrentMana, Is.EqualTo(40f));
+        }
+
+        [UnityTest]
+        public IEnumerator ManaResource_CopiedStateWaitsForFixupWithoutRefill()
+        {
+            yield return StartRunner();
+            var source = SpawnAvatar(SpawnParticipant("mana-copy-source", default), true);
+            var sourceMana = GetMana(source);
+            yield return WaitUntil(() => sourceMana.IsInitialized);
+            yield return InSimulation(() => Assert.That(sourceMana.TrySpend(73f), Is.True));
+            var target = SpawnAvatar(null, false);
+            var targetMana = GetMana(target);
+            SetField(targetMana, "_restoreSpawn", true);
+            yield return InSimulation(() => targetMana.CopyStateFrom(sourceMana));
+            yield return WaitTicks();
+            Assert.That(targetMana.CurrentMana, Is.EqualTo(27f));
+            Assert.That(targetMana.IsInitialized, Is.False);
+            var participant = SpawnParticipant("mana-copy-target", default);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            yield return WaitUntil(() => targetMana.IsInitialized);
+            Assert.That(targetMana.CurrentMana, Is.EqualTo(27f));
+            targetMana.enabled = false;
+            targetMana.enabled = true;
+            yield return WaitTicks();
+            Assert.That(targetMana.CurrentMana, Is.EqualTo(27f));
+        }
+
+        [UnityTest]
+        public IEnumerator ManaResource_UninitializedCopiedStateStaysFrozen()
+        {
+            yield return StartRunner();
+            var source = SpawnAvatar(null, false);
+            var target = SpawnAvatar(null, false);
+            var mana = GetMana(target);
+            SetField(mana, "_restoreSpawn", true);
+            yield return InSimulation(() => mana.CopyStateFrom(GetMana(source)));
+            var participant = SpawnParticipant("mana-copy-uninitialized", default);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            yield return WaitTicks();
+            Assert.That(mana.IsInitialized, Is.False);
+            Assert.That(mana.CurrentMana, Is.Zero);
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TrySpend(0f), Is.False);
+                Assert.That(mana.TryRestore(100f), Is.False);
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator ManaResource_TerminalParticipationClearsAndNewExpeditionStartsFull()
+        {
+            yield return StartRunner();
+            var participant = SpawnParticipant("mana-terminal", default);
+            var runtime = SpawnAvatar(participant, true);
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized);
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TrySpend(20f), Is.True);
+                Assert.That(participant.TryMarkDefeated(runtime.Object), Is.True);
+            });
+            yield return WaitTicks();
+            Assert.That(mana.IsInitialized, Is.False);
+            Assert.That(mana.CurrentMana, Is.Zero);
+            yield return InSimulation(() => Assert.That(mana.TryRestore(100f), Is.False));
+            var next = SpawnAvatar(SpawnParticipant("mana-new-expedition", default), true);
+            yield return WaitUntil(() => GetMana(next).IsInitialized);
+            Assert.That(GetMana(next).CurrentMana, Is.EqualTo(100f));
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_ManaRejectedPlanAndInterruptionDoNotPayOrRefund()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("mana-interruption",
+                new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), default)), true, "arcane_projectile");
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized && runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.RejectStart = true;
+            yield return PressSlot1();
+            Assert.That(mana.CurrentMana, Is.EqualTo(100f));
+            behaviour.RejectStart = false;
+            yield return PressSlot1();
+            float paidBalance = mana.CurrentMana;
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
+            yield return InSimulation(() => Assert.That(runtime.TryInterrupt(UniversalAbilitySlot.Slot1,
+                accepted.Sequence, AbilityExecutionStopReason.Stun), Is.True));
+            Assert.That(mana.CurrentMana, Is.EqualTo(paidBalance));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var stopped);
+            Assert.That(stopped.Cooldown.TargetTick, Is.EqualTo(accepted.Cooldown.TargetTick));
+            Assert.That(stopped.Sequence, Is.EqualTo(accepted.Sequence));
+        }
+
+        [UnityTest]
+        public IEnumerator ManaResource_MaximumChangesClampWithoutRefill()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("mana-equipment", default), true);
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized);
+            var armor = ScriptableObject.CreateInstance<ArmorDefinition>();
+            var loot = ScriptableObject.CreateInstance<LootDefinition>();
+            var catalog = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
+            _manaTestAssets.AddRange(new ScriptableObject[] { armor, loot, catalog });
+            SetField(armor, "_maximumResourceModifier", new MaximumResourceModifier(MaximumResourceType.Mana, 50));
+            SetField(loot, "_id", "mana_test_armor");
+            SetField(loot, "_category", LootCategory.Armor);
+            SetField(loot, "_armorDefinition", armor);
+            SetField(catalog, "_definitions", new System.Collections.Generic.List<LootDefinition> { loot });
+            Assert.That(catalog.TryGetIndex(loot.LootId, out int index), Is.True);
+            var equipment = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TrySpend(60f), Is.True);
+                SetField(equipment, "_lootCatalog", catalog);
+                SetNetworked(equipment, "ArmorCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "EquipmentRevision", equipment.EquipmentRevision + 1);
+                Assert.That(mana.TryGetMaximumMana(out float maximum), Is.True);
+                Assert.That(maximum, Is.EqualTo(150f));
+                Assert.That(mana.CurrentMana, Is.EqualTo(40f), "A maximum increase is not restoration.");
+                Assert.That(mana.TryRestore(200f), Is.True);
+                Assert.That(mana.CurrentMana, Is.EqualTo(150f));
+                SetNetworked(equipment, "ArmorCatalogIndexPlusOne", 0);
+                SetNetworked(equipment, "EquipmentRevision", equipment.EquipmentRevision + 1);
+                Assert.That(mana.CanSpend(120f), Is.False, "Payment must use the new maximum in the same tick.");
+                Assert.That(mana.TrySpend(120f), Is.False);
+                Assert.That(mana.CurrentMana, Is.EqualTo(100f), "An unaffordable payment still clamps obsolete excess; clamping is not partial payment.");
+                Assert.That(mana.TrySpend(1f), Is.True);
+                Assert.That(mana.CurrentMana, Is.EqualTo(99f));
+            });
+            yield return WaitTicks();
+            Assert.That(mana.CurrentMana, Is.EqualTo(99f));
+            yield return InSimulation(() =>
+            {
+                SetNetworked(equipment, "ArmorCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "EquipmentRevision", equipment.EquipmentRevision + 1);
+                Assert.That(mana.TryRestore(200f), Is.True);
+                SetNetworked(equipment, "ArmorCatalogIndexPlusOne", 0);
+                SetNetworked(equipment, "EquipmentRevision", equipment.EquipmentRevision + 1);
+            });
+            yield return WaitTicks();
+            Assert.That(mana.CurrentMana, Is.EqualTo(100f), "Idle simulation must clamp without any payment or restoration request.");
+            yield return InSimulation(() =>
+            {
+                SetNetworked(equipment, "ArmorCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "EquipmentRevision", equipment.EquipmentRevision + 1);
+            });
+            yield return WaitTicks();
+            Assert.That(mana.CurrentMana, Is.EqualTo(100f), "Increasing the maximum after a clamp must not restore discarded excess.");
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_TwoManaSlotsRecheckTheSharedBalance()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("mana-two-slots",
+                new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), new AbilityId("empower"))),
+                true, "arcane_projectile", "empower");
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => mana.IsInitialized && runtime.IsInitialized);
+            yield return InSimulation(() => Assert.That(mana.TrySpend(80f), Is.True));
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.None));
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot2), Is.EqualTo(AbilityActivationFailure.InsufficientResource));
+            Assert.That(mana.CurrentMana, Is.EqualTo(5f));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot2, out var rejected);
+            Assert.That(rejected.Sequence, Is.Zero);
+            Assert.That(rejected.Cooldown.IsRunning, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityCycle_CopiedManaExecutionRebindsWithoutRepayment()
+        {
+            yield return StartRunner();
+            var prepared = new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), default);
+            var source = SpawnAvatar(SpawnParticipant("mana-execution-source", prepared), true, "arcane_projectile");
+            yield return WaitUntil(() => source.IsInitialized && GetMana(source).IsInitialized);
+            yield return PressSlot1();
+            float balance = GetMana(source).CurrentMana;
+            source.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var original);
+            var target = SpawnAvatar(null, false, "arcane_projectile");
+            SetRestoreGuard(target);
+            SetField(GetMana(target), "_restoreSpawn", true);
+            yield return CopyState(target, source);
+            yield return InSimulation(() => GetMana(target).CopyStateFrom(GetMana(source)));
+            var participant = SpawnParticipant("mana-execution-target", prepared);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            yield return WaitUntil(() => target.IsInitialized && GetMana(target).IsInitialized);
+            yield return WaitTicks();
+            Assert.That(GetMana(target).CurrentMana, Is.EqualTo(balance));
+            Assert.That(target.GetComponent<TestAbilityExecutionBehaviour>().Begins, Is.Zero);
+            target.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var restored);
+            Assert.That(restored.Sequence, Is.EqualTo(original.Sequence));
+            Assert.That(restored.Cooldown.TargetTick, Is.EqualTo(original.Cooldown.TargetTick));
         }
 
         [UnityTest]
@@ -518,6 +807,8 @@ namespace Tests.PlayMode.Abilities
                 while (!shutdown.IsCompleted) yield return null;
             }
             if (_runner != null) Object.DestroyImmediate(_runner.gameObject);
+            foreach (var asset in _manaTestAssets) Object.DestroyImmediate(asset);
+            _manaTestAssets.Clear();
         }
 
         [UnityTest]
@@ -772,7 +1063,7 @@ namespace Tests.PlayMode.Abilities
                 .SetValue(target, value);
 
         private static void SetNetworked(object target, string name, object value) =>
-            target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+            target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).SetValue(target, value);
 
         private sealed class AbilityInputDriver : NetworkRunnerCallbacksAdapter
         {

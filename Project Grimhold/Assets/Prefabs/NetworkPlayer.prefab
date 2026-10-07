@@ -6039,6 +6039,7 @@ GameObject:
   - component: {fileID: 2585386924524232646}
   - component: {fileID: 5067162581458356925}
   - component: {fileID: 9200000000000000445}
+  - component: {fileID: 9200000000000000199}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6478,6 +6479,7 @@ MonoBehaviour:
   - {fileID: 2585386924524232646}
   - {fileID: 5067162581458356925}
   - {fileID: 9200000000000000445}
+  - {fileID: 9200000000000000199}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9200000000000000445
 MonoBehaviour:
@@ -6495,6 +6497,7 @@ MonoBehaviour:
   _catalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
   _playerCharacter: {fileID: 729366679366126330}
   _staminaController: {fileID: 7201000000000000006}
+  _manaController: {fileID: 9200000000000000199}
   _executionBehaviours: []
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -8193,3 +8196,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f7b3d9a2c6e4f80b5a1d7e3c9f2a648, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidMinimapPresenter
+
+--- !u!114 &9200000000000000199
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1532e0d9f818492897d87d031bbc87b8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerManaNetworkController
+  _participantLink: {fileID: 5489547608340585132}
+  _playerCharacter: {fileID: 729366679366126330}
