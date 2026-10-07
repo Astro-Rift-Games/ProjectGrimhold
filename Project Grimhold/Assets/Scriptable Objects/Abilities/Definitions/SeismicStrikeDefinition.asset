@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Seismic Strike
   _description: After a brief preparation, sends out a shockwave around the caster
     that damages enemies in the area and knocks them back.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 34d483ba61d0ae24eabeb72b89b163b1, type: 3}

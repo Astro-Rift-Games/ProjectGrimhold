@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Charge
   _description: Dashes the character forward in a straight line. On colliding with
     the first valid enemy it stops, pushes the enemy back and stuns it.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 91c10ddab33eb8e4f9ed007ae2965bac, type: 3}

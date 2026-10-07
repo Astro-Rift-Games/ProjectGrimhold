@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Arcane Projectile
   _description: After a brief preparation, launches a projectile in a straight line
     that damages the first valid target it hits.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 4d101a557fa0dfb4ea94f03e9d019092, type: 3}

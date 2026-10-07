@@ -25,4 +25,4 @@ MonoBehaviour:
   _displayName: Life Drain
   _description: After a brief preparation, damages all valid enemies around the caster
     and converts a portion of the damage dealt into health.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 40d03b00665d18d449c90a9b075758cf, type: 3}

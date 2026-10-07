@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Restoration
   _description: After a brief preparation, restores a fixed amount of health to yourself
     or an ally. It does not heal downed allies or revive them.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 888dd45bc31bd6d41ac7fb50a6a268f5, type: 3}

@@ -25,4 +25,4 @@ MonoBehaviour:
   _displayName: Purification
   _description: Removes all purifiable states from yourself or an ally and grants
     brief protection against new ones.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 4348aa4b1b255b24b8aaef9963088d88, type: 3}

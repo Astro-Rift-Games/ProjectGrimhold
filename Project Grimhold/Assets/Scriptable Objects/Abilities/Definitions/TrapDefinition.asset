@@ -24,4 +24,4 @@ MonoBehaviour:
   _description: Places a trap on the ground that immobilizes the first enemy to trigger
     it and deals damage over time while it holds. Immobilized targets can still attack
     and use abilities.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: bdb7e622418c61b43b71ba4c52f26ca2, type: 3}

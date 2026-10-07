@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Empower
   _description: Grants yourself or an ally a temporary buff that increases the damage
     of basic weapon attacks.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: a8e4fb4ad8b32bf47bc072e8a74fa512, type: 3}

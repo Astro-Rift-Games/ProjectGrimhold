@@ -23,4 +23,4 @@ MonoBehaviour:
   _displayName: Protective Orbs
   _description: Summons orbs that orbit the caster. Each orb blocks one enemy projectile
     or melee hit, or damages an enemy on contact, and is consumed in the process.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 2d269ece66367ac4ba0cf9ab38666c37, type: 3}
