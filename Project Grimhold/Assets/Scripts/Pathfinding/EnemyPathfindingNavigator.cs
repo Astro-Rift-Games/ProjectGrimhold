@@ -120,7 +120,9 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
             return;
         }
 
-        _solver = new AStarPathSolver(_grid.Width, _grid.Height, _config);
+        // We defer creating the solver until the grid is actually built
+        // to avoid allocating zero-length arrays if the grid isn't ready.
+
         ResetState();
 
         // Stagger the initial repath timer deterministically by the object's
@@ -161,9 +163,14 @@ public sealed class EnemyPathfindingNavigator : MonoBehaviour
     /// </returns>
     public Vector2 GetDirectionToTarget(Vector2 currentPos, Vector2 targetPos, int currentTick)
     {
-        if (_grid == null || !_grid.IsBuilt || _solver == null)
+        if (_grid == null || !_grid.IsBuilt)
         {
             return Vector2.zero;
+        }
+
+        if (_solver == null)
+        {
+            _solver = new AStarPathSolver(_grid.Width, _grid.Height, _config);
         }
 
         // Request a new path if necessary.

@@ -9,16 +9,52 @@ public sealed class FusionInputProvider : NetworkRunnerCallbacksAdapter
     private NetworkRunner _runner;
     private LocalInputContext _inputContext;
     private bool _callbacksRegistered;
+    private float _findRunnerTimer;
 
     private void Start()
     {
-        _runner = FindAnyObjectByType<NetworkRunner>();
-        if (_runner == null)
+        TryFindAndRegisterRunner();
+    }
+
+    private void Update()
+    {
+        if (!_callbacksRegistered || _runner == null || !_runner.IsRunning)
         {
-            Debug.LogError($"{nameof(FusionInputProvider)} could not locate the active runner.", this);
+            _findRunnerTimer -= Time.deltaTime;
+            if (_findRunnerTimer <= 0f)
+            {
+                _findRunnerTimer = 0.5f;
+                TryFindAndRegisterRunner();
+            }
+        }
+    }
+
+    private void TryFindAndRegisterRunner()
+    {
+        NetworkRunner[] runners = FindObjectsByType<NetworkRunner>(FindObjectsSortMode.None);
+        NetworkRunner activeRunner = null;
+        foreach (var r in runners)
+        {
+            if (r != null && r.IsRunning)
+            {
+                activeRunner = r;
+                break;
+            }
+        }
+
+        if (activeRunner == null)
+        {
             return;
         }
 
+        if (_runner == activeRunner)
+        {
+            return;
+        }
+
+        ReleaseRunnerRegistration();
+
+        _runner = activeRunner;
         _runner.AddCallbacks(this);
         _callbacksRegistered = true;
 

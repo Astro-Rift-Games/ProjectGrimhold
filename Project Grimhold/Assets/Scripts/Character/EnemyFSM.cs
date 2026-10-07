@@ -48,6 +48,12 @@ public sealed class EnemyFSM : NetworkBehaviour
         else
         {
             SyncLocalCurrentState();
+            
+            if (HasStateAuthority && _currentState != null)
+            {
+                // Force Enter to re-apply any non-networked local state (like IsPatrolActive)
+                _currentState.Enter(this);
+            }
         }
     }
 

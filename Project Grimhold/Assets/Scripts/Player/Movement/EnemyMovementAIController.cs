@@ -210,24 +210,71 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         
         _pathfindingNavigator?.Initialize(Runner);
 
-        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
+        if (HasStateAuthority)
         {
-            IsControlEnabled = true;
+            if (!HostMigrationRestoreUtility.IsRestoreSpawn(this))
+            {
+                IsControlEnabled = true;
 
-            Vector2 initialFacing = _defaultFacingDirection.sqrMagnitude > 0.001f
-                ? _defaultFacingDirection.normalized
-                : Vector2.down;
+                Vector2 initialFacing = _defaultFacingDirection.sqrMagnitude > 0.001f
+                    ? _defaultFacingDirection.normalized
+                    : Vector2.down;
 
-            FacingDirection = initialFacing;
-            IsMoving = false;
-            IsOnPursuit = false;
-            IsAttacking = false;
-            _pursuitLostTickCount = 0;
-            PatrolWaypointIndex = 0;
-            KnockbackVelocity = Vector2.zero;
-            AggroAlertTimer = default;
-            PatrolWaitTimer = default;
+                FacingDirection = initialFacing;
+                IsMoving = false;
+                IsOnPursuit = false;
+                IsAttacking = false;
+                _pursuitLostTickCount = 0;
+                PatrolWaypointIndex = 0;
+                KnockbackVelocity = Vector2.zero;
+                AggroAlertTimer = default;
+                PatrolWaitTimer = default;
+            }
+            else
+            {
+                // On Host Migration, the simulation tick is reset.
+                // Any active timers from the old runner will be stuck in the future.
+                ScanTimer = TickTimer.None;
+                AggroAlertTimer = TickTimer.None;
+                PatrolWaitTimer = TickTimer.None;
+                
+                // Clear transient local state
+                _pursuitLostTickCount = 0;
+                _currentTarget = default;
+
+                if (_patrolRoute == null)
+                {
+                    _patrolRoute = FindClosestPatrolRoute(transform.position);
+                }
+            }
         }
+    }
+
+    private EnemyPatrolRoute FindClosestPatrolRoute(Vector2 position)
+    {
+        EnemyPatrolRoute[] routes = FindObjectsByType<EnemyPatrolRoute>(FindObjectsSortMode.None);
+        EnemyPatrolRoute closest = null;
+        float minSqrDist = float.MaxValue;
+
+        foreach (var route in routes)
+        {
+            if (!route.HasWaypoints) continue;
+
+            for (int i = 0; i < route.Count; i++)
+            {
+                if (route.TryGetWaypoint(i, out Transform wp))
+                {
+                    float sqrDist = ((Vector2)wp.position - position).sqrMagnitude;
+                    if (sqrDist < minSqrDist)
+                    {
+                        minSqrDist = sqrDist;
+                        closest = route;
+                    }
+                }
+            }
+        }
+
+        return minSqrDist <= 400f ? closest : null;
     }
 
     /// <summary>

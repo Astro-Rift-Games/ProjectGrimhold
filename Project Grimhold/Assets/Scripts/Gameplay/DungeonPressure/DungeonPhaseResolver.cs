@@ -19,4 +19,8 @@ public static class DungeonPhaseResolver
 
         return DungeonPressurePhase.Collapse;
     }
+    public static bool GeneratesWithoutLoot(DungeonPressurePhase phase)
+    {
+        return phase == DungeonPressurePhase.Collapse;
+    }
 }

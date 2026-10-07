@@ -63,4 +63,28 @@ public class DungeonPhaseResolverTests
         Assert.IsTrue(p2 < p3);
         Assert.IsTrue(p3 < p4);
     }
+    
+    [Test]
+    public void GeneratesWithoutLoot_NormalPhase_ReturnsFalse()
+    {
+        Assert.IsFalse(DungeonPhaseResolver.GeneratesWithoutLoot(DungeonPressurePhase.Normal));
+    }
+
+    [Test]
+    public void GeneratesWithoutLoot_ReinforcementsPhase_ReturnsFalse()
+    {
+        Assert.IsFalse(DungeonPhaseResolver.GeneratesWithoutLoot(DungeonPressurePhase.Reinforcements));
+    }
+
+    [Test]
+    public void GeneratesWithoutLoot_CriticalPressurePhase_ReturnsFalse()
+    {
+        Assert.IsFalse(DungeonPhaseResolver.GeneratesWithoutLoot(DungeonPressurePhase.CriticalPressure));
+    }
+
+    [Test]
+    public void GeneratesWithoutLoot_CollapsePhase_ReturnsTrue()
+    {
+        Assert.IsTrue(DungeonPhaseResolver.GeneratesWithoutLoot(DungeonPressurePhase.Collapse));
+    }
 }

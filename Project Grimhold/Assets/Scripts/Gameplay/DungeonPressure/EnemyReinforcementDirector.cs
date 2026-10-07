@@ -126,7 +126,7 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
                 Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
                 if (spawnPoint != null)
                 {
-                    bool disableLoot = _pressureController.Phase == DungeonPressurePhase.Collapse;
+                    bool disableLoot = DungeonPhaseResolver.GeneratesWithoutLoot(_pressureController.Phase);
                     if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint, disableLoot))
                     {
                         spawnedCount++;

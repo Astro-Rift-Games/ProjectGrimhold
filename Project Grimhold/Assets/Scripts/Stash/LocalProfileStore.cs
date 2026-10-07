@@ -1084,19 +1084,28 @@ public sealed class LocalProfileStore
         out PendingLoadoutReservation reservation)
     {
         reservation = null;
-        if (string.IsNullOrWhiteSpace(reservationId) || !IsAvailable) return StashOperationResult.InvalidInventory;
+        if (string.IsNullOrWhiteSpace(reservationId) || !IsAvailable)
+        {
+            Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. string.IsNullOrWhiteSpace(reservationId)={string.IsNullOrWhiteSpace(reservationId)}, !IsAvailable={!IsAvailable}");
+            return StashOperationResult.InvalidInventory;
+        }
+        
         var current = _repository.Snapshot;
         if (current.PendingReservation != null)
         {
             if (!string.Equals(current.PendingReservation.ReservationId, reservationId, StringComparison.Ordinal))
+            {
+                Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Pending reservation ID mismatch. Existing: {current.PendingReservation.ReservationId}, Requested: {reservationId}");
                 return StashOperationResult.InvalidInventory;
+            }
 
             if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(
                     current.PendingReservation.PreparedEquipment,
                     current.CharacterAttributes,
                     _lootCatalog,
-                    out _))
+                    out string validationError1))
             {
+                Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Attribute requirements not met: {validationError1}");
                 return StashOperationResult.AttributeRequirementsNotMet;
             }
 
@@ -1108,8 +1117,9 @@ public sealed class LocalProfileStore
                 current.PreparedEquipment,
                 _lootCatalog,
                 requireWeapon: true,
-                out _))
+                out string validationError2))
         {
+            Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: {validationError2}");
             return StashOperationResult.InvalidInventory;
         }
 
@@ -1117,8 +1127,9 @@ public sealed class LocalProfileStore
                 current.PreparedEquipment,
                 current.CharacterAttributes,
                 _lootCatalog,
-                out _))
+                out string validationError3))
         {
+            Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Attribute requirements not met: {validationError3}");
             return StashOperationResult.AttributeRequirementsNotMet;
         }
 

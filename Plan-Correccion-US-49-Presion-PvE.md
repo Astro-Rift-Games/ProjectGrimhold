@@ -36,8 +36,7 @@ Este plan **reemplaza** a los anteriores. Parte del código actual, que ya cubre
 
 | Tema | Decisión |
 |---|---|
-| **Collapse** | **Se mantiene** el comportamiento actual: al entrar en `Collapse`, `EnemyCollapseDespawner` despawnea los enemigos vivos por lotes y luego llama a `StopForcefully()` sobre el controller. Collapse **no genera refuerzos**. |
-| **Presupuesto** | `Budget` ("spawns totales por fase") se **reemplaza por `PopulationBudget`**: tope de amenaza activa de **refuerzos**. `MaxConcurrentSpawns` pasa a ser redundante y se elimina (hoy ya funciona como tope de amenaza activa de refuerzos). Sin tope total de spawns por fase: el ritmo lo limitan los intervalos y los topes de población. |
+| **Collapse** | Collapse genera refuerzos con presión máxima, sin otorgar recompensas (sin loot). Los enemigos que ya estaban vivos al entrar en Collapse conservan su loot original y no desaparecen. || **Presupuesto** | `Budget` ("spawns totales por fase") se **reemplaza por `PopulationBudget`**: tope de amenaza activa de **refuerzos**. `MaxConcurrentSpawns` pasa a ser redundante y se elimina (hoy ya funciona como tope de amenaza activa de refuerzos). Sin tope total de spawns por fase: el ritmo lo limitan los intervalos y los topes de población. |
 | Tope global | Se mantiene `MaxGlobalEnemies` en `DungeonPressureConfig` (bootstrap + refuerzos). |
 | Costo por enemigo | 1 por ahora, único punto: `EnemyThreatCost`. |
 | Duración total | **1 minuto (60 s) por ahora**; aumentará más adelante. Los umbrales actuales del asset son 45 s y 20 s restantes (de prueba). Los umbrales baseline de #456 (300 s / 120 s) solo entran cuando la duración total supere 300 s: al subir la duración hay que **reescalar los umbrales a mano**. |
@@ -45,10 +44,7 @@ Este plan **reemplaza** a los anteriores. Parte del código actual, que ya cubre
 | HUD, audio, `MinDistanceToPlayer` | Se conservan. |
 | Documento de Game Design "10 - Reglas de Sesión de Dungeon" | Sin leer al armar el plan. En la Etapa 1, leerlo con `grimhold-docs` y reportar conflictos con este plan **antes** de cambiar contratos. |
 
-### Desvíos respecto de la redacción original de la US, a registrar en HacknPlan
-La implementación de Collapse difiere de dos criterios literales de #460. Dejar el texto sugerido en el walkthrough de la Etapa 4 para que el usuario actualice la tarea:
-- "Collapse: utilizar la configuración máxima de presión" → **"Collapse despawnea los enemigos vivos, no genera refuerzos y detiene el sistema de presión."**
-- "El cambio de fase no destruye enemigos ya activos" → **"…salvo la transición a Collapse."**
+La implementación de Collapse está alineada con Game Design: genera refuerzos con presión máxima, se generan sin loot, y ningún enemigo desaparece al cambiar de fase.
 
 ---
 
@@ -72,7 +68,7 @@ La implementación de Collapse difiere de dos criterios literales de #460. Dejar
    - Eliminar `_spawnsConsumedThisPhase` y el `float _spawnCooldownTimer`. Reemplazar por dos cuentas regresivas `[Networked]` **en ticks**: evaluación y mínimo entre generaciones.
    - **Una sola evaluación por tick**; cada evaluación genera hasta `Count` enemigos, nunca más. No hay múltiples oleadas por el mismo intento.
    - Al cambiar de fase, reiniciar la cuenta de evaluación con el intervalo de la política nueva (en vez de 0) para **no producir una oleada instantánea** al cambiar de fase. Dejarlo documentado como decisión.
-   - `Normal` y `Collapse` se tratan como deshabilitados por lógica (además de por config).
+   - `Normal` se trata como deshabilitado por lógica (además de por config).
    - Mantener: solo State Authority, solo `InProgress` y `IsRunning`, pausa en `IsHostMigrationRecoveryInProgress`, spawn solo vía `NetworkSpawnManager.TrySpawnReinforcement`, `ShouldInitializeMatchPhase` en `Spawned()`.
    - Exponer en solo lectura el último rechazo y la cantidad de refuerzos generados. Log únicamente cuando cambia el motivo de rechazo y en cada spawn exitoso.
    - Verificar si `EnemyCharacter.Spawned()` (que registra en el tracker) corre **sincrónicamente** dentro de `runner.Spawn` en la versión de Fusion instalada. Si no, el cálculo de capacidad dentro de una misma evaluación no debe depender de ese registro: descontar localmente lo ya generado.
@@ -98,14 +94,14 @@ La implementación de Collapse difiere de dos criterios literales de #460. Dejar
 **Alcance**
 1. `DungeonPressureConfig.Validate` se amplía con:
    - `Normal` con `PopulationBudget = 0` (refuerzos deshabilitados).
-   - `Collapse` con `PopulationBudget = 0` (**coherente con la decisión de Collapse**: no genera refuerzos).
+   - `Collapse` con `PopulationBudget > 0` y no más débil que `CriticalPressure`.
    - `CriticalPressure.PopulationBudget ≥ Reinforcements.PopulationBudget`, y que Critical no sea más débil que Reinforcements en frecuencia (`EvaluationIntervalSeconds` menor o igual) ni en cantidad (`MaxSpawnsPerAttempt` mayor o igual).
    - Cada fase con budget > 0 requiere `EvaluationIntervalSeconds > 0` y `MaxSpawnsPerAttempt ≥ 1`.
    - Ninguna fase supera los límites: `PopulationBudget ≤ MaxGlobalEnemies`; `MaxSpawnsPerAttempt ≤ PopulationBudget`.
    - `MinSecondsBetweenSpawns ≥ 0` y `MinDistanceToPlayer ≥ 0`.
    - Mensajes de error con el nombre de la fase y del campo.
 2. Revisión explícita de que no haya valores de Balance hardcodeados en lógica (los defaults de `[SerializeField]` del ScriptableObject están permitidos; los literales en código de lógica no). Dejar constancia en el walkthrough, con los lugares revisados.
-3. Confirmar por código y test que **cambiar de fase y reducir `PopulationBudget` no elimina enemigos ya activos** (la única excepción es la transición a Collapse, ya implementada).
+3. Confirmar por código y test que **cambiar de fase y reducir `PopulationBudget` no elimina enemigos ya activos**.
 4. `OnValidate` del config: mantener coherencia con `Validate` sin reescribir silenciosamente valores de balance.
 5. **Tests EditMode:** cada regla por separado (aceptar y rechazar), config completo válido, `Normal`/`Collapse` con budget > 0 inválidos, Critical más débil que Reinforcements inválido, límites excedidos, y que reducir budget no cambia la población del tracker.
 
@@ -128,7 +124,7 @@ La implementación de Collapse difiere de dos criterios literales de #460. Dejar
 1. **Controller y Director:** confirmar que `RemainingTicks`, `Phase`, `State` y las cuentas regresivas del Director se restauran con el snapshot (el prefab `NetworkMatchController` es un objeto dinámico restaurado con `CopyStateFrom`). Verificar que el tiempo no se reinicia, la fase no vuelve a `Normal` y el Director continúa desde un estado temporal válido, sin oleada adicional.
 2. **Tracker:** se reconstruye desde `EnemyCharacter.Spawned()` de los enemigos restaurados, usando `PopulationOrigin` networked. Verificar que vida y origen ya están copiados cuando corre `Spawned()`. Agregar una **reconciliación única al terminar la recuperación** (sin `FindObjectsByType`, usando el conjunto de objetos restaurados que ya maneja el restorer) que compare el conteo del tracker con los enemigos vivos restaurados y loguee cualquier discrepancia.
 3. **Director y Despawner en recuperación:** ninguno actúa mientras dure `IsHostMigrationRecoveryInProgress` ni antes de completar la reconstrucción de población.
-4. **Collapse y Host Migration:** caso específico a cubrir. Si la migración ocurre en pleno Collapse, el `EnemyCollapseDespawner` (que guarda cola y flag en memoria) debe reanudar el despawn desde la población reconstruida y terminar deteniendo el controller, sin dejar enemigos vivos ni dejar el sistema colgado en `Running`. Agregar test de la cola para el caso de repoblado a mitad de proceso.
+4. **Collapse y Host Migration:** caso específico a cubrir. Comprobar que en pleno Collapse (donde se generan refuerzos con presión máxima), la migración conserva los enemigos y los refuerzos siguen generándose sin loot tras la recuperación.
 5. **`_spawnedEnemies` y despawns de Collapse:** `EnemyCollapseDespawner` hace `Runner.Despawn` de enemigos que `NetworkSpawnManager` mantiene en `_spawnedEnemies`. Verificar que `TryCleanupRaidWorldForResults` y cualquier recorrido de esa lista toleran objetos ya despawneados (nulos/inválidos) sin errores ni doble despawn; corregir si no.
 6. **Bootstrap y registry:** confirmar que el bootstrap no se re-ejecuta, que los enemigos restaurados no se duplican y que `ReinforcementPointRegistry` se reconstruye en la ruta de resume (la configuración de escena debe reaplicarse ahí).
 7. **Lifecycle:** `Closing` y `Finished` bloquean refuerzos y detienen el timer; el cleanup resetea tracker y registry; una nueva Raid arranca limpia.
@@ -138,7 +134,7 @@ La implementación de Collapse difiere de dos criterios literales de #460. Dejar
 
 **Validación manual (crítica):**
 - Host + Client con refuerzos activos y enemigos vivos → cerrar abruptamente el Host → mismo tiempo restante (± tolerancia), misma fase, mismos enemigos sin duplicar, población coherente, sin oleada extra, Director continúa.
-- Repetir **durante el Collapse** (con enemigos aún pendientes de despawn): el despawn se completa y el controller termina en `Stopped`.
+- Repetir con la partida en Collapse: comprobar que los refuerzos del Colapso se siguen generando y siguen sin loot tras la migración.
 - Cerrar la Raid y verificar cleanup y una nueva Raid limpia.
 
 **Criterios:** todos los de #461, incluido al menos un flujo Host → Client → Host Migration con refuerzos activos.
@@ -155,7 +151,7 @@ La implementación de Collapse difiere de dos criterios literales de #460. Dejar
    - `PopulationBudget` como tope de amenaza activa de refuerzos y `MaxGlobalEnemies` como tope global compartido con el bootstrap.
    - Intervalo de evaluación, mínimo entre generaciones y máximo por intento.
    - `ReinforcementRejection` y cómo se expone.
-   - **Comportamiento de Collapse:** despawn por lotes de enemigos vivos, sin refuerzos, y detención del controller; los enemigos derrotados con loot no se despawnean (confirmarlo en el código antes de afirmarlo).
+   - **Comportamiento de Collapse:** genera refuerzos continuamente al máximo de presión; los refuerzos no otorgan loot, mientras que los enemigos que ya estaban vivos conservan el suyo y no desaparecen.
    - Tracker desacoplado (clave por `NetworkId`), costo por enemigo y reconstrucción tras Host Migration.
    - Registry con validación y diagnósticos.
    - Overlay de debug solo Editor: tecla F9, acciones y límites (solo Host).

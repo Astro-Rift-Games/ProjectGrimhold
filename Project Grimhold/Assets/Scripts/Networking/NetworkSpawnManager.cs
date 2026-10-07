@@ -2966,7 +2966,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             (!disableLoot && spawnedContainer.OccupiedSlotCount == 0))
         {
             Debug.LogError(
-                $"Cannot retain spawned enemy because its Loot container did not initialize with unavailable content. {lootError}",
+                $"Cannot retain spawned enemy because its Loot container initialization failed or its content is invalid. Expected {(disableLoot ? "empty" : "populated")} unavailable content. {lootError}",
                 enemyObject);
             runner.Despawn(enemyObject);
             return false;

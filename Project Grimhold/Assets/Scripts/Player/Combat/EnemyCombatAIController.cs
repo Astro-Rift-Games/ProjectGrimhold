@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Fusion;
 using UnityEngine;
 
@@ -78,9 +78,17 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
         _lastObservedSequence = AttackSequence;
 
-        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
+        if (HasStateAuthority)
         {
-            IsAttackEnabled = false;
+            if (!HostMigrationRestoreUtility.IsRestoreSpawn(this))
+            {
+                IsAttackEnabled = false;
+            }
+            else
+            {
+                AttackCooldown = TickTimer.None;
+                ClearPendingDamage();
+            }
         }
     }
 

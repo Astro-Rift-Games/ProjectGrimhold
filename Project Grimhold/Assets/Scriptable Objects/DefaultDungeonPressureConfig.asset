@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6cce0bb2a589d44d912ad7f051a64a4, type: 3}
   m_Name: DefaultDungeonPressureConfig
   m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureConfig
-  _totalDurationSeconds: 900
-  _reinforcementsThresholdSeconds: 300
-  _criticalPressureThresholdSeconds: 120
+  _totalDurationSeconds: 60
+  _reinforcementsThresholdSeconds: 30
+  _criticalPressureThresholdSeconds: 15
   _maxGlobalEnemies: 20
   _normalPolicy:
     PopulationBudget: 0
