@@ -26,8 +26,18 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     [SerializeField, Min(0f)]
     private float _referenceMovementSpeed = 4f;
 
+    [SerializeField, Range(0f, 180f), Tooltip("Free-aim weapons only. The body keeps its movement facing bucket while the aim stays within this many degrees of that bucket's direction, and shows the aim's own bucket beyond it. At 22.5 degrees, the narrowest bucket half-width, the body always shows the aim bucket.")]
+    private float _freeAimArcHalfWidthDegrees = 45f;
+
     private Vector2 _previousVisualPosition;
     private bool _hasPreviousVisualPosition;
+    // The aim a free-aim weapon presents, smoothed for proxies. Only read while such a weapon is equipped.
+    private const float RemoteAimTurnRateDegreesPerSecond = 1080f;
+    private const float FacingArcHysteresisDegrees = 5f;
+    private bool _showingAimBucket;
+    private PlayerMovementNetworkController _aimSource;
+    private Vector2 _presentedAim;
+    private bool _hasPresentedAim;
     private PlayerCombatNetworkController _subscribedCombatController;
     private int _mainHandCombatLayerIndex = -1;
     private bool _hasObservedAttackState;
@@ -42,6 +52,54 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private static readonly int AttackStateHash = Animator.StringToHash("RightHand.Attack");
     private static readonly int IdleStateHash = Animator.StringToHash("RightHand.RightHand-Idle");
     private readonly List<AnimatorClipInfo> _attackClipBuffer = new List<AnimatorClipInfo>(2);
+
+    /// <summary>
+    /// The smoothed aim shared by the body facing and the weapon presenter while a free-aim weapon is equipped.
+    /// </summary>
+    public Vector2 PresentedAimDirection => _presentedAim;
+
+    public bool HasPresentedAim => _hasPresentedAim;
+
+    protected override void Update()
+    {
+        // Sampled every frame, including during an attack, so the weapon keeps following the aim.
+        RefreshPresentedAim();
+        base.Update();
+    }
+
+    protected override bool TryGetPresentedFacing(Vector2 movementFacing, out Vector2 facing)
+    {
+        return FreeAimFacingSelection.TrySelect(
+            _activeWeapon,
+            _hasPresentedAim,
+            _presentedAim,
+            movementFacing,
+            _freeAimArcHalfWidthDegrees,
+            FacingArcHysteresisDegrees,
+            ref _showingAimBucket,
+            out facing);
+    }
+
+    private void RefreshPresentedAim()
+    {
+        if (_activeWeapon == null || _activeWeapon.Presentation.AimMode != WeaponAimMode.FreeAim ||
+            _aimSource == null || _aimSource.Object == null || !_aimSource.Object.IsValid)
+        {
+            _hasPresentedAim = false;
+            return;
+        }
+
+        _presentedAim = AimDirectionSmoothing.Resolve(
+            _aimSource.AimDirection,
+            _aimSource.FacingDirection,
+            _presentedAim,
+            _hasPresentedAim,
+            Time.deltaTime,
+            RemoteAimTurnRateDegreesPerSecond,
+            // The owning player renders its own cursor immediately; only proxies smooth the sampled aim.
+            !_aimSource.Object.HasInputAuthority);
+        _hasPresentedAim = true;
+    }
 
     public bool TryGetPresentedAttackWeapon(out LootDefinition definition)
     {
@@ -131,6 +189,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _hasObservedAttackState = false;
         _hasTimedAttack = false;
         _timedAttackClip = null;
+        _hasPresentedAim = false;
+        _showingAimBucket = false;
         base.OnDisable();
         ResetVisualPositionSample();
     }
@@ -161,6 +221,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _combatController ??= GetComponentInParent<PlayerCombatNetworkController>();
         _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
         _shieldDefense ??= GetComponentInParent<PlayerShieldDefenseNetworkController>();
+        _aimSource ??= GetComponentInParent<PlayerMovementNetworkController>();
     }
 
     private void SubscribeToCombat()

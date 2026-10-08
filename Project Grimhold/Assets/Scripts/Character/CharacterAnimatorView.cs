@@ -15,6 +15,16 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     protected Animator AnimatorInstance => _animator;
     protected virtual bool StopsLocomotionDuringTemporalFacing => true;
 
+    /// <summary>
+    /// Lets a view present a facing other than the movement facing while no attack facing is active, such as the
+    /// aim of a free-aim weapon. The default keeps the movement facing.
+    /// </summary>
+    protected virtual bool TryGetPresentedFacing(Vector2 movementFacing, out Vector2 facing)
+    {
+        facing = default;
+        return false;
+    }
+
     [SerializeField]
     private MonoBehaviour _movementControllerSource;
 
@@ -79,7 +89,9 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         }
         else
         {
-            rawFacing = _movementState.FacingDirection;
+            rawFacing = TryGetPresentedFacing(_movementState.FacingDirection, out Vector2 presentedFacing)
+                ? presentedFacing
+                : _movementState.FacingDirection;
             isMoving = _movementState.IsMoving;
         }
 
