@@ -33,6 +33,7 @@ namespace Tests.EditMode.Loot
             "magic_wand",
             "rapier",
             "rondel_dagger",
+            "spell_book",
             "zweihander"
         };
 
@@ -54,6 +55,7 @@ namespace Tests.EditMode.Loot
             ["magic_wand"] = 10,
             ["rapier"] = 6,
             ["rondel_dagger"] = 12,
+            ["spell_book"] = 10,
             ["zweihander"] = 3,
             ["shield"] = 5
         };
@@ -160,6 +162,36 @@ namespace Tests.EditMode.Loot
             AssertWeapon("magic_staff", 45f, 1.4f, 7f, 22f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 15,
                 typeof(RangedAttackConfig));
+            // GD 09 sections 5-6: Libro de hechizos, INT 10, 34 damage, 1.10 s, 2.5 tiles, 15 stamina, Magical, one-handed.
+            AssertWeapon("spell_book", 34f, 1.1f, 2.5f, 15f, 0f, DamageType.Magical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Intelligence, 0, 0, 10,
+                typeof(MeleeAttackConfig));
+        }
+
+        // GD 09 gives the Spellbook an "area / proximity" identity but no numbers: it hits several targets in a
+        // wider circle than the shared single-target melee config, which other weapons keep using untouched.
+        // Radius and target count are provisional balance values.
+        [Test]
+        public void Spellbook_UsesItsOwnAreaMeleeConfigWiderThanTheSharedOne()
+        {
+            Assert.That(_catalog.TryGet("spell_book", out LootDefinition loot), Is.True);
+            WeaponDefinition weapon = loot.WeaponDefinition;
+            var area = weapon.PrimaryAttack as MeleeAttackConfig;
+            var shared = AssetDatabase.LoadAssetAtPath<MeleeAttackConfig>(
+                "Assets/Scriptable Objects/PlayerMeleeAttackConfig.asset");
+            Assert.That(area, Is.Not.Null);
+            Assert.That(shared, Is.Not.Null);
+            Assert.That(area, Is.Not.SameAs(shared));
+            Assert.That(AssetDatabase.GetAssetPath(area), Is.EqualTo(
+                "Assets/Scriptable Objects/SpellbookMeleeAttackConfig.asset"));
+            Assert.That(area.TryValidate(out string error), Is.True, error);
+            Assert.That(area.Radius, Is.GreaterThan(shared.Radius));
+            Assert.That(area.MaximumTargets, Is.GreaterThan(1));
+            Assert.That(area.TargetLayerMask.value, Is.EqualTo(shared.TargetLayerMask.value));
+            Assert.That(weapon.Range, Is.GreaterThanOrEqualTo(area.Radius));
+            // The shared config keeps its single-target contract for the seven weapons that use it.
+            Assert.That(shared.Radius, Is.EqualTo(0.5f));
+            Assert.That(shared.MaximumTargets, Is.EqualTo(1));
         }
 
         [Test]
@@ -172,7 +204,7 @@ namespace Tests.EditMode.Loot
             Assert.That(table.MinimumDistinctStacks, Is.EqualTo(2));
             Assert.That(table.MaximumDistinctStacks, Is.EqualTo(3));
             Assert.That(table.AllowEmpty, Is.False);
-            Assert.That(table.Entries.Count, Is.EqualTo(41));
+            Assert.That(table.Entries.Count, Is.EqualTo(42));
 
             foreach (string id in EquipmentIds)
             {

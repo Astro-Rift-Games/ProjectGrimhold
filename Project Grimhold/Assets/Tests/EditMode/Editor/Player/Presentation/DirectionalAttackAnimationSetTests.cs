@@ -21,6 +21,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("LongBow", "LongBow")]
     [TestCase("CompoundBow", "CompoundBow")]
     [TestCase("LightCrossbow", "LightCrossbow")]
+    [TestCase("Spellbook", "Spellbook")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -282,6 +283,42 @@ public sealed class DirectionalAttackAnimationSetTests
         }
     }
 
+    // Spellbook-Front.png is 16x16 px with a centered pivot and no directional art: the book is held with its
+    // top edge toward the target. The cast point is the middle of the two top pixels, and the grip the center of
+    // the lowest solid row on the center columns (rows 11-13 form a notch below it).
+    [Test]
+    public void Spellbook_CastsFromItsTopEdgeAndIsHeldByItsLowestSolidCenterRow()
+    {
+        WeaponDefinition book = Bow("Spellbook");
+        Sprite sprite = BowSprite("Spellbook");
+        Assert.That(sprite, Is.Not.Null);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(sprite.texture))), Is.True);
+            Rect rect = sprite.rect;
+            int width = (int)rect.width;
+            int height = (int)rect.height;
+            bool Opaque(int x, int row) => texture.GetPixel((int)rect.x + x, (int)rect.y + row).a > 0f;
+            int topRow = Enumerable.Range(0, height).Last(row => Enumerable.Range(0, width).Any(x => Opaque(x, row)));
+            int[] topColumns = Enumerable.Range(0, width).Where(x => Opaque(x, topRow)).ToArray();
+            Vector2 tip = new Vector2((float)topColumns.Average() + 0.5f - sprite.pivot.x, topRow + 0.5f - sprite.pivot.y) /
+                sprite.pixelsPerUnit;
+            Assert.That(topColumns, Has.Length.EqualTo(2));
+            Assert.That(book.Presentation.BladeTip.x, Is.EqualTo(tip.x).Within(0.00001f));
+            Assert.That(book.Presentation.BladeTip.y, Is.EqualTo(tip.y).Within(0.00001f));
+
+            int center = width / 2;
+            int gripRow = Enumerable.Range(0, height).First(row => Opaque(center - 1, row) && Opaque(center, row));
+            Vector2 grip = new Vector2(center - sprite.pivot.x, gripRow + 0.5f - sprite.pivot.y) / sprite.pixelsPerUnit;
+            Assert.That(book.Presentation.GripPoint.x, Is.EqualTo(grip.x).Within(0.00001f));
+            Assert.That(book.Presentation.GripPoint.y, Is.EqualTo(grip.y).Within(0.00001f));
+            Assert.That(book.Presentation.AngleCorrection, Is.EqualTo(-90f));
+            Assert.That(book.Presentation.AttackSpriteAnimation, Is.Null);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(texture); }
+    }
+
     [TestCase("LongBow", 0f, -1f)]
     [TestCase("LongBow", 1f, -1f)]
     [TestCase("LongBow", -1f, -1f)]
@@ -326,6 +363,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("ZweihanderWeaponDefinition")]
     [TestCase("GreatHammerWeaponDefinition")]
     [TestCase("MagicStaffWeaponDefinition")]
+    [TestCase("SpellbookWeaponDefinition")]
     public void OtherGenericWeapons_KeepTheirVisualInTheMainHand(string definition)
     {
         WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(

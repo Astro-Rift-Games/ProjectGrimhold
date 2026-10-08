@@ -45,6 +45,11 @@ public static class DirectionalAnimationGenerator
     [MenuItem("Tools/Animations/Generate Magic Wand Directional Attacks")]
     public static void GenerateMagicWandAssets() => GenerateAssets("MagicWand");
 
+    // One-handed: only the RightHand hierarchy is baked; the authored LeftHand motion is dropped.
+    [MenuItem("Tools/Animations/Generate Spellbook Directional Attacks")]
+    public static void GenerateSpellbookAssets() => GenerateAssets("Spellbook",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset"));
+
     [MenuItem("Tools/Animations/Generate Magic Sword Directional Attacks")]
     public static void GenerateMagicSwordAssets() => GenerateAssets("MagicSword");
 

@@ -261,6 +261,12 @@ Gameplay properties are separated into stable configurations and dynamic network
 * **`_maximumTargets`** (int, Min: 1): Maximum number of targets hit in one execute.
 * **`_targetLayerMask`** (LayerMask): Layer mask defining which objects are queried.
 
+`PlayerMeleeAttackConfig` (radius 0.5, one target) is shared by the single-target melee weapons and is not edited
+for another weapon. The Spellbook's "area / proximity" identity (GD 09) is its own `SpellbookMeleeAttackConfig`: the
+same target mask with radius 1.0 and up to 4 targets, so with the weapon's 2.5 range the circle is centered 1.5 ahead
+of the attacker and every target inside it is hit by one execution. Radius and target count are provisional balance
+values, because the Game Design gives no numbers for them.
+
 ### 2. `RangedAttackConfig` (ScriptableObject)
 Inherits the input mode and owns only reusable projectile behavior:
 * **`_projectileSpeed`** (float, Min: 0.1): Travel speed of the spawned projectile.
@@ -472,8 +478,8 @@ and replaces only the six neutral `GenericAttack_*` slots in the local per-Anima
 override controller. The generic `Attack` route is the only attack route and depends only
 on `HasGenericAttack`; an unarmed weapon or missing/incomplete set disables it
 and restores placeholder slots. Arming Sword, Rapier, Magic Wand, Magic Sword, Long Sword, Zweihander,
-Great Hammer, Magic Staff, Long Bow and Compound Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword,
-Zweihander, GreatHammer, MagicStaff, LongBow and CompoundBow sets. Rondel Dagger and Magic Cinquedea
+Great Hammer, Magic Staff, Spellbook, Long Bow and Compound Bow reference their respective Sword1H, Rapier, Wand, MagicSword, LongSword,
+Zweihander, GreatHammer, MagicStaff, Spellbook, LongBow and CompoundBow sets. Rondel Dagger and Magic Cinquedea
 reference the same Dagger asset containing the generated Rondel clips. Reassigning a set changes
 presentation without editing `Character.controller` or branching on weapon identity.
 `DirectionalAnimationGenerator` bakes each set from one south-authored `<Weapon>_Attack.anim`:
@@ -483,7 +489,9 @@ idle, keeps the source clip length, and always emits a one-shot clip. The genera
 weapon's `WeaponHandedness` as an explicit input and never branches on weapon identity.
 For one-handed weapons only the `RightHandPivot/RightHand` hierarchy is part of the output; other
 source curves, such as the LeftHand motion authored in `MagicSword_Attack.anim`, are dropped because
-LeftHand carries `OffHandGrip` and belongs to separately authored off-hand clips.
+LeftHand carries `OffHandGrip` and belongs to separately authored off-hand clips. Spellbook is baked this way with
+`Tools/Animations/Generate Spellbook Directional Attacks`: it is one-handed on the `HandHeld` rig like Magic Wand, its
+`Spellbook_Attack.anim` source keeps a 1.0 s one-shot length, and the LeftHand motion that source authors is dropped.
 A two-handed weapon blocks the Off Hand, so `OffHandGrip` stays empty and the authored
 `LeftHandPivot/LeftHand` transform is its second hand, which the two-handed output therefore keeps.
 Being two-handed equipment does not by itself mean the second hand holds the weapon:
@@ -621,6 +629,19 @@ the main-hand grip at that peak with the grip to gem axis as rotation and no rea
 0.875s, so frame 0 ignites as the gem arrives and frames 2-3 fade in place while the staff recovers.
 Sorting sits just above the held staff (21 in front facings, -9 in north facings). The staff's left hand
 is an independent authored gesture outside the main-hand chain, so it never moves the cast point.
+Spellbook is the third Cast Flash consumer and the first on a melee attack: `SpellbookCastFlashAttackVfx` aligns the same
+`CastFlashVfxVisual` with its own cast. A melee effect starts from the attack clip phase, so only `StartSeconds`
+applies and `ReleaseLeadSeconds` stays `0`. Its clips thrust the main hand forward from 0.5s, arrive at the strike hold
+at 0.65s and hold it until 0.75s in every facing, then recover until the 1.0 s end. Each facing anchors the main-hand
+grip at that hold with the grip to top-edge axis as rotation and no reach offset, so the flash lands on the book's top
+edge. `BladeTip` is `(0, 0.46875)`, the middle of the two top pixels of the 16x16 px `Spellbook-Front.png`; the grip
+is `(0, -0.15625)`, the center of the lowest solid row of its center columns, and the book is held top toward the target
+with `AngleCorrection` `-90`. The four frames start at 0.625s, so frame 0 ignites as the book arrives and frame 1 bursts
+on the hold; frames 2-3 fade in place while the hand recovers and the flash ends at 0.825s, inside the clip (the
+presenter drops an effect that does not fit). Poses are never mirrored and sort like the wand's (21 in front facings,
+-9 in north facings). The weapon definition has no directional art, so only the Front sprite is used for the icon, the
+world sprite and the held book; `Spellbook-Back.png` is imported but unreferenced. The flash is provisional: it reuses the
+shared Cast Flash art until Art delivers a dedicated spellbook visual.
 Long Bow is the first Bow Shot consumer. `VFX-BowShot.png` is four 96x96 px cells at 16 PPU with centered
 pivots: a release flash, then a streak, rings and remnants that travel along +X from the flash center. That
 center, `(-0.875, -0.03125)` in sprite local units, is the `BowShotVfxVisual` origin in every frame.
@@ -832,6 +853,7 @@ of future scaling variation.
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | CompoundBow set (two-handed, held by the left hand) |
 | `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set |
 | `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand) |
+| `spell_book` | 1 | `SpellbookMeleeAttackConfig` | Spellbook set |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with the owner of the weapon pose (`MainHandGrip` by default). Vertical weapon art uses a `-90` degree correction to align its

@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 695eb1d508634f71a85ad608942fa931, type: 3}
+  m_Name: Spellbook
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalAttackAnimationSet
+  _attackN: {fileID: 7400000, guid: befbd2c5136550447bdc051aeaec1aa6, type: 2}
+  _attackNE: {fileID: 7400000, guid: 6270f8954618ecd4d89a550b680e4d64, type: 2}
+  _attackNW: {fileID: 7400000, guid: 349e4149ddbd8b24685bd5d66e6bc6c7, type: 2}
+  _attackS: {fileID: 7400000, guid: c73bd306d8b81f04fa3dab15432c7cbd, type: 2}
+  _attackSE: {fileID: 7400000, guid: d6bb2eb3e1c266c4d9277e5954b2c845, type: 2}
+  _attackSW: {fileID: 7400000, guid: 3b3b9fa2e61a986449e5f8d2b5434556, type: 2}

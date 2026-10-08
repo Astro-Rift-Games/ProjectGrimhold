@@ -12,6 +12,8 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string RapierRoot = "Assets/Animations/Weapons/Directional/Rapier/Rapier_Attack_";
     private const string RondelRoot = "Assets/Animations/Weapons/Directional/RondelDagger/RondelDagger_Attack_";
     private const string WandRoot = "Assets/Animations/Weapons/Directional/MagicWand/MagicWand_Attack_";
+    private const string SpellbookRoot = "Assets/Animations/Weapons/Directional/Spellbook/Spellbook_Attack_";
+    private const string SpellbookDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset";
     private const string MagicSwordRoot = "Assets/Animations/Weapons/Directional/MagicSword/MagicSword_Attack_";
     private const string SecondHand = "LeftHandPivot/LeftHand";
     private const string OffHandGrip = SecondHand + "/OffHandGrip";
@@ -948,6 +950,49 @@ public sealed class DirectionalAnimationGeneratorTests
             }
             finally { UnityEngine.Object.DestroyImmediate(expected); }
             DirectionalAnimationGenerator.Bake(source, direction, path, "MagicWand");
+            Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
+        }
+    }
+
+    // Spellbook is one-handed like the wand: its definition rides the same HandHeld bake, the authored
+    // LeftHand motion is dropped and the one-shot clips keep the source's 1.0 s length.
+    [Test]
+    public void SpellbookOutputs_BakeFromSouthKeepOnlyTheRightHandAndRemainStableOnRepeat()
+    {
+        AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/Spellbook_Attack.anim");
+        Assert.That(source, Is.Not.Null);
+        Assert.That(AnimationUtility.GetCurveBindings(source).Any(b => b.path.StartsWith("LeftHandPivot", StringComparison.Ordinal)),
+            Is.True, "The source authors LeftHand motion.");
+        WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SpellbookDefinitionPath);
+        Assert.That(weapon, Is.Not.Null);
+        Assert.That(weapon.Handedness, Is.EqualTo(WeaponHandedness.OneHanded));
+        Assert.That(weapon.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        DirectionalAnimationGenerator.GenerateSpellbookAssets();
+        foreach (string direction in directions)
+        {
+            string path = SpellbookRoot + direction + ".anim";
+            string guid = AssetDatabase.AssetPathToGUID(path);
+            Assert.That(guid, Is.Not.Empty, direction);
+            AnimationClip expected = DirectionalAnimationGenerator.CreateClip(source, direction, "Spellbook", weapon);
+            try
+            {
+                AnimationClip actual = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                Assert.That(actual, Is.Not.Null, direction);
+                Assert.That(actual.isLooping, Is.False, direction);
+                Assert.That(actual.length, Is.EqualTo(source.length).Within(0.00001f), direction);
+                Assert.That(AnimationUtility.GetCurveBindings(actual).Any(b => b.path.StartsWith("LeftHandPivot", StringComparison.Ordinal)),
+                    Is.False, $"{direction} drops the authored LeftHand motion.");
+                Assert.That(AnimationUtility.GetCurveBindings(actual).All(b => b.path == Hand || b.path == Grip),
+                    Is.True, $"{direction} keeps only the RightHand hierarchy.");
+                Assert.That(AnimationUtility.GetCurveBindings(actual), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
+                foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(expected))
+                    Assert.That(AnimationUtility.GetEditorCurve(actual, binding).keys,
+                        Is.EqualTo(AnimationUtility.GetEditorCurve(expected, binding).keys), $"{direction}/{binding.propertyName}");
+                AssertImportedBindings(path, direction);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(expected); }
+            DirectionalAnimationGenerator.Bake(source, direction, path, "Spellbook", weapon);
             Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid), direction);
         }
     }

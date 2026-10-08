@@ -448,6 +448,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("long_bow")]
     [TestCase("compound_bow")]
     [TestCase("light_crossbow")]
+    [TestCase("spell_book")]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericAnimation(string lootId)
     {
         LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(

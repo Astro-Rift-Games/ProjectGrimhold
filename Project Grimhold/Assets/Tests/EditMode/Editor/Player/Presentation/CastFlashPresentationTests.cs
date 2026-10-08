@@ -12,6 +12,9 @@ public sealed class CastFlashPresentationTests
     private const string StaffPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
     private const string StaffLootPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaff.asset";
     private const string StaffCastFlashPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffCastFlashAttackVfx.asset";
+    private const string SpellbookPath = "Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset";
+    private const string SpellbookLootPath = "Assets/Scriptable Objects/Loot/Definitions/Spellbook.asset";
+    private const string SpellbookCastFlashPath = "Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset";
     private const string CastFlashVisualPath = "Assets/Scriptable Objects/Loot/Definitions/CastFlashVfxVisual.asset";
     private const string CastFlashClipPath = "Assets/Art/VFX/CastFlashVfx.anim";
     private const string CastFlashTexturePath = "Assets/Art/VFX/VFX-WandAttack.png";
@@ -22,6 +25,8 @@ public sealed class CastFlashPresentationTests
     private const float WandCastSeconds = 0.35f;
     // The staff strikes forward from its retracted windup until the gem peaks at 0.9s, then recovers.
     private const float StaffCastSeconds = 0.9f;
+    // The spellbook thrusts its hand forward from 0.5s, arrives at the strike hold at 0.65s and recovers from 0.75s.
+    private const float SpellbookCastSeconds = 0.65f;
     // The tight sprite mesh pads the art by up to two pixels at the project's 16 PPU.
     private const float MeshPadding = 0.125f;
     private GameObject _contents;
@@ -193,6 +198,49 @@ public sealed class CastFlashPresentationTests
         }
     }
 
+    // Spellbook is a melee caster: its VFX starts from the attack clip phase (StartSeconds), not from a ranged
+    // release. The hand thrusts forward until 0.65s and holds the strike until 0.75s in every facing, so frame 0
+    // ignites 25 ms before the book arrives at the cast point and frames 0-1 play over the hold. The book's top
+    // edge is the cast point. Provisional until Art delivers dedicated spellbook VFX: it reuses the shared flash.
+    [Test]
+    public void SpellbookVfxConfiguration_AlignsCastFlashWithItsOwnMeleeCast()
+    {
+        WeaponDefinition book = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SpellbookPath);
+        Assert.That(book, Is.Not.Null);
+        AttackVfxDefinition vfx = book.Presentation.AttackVfx;
+        Assert.That(vfx, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(vfx), Is.EqualTo(SpellbookCastFlashPath));
+        Assert.That(AssetDatabase.GetAssetPath(CastFlash(vfx)), Is.EqualTo(CastFlashVisualPath));
+        Assert.That(book.TryValidate(out string error), Is.True, error);
+        Assert.That(book.PrimaryAttack, Is.InstanceOf<MeleeAttackConfig>(), "Melee VFX start from the clip phase.");
+        // Spellbook-Front.png is 16x16 px with a centered pivot: the cast point is the middle of its two top pixels.
+        Assert.That(book.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.46875f)));
+        Assert.That(book.Presentation.BladeReach, Is.EqualTo(0.625f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(0.625f));
+        // Index order: N, NE, NW, S, SE, SW. Sorting follows the facing, like the held weapon.
+        var positions = new[]
+        {
+            new Vector3(0.07f, 0.24f, 0f), new Vector3(0.41f, 0.24f, 0f), new Vector3(-0.24f, 0.03f, 0f),
+            new Vector3(-0.13f, -0.68f, 0f), new Vector3(0.18f, -0.41f, 0f), new Vector3(-0.47f, -0.61f, 0f)
+        };
+        // The book is held with no tilt, so each grip to top axis is the facing itself.
+        var rotations = new[] { 90f, 45f, 135f, -90f, -45f, -135f };
+        var sortingOrders = new[] { -9, -9, -9, 21, 21, 21 };
+        for (int i = 0; i < 6; i++)
+        {
+            AttackVfxDefinition.DirectionalPose pose = vfx.GetPose(i);
+            Assert.That(pose.Position, Is.EqualTo(positions[i]), $"pose {i}");
+            Assert.That(Quaternion.Angle(pose.Rotation, Quaternion.Euler(0f, 0f, rotations[i])), Is.EqualTo(0f).Within(0.001f), $"pose {i}");
+            Assert.That(pose.ReachOffset, Is.EqualTo(0f), $"pose {i}");
+            Assert.That(pose.Mirrored, Is.False, $"pose {i}");
+            Assert.That(pose.SortingOrder, Is.EqualTo(sortingOrders[i]), $"pose {i}");
+            Assert.That(vfx.StartSeconds, Is.LessThan(SpellbookCastSeconds), $"pose {i} ignites before the cast");
+            // The presenter drops an effect that does not fit inside the clip: the margin must be real.
+            Assert.That(vfx.StartSeconds + vfx.Clip.length,
+                Is.LessThan(book.Presentation.GetAttackClip(i).length - 0.01f), $"clip {i}");
+        }
+    }
+
     // One flash art, two casts: each caster aligns the same visual through its own timing and poses.
     [Test]
     public void WandAndStaff_ShareCastFlashVisualThroughIndependentAlignments()
@@ -247,6 +295,12 @@ public sealed class CastFlashPresentationTests
     [TestCase(StaffLootPath, CharacterVisualDirection.South, 3)]
     [TestCase(StaffLootPath, CharacterVisualDirection.SouthEast, 4)]
     [TestCase(StaffLootPath, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.North, 0)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.South, 3)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(SpellbookLootPath, CharacterVisualDirection.SouthWest, 5)]
     public void ConfirmedCasterAttack_AppliesCastFlashPoseResolvedFromBladeReach(string lootPath,
         CharacterVisualDirection direction, int index)
     {
@@ -279,6 +333,12 @@ public sealed class CastFlashPresentationTests
     [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.South, 3)]
     [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.SouthEast, 4)]
     [TestCase(StaffPath, StaffCastSeconds, CharacterVisualDirection.SouthWest, 5)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.North, 0)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.NorthEast, 1)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.NorthWest, 2)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.South, 3)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.SouthEast, 4)]
+    [TestCase(SpellbookPath, SpellbookCastSeconds, CharacterVisualDirection.SouthWest, 5)]
     public void CastFlashVfx_MarksCasterTipAtCastForCasterAndLongerTip(string weaponPath, float castSeconds,
         CharacterVisualDirection direction, int index)
     {
