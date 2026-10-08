@@ -28,6 +28,15 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     private AttackPerformedEvent _attack;
     private float _lastSampleSeconds;
     private readonly List<AnimatorClipInfo> _clipBuffer = new List<AnimatorClipInfo>(2);
+    // Live weapon pivot pushed by the weapon presenter while its weapon uses free aim.
+    private bool _hasFreeAimPivot;
+    private Vector2 _freeAimAnchor;
+    private float _freeAimAngle;
+    private bool _freeAimMirrored;
+    private bool _freeAimFront;
+    private bool _followsFreeAim;
+    private int _attackIndex;
+    private float _bladeReach;
 
     private void OnEnable()
     {
@@ -62,6 +71,55 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             _subscribedCombat = null;
         }
         Clear();
+        _hasFreeAimPivot = false;
+    }
+
+    /// <summary>
+    /// Receives the free-aim weapon pivot, in the Animator root space, every frame it is posed. A playing free-aim
+    /// VFX is re-anchored to it because the weapon keeps moving during wind-up.
+    /// </summary>
+    internal void SetFreeAimPivot(Vector2 anchor, float angleDegrees, bool mirrored, bool frontFacing)
+    {
+        _hasFreeAimPivot = true;
+        _freeAimAnchor = anchor;
+        _freeAimAngle = angleDegrees;
+        _freeAimMirrored = mirrored;
+        _freeAimFront = frontFacing;
+        if (_pending && _followsFreeAim &&
+            TryResolveAttackPose(_vfx, _attackIndex, _bladeReach, true, out AttackVfxDefinition.ResolvedPose pose))
+        {
+            ApplyPose(pose);
+        }
+    }
+
+    internal void ClearFreeAimPivot()
+    {
+        _hasFreeAimPivot = false;
+    }
+
+    private bool TryResolveAttackPose(AttackVfxDefinition vfx, int index, float bladeReach, bool followsFreeAim,
+        out AttackVfxDefinition.ResolvedPose pose)
+    {
+        if (!followsFreeAim)
+        {
+            return vfx.TryResolvePose(index, bladeReach, out pose);
+        }
+        // The anchor and axis come from the live pivot; the authored lead and the front/back depth are kept.
+        AttackVfxDefinition.DirectionalPose freePose = FreeAimAttackVfxPose.Resolve(
+            _freeAimAnchor,
+            _freeAimAngle,
+            _freeAimMirrored,
+            vfx.GetPose(index),
+            vfx.GetPose(_freeAimFront ? 3 : 0).SortingOrder);
+        return vfx.TryResolvePose(freePose, bladeReach, out pose);
+    }
+
+    private void ApplyPose(AttackVfxDefinition.ResolvedPose pose)
+    {
+        _vfxTransform.localPosition = pose.Position;
+        _vfxTransform.localRotation = pose.Rotation;
+        _vfxTransform.localScale = pose.Scale;
+        _vfxRenderer.sortingOrder = pose.SortingOrder;
     }
 
     private void OnAttackPerformed(AttackPerformedEvent attack)
@@ -91,18 +149,20 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _attackClip = presentation.GetAttackClip(index);
         float start = attack.HasReleaseTimeline
             ? loot.WeaponDefinition.AttackReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
+        bool followsFreeAim = presentation.AimMode == WeaponAimMode.FreeAim && _hasFreeAimPivot;
         if (_attackClip == null || start < 0f || _attackClip.length < start + vfx.Clip.length ||
-            !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose) ||
+            !TryResolveAttackPose(vfx, index, presentation.BladeReach, followsFreeAim,
+                out AttackVfxDefinition.ResolvedPose pose) ||
             !_tintPalette.TryGetTint(loot.WeaponDefinition.DamageType, out Color tint))
         {
             Clear();
             return;
         }
-        _vfxTransform.localPosition = pose.Position;
-        _vfxTransform.localRotation = pose.Rotation;
-        _vfxTransform.localScale = pose.Scale;
-        _vfxRenderer.sortingOrder = pose.SortingOrder;
+        ApplyPose(pose);
         _vfxRenderer.color = tint;
+        _followsFreeAim = followsFreeAim;
+        _attackIndex = index;
+        _bladeReach = presentation.BladeReach;
         _vfx = vfx;
         _attack = attack;
         _lastSampleSeconds = -1f;
@@ -181,6 +241,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     {
         _pending = false;
         _observed = false;
+        _followsFreeAim = false;
         _vfx = null;
         _attackClip = null;
         if (_vfxRenderer != null)

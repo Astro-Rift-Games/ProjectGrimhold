@@ -24,6 +24,15 @@ public sealed class AttackVfxDefinition : ScriptableObject
         private bool _mirrored;
         [SerializeField] private int _sortingOrder;
 
+        public DirectionalPose(Vector3 position, Vector3 rotation, float reachOffset, bool mirrored, int sortingOrder)
+        {
+            _position = position;
+            _rotation = rotation;
+            _reachOffset = reachOffset;
+            _mirrored = mirrored;
+            _sortingOrder = sortingOrder;
+        }
+
         public Vector3 Position => _position;
         public Quaternion Rotation => Quaternion.Euler(_rotation);
         public float ReachOffset => _reachOffset;
@@ -76,7 +85,20 @@ public sealed class AttackVfxDefinition : ScriptableObject
         {
             return false;
         }
-        DirectionalPose source = _poses[direction];
+        return TryResolvePose(_poses[direction], bladeReach, out pose);
+    }
+
+    /// <summary>
+    /// Resolves a pose that was not authored per facing, such as a free-aim pose built from the live weapon
+    /// pivot. The visual and the reach rule are the same as for an authored facing.
+    /// </summary>
+    public bool TryResolvePose(DirectionalPose source, float bladeReach, out ResolvedPose pose)
+    {
+        pose = default;
+        if (_visual == null || !IsFinite(bladeReach))
+        {
+            return false;
+        }
         float size = _visual.UsesWeaponReach ? source.ReachOffset + bladeReach : source.ReachOffset;
         return source.IsValid && _visual.TryResolvePose(source, size, out pose);
     }

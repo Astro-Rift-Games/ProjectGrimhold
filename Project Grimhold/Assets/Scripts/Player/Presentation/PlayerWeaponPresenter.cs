@@ -403,6 +403,15 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         _freeAimPoseApplied = true;
+        if (_attackVfx != null)
+        {
+            _attackVfx.SetFreeAimPivot(
+                _mainHandStanceOffset,
+                pose.PivotAngleDegrees,
+                pose.Mirrored,
+                pose.FrontFacing);
+        }
+
         return pose.FrontFacing;
     }
 
@@ -449,6 +458,11 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         _freeAimPoseApplied = false;
+        if (_attackVfx != null)
+        {
+            _attackVfx.ClearFreeAimPivot();
+        }
+
         _weaponPose.SetLocalPositionAndRotation(_weaponPoseBasePosition, _weaponPoseBaseRotation);
         _mainHand.SetLocalPositionAndRotation(_mainHandBasePosition, _mainHandBaseRotation);
         _offHand.SetLocalPositionAndRotation(_offHandBasePosition, _offHandBaseRotation);
