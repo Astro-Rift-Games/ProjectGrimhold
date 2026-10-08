@@ -4,14 +4,21 @@
 
 `PlayerMovementNetworkController` resolves locomotion-facing after the player's kinematic
 displacement, then lets a valid cursor direction override it only for a same-tick
-`PrimaryAttack` or `Interact` intent. It writes the single synchronized
-`FacingDirection` and runs before `PlayerCombatNetworkController` in every Fusion
-simulation tick. Melee and ranged both validate and consume that same finite, normalized
-contextual facing; combat does not recompute aim from cursor input or `_attackOrigin`.
+`PrimaryAttack` or `Interact` intent, an accepted shield defense or an accepted aim stance.
+It writes the synchronized `FacingDirection` and, independently of it, the synchronized
+continuous `AimDirection`, and runs before `PlayerCombatNetworkController` in every Fusion
+simulation tick. Combat never reads the cursor or `_attackOrigin` to aim; it consumes only
+those two finite, normalized networked directions:
+
+* **Melee** commits `FacingDirection`, the contextual facing.
+* **Ranged** commits `AimDirection`, the continuous cursor aim, so the shot leaves along the
+  cursor whatever the body faces (`PlayerAimMath.TryResolveAttackDirection`). A missing or
+  near-zero aim, such as an unrestored legacy value, falls back to `FacingDirection`.
 
 `_attackOrigin` remains the physical `AttackRequest.Origin`. `LastAttackDirection` is
 not continuous aim state: it commits at an accepted melee swing or ranged wind-up,
 together with the original weapon identity, origin, type, acceptance tick and sequence for presentation.
+Its direction is the one the attack committed: `FacingDirection` for melee, `AimDirection` for ranged.
 
 This document describes the design, components, network authority, data contracts, and simulation mechanics of the Player Combat System in Project Grimhold.
 
@@ -200,6 +207,7 @@ Generates physical projectiles that traverse the world:
 * Reads projectile prefab, speed, lifetime, spawn offset and impact mask from `RangedAttackConfig`.
 * Receives damage, type, interval, maximum range and knockback through `AttackExecutionParameters`.
 * Integrates a configurable **`ProjectileSpawnOffset`**, configured according to the combined collision bounds of the shooter and projectile, which offsets the initial projectile spawn coordinate in the direction of the aim vector to clear the shooter's own collider bounds.
+* A weapon may own its spawn point: `WeaponDefinition` carries an explicit override (`HasProjectileSpawnDistance` plus `ProjectileSpawnDistance`, finite and non-negative, ranged weapons only) that replaces the shared offset so the shot can start at the weapon tip. `PlayerWeaponEquipmentNetworkController.CreateExecutionParameters` passes it through the optional `AttackExecutionParameters` value; without it, and for enemies and traps, the shared `ProjectileSpawnOffset` applies.
 * Delegates spawning requests to an `IProjectileSpawner` instance.
 
 ### 6. Projectile Simulation (`NetworkProjectile`)
@@ -384,9 +392,9 @@ Player ranged attacks have one gameplay-owned acceptance-to-release timeline. `R
 remains an immediate executor for existing enemies/tests/other consumers; scheduling belongs only to
 the player combat boundary. No Animator, animation event, VFX, local input or RPC releases a shot.
 
-1. **Input and facing**: transport remains `PlayerNetworkInput`. Movement resolves the normalized contextual `FacingDirection` before combat; it is locked at acceptance.
-2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
-3. **Deadline and cooldown**: `ReleaseTick = AcceptedTick + ceil(AttackReleaseSeconds / Runner.DeltaTime)`. Attack Interval begins now, not at release. An outstanding shot blocks another acceptance even if that interval expires first; acceptance validates finite origin/direction/config/timing before committing anything.
+1. **Input and aim**: transport remains `PlayerNetworkInput`. Movement resolves the normalized networked `AimDirection` before combat; the shot direction is locked at acceptance.
+2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback. The spawn offset is the weapon's own spawn distance when it sets one, otherwise the shared config offset. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
+3. **Deadline and cooldown**: `ReleaseTick = AcceptedTick + ceil(ReleaseDelay / Runner.DeltaTime)`. `ReleaseDelay` is `AttackReleaseSeconds`, unless the shooter holds the aim stance of a two-handed `AimStance` weapon and it is fully drawn (`PlayerMovementNetworkController.IsAimStanceFullyDrawn`, from `AimStanceStartTick` and the weapon's `AimStanceDrawSeconds`); that aimed shot uses the weapon's shorter `AimedReleaseSeconds` instead. The choice is made once at acceptance and is part of the committed `ReleaseTick` (`RangedAttack.TryAcceptRelease` takes it as an optional override), so the release snapshot, resimulation and Host Migration need no extra state. `LastAttackAimed` and `AttackPerformedEvent.IsAimed` tell presentation which timing applies. Attack Interval begins now, not at release and is unchanged by the aimed delay. An outstanding shot blocks another acceptance even if that interval expires first; acceptance validates finite origin/direction/config/timing before committing anything.
 4. **Continuation/cancellation**: the match phase comes from the runner-scoped `NetworkSpawnManager.MatchController` (the match is a spawned object, not necessarily a component on the runner). Before input processing, State Authority advances the pending value on forward ticks. Missing input, a cleared/reconfigured strategy or an Equipment switch cannot stall or alter it. Movement continues. Death, Downed, phase exit and explicit combat disable cancel it without refunding cooldown. Defense prevents same-tick acceptance but does not cancel an accepted wind-up.
 5. **Consume and spawn**: at or after the exact deadline, sample current authoritative AttackOrigin plus committed offset along committed aim, and use the containing avatar's current EntityId. Commit `Pending = false` before calling the spawner. Invalid release origin, absent spawner or spawn failure consumes the attempt and marks presentation cancelled; no perpetual pending state or retry loop remains.
 6. **Spawner validation**: `FusionProjectileSpawner` requires State Authority and a forward tick. A committed request supplies prefab/mask directly rather than the newly equipped config; legacy requests without a prefab retain the configured fallback. Validate finite projectile parameters before `Runner.TrySpawn`.
@@ -465,7 +473,9 @@ The character visual structure is modularized under `VisualRoot`:
 Set through `PlayerWeaponEquipmentNetworkController`, assigns or clears Main Hand and shield
 sprites, applies the weapon's static grip alignment and angular correction, and derives
 front/back sorting from the six-direction facing bucket. It does not subscribe to attacks,
-track swing time, rotate a combat pivot, capture input, add networked state, or write gameplay.
+track swing time, capture input, add networked state, or write gameplay. It rotates no combat
+pivot for a `BakedFacing` weapon; `FreeAim` and `AimStance` weapons are the exception (see
+Weapon aim modes), which turn the held weapon, and for `AimStance` the arm, by a presentation-only residual.
 
 Attack presentation follows one path:
 
@@ -972,6 +982,66 @@ facings' bow closer to the body, mostly behind the torso, while the draw still p
 Bow grips `(0, 0.09375)` of the 23x6 px `RecurveBow.png`: the center of the three-row limb in the sprite's
 center column, 1.5 px above the centered pivot, with the string on the bottom row.
 
+### Weapon aim modes
+
+`WeaponDefinition.Presentation.AimMode` (`WeaponAimMode`, static presentation data, never replicated)
+selects how the held weapon follows the continuous `AimDirection`. The body and both hands always play the
+authored six-bucket animation; an aim mode only adds a presentation-only residual on top of it.
+
+- `BakedFacing` (default): the weapon follows the baked bucket pose. Melee weapons, Spellbook and every
+  weapon not listed below.
+- `FreeAim` (Magic Wand): the weapon follows the aim whenever there is one. Validation requires a ranged attack.
+- `AimStance` (Long Bow, Compound Bow, Light Crossbow, Magic Staff): a two-handed ranged weapon that follows the
+  aim only while the aim stance is held or an attack faces the aim; otherwise the baked pose plays unchanged.
+  Validation requires a ranged attack and a two-handed weapon, so the stance, which takes `SecondaryAction`
+  (the right mouse button), can never meet a shield. The stance-only fields (`AimStanceDrawSeconds`,
+  `AimedReleaseSeconds`, `AimStanceDrawnClipSeconds`, `AimStanceTorsoPivot`, `AimStanceOutwardOffset`,
+  `AimStanceNockPoint`) are rejected on other modes, and the drawn clip time may not pass the attack release.
+
+**Aim and body facing.** `PlayerAnimatorView` samples the aim every frame, including during attacks.
+`AimDirectionSmoothing` returns it unchanged for the owning player and turns it through the shortest arc at
+a bounded rate on proxies; an unusable aim falls back to `FacingDirection`. A `FreeAim` weapon uses the hybrid
+selection `FreeAimFacingSelection`: the body keeps the bucket of `FacingDirection` while the aim stays within
+`_freeAimArcHalfWidthDegrees` (default 45, with 5 degrees of hysteresis) of that bucket's canonical direction,
+and switches to the aim's own bucket outside it. An `AimStance` weapon uses the plain `FacingDirection` bucket;
+the simulation already turns that facing toward the cursor while the replicated `IsAimStance` is accepted
+(see Player Movement Architecture), so proxies need no presentation-only input. Front/back sorting still derives
+from the bucket shown.
+
+**Residual.** `FreeAimResidual.AngleDegrees` is the signed turn, wrapped to the shortest arc, from the canonical
+direction of the bucket shown to the aim. `FreeAimResidualPolicy` applies it to `FreeAim` whenever there is an
+aim, and to `AimStance` only while the facing is aim-driven (`PlayerAnimatorView.IsAimDriven`: an attack facing
+window or the replicated stance). With no residual the baked pose is restored exactly.
+
+- `FreeAim` rotates the weapon pivot about the holding hand's grip by the residual. The weapon stays attached to
+  the hand that the Animator poses.
+- `AimStance` keeps the weapon pivot baked and turns the whole arm as one rigid block about the per-weapon
+  `AimStanceTorsoPivot` (Visual Root space): the left hand pivot, the right hand pivot and, for a
+  weapon-driven rig, `WeaponPose` rotate by the residual (`AimBlockRotation`, `PointRotation`). The hand pivots
+  carry no clip curves and are set absolutely from their captured rest pose; `WeaponPose` is animated, so its
+  freshly evaluated value is read and rewritten. The staff's second hand rides the block without a pin.
+- **South outward offset.** The authored south drawn poses sit across the hips, so the block also moves outward
+  along the aim by `AimStanceOutwardOffset`, scaled by the draw progress and by the aim's southward component
+  (`-aim.y`): full facing south, partial toward SE and SW, and exactly zero from horizontal to north, which stay
+  as authored.
+- **String-hand pin.** For weapon-driven bows and the crossbow the right hand grip is moved onto
+  `AimStanceNockPoint`, a weapon-space point that follows the posed weapon and mirrors with it in left facings.
+  The pin weight is the draw progress while the stance is held, stays at 1 for an aimed shot until its authored
+  release time, and is 0 from the release frame and for an unaimed attack.
+
+**Drawn pose.** While the replicated stance is held, `PlayerAnimatorView` plays the weapon's own attack clip in the
+aim bucket from its start to `AimStanceDrawnClipSeconds` over `AimStanceDrawSeconds`, then holds that frame
+(`AimStanceDraw.DrawClipSeconds`); the staff uses its pre-cast frame. Leaving the stance without firing plays the
+idle pose. An aimed shot continues from the drawn frame to the authored release over the aimed delay
+(`AttackTiming.AimedClipSeconds`), so nothing is drawn twice. Proxies derive all of it from the networked stance,
+`AimStanceStartTick`, the render clock and the attack event.
+
+**Ordering and VFX.** `PlayerWeaponPresenter` runs with `[DefaultExecutionOrder(100)]`, after `PlayerAnimatorView`,
+whose timed attack evaluates the Animator, so the presenter always writes last. While a non-baked weapon is
+posed it pushes the live weapon pivot (anchor, angle, mirror, front/back) to `PlayerAttackVfxPresenter` every
+`LateUpdate`. `FreeAimAttackVfxPose` rebuilds the VFX pose from that pivot, keeps the authored reach and depth,
+and a playing VFX re-anchors when the push starts or stops; without a push the baked pose applies.
+
 ### Weapon attack sprite animation
 
 A weapon whose own art changes during its attack, such as a bow drawing its string, references an optional
@@ -1051,6 +1121,10 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Equipment Instances Remain Template-Based**: armor statistics and maximum-resource modifiers are applied through the equipped `LootId` definitions, and inventory tooltips expose those same definition-owned values. Unique per-instance armor modifiers remain unavailable until instance identity is transported end to end.
 * **No Unique Equipment Instances Yet**: current inventory, Equipment, world and persistence paths identify items by `LootId` plus quantity. `WeaponInstanceModifiers` defines the canonical scaling payload but is not transported or stored yet, so multiple runtime variants of one template do not exist.
 * **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. Only a valid Main Hand weapon is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
+* **Free-aim visual tip versus projectile spawn**: the spawn point is a per-weapon distance along the aim, while the posed weapon is a rigid, hand-anchored visual that cannot match a fixed distance at every aim. The gap is measured per weapon and bounded by `FreeAimSpawnConsistencyTests` with a per-weapon tolerance, measured in the fully drawn aim-driven state. Unaimed shots, fired before the stance is drawn or with the stance released, are posed differently from aimed ones and are not covered by that tolerance.
+* **Game Design conflict (pending a Game Design update)**: "09 - Diseño de Equipamiento" maps the Off Hand to the secondary attack input, but for two-handed ranged weapons `SecondaryAction` now means "aim". Game Design is not edited by this contract.
+* **Gamepad aim is out of scope**: no right-stick aim input action exists, so `AimDirection` comes only from the cursor.
+* **Unused pure math**: `RangedWeaponAimPoseMath` and `RangedWeaponAimPose` remain with their tests but are not used by the presenter.
 * **Off Hand attacks are deferred**: primary attack still resolves only the active Set's Main Hand. Sustained shield defense is implemented, while Dual Wield attacks remain a separate feature.
 * **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
 

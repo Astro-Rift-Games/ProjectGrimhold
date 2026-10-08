@@ -6,8 +6,9 @@
 `Kinematic2DMovementMotor` has applied the current tick displacement. A finite movement
 direction above the minimum magnitude supplies the default facing. Cursor direction may
 override that movement-facing only while `PrimaryAttack` or `Interact` is present in the
-same input tick, or while `SecondaryAction` is accepted as shield defense by
-`PlayerShieldDefenseNetworkController.CanDefend`. `SecondaryAction` without a defendable shield
+same input tick, while `SecondaryAction` is accepted as shield defense by
+`PlayerShieldDefenseNetworkController.CanDefend`, or while `SecondaryAction` is accepted as an
+aim stance (see Aim stance). `SecondaryAction` without a defendable shield or an aim-stance weapon
 is not a contextual action. Without one, cursor movement does not rotate the character.
 
 For a contextual action, the final player transform is the canonical cursor-aim origin.
@@ -16,8 +17,9 @@ For a contextual action, the final player transform is the canonical cursor-aim 
 if neither direction is valid, the prior `FacingDirection` is preserved. World position
 `(0, 0)` remains valid whenever its direction from the final player position is usable.
 
-`FacingDirection` is the sole continuous `[Networked]` orientation state. No separate
-cursor-facing state is replicated.
+`FacingDirection` is the networked orientation state that follows the contextual rules above.
+The cursor aim is a separate continuous `[Networked]` value, `AimDirection` (see below); no
+other cursor-facing state is replicated.
 The configured initial facing is normalized with `Vector2.down` as the final fallback.
 
 `PlayerMovementNetworkController` uses `DefaultExecutionOrder(-10)` and
@@ -26,9 +28,58 @@ movement, final position and facing before combat reads it in the same tick. Inp
 Authority predicts this calculation; State Authority supplies the final replicated
 state observed by proxies.
 
-An idle input without `PrimaryAttack` or `Interact` preserves facing regardless of the
-transported cursor position. This removes the previous ambiguity around a cursor at global
-`(0, 0)` without adding another input field.
+An idle input without `PrimaryAttack`, `Interact`, an accepted defense or an accepted aim stance
+preserves facing regardless of the transported cursor position. This removes the previous
+ambiguity around a cursor at global `(0, 0)` without adding another input field.
+
+## Aim direction
+
+`AimDirection` is a `[Networked]` normalized `Vector2`: the continuous cursor aim, independent of
+locomotion and of the contextual `FacingDirection`. Ranged weapons shoot along it and
+`FreeAim`/`AimStance` weapons render along it (see Player Combat Architecture); melee keeps
+`FacingDirection`. It is written in the same simulation step as `FacingDirection`, after the motor
+has applied the displacement, from the final player position, only while the gameplay phase is
+active, input exists and the player is alive.
+
+`PlayerAimMath.ResolveAimDirection` has one rule: a zero `AimWorldPosition` is the "no aim"
+sentinel (suppressed input or no camera) and keeps the previous aim, and a cursor that gives no
+usable direction from the player position (non-finite, or below the `0.0001f` squared-magnitude
+threshold) keeps it too. Any other cursor replaces it. Unlike the contextual facing rule, the aim
+therefore treats a cursor at exactly world `(0, 0)` as no aim.
+
+Initialization is restore-safe: a fresh State Authority spawn sets `AimDirection` to the initial
+`FacingDirection`, and a spawn restored by `HostMigrationRestoreUtility.IsRestoreSpawn` leaves it
+untouched. Like every networked field of the avatar it is restored by `NetworkObject.CopyStateFrom`.
+
+## Aim stance
+
+`IsAimStance` (`NetworkBool`) and `AimStanceStartTick` (`int`, `-1` while none) are `[Networked]`
+and replicate the stance to proxies through simulation, never through presentation-only input.
+`PlayerAimStanceRules.IsAccepted` accepts the stance only when all of these hold in the tick:
+
+- `SecondaryAction` is held in the input.
+- The equipped Main Hand weapon allows it: `AimMode` is `AimStance` and the weapon is two-handed
+  (`PlayerAimStanceRules.WeaponAllows`).
+- The gameplay phase is active, the player is alive and not Downed.
+- No shield is active. A two-handed weapon blocks the Off Hand, so this is a guard, not a competing mode.
+
+An accepted stance is a contextual facing intent exactly like an accepted shield defense: it is passed
+to `ResolveFacingDirection(..., isDefenseAccepted, isAimStanceAccepted)`, so the cursor overrides the
+locomotion facing for as long as it is held and every peer derives the same facing. Shield defense and
+its facing are unchanged.
+
+`AimStanceStartTick` is set to the current tick on the transition into the stance, kept while it is
+held and reset on leaving (`AimStanceDraw.NextStartTick`). `AimStanceDraw.IsFullyDrawn` compares the
+tick with the start tick plus the weapon's draw time, rounded up to ticks like a release deadline;
+combat reads it once at attack acceptance to choose the aimed release delay. Both fields initialize only
+when `!IsRestoreSpawn` and are restored by `CopyStateFrom`, so a Host Migration resumes the same drawn state.
+
+Aiming changes no movement speed: the stance does not enter `ResolveVoluntarySpeed`, sprint or the
+motor, and the player keeps moving at the same speed while it is held.
+
+Presentation only: `PlayerAnimatorView` may present a different body bucket than `FacingDirection`
+for a `FreeAim` weapon (hybrid free arc); that choice is not simulated and does not change
+`FacingDirection`.
 
 ## 1. Propósito
 

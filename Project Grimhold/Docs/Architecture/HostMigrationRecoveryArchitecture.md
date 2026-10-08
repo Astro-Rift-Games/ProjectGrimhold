@@ -138,10 +138,14 @@ clamp, regenerate or consume the copied resource. After fixup it derives
 restore spawns (`HostMigrationRestoreUtility.IsRestoreSpawn`), so a Downed avatar resumes draining from
 the copied reserve on the new Host.
 
+`PlayerMovementNetworkController` follows the same pattern for its aim state. `AimDirection`,
+`IsAimStance` and `AimStanceStartTick` are networked and restored by `CopyStateFrom`; its `Spawned()`
+initializes them only when `!IsRestoreSpawn`, so a restored avatar keeps its aim and its drawn stance.
+
 ### Accepted ranged release restoration
 
 `PlayerCombatNetworkController` copies its `RangedAttackRelease` network value with the avatar:
-pending flag, absolute release tick, locked direction and committed projectile prefab/mask/offset,
+pending flag, absolute release tick (already carrying the aimed release delay when the stance was fully drawn), locked direction and committed projectile prefab/mask/offset,
 speed/lifetime, damage/type, range and knockback. Cooldown, original weapon catalog identity,
 acceptance/release/cancellation ticks and sequence are networked too. The restore-spawn guard
 skips fresh initialization; `CopyStateFrom` is the restoration mechanism, not local executor state.
