@@ -51,7 +51,9 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
   - Parent decision 2026-10-08 after writer evidence: the authored drawn poses place the weapon in front of the torso (S buckets) or behind the head (N buckets); that is the existing top-down attack art, not the rotation defect the user reported. Implement rigid rotation about the per-weapon chest pivot (option B) plus a per-weapon outward offset along the aim (option A knob) defaulting to 0, ramped with draw progress, for user tuning. String-hand pin blends in with draw progress. Staff second hand rides the rigid block without a pin.
   - [x] T11a Rigid rig rotation about the per-weapon torso pivot during the aim stance (and aimed attack), replacing rotation about the holding hand for AimStance weapons. Route: delegated writer, TDD.
   - [x] T11b Right hand pinned to the per-weapon string nock point while drawn. Route: delegated writer, TDD.
-  - [ ] T11c User Play Mode re-check.
+  - [x] T11c User Play Mode re-check (2026-10-08): north-facing drawn poses look good; S, SW and SE look wrong (worst S: the bow wraps around the waist/body). Cause: authored south drawn art keeps the bow on the body; outward offset is 0.
+  - [ ] T11d South-facing clearance: make the outward offset depend on the aim's southward component (full at S, partial at SE/SW, zero at horizontal and north) so north poses stay unchanged; tune per weapon from Editor previews; verify north buckets bit-identical to T11. Route: delegated writer, TDD.
+  - [ ] T11e User Play Mode re-check.
 
 ## Evidence
 - T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
