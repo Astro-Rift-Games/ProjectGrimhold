@@ -645,6 +645,206 @@ namespace Tests.PlayMode.Combat
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
         }
 
+        [UnityTest]
+        public IEnumerator MeleeSwing_ResolvesDamageOnReleaseTickWithReleaseOriginAndAcceptanceCooldown()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            MeleeAttack melee = ConfigureMeleeAttack(player, 0.6f, 1.5f, out RecordingMeleeTargets meleeRecorder);
+            AttackPerformedEvent observed = default;
+            combat.AttackPerformed += attack => observed = attack;
+            yield return SetStrategy(combat, melee, true);
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            yield return PressAttackUntil(combat, () => (bool)ReadPendingMelee(combat).Pending, "Melee swing was not accepted.");
+            MeleeAttackRelease accepted = ReadPendingMelee(combat);
+            int acceptedSequence = ReadAttackSequence(combat);
+            TickTimer cooldown = ReadCooldown(combat);
+            Vector2 acceptanceOrigin = meleeRecorder.AttackOrigin.position;
+            Assert.That(meleeRecorder.ResolveCount, Is.Zero, "Damage must not resolve on the acceptance tick.");
+            Assert.That(accepted.ReleaseTick, Is.GreaterThan((int)GetProperty("LastAttackTick").GetValue(combat)));
+            Assert.That((int)GetProperty("LastAttackReleaseTick").GetValue(combat), Is.EqualTo(accepted.ReleaseTick));
+            Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cooldown must start at acceptance.");
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+
+            _inputDriver.MoveDirection = Vector2.up;
+            yield return WaitUntil(() => meleeRecorder.ResolveCount == 1, "Melee swing did not resolve on its release tick.");
+            _inputDriver.MoveDirection = Vector2.zero;
+            Assert.That(meleeRecorder.WasAuthoritativeForward, Is.True);
+            Assert.That(meleeRecorder.LastRequest.SimulationTick, Is.EqualTo(accepted.ReleaseTick));
+            Assert.That(meleeRecorder.LastRequest.Direction, Is.EqualTo(accepted.Direction));
+            Assert.That(meleeRecorder.LastRequest.Amount, Is.EqualTo(20f));
+            Assert.That(meleeRecorder.LastQuery.Origin.y, Is.GreaterThan(acceptanceOrigin.y), "Release must sample the moved authoritative origin.");
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(acceptedSequence));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown), "Release must not restart the cooldown.");
+            Assert.That(observed.HasReleaseTimeline, Is.True);
+            Assert.That(observed.ReleaseTick, Is.EqualTo(accepted.ReleaseTick));
+            Assert.That((bool)ReadPendingMelee(combat).Pending, Is.False);
+            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            for (int i = 0; i < 12; i++) yield return null;
+            Assert.That(meleeRecorder.ResolveCount, Is.EqualTo(1), "A consumed swing must not replay.");
+        }
+
+        [UnityTest]
+        public IEnumerator MeleeSwing_ZeroDelayResolvesOnTheAcceptanceTick()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            MeleeAttack melee = ConfigureMeleeAttack(player, 0f, 1f, out RecordingMeleeTargets meleeRecorder);
+            yield return SetStrategy(combat, melee, true);
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            yield return PressAttackUntil(combat, () => meleeRecorder.ResolveCount == 1, "Zero-delay swing did not resolve.");
+            Assert.That(meleeRecorder.LastRequest.SimulationTick,
+                Is.EqualTo((int)GetProperty("LastAttackTick").GetValue(combat)));
+            Assert.That((int)GetProperty("LastAttackReleaseTick").GetValue(combat),
+                Is.EqualTo((int)GetProperty("LastAttackTick").GetValue(combat)));
+            Assert.That((bool)ReadPendingMelee(combat).Pending, Is.False);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator MeleeSwing_PendingSwingBlocksNewAcceptanceEvenWithoutCooldown()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            MeleeAttack melee = ConfigureMeleeAttack(player, 0.9f, 0f, out RecordingMeleeTargets meleeRecorder);
+            yield return SetStrategy(combat, melee, true);
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            yield return PressAttackUntil(combat, () => (bool)ReadPendingMelee(combat).Pending, "Melee swing was not accepted.");
+            MeleeAttackRelease accepted = ReadPendingMelee(combat);
+            int sequence = ReadAttackSequence(combat);
+            Assert.That(ReadCooldown(combat), Is.EqualTo(TickTimer.None));
+            Assert.That(combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus status), Is.True);
+            Assert.That(status.IsAvailable, Is.False, "A pending swing must report the attack as unavailable.");
+
+            yield return PressAttackForFrames(combat, 4);
+            Assert.That((int)_runner.Tick, Is.LessThan(accepted.ReleaseTick), "The press must happen before release is due.");
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+            Assert.That(ReadPendingMelee(combat).ReleaseTick, Is.EqualTo(accepted.ReleaseTick));
+            yield return WaitUntil(() => meleeRecorder.ResolveCount == 1, "The accepted swing did not resolve.");
+            Assert.That(meleeRecorder.LastRequest.SimulationTick, Is.EqualTo(accepted.ReleaseTick));
+        }
+
+        [UnityTest]
+        public IEnumerator MeleeSwing_DisableCancelsWithoutDamageOrCooldownRefund()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            MeleeAttack melee = ConfigureMeleeAttack(player, 0.8f, 1.5f, out RecordingMeleeTargets meleeRecorder);
+            yield return SetStrategy(combat, melee, true);
+            yield return PressAttackUntil(combat, () => (bool)ReadPendingMelee(combat).Pending, "Melee swing was not accepted.");
+            int deadline = ReadPendingMelee(combat).ReleaseTick;
+            int acceptedTick = (int)_runner.Tick;
+            int sequence = ReadAttackSequence(combat);
+            TickTimer cooldown = ReadCooldown(combat);
+
+            yield return SetAttackEnabled(combat, false, true);
+            yield return WaitUntil(() => !(bool)ReadPendingMelee(combat).Pending, "Disabling combat did not cancel the swing.");
+            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
+            Assert.That(cancellationTick, Is.LessThan(deadline));
+            Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown), "Cancellation must not refund recovery.");
+            Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
+            yield return WaitUntil(() => (int)_runner.Tick > deadline + 2, "Runner did not cross the cancelled deadline.");
+            Assert.That(meleeRecorder.ResolveCount, Is.Zero);
+            Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
+        }
+
+        [UnityTest]
+        public IEnumerator MeleeSwing_WeaponChangeCancelsThePendingSwing()
+        {
+            yield return StartGameplayRunner();
+            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            var wand = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+            Assert.That(sword, Is.Not.Null);
+            Assert.That(wand, Is.Not.Null);
+            var inventoryDriver = _runner.gameObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _runner.AddGlobal(inventoryDriver);
+            int inventorySequence = inventoryDriver.CompletionSequence;
+            inventoryDriver.RequestInitializeLoadout(player.GetComponent<PlayerLootReceiver>(), new[]
+            {
+                new LootEntry(sword.LootId, 1),
+                new LootEntry(wand.LootId, 1)
+            });
+            yield return WaitUntil(() => inventoryDriver.CompletionSequence != inventorySequence,
+                "Raid inventory setup did not run in simulation.");
+            Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
+            yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAMainHand);
+            Assert.That(ReadActiveAttack(combat), Is.TypeOf<MeleeAttack>());
+
+            // Give the equipped sword's shared executor a release delay and a recording damage path.
+            ConfigureMeleeAttack(player, 0.8f, 1.5f, out RecordingMeleeTargets meleeRecorder);
+            yield return PressAttackUntil(combat, () => (bool)ReadPendingMelee(combat).Pending, "Melee swing was not accepted.");
+            int deadline = ReadPendingMelee(combat).ReleaseTick;
+            int acceptedTick = (int)_runner.Tick;
+            Assert.That(meleeRecorder.ResolveCount, Is.Zero);
+
+            yield return Equip(equipment, wand, EquipmentSlot.WeaponSetAMainHand);
+            yield return WaitUntil(() => !(bool)ReadPendingMelee(combat).Pending, "Changing weapon did not cancel the swing.");
+            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
+            Assert.That(cancellationTick, Is.LessThan(deadline));
+            yield return WaitUntil(() => (int)_runner.Tick > deadline + 2, "Runner did not cross the cancelled deadline.");
+            Assert.That(meleeRecorder.ResolveCount, Is.Zero, "A swing from the previous weapon must never deal damage.");
+        }
+
+        private static MeleeAttackRelease ReadPendingMelee(PlayerCombatNetworkController combat) =>
+            (MeleeAttackRelease)GetProperty("PendingMeleeRelease").GetValue(combat);
+
+        private static MeleeAttack ConfigureMeleeAttack(NetworkObject player, float delay, float cooldown,
+            out RecordingMeleeTargets recorder)
+        {
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            recorder = new RecordingMeleeTargets
+            {
+                Combat = combat,
+                AttackOrigin = (Transform)GetField("_attackOrigin").GetValue(combat)
+            };
+            var config = AssetDatabase.LoadAssetAtPath<MeleeAttackConfig>("Assets/Scriptable Objects/PlayerMeleeAttackConfig.asset");
+            Assert.That(config, Is.Not.Null);
+            MeleeAttack melee = player.GetComponent<MeleeAttack>();
+            melee.Initialize(config, new AttackExecutionParameters(20f, DamageType.Physical, cooldown, 2f, 1f, delay),
+                recorder, recorder);
+            return melee;
+        }
+
+        private sealed class RecordingMeleeTargets : IAttackTargetQuery, IDamageResolver
+        {
+            private static readonly EntityId TargetId = new(9999);
+            public PlayerCombatNetworkController Combat;
+            public Transform AttackOrigin;
+            public int ResolveCount;
+            public bool WasAuthoritativeForward;
+            public AttackTargetQuery LastQuery;
+            public DamageRequest LastRequest;
+
+            public System.Collections.Generic.IReadOnlyList<AttackTarget> FindTargets(in AttackTargetQuery query)
+            {
+                LastQuery = query;
+                return new[] { new AttackTarget(TargetId, query.Origin) };
+            }
+
+            public DamageResult Resolve(in DamageRequest request)
+            {
+                ResolveCount++;
+                LastRequest = request;
+                WasAuthoritativeForward = Combat.HasStateAuthority && Combat.Runner.IsForward;
+                Assert.That((bool)ReadPendingMelee(Combat).Pending, Is.False, "Consume must commit before damage.");
+                return new DamageResult(request.TargetId, true, request.Amount, 1f, false, default);
+            }
+        }
+
         private static RangedAttackRelease ReadPending(PlayerCombatNetworkController combat) =>
             (RangedAttackRelease)PendingReleaseProperty.GetValue(combat);
 

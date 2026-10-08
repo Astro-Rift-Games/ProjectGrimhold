@@ -226,7 +226,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         }
         else
         {
-            TriggerAttack(); // Melee and non-scheduled legacy consumers retain their trigger route.
+            TriggerAttack(); // Attacks without a release timeline (legacy or enemy consumers) keep the trigger route.
         }
     }
 

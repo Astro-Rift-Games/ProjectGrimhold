@@ -47,6 +47,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private IProjectileSpawner _releaseSpawner;
 
     [Networked] private RangedAttackRelease PendingRangedRelease { get; set; }
+    [Networked] private MeleeAttackRelease PendingMeleeRelease { get; set; }
     [Networked] private int LastAttackReleaseTick { get; set; }
     [Networked] private int LastAttackCancellationTick { get; set; }
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
@@ -89,7 +90,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private int CombatFeedbackSequence { get; set; }
 
     /// <summary>
-    /// Local event raised during Render for successful melee execution or confirmed ranged acceptance.
+    /// Local event raised during Render for a confirmed attack acceptance (melee or ranged), before its release tick.
     /// </summary>
     public event Action<AttackPerformedEvent> AttackPerformed;
 
@@ -125,7 +126,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         // Initialize the local observed sequence with the current network sequence
         // to prevent triggering events from attacks performed before this proxy spawned.
         _lastObservedSequence = AttackSequence;
-        _resumePendingPresentation = PendingRangedRelease.Pending;
+        _resumePendingPresentation = PendingRangedRelease.Pending || PendingMeleeRelease.Pending;
         _pendingFeedbackEvents.Clear();
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
@@ -134,6 +135,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             AttackCooldown = TickTimer.None;
             AttackCooldownDurationSeconds = 0f;
             PendingRangedRelease = default;
+            PendingMeleeRelease = default;
             LastAttackReleaseTick = -1;
             LastAttackCancellationTick = -1;
             IsAttackEnabled = _matchController == null ||
@@ -328,9 +330,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
-        Vector2 originPos = _attackOrigin != null
-            ? (Vector2)_attackOrigin.position
-            : (Vector2)transform.position;
+        Vector2 originPos = GetAttackOriginPosition();
 
         if (!PlayerAimMath.TryNormalizeDirection(
                 _movementController.FacingDirection,
@@ -359,6 +359,18 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             PendingRangedRelease = release;
             releaseTick = release.ReleaseTick;
         }
+        else if (executedAttack is MeleeAttack meleeAttack)
+        {
+            // The swing resolves damage on its release tick; origin is sampled then, not at acceptance.
+            accepted = meleeAttack.TryAcceptRelease(
+                request,
+                GetActiveWeaponCatalogIndexPlusOne(),
+                Runner.DeltaTime,
+                out MeleeAttackRelease meleeRelease);
+            if (!accepted) return;
+            PendingMeleeRelease = meleeRelease;
+            releaseTick = meleeRelease.ReleaseTick;
+        }
         else
         {
             accepted = executedAttack.Execute(in request).WasExecuted;
@@ -383,10 +395,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             LastAttackTick = request.SimulationTick;
             LastAttackReleaseTick = releaseTick;
             LastAttackCancellationTick = -1;
-            LastAttackWeaponCatalogIndexPlusOne = _equipmentController != null
-                ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
-                : 0;
-            
+            LastAttackWeaponCatalogIndexPlusOne = GetActiveWeaponCatalogIndexPlusOne();
+
             // Increment sequence last to ensure correct replication of all related fields
             AttackSequence++;
             // Zero-delay configurations retain same-tick release, still through consume-before-spawn.
@@ -394,7 +404,54 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
     }
 
+    private Vector2 GetAttackOriginPosition() => _attackOrigin != null
+        ? (Vector2)_attackOrigin.position
+        : (Vector2)transform.position;
+
+    private int GetActiveWeaponCatalogIndexPlusOne() => _equipmentController != null
+        ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
+        : 0;
+
     private void AdvancePendingRelease()
+    {
+        AdvancePendingMeleeRelease();
+        AdvancePendingRangedRelease();
+    }
+
+    private void AdvancePendingMeleeRelease()
+    {
+        MeleeAttackRelease release = PendingMeleeRelease;
+        if (!release.Pending) return;
+
+        // A swing belongs to the weapon that started it; swapping weapons discards it immediately.
+        if (release.CancelIfWeaponChanged(GetActiveWeaponCatalogIndexPlusOne()))
+        {
+            PendingMeleeRelease = release;
+            LastAttackCancellationTick = Runner.Tick;
+            return;
+        }
+
+        if (Runner.Tick < release.ReleaseTick) return;
+
+        bool valid = release.TryConsume(
+            Runner.Tick,
+            GetActiveWeaponCatalogIndexPlusOne(),
+            out Vector2 direction);
+        PendingMeleeRelease = release; // Commit consumption BEFORE the irreversible damage, even on failure.
+        LastAttackCancellationTick = Runner.Tick;
+        if (valid && _activeAttack is MeleeAttack meleeAttack)
+        {
+            AttackRequest request = new AttackRequest(
+                _character.Id,
+                GetAttackOriginPosition(),
+                direction,
+                (int)Runner.Tick);
+            if (meleeAttack.Execute(in request).WasExecuted)
+                LastAttackCancellationTick = -1;
+        }
+    }
+
+    private void AdvancePendingRangedRelease()
     {
         RangedAttackRelease release = PendingRangedRelease;
         if (!release.Pending || Runner.Tick < release.ReleaseTick) return;
@@ -409,10 +466,20 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private void CancelPendingRelease()
     {
         RangedAttackRelease release = PendingRangedRelease;
-        if (!release.Pending) return;
-        release.Cancel();
-        PendingRangedRelease = release;
-        LastAttackCancellationTick = Runner.Tick;
+        if (release.Pending)
+        {
+            release.Cancel();
+            PendingRangedRelease = release;
+            LastAttackCancellationTick = Runner.Tick;
+        }
+
+        MeleeAttackRelease meleeRelease = PendingMeleeRelease;
+        if (meleeRelease.Pending)
+        {
+            meleeRelease.Cancel();
+            PendingMeleeRelease = meleeRelease;
+            LastAttackCancellationTick = Runner.Tick;
+        }
         // AttackCooldown and its duration are deliberately untouched.
     }
 
@@ -453,7 +520,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.ControlDisabled;
         }
 
-        if (PendingRangedRelease.Pending) return AttackFailureReason.CooldownActive;
+        if (PendingRangedRelease.Pending || PendingMeleeRelease.Pending) return AttackFailureReason.CooldownActive;
 
         return AttackCooldown.ExpiredOrNotRunning(Runner)
             ? AttackFailureReason.None

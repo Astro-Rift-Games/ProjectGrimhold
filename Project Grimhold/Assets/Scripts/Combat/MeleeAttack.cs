@@ -94,6 +94,26 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
         return _isValid;
     }
 
+    /// <summary>
+    /// Captures a player swing without applying damage. The release delay comes from the equipped
+    /// weapon's resolved parameters; reconfiguring this executor cannot mutate the accepted swing.
+    /// </summary>
+    public bool TryAcceptRelease(
+        in AttackRequest request,
+        int weaponCatalogIndexPlusOne,
+        float deltaTime,
+        out MeleeAttackRelease release)
+    {
+        release = default;
+        if (!_isValid)
+        {
+            _isValid = ValidateDependencies();
+        }
+
+        return _isValid &&
+            release.TryAccept(request, _runtimeParameters, weaponCatalogIndexPlusOne, deltaTime);
+    }
+
     private void CacheDependencies()
     {
         if (_targetQuerySource != null)
