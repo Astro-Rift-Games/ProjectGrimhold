@@ -34,6 +34,18 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void AimedFlag_DefaultsToFalseAndIsCarriedWhenSet()
+        {
+            var normal = new AttackPerformedEvent(new EntityId(7), AttackType.Ranged, Vector2.one,
+                Vector2.right, 100, 12, 3, 123, 0.46f);
+            var aimed = new AttackPerformedEvent(new EntityId(7), AttackType.Ranged, Vector2.one,
+                Vector2.right, 100, 12, 3, 105, 0.1f, isAimed: true);
+
+            Assert.That(normal.IsAimed, Is.False);
+            Assert.That(aimed.IsAimed, Is.True);
+        }
+
+        [Test]
         public void ImmediateLegacyAttack_DoesNotOptIntoRangedTimeline()
         {
             var attack = new AttackPerformedEvent(new EntityId(7), AttackType.Ranged,

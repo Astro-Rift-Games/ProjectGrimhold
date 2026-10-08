@@ -62,6 +62,13 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     public NetworkBool IsAimStance { get; private set; }
 
+    /// <summary>
+    /// Tick the current aim stance started, or -1 while none is held. It starts on the transition into the stance
+    /// and resets on leaving, so every peer derives the same drawn state from ticks.
+    /// </summary>
+    [Networked]
+    public int AimStanceStartTick { get; private set; }
+
     [Networked]
     public NetworkBool IsMoving { get; private set; }
 
@@ -101,6 +108,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 PlayerAimMath.NormalizeInitialFacing(_defaultFacingDirection);
             AimDirection = FacingDirection;
             IsAimStance = false;
+            AimStanceStartTick = AimStanceDraw.NoStart;
             IsMoving = false;
         }
     }
@@ -175,6 +183,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isAlive,
             isDowned,
             HasActiveShield());
+        AimStanceStartTick = AimStanceDraw.NextStartTick(AimStanceStartTick, aimStanceAccepted, (int)Runner.Tick);
         IsAimStance = aimStanceAccepted;
 
         // Combat consumes FacingDirection later in this simulation tick. Locomotion
@@ -196,6 +205,27 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 (Vector2)transform.position,
                 AimDirection);
         }
+    }
+
+    /// <summary>Whether the held aim stance has been drawn for the weapon's draw time as of the given tick.</summary>
+    public bool IsAimStanceFullyDrawn(int tick, float drawSeconds) =>
+        IsAimStance && AimStanceDraw.IsFullyDrawn(tick, AimStanceStartTick, drawSeconds, Runner.DeltaTime);
+
+    /// <summary>
+    /// Seconds the held aim stance has been drawn on the render timeline, for presentation on any peer.
+    /// </summary>
+    public bool TryGetAimStanceElapsedSeconds(out float seconds)
+    {
+        seconds = 0f;
+        if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid || !IsAimStance ||
+            AimStanceStartTick < 0)
+        {
+            return false;
+        }
+
+        double renderTime = HasStateAuthority ? Runner.LocalRenderTime : Runner.RemoteRenderTime;
+        seconds = Mathf.Max(0f, AttackTiming.ElapsedSeconds(renderTime, AimStanceStartTick, Runner.DeltaTime));
+        return true;
     }
 
     public bool TrySetControlEnabled(bool enabled)

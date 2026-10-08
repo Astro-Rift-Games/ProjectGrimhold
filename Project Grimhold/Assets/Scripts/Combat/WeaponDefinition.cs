@@ -15,6 +15,10 @@ public sealed class WeaponDefinition : ScriptableObject
     [FormerlySerializedAs("_rangedReleaseSeconds")]
     private float _attackReleaseSeconds;
     [SerializeField, Min(0f)] private float _range;
+    [SerializeField, Min(0f), Tooltip("Aim stance weapons only. Seconds the stance takes to draw after it is entered. Until it is fully drawn the normal release seconds apply.")]
+    private float _aimStanceDrawSeconds = DefaultAimStanceDrawSeconds;
+    [SerializeField, Min(0f), Tooltip("Aim stance weapons only. Release delay of a shot fired from a fully drawn stance, instead of the normal release seconds. The attack interval is unchanged.")]
+    private float _aimedReleaseSeconds = DefaultAimedReleaseSeconds;
     [SerializeField, Tooltip("Ranged only. When set, the projectile leaves this far along the aim from the attack origin instead of the shared ranged config's spawn offset, so the shot can start at the weapon tip.")]
     private bool _overrideProjectileSpawnDistance;
     [SerializeField, Min(0f), Tooltip("Distance along the aim from the attack origin to the projectile spawn. Used only when the override is set.")]
@@ -51,6 +55,11 @@ public sealed class WeaponDefinition : ScriptableObject
     public float BaseDamage => _baseDamage;
     public float AttackIntervalSeconds => _attackIntervalSeconds;
     public float AttackReleaseSeconds => _attackReleaseSeconds;
+    public float AimStanceDrawSeconds => _aimStanceDrawSeconds;
+    public float AimedReleaseSeconds => _aimedReleaseSeconds;
+
+    private const float DefaultAimStanceDrawSeconds = 0.45f;
+    private const float DefaultAimedReleaseSeconds = 0.1f;
     public bool HasProjectileSpawnDistance => _overrideProjectileSpawnDistance;
     public float ProjectileSpawnDistance => _projectileSpawnDistance;
     public float Range => _range;
@@ -88,6 +97,20 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!IsFinite(_attackReleaseSeconds) || _attackReleaseSeconds < 0f)
         {
             error = $"Weapon definition '{name}' has invalid attack release delay.";
+            return false;
+        }
+
+        if (!IsFinite(_aimStanceDrawSeconds) || _aimStanceDrawSeconds < 0f ||
+            !IsFinite(_aimedReleaseSeconds) || _aimedReleaseSeconds < 0f)
+        {
+            error = $"Weapon definition '{name}' has an invalid aim stance draw time or aimed release delay.";
+            return false;
+        }
+
+        if (_presentation.AimMode != WeaponAimMode.AimStance &&
+            (_aimStanceDrawSeconds != DefaultAimStanceDrawSeconds || _aimedReleaseSeconds != DefaultAimedReleaseSeconds))
+        {
+            error = $"Weapon definition '{name}' sets aim stance timing but does not use the aim stance.";
             return false;
         }
 

@@ -22,13 +22,13 @@ public struct RangedAttackRelease : INetworkStruct
     public float Knockback;
 
     public bool TryAccept(in AttackRequest request, RangedAttackConfig config,
-        in AttackExecutionParameters parameters, float deltaTime)
+        in AttackExecutionParameters parameters, float deltaTime, float? releaseDelayOverrideSeconds = null)
     {
         if (Pending || config == null || !config.TryValidate(out _) || !parameters.TryValidate(out _) ||
             !AttackTiming.IsFinite(request.Origin) ||
             !PlayerAimMath.TryNormalizeDirection(request.Direction, out Vector2 direction) ||
-            !AttackTiming.TryGetReleaseTick(request.SimulationTick, parameters.ReleaseDelaySeconds,
-                deltaTime, out int deadline))
+            !AttackTiming.TryGetReleaseTick(request.SimulationTick,
+                releaseDelayOverrideSeconds ?? parameters.ReleaseDelaySeconds, deltaTime, out int deadline))
             return false;
 
         this = new RangedAttackRelease

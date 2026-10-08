@@ -16,6 +16,8 @@ MonoBehaviour:
   _attackIntervalSeconds: 1.8
   _rangedReleaseSeconds: 0.4
   _range: 12
+  _aimStanceDrawSeconds: 0.4
+  _aimedReleaseSeconds: 0.1
   _overrideProjectileSpawnDistance: 1
   _projectileSpawnDistance: 0.6938
   _staminaCost: 28

@@ -84,6 +84,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private int LastAttackTick { get; set; }
 
     [Networked]
+    private NetworkBool LastAttackAimed { get; set; }
+
+    [Networked]
     private int LastAttackWeaponCatalogIndexPlusOne { get; set; }
 
     [Networked]
@@ -138,6 +141,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             PendingMeleeRelease = default;
             LastAttackReleaseTick = -1;
             LastAttackCancellationTick = -1;
+            LastAttackAimed = false;
             IsAttackEnabled = _matchController == null ||
                               _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         }
@@ -352,11 +356,17 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         IAttack executedAttack = _activeAttack;
         bool accepted;
         int releaseTick = -1;
+        bool aimedRelease = false;
         if (executedAttack is RangedAttack rangedAttack)
         {
             RangedAttackRelease release = default;
+            // A fully drawn aim stance releases after the weapon's short aimed delay; otherwise the normal one.
+            float? aimedSeconds = TryResolveAimedReleaseSeconds(request.SimulationTick, out float seconds)
+                ? seconds
+                : null;
+            aimedRelease = aimedSeconds.HasValue;
             accepted = _releaseSpawner != null &&
-                rangedAttack.TryAcceptRelease(request, Runner.DeltaTime, out release);
+                rangedAttack.TryAcceptRelease(request, Runner.DeltaTime, out release, aimedSeconds);
             if (!accepted) return;
             // Capture all projectile data before the shared executor can be reconfigured.
             PendingRangedRelease = release;
@@ -398,6 +408,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             LastAttackTick = request.SimulationTick;
             LastAttackReleaseTick = releaseTick;
             LastAttackCancellationTick = -1;
+            LastAttackAimed = aimedRelease;
             LastAttackWeaponCatalogIndexPlusOne = GetActiveWeaponCatalogIndexPlusOne();
 
             // Increment sequence last to ensure correct replication of all related fields
@@ -405,6 +416,20 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             // Zero-delay configurations retain same-tick release, still through consume-before-spawn.
             AdvancePendingRelease();
         }
+    }
+
+    private bool TryResolveAimedReleaseSeconds(int tick, out float seconds)
+    {
+        seconds = 0f;
+        if (_equipmentController == null || !_equipmentController.TryGetEquippedDefinition(out LootDefinition loot))
+        {
+            return false;
+        }
+
+        WeaponDefinition weapon = loot.WeaponDefinition;
+        bool fullyDrawn = weapon != null &&
+            _movementController.IsAimStanceFullyDrawn(tick, weapon.AimStanceDrawSeconds);
+        return AimStanceDraw.TrySelectAimedReleaseSeconds(weapon, fullyDrawn, out seconds);
     }
 
     private Vector2 GetAttackOriginPosition() => _attackOrigin != null
@@ -489,7 +514,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private AttackPerformedEvent GetLastAttackEvent() => new AttackPerformedEvent(
         _character.Id, (AttackType)LastAttackTypeValue, LastAttackOrigin, LastAttackDirection,
         LastAttackTick, LastAttackWeaponCatalogIndexPlusOne, AttackSequence, LastAttackReleaseTick,
-        LastAttackReleaseTick >= LastAttackTick ? (LastAttackReleaseTick - LastAttackTick) * Runner.DeltaTime : 0f);
+        LastAttackReleaseTick >= LastAttackTick ? (LastAttackReleaseTick - LastAttackTick) * Runner.DeltaTime : 0f,
+        LastAttackAimed);
 
     private double AttackRenderTime => HasStateAuthority ? Runner.LocalRenderTime : Runner.RemoteRenderTime;
 

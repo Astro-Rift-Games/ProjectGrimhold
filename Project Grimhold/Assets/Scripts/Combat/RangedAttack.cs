@@ -30,11 +30,12 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     public AttackInputMode InputMode => _config != null ? _config.InputMode : AttackInputMode.Press;
 
     /// <summary>Captures a player wind-up without spawning. Executor reconfiguration cannot mutate it.</summary>
-    public bool TryAcceptRelease(in AttackRequest request, float deltaTime, out RangedAttackRelease release)
+    public bool TryAcceptRelease(in AttackRequest request, float deltaTime, out RangedAttackRelease release,
+        float? releaseDelayOverrideSeconds = null)
     {
         release = default;
         return (_isValid || TryInitialize()) &&
-            release.TryAccept(request, _config, _runtimeParameters, deltaTime);
+            release.TryAccept(request, _config, _runtimeParameters, deltaTime, releaseDelayOverrideSeconds);
     }
 
     private void Awake()

@@ -92,6 +92,37 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void ReleaseDelayOverride_SetsTheDeadlineAndSurvivesSnapshotCopy()
+        {
+            // The request is accepted at tick 100; the normal 0.45 s would release at tick 123, 0.1 s at tick 105.
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, Parameters, 0.02f, 0.1f), Is.True);
+            RangedAttackRelease restored = release;
+
+            Assert.That(restored.ReleaseTick, Is.EqualTo(105));
+            Assert.That(restored.TryConsume(104, new EntityId(7), Vector2.zero, out _), Is.False);
+            Assert.That(restored.TryConsume(105, new EntityId(7), Vector2.zero, out _), Is.True);
+        }
+
+        [Test]
+        public void WithoutAReleaseDelayOverride_TheNormalReleaseDelayApplies()
+        {
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, Parameters, 0.02f), Is.True);
+
+            Assert.That(release.ReleaseTick, Is.EqualTo(123));
+        }
+
+        [TestCase(-0.1f)]
+        [TestCase(float.NaN)]
+        public void InvalidReleaseDelayOverride_IsRejected(float seconds)
+        {
+            RangedAttackRelease release = default;
+
+            Assert.That(release.TryAccept(Request, Config, Parameters, 0.02f, seconds), Is.False);
+        }
+
+        [Test]
         public void PendingShot_PreventsOverwriteEvenWhenCooldownWouldHaveExpired()
         {
             RangedAttackRelease release = default;

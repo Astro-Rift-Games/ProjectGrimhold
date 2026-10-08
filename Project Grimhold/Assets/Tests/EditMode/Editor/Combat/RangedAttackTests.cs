@@ -121,6 +121,23 @@ namespace Tests.EditMode.Combat
         }
 
         [UnityTest]
+        public IEnumerator TryAcceptRelease_WithAReleaseDelayOverride_ShortensTheDeadlineButKeepsTheCooldown()
+        {
+            yield return CreateValidAttack(spawnSucceeds: true);
+            Assert.That(_attack.TryConfigure(_config,
+                new AttackExecutionParameters(10f, DamageType.Physical, 1.5f, 6f, 1f, 0.45f)), Is.True);
+            float cooldown = _attack.CooldownSeconds;
+            var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 100);
+
+            Assert.That(_attack.TryAcceptRelease(request, 0.02f, out RangedAttackRelease normal), Is.True);
+            Assert.That(_attack.TryAcceptRelease(request, 0.02f, out RangedAttackRelease aimed, 0.1f), Is.True);
+
+            Assert.That(aimed.ReleaseTick, Is.EqualTo(105));
+            Assert.That(aimed.ReleaseTick, Is.LessThanOrEqualTo(normal.ReleaseTick));
+            Assert.That(_attack.CooldownSeconds, Is.EqualTo(cooldown), "The attack interval is untouched.");
+        }
+
+        [UnityTest]
         public IEnumerator TryConfigure_UpdatesAllRuntimeParametersWithoutMutatingConfig()
         {
             yield return CreateValidAttack(spawnSucceeds: true);

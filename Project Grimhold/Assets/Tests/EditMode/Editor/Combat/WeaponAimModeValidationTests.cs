@@ -112,6 +112,13 @@ namespace Tests.EditMode.Combat
         {
             var serialized = new SerializedObject(weapon);
             serialized.FindProperty(AimModeProperty).intValue = (int)mode;
+            if (mode != WeaponAimMode.AimStance)
+            {
+                // The aim stance timing is only valid on aim-stance weapons; a copy switched away gets the defaults.
+                serialized.FindProperty("_aimStanceDrawSeconds").floatValue = 0.45f;
+                serialized.FindProperty("_aimedReleaseSeconds").floatValue = 0.1f;
+            }
+
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }

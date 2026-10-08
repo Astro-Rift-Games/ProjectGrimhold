@@ -17,6 +17,9 @@ public readonly struct AttackPerformedEvent
     public float ScheduledWindupSeconds { get; }
     public bool HasReleaseTimeline => ReleaseTick >= SimulationTick;
 
+    /// <summary>The shot was released from a fully drawn aim stance, with the short aimed release delay.</summary>
+    public bool IsAimed { get; }
+
     public AttackPerformedEvent(
         EntityId attackerId,
         AttackType attackType,
@@ -26,7 +29,8 @@ public readonly struct AttackPerformedEvent
         int weaponCatalogIndexPlusOne = 0,
         int sequence = 0,
         int releaseTick = -1,
-        float scheduledWindupSeconds = 0f)
+        float scheduledWindupSeconds = 0f,
+        bool isAimed = false)
     {
         AttackerId = attackerId;
         AttackType = attackType;
@@ -37,5 +41,6 @@ public readonly struct AttackPerformedEvent
         Sequence = sequence;
         ReleaseTick = releaseTick;
         ScheduledWindupSeconds = scheduledWindupSeconds;
+        IsAimed = isAimed;
     }
 }
