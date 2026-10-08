@@ -382,6 +382,24 @@ internal static class PlayerAimMath
     }
 
     /// <summary>
+    /// Chooses the committed attack direction. Ranged attacks follow the continuous aim and fall back to
+    /// the locomotion facing when the aim is unrestored or legacy (near zero); melee always uses facing.
+    /// </summary>
+    internal static bool TryResolveAttackDirection(
+        bool isRanged,
+        Vector2 facingDirection,
+        Vector2 aimDirection,
+        out Vector2 direction)
+    {
+        if (isRanged && TryNormalizeDirection(aimDirection, out direction))
+        {
+            return true;
+        }
+
+        return TryNormalizeDirection(facingDirection, out direction);
+    }
+
+    /// <summary>
     /// Validates and normalizes a direction without applying any fallback.
     /// </summary>
     internal static bool TryNormalizeDirection(Vector2 value, out Vector2 direction)

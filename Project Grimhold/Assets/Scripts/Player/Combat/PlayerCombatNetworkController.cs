@@ -332,8 +332,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         Vector2 originPos = GetAttackOriginPosition();
 
-        if (!PlayerAimMath.TryNormalizeDirection(
+        // Ranged shots follow the shared continuous aim; melee keeps the locomotion facing.
+        if (!PlayerAimMath.TryResolveAttackDirection(
+                _activeAttack is RangedAttack,
                 _movementController.FacingDirection,
+                _movementController.AimDirection,
                 out Vector2 direction))
         {
             return;
