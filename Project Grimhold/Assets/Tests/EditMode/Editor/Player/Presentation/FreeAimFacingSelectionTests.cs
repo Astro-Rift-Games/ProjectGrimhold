@@ -8,19 +8,31 @@ public sealed class FreeAimFacingSelectionTests
     private const float Arc = 45f;
     private const float Hysteresis = 5f;
 
-    [TestCase("LongBow")]
-    [TestCase("CompoundBow")]
-    [TestCase("LightCrossbow")]
-    [TestCase("MagicWand")]
-    [TestCase("MagicStaff")]
-    public void FreeAimWeapon_IsHandledByTheSelection(string weaponName)
+    [Test]
+    public void FreeAimWeapon_IsHandledByTheSelection()
     {
         bool showingAim = false;
 
         bool selected = FreeAimFacingSelection.TrySelect(
-            Load(weaponName), true, Direction(-90f + 10f), Vector2.down, Arc, Hysteresis, ref showingAim, out _);
+            Load("MagicWand"), true, Direction(-90f + 10f), Vector2.down, Arc, Hysteresis, ref showingAim, out _);
 
-        Assert.That(selected, Is.True, weaponName);
+        Assert.That(selected, Is.True);
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
+    [TestCase("MagicStaff")]
+    public void AimStanceWeapon_KeepsThePlainMovementFacing(string weaponName)
+    {
+        bool showingAim = true;
+        WeaponDefinition weapon = Load(weaponName);
+
+        bool selected = FreeAimFacingSelection.TrySelect(
+            weapon, true, Direction(-90f + 70f), Vector2.down, Arc, Hysteresis, ref showingAim, out _);
+
+        Assert.That(weapon.Presentation.AimMode, Is.EqualTo(WeaponAimMode.AimStance), weaponName);
+        Assert.That(selected, Is.False, "The aim-stance weapons have no hybrid arc; the replicated facing decides.");
     }
 
     [Test]
@@ -30,7 +42,7 @@ public sealed class FreeAimFacingSelectionTests
         Vector2 movementFacing = new Vector2(0.2f, -1f);
 
         bool selected = FreeAimFacingSelection.TrySelect(
-            Load("LongBow"), true, Direction(-90f + 40f), movementFacing, Arc, Hysteresis, ref showingAim, out Vector2 facing);
+            Load("MagicWand"), true, Direction(-90f + 40f), movementFacing, Arc, Hysteresis, ref showingAim, out Vector2 facing);
 
         Assert.That(selected, Is.True);
         Assert.That(facing, Is.EqualTo(movementFacing));
@@ -44,7 +56,7 @@ public sealed class FreeAimFacingSelectionTests
         Vector2 aim = Direction(-90f + 70f);
 
         FreeAimFacingSelection.TrySelect(
-            Load("LongBow"), true, aim, Vector2.down, Arc, Hysteresis, ref showingAim, out Vector2 facing);
+            Load("MagicWand"), true, aim, Vector2.down, Arc, Hysteresis, ref showingAim, out Vector2 facing);
 
         Assert.That(facing, Is.EqualTo(aim));
         Assert.That(showingAim, Is.True);
@@ -53,7 +65,7 @@ public sealed class FreeAimFacingSelectionTests
     [Test]
     public void Hysteresis_HoldsTheCurrentChoiceNearTheArcBorder()
     {
-        WeaponDefinition bow = Load("LongBow");
+        WeaponDefinition bow = Load("MagicWand");
         Vector2 aimNearBorder = Direction(-90f + 43f);
 
         // Showing the movement bucket: the aim must leave the arc to switch.
@@ -85,7 +97,7 @@ public sealed class FreeAimFacingSelectionTests
             bool showingAim = false;
 
             FreeAimFacingSelection.TrySelect(
-                Load("LongBow"), true, aim, Vector2.down, 22.4f, 0f, ref showingAim, out Vector2 facing);
+                Load("MagicWand"), true, aim, Vector2.down, 22.4f, 0f, ref showingAim, out Vector2 facing);
 
             Assert.That(
                 CharacterVisualDirectionResolver.Resolve(facing),
@@ -120,7 +132,7 @@ public sealed class FreeAimFacingSelectionTests
             Is.False);
         Assert.That(
             FreeAimFacingSelection.TrySelect(
-                Load("LongBow"), false, Vector2.up, Vector2.down, Arc, Hysteresis, ref showingAim, out _),
+                Load("MagicWand"), false, Vector2.up, Vector2.down, Arc, Hysteresis, ref showingAim, out _),
             Is.False);
     }
 

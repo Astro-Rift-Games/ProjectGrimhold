@@ -36,7 +36,7 @@ MonoBehaviour:
     _bladeTip: {x: -0.0625, y: 0.53125}
     _secondaryGripPoint: {x: 0, y: 0}
     _secondHand: 1
-    _aimMode: 1
+    _aimMode: 2
   _attributeRequirements:
     _minimumStrength: 0
     _minimumDexterity: 0

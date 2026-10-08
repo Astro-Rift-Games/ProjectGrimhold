@@ -94,7 +94,14 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
 
     internal void ClearFreeAimPivot()
     {
+        bool wasPushed = _hasFreeAimPivot;
         _hasFreeAimPivot = false;
+        // Leaving the aim-driven state while an attack plays goes back to the baked pose.
+        if (wasPushed && _pending && _followsFreeAim &&
+            TryResolveAttackPose(_vfx, _attackIndex, _bladeReach, false, out AttackVfxDefinition.ResolvedPose pose))
+        {
+            ApplyPose(pose);
+        }
     }
 
     private bool TryResolveAttackPose(AttackVfxDefinition vfx, int index, float bladeReach, bool followsFreeAim,
@@ -149,9 +156,11 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _attackClip = presentation.GetAttackClip(index);
         float start = attack.HasReleaseTimeline
             ? loot.WeaponDefinition.AttackReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
-        bool followsFreeAim = presentation.AimMode == WeaponAimMode.FreeAim && _hasFreeAimPivot;
+        // An aim-driven weapon (free arc, or aim stance while aiming or attacking) anchors to the live pivot once
+        // the weapon presenter pushes it, which happens every LateUpdate while the residual applies.
+        bool usesAim = presentation.AimMode != WeaponAimMode.BakedFacing;
         if (_attackClip == null || start < 0f || _attackClip.length < start + vfx.Clip.length ||
-            !TryResolveAttackPose(vfx, index, presentation.BladeReach, followsFreeAim,
+            !TryResolveAttackPose(vfx, index, presentation.BladeReach, usesAim && _hasFreeAimPivot,
                 out AttackVfxDefinition.ResolvedPose pose) ||
             !_tintPalette.TryGetTint(loot.WeaponDefinition.DamageType, out Color tint))
         {
@@ -160,7 +169,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         }
         ApplyPose(pose);
         _vfxRenderer.color = tint;
-        _followsFreeAim = followsFreeAim;
+        _followsFreeAim = usesAim;
         _attackIndex = index;
         _bladeReach = presentation.BladeReach;
         _vfx = vfx;

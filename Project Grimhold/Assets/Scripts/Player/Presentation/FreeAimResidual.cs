@@ -30,6 +30,24 @@ internal static class FreeAimResidual
     }
 }
 
+/// <summary>
+/// Whether a weapon takes the aim residual right now. A free-aim weapon always follows the aim; an aim-stance weapon
+/// only while the facing is aim-driven (the aim stance or an attack facing window), and otherwise keeps the authored
+/// baked pose exactly.
+/// </summary>
+internal static class FreeAimResidualPolicy
+{
+    internal static bool Applies(WeaponAimMode mode, bool hasAim, bool aimDriven)
+    {
+        return mode switch
+        {
+            WeaponAimMode.FreeAim => hasAim,
+            WeaponAimMode.AimStance => hasAim && aimDriven,
+            _ => false
+        };
+    }
+}
+
 /// <summary>Rotation of a point around another point, in degrees counterclockwise.</summary>
 internal static class PointRotation
 {

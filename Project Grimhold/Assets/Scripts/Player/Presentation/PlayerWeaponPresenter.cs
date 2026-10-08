@@ -51,7 +51,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private Vector3 _mainHandWeaponVisualBaseScale;
     private int _weaponPoseHandBaseSortingOrder;
     private bool _weaponDriven;
-    private bool _mainHandFreeAim;
+    private WeaponAimMode _mainHandAimMode;
     private bool _hasCapturedBaseState;
     private PlayerDownedStateNetworkController _downedState;
     private CharacterBase _character;
@@ -87,7 +87,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _offHandDirectionalSprites = null;
         _mainHandAttackSprites = null;
         _hasMainHandWeapon = false;
-        _mainHandFreeAim = false;
+        _mainHandAimMode = WeaponAimMode.BakedFacing;
         _hiddenByDowned = false;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
@@ -186,7 +186,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         AttachMainHandWeapon(rig);
         SetWeaponDriven(rig == WeaponRig.WeaponDriven);
         _hasMainHandWeapon = weapon != null;
-        _mainHandFreeAim = weapon != null && weapon.Presentation.AimMode == WeaponAimMode.FreeAim;
+        _mainHandAimMode = weapon != null ? weapon.Presentation.AimMode : WeaponAimMode.BakedFacing;
 
         if (weapon == null)
         {
@@ -304,7 +304,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         Vector2 facing = _animatorView.VisualFacingDirection;
         // The aim is the smoothed one the view also uses for the body facing; the residual is measured from the
         // bucket actually shown, however it was chosen.
-        bool followsAim = _mainHandFreeAim && _hasMainHandWeapon && _animatorView.HasPresentedAim;
+        bool followsAim = _hasMainHandWeapon && FreeAimResidualPolicy.Applies(
+            _mainHandAimMode, _animatorView.HasPresentedAim, _animatorView.IsAimDriven);
         PoseWeapon(facing, followsAim, followsAim ? _animatorView.PresentedAimDirection : facing);
     }
 

@@ -60,6 +60,14 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     public bool HasPresentedAim => _hasPresentedAim;
 
+    /// <summary>
+    /// Whether the facing is aim-driven: an attack faces the aim, or the replicated aim stance is held. Proxies get
+    /// the same answer from networked state.
+    /// </summary>
+    public bool IsAimDriven =>
+        HasTemporalFacing ||
+        (_aimSource != null && _aimSource.Object != null && _aimSource.Object.IsValid && _aimSource.IsAimStance);
+
     protected override void Update()
     {
         // Sampled every frame, including during an attack, so the weapon keeps following the aim.
@@ -82,7 +90,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void RefreshPresentedAim()
     {
-        if (_activeWeapon == null || _activeWeapon.Presentation.AimMode != WeaponAimMode.FreeAim ||
+        if (_activeWeapon == null || _activeWeapon.Presentation.AimMode == WeaponAimMode.BakedFacing ||
             _aimSource == null || _aimSource.Object == null || !_aimSource.Object.IsValid)
         {
             _hasPresentedAim = false;

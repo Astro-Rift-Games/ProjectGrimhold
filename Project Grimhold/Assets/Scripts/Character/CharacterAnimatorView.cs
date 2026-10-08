@@ -15,6 +15,9 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     protected Animator AnimatorInstance => _animator;
     protected virtual bool StopsLocomotionDuringTemporalFacing => true;
 
+    /// <summary>Whether an attack facing currently overrides the movement facing.</summary>
+    public bool HasTemporalFacing => _temporalFacingDirection.HasValue;
+
     /// <summary>
     /// Lets a view present a facing other than the movement facing while no attack facing is active, such as the
     /// aim of a free-aim weapon. The default keeps the movement facing.

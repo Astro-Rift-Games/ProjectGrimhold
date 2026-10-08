@@ -100,6 +100,19 @@ namespace Tests.EditMode.Presentation
             Assert.That(PointRotation.About(point, Vector2.one, 0f), Is.EqualTo(point));
         }
 
+        [TestCase(WeaponAimMode.BakedFacing, true, true, false)]
+        [TestCase(WeaponAimMode.FreeAim, true, false, true)]
+        [TestCase(WeaponAimMode.FreeAim, true, true, true)]
+        [TestCase(WeaponAimMode.FreeAim, false, true, false)]
+        [TestCase(WeaponAimMode.AimStance, true, true, true)]
+        [TestCase(WeaponAimMode.AimStance, true, false, false)]
+        [TestCase(WeaponAimMode.AimStance, false, true, false)]
+        public void Policy_AppliesTheResidualOnlyWhenTheModeAndStateAllowIt(
+            WeaponAimMode mode, bool hasAim, bool aimDriven, bool expected)
+        {
+            Assert.That(FreeAimResidualPolicy.Applies(mode, hasAim, aimDriven), Is.EqualTo(expected));
+        }
+
         private static Vector2 Direction(float degrees)
         {
             float radians = degrees * Mathf.Deg2Rad;

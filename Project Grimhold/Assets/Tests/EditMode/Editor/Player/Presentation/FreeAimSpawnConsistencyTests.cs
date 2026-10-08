@@ -39,13 +39,73 @@ public sealed class FreeAimSpawnConsistencyTests
         new Vector2(0.6f, 0.8f), new Vector2(-0.6f, 0.8f), new Vector2(-0.6f, -0.8f), new Vector2(0.6f, -0.8f)
     };
 
+    // The wand keeps the free arc; the two-handed weapons use the aim stance.
+    private static WeaponAimMode ExpectedMode(string weaponName) =>
+        weaponName == "MagicWand" ? WeaponAimMode.FreeAim : WeaponAimMode.AimStance;
+
     [TestCaseSource(nameof(RangedWeapons))]
-    public void RangedWeapon_UsesFreeAimAndIsValid(string weaponName)
+    public void RangedWeapon_UsesItsAimModeAndIsValid(string weaponName)
     {
         WeaponDefinition weapon = Load(weaponName);
 
-        Assert.That(weapon.Presentation.AimMode, Is.EqualTo(WeaponAimMode.FreeAim), weaponName);
+        Assert.That(weapon.Presentation.AimMode, Is.EqualTo(ExpectedMode(weaponName)), weaponName);
         Assert.That(weapon.TryValidate(out string error), Is.True, error);
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
+    [TestCase("MagicStaff")]
+    public void AimStanceWeapon_AllowsTheStanceAndIsTwoHanded(string weaponName)
+    {
+        WeaponDefinition weapon = Load(weaponName);
+
+        Assert.That(PlayerAimStanceRules.WeaponAllows(weapon), Is.True, weaponName);
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("LightCrossbow")]
+    [TestCase("MagicStaff")]
+    public void AimStanceWeapon_WhenNotAimDriven_PosesTheBakedPose(string weaponName)
+    {
+        WeaponDefinition weapon = Load(weaponName);
+        var loot = AssetDatabase.LoadAssetAtPath<LootDefinition>($"{Definitions}{weaponName}.asset");
+        GameObject player = (GameObject)Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefab));
+        player.hideFlags = HideFlags.HideAndDontSave;
+        try
+        {
+            var presenter = player.GetComponentInChildren<PlayerWeaponPresenter>(true);
+            var view = player.GetComponentInChildren<PlayerAnimatorView>(true);
+            typeof(PlayerWeaponPresenter).GetMethod("CacheDependencies", Private).Invoke(presenter, null);
+            typeof(PlayerWeaponPresenter).GetMethod("CaptureBaseState", Private).Invoke(presenter, null);
+            typeof(PlayerWeaponPresenter).GetMethod("ApplyMainHandDefinition", Private)
+                .Invoke(presenter, new object[] { loot });
+            var pivot = (Transform)typeof(PlayerWeaponPresenter).GetField("_mainHandWeaponPivot", Private)
+                .GetValue(presenter);
+
+            foreach (Vector2 aim in Aims)
+            {
+                Vector2 bucketFacing = CharacterVisualDirectionResolver.GetCanonicalVector(
+                    CharacterVisualDirectionResolver.Resolve(aim));
+                typeof(CharacterAnimatorView).GetProperty("VisualFacingDirection").SetValue(view, bucketFacing);
+                var pose = typeof(PlayerWeaponPresenter).GetMethod("PoseWeapon", Private);
+
+                pose.Invoke(presenter, new object[] { bucketFacing, false, aim.normalized });
+                Quaternion notAimDriven = pivot.localRotation;
+                Vector3 notAimDrivenScale = pivot.localScale;
+
+                // The same pose a weapon with the baked policy gets: the bucket angle and its mirror, no residual.
+                float bakedAngle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(bucketFacing);
+                Assert.That(Quaternion.Angle(notAimDriven, Quaternion.Euler(0f, 0f, bakedAngle)),
+                    Is.LessThan(0.001f), weaponName + aim);
+                Assert.That(notAimDrivenScale.y < 0f,
+                    Is.EqualTo(PlayerWeaponPresentationMath.ShouldMirror(bucketFacing)), weaponName + aim);
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(player);
+        }
     }
 
     [TestCaseSource(nameof(RangedWeapons))]
@@ -67,7 +127,7 @@ public sealed class FreeAimSpawnConsistencyTests
         WeaponDefinition weapon = Load(weaponName);
         var loot = AssetDatabase.LoadAssetAtPath<LootDefinition>($"{Definitions}{weaponName}.asset");
         Assert.That(loot, Is.Not.Null, weaponName);
-        Assert.That(weapon.Presentation.AimMode, Is.EqualTo(WeaponAimMode.FreeAim), weaponName);
+        Assert.That(weapon.Presentation.AimMode, Is.EqualTo(ExpectedMode(weaponName)), weaponName);
         spawnDistance = weapon.HasProjectileSpawnDistance
             ? weapon.ProjectileSpawnDistance
             : ((RangedAttackConfig)weapon.PrimaryAttack).ProjectileSpawnOffset;
