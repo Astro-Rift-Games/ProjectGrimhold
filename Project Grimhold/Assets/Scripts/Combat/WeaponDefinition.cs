@@ -195,6 +195,24 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
+        if (_presentation.AimMode == WeaponAimMode.FreeAim)
+        {
+            if (_primaryAttack is not RangedAttackConfig)
+            {
+                error = $"Weapon definition '{name}' free aim requires a ranged attack.";
+                return false;
+            }
+
+            // Free aim pins the second hand to the secondary grip point, so a hand-held rig cannot also let it
+            // follow authored motion. A weapon-driven rig requires that mode but places its hands procedurally.
+            if (_presentation.Rig != WeaponRig.WeaponDriven &&
+                _presentation.SecondHand == SecondHandPresentation.FollowsAuthoredMotion)
+            {
+                error = $"Weapon definition '{name}' free aim pins the second hand to the secondary grip point, so a hand-held rig cannot follow its authored motion.";
+                return false;
+            }
+        }
+
         if (!_attributeRequirements.TryValidate(out string requirementError))
         {
             error = $"Weapon definition '{name}' has invalid attribute requirements: {requirementError}";
@@ -247,6 +265,10 @@ public sealed class WeaponDefinition : ScriptableObject
         [SerializeField, Tooltip("What owns the held visual's pose: the main hand through MainHandGrip, or the weapon itself through WeaponPose.")]
         private WeaponRig _rig;
         public WeaponRig Rig => _rig;
+
+        [SerializeField, Tooltip("How the held visual follows the aim: the baked six-bucket facing, or the continuous 360 degree aim. Free aim pins the second hand to the secondary grip point.")]
+        private WeaponAimMode _aimMode;
+        public WeaponAimMode AimMode => _aimMode;
 
         [SerializeField, Tooltip("Optional. Sprite sequence the held weapon visual shows during its attack clip, such as a bow drawing its string. It only swaps the sprite.")]
         private WeaponAttackSpriteAnimation _attackSpriteAnimation;
@@ -304,6 +326,12 @@ public sealed class WeaponDefinition : ScriptableObject
             if (!System.Enum.IsDefined(typeof(WeaponRig), _rig))
             {
                 error = $"weapon rig '{(int)_rig}' is unsupported.";
+                return false;
+            }
+
+            if (!System.Enum.IsDefined(typeof(WeaponAimMode), _aimMode))
+            {
+                error = $"weapon aim mode '{(int)_aimMode}' is unsupported.";
                 return false;
             }
 
