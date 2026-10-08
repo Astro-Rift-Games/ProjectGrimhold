@@ -32,6 +32,9 @@ public sealed class Kinematic2DMovementMotor : MonoBehaviour
     private readonly RaycastHit2D[] _castHits =
         new RaycastHit2D[CastHitCapacity];
 
+    private readonly Collider2D[] _overlapColliders =
+        new Collider2D[CastHitCapacity];
+
     private ContactFilter2D _contactFilter;
 
     private void Awake()
@@ -53,14 +56,15 @@ public sealed class Kinematic2DMovementMotor : MonoBehaviour
         // Sincronizar la posición del Rigidbody con el Transform restaurado por Fusion al inicio del tick
         _rigidbody.position = transform.position;
 
+        ConfigureContactFilter();
+        ResolveInitialOverlaps();
+
         Vector2 initialPosition = _rigidbody.position;
 
         if (displacement.sqrMagnitude <= MinimumMoveSqrMagnitude)
         {
             return Vector2.zero;
         }
-
-        ConfigureContactFilter();
 
         Vector2 remainingDisplacement = displacement;
 
@@ -111,6 +115,60 @@ public sealed class Kinematic2DMovementMotor : MonoBehaviour
         }
 
         return _rigidbody.position - initialPosition;
+    }
+
+    /// <summary>
+    /// Pushes the body out of any configured collider it already overlaps
+    /// (for example after knockback), because casts started inside geometry
+    /// report zero distance in every direction. The correction is not part of
+    /// the displacement returned by <see cref="Move"/>.
+    /// </summary>
+    private void ResolveInitialOverlaps()
+    {
+        for (int pass = 0; pass < _maxSlideIterations; pass++)
+        {
+            int overlapCount = _collider.Overlap(_contactFilter, _overlapColliders);
+            bool resolvedAny = false;
+
+            for (int index = 0; index < overlapCount; index++)
+            {
+                Collider2D other = _overlapColliders[index];
+
+                if (other == null || other == _collider)
+                {
+                    continue;
+                }
+
+                ColliderDistance2D separation = _collider.Distance(other);
+
+                if (!separation.isValid || !separation.isOverlapped)
+                {
+                    continue;
+                }
+
+                ApplyPosition(_rigidbody.position + GetSeparationStep(separation));
+                resolvedAny = true;
+            }
+
+            if (!resolvedAny)
+            {
+                break;
+            }
+        }
+    }
+
+    private Vector2 GetSeparationStep(ColliderDistance2D separation)
+    {
+        // pointA lies on this collider and pointB on the other one; moving by
+        // (pointB - pointA) brings the deepest penetrating point back to the surface.
+        Vector2 correction = separation.pointB - separation.pointA;
+
+        if (correction.sqrMagnitude <= MinimumMoveSqrMagnitude)
+        {
+            return correction;
+        }
+
+        return correction + correction.normalized * _skinWidth;
     }
 
     private void ApplyPosition(Vector2 position)

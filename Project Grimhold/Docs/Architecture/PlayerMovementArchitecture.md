@@ -398,6 +398,7 @@ Responsabilidades:
 
 - Encapsular referencias a `Rigidbody2D` y `Collider2D`.
 - Recibir un desplazamiento deseado.
+- Resolver solapamientos iniciales con la geometría (depenetración) antes de los casts.
 - Consultar geometría mediante casts 2D.
 - Aplicar skin width.
 - Limitar el desplazamiento antes del contacto.
