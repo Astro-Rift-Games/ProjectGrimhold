@@ -395,11 +395,17 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         ApplyMainHandVisualPose(pose.Mirrored);
 
         _mainHandGrip.localPosition = _mainHandGripBasePosition;
-        SetPose(_mainHand, pose.MainHandPosition, Quaternion.identity);
-        // A one-handed weapon leaves the off hand to the Animator, which keeps carrying its shield.
-        if (_mainHandTwoHanded || _weaponDriven)
+        // A weapon-driven weapon is held by the left hand; a one-handed hand-held weapon leaves the left hand to
+        // the Animator, which keeps carrying its shield.
+        FreeAimHandTargets hands = FreeAimHandAssignment.Resolve(_weaponDriven, _mainHandTwoHanded, pose);
+        if (hands.DrivesRightHand)
         {
-            SetPose(_offHand, pose.SecondaryHandPosition, Quaternion.identity);
+            SetPose(_mainHand, hands.RightHand, Quaternion.identity);
+        }
+
+        if (hands.DrivesLeftHand)
+        {
+            SetPose(_offHand, hands.LeftHand, Quaternion.identity);
         }
 
         _freeAimPoseApplied = true;
