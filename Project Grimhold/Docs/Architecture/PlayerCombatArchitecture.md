@@ -675,6 +675,19 @@ defeat, disable or completion. Proxies observe the same confirmed attack snapsho
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority
 is introduced.
 
+Attack VFX tint is local presentation derived from the confirmed attack, so a neutral sprite serves elemental
+variants without new art. `AttackVfxTintPalette` (`Assets/Scriptable Objects/AttackVfxTintPalette.asset`) is
+static configuration with exactly one entry per `DamageType` value; `TryValidate` rejects a missing or duplicate
+entry and `TryGetTint` is an allocation-free scan. `PlayerAttackVfxPresenter` references it through a serialized
+`_tintPalette`, validates it in `OnEnable` and disables itself with a logged error when it is absent or incomplete.
+When it resolves a confirmed attack it reads the damage type of the weapon in that attack's snapshot, never the
+current Equipment, and sets the `AttackVfx` renderer color from the palette; `Clear` resets the color to white so
+a tint never outlives its effect or reaches the next one. The renderer keeps the default Sprites material, whose
+vertex color multiplies the sprite, and the VFX clips bind only `m_Sprite`, so they never animate the color. The
+presenter hardcodes no damage type, weapon or archetype and the tint adds no networked state. The palette colors
+are provisional art values until Art approves them: Physical is white, so every physical effect keeps its authored
+colors; Magical is a soft arcane `(0.75, 0.6, 1, 1)`; TrueDamage is white until it has an elemental look.
+
 Visual authoring keeps those responsibilities explicit. The presentation grip point is
 serialized in `WeaponDefinition` in the weapon sprite's local units. It identifies the
 point inside the visible handle that must coincide with `MainHandGrip`, so grip tuning

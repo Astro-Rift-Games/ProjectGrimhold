@@ -15,6 +15,8 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     [SerializeField] private Animator _animator;
     [SerializeField] private Transform _vfxTransform;
     [SerializeField] private SpriteRenderer _vfxRenderer;
+    [SerializeField, Tooltip("Maps the confirmed weapon's damage type to the color that tints the neutral VFX sprite.")]
+    private AttackVfxTintPalette _tintPalette;
 
     private PlayerCombatNetworkController _subscribedCombat;
     private AttackVfxDefinition _vfx;
@@ -35,6 +37,13 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             _vfxTransform.parent != _animator.transform || _vfxTransform.name != "AttackVfx")
         {
             Debug.LogError("Attack VFX presenter requires combat, equipment, RightHand Animator layer and VisualRoot/AttackVfx renderer.", this);
+            enabled = false;
+            return;
+        }
+        string paletteError = null;
+        if (_tintPalette == null || !_tintPalette.TryValidate(out paletteError))
+        {
+            Debug.LogError($"Attack VFX presenter requires a complete tint palette: {paletteError ?? "none assigned."}", this);
             enabled = false;
             return;
         }
@@ -83,7 +92,8 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         float start = attack.HasReleaseTimeline
             ? loot.WeaponDefinition.RangedReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
         if (_attackClip == null || start < 0f || _attackClip.length < start + vfx.Clip.length ||
-            !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose))
+            !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose) ||
+            !_tintPalette.TryGetTint(loot.WeaponDefinition.DamageType, out Color tint))
         {
             Clear();
             return;
@@ -92,6 +102,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _vfxTransform.localRotation = pose.Rotation;
         _vfxTransform.localScale = pose.Scale;
         _vfxRenderer.sortingOrder = pose.SortingOrder;
+        _vfxRenderer.color = tint;
         _vfx = vfx;
         _attack = attack;
         _lastSampleSeconds = -1f;
@@ -175,6 +186,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         if (_vfxRenderer != null)
         {
             _vfxRenderer.sprite = null;
+            _vfxRenderer.color = Color.white;
             _vfxRenderer.enabled = false;
         }
     }
