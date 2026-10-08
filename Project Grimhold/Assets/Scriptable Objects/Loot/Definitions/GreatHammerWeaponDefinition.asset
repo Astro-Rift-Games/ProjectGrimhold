@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDefinition
   _baseDamage: 60
   _attackIntervalSeconds: 1.8
+  _attackReleaseSeconds: 0.26
   _range: 1.5
   _staminaCost: 28
   _damageType: 0
