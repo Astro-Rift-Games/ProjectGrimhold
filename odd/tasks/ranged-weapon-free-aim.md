@@ -34,7 +34,13 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
   - [x] T8a Presentation facing, hybrid (user decision 2026-10-08, option 2): while a FreeAim weapon is equipped the body keeps its current facing bucket (from `FacingDirection`) as long as the aim stays within a configurable free arc around that bucket's canonical direction; when the aim leaves the arc the body switches to the aim's bucket. Arc half-width configurable (default 45°), with small hysteresis; at the bucket's own sector width it degenerates to always-aim-bucket. Presentation only. Route: delegated writer, TDD.
   - [x] T8b Hands authored again: Animator plays hand/weapon rig in the aim bucket; remove procedural hand pinning; weapon attached at the holding hand's grip (left hand for bows/crossbow, right hand for wand/staff) and rotated by the residual angle (aim minus bucket canonical) to the exact aim. Route: delegated writer, TDD.
   - [x] T8c Remove obsolete paths after checking consumers: `FreeAimHandAssignment`, procedural `SecondaryGripPoint` pinning and its validation rule, aim-frame `StanceOffset` orbit; re-contract `FreeAimSpawnConsistencyTests` to a measured tolerance (rigid hand-anchored weapon cannot match a fixed spawn distance in every bucket). Keep T1/T2, per-weapon spawn distance, smoothing, execution order, VFX push. Route: delegated writer.
-  - [ ] T8d User Play Mode re-check.
+  - [x] T8d User Play Mode re-check: hands animate correctly (2026-10-08).
+
+- [ ] T9 Aim stance for two-handed ranged weapons (user decision 2026-10-08, after T8d: hands OK). Bows, crossbow and staff: holding right click (`SecondaryAction`) enters an aim stance where the body faces the aim and the weapon turns about the holding hand by the residual; without aiming, the body follows movement and the authored animation plays unchanged (no residual). Left click without aiming still fires toward the cursor (body turns for the attack as today). Magic Wand keeps the T8 hybrid free arc (user: works great). Aim stance must replicate to proxies via simulation (like accepted defense feeding `ResolveFacingDirection`), never via presentation-only input.
+  - GD conflict to resolve by the user: "09 - Diseño de Equipamiento" maps Off Hand to the secondary attack input; for two-handed ranged weapons the Off Hand input becomes "aim". GD not edited by the agent.
+  - [ ] T9a Simulation: networked aim-stance acceptance for two-handed AimStance weapons, fed into facing resolution. Route: delegated writer, TDD.
+  - [ ] T9b Presentation: per-weapon body facing policy (wand = hybrid arc; bows/crossbow/staff = aim stance); residual only while facing is aim-driven. Route: delegated writer, TDD.
+  - [ ] T9c User Play Mode re-check.
 
 ## Evidence
 - T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
@@ -70,4 +76,4 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Native review T8 slice (2e14d3fc..2ce55843): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Next review base: 2ce55843.
 
 ## Next step
-T8d: user Play Mode re-check (hands while idle/walking/attacking, hybrid facing arc, sideways spawn error at horizontal aims), then T7e docs.
+T9a–T9b via delegated writer, then T9c user re-check, then T7e docs.
