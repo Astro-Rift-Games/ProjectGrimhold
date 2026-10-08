@@ -78,6 +78,24 @@ namespace Tests.EditMode.Combat
             Assert.That(error, Does.Contain("spawn distance"));
         }
 
+        [Test]
+        public void EquipmentParameters_CarryTheWeaponSpawnDistanceOnlyWhenOverridden()
+        {
+            _weapon = Load("LongBow");
+            Set(_weapon, true, 0.9f);
+            AttackExecutionParameters overridden =
+                PlayerWeaponEquipmentNetworkController.CreateExecutionParameters(_weapon, 10f);
+            Assert.That(overridden.HasProjectileSpawnDistance, Is.True);
+            Assert.That(overridden.ProjectileSpawnDistance, Is.EqualTo(0.9f));
+
+            Set(_weapon, false, 0.9f);
+            AttackExecutionParameters inherited =
+                PlayerWeaponEquipmentNetworkController.CreateExecutionParameters(_weapon, 10f);
+            Assert.That(inherited.HasProjectileSpawnDistance, Is.False);
+            Assert.That(inherited.Damage, Is.EqualTo(10f));
+            Assert.That(inherited.ReleaseDelaySeconds, Is.EqualTo(_weapon.AttackReleaseSeconds));
+        }
+
         private static WeaponDefinition Load(string name)
         {
             WeaponDefinition asset = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(

@@ -1252,14 +1252,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return false;
         }
 
-        var parameters = new AttackExecutionParameters(
-            effectiveDamage,
-            weaponDefinition.DamageType,
-            weaponDefinition.AttackIntervalSeconds,
-            weaponDefinition.Range,
-            weaponDefinition.KnockbackForce,
-            weaponDefinition.AttackReleaseSeconds,
-            weaponDefinition.HasProjectileSpawnDistance ? weaponDefinition.ProjectileSpawnDistance : null);
+        AttackExecutionParameters parameters = CreateExecutionParameters(weaponDefinition, effectiveDamage);
         if (!parameters.TryValidate(out _))
         {
             return false;
@@ -1281,6 +1274,21 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         }
 
         return false;
+    }
+
+    // A weapon that owns its projectile spawn point passes it on; otherwise the ranged config's offset applies.
+    internal static AttackExecutionParameters CreateExecutionParameters(
+        WeaponDefinition weaponDefinition,
+        float effectiveDamage)
+    {
+        return new AttackExecutionParameters(
+            effectiveDamage,
+            weaponDefinition.DamageType,
+            weaponDefinition.AttackIntervalSeconds,
+            weaponDefinition.Range,
+            weaponDefinition.KnockbackForce,
+            weaponDefinition.AttackReleaseSeconds,
+            weaponDefinition.HasProjectileSpawnDistance ? weaponDefinition.ProjectileSpawnDistance : null);
     }
 
     private static bool TryResolveEffectiveDamage(
