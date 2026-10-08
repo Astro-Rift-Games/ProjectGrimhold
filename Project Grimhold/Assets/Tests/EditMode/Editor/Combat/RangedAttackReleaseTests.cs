@@ -98,6 +98,7 @@ namespace Tests.EditMode.Combat
 
         [TestCase("LongBow", 0.45f, 0f)]
         [TestCase("CompoundBow", 0.4f, 0f)]
+        [TestCase("LightCrossbow", 0.3f, 0.025f)]
         [TestCase("MagicWand", 0.35f, 0.025f)]
         [TestCase("MagicStaff", 0.9f, 0.025f)]
         public void WeaponCalibration_ReleaseMatchesAuthoredKeyAndArtLead(string name, float releaseSeconds, float lead)

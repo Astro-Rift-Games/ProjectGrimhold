@@ -24,6 +24,7 @@ namespace Tests.EditMode.Loot
             "arming_sword",
             "compound_bow",
             "great_hammer",
+            "light_crossbow",
             "long_bow",
             "long_sword",
             "magic_cinquedea",
@@ -44,6 +45,7 @@ namespace Tests.EditMode.Loot
             ["arming_sword"] = 6,
             ["compound_bow"] = 1,
             ["great_hammer"] = 1,
+            ["light_crossbow"] = 8,
             ["long_bow"] = 8,
             ["long_sword"] = 3,
             ["magic_cinquedea"] = 12,
@@ -145,6 +147,10 @@ namespace Tests.EditMode.Loot
             AssertWeapon("long_bow", 28f, 0.9f, 6f, 14f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
                 typeof(RangedAttackConfig));
+            // GD 09 section 6: Ballesta, DES 15, 50 damage, 1.60 s, 8.0 tiles, 10 stamina, Physical, two-handed.
+            AssertWeapon("light_crossbow", 50f, 1.6f, 8f, 10f, 0f, DamageType.Physical,
+                WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 15, 0,
+                typeof(RangedAttackConfig));
             AssertWeapon("compound_bow", 56f, 1.8f, 12f, 28f, 0f, DamageType.Physical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Dexterity, 0, 10, 0,
                 typeof(RangedAttackConfig));
@@ -166,7 +172,7 @@ namespace Tests.EditMode.Loot
             Assert.That(table.MinimumDistinctStacks, Is.EqualTo(2));
             Assert.That(table.MaximumDistinctStacks, Is.EqualTo(3));
             Assert.That(table.AllowEmpty, Is.False);
-            Assert.That(table.Entries.Count, Is.EqualTo(40));
+            Assert.That(table.Entries.Count, Is.EqualTo(41));
 
             foreach (string id in EquipmentIds)
             {

@@ -356,7 +356,7 @@ public sealed class PlayerAnimatorViewTests
                     $"Assets/Animations/Weapons/Directional/MagicStaff/MagicStaff_Attack_{zweihanderDirections[index]}.anim")));
         }
 
-        foreach (string bowName in new[] { "LongBow", "CompoundBow" })
+        foreach (string bowName in new[] { "LongBow", "CompoundBow", "LightCrossbow" })
         {
             WeaponDefinition bow = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{bowName}WeaponDefinition.asset");
@@ -447,6 +447,7 @@ public sealed class PlayerAnimatorViewTests
     [TestCase("magic_staff")]
     [TestCase("long_bow")]
     [TestCase("compound_bow")]
+    [TestCase("light_crossbow")]
     public void ConfirmedCatalogIdentity_UsesItsOwnGenericAnimation(string lootId)
     {
         LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(

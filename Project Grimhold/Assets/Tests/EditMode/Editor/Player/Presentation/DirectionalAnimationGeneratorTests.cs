@@ -23,6 +23,7 @@ public sealed class DirectionalAnimationGeneratorTests
     private const string MagicStaffDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/MagicStaffWeaponDefinition.asset";
     private const string LongBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LongBowWeaponDefinition.asset";
     private const string CompoundBowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset";
+    private const string LightCrossbowDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset";
 
     // Each weapon-driven bow in every facing: its turn from south and its facing vector.
     private static System.Collections.Generic.IEnumerable<TestCaseData> WeaponDrivenBowFacings()
@@ -43,6 +44,7 @@ public sealed class DirectionalAnimationGeneratorTests
     [TestCase("MagicStaff")]
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
     public void TwoHandedOutputs_BakeFromSouthAndRemainStableOnRepeat(string weapon)
     {
         AnimationClip source = TwoHandedSource(weapon);
@@ -53,6 +55,7 @@ public sealed class DirectionalAnimationGeneratorTests
         else if (weapon == "GreatHammer") DirectionalAnimationGenerator.GenerateGreatHammerAssets();
         else if (weapon == "MagicStaff") DirectionalAnimationGenerator.GenerateMagicStaffAssets();
         else if (weapon == "LongBow") DirectionalAnimationGenerator.GenerateLongBowAssets();
+        else if (weapon == "LightCrossbow") DirectionalAnimationGenerator.GenerateLightCrossbowAssets();
         else DirectionalAnimationGenerator.GenerateCompoundBowAssets();
         foreach (string direction in directions)
         {
@@ -229,6 +232,7 @@ public sealed class DirectionalAnimationGeneratorTests
     [TestCase("MagicStaff")]
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
     public void ExistingTwoHandedWeapons_BakeIdenticalToTheirCommittedClips(string weapon)
     {
         AnimationClip source = TwoHandedSource(weapon);
@@ -661,6 +665,54 @@ public sealed class DirectionalAnimationGeneratorTests
             Assert.That(Vector2.Dot(bow - rest, facing), Is.GreaterThan(0.1f), $"The draw pushes the bow toward the target @{time}.");
             Assert.That(Vector2.Dot(drawHand - bow, facing), Is.LessThan(-0.5f), $"The string hand stays behind the bow @{time}.");
         }
+    }
+
+    // Light Crossbow is weapon-driven like the bows, but its south source authors no draw hold: both hands recoil
+    // together at the shot. The aim center is then the string hand's height at the first key, the ready pose.
+    [TestCase("N", 180f)]
+    [TestCase("NE", 135f)]
+    [TestCase("NW", -135f)]
+    [TestCase("S", 0f)]
+    [TestCase("SE", 45f)]
+    [TestCase("SW", -45f)]
+    public void LightCrossbowOutput_WeaponPoseOwnsTheCrossbowAndPlacesBothHandsOnIt(string direction, float angle)
+    {
+        AnimationClip source = TwoHandedSource("LightCrossbow");
+        AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(TwoHandedOutput("LightCrossbow", direction));
+        Assert.That(source, Is.Not.Null);
+        Assert.That(clip, Is.Not.Null);
+        const float blend = DirectionalAnimationGenerator.WeaponDrivenBlendSeconds;
+        Assert.That(clip.isLooping, Is.False);
+        Assert.That(clip.length, Is.EqualTo(source.length + 2f * blend).Within(0.00001f));
+
+        float firstKey = Curve(source, Hand, "m_LocalPosition.x").keys[0].time;
+        Vector2 aim = new Vector2(0f, SouthDrawn(source, Hand, firstKey).y);
+        float radians = angle * Mathf.Deg2Rad;
+        Vector2 leftAnchor = IdleHandAnchor("Left", direction);
+        Vector2 rightAnchor = IdleHandAnchor("Right", direction);
+        AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
+        foreach (float time in new[] { 0f, clip.length })
+            Assert.That(Vector2.Distance(Position(clip, WeaponPose, time), Position(idle, WeaponPose, 0f)), Is.LessThan(0.00001f), $"@{time}");
+
+        for (float time = 0f; time <= clip.length + 0.0001f; time += 0.025f)
+        {
+            string at = $"{direction}@{time:0.000}";
+            float poseAngle = Curve(clip, WeaponPose, "localEulerAnglesRaw.z").Evaluate(time) * Mathf.Deg2Rad;
+            Vector2 pose = Position(clip, WeaponPose, time);
+            Vector2 left = Position(clip, SecondHand, time) + Rotate(leftAnchor, poseAngle);
+            Assert.That(Vector2.Distance(left, pose), Is.LessThan(0.001f), $"The grip hand holds the crossbow {at}.");
+            float authoredTime = time - blend;
+            if (authoredTime < -0.0001f || authoredTime > source.length + 0.0001f) continue;
+            // The authored trigger hand carries a rotation, which turns its idle sprite anchor.
+            AnimationCurve handAngle = Curve(clip, Hand, "localEulerAnglesRaw.z");
+            Vector2 right = Position(clip, Hand, time) +
+                Rotate(rightAnchor, handAngle != null ? handAngle.Evaluate(time) * Mathf.Deg2Rad : 0f);
+            Assert.That(Vector2.Distance(pose, aim + Rotate(SouthDrawn(source, SecondHand, authoredTime) - aim, radians)),
+                Is.LessThan(0.001f), $"The crossbow follows its own pose {at}.");
+            Assert.That(Vector2.Distance(right, aim + Rotate(SouthDrawn(source, Hand, authoredTime) - aim, radians)),
+                Is.LessThan(0.001f), $"The trigger hand follows its target {at}.");
+        }
+        AssertImportedBindings(TwoHandedOutput("LightCrossbow", direction), direction);
     }
 
     [TestCase("Idle", "N")]
@@ -1435,11 +1487,12 @@ public sealed class DirectionalAnimationGeneratorTests
             weapon == "Zweihander" ? ZweihanderDefinitionPath :
             weapon == "GreatHammer" ? GreatHammerDefinitionPath :
             weapon == "MagicStaff" ? MagicStaffDefinitionPath :
-            weapon == "LongBow" ? LongBowDefinitionPath : CompoundBowDefinitionPath);
+            weapon == "LongBow" ? LongBowDefinitionPath :
+            weapon == "LightCrossbow" ? LightCrossbowDefinitionPath : CompoundBowDefinitionPath);
 
-    // Compound Bow's south source is authored under the name of its RecurveBow art.
+    // Compound Bow's and Light Crossbow's south sources are authored under the name of their own art.
     private static AnimationClip TwoHandedSource(string weapon) => AssetDatabase.LoadAssetAtPath<AnimationClip>(
-        $"Assets/Animations/Weapons/{(weapon == "CompoundBow" ? "RecurveBow" : weapon)}_Attack.anim");
+        $"Assets/Animations/Weapons/{(weapon == "CompoundBow" ? "RecurveBow" : weapon == "LightCrossbow" ? "Crossbow" : weapon)}_Attack.anim");
 
     private static string TwoHandedOutput(string weapon, string direction) =>
         $"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_{direction}.anim";

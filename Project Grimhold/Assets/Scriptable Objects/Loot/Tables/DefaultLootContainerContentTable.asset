@@ -173,6 +173,10 @@ MonoBehaviour:
     _weight: 2
     _minimumAmount: 1
     _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: 05dc4e93a8a99ec40b56f8d9af9a393d, type: 2}
+    _weight: 8
+    _minimumAmount: 1
+    _maximumAmount: 1
   _minimumDistinctStacks: 2
   _maximumDistinctStacks: 3
   _allowEmpty: 0

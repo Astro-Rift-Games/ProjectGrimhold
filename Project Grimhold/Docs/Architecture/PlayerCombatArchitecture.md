@@ -498,7 +498,7 @@ emitted, so the LeftHand layer keeps owning its sorting and sprite. Magic Staff 
 against the main hand and never reaching the staff, whereas Long Sword and Zweihander author it turning
 rigidly with the main hand on the handle. The staff's main hand grips `(0, -0.5)`, 8 px below the center
 of the 24 px `MagicStaff.png`.
-Long Bow and Compound Bow are baked by the weapon-driven rig described in Weapon rig below: the bow owns its pose and both
+Long Bow, Compound Bow and Light Crossbow are baked by the weapon-driven rig described in Weapon rig below: the weapon owns its pose and both
 hands are placed on it, so neither the main-hand trajectory rule above nor the second-hand modes position it.
 With `HoldsSecondaryGrip` the second hand's rotation art, depth and every authored key time are preserved,
 while its position is derived from the weapon's handle so the drawn second hand holds it. Such a two-handed
@@ -638,7 +638,18 @@ with its own attack. It starts at 0.4s, the end of the Compound Bow stringing se
 at `WeaponPose` in that clip at the release, with the facing as rotation. Its reach offset is also 0.09375, from
 the `(0, 0.09375)` grip to the limb's front edge on the center column of `RecurveBow.png`. Mirroring and sorting
 follow the same rules as Long Bow's.
-Each alignment uses poses fitted to its own directional attacks; other weapons have no VFX reference. The effect clears on interruption,
+Light Crossbow is the third Bow Shot consumer: `LightCrossbowBowShotAttackVfx` aligns the same `BowShotVfxVisual`
+with its own attack. Its baked clips are 0.5 s: the authored recoil at 0.2 s, delayed by the 0.1 s weapon-driven
+blend, is both the gameplay release (`RangedReleaseSeconds` 0.3) and the calibrated key. The 0.2 s shot would end
+exactly where the clip does, and the presenter drops an effect that does not fit inside the clip, so the art
+ignites 25 ms before the release (`ReleaseLeadSeconds` 0.025, `StartSeconds` 0.275), like Magic Wand's flash, and
+ends at 0.475 s. The crossbow has no stringing art, so it configures no `WeaponAttackSpriteAnimation`. Each facing
+anchors at `WeaponPose` at the release, with the weapon's shooting axis as rotation. The authored hands carry a constant
+4.434 degree rotation that `WeaponPose` inherits, so that axis leaves the facing by 4.434 degrees in every facing and
+the poses follow the weapon rather than the facing. The reach offset is 0.65625, from the grip to the front tip
+of `LightCrossbow.png` on its center column. Mirroring and sorting follow the same rules as the bows'. Loaded and
+reload presentation (GD 09 section 13) is not part of this alignment.
+Each alignment uses poses fitted to its own directional attacks; a weapon without an alignment has no VFX reference. The effect clears on interruption,
 defeat, disable or completion. Proxies observe the same confirmed attack snapshot; no VFX-only
 network state, Animator layer/state, second Animator, animation events or gameplay timing authority
 is introduced.
@@ -861,7 +872,8 @@ A weapon-driven attack is derived from its south source instead of rotating hand
   trajectory. `WeaponPose` also takes that hand's rotation art.
 - The authored drawing (right) hand, relative to the weapon, is the string-hand target.
 - Both turn with the facing about the aim center, a point on the body axis at the south string hand's
-  height during its authored draw hold (the first two equal consecutive main-hand keys).
+  height during its authored draw hold (the first two equal consecutive main-hand keys). A source that authors
+  no hold, such as Light Crossbow, whose hands recoil together at the shot, aims from its first key, the ready pose.
 
 Rotating drawn points about that aim center, rather than rotating hand transform offsets about the root and
 adding unrotated sprite anchors, keeps the aim height in place. A south draw toward the target therefore
@@ -897,6 +909,15 @@ center column (outline, wood, outline), 2 px above the centered pivot. The strin
 After the `-90` correction the bow shoots along the facing in every direction. The left-facing mirror
 flips only its symmetric limbs, and the grip lies on the shooting axis, so NW and SW keep the
 string → bow → target order.
+
+Light Crossbow bakes from `Crossbow_Attack.anim`, the south source authored for its `LightCrossbow.png` art, into
+its own `LightCrossbow_Attack_<Facing>` clips; `DirectionalAnimationGenerator` takes that source name explicitly. Unlike
+the bows it is a recoil, not a draw: both hands rest together, kick back at 0.2 s and settle, and it authors no draw
+hold, so its aim center is the string hand's ready height. It is a two-handed weapon-driven weapon (`FollowsAuthoredMotion`,
+`AngleCorrection` `-90`) held by the left hand. It grips `(0, -0.125)` of the 16x17 px `LightCrossbow.png`: the center of the
+plain foregrip rows of its 2 px wide stock (rows 4-8 from the bottom, between the limb bar of row 9 and the band of row 3),
+2 px below the centered pivot. After the `-90` correction the crossbow points along the facing, plus the 4.434 degree
+rotation its authored hands carry.
 
 Compound Bow bakes from `RecurveBow_Attack.anim`, the south source authored for its `RecurveBow.png` art, into
 its own `CompoundBow_Attack_<Facing>` clips; `DirectionalAnimationGenerator` takes that source name explicitly.

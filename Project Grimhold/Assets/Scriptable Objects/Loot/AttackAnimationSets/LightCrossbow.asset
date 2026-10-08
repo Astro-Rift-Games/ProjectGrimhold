@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 695eb1d508634f71a85ad608942fa931, type: 3}
+  m_Name: LightCrossbow
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalAttackAnimationSet
+  _attackN: {fileID: 7400000, guid: e9badf35cbdb0d84daf5e317b72fbb9b, type: 2}
+  _attackNE: {fileID: 7400000, guid: fd8b768db65ad73449875f9f0e7397ba, type: 2}
+  _attackNW: {fileID: 7400000, guid: 974b81307a439f6408d9fd0a7129f271, type: 2}
+  _attackS: {fileID: 7400000, guid: 3f3c7fe8329d73945a1c7b75d3d1fb1d, type: 2}
+  _attackSE: {fileID: 7400000, guid: cbfb449d57cc4e84ba1bd50864c26a46, type: 2}
+  _attackSW: {fileID: 7400000, guid: 75aefcd1d23eefb4c8d565858828e24d, type: 2}

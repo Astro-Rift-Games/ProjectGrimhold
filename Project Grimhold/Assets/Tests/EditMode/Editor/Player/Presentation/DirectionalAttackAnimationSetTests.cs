@@ -20,6 +20,7 @@ public sealed class DirectionalAttackAnimationSetTests
     [TestCase("MagicStaff", "MagicStaff")]
     [TestCase("LongBow", "LongBow")]
     [TestCase("CompoundBow", "CompoundBow")]
+    [TestCase("LightCrossbow", "LightCrossbow")]
     public void Set_HasExactlySixMappedClipsAndIsComplete(string setName, string sourceName)
     {
         DirectionalAttackAnimationSet set = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(Root + setName + ".asset");
@@ -173,6 +174,7 @@ public sealed class DirectionalAttackAnimationSetTests
 
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
     public void Bow_IsTwoHandedGenericAttackDrivenByItsOwnPose(string bowName)
     {
         WeaponDefinition bow = Bow(bowName);
@@ -230,6 +232,54 @@ public sealed class DirectionalAttackAnimationSetTests
             Assert.That(grip.y, Is.EqualTo(expected.y).Within(0.00001f));
         }
         finally { UnityEngine.Object.DestroyImmediate(texture); }
+    }
+
+    // LightCrossbow.png is 16x17 px with its limbs across the shot and a stock behind them. The grip is the
+    // center of the plain foregrip rows of the stock (rows 4-8 from the bottom: after the limb bar of row 9 and
+    // before the band of row 3), on the center of the 2 px wide stock.
+    [Test]
+    public void LightCrossbow_GripPointIsTheCenterOfTheStockForegrip()
+    {
+        WeaponDefinition crossbow = Bow("LightCrossbow");
+        Sprite sprite = BowSprite("LightCrossbow");
+        Assert.That(sprite, Is.Not.Null);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        try
+        {
+            Assert.That(texture.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(sprite.texture))), Is.True);
+            Rect rect = sprite.rect;
+            int centerLeft = (int)rect.x + (int)rect.width / 2 - 1;
+            for (int row = 4; row <= 8; row++)
+            {
+                int opaque = Enumerable.Range((int)rect.x, (int)rect.width).Count(x => texture.GetPixel(x, (int)rect.y + row).a > 0f);
+                Assert.That(opaque, Is.EqualTo(4), $"Row {row} is the 4 px wide stock.");
+                Assert.That(texture.GetPixel(centerLeft, (int)rect.y + row).a, Is.GreaterThan(0f));
+                Assert.That(texture.GetPixel(centerLeft + 1, (int)rect.y + row).a, Is.GreaterThan(0f));
+            }
+            Assert.That(Enumerable.Range((int)rect.x, (int)rect.width).Count(x => texture.GetPixel(x, (int)rect.y + 9).a > 0f),
+                Is.EqualTo((int)rect.width), "Row 9 is the limb bar in front of the foregrip.");
+            Vector2 handle = new Vector2(rect.width * 0.5f, (4f + 9f) * 0.5f);
+            Vector2 expected = (handle - sprite.pivot) / sprite.pixelsPerUnit;
+            Assert.That(crossbow.Presentation.GripPoint.x, Is.EqualTo(expected.x).Within(0.00001f));
+            Assert.That(crossbow.Presentation.GripPoint.y, Is.EqualTo(expected.y).Within(0.00001f));
+        }
+        finally { UnityEngine.Object.DestroyImmediate(texture); }
+    }
+
+    [Test]
+    public void LightCrossbow_ShootsAlongSpriteUpAndLeavesItsAttackSpriteAnimationEmpty()
+    {
+        WeaponDefinition.PresentationConfig presentation = Bow("LightCrossbow").Presentation;
+        Assert.That(presentation.AngleCorrection, Is.EqualTo(-90f));
+        Assert.That(presentation.AttackSpriteAnimation, Is.Null);
+        foreach (Vector2 facing in new[] { new Vector2(0f, -1f), new Vector2(1f, -1f), new Vector2(-1f, -1f),
+            new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) })
+        {
+            Vector2 unit = facing.normalized;
+            Vector2 shot = BowPoint(presentation, unit, presentation.GripPoint + Vector2.up) -
+                BowPoint(presentation, unit, presentation.GripPoint);
+            Assert.That(Vector2.Dot(shot.normalized, unit), Is.EqualTo(1f).Within(0.00001f), facing.ToString());
+        }
     }
 
     [TestCase("LongBow", 0f, -1f)]

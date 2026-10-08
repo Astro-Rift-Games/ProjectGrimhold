@@ -73,6 +73,11 @@ public static class DirectionalAnimationGenerator
     public static void GenerateCompoundBowAssets() => GenerateAssets("CompoundBow",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/CompoundBowWeaponDefinition.asset"), "RecurveBow");
 
+    // The crossbow's south source is authored under the name of its Crossbow art.
+    [MenuItem("Tools/Animations/Generate Light Crossbow Directional Attacks")]
+    public static void GenerateLightCrossbowAssets() => GenerateAssets("LightCrossbow",
+        RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset"), "Crossbow");
+
     [MenuItem("Tools/Animations/Generate Shield Directional Defend")]
     public static void GenerateShieldDefendAssets() => GenerateOffHandAssets("Shield", "Block", "Defend");
 
@@ -524,7 +529,9 @@ public static class DirectionalAnimationGenerator
         }
     }
 
-    // The authored draw hold: the first two consecutive string-hand keys at the same position.
+    // The authored draw hold: the first two consecutive string-hand keys at the same position. A source that
+    // authors none, such as a crossbow whose hands recoil together at the shot, aims from its first key, the
+    // ready pose.
     private static float ResolveDrawHold(AnimationCurve x, AnimationCurve y)
     {
         Keyframe[] xs = x.keys;
@@ -534,7 +541,9 @@ public static class DirectionalAnimationGenerator
             if (Mathf.Approximately(xs[i].value, xs[i + 1].value) && Mathf.Approximately(ys[i].value, ys[i + 1].value))
                 return xs[i].time;
         }
-        throw new InvalidOperationException("A weapon-driven attack needs an authored draw hold on the main hand.");
+        if (xs.Length == 0)
+            throw new InvalidOperationException("A weapon-driven attack needs authored main hand keys.");
+        return xs[0].time;
     }
 
     // Every authored key time of both hands plus the clip's frame grid, so derived arcs follow fast turns.

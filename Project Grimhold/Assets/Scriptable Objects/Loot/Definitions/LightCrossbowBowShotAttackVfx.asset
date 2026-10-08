@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e4336130754c308f9ed06a32a18af3, type: 3}
+  m_Name: LightCrossbowBowShotAttackVfx
+  m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
+  _visual: {fileID: 11400000, guid: e7abbcdb84755e44a90a583bdc66db47, type: 2}
+  _startSeconds: 0.275
+  _releaseLeadSeconds: 0.025
+  _poses:
+  - _position: {x: 0.0271, y: -0.0752, z: 0}
+    _rotation: {x: 0, y: 0, z: 94.434}
+    _reachOffset: 0.65625
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: 0.1168, y: -0.1348, z: 0}
+    _rotation: {x: 0, y: 0, z: 49.434}
+    _reachOffset: 0.65625
+    _mirrored: 0
+    _sortingOrder: -9
+  - _position: {x: -0.0784, y: -0.0965, z: 0}
+    _rotation: {x: 0, y: 0, z: 139.434}
+    _reachOffset: 0.65625
+    _mirrored: 1
+    _sortingOrder: -9
+  - _position: {x: -0.0271, y: -0.3513, z: 0}
+    _rotation: {x: 0, y: 0, z: -85.566}
+    _reachOffset: 0.65625
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: 0.0784, y: -0.33, z: 0}
+    _rotation: {x: 0, y: 0, z: -40.566}
+    _reachOffset: 0.65625
+    _mirrored: 0
+    _sortingOrder: 21
+  - _position: {x: -0.1168, y: -0.2917, z: 0}
+    _rotation: {x: 0, y: 0, z: -130.566}
+    _reachOffset: 0.65625
+    _mirrored: 1
+    _sortingOrder: 21

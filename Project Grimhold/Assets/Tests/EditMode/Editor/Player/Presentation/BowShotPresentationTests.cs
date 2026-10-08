@@ -117,13 +117,14 @@ public sealed class BowShotPresentationTests
 
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
     public void Bow_UsesItsOwnBowShotProfileOverTheSharedVisualWithoutABlade(string bowName)
     {
         WeaponDefinition bow = Bow(bowName);
         AttackVfxDefinition vfx = bow.Presentation.AttackVfx;
         Assert.That(vfx, Is.SameAs(AssetDatabase.LoadAssetAtPath<AttackVfxDefinition>(
             DefinitionsRoot + bowName + "BowShotAttackVfx.asset")));
-        Assert.That(vfx.Visual, Is.SameAs(BowShot()), "Both bows share one Bow Shot visual.");
+        Assert.That(vfx.Visual, Is.SameAs(BowShot()), "Every bow-shot weapon shares one Bow Shot visual.");
         Assert.That(bow.Presentation.BladeTip, Is.EqualTo(Vector2.zero), "No blade tip is configured for the bow.");
         Assert.That(bow.TryValidate(out string error), Is.True, error);
         for (int i = 0; i < 6; i++)
@@ -142,6 +143,8 @@ public sealed class BowShotPresentationTests
     {
         Assert.That(Bow("CompoundBow").Presentation.AttackVfx, Is.Not.SameAs(Bow("LongBow").Presentation.AttackVfx),
             "Each bow aligns the shared visual with its own attack.");
+        Assert.That(Bow("LightCrossbow").Presentation.AttackVfx, Is.Not.SameAs(Bow("LongBow").Presentation.AttackVfx));
+        Assert.That(Bow("LightCrossbow").Presentation.AttackVfx, Is.Not.SameAs(Bow("CompoundBow").Presentation.AttackVfx));
     }
 
     [TestCase("LongBow", 0.45f)]
@@ -160,15 +163,39 @@ public sealed class BowShotPresentationTests
         }
     }
 
-    [TestCase("LongBow")]
-    [TestCase("CompoundBow")]
-    public void BowShot_LeavesTheBowFrontOnItsShootingAxisInEveryFacing(string bowName)
+    // The crossbow has no stringing sequence: its gameplay release is the recoil of the authored source (0.2 s,
+    // delayed by the weapon-driven blend). The 0.2 s shot would end exactly where the 0.5 s clip does, so the art
+    // ignites 25 ms before the release, like Magic Wand's flash, and ends strictly inside every clip.
+    [Test]
+    public void LightCrossbowShot_StartsOnTheConfiguredReleaseAndEndsInsideEveryClip()
+    {
+        WeaponDefinition crossbow = Bow("LightCrossbow");
+        AttackVfxDefinition vfx = crossbow.Presentation.AttackVfx;
+        Assert.That(crossbow.Presentation.AttackSpriteAnimation, Is.Null, "No crossbow stringing art exists.");
+        Assert.That(vfx.ReleaseLeadSeconds, Is.EqualTo(0.025f));
+        Assert.That(crossbow.RangedReleaseSeconds, Is.EqualTo(0.3f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(crossbow.RangedReleaseSeconds - vfx.ReleaseLeadSeconds).Within(0.0001f));
+        for (int i = 0; i < 6; i++)
+        {
+            // The presenter drops an effect whose end does not fit inside the clip, so the margin must be real.
+            Assert.That(vfx.StartSeconds + vfx.Clip.length,
+                Is.LessThan(crossbow.Presentation.GetAttackClip(i).length - 0.01f), $"Clip {i}");
+        }
+    }
+
+    // The crossbow's authored hands carry a constant 4.434 degree rotation that its WeaponPose inherits, so its
+    // shooting axis leaves the facing by that tilt; the shot follows the weapon's axis, not the facing.
+    [TestCase("LongBow", 0.09375f, 0f)]
+    [TestCase("CompoundBow", 0.09375f, 0f)]
+    [TestCase("LightCrossbow", 0.65625f, 4.434f)]
+    public void BowShot_LeavesTheBowFrontOnItsShootingAxisInEveryFacing(string bowName, float expectedFront,
+        float tiltDegrees)
     {
         WeaponDefinition bow = Bow(bowName);
         LootDefinition loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(DefinitionsRoot + bowName + ".asset");
         AttackVfxDefinition vfx = bow.Presentation.AttackVfx;
         float bowFront = BowFrontFromGrip(loot.WorldSprite, bow.Presentation.GripPoint);
-        Assert.That(bowFront, Is.EqualTo(0.09375f), "The limb's front edge is 1.5 px ahead of the grip.");
+        Assert.That(bowFront, Is.EqualTo(expectedFront), "The weapon's front edge is measured from its grip on the center column.");
 
         GameObject contents = PrefabUtility.LoadPrefabContents(PrefabPath);
         try
@@ -190,7 +217,8 @@ public sealed class BowShotPresentationTests
             {
                 Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Directions[i]);
                 applyFacing.Invoke(view, new object[] { facing, false });
-                animator.Play("Attack", layer, vfx.StartSeconds / bow.Presentation.GetAttackClip(i).length);
+                // The shot is anchored where the weapon is at the gameplay release, which a visual lead may precede.
+                animator.Play("Attack", layer, bow.RangedReleaseSeconds / bow.Presentation.GetAttackClip(i).length);
                 animator.Update(0f);
                 typeof(PlayerWeaponPresenter).GetMethod("RefreshPose", Private).Invoke(weaponPresenter, null);
 
@@ -201,7 +229,7 @@ public sealed class BowShotPresentationTests
                 string label = Directions[i].ToString();
                 Assert.That(Vector2.Distance(pose.Position, grip), Is.LessThan(0.001f), label);
                 Assert.That(Vector3.Angle(pose.Rotation * Vector3.right, axis), Is.LessThan(0.01f), label);
-                Assert.That(Vector2.Dot(axis, facing), Is.EqualTo(1f).Within(0.0001f), label);
+                Assert.That(Vector2.Dot(axis, facing), Is.EqualTo(Mathf.Cos(tiltDegrees * Mathf.Deg2Rad)).Within(0.0001f), label);
                 Assert.That(pose.ReachOffset, Is.EqualTo(bowFront), label);
                 Assert.That(pose.Mirrored, Is.EqualTo(PlayerWeaponPresentationMath.ShouldMirror(facing)), label);
                 Assert.That(pose.SortingOrder, Is.EqualTo(
@@ -224,6 +252,7 @@ public sealed class BowShotPresentationTests
 
     [TestCase("LongBow")]
     [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
     public void ConfirmedBowAttack_PlaysTheShotFromReleaseAndClearsWithoutRereadingEquipment(string bowName)
     {
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -265,7 +294,9 @@ public sealed class BowShotPresentationTests
             MethodInfo update = typeof(PlayerAttackVfxPresenter).GetMethod("LateUpdate", Private);
             int layer = animator.GetLayerIndex("RightHand");
             animator.Update(0f);
-            for (int step = 1; step <= 14; step++)
+            // The loop stays inside the attack clip: shorter clips than the bows' 0.9 s end earlier.
+            int lastStep = Mathf.Min(14, Mathf.FloorToInt((bow.Presentation.GetAttackClip(3).length - 0.001f) / 0.05f));
+            for (int step = 1; step <= lastStep; step++)
             {
                 animator.Update(0.05f);
                 update.Invoke(presenter, null);
@@ -279,7 +310,7 @@ public sealed class BowShotPresentationTests
                 }
                 else if (seconds < end - 0.001f)
                 {
-                    int frame = Mathf.RoundToInt((seconds - release) / 0.05f);
+                    int frame = Mathf.FloorToInt((seconds - release + 0.0001f) / 0.05f);
                     Assert.That(renderer.enabled, Is.True, $"{seconds}s");
                     Assert.That(renderer.sprite.name, Is.EqualTo($"VFX-BowShot_{frame}"), $"{seconds}s");
                     Assert.That(renderer.sortingOrder, Is.EqualTo(21), "South draws over the bow.");
