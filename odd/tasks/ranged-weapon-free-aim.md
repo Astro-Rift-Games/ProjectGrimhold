@@ -45,7 +45,12 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - [ ] T10 Aim pose and faster aimed release (user decisions 2026-10-08 after T9c: aiming felt like the bow drives the body because there is no aim pose). While the aim stance is held, the body plays a drawn aim pose in the aim bucket (reuse the attack clip's drawn frame before release; staff uses its pre-cast frame); the weapon residual rides on top. Entering the stance draws over a per-weapon draw time; once fully drawn, a left click releases after a short per-weapon aimed release delay instead of the normal release seconds (gameplay change accepted by the user). Before fully drawn, the normal timing applies. Attack interval/cooldown unchanged. Simulation owns the drawn state (networked stance start tick), committed at acceptance; restore-safe.
   - [x] T10a Simulation: stance start tick, drawn check, aimed release seconds per weapon, captured in the release snapshot. Route: delegated writer, TDD.
   - [x] T10b Presentation: draw-in then held drawn pose while in stance, release from the drawn frame on aimed shots, proxies from networked state. Route: delegated writer, TDD.
-  - [ ] T10c User Play Mode re-check.
+  - [x] T10c User Play Mode re-check: nearly there; pivot and string hand wrong (-> T11).
+
+- [ ] T11 Aim stance rig pivot and string hand (user Play Mode recording 2026-10-08: nearly there; rotation pivot wrong, bow swings across/around the body; right hand leaves the string when drawn). User decisions: while in the aim stance the left hand, the bow and the right hand rotate together as one rigid block by the residual about a per-weapon configurable shoulder/chest pivot (like an extended arm aiming); the bow always stays outward toward the aim and never crosses the body; in the drawn pose the right hand always sits on the bow's string nock point (per-weapon weapon-space point that rotates with the bow). Applies to AimStance weapons (bows, crossbow; staff equivalent with its second hand); wand unchanged.
+  - [ ] T11a Rigid rig rotation about the per-weapon torso pivot during the aim stance (and aimed attack), replacing rotation about the holding hand for AimStance weapons. Route: delegated writer, TDD.
+  - [ ] T11b Right hand pinned to the per-weapon string nock point while drawn. Route: delegated writer, TDD.
+  - [ ] T11c User Play Mode re-check.
 
 ## Evidence
 - T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
@@ -92,4 +97,4 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Native review T10 slice (998038cd..8dda95f5): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Next review base: 8dda95f5.
 
 ## Next step
-T10c: user Play Mode re-check (draw-in feel, draw and aimed release times per weapon, release from the held pose, leaving the stance, a proxy), then T7e docs.
+T11a–T11b via delegated writer, then T11c user re-check, then T7e docs.
