@@ -32,5 +32,7 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - T3 `2d06f5ea`: RED = compile error (`RangedWeaponAimPose` missing). GREEN = EditMode job 470c2d17 RangedWeaponAimPoseMathTests (211 incl. ranged cases) all passed.
 - Regression: PlayerWeaponPresentationMathTests job c7aca975 31/32; the one failure (`PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy`) loads `NetworkPlayerMelee/Ranged.prefab`, which are not tracked in git (pre-existing). Full EditMode job 262b2a59 has other pre-existing failures (missing prefabs, unrelated) and also regenerated `.anim` files, which were reverted.
 
+- Native review T1–T4 slice (023bf183..9d744dcf): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Unity-regenerated `alagard SDF.asset` candidate: user declined. Next review base: 9d744dcf.
+
 ## Next step
 T5 presenter free-aim override. Open: `StanceOffset` is not consumed by any runtime script (only validated), so T5 needs its own anchor.
