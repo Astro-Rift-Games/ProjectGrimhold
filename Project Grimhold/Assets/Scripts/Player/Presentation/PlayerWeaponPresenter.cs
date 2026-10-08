@@ -52,6 +52,15 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private int _weaponPoseHandBaseSortingOrder;
     private bool _weaponDriven;
     private WeaponAimMode _mainHandAimMode;
+    private Vector2 _aimStanceTorsoPivot;
+    private float _aimStanceOutwardOffset;
+    private Transform _leftHandPivot;
+    private Transform _rightHandPivot;
+    private Vector3 _leftHandPivotBasePosition;
+    private Quaternion _leftHandPivotBaseRotation;
+    private Vector3 _rightHandPivotBasePosition;
+    private Quaternion _rightHandPivotBaseRotation;
+    private bool _aimBlockApplied;
     private bool _hasCapturedBaseState;
     private PlayerDownedStateNetworkController _downedState;
     private CharacterBase _character;
@@ -88,6 +97,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandAttackSprites = null;
         _hasMainHandWeapon = false;
         _mainHandAimMode = WeaponAimMode.BakedFacing;
+        ReleaseAimBlock();
         _hiddenByDowned = false;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
@@ -187,6 +197,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         SetWeaponDriven(rig == WeaponRig.WeaponDriven);
         _hasMainHandWeapon = weapon != null;
         _mainHandAimMode = weapon != null ? weapon.Presentation.AimMode : WeaponAimMode.BakedFacing;
+        _aimStanceTorsoPivot = weapon != null ? weapon.AimStanceTorsoPivot : Vector2.zero;
+        _aimStanceOutwardOffset = weapon != null ? weapon.AimStanceOutwardOffset : 0f;
+        ReleaseAimBlock();
 
         if (weapon == null)
         {
@@ -315,7 +328,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
         // The bucket shown owns the authored hands; the residual, measured from that bucket whichever way it was
         // chosen, only turns the weapon about the holding hand's grip.
-        float pivotAngle = followsAim
+        // The wand turns about its holding hand by the residual (the free arc). An aim-stance weapon keeps its baked
+        // local pose and the whole arm turns rigidly about the torso pivot instead.
+        bool rigid = followsAim && _mainHandAimMode == WeaponAimMode.AimStance;
+        float pivotAngle = followsAim && !rigid
             ? facingAngle + FreeAimResidual.AngleDegrees(facing, aim)
             : facingAngle;
 
@@ -326,6 +342,14 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             Mathf.Abs(_mainHandWeaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
             _mainHandWeaponPivotBaseScale.z);
         ApplyMainHandVisualPose(mirrored);
+        if (rigid)
+        {
+            ApplyAimBlock(FreeAimResidual.AngleDegrees(facing, aim), aim);
+        }
+        else
+        {
+            ReleaseAimBlock();
+        }
 
         CharacterVisualDirection direction = CharacterVisualDirectionResolver.Resolve(facing);
         int order = CharacterVisualDirectionResolver.CalculateSortingOrder(
@@ -350,6 +374,61 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         RefreshAttackVfxPivot(followsAim, mirrored, CharacterVisualDirectionResolver.IsFrontFacing(direction));
+    }
+
+    // After the Animator: the hand pivots carry no curves, so they are set absolutely; WeaponPose is animated, so its
+    // freshly evaluated pose is read and rewritten. Everything turns about the weapon's torso pivot by the residual.
+    private void ApplyAimBlock(float residual, Vector2 aim)
+    {
+        if (_leftHandPivot == null || _rightHandPivot == null)
+        {
+            return;
+        }
+
+        Vector2 outward = AimBlockRotation.Outward(aim, _aimStanceOutwardOffset, _animatorView.AimStanceBlend);
+        SetBlockMember(_leftHandPivot, _leftHandPivotBasePosition, _leftHandPivotBaseRotation, residual, outward);
+        SetBlockMember(_rightHandPivot, _rightHandPivotBasePosition, _rightHandPivotBaseRotation, residual, outward);
+        if (_weaponDriven)
+        {
+            SetBlockMember(_weaponPose, _weaponPose.localPosition, _weaponPose.localRotation, residual, outward);
+        }
+
+        _aimBlockApplied = true;
+    }
+
+    private void SetBlockMember(
+        Transform member, Vector3 basePosition, Quaternion baseRotation, float residual, Vector2 outward)
+    {
+        AimBlockRotation.Apply(
+            basePosition,
+            baseRotation.eulerAngles.z,
+            _aimStanceTorsoPivot,
+            residual,
+            outward,
+            out Vector2 position,
+            out float rotation);
+        member.localPosition = new Vector3(position.x, position.y, basePosition.z);
+        member.localRotation = Quaternion.Euler(0f, 0f, rotation);
+    }
+
+    // Leaving the stance hands the hand pivots back at their rest pose; the Animator rewrites WeaponPose itself.
+    private void ReleaseAimBlock()
+    {
+        if (!_aimBlockApplied)
+        {
+            return;
+        }
+
+        _aimBlockApplied = false;
+        if (_leftHandPivot != null)
+        {
+            _leftHandPivot.SetLocalPositionAndRotation(_leftHandPivotBasePosition, _leftHandPivotBaseRotation);
+        }
+
+        if (_rightHandPivot != null)
+        {
+            _rightHandPivot.SetLocalPositionAndRotation(_rightHandPivotBasePosition, _rightHandPivotBaseRotation);
+        }
     }
 
     // The attack VFX of a free-aim weapon anchors to the hand-held pivot, in the Animator root space it lives in.
@@ -405,7 +484,23 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandWeaponPivotBaseScale = _mainHandWeaponPivot.localScale;
         _mainHandWeaponVisualBaseScale = _mainHandWeaponVisual.localScale;
         _weaponPoseHandBaseSortingOrder = _weaponPoseHandRenderer != null ? _weaponPoseHandRenderer.sortingOrder : 0;
+        CaptureHandPivots();
         _hasCapturedBaseState = true;
+    }
+
+    private void CaptureHandPivots()
+    {
+        _leftHandPivot = _offHandGrip != null && _offHandGrip.parent != null ? _offHandGrip.parent.parent : null;
+        _rightHandPivot = _mainHandGrip != null && _mainHandGrip.parent != null ? _mainHandGrip.parent.parent : null;
+        if (_leftHandPivot != null)
+        {
+            _leftHandPivot.GetLocalPositionAndRotation(out _leftHandPivotBasePosition, out _leftHandPivotBaseRotation);
+        }
+
+        if (_rightHandPivot != null)
+        {
+            _rightHandPivot.GetLocalPositionAndRotation(out _rightHandPivotBasePosition, out _rightHandPivotBaseRotation);
+        }
     }
 
     private bool CanReadEquipmentState()

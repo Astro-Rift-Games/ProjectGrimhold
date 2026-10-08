@@ -179,6 +179,68 @@ public sealed class AimStanceDrawTests
     }
 
     [Test]
+    public void Progress_RampsWithTheDrawTimeAndClamps()
+    {
+        Assert.That(AimStanceDraw.Progress(-1f, 0.5f), Is.EqualTo(0f));
+        Assert.That(AimStanceDraw.Progress(0.25f, 0.5f), Is.EqualTo(0.5f).Within(0.00001f));
+        Assert.That(AimStanceDraw.Progress(5f, 0.5f), Is.EqualTo(1f));
+        Assert.That(AimStanceDraw.Progress(0f, 0f), Is.EqualTo(1f), "No draw time is drawn at once.");
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
+    [TestCase("MagicStaff")]
+    public void RigValues_AreSetOnEveryAimStanceWeapon(string weaponName)
+    {
+        _weapon = Load(weaponName);
+
+        Assert.That(_weapon.AimStanceTorsoPivot, Is.EqualTo(new Vector2(0f, 0.1f)), weaponName);
+        Assert.That(_weapon.AimStanceOutwardOffset, Is.EqualTo(0f), "The outward offset knob starts at 0.");
+        Assert.That(_weapon.TryValidate(out string error), Is.True, error);
+    }
+
+    [Test]
+    public void RigValues_AreValidatedAsFinite()
+    {
+        foreach (float bad in new[] { float.NaN, float.PositiveInfinity })
+        {
+            _weapon = Load("LongBow");
+            SetVector(_weapon, "_aimStanceTorsoPivot", new Vector2(bad, 0.1f));
+            Assert.That(_weapon.TryValidate(out string pivotError), Is.False, bad.ToString());
+            Assert.That(pivotError, Does.Contain("aim stance"));
+            Object.DestroyImmediate(_weapon);
+            _weapon = null;
+        }
+
+        foreach (float bad in new[] { -0.1f, float.NaN, float.PositiveInfinity })
+        {
+            _weapon = Load("LongBow");
+            Set(_weapon, "_aimStanceOutwardOffset", bad);
+            Assert.That(_weapon.TryValidate(out string offsetError), Is.False, bad.ToString());
+            Assert.That(offsetError, Does.Contain("aim stance"));
+            Object.DestroyImmediate(_weapon);
+            _weapon = null;
+        }
+    }
+
+    [Test]
+    public void RigValues_AreOnlyAllowedOnAimStanceWeapons()
+    {
+        _weapon = Load("MagicWand");
+        Set(_weapon, "_aimStanceOutwardOffset", 0.2f);
+
+        Assert.That(_weapon.TryValidate(out string error), Is.False);
+        Assert.That(error, Does.Contain("aim stance"));
+
+        Object.DestroyImmediate(_weapon);
+        _weapon = Load("MagicWand");
+        SetVector(_weapon, "_aimStanceTorsoPivot", new Vector2(0.3f, 0.3f));
+
+        Assert.That(_weapon.TryValidate(out error), Is.False);
+    }
+
+    [Test]
     public void ReleaseSeconds_NoWeaponIsUnaffected()
     {
         Assert.That(AimStanceDraw.TrySelectAimedReleaseSeconds(null, true, out _), Is.False);
@@ -236,6 +298,13 @@ public sealed class AimStanceDrawTests
     {
         var serialized = new SerializedObject(weapon);
         serialized.FindProperty(field).floatValue = value;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SetVector(WeaponDefinition weapon, string field, Vector2 value)
+    {
+        var serialized = new SerializedObject(weapon);
+        serialized.FindProperty(field).vector2Value = value;
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 

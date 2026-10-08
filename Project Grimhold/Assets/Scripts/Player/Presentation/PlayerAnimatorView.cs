@@ -36,6 +36,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private const float FacingArcHysteresisDegrees = 5f;
     private bool _showingAimBucket;
     private PlayerMovementNetworkController _aimSource;
+    private float _aimStanceBlend;
     private bool _stancePoseActive;
     private float _stanceClipSeconds;
     private float _drawnClipSeconds;
@@ -62,6 +63,12 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     public Vector2 PresentedAimDirection => _presentedAim;
 
     public bool HasPresentedAim => _hasPresentedAim;
+
+    /// <summary>
+    /// How drawn the aiming arm is, in [0, 1]: the draw progress while the stance is held, and fully drawn during an
+    /// aimed shot. It ramps the optional outward offset and, later, the string hand pin. Derived from networked state.
+    /// </summary>
+    public float AimStanceBlend => _aimStanceBlend;
 
     /// <summary>
     /// Whether the facing is aim-driven: an attack faces the aim, or the replicated aim stance is held. Proxies get
@@ -212,6 +219,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _hasPresentedAim = false;
         _showingAimBucket = false;
         _stancePoseActive = false;
+        _aimStanceBlend = 0f;
         base.OnDisable();
         ResetVisualPositionSample();
     }
@@ -244,6 +252,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         {
             RefreshAttackFacingLifetime();
         }
+
+        RefreshAimStanceBlend();
     }
 
     protected override void CacheDependencies()
@@ -348,6 +358,24 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         }
 
         return false;
+    }
+
+    private void RefreshAimStanceBlend()
+    {
+        float blend = 0f;
+        if (PlayerAimStanceRules.WeaponAllows(_activeWeapon))
+        {
+            if (_hasTimedAttack && _timedAttack.IsAimed)
+            {
+                blend = 1f;
+            }
+            else if (_aimSource != null && _aimSource.TryGetAimStanceElapsedSeconds(out float elapsed))
+            {
+                blend = AimStanceDraw.Progress(elapsed, _activeWeapon.AimStanceDrawSeconds);
+            }
+        }
+
+        _aimStanceBlend = blend;
     }
 
     private bool TryGetAimStancePose(out AnimationClip clip, out float clipSeconds)

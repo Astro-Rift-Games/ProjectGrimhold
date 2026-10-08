@@ -36,13 +36,19 @@ public static class AimStanceDraw
     /// </summary>
     public static float DrawClipSeconds(float elapsedSinceStance, float drawSeconds, float drawnClipSeconds)
     {
+        return drawnClipSeconds * Progress(elapsedSinceStance, drawSeconds);
+    }
+
+    /// <summary>Draw progress in [0, 1]; a stance with no draw time is drawn at once.</summary>
+    public static float Progress(float elapsedSinceStance, float drawSeconds)
+    {
         if (drawSeconds <= 0f)
         {
-            return drawnClipSeconds;
+            return 1f;
         }
 
         float progress = elapsedSinceStance <= 0f ? 0f : elapsedSinceStance / drawSeconds;
-        return drawnClipSeconds * (progress >= 1f ? 1f : progress);
+        return progress >= 1f ? 1f : progress;
     }
 
     /// <summary>The aimed release delay applies only to a stance weapon that is fully drawn.</summary>

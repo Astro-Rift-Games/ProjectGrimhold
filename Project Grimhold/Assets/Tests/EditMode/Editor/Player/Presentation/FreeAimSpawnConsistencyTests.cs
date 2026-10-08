@@ -7,11 +7,12 @@ using UnityEngine;
 /// <summary>
 /// Pins art and gameplay together: for every free-aim ranged weapon, the visual shot or cast origin the player sees
 /// must stay near where the gameplay projectile spawns, at every aim.
-/// The weapon is held by the authored hand and turned about its grip by the residual to the aim, so the visual origin
-/// leaves the aim line by a sideways error that no spawn distance can remove (the horizontal aims show it most,
-/// because their bucket is 45 degrees away). Each weapon therefore has its own measured maximum delta plus a small
-/// margin; a regression in the rig, the residual turn or the spawn distance moves it past that bound. Retuning the
-/// distance to the best value gains less than 0.04, so the distances stay near the original 0.7 gameplay feel.
+/// The aim-stance weapons turn rigidly about their torso pivot by the residual, and the wand turns about its grip, so
+/// the visual origin leaves the aim line by a sideways error that no spawn distance can remove. Each weapon has its
+/// own measured maximum delta plus a small margin; a regression in the rig, the residual turn or the spawn distance
+/// moves it past that bound. The best spawn distance per weapon differs from the current one (LongBow 0.829,
+/// CompoundBow 0.676, LightCrossbow 0.814, MagicStaff 1.427); they are left for Play Mode tuning together with the
+/// outward offset knob, which moves the visual origin along the aim.
 /// </summary>
 public sealed class FreeAimSpawnConsistencyTests
 {
@@ -23,11 +24,11 @@ public sealed class FreeAimSpawnConsistencyTests
     // Measured maximum delta at the eight aims, at the release time of the weapon's own attack clip.
     private static readonly Dictionary<string, float> MeasuredMaxDelta = new Dictionary<string, float>
     {
-        { "LongBow", 0.520f },
-        { "CompoundBow", 0.587f },
-        { "LightCrossbow", 0.343f },
+        { "LongBow", 0.180f },
+        { "CompoundBow", 0.194f },
+        { "LightCrossbow", 0.296f },
         { "MagicWand", 0.557f },
-        { "MagicStaff", 0.550f },
+        { "MagicStaff", 0.487f },
     };
 
     private static readonly string[] RangedWeapons =
