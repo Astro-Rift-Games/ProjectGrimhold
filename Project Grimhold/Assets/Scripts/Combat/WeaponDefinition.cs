@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Static functional configuration supplied by an equipped weapon.
@@ -10,8 +11,9 @@ public sealed class WeaponDefinition : ScriptableObject
     [Header("Weapon Statistics")]
     [SerializeField, Min(0f)] private float _baseDamage;
     [SerializeField, Min(0f)] private float _attackIntervalSeconds;
-    [SerializeField, Min(0f), Tooltip("Gameplay wind-up from acceptance to ranged release. Independent of Animator and VFX.")]
-    private float _rangedReleaseSeconds;
+    [SerializeField, Min(0f), Tooltip("Gameplay wind-up from acceptance to the attack release (projectile spawn or melee hit). Independent of Animator and VFX.")]
+    [FormerlySerializedAs("_rangedReleaseSeconds")]
+    private float _attackReleaseSeconds;
     [SerializeField, Min(0f)] private float _range;
     [SerializeField, Min(0f)] private float _staminaCost;
     [SerializeField] private DamageType _damageType = DamageType.Physical;
@@ -44,7 +46,7 @@ public sealed class WeaponDefinition : ScriptableObject
 
     public float BaseDamage => _baseDamage;
     public float AttackIntervalSeconds => _attackIntervalSeconds;
-    public float RangedReleaseSeconds => _rangedReleaseSeconds;
+    public float AttackReleaseSeconds => _attackReleaseSeconds;
     public float Range => _range;
     public float StaminaCost => _staminaCost;
     public DamageType DamageType => _damageType;
@@ -77,9 +79,9 @@ public sealed class WeaponDefinition : ScriptableObject
             return false;
         }
 
-        if (!IsFinite(_rangedReleaseSeconds) || _rangedReleaseSeconds < 0f)
+        if (!IsFinite(_attackReleaseSeconds) || _attackReleaseSeconds < 0f)
         {
-            error = $"Weapon definition '{name}' has invalid ranged release delay.";
+            error = $"Weapon definition '{name}' has invalid attack release delay.";
             return false;
         }
 

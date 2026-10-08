@@ -173,8 +173,8 @@ public sealed class BowShotPresentationTests
         AttackVfxDefinition vfx = crossbow.Presentation.AttackVfx;
         Assert.That(crossbow.Presentation.AttackSpriteAnimation, Is.Null, "No crossbow stringing art exists.");
         Assert.That(vfx.ReleaseLeadSeconds, Is.EqualTo(0.025f));
-        Assert.That(crossbow.RangedReleaseSeconds, Is.EqualTo(0.3f).Within(0.0001f));
-        Assert.That(vfx.StartSeconds, Is.EqualTo(crossbow.RangedReleaseSeconds - vfx.ReleaseLeadSeconds).Within(0.0001f));
+        Assert.That(crossbow.AttackReleaseSeconds, Is.EqualTo(0.3f).Within(0.0001f));
+        Assert.That(vfx.StartSeconds, Is.EqualTo(crossbow.AttackReleaseSeconds - vfx.ReleaseLeadSeconds).Within(0.0001f));
         for (int i = 0; i < 6; i++)
         {
             // The presenter drops an effect whose end does not fit inside the clip, so the margin must be real.
@@ -218,7 +218,7 @@ public sealed class BowShotPresentationTests
                 Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Directions[i]);
                 applyFacing.Invoke(view, new object[] { facing, false });
                 // The shot is anchored where the weapon is at the gameplay release, which a visual lead may precede.
-                animator.Play("Attack", layer, bow.RangedReleaseSeconds / bow.Presentation.GetAttackClip(i).length);
+                animator.Play("Attack", layer, bow.AttackReleaseSeconds / bow.Presentation.GetAttackClip(i).length);
                 animator.Update(0f);
                 typeof(PlayerWeaponPresenter).GetMethod("RefreshPose", Private).Invoke(weaponPresenter, null);
 

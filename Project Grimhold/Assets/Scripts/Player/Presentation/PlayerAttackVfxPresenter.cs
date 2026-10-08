@@ -90,7 +90,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         };
         _attackClip = presentation.GetAttackClip(index);
         float start = attack.HasReleaseTimeline
-            ? loot.WeaponDefinition.RangedReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
+            ? loot.WeaponDefinition.AttackReleaseSeconds - vfx.ReleaseLeadSeconds : vfx.StartSeconds;
         if (_attackClip == null || start < 0f || _attackClip.length < start + vfx.Clip.length ||
             !vfx.TryResolvePose(index, presentation.BladeReach, out AttackVfxDefinition.ResolvedPose pose) ||
             !_tintPalette.TryGetTint(loot.WeaponDefinition.DamageType, out Color tint))

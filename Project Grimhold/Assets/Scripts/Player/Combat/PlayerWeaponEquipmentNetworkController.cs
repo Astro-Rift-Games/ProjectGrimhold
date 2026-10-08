@@ -1258,7 +1258,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             weaponDefinition.AttackIntervalSeconds,
             weaponDefinition.Range,
             weaponDefinition.KnockbackForce,
-            attackConfig is RangedAttackConfig ? weaponDefinition.RangedReleaseSeconds : 0f);
+            weaponDefinition.AttackReleaseSeconds);
         if (!parameters.TryValidate(out _))
         {
             return false;

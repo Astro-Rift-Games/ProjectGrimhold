@@ -106,7 +106,7 @@ namespace Tests.EditMode.Combat
             WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
                 $"Assets/Scriptable Objects/Loot/Definitions/{name}WeaponDefinition.asset");
             Assert.That(weapon.TryValidate(out string error), Is.True, error);
-            Assert.That(weapon.RangedReleaseSeconds, Is.EqualTo(releaseSeconds));
+            Assert.That(weapon.AttackReleaseSeconds, Is.EqualTo(releaseSeconds));
             Assert.That(weapon.Presentation.AttackVfx.ReleaseLeadSeconds, Is.EqualTo(lead));
             Assert.That(weapon.Presentation.AttackVfx.StartSeconds,
                 Is.EqualTo(releaseSeconds - lead).Within(0.00001f));

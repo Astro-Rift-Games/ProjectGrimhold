@@ -219,7 +219,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             };
             _timedAttack = attackEvent;
             _timedAttackClip = _activeWeapon.Presentation.GetAttackClip(index);
-            _authoredReleaseSeconds = _activeWeapon.RangedReleaseSeconds;
+            _authoredReleaseSeconds = _activeWeapon.AttackReleaseSeconds;
             _hasTimedAttack = true;
             AnimatorInstance.ResetTrigger("OnAttack");
             RefreshTimedAttack();
