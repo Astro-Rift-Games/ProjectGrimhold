@@ -203,12 +203,12 @@ public sealed class WeaponDefinition : ScriptableObject
                 return false;
             }
 
-            // Free aim pins the second hand to the secondary grip point, so a hand-held rig cannot also let it
-            // follow authored motion. A weapon-driven rig requires that mode but places its hands procedurally.
-            if (_presentation.Rig != WeaponRig.WeaponDriven &&
-                _presentation.SecondHand == SecondHandPresentation.FollowsAuthoredMotion)
+            // Under free aim the presenter owns both hands and never consults SecondHand, so a two-handed weapon
+            // only needs the grip its second hand is placed on.
+            if (_handedness == WeaponHandedness.TwoHanded &&
+                _presentation.SecondaryGripPoint == _presentation.GripPoint)
             {
-                error = $"Weapon definition '{name}' free aim pins the second hand to the secondary grip point, so a hand-held rig cannot follow its authored motion.";
+                error = $"Weapon definition '{name}' two-handed free aim requires a secondary grip point distinct from its grip point.";
                 return false;
             }
         }
