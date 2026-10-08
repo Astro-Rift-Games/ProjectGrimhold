@@ -21,7 +21,7 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - [x] T2 Ranged path in `TryExecuteAttack` uses `AimDirection`; melee keeps `FacingDirection`. Route: delegated writer.
 - [x] T3 `RangedWeaponAimPoseMath` pure type + EditMode tests. Route: delegated writer.
 - [x] T4 `WeaponAimMode` in `PresentationConfig` + validation tests. Route: delegated writer.
-- [ ] T5 `PlayerWeaponPresenter` free-aim override for both rigs (+ prefab anchor if needed). Route: delegated writer + Unity MCP inspection.
+- [x] T5 `PlayerWeaponPresenter` free-aim override for both rigs (+ prefab anchor if needed). Route: delegated writer + Unity MCP inspection.
 - [ ] T6 Free-aim VFX anchoring (bow shot, Cast Flash). Route: delegated writer.
 - [ ] T7 Set `FreeAim` on five ranged assets; update PlayerCombatArchitecture.md and PlayerMovementArchitecture.md. Route: delegated writer.
 
@@ -33,6 +33,7 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Regression: PlayerWeaponPresentationMathTests job c7aca975 31/32; the one failure (`PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy`) loads `NetworkPlayerMelee/Ranged.prefab`, which are not tracked in git (pre-existing). Full EditMode job 262b2a59 has other pre-existing failures (missing prefabs, unrelated) and also regenerated `.anim` files, which were reverted.
 
 - Native review T1–T4 slice (023bf183..9d744dcf): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Unity-regenerated `alagard SDF.asset` candidate: user declined. Next review base: 9d744dcf.
+- T5 `b5c5c023`: anchor = `StanceOffset` in VisualRoot space (VisualRoot origin = body centre), no prefab change; `[DefaultExecutionOrder(100)]` so the presenter runs after `PlayerAnimatorView`, whose timed attack calls `Animator.Update`. Hands: RightHand/LeftHand (parents of the grips) written in LateUpdate; verified in the Editor that re-sampling overwrites and a later write wins. RED = compile errors (`AimDirectionSmoothing` missing). GREEN = EditMode job 9a67707e AimDirectionSmoothingTests 11/11. Regressions: job 6449baef PlayerWeaponPresentationMathTests + RangedWeaponAimPoseMathTests 243 run, only the known `PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy` failed (`ExistingWeapons_KeepTheirHeldPoseBitIdentical` passed); BowShotPresentationTests + PlayerAnimatorViewTests job 28283c75 63 run, 1 failure `BodyLocomotionClips_AnimateTheNestedMainHandGrip` (reads `Idle_N.anim`, not touched by T5; confirm as pre-existing). Visual result in Play Mode not observed.
 
 ## Next step
-T5 presenter free-aim override. Open: `StanceOffset` is not consumed by any runtime script (only validated), so T5 needs its own anchor.
+T6 free-aim VFX anchoring. T7 must set `StanceOffset` (shoulder/chest point) and grips per weapon; the weapon-driven rule still demands `SecondHand == FollowsAuthoredMotion`, which free aim ignores.
