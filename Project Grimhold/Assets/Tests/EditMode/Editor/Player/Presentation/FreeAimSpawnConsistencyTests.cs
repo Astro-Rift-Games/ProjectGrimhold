@@ -7,12 +7,11 @@ using UnityEngine;
 /// <summary>
 /// Pins art and gameplay together: for every free-aim ranged weapon, the visual shot or cast origin the player sees
 /// must stay near where the gameplay projectile spawns, at every aim.
-/// The aim-stance weapons turn rigidly about their torso pivot by the residual, and the wand turns about its grip, so
-/// the visual origin leaves the aim line by a sideways error that no spawn distance can remove. Each weapon has its
-/// own measured maximum delta plus a small margin; a regression in the rig, the residual turn or the spawn distance
-/// moves it past that bound. The best spawn distance per weapon differs from the current one (LongBow 0.829,
-/// CompoundBow 0.676, LightCrossbow 0.814, MagicStaff 1.427); they are left for Play Mode tuning together with the
-/// outward offset knob, which moves the visual origin along the aim.
+/// The aim-stance weapons turn rigidly about their torso pivot by the residual (extended along the aim toward south by
+/// the outward offset), and the wand turns about its grip, so the visual origin leaves the aim line by a sideways error
+/// that no spawn distance can remove. Each weapon has its own measured maximum delta, taken at the best spawn distance
+/// for the fully drawn aim-driven state; a regression in the rig, the offset, the residual turn or the spawn distance
+/// moves it past that bound. The wand keeps its original spawn distance (its behaviour is unchanged).
 /// </summary>
 public sealed class FreeAimSpawnConsistencyTests
 {
@@ -24,11 +23,11 @@ public sealed class FreeAimSpawnConsistencyTests
     // Measured maximum delta at the eight aims, at the release time of the weapon's own attack clip.
     private static readonly Dictionary<string, float> MeasuredMaxDelta = new Dictionary<string, float>
     {
-        { "LongBow", 0.180f },
-        { "CompoundBow", 0.194f },
-        { "LightCrossbow", 0.296f },
+        { "LongBow", 0.213f },
+        { "CompoundBow", 0.353f },
+        { "LightCrossbow", 0.464f },
         { "MagicWand", 0.557f },
-        { "MagicStaff", 0.487f },
+        { "MagicStaff", 0.345f },
     };
 
     private static readonly string[] RangedWeapons =
@@ -148,6 +147,8 @@ public sealed class FreeAimSpawnConsistencyTests
                 .Invoke(presenter, new object[] { loot });
             var pivot = (Transform)typeof(PlayerWeaponPresenter).GetField("_mainHandWeaponPivot", Private)
                 .GetValue(presenter);
+            // The drawn, aim-driven state: the aim-stance arm is fully drawn, so the outward offset applies.
+            typeof(PlayerAnimatorView).GetField("_aimStanceBlend", Private).SetValue(view, 1f);
             Vector2 attackOrigin = AttackOriginInVisualRoot(player, visualRoot);
 
             var originsAlongAim = new List<(Vector2 visual, Vector2 aim)>();

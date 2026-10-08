@@ -20,10 +20,10 @@ MonoBehaviour:
   _aimedReleaseSeconds: 0.1
   _aimStanceDrawnClipSeconds: 0.39
   _aimStanceTorsoPivot: {x: 0, y: 0.1}
-  _aimStanceOutwardOffset: 0
+  _aimStanceOutwardOffset: 0.4
   _aimStanceNockPoint: {x: 0.14, y: -0.47}
   _overrideProjectileSpawnDistance: 1
-  _projectileSpawnDistance: 0.6938
+  _projectileSpawnDistance: 0.853
   _staminaCost: 28
   _damageType: 0
   _knockbackForce: 0

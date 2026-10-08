@@ -187,16 +187,17 @@ public sealed class AimStanceDrawTests
         Assert.That(AimStanceDraw.Progress(0f, 0f), Is.EqualTo(1f), "No draw time is drawn at once.");
     }
 
-    [TestCase("LongBow")]
-    [TestCase("CompoundBow")]
-    [TestCase("LightCrossbow")]
-    [TestCase("MagicStaff")]
-    public void RigValues_AreSetOnEveryAimStanceWeapon(string weaponName)
+    // The outward offset clears the bows from the hips when aiming south; the staff needs none.
+    [TestCase("LongBow", 0.4f)]
+    [TestCase("CompoundBow", 0.4f)]
+    [TestCase("LightCrossbow", 0.5f)]
+    [TestCase("MagicStaff", 0f)]
+    public void RigValues_AreSetOnEveryAimStanceWeapon(string weaponName, float outwardOffset)
     {
         _weapon = Load(weaponName);
 
         Assert.That(_weapon.AimStanceTorsoPivot, Is.EqualTo(new Vector2(0f, 0.1f)), weaponName);
-        Assert.That(_weapon.AimStanceOutwardOffset, Is.EqualTo(0f), "The outward offset knob starts at 0.");
+        Assert.That(_weapon.AimStanceOutwardOffset, Is.EqualTo(outwardOffset).Within(0.0001f), weaponName);
         Assert.That(_weapon.TryValidate(out string error), Is.True, error);
     }
 

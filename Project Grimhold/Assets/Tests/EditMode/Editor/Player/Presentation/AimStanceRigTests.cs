@@ -284,7 +284,8 @@ public sealed class AimStanceRigTests
     public void ZeroOffsetKnob_IsPureRigidRotation()
     {
         WeaponDefinition weapon = Setup("LongBow");
-        Assert.That(weapon.AimStanceOutwardOffset, Is.EqualTo(0f));
+        SetOffset(weapon, 0f);
+        ReEquip();
         int bucket = 3;
         Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
 

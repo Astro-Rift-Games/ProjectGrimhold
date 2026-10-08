@@ -22,7 +22,7 @@ MonoBehaviour:
   _aimStanceTorsoPivot: {x: 0, y: 0.1}
   _aimStanceOutwardOffset: 0
   _overrideProjectileSpawnDistance: 1
-  _projectileSpawnDistance: 1.2831
+  _projectileSpawnDistance: 1.427
   _staminaCost: 22
   _damageType: 1
   _knockbackForce: 0
