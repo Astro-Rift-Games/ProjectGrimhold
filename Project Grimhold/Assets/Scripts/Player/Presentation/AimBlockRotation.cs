@@ -24,7 +24,12 @@ internal static class AimBlockRotation
         newRotationDegrees = rotationDegrees + residualDegrees;
     }
 
-    /// <summary>The block's extension along the aim: the offset scaled by the draw blend, clamped to [0, 1].</summary>
+    /// <summary>
+    /// The block's extension along the aim: the offset scaled by the aim's southward component and by the draw blend.
+    /// The authored south drawn art sits across the hips, so the arm only extends as the aim turns south: the full
+    /// offset facing south, a part of it toward south-east and south-west, and exactly nothing from horizontal to
+    /// north, which stay as authored.
+    /// </summary>
     internal static Vector2 Outward(Vector2 aim, float offset, float blend)
     {
         if (offset <= 0f || aim.sqrMagnitude < 0.0001f)
@@ -32,8 +37,18 @@ internal static class AimBlockRotation
             return Vector2.zero;
         }
 
-        return aim.normalized * (offset * Mathf.Clamp01(blend));
+        Vector2 direction = aim.normalized;
+        float south = -direction.y;
+        if (south <= SouthDeadband)
+        {
+            return Vector2.zero;
+        }
+
+        return direction * (offset * south * Mathf.Clamp01(blend));
     }
+
+    // Float noise on a horizontal aim must not leak a tiny offset.
+    private const float SouthDeadband = 0.0001f;
 }
 
 /// <summary>

@@ -243,8 +243,41 @@ public sealed class AimStanceRigTests
         SetBlend(0.5f);
         Vector2 half = Pose(weapon, bucket, facing, true, aim);
 
-        Assert.That(Vector2.Distance(full - none, aim.normalized * 0.4f), Is.LessThan(Tolerance));
-        Assert.That(Vector2.Distance(half - none, aim.normalized * 0.2f), Is.LessThan(Tolerance));
+        // Along the aim, scaled by the southward component of the aim and by the draw blend.
+        Vector2 expectedFull = aim.normalized * (0.4f * -aim.normalized.y);
+        Assert.That(Vector2.Distance(full - none, expectedFull), Is.LessThan(Tolerance));
+        Assert.That(Vector2.Distance(half - none, expectedFull * 0.5f), Is.LessThan(Tolerance));
+    }
+
+    [TestCaseSource(nameof(Weapons))]
+    public void OutwardOffset_LeavesNorthAndHorizontalPosesIdenticalToTheKnobAtZero(string weaponName)
+    {
+        WeaponDefinition weapon = Setup(weaponName);
+        SetOffset(weapon, 0.6f);
+        ReEquip();
+        SetBlend(1f);
+
+        foreach (float degrees in new[] { 0f, 20f, 60f, 90f, 120f, 160f, 180f })
+        {
+            Vector2 aim = new Vector2(Mathf.Cos(degrees * Mathf.Deg2Rad), Mathf.Sin(degrees * Mathf.Deg2Rad));
+            CharacterVisualDirection bucket = CharacterVisualDirectionResolver.Resolve(aim);
+            int index = System.Array.IndexOf(Buckets, bucket);
+            Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(bucket);
+
+            Vector2 withKnob = Pose(weapon, index, facing, true, aim);
+            Vector2 rightWithKnob = Local(_rightHand.position);
+            SetOffset(weapon, 0f);
+            ReEquip();
+            Vector2 withoutKnob = Pose(weapon, index, facing, true, aim);
+            Vector2 rightWithout = Local(_rightHand.position);
+            SetOffset(weapon, 0.6f);
+            ReEquip();
+
+            Assert.That(Vector2.Distance(withKnob, withoutKnob), Is.EqualTo(0f).Within(0.000001f),
+                $"{weaponName} aim {degrees}");
+            Assert.That(Vector2.Distance(rightWithKnob, rightWithout), Is.EqualTo(0f).Within(0.000001f),
+                $"{weaponName} aim {degrees}");
+        }
     }
 
     [Test]

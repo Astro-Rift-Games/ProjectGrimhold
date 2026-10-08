@@ -66,20 +66,65 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void Outward_PointsAlongTheAimScaledByTheBlend()
+        public void Outward_SouthAimGetsTheFullOffsetAlongTheAimScaledByTheBlend()
         {
-            Vector2 full = AimBlockRotation.Outward(new Vector2(0f, 5f), 0.4f, 1f);
-            Vector2 half = AimBlockRotation.Outward(Vector2.up, 0.4f, 0.5f);
+            Vector2 full = AimBlockRotation.Outward(new Vector2(0f, -5f), 0.4f, 1f);
+            Vector2 half = AimBlockRotation.Outward(Vector2.down, 0.4f, 0.5f);
 
             Assert.That(full.x, Is.EqualTo(0f).Within(Tolerance));
-            Assert.That(full.y, Is.EqualTo(0.4f).Within(Tolerance));
-            Assert.That(half.y, Is.EqualTo(0.2f).Within(Tolerance));
+            Assert.That(full.y, Is.EqualTo(-0.4f).Within(Tolerance));
+            Assert.That(half.y, Is.EqualTo(-0.2f).Within(Tolerance));
+        }
+
+        [Test]
+        public void Outward_SouthEastAndSouthWestGetAPartOfTheOffset()
+        {
+            Vector2 diagonal = new Vector2(0.7071f, -0.7071f);
+
+            Vector2 southEast = AimBlockRotation.Outward(diagonal, 0.4f, 1f);
+            Vector2 southWest = AimBlockRotation.Outward(new Vector2(-diagonal.x, diagonal.y), 0.4f, 1f);
+
+            // Along the aim, scaled by the southward component of the aim (0.7071).
+            Assert.That(southEast.x, Is.EqualTo(diagonal.x * 0.4f * 0.7071f).Within(Tolerance));
+            Assert.That(southEast.y, Is.EqualTo(diagonal.y * 0.4f * 0.7071f).Within(Tolerance));
+            Assert.That(southWest.x, Is.EqualTo(-southEast.x).Within(Tolerance));
+            Assert.That(southWest.y, Is.EqualTo(southEast.y).Within(Tolerance));
+        }
+
+        [Test]
+        public void Outward_GrowsTowardSouthAndIsZeroFromHorizontalToNorth()
+        {
+            float previous = 0f;
+            for (float degrees = 0f; degrees <= 90f; degrees += 5f)
+            {
+                float radians = (-degrees) * Mathf.Deg2Rad;
+                float magnitude = AimBlockRotation.Outward(
+                    new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)), 0.4f, 1f).magnitude;
+
+                Assert.That(magnitude, Is.GreaterThanOrEqualTo(previous - Tolerance), degrees.ToString());
+                previous = magnitude;
+            }
+        }
+
+        [TestCase(0f)]
+        [TestCase(15f)]
+        [TestCase(60f)]
+        [TestCase(90f)]
+        [TestCase(120f)]
+        [TestCase(180f)]
+        public void Outward_HorizontalAndNorthAimsGetExactlyZero(float degrees)
+        {
+            float radians = degrees * Mathf.Deg2Rad;
+
+            Vector2 outward = AimBlockRotation.Outward(new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)), 0.4f, 1f);
+
+            Assert.That(outward, Is.EqualTo(Vector2.zero), degrees.ToString());
         }
 
         [Test]
         public void Outward_ZeroOffsetIsZeroForAnyBlend()
         {
-            Assert.That(AimBlockRotation.Outward(Vector2.right, 0f, 1f), Is.EqualTo(Vector2.zero));
+            Assert.That(AimBlockRotation.Outward(Vector2.down, 0f, 1f), Is.EqualTo(Vector2.zero));
         }
 
         [TestCase(-1f, 0f)]
@@ -87,9 +132,9 @@ namespace Tests.EditMode.Presentation
         [TestCase(2f, 1f)]
         public void Outward_ClampsTheBlend(float blend, float expectedFraction)
         {
-            Vector2 outward = AimBlockRotation.Outward(Vector2.right, 0.4f, blend);
+            Vector2 outward = AimBlockRotation.Outward(Vector2.down, 0.4f, blend);
 
-            Assert.That(outward.x, Is.EqualTo(0.4f * expectedFraction).Within(Tolerance));
+            Assert.That(outward.y, Is.EqualTo(-0.4f * expectedFraction).Within(Tolerance));
         }
 
         [Test]
