@@ -25,6 +25,13 @@ public static class AttackTiming
             ? Mathf.Max(0f, elapsed) * authoredRelease / scheduledWindup
             : Mathf.Max(0f, elapsed - scheduledWindup + authoredRelease);
 
+    // An aimed shot starts its wind-up already at the drawn frame and reaches the authored release at the rounded
+    // aimed deadline, so there is no second draw. Recovery keeps its authored speed.
+    public static float AimedClipSeconds(float elapsed, float scheduledWindup, float authoredRelease, float drawnSeconds) =>
+        scheduledWindup > 0f && elapsed < scheduledWindup
+            ? drawnSeconds + Mathf.Max(0f, elapsed) * (authoredRelease - drawnSeconds) / scheduledWindup
+            : Mathf.Max(0f, elapsed - scheduledWindup + authoredRelease);
+
     public static float ReleaseVfxSeconds(float elapsed, float scheduledWindup, float leadSeconds) =>
         elapsed - scheduledWindup + leadSeconds;
 

@@ -30,6 +30,21 @@ public static class AimStanceDraw
             currentTick >= drawnTick;
     }
 
+    /// <summary>
+    /// Clip time of the drawn pose while the stance is held: the attack clip plays from its start to the drawn frame
+    /// over the draw time, then holds that frame.
+    /// </summary>
+    public static float DrawClipSeconds(float elapsedSinceStance, float drawSeconds, float drawnClipSeconds)
+    {
+        if (drawSeconds <= 0f)
+        {
+            return drawnClipSeconds;
+        }
+
+        float progress = elapsedSinceStance <= 0f ? 0f : elapsedSinceStance / drawSeconds;
+        return drawnClipSeconds * (progress >= 1f ? 1f : progress);
+    }
+
     /// <summary>The aimed release delay applies only to a stance weapon that is fully drawn.</summary>
     public static bool TrySelectAimedReleaseSeconds(WeaponDefinition weapon, bool fullyDrawn, out float seconds)
     {

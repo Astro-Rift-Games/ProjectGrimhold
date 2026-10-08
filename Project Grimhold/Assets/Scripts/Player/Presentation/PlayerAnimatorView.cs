@@ -36,6 +36,9 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private const float FacingArcHysteresisDegrees = 5f;
     private bool _showingAimBucket;
     private PlayerMovementNetworkController _aimSource;
+    private bool _stancePoseActive;
+    private float _stanceClipSeconds;
+    private float _drawnClipSeconds;
     private Vector2 _presentedAim;
     private bool _hasPresentedAim;
     private PlayerCombatNetworkController _subscribedCombatController;
@@ -125,8 +128,17 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         if (_hasTimedAttack)
         {
             if (!_combatController.TryGetAttackPresentationSeconds(_timedAttack, out float elapsed)) return false;
-            seconds = AttackTiming.ClipSeconds(elapsed, _timedAttack.ScheduledWindupSeconds, _authoredReleaseSeconds);
+            seconds = _timedAttack.IsAimed
+                ? AttackTiming.AimedClipSeconds(
+                    elapsed, _timedAttack.ScheduledWindupSeconds, _authoredReleaseSeconds, _drawnClipSeconds)
+                : AttackTiming.ClipSeconds(elapsed, _timedAttack.ScheduledWindupSeconds, _authoredReleaseSeconds);
             return _timedAttackClip != null && seconds < _timedAttackClip.length;
+        }
+        if (_stancePoseActive)
+        {
+            // The held drawn pose shows the same string frame as the attack clip at that time.
+            seconds = _stanceClipSeconds;
+            return true;
         }
         WeaponDefinition weapon = _attackWeaponPinned && _confirmedAttackWeapon != null
             ? _confirmedAttackWeapon.WeaponDefinition : null;
@@ -199,6 +211,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _timedAttackClip = null;
         _hasPresentedAim = false;
         _showingAimBucket = false;
+        _stancePoseActive = false;
         base.OnDisable();
         ResetVisualPositionSample();
     }
@@ -219,8 +232,18 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             playbackRate);
 
         RefreshCombatParameters();
-        if (_hasTimedAttack) RefreshTimedAttack();
-        else RefreshAttackFacingLifetime();
+        if (_hasTimedAttack)
+        {
+            RefreshTimedAttack();
+            if (!_hasTimedAttack)
+            {
+                RefreshAimStancePose();
+            }
+        }
+        else if (!RefreshAimStancePose())
+        {
+            RefreshAttackFacingLifetime();
+        }
     }
 
     protected override void CacheDependencies()
@@ -289,6 +312,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             _timedAttack = attackEvent;
             _timedAttackClip = _activeWeapon.Presentation.GetAttackClip(index);
             _authoredReleaseSeconds = _activeWeapon.AttackReleaseSeconds;
+            _drawnClipSeconds = _activeWeapon.AimStanceDrawnClipSeconds;
             _hasTimedAttack = true;
             AnimatorInstance.ResetTrigger("OnAttack");
             RefreshTimedAttack();
@@ -297,6 +321,67 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         {
             TriggerAttack(); // Attacks without a release timeline (legacy or enemy consumers) keep the trigger route.
         }
+    }
+
+    // While the aim stance is held with a stance weapon, the main-hand layer plays the weapon's own attack clip in
+    // the aim bucket: from its start to the drawn frame over the draw time, then holding that frame. The same
+    // absolute-phase mechanism as a timed attack, driven from the replicated stance, so proxies show it too.
+    // Returns whether the drawn pose is being presented.
+    private bool RefreshAimStancePose()
+    {
+        if (TryGetAimStancePose(out AnimationClip clip, out float clipSeconds))
+        {
+            _stancePoseActive = true;
+            _stanceClipSeconds = clipSeconds;
+            AnimatorInstance.Play(AttackStateHash, _mainHandCombatLayerIndex, clipSeconds / clip.length);
+            AnimatorInstance.Update(0f);
+            return true;
+        }
+
+        if (_stancePoseActive)
+        {
+            _stancePoseActive = false;
+            if (_mainHandCombatLayerIndex >= 0)
+            {
+                AnimatorInstance.Play(IdleStateHash, _mainHandCombatLayerIndex, 0f);
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetAimStancePose(out AnimationClip clip, out float clipSeconds)
+    {
+        clip = null;
+        clipSeconds = 0f;
+        if (_mainHandCombatLayerIndex < 0)
+        {
+            CacheCombatLayerIndex();
+        }
+
+        if (_mainHandCombatLayerIndex < 0 || _hasTimedAttack || !PlayerAimStanceRules.WeaponAllows(_activeWeapon) ||
+            !_activeWeapon.Presentation.HasGenericAttack || _attackOverrides == null ||
+            _aimSource == null || !_aimSource.TryGetAimStanceElapsedSeconds(out float elapsed))
+        {
+            return false;
+        }
+
+        CharacterVisualDirection facing = CharacterVisualDirectionResolver.Resolve(VisualFacingDirection);
+        int index = facing switch
+        {
+            CharacterVisualDirection.North => 0, CharacterVisualDirection.NorthEast => 1,
+            CharacterVisualDirection.NorthWest => 2, CharacterVisualDirection.South => 3,
+            CharacterVisualDirection.SouthEast => 4, _ => 5
+        };
+        clip = _activeWeapon.Presentation.GetAttackClip(index);
+        if (clip == null || clip.length <= 0f)
+        {
+            return false;
+        }
+
+        clipSeconds = AimStanceDraw.DrawClipSeconds(
+            elapsed, _activeWeapon.AimStanceDrawSeconds, _activeWeapon.AimStanceDrawnClipSeconds);
+        return true;
     }
 
     private void RefreshTimedAttack()

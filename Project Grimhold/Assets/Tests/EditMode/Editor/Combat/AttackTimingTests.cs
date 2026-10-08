@@ -44,6 +44,38 @@ namespace Tests.EditMode.Combat
             Assert.That(AttackTiming.ClipSeconds(0.2f, 0f, 0f), Is.EqualTo(0.2f));
         }
 
+        [Test]
+        public void AimedClipSeconds_WindsUpFromTheDrawnFrameToTheAuthoredRelease()
+        {
+            // 0.1 s aimed delay, drawn frame at 0.44 s, authored release at 0.45 s.
+            Assert.That(AttackTiming.AimedClipSeconds(0f, 0.1f, 0.45f, 0.44f), Is.EqualTo(0.44f).Within(0.00001f));
+            Assert.That(AttackTiming.AimedClipSeconds(0.05f, 0.1f, 0.45f, 0.44f), Is.EqualTo(0.445f).Within(0.00001f));
+            Assert.That(AttackTiming.AimedClipSeconds(0.1f, 0.1f, 0.45f, 0.44f), Is.EqualTo(0.45f).Within(0.00001f));
+        }
+
+        [Test]
+        public void AimedClipSeconds_KeepsTheRecoverySpeedAfterTheRelease()
+        {
+            Assert.That(AttackTiming.AimedClipSeconds(0.3f, 0.1f, 0.45f, 0.44f), Is.EqualTo(0.65f).Within(0.00001f));
+        }
+
+        [Test]
+        public void AimedClipSeconds_NeverPlaysBeforeTheDrawnFrame()
+        {
+            for (float elapsed = -0.05f; elapsed < 0.6f; elapsed += 0.01f)
+            {
+                Assert.That(AttackTiming.AimedClipSeconds(elapsed, 0.1f, 0.45f, 0.44f),
+                    Is.GreaterThanOrEqualTo(0.44f - 0.00001f), elapsed.ToString());
+            }
+        }
+
+        [Test]
+        public void AimedClipSeconds_WithNoWindupIsTheRecoveryMapping()
+        {
+            Assert.That(AttackTiming.AimedClipSeconds(0.2f, 0f, 0.45f, 0.44f),
+                Is.EqualTo(AttackTiming.ClipSeconds(0.2f, 0f, 0.45f)));
+        }
+
         [TestCase(0f)]
         [TestCase(0.025f)]
         public void RangedVfxPhase_IsRelativeToRoundedReleaseWithExplicitArtLead(float lead)

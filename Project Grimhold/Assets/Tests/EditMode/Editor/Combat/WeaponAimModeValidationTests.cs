@@ -117,6 +117,7 @@ namespace Tests.EditMode.Combat
                 // The aim stance timing is only valid on aim-stance weapons; a copy switched away gets the defaults.
                 serialized.FindProperty("_aimStanceDrawSeconds").floatValue = 0.45f;
                 serialized.FindProperty("_aimedReleaseSeconds").floatValue = 0.1f;
+                serialized.FindProperty("_aimStanceDrawnClipSeconds").floatValue = 0.44f;
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
