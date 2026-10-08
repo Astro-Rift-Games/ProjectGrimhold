@@ -16,6 +16,8 @@ MonoBehaviour:
   _attackIntervalSeconds: 1.8
   _rangedReleaseSeconds: 0.4
   _range: 12
+  _overrideProjectileSpawnDistance: 1
+  _projectileSpawnDistance: 0.6938
   _staminaCost: 28
   _damageType: 0
   _knockbackForce: 0
@@ -26,15 +28,16 @@ MonoBehaviour:
     _attribute: 3
     _coefficient: 0
   _presentation:
-    _stanceOffset: {x: 0, y: 0}
+    _stanceOffset: {x: 0.6, y: 0}
     _gripPoint: {x: 0, y: 0.09375}
     _angleCorrection: -90
     _attackAnimationSet: {fileID: 11400000, guid: 194b75979a62fa14587bbe0ab6f7806a, type: 2}
     _attackVfx: {fileID: 11400000, guid: 4618d67f9bba7854f973ad83da3e14c2, type: 2}
     _bladeTip: {x: 0, y: 0}
-    _secondaryGripPoint: {x: 0, y: 0}
+    _secondaryGripPoint: {x: 0.14, y: -0.48}
     _secondHand: 1
     _rig: 1
+    _aimMode: 1
     _attackSpriteAnimation: {fileID: 11400000, guid: 71249d15e5d3148469683d08773b0333, type: 2}
   _attributeRequirements:
     _minimumStrength: 0

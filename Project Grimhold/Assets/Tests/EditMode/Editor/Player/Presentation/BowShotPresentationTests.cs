@@ -210,6 +210,9 @@ public sealed class BowShotPresentationTests
             typeof(PlayerWeaponPresenter).GetMethod("CaptureBaseState", Private).Invoke(weaponPresenter, null);
             typeof(PlayerWeaponPresenter).GetMethod("ApplyMainHandDefinition", Private)
                 .Invoke(weaponPresenter, new object[] { loot });
+            // This pins the authored baked art; the real bows now use free aim, whose pose is covered by the
+            // free-aim consistency tests, so the baked path is forced here.
+            typeof(PlayerWeaponPresenter).GetField("_mainHandFreeAim", Private).SetValue(weaponPresenter, false);
             MethodInfo applyFacing = typeof(CharacterAnimatorView).GetMethod("ApplyFacingParameters", Private);
             int layer = animator.GetLayerIndex("RightHand");
 
