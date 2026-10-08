@@ -22,7 +22,7 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - [x] T3 `RangedWeaponAimPoseMath` pure type + EditMode tests. Route: delegated writer.
 - [x] T4 `WeaponAimMode` in `PresentationConfig` + validation tests. Route: delegated writer.
 - [x] T5 `PlayerWeaponPresenter` free-aim override for both rigs (+ prefab anchor if needed). Route: delegated writer + Unity MCP inspection.
-- [ ] T6 Free-aim VFX anchoring (bow shot, Cast Flash). Route: delegated writer.
+- [x] T6 Free-aim VFX anchoring (bow shot, Cast Flash). Route: delegated writer.
 - [ ] T7 Set `FreeAim` on five ranged assets; update PlayerCombatArchitecture.md and PlayerMovementArchitecture.md. Route: delegated writer.
 
 ## Evidence
@@ -35,5 +35,7 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Native review T1–T4 slice (023bf183..9d744dcf): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Unity-regenerated `alagard SDF.asset` candidate: user declined. Next review base: 9d744dcf.
 - T5 `b5c5c023`: anchor = `StanceOffset` in VisualRoot space (VisualRoot origin = body centre), no prefab change; `[DefaultExecutionOrder(100)]` so the presenter runs after `PlayerAnimatorView`, whose timed attack calls `Animator.Update`. Hands: RightHand/LeftHand (parents of the grips) written in LateUpdate; verified in the Editor that re-sampling overwrites and a later write wins. RED = compile errors (`AimDirectionSmoothing` missing). GREEN = EditMode job 9a67707e AimDirectionSmoothingTests 11/11. Regressions: job 6449baef PlayerWeaponPresentationMathTests + RangedWeaponAimPoseMathTests 243 run, only the known `PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy` failed (`ExistingWeapons_KeepTheirHeldPoseBitIdentical` passed); BowShotPresentationTests + PlayerAnimatorViewTests job 28283c75 63 run, 1 failure `BodyLocomotionClips_AnimateTheNestedMainHandGrip` (reads `Idle_N.anim`, not touched by T5; confirm as pre-existing). Visual result in Play Mode not observed.
 
+- T6 `9f61f34e`: weapon presenter pushes the live pivot (StanceOffset anchor, pivot angle, mirror, front) to `PlayerAttackVfxPresenter` each LateUpdate; the VFX keeps the authored reach lead/depth and re-anchors while playing; new `AttackVfxDefinition.TryResolvePose(DirectionalPose, ...)` overload, and the int overload delegates to it. RED = compile errors (`FreeAimAttackVfxPose` missing). GREEN = EditMode job 8f4c1683 FreeAimAttackVfxPoseTests 6/6 (includes bit-for-bit overload parity on bow, cast flash and thrust assets). Regressions job e638e66a: 407 run (BowShot, CastFlash, SwordSlash, Thrust, AttackVfxTint, RangedWeaponAimPoseMath, AimDirectionSmoothing, PlayerWeaponPresentationMath), only the known `PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy` failed. `PlayerAnimatorViewTests.BodyLocomotionClips_AnimateTheNestedMainHandGrip`: `git diff be0a3913 HEAD` shows no change to any .anim, .controller, `PlayerAnimatorView.cs` or its test, and it reads only `Assets/Animations/Player/{Idle,Walk}/*.anim`, so it fails identically on base (not re-run on base).
+
 ## Next step
-T6 free-aim VFX anchoring. T7 must set `StanceOffset` (shoulder/chest point) and grips per weapon; the weapon-driven rule still demands `SecondHand == FollowsAuthoredMotion`, which free aim ignores.
+T7: set `FreeAim`, `StanceOffset` and grips on the five ranged assets; update the two Architecture docs.
