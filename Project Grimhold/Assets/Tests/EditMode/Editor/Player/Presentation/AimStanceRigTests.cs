@@ -33,6 +33,8 @@ public sealed class AimStanceRigTests
     private Transform _rightHandPivot;
     private Transform _leftHand;
     private Transform _rightHand;
+    private Transform _rightGrip;
+    private Transform _weaponVisual;
     private WeaponDefinition _weaponCopy;
     private LootDefinition _lootCopy;
 
@@ -125,6 +127,105 @@ public sealed class AimStanceRigTests
         }
     }
 
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
+    public void FullPin_PutsTheRightHandOnTheNockPointOfTheBowedWeapon(string weaponName)
+    {
+        WeaponDefinition weapon = Setup(weaponName);
+        SetPin(1f);
+
+        for (int bucket = 0; bucket < Buckets.Length; bucket++)
+        {
+            Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
+            foreach (float residual in new[] { -35f, 0f, 30f })
+            {
+                Pose(weapon, bucket, facing, true, Rotate(facing, residual));
+                bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
+                Vector3 nock = _weaponVisual.TransformPoint(
+                    StringHandPin.NockForFacing(weapon.AimStanceNockPoint, mirrored));
+
+                Assert.That(Vector2.Distance(Local(_rightGrip.position), Local(nock)), Is.LessThan(Tolerance),
+                    $"{weaponName} bucket {bucket} residual {residual}");
+            }
+        }
+    }
+
+    [TestCase("LongBow")]
+    [TestCase("CompoundBow")]
+    [TestCase("LightCrossbow")]
+    public void Nock_IsCloseToTheAuthoredHandAtTheDrawnFrame(string weaponName)
+    {
+        WeaponDefinition weapon = Setup(weaponName);
+        SetPin(0f);
+
+        for (int bucket = 0; bucket < Buckets.Length; bucket++)
+        {
+            Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
+            Pose(weapon, bucket, facing, false, facing);
+            bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
+            Vector3 nock = _weaponVisual.TransformPoint(
+                StringHandPin.NockForFacing(weapon.AimStanceNockPoint, mirrored));
+
+            Assert.That(Vector2.Distance(Local(_rightGrip.position), Local(nock)), Is.LessThan(0.12f),
+                $"{weaponName} bucket {bucket}: pinning must not teleport the hand");
+        }
+    }
+
+    [Test]
+    public void ZeroPin_LeavesTheRigidBlockHandAlone_AndHalfPinIsTheMidpoint()
+    {
+        WeaponDefinition weapon = Setup("LongBow");
+        int bucket = 3;
+        Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
+        Vector2 aim = Rotate(facing, 25f);
+
+        SetPin(0f);
+        Pose(weapon, bucket, facing, true, aim);
+        Vector2 none = Local(_rightGrip.position);
+        SetPin(1f);
+        Pose(weapon, bucket, facing, true, aim);
+        Vector2 full = Local(_rightGrip.position);
+        SetPin(0.5f);
+        Pose(weapon, bucket, facing, true, aim);
+        Vector2 half = Local(_rightGrip.position);
+
+        Assert.That(Vector2.Distance(half, (none + full) / 2f), Is.LessThan(Tolerance));
+    }
+
+    [Test]
+    public void Pin_DoesNotApplyWithoutTheStance()
+    {
+        WeaponDefinition weapon = Setup("LongBow");
+        int bucket = 3;
+        Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
+
+        SetPin(0f);
+        Pose(weapon, bucket, facing, false, facing);
+        Vector2 baked = Local(_rightGrip.position);
+        SetPin(1f);
+        Pose(weapon, bucket, facing, false, facing);
+
+        Assert.That(Vector2.Distance(Local(_rightGrip.position), baked), Is.LessThan(Tolerance));
+    }
+
+    [Test]
+    public void Staff_SecondHandRidesTheBlockWithNoPin()
+    {
+        WeaponDefinition weapon = Setup("MagicStaff");
+        int bucket = 3;
+        Vector2 facing = CharacterVisualDirectionResolver.GetCanonicalVector(Buckets[bucket]);
+        Vector2 aim = Rotate(facing, 25f);
+
+        SetPin(0f);
+        Pose(weapon, bucket, facing, true, aim);
+        Vector2 none = Local(_rightGrip.position);
+        SetPin(1f);
+        Pose(weapon, bucket, facing, true, aim);
+
+        Assert.That(Vector2.Distance(Local(_rightGrip.position), none), Is.LessThan(Tolerance));
+    }
+
     [Test]
     public void OutwardOffsetKnob_PushesTheBlockAlongTheAimByTheBlend()
     {
@@ -188,6 +289,9 @@ public sealed class AimStanceRigTests
         _rightHandPivot = _visualRoot.Find("RightHandPivot");
         _leftHand = _leftHandPivot.Find("LeftHand");
         _rightHand = _rightHandPivot.Find("RightHand");
+        _rightGrip = _rightHand.Find("MainHandGrip");
+        _weaponVisual = (Transform)typeof(PlayerWeaponPresenter).GetField("_mainHandWeaponVisual", Private)
+            .GetValue(_presenter);
         return weapon;
     }
 
@@ -206,6 +310,9 @@ public sealed class AimStanceRigTests
         Vector3 local = _visualRoot.InverseTransformPoint(world);
         return new Vector2(local.x, local.y);
     }
+
+    private void SetPin(float weight) =>
+        typeof(PlayerAnimatorView).GetField("_stringHandPinWeight", Private).SetValue(_view, weight);
 
     private void ReEquip() =>
         typeof(PlayerWeaponPresenter).GetMethod("ApplyMainHandDefinition", Private)

@@ -54,6 +54,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private WeaponAimMode _mainHandAimMode;
     private Vector2 _aimStanceTorsoPivot;
     private float _aimStanceOutwardOffset;
+    private Vector2 _aimStanceNockPoint;
     private Transform _leftHandPivot;
     private Transform _rightHandPivot;
     private Vector3 _leftHandPivotBasePosition;
@@ -199,6 +200,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandAimMode = weapon != null ? weapon.Presentation.AimMode : WeaponAimMode.BakedFacing;
         _aimStanceTorsoPivot = weapon != null ? weapon.AimStanceTorsoPivot : Vector2.zero;
         _aimStanceOutwardOffset = weapon != null ? weapon.AimStanceOutwardOffset : 0f;
+        _aimStanceNockPoint = weapon != null ? weapon.AimStanceNockPoint : Vector2.zero;
         ReleaseAimBlock();
 
         if (weapon == null)
@@ -345,6 +347,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (rigid)
         {
             ApplyAimBlock(FreeAimResidual.AngleDegrees(facing, aim), aim);
+            ApplyStringPin(mirrored);
         }
         else
         {
@@ -394,6 +397,23 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         _aimBlockApplied = true;
+    }
+
+    // The one exception to the Animator owning the hands: the drawn string hand sits on the weapon's nock point. It runs
+    // after the Animator and the rigid block, so it follows the posed weapon, and it fades with the draw and ends at the
+    // release frame, when the authored animation takes over again. Only weapon-driven weapons (bows, crossbow) pin.
+    private void ApplyStringPin(bool mirrored)
+    {
+        float weight = _animatorView.StringHandPinWeight;
+        if (!_weaponDriven || weight <= 0f)
+        {
+            return;
+        }
+
+        Vector3 nock = _mainHandWeaponVisual.TransformPoint(StringHandPin.NockForFacing(_aimStanceNockPoint, mirrored));
+        Vector3 grip = _mainHandGrip.position;
+        Vector2 offset = StringHandPin.Offset(new Vector2(grip.x, grip.y), new Vector2(nock.x, nock.y), weight);
+        _mainHandGrip.parent.position += new Vector3(offset.x, offset.y, 0f);
     }
 
     private void SetBlockMember(

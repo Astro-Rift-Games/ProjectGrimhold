@@ -120,6 +120,7 @@ namespace Tests.EditMode.Combat
                 serialized.FindProperty("_aimStanceDrawnClipSeconds").floatValue = 0.44f;
                 serialized.FindProperty("_aimStanceTorsoPivot").vector2Value = new Vector2(0f, 0.1f);
                 serialized.FindProperty("_aimStanceOutwardOffset").floatValue = 0f;
+                serialized.FindProperty("_aimStanceNockPoint").vector2Value = Vector2.zero;
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();

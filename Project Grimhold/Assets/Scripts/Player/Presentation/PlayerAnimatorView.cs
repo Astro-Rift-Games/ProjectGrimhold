@@ -37,6 +37,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private bool _showingAimBucket;
     private PlayerMovementNetworkController _aimSource;
     private float _aimStanceBlend;
+    private float _stringHandPinWeight;
     private bool _stancePoseActive;
     private float _stanceClipSeconds;
     private float _drawnClipSeconds;
@@ -69,6 +70,13 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     /// aimed shot. It ramps the optional outward offset and, later, the string hand pin. Derived from networked state.
     /// </summary>
     public float AimStanceBlend => _aimStanceBlend;
+
+    /// <summary>
+    /// How much the drawn string hand is pinned to the nock, in [0, 1]: the draw progress while the stance is held, full
+    /// during an aimed shot before the release frame, and 0 from the release frame on, when the authored animation
+    /// takes over again.
+    /// </summary>
+    public float StringHandPinWeight => _stringHandPinWeight;
 
     /// <summary>
     /// Whether the facing is aim-driven: an attack faces the aim, or the replicated aim stance is held. Proxies get
@@ -220,6 +228,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _showingAimBucket = false;
         _stancePoseActive = false;
         _aimStanceBlend = 0f;
+        _stringHandPinWeight = 0f;
         base.OnDisable();
         ResetVisualPositionSample();
     }
@@ -363,19 +372,23 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private void RefreshAimStanceBlend()
     {
         float blend = 0f;
+        float pin = 0f;
         if (PlayerAimStanceRules.WeaponAllows(_activeWeapon))
         {
             if (_hasTimedAttack && _timedAttack.IsAimed)
             {
                 blend = 1f;
+                pin = TryGetPresentedAttackSeconds(out float seconds) && seconds < _authoredReleaseSeconds ? 1f : 0f;
             }
             else if (_aimSource != null && _aimSource.TryGetAimStanceElapsedSeconds(out float elapsed))
             {
                 blend = AimStanceDraw.Progress(elapsed, _activeWeapon.AimStanceDrawSeconds);
+                pin = _hasTimedAttack ? 0f : blend;
             }
         }
 
         _aimStanceBlend = blend;
+        _stringHandPinWeight = pin;
     }
 
     private bool TryGetAimStancePose(out AnimationClip clip, out float clipSeconds)

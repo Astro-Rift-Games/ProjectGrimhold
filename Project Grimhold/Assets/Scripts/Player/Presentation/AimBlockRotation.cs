@@ -35,3 +35,22 @@ internal static class AimBlockRotation
         return aim.normalized * (offset * Mathf.Clamp01(blend));
     }
 }
+
+/// <summary>
+/// Pins the drawn string hand to the weapon's nock point. The point is authored once in weapon space; it follows the
+/// posed weapon, and mirrors with it for left facings.
+/// </summary>
+internal static class StringHandPin
+{
+    /// <summary>The visual-root offset that moves the hand grip toward the nock by the weight, clamped to [0, 1].</summary>
+    internal static Vector2 Offset(Vector2 handGrip, Vector2 nock, float weight)
+    {
+        return (nock - handGrip) * Mathf.Clamp01(weight);
+    }
+
+    /// <summary>The nock in weapon space for the facing: the weapon art mirrors across its axis in left facings.</summary>
+    internal static Vector2 NockForFacing(Vector2 nockPoint, bool mirrored)
+    {
+        return new Vector2(mirrored ? -nockPoint.x : nockPoint.x, nockPoint.y);
+    }
+}

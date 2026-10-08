@@ -200,6 +200,32 @@ public sealed class AimStanceDrawTests
         Assert.That(_weapon.TryValidate(out string error), Is.True, error);
     }
 
+    [TestCase("LongBow", 0.14f, -0.58f)]
+    [TestCase("CompoundBow", 0.14f, -0.47f)]
+    [TestCase("LightCrossbow", 0.03f, -0.49f)]
+    public void NockPoint_IsTheDrawnStringHandPointOfEachWeaponDrivenWeapon(string weaponName, float x, float y)
+    {
+        _weapon = Load(weaponName);
+
+        Assert.That(_weapon.AimStanceNockPoint.x, Is.EqualTo(x).Within(0.0001f), weaponName);
+        Assert.That(_weapon.AimStanceNockPoint.y, Is.EqualTo(y).Within(0.0001f), weaponName);
+    }
+
+    [Test]
+    public void NockPoint_IsValidatedAsFiniteAndOnlyAllowedOnAimStanceWeapons()
+    {
+        _weapon = Load("LongBow");
+        SetVector(_weapon, "_aimStanceNockPoint", new Vector2(float.NaN, 0f));
+        Assert.That(_weapon.TryValidate(out string error), Is.False);
+        Assert.That(error, Does.Contain("aim stance"));
+
+        Object.DestroyImmediate(_weapon);
+        _weapon = Load("MagicWand");
+        SetVector(_weapon, "_aimStanceNockPoint", new Vector2(0.1f, -0.5f));
+        Assert.That(_weapon.TryValidate(out error), Is.False);
+        Assert.That(error, Does.Contain("aim stance"));
+    }
+
     [Test]
     public void RigValues_AreValidatedAsFinite()
     {

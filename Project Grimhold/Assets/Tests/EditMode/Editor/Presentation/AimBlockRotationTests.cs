@@ -93,6 +93,38 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void StringHandPin_MovesTheHandGripOntoTheNockByTheWeight()
+        {
+            Vector2 grip = new Vector2(0.1f, 0.2f);
+            Vector2 nock = new Vector2(0.5f, -0.2f);
+
+            Assert.That(StringHandPin.Offset(grip, nock, 0f), Is.EqualTo(Vector2.zero));
+            Assert.That(grip + StringHandPin.Offset(grip, nock, 1f), Is.EqualTo(nock));
+            Vector2 half = grip + StringHandPin.Offset(grip, nock, 0.5f);
+            Assert.That(half.x, Is.EqualTo(0.3f).Within(Tolerance));
+            Assert.That(half.y, Is.EqualTo(0f).Within(Tolerance));
+        }
+
+        [TestCase(-1f)]
+        [TestCase(2f)]
+        public void StringHandPin_ClampsTheWeight(float weight)
+        {
+            Vector2 offset = StringHandPin.Offset(Vector2.zero, Vector2.right, weight);
+
+            Assert.That(offset.x, Is.EqualTo(Mathf.Clamp01(weight)).Within(Tolerance));
+        }
+
+        [TestCase(false, 0.14f)]
+        [TestCase(true, -0.14f)]
+        public void StringHandPin_MirrorsTheNockWithTheWeapon(bool mirrored, float expectedX)
+        {
+            Vector2 nock = StringHandPin.NockForFacing(new Vector2(0.14f, -0.58f), mirrored);
+
+            Assert.That(nock.x, Is.EqualTo(expectedX).Within(Tolerance));
+            Assert.That(nock.y, Is.EqualTo(-0.58f).Within(Tolerance));
+        }
+
+        [Test]
         public void Outward_UnusableAimGivesNoOffset()
         {
             Assert.That(AimBlockRotation.Outward(Vector2.zero, 0.4f, 1f), Is.EqualTo(Vector2.zero));

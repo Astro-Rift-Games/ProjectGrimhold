@@ -25,6 +25,8 @@ public sealed class WeaponDefinition : ScriptableObject
     private Vector2 _aimStanceTorsoPivot = DefaultAimStanceTorsoPivot;
     [SerializeField, Min(0f), Tooltip("Aim stance weapons only. Extends the aiming arm outward along the aim by this many units once fully drawn, ramped with the draw. 0 is a pure rigid rotation.")]
     private float _aimStanceOutwardOffset;
+    [SerializeField, Tooltip("Weapon-driven aim stance weapons only (bows, crossbow). Point, in the weapon sprite space like the grip point, where the right hand holds the drawn string (the nock) or the stock. It follows the posed weapon while drawn.")]
+    private Vector2 _aimStanceNockPoint;
     [SerializeField, Tooltip("Ranged only. When set, the projectile leaves this far along the aim from the attack origin instead of the shared ranged config's spawn offset, so the shot can start at the weapon tip.")]
     private bool _overrideProjectileSpawnDistance;
     [SerializeField, Min(0f), Tooltip("Distance along the aim from the attack origin to the projectile spawn. Used only when the override is set.")]
@@ -66,6 +68,7 @@ public sealed class WeaponDefinition : ScriptableObject
     public float AimStanceDrawnClipSeconds => _aimStanceDrawnClipSeconds;
     public Vector2 AimStanceTorsoPivot => _aimStanceTorsoPivot;
     public float AimStanceOutwardOffset => _aimStanceOutwardOffset;
+    public Vector2 AimStanceNockPoint => _aimStanceNockPoint;
 
     private const float DefaultAimStanceDrawSeconds = 0.45f;
     private const float DefaultAimedReleaseSeconds = 0.1f;
@@ -115,18 +118,10 @@ public sealed class WeaponDefinition : ScriptableObject
             !IsFinite(_aimedReleaseSeconds) || _aimedReleaseSeconds < 0f ||
             !IsFinite(_aimStanceDrawnClipSeconds) || _aimStanceDrawnClipSeconds < 0f ||
             !IsFinite(_aimStanceTorsoPivot.x) || !IsFinite(_aimStanceTorsoPivot.y) ||
-            !IsFinite(_aimStanceOutwardOffset) || _aimStanceOutwardOffset < 0f)
+            !IsFinite(_aimStanceOutwardOffset) || _aimStanceOutwardOffset < 0f ||
+            !IsFinite(_aimStanceNockPoint.x) || !IsFinite(_aimStanceNockPoint.y))
         {
             error = $"Weapon definition '{name}' has an invalid aim stance draw time or aimed release delay.";
-            return false;
-        }
-
-        if (_presentation.AimMode != WeaponAimMode.AimStance &&
-            (_aimStanceDrawSeconds != DefaultAimStanceDrawSeconds || _aimedReleaseSeconds != DefaultAimedReleaseSeconds ||
-                _aimStanceDrawnClipSeconds != DefaultAimStanceDrawnClipSeconds ||
-                _aimStanceTorsoPivot != DefaultAimStanceTorsoPivot || _aimStanceOutwardOffset != 0f))
-        {
-            error = $"Weapon definition '{name}' sets aim stance timing but does not use the aim stance.";
             return false;
         }
 
@@ -222,6 +217,16 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!_presentation.TryValidate(out string presentationError))
         {
             error = $"Weapon definition '{name}' has invalid presentation: {presentationError}";
+            return false;
+        }
+
+        if (_presentation.AimMode != WeaponAimMode.AimStance &&
+            (_aimStanceDrawSeconds != DefaultAimStanceDrawSeconds || _aimedReleaseSeconds != DefaultAimedReleaseSeconds ||
+                _aimStanceDrawnClipSeconds != DefaultAimStanceDrawnClipSeconds ||
+                _aimStanceTorsoPivot != DefaultAimStanceTorsoPivot || _aimStanceOutwardOffset != 0f ||
+                _aimStanceNockPoint != Vector2.zero))
+        {
+            error = $"Weapon definition '{name}' sets aim stance timing but does not use the aim stance.";
             return false;
         }
 
