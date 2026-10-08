@@ -373,9 +373,11 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private bool ApplyFreeAimPose(Vector2 bodyFacing)
     {
         Vector2 aim = ResolveRenderAim(bodyFacing);
+        // The stance offset lives in the aim frame, so the weapon orbits the body at its radius.
+        Vector2 anchor = FreeAimAnchor.Resolve(aim, _mainHandStanceOffset);
         RangedWeaponAimPose pose = RangedWeaponAimPoseMath.Resolve(
             aim,
-            _mainHandStanceOffset,
+            anchor,
             _mainHandGripPoint,
             _mainHandSecondaryGripPoint,
             _mainHandAngleCorrection,
@@ -383,7 +385,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         if (_weaponDriven)
         {
-            SetPose(_weaponPose, _mainHandStanceOffset, Quaternion.identity);
+            SetPose(_weaponPose, anchor, Quaternion.identity);
         }
 
         _mainHandWeaponPivot.localPosition = Vector3.zero;
@@ -412,7 +414,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (_attackVfx != null)
         {
             _attackVfx.SetFreeAimPivot(
-                _mainHandStanceOffset,
+                anchor,
                 pose.PivotAngleDegrees,
                 pose.Mirrored,
                 pose.FrontFacing);
