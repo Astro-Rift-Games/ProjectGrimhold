@@ -40,7 +40,12 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
   - GD conflict to resolve by the user: "09 - Diseño de Equipamiento" maps Off Hand to the secondary attack input; for two-handed ranged weapons the Off Hand input becomes "aim". GD not edited by the agent.
   - [x] T9a Simulation: networked aim-stance acceptance for two-handed AimStance weapons, fed into facing resolution. Route: delegated writer, TDD.
   - [x] T9b Presentation: per-weapon body facing policy (wand = hybrid arc; bows/crossbow/staff = aim stance); residual only while facing is aim-driven. Route: delegated writer, TDD.
-  - [ ] T9c User Play Mode re-check.
+  - [x] T9c User Play Mode re-check: better; missing aim pose (-> T10).
+
+- [ ] T10 Aim pose and faster aimed release (user decisions 2026-10-08 after T9c: aiming felt like the bow drives the body because there is no aim pose). While the aim stance is held, the body plays a drawn aim pose in the aim bucket (reuse the attack clip's drawn frame before release; staff uses its pre-cast frame); the weapon residual rides on top. Entering the stance draws over a per-weapon draw time; once fully drawn, a left click releases after a short per-weapon aimed release delay instead of the normal release seconds (gameplay change accepted by the user). Before fully drawn, the normal timing applies. Attack interval/cooldown unchanged. Simulation owns the drawn state (networked stance start tick), committed at acceptance; restore-safe.
+  - [ ] T10a Simulation: stance start tick, drawn check, aimed release seconds per weapon, captured in the release snapshot. Route: delegated writer, TDD.
+  - [ ] T10b Presentation: draw-in then held drawn pose while in stance, release from the drawn frame on aimed shots, proxies from networked state. Route: delegated writer, TDD.
+  - [ ] T10c User Play Mode re-check.
 
 ## Evidence
 - T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
@@ -82,4 +87,4 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Native review T9 slice (2ce55843..998038cd): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Next review base: 998038cd.
 
 ## Next step
-T9c: user Play Mode re-check (hold right click with bow/crossbow/staff, left click without aiming, wand unchanged, proxy), then T7e docs.
+T10a–T10b via delegated writer, then T10c user re-check, then T7e docs.
