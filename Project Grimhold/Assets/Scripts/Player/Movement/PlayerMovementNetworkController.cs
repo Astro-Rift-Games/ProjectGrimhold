@@ -55,6 +55,13 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     public Vector2 AimDirection { get; private set; }
 
+    /// <summary>
+    /// Accepted aim stance: the secondary action is held with a two-handed aim-stance weapon. Replicated so proxies
+    /// present the same aim-driven facing; the facing itself comes from the shared facing rule.
+    /// </summary>
+    [Networked]
+    public NetworkBool IsAimStance { get; private set; }
+
     [Networked]
     public NetworkBool IsMoving { get; private set; }
 
@@ -67,6 +74,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     private CharacterBase _characterBase;
     private PlayerDownedStateNetworkController _downedState;
+    private PlayerWeaponEquipmentNetworkController _equipmentController;
     private NetworkMatchController _matchController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
 
@@ -92,6 +100,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             FacingDirection =
                 PlayerAimMath.NormalizeInitialFacing(_defaultFacingDirection);
             AimDirection = FacingDirection;
+            IsAimStance = false;
             IsMoving = false;
         }
     }
@@ -159,6 +168,15 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             IsMoving = true;
         }
 
+        bool aimStanceAccepted = hasInput && PlayerAimStanceRules.IsAccepted(
+            input.Buttons.IsSet(PlayerInputButton.SecondaryAction),
+            WeaponAllowsAimStance(),
+            gameplayPhaseActive,
+            isAlive,
+            isDowned,
+            HasActiveShield());
+        IsAimStance = aimStanceAccepted;
+
         // Combat consumes FacingDirection later in this simulation tick. Locomotion
         // supplies the default facing, while contextual actions may override it from
         // the cursor using the motor's final position as their canonical origin.
@@ -171,7 +189,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 moveDirection,
                 (Vector2)transform.position,
                 FacingDirection,
-                isDefenseAccepted);
+                isDefenseAccepted,
+                aimStanceAccepted);
             AimDirection = PlayerAimMath.ResolveAimDirection(
                 in input,
                 (Vector2)transform.position,
@@ -215,7 +234,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         Vector2 moveDirection,
         Vector2 finalPosition,
         Vector2 previousFacing,
-        bool isDefenseAccepted = false)
+        bool isDefenseAccepted = false,
+        bool isAimStanceAccepted = false)
     {
         Vector2 resolvedFacing = previousFacing;
         if (PlayerAimMath.TryNormalizeDirection(moveDirection, out Vector2 movementFacing))
@@ -226,7 +246,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool hasContextualFacingIntent =
             input.Buttons.IsSet(PlayerInputButton.PrimaryAttack) ||
             input.Buttons.IsSet(PlayerInputButton.Interact) ||
-            isDefenseAccepted;
+            isDefenseAccepted ||
+            isAimStanceAccepted;
         if (hasContextualFacingIntent &&
             PlayerAimMath.TryResolveDirection(
                 finalPosition,
@@ -270,6 +291,18 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         return isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
     }
 
+    private bool WeaponAllowsAimStance()
+    {
+        return _equipmentController != null &&
+            _equipmentController.TryGetEquippedDefinition(out LootDefinition loot) &&
+            PlayerAimStanceRules.WeaponAllows(loot.WeaponDefinition);
+    }
+
+    private bool HasActiveShield()
+    {
+        return _equipmentController != null && _equipmentController.TryGetActiveShieldDefinition(out _);
+    }
+
     private bool CanSprint(float deltaTime)
     {
         return _staminaController != null &&
@@ -302,6 +335,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_shieldDefenseController == null)
         {
             _shieldDefenseController = GetComponent<PlayerShieldDefenseNetworkController>();
+        }
+
+        if (_equipmentController == null)
+        {
+            _equipmentController = GetComponent<PlayerWeaponEquipmentNetworkController>();
         }
     }
 

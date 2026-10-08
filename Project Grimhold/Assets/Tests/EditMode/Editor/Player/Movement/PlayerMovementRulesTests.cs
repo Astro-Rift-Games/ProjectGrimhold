@@ -210,6 +210,76 @@ namespace Tests.EditMode.Player.Movement
         }
 
         [Test]
+        public void Facing_AcceptedAimStance_AimsAtTheCursorOverMovement()
+        {
+            PlayerNetworkInput input = CreateInput(
+                Vector2.up,
+                Vector2.right * 10f,
+                PlayerInputButton.SecondaryAction);
+
+            Vector2 facing = ResolveFacing(
+                in input,
+                finalPosition: Vector2.zero,
+                previousFacing: Vector2.left,
+                isAimStanceAccepted: true);
+
+            Assert.That(facing, Is.EqualTo(Vector2.right));
+        }
+
+        [Test]
+        public void Facing_SecondaryActionWithoutAcceptedAimStance_KeepsLocomotionFacing()
+        {
+            PlayerNetworkInput input = CreateInput(
+                Vector2.up,
+                Vector2.right * 10f,
+                PlayerInputButton.SecondaryAction);
+
+            Vector2 facing = ResolveFacing(
+                in input,
+                finalPosition: Vector2.zero,
+                previousFacing: Vector2.left,
+                isDefenseAccepted: false,
+                isAimStanceAccepted: false);
+
+            Assert.That(facing, Is.EqualTo(Vector2.up));
+        }
+
+        [Test]
+        public void Facing_AcceptedAimStanceWithCursorOnTheCharacter_KeepsLocomotionFacing()
+        {
+            PlayerNetworkInput input = CreateInput(
+                Vector2.up,
+                Vector2.zero,
+                PlayerInputButton.SecondaryAction);
+
+            Vector2 facing = ResolveFacing(
+                in input,
+                finalPosition: Vector2.zero,
+                previousFacing: Vector2.left,
+                isAimStanceAccepted: true);
+
+            Assert.That(facing, Is.EqualTo(Vector2.up));
+        }
+
+        [Test]
+        public void Facing_AcceptedDefenseStillAimsAtTheCursor_WhenNoAimStanceIsAccepted()
+        {
+            PlayerNetworkInput input = CreateInput(
+                Vector2.up,
+                Vector2.right * 10f,
+                PlayerInputButton.SecondaryAction);
+
+            Vector2 facing = ResolveFacing(
+                in input,
+                finalPosition: Vector2.zero,
+                previousFacing: Vector2.left,
+                isDefenseAccepted: true,
+                isAimStanceAccepted: false);
+
+            Assert.That(facing, Is.EqualTo(Vector2.right), "Shield defense keeps working exactly as before.");
+        }
+
+        [Test]
         public void Facing_IdleCursorMovement_PreservesPreviousFacing()
         {
             PlayerNetworkInput input = CreateInput(
@@ -416,14 +486,16 @@ namespace Tests.EditMode.Player.Movement
             in PlayerNetworkInput input,
             Vector2 finalPosition,
             Vector2 previousFacing,
-            bool isDefenseAccepted = false)
+            bool isDefenseAccepted = false,
+            bool isAimStanceAccepted = false)
         {
             return PlayerMovementNetworkController.ResolveFacingDirection(
                 in input,
                 Vector2.ClampMagnitude(input.MoveDirection, 1f),
                 finalPosition,
                 previousFacing,
-                isDefenseAccepted);
+                isDefenseAccepted,
+                isAimStanceAccepted);
         }
     }
 }

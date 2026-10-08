@@ -222,6 +222,23 @@ public sealed class WeaponDefinition : ScriptableObject
             }
         }
 
+        if (_presentation.AimMode == WeaponAimMode.AimStance)
+        {
+            if (_primaryAttack is not RangedAttackConfig)
+            {
+                error = $"Weapon definition '{name}' aim stance requires a ranged attack.";
+                return false;
+            }
+
+            // The stance takes the secondary action, so it must never meet a shield: only a two-handed weapon,
+            // which blocks the Off Hand, may use it.
+            if (_handedness != WeaponHandedness.TwoHanded)
+            {
+                error = $"Weapon definition '{name}' aim stance requires a two-handed weapon.";
+                return false;
+            }
+        }
+
         if (!_attributeRequirements.TryValidate(out string requirementError))
         {
             error = $"Weapon definition '{name}' has invalid attribute requirements: {requirementError}";
