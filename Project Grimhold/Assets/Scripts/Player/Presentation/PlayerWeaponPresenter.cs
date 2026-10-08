@@ -8,9 +8,10 @@ using UnityEngine;
 /// The Off Hand shield shows its sprite for the visual direction in every pose.
 /// While the player is Downed the held visuals are hidden and any attack VFX is cancelled. They return
 /// when Downed ends only if the player is still alive, so a definitive defeat keeps them hidden.
-/// A weapon whose aim mode is free aim instead orbits an anchor toward the continuous networked aim and places
-/// both hands on its grips from LateUpdate, after the Animator. It runs after PlayerAnimatorView, whose attack
-/// timeline re-evaluates the Animator in its own LateUpdate and would otherwise overwrite that pose.
+/// A free-aim weapon keeps that rig and adds only a residual turn: the Animator plays the authored hands for the
+/// aim's six-direction bucket, and the weapon pivot, which stays attached to the holding hand's grip, rotates about
+/// that grip by the angle between the aim and the bucket. It runs after PlayerAnimatorView, whose attack timeline
+/// re-evaluates the Animator in its own LateUpdate.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(FreeAimExecutionOrder)]
@@ -18,8 +19,6 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 {
     // Later than PlayerAnimatorView (order 0), which may call Animator.Update inside its LateUpdate.
     internal const int FreeAimExecutionOrder = 100;
-    // Remote aim samples arrive at the network tick rate; the render aim turns toward them at this speed.
-    private const float RemoteAimTurnRateDegreesPerSecond = 1080f;
     private const int SortingOrderFront = 20;
     private const int SortingOrderBack = -10;
     // A weapon-driven weapon is held by the left hand, which draws over it in front facings: over the weapon (20)
@@ -52,25 +51,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private Vector3 _mainHandWeaponVisualBaseScale;
     private int _weaponPoseHandBaseSortingOrder;
     private bool _weaponDriven;
-    private bool _hasCapturedBaseState;
     private bool _mainHandFreeAim;
-    private bool _mainHandTwoHanded;
-    private Vector2 _mainHandSecondaryGripPoint;
-    private Vector2 _mainHandStanceOffset;
-    private Vector2 _renderAim;
-    private bool _hasRenderAim;
-    private bool _freeAimPoseApplied;
-    private PlayerMovementNetworkController _aimSource;
-    private Transform _visualRoot;
-    private Transform _mainHand;
-    private Transform _offHand;
-    private Vector3 _weaponPoseBasePosition;
-    private Quaternion _weaponPoseBaseRotation;
-    private Vector3 _mainHandBasePosition;
-    private Quaternion _mainHandBaseRotation;
-    private Vector3 _mainHandGripBasePosition;
-    private Vector3 _offHandBasePosition;
-    private Quaternion _offHandBaseRotation;
+    private bool _hasCapturedBaseState;
     private PlayerDownedStateNetworkController _downedState;
     private CharacterBase _character;
     private PlayerAttackVfxPresenter _attackVfx;
@@ -105,9 +87,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _offHandDirectionalSprites = null;
         _mainHandAttackSprites = null;
         _hasMainHandWeapon = false;
-        ReleaseFreeAimPose();
         _mainHandFreeAim = false;
-        _hasRenderAim = false;
         _hiddenByDowned = false;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
@@ -206,10 +186,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         AttachMainHandWeapon(rig);
         SetWeaponDriven(rig == WeaponRig.WeaponDriven);
         _hasMainHandWeapon = weapon != null;
-
-        ReleaseFreeAimPose();
-        _hasRenderAim = false;
         _mainHandFreeAim = weapon != null && weapon.Presentation.AimMode == WeaponAimMode.FreeAim;
+
         if (weapon == null)
         {
             _mainHandWeaponVisual.localPosition = Vector3.zero;
@@ -220,9 +198,6 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _mainHandGripPoint = weapon.Presentation.GripPoint;
         _mainHandAngleCorrection = weapon.Presentation.AngleCorrection;
-        _mainHandSecondaryGripPoint = weapon.Presentation.SecondaryGripPoint;
-        _mainHandStanceOffset = weapon.Presentation.StanceOffset;
-        _mainHandTwoHanded = weapon.Handedness == WeaponHandedness.TwoHanded;
         ApplyMainHandVisualPose(_mainHandWeaponPivot.localScale.y < 0f);
     }
 
@@ -327,154 +302,77 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void RefreshPose()
     {
         Vector2 facing = _animatorView.VisualFacingDirection;
+        // The aim is the smoothed one the view also uses for the body facing; the residual is measured from the
+        // bucket actually shown, however it was chosen.
+        bool followsAim = _mainHandFreeAim && _hasMainHandWeapon && _animatorView.HasPresentedAim;
+        PoseWeapon(facing, followsAim, followsAim ? _animatorView.PresentedAimDirection : facing);
+    }
+
+    private void PoseWeapon(Vector2 facing, bool followsAim, Vector2 aim)
+    {
+        float facingAngle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing);
+        bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
+        // The bucket shown owns the authored hands; the residual, measured from that bucket whichever way it was
+        // chosen, only turns the weapon about the holding hand's grip.
+        float pivotAngle = followsAim
+            ? facingAngle + FreeAimResidual.AngleDegrees(facing, aim)
+            : facingAngle;
+
+        _mainHandWeaponPivot.localPosition = Vector3.zero;
+        _mainHandWeaponPivot.localRotation = Quaternion.Euler(0f, 0f, pivotAngle);
+        _mainHandWeaponPivot.localScale = new Vector3(
+            _mainHandWeaponPivotBaseScale.x,
+            Mathf.Abs(_mainHandWeaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
+            _mainHandWeaponPivotBaseScale.z);
+        ApplyMainHandVisualPose(mirrored);
+
         CharacterVisualDirection direction = CharacterVisualDirectionResolver.Resolve(facing);
-        bool frontFacing = CharacterVisualDirectionResolver.IsFrontFacing(direction);
-
-        if (_mainHandFreeAim && _hasMainHandWeapon)
-        {
-            frontFacing = ApplyFreeAimPose(facing);
-        }
-        else
-        {
-            ReleaseFreeAimPose();
-            float facingAngle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing);
-            bool mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
-
-            _mainHandWeaponPivot.localPosition = Vector3.zero;
-            _mainHandWeaponPivot.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
-            _mainHandWeaponPivot.localScale = new Vector3(
-                _mainHandWeaponPivotBaseScale.x,
-                Mathf.Abs(_mainHandWeaponPivotBaseScale.y) * (mirrored ? -1f : 1f),
-                _mainHandWeaponPivotBaseScale.z);
-            ApplyMainHandVisualPose(mirrored);
-        }
-
-        int order = frontFacing ? SortingOrderFront : SortingOrderBack;
+        int order = CharacterVisualDirectionResolver.CalculateSortingOrder(
+            direction,
+            SortingOrderFront,
+            SortingOrderBack);
 
         _mainHandRenderer.sortingOrder = order;
         // The weapon-pose hand is the LeftHand renderer that also carries OffHandGrip.
         _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(
-            frontFacing,
+            CharacterVisualDirectionResolver.IsFrontFacing(direction),
             SortingOrderFront,
             SortingOrderBack,
             _weaponPoseHandRenderer.sortingOrder);
         RefreshOffHandSprite(direction);
         if (_weaponDriven)
         {
-            _weaponPoseHandRenderer.sortingOrder = frontFacing
-                ? WeaponPoseHandSortingOrderFront
-                : _weaponPoseHandBaseSortingOrder;
+            _weaponPoseHandRenderer.sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(
+                direction,
+                WeaponPoseHandSortingOrderFront,
+                _weaponPoseHandBaseSortingOrder);
         }
+
+        RefreshAttackVfxPivot(followsAim, mirrored, CharacterVisualDirectionResolver.IsFrontFacing(direction));
     }
 
-    // Free aim overrides what the Animator just wrote: the weapon orbits the anchor toward the aim and the hands
-    // follow its grips. The body keeps its bucketed animation, and the hand sprites keep the body bucket.
-    // Returns whether the weapon draws in front of the body.
-    private bool ApplyFreeAimPose(Vector2 bodyFacing)
+    // The attack VFX of a free-aim weapon anchors to the hand-held pivot, in the Animator root space it lives in.
+    private void RefreshAttackVfxPivot(bool followsAim, bool mirrored, bool frontFacing)
     {
-        Vector2 aim = ResolveRenderAim(bodyFacing);
-        // The stance offset lives in the aim frame, so the weapon orbits the body at its radius.
-        Vector2 anchor = FreeAimAnchor.Resolve(aim, _mainHandStanceOffset);
-        RangedWeaponAimPose pose = RangedWeaponAimPoseMath.Resolve(
-            aim,
-            anchor,
-            _mainHandGripPoint,
-            _mainHandSecondaryGripPoint,
-            _mainHandAngleCorrection,
-            new Vector2(_mainHandWeaponVisualBaseScale.x, _mainHandWeaponVisualBaseScale.y));
-
-        if (_weaponDriven)
-        {
-            SetPose(_weaponPose, anchor, Quaternion.identity);
-        }
-
-        _mainHandWeaponPivot.localPosition = Vector3.zero;
-        _mainHandWeaponPivot.localRotation = Quaternion.Euler(0f, 0f, pose.PivotAngleDegrees);
-        _mainHandWeaponPivot.localScale = new Vector3(
-            _mainHandWeaponPivotBaseScale.x,
-            Mathf.Abs(_mainHandWeaponPivotBaseScale.y) * (pose.Mirrored ? -1f : 1f),
-            _mainHandWeaponPivotBaseScale.z);
-        ApplyMainHandVisualPose(pose.Mirrored);
-
-        _mainHandGrip.localPosition = _mainHandGripBasePosition;
-        // A weapon-driven weapon is held by the left hand; a one-handed hand-held weapon leaves the left hand to
-        // the Animator, which keeps carrying its shield.
-        FreeAimHandTargets hands = FreeAimHandAssignment.Resolve(_weaponDriven, _mainHandTwoHanded, pose);
-        if (hands.DrivesRightHand)
-        {
-            SetPose(_mainHand, hands.RightHand, Quaternion.identity);
-        }
-
-        if (hands.DrivesLeftHand)
-        {
-            SetPose(_offHand, hands.LeftHand, Quaternion.identity);
-        }
-
-        _freeAimPoseApplied = true;
-        if (_attackVfx != null)
-        {
-            _attackVfx.SetFreeAimPivot(
-                anchor,
-                pose.PivotAngleDegrees,
-                pose.Mirrored,
-                pose.FrontFacing);
-        }
-
-        return pose.FrontFacing;
-    }
-
-    private Vector2 ResolveRenderAim(Vector2 bodyFacing)
-    {
-        Vector2 aim = Vector2.zero;
-        Vector2 fallback = bodyFacing;
-        bool smooth = false;
-        if (_aimSource != null && _aimSource.Object != null && _aimSource.Object.IsValid)
-        {
-            aim = _aimSource.AimDirection;
-            fallback = _aimSource.FacingDirection;
-            // The owning player renders its own cursor immediately; only proxies smooth the sampled aim.
-            smooth = !_aimSource.Object.HasInputAuthority;
-        }
-
-        _renderAim = AimDirectionSmoothing.Resolve(
-            aim,
-            fallback,
-            _renderAim,
-            _hasRenderAim,
-            Time.deltaTime,
-            RemoteAimTurnRateDegreesPerSecond,
-            smooth);
-        _hasRenderAim = true;
-        return _renderAim;
-    }
-
-    // Writes a point expressed in the visual root's space onto a transform that sits beneath it.
-    private void SetPose(Transform target, Vector2 visualRootPoint, Quaternion localRotation)
-    {
-        target.localPosition = target.parent.InverseTransformPoint(
-            _visualRoot.TransformPoint(new Vector3(visualRootPoint.x, visualRootPoint.y, 0f)));
-        target.localRotation = localRotation;
-    }
-
-    // Leaving free aim hands the transforms back at their authored rest, so a clip without a curve for one of
-    // them does not inherit the last free-aim pose.
-    private void ReleaseFreeAimPose()
-    {
-        if (!_freeAimPoseApplied)
+        if (_attackVfx == null)
         {
             return;
         }
 
-        _freeAimPoseApplied = false;
-        if (_attackVfx != null)
+        if (!followsAim)
         {
             _attackVfx.ClearFreeAimPivot();
+            return;
         }
 
-        _weaponPose.SetLocalPositionAndRotation(_weaponPoseBasePosition, _weaponPoseBaseRotation);
-        _mainHand.SetLocalPositionAndRotation(_mainHandBasePosition, _mainHandBaseRotation);
-        _offHand.SetLocalPositionAndRotation(_offHandBasePosition, _offHandBaseRotation);
-        _mainHandGrip.localPosition = _mainHandGripBasePosition;
+        Transform visualRoot = _animatorView.transform;
+        Vector3 anchor = visualRoot.InverseTransformPoint(_mainHandWeaponPivot.position);
+        Vector3 axis = visualRoot.InverseTransformDirection(_mainHandWeaponPivot.right);
+        _attackVfx.SetFreeAimPivot(
+            new Vector2(anchor.x, anchor.y),
+            Mathf.Atan2(axis.y, axis.x) * Mathf.Rad2Deg,
+            mirrored,
+            frontFacing);
     }
 
     private void CacheDependencies()
@@ -492,7 +390,6 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _downedState ??= root.GetComponent<PlayerDownedStateNetworkController>();
         _character ??= root.GetComponent<CharacterBase>();
         _attackVfx ??= root.GetComponentInChildren<PlayerAttackVfxPresenter>(true);
-        _aimSource ??= root.GetComponent<PlayerMovementNetworkController>();
     }
 
     private void CaptureBaseState()
@@ -506,29 +403,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
         _mainHandWeaponPivotBaseScale = _mainHandWeaponPivot.localScale;
         _mainHandWeaponVisualBaseScale = _mainHandWeaponVisual.localScale;
-        CaptureFreeAimRestPose();
         _weaponPoseHandBaseSortingOrder = _weaponPoseHandRenderer != null ? _weaponPoseHandRenderer.sortingOrder : 0;
         _hasCapturedBaseState = true;
-    }
-
-    private void CaptureFreeAimRestPose()
-    {
-        if (_weaponPose == null || _mainHandGrip == null || _offHandGrip == null ||
-            _mainHandGrip.parent == null || _offHandGrip.parent == null)
-        {
-            return;
-        }
-
-        _visualRoot = _weaponPose.parent;
-        _mainHand = _mainHandGrip.parent;
-        _offHand = _offHandGrip.parent;
-        _weaponPoseBasePosition = _weaponPose.localPosition;
-        _weaponPoseBaseRotation = _weaponPose.localRotation;
-        _mainHandBasePosition = _mainHand.localPosition;
-        _mainHandBaseRotation = _mainHand.localRotation;
-        _mainHandGripBasePosition = _mainHandGrip.localPosition;
-        _offHandBasePosition = _offHand.localPosition;
-        _offHandBaseRotation = _offHand.localRotation;
     }
 
     private bool CanReadEquipmentState()
