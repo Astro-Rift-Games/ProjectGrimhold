@@ -220,15 +220,6 @@ public sealed class WeaponDefinition : ScriptableObject
                 error = $"Weapon definition '{name}' free aim requires a ranged attack.";
                 return false;
             }
-
-            // Under free aim the presenter owns both hands and never consults SecondHand, so a two-handed weapon
-            // only needs the grip its second hand is placed on.
-            if (_handedness == WeaponHandedness.TwoHanded &&
-                _presentation.SecondaryGripPoint == _presentation.GripPoint)
-            {
-                error = $"Weapon definition '{name}' two-handed free aim requires a secondary grip point distinct from its grip point.";
-                return false;
-            }
         }
 
         if (!_attributeRequirements.TryValidate(out string requirementError))

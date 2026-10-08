@@ -40,7 +40,6 @@ namespace Tests.EditMode.Combat
             Assert.That(_weapon.PrimaryAttack, Is.InstanceOf<RangedAttackConfig>(), weaponName);
 
             SetAimMode(_weapon, WeaponAimMode.FreeAim);
-            EnsureDistinctSecondaryGrip(_weapon);
 
             Assert.That(_weapon.TryValidate(out string error), Is.True, error);
         }
@@ -65,7 +64,6 @@ namespace Tests.EditMode.Combat
             Assert.That(_weapon.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
 
             SetAimMode(_weapon, WeaponAimMode.FreeAim);
-            EnsureDistinctSecondaryGrip(_weapon);
 
             Assert.That(_weapon.TryValidate(out string error), Is.True, error);
         }
@@ -73,24 +71,10 @@ namespace Tests.EditMode.Combat
         [TestCase("MagicStaff")]
         [TestCase("LongBow")]
         [TestCase("LightCrossbow")]
-        public void FreeAim_OnTwoHandedWeaponWithoutADistinctSecondaryGrip_IsRejected(string weaponName)
+        public void FreeAim_OnTwoHandedWeapon_KeepsTheAuthoredHandsAndNeedsNoSecondaryGrip(string weaponName)
         {
             _weapon = Load(weaponName);
             Assert.That(_weapon.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded), weaponName);
-
-            SetAimMode(_weapon, WeaponAimMode.FreeAim);
-            SetSecondaryGrip(_weapon, _weapon.Presentation.GripPoint);
-
-            Assert.That(_weapon.TryValidate(out string error), Is.False, weaponName);
-            Assert.That(error, Does.Contain("secondary grip"));
-        }
-
-        [Test]
-        public void FreeAim_OnOneHandedWeapon_DoesNotNeedASecondaryGrip()
-        {
-            _weapon = Load("MagicWand");
-            Assert.That(_weapon.Handedness, Is.EqualTo(WeaponHandedness.OneHanded));
-
             SetAimMode(_weapon, WeaponAimMode.FreeAim);
             SetSecondaryGrip(_weapon, _weapon.Presentation.GripPoint);
 
@@ -116,9 +100,6 @@ namespace Tests.EditMode.Combat
             Assert.That(asset, Is.Not.Null, name);
             return Object.Instantiate(asset);
         }
-
-        private static void EnsureDistinctSecondaryGrip(WeaponDefinition weapon) =>
-            SetSecondaryGrip(weapon, weapon.Presentation.GripPoint + new Vector2(0f, -0.3f));
 
         private static void SetSecondaryGrip(WeaponDefinition weapon, Vector2 point)
         {

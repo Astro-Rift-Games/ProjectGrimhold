@@ -28,7 +28,7 @@ MonoBehaviour:
     _attribute: 4
     _coefficient: 0
   _presentation:
-    _stanceOffset: {x: 0.3, y: 0}
+    _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.375}
     _angleCorrection: -90
     _attackAnimationSet: {fileID: 11400000, guid: 3dc8a124b1794856b858e3ad0aef1293, type: 2}
