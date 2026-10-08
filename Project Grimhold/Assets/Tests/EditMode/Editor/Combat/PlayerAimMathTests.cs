@@ -120,5 +120,49 @@ namespace Tests.EditMode.Combat
 
             Assert.That(facing, Is.EqualTo(Vector2.down));
         }
+
+        [Test]
+        public void ResolveAimDirection_ValidAim_ReturnsDirectionFromPosition()
+        {
+            PlayerNetworkInput input = new PlayerNetworkInput { AimWorldPosition = new Vector2(5f, 1f) };
+
+            Vector2 aim = PlayerAimMath.ResolveAimDirection(in input, new Vector2(2f, -3f), Vector2.down);
+
+            Assert.That(aim.x, Is.EqualTo(0.6f).Within(0.0001f));
+            Assert.That(aim.y, Is.EqualTo(0.8f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ResolveAimDirection_ZeroSentinel_KeepsPreviousAim()
+        {
+            PlayerNetworkInput input = new PlayerNetworkInput { AimWorldPosition = Vector2.zero };
+            Vector2 previous = new Vector2(1f, 0f);
+
+            Vector2 aim = PlayerAimMath.ResolveAimDirection(in input, new Vector2(3f, 3f), previous);
+
+            Assert.That(aim, Is.EqualTo(previous));
+        }
+
+        [Test]
+        public void ResolveAimDirection_AimAtOwnPosition_KeepsPreviousAim()
+        {
+            PlayerNetworkInput input = new PlayerNetworkInput { AimWorldPosition = new Vector2(3f, 3f) };
+            Vector2 previous = new Vector2(0f, 1f);
+
+            Vector2 aim = PlayerAimMath.ResolveAimDirection(in input, new Vector2(3f, 3f), previous);
+
+            Assert.That(aim, Is.EqualTo(previous));
+        }
+
+        [Test]
+        public void ResolveAimDirection_NonFiniteAim_KeepsPreviousAim()
+        {
+            PlayerNetworkInput input = new PlayerNetworkInput { AimWorldPosition = new Vector2(float.NaN, 1f) };
+            Vector2 previous = new Vector2(-1f, 0f);
+
+            Vector2 aim = PlayerAimMath.ResolveAimDirection(in input, Vector2.one, previous);
+
+            Assert.That(aim, Is.EqualTo(previous));
+        }
     }
 }

@@ -49,6 +49,12 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     public Vector2 FacingDirection { get; private set; }
 
+    /// <summary>
+    /// Continuous cursor aim, independent of locomotion facing. Ranged weapons shoot and render along it.
+    /// </summary>
+    [Networked]
+    public Vector2 AimDirection { get; private set; }
+
     [Networked]
     public NetworkBool IsMoving { get; private set; }
 
@@ -85,6 +91,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
             FacingDirection =
                 PlayerAimMath.NormalizeInitialFacing(_defaultFacingDirection);
+            AimDirection = FacingDirection;
             IsMoving = false;
         }
     }
@@ -165,6 +172,10 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 (Vector2)transform.position,
                 FacingDirection,
                 isDefenseAccepted);
+            AimDirection = PlayerAimMath.ResolveAimDirection(
+                in input,
+                (Vector2)transform.position,
+                AimDirection);
         }
     }
 
@@ -349,6 +360,25 @@ internal static class PlayerAimMath
 
         Vector2 delta = aimWorldPosition - origin;
         return TryNormalizeDirection(delta, out direction);
+    }
+
+    /// <summary>
+    /// Resolves the continuous aim from the input cursor. A zero cursor is the "no aim" sentinel
+    /// (suppressed input or missing camera), so the previous aim is kept.
+    /// </summary>
+    internal static Vector2 ResolveAimDirection(
+        in PlayerNetworkInput input,
+        Vector2 finalPosition,
+        Vector2 previousAim)
+    {
+        if (input.AimWorldPosition == Vector2.zero)
+        {
+            return previousAim;
+        }
+
+        return TryResolveDirection(finalPosition, input.AimWorldPosition, out Vector2 aim)
+            ? aim
+            : previousAim;
     }
 
     /// <summary>
