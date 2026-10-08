@@ -7,7 +7,7 @@ public enum WeaponAimMode : byte
     /// <summary>The visual follows the baked six-bucket animation facing.</summary>
     BakedFacing = 0,
 
-    /// <summary>The visual orbits the player and follows the continuous 360 degree aim direction.</summary>
+    /// <summary>The visual turns about the holding hand to follow the continuous 360 degree aim direction.</summary>
     FreeAim = 1,
 
     /// <summary>
