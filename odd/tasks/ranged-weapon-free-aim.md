@@ -27,8 +27,14 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - [x] T7b Validation consistency: under FreeAim the presenter owns both hands and `SecondHand` is not consulted (relax T4 HandHeld rejection); two-handed FreeAim requires `SecondaryGripPoint` distinct from `GripPoint`. Route: delegated writer, TDD.
 - [x] T7c0 Per-weapon configurable projectile spawn distance on `WeaponDefinition` (follows the per-weapon `_attackReleaseSeconds` precedent; shared `RangePlayerAttackConfig` today forces 0.7 for every player ranged weapon) + `StanceOffset` interpreted in the aim frame (x = orbit radius, y = mirrored lateral). User decision 2026-10-08: projectile spawns at the visual tip; each weapon owns its spawn point. Enemies/traps keep their config value. Route: delegated writer, TDD.
 - [x] T7c Asset values on five ranged weapons: `FreeAim`, `StanceOffset` derived from `_attackOrigin` in VisualRoot space, `SecondaryGripPoint` from baked clips; acceptance = max delta between free-aim shot/cast origin and projectile spawn at 8 aims per weapon. Route: delegated writer + Unity MCP.
-- [ ] T7d Visual check (Play Mode capture or user 360° sweep) and one tuning pass. Route: Unity MCP / user.
+- [ ] T7d (FAILED on hands, superseded by T8) Visual check (Play Mode capture or user 360° sweep) and one tuning pass. Route: Unity MCP / user.
 - [ ] T7e Architecture docs (PlayerCombatArchitecture, PlayerMovementArchitecture; Host Migration note for `AimDirection`). Route: delegated writer.
+
+- [ ] T8 Rework after failed visual acceptance (2026-10-08). User Play Mode: 360° aim works, but hand animations are lost/incoherent while attacking and moving. Cause: the FreeAim branch overwrites the Animator-driven hands/WeaponPose every LateUpdate with release-frame grips, and the body faces movement while hands follow aim. User decisions: (1) with a FreeAim weapon equipped the body visually faces the aim's six-direction bucket (presentation only; `FacingDirection`, simulation, melee, defense unchanged); (2) the hand holding the weapon is the anchor and the weapon follows the hand, never the reverse.
+  - [ ] T8a Presentation facing: `CharacterAnimatorView` uses `AimDirection` as visual facing while a FreeAim weapon is equipped (walk animation keeps playing). Route: delegated writer, TDD.
+  - [ ] T8b Hands authored again: Animator plays hand/weapon rig in the aim bucket; remove procedural hand pinning; weapon attached at the holding hand's grip (left hand for bows/crossbow, right hand for wand/staff) and rotated by the residual angle (aim minus bucket canonical) to the exact aim. Route: delegated writer, TDD.
+  - [ ] T8c Remove obsolete paths after checking consumers: `FreeAimHandAssignment`, procedural `SecondaryGripPoint` pinning and its validation rule, aim-frame `StanceOffset` orbit; re-contract `FreeAimSpawnConsistencyTests` to a measured tolerance (rigid hand-anchored weapon cannot match a fixed spawn distance in every bucket). Keep T1/T2, per-weapon spawn distance, smoothing, execution order, VFX push. Route: delegated writer.
+  - [ ] T8d User Play Mode re-check.
 
 ## Evidence
 - T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
@@ -57,4 +63,4 @@ Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing`
 - Native review T7a–T7c slice (7399dfed..2e14d3fc): assessed medium, `slice_budget_reached`; user declined (candidate-scoped). Next review base: 2e14d3fc.
 
 ## Next step
-T7d visual sweep in a real Play Mode session by the user (incl. aiming opposite the walk direction, remote proxy), then T7e Architecture docs.
+T8a–T8c via delegated writer, then T8d user re-check, then T7e docs.
