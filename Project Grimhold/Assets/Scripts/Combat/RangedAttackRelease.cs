@@ -38,7 +38,10 @@ public struct RangedAttackRelease : INetworkStruct
             Direction = direction,
             Prefab = config.ProjectilePrefab,
             ImpactMask = config.ImpactLayerMask.value,
-            SpawnOffset = config.ProjectileSpawnOffset,
+            // The weapon owns its spawn point when it sets one; the committed value then travels with the snapshot.
+            SpawnOffset = parameters.HasProjectileSpawnDistance
+                ? parameters.ProjectileSpawnDistance
+                : config.ProjectileSpawnOffset,
             Speed = config.ProjectileSpeed,
             Lifetime = config.LifetimeSeconds,
             Damage = parameters.Damage,

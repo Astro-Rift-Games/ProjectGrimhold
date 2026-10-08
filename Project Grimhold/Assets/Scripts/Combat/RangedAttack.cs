@@ -135,7 +135,9 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
         Vector2 projectileOrigin =
             request.Origin +
             normalizedDirection *
-            _config.ProjectileSpawnOffset;
+            (_runtimeParameters.HasProjectileSpawnDistance
+                ? _runtimeParameters.ProjectileSpawnDistance
+                : _config.ProjectileSpawnOffset);
 
         ProjectileSpawnRequest spawnRequest =
             new ProjectileSpawnRequest(

@@ -41,6 +41,57 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void WeaponSpawnDistance_ReplacesTheConfigOffsetAndSurvivesSnapshotCopy()
+        {
+            var parameters = new AttackExecutionParameters(28f, DamageType.Physical, 0.1f, 6f, 3f, 0.45f, 1.25f);
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, parameters, 0.02f), Is.True);
+            RangedAttackRelease restored = release;
+
+            Assert.That(restored.TryConsume(123, new EntityId(7), new Vector2(1f, 1f), out var shot), Is.True);
+
+            Assert.That(shot.Origin.x, Is.EqualTo(1f + 0.6f * 1.25f).Within(0.00001f));
+            Assert.That(shot.Origin.y, Is.EqualTo(1f + 0.8f * 1.25f).Within(0.00001f));
+        }
+
+        [Test]
+        public void WeaponSpawnDistance_ZeroIsAnExplicitValueNotAnAbsentOne()
+        {
+            var parameters = new AttackExecutionParameters(28f, DamageType.Physical, 0.1f, 6f, 3f, 0.45f, 0f);
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, parameters, 0.02f), Is.True);
+
+            Assert.That(release.TryConsume(123, new EntityId(7), new Vector2(2f, 2f), out var shot), Is.True);
+
+            Assert.That(shot.Origin, Is.EqualTo(new Vector2(2f, 2f)));
+        }
+
+        [Test]
+        public void WithoutAWeaponSpawnDistance_EnemiesKeepTheConfigOffset()
+        {
+            var enemyParameters = new AttackExecutionParameters(28f, DamageType.Physical, 0.1f, 6f, 3f, 0.45f);
+            Assert.That(enemyParameters.HasProjectileSpawnDistance, Is.False);
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, enemyParameters, 0.02f), Is.True);
+
+            Assert.That(release.TryConsume(123, new EntityId(7), Vector2.zero, out var shot), Is.True);
+
+            Assert.That(shot.Origin.magnitude, Is.EqualTo(Config.ProjectileSpawnOffset).Within(0.00001f));
+        }
+
+        [TestCase(-0.1f)]
+        [TestCase(float.NaN)]
+        [TestCase(float.PositiveInfinity)]
+        public void InvalidWeaponSpawnDistance_IsRejected(float distance)
+        {
+            var parameters = new AttackExecutionParameters(28f, DamageType.Physical, 0.1f, 6f, 3f, 0.45f, distance);
+
+            Assert.That(parameters.TryValidate(out _), Is.False);
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, parameters, 0.02f), Is.False);
+        }
+
+        [Test]
         public void PendingShot_PreventsOverwriteEvenWhenCooldownWouldHaveExpired()
         {
             RangedAttackRelease release = default;

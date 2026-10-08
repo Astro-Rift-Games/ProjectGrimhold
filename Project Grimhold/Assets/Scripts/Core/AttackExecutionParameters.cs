@@ -16,8 +16,19 @@ public struct AttackExecutionParameters
     [SerializeField, Min(0f)] private float _knockbackForce;
 
     [SerializeField, Min(0f)] private float _releaseDelaySeconds;
+    [SerializeField] private bool _hasProjectileSpawnDistance;
+    [SerializeField, Min(0f)] private float _projectileSpawnDistance;
 
     public float ReleaseDelaySeconds => _releaseDelaySeconds;
+
+    /// <summary>
+    /// Whether the equipped weapon owns where its projectile leaves from. Without it the ranged config's spawn
+    /// offset applies, as it does for enemies and traps.
+    /// </summary>
+    public bool HasProjectileSpawnDistance => _hasProjectileSpawnDistance;
+
+    /// <summary>Distance along the aim from the attack origin to the projectile spawn. Meaningful only when set.</summary>
+    public float ProjectileSpawnDistance => _projectileSpawnDistance;
     public float Damage => _damage;
     public DamageType DamageType => _damageType;
     public float CooldownSeconds => _cooldownSeconds;
@@ -30,8 +41,11 @@ public struct AttackExecutionParameters
         float cooldownSeconds,
         float range,
         float knockbackForce,
-        float releaseDelaySeconds = 0f)
+        float releaseDelaySeconds = 0f,
+        float? projectileSpawnDistance = null)
     {
+        _hasProjectileSpawnDistance = projectileSpawnDistance.HasValue;
+        _projectileSpawnDistance = projectileSpawnDistance ?? 0f;
         _damage = damage;
         _damageType = damageType;
         _cooldownSeconds = cooldownSeconds;
@@ -45,6 +59,12 @@ public struct AttackExecutionParameters
         if (!IsFinite(_releaseDelaySeconds) || _releaseDelaySeconds < 0f)
         {
             error = "Release delay must be finite and non-negative.";
+            return false;
+        }
+
+        if (_hasProjectileSpawnDistance && (!IsFinite(_projectileSpawnDistance) || _projectileSpawnDistance < 0f))
+        {
+            error = "Projectile spawn distance must be finite and non-negative.";
             return false;
         }
 

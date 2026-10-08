@@ -1258,7 +1258,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             weaponDefinition.AttackIntervalSeconds,
             weaponDefinition.Range,
             weaponDefinition.KnockbackForce,
-            weaponDefinition.AttackReleaseSeconds);
+            weaponDefinition.AttackReleaseSeconds,
+            weaponDefinition.HasProjectileSpawnDistance ? weaponDefinition.ProjectileSpawnDistance : null);
         if (!parameters.TryValidate(out _))
         {
             return false;

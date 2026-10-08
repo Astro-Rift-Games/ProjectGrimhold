@@ -108,6 +108,19 @@ namespace Tests.EditMode.Combat
         }
 
         [UnityTest]
+        public IEnumerator Execute_WithAWeaponSpawnDistance_UsesItInsteadOfTheConfigOffset()
+        {
+            yield return CreateValidAttack(spawnSucceeds: true);
+            var parameters = new AttackExecutionParameters(10f, DamageType.Physical, 1f, 6f, 1f, 0f, 1.5f);
+            Assert.That(_attack.TryConfigure(_config, parameters), Is.True);
+
+            _attack.Execute(new AttackRequest(new EntityId(1), new Vector2(2f, 3f), Vector2.right, 10));
+
+            Assert.AreEqual(3.5f, _spawner.LastRequest.Origin.x, 0.0001f);
+            Assert.AreEqual(3f, _spawner.LastRequest.Origin.y, 0.0001f);
+        }
+
+        [UnityTest]
         public IEnumerator TryConfigure_UpdatesAllRuntimeParametersWithoutMutatingConfig()
         {
             yield return CreateValidAttack(spawnSucceeds: true);

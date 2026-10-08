@@ -15,6 +15,10 @@ public sealed class WeaponDefinition : ScriptableObject
     [FormerlySerializedAs("_rangedReleaseSeconds")]
     private float _attackReleaseSeconds;
     [SerializeField, Min(0f)] private float _range;
+    [SerializeField, Tooltip("Ranged only. When set, the projectile leaves this far along the aim from the attack origin instead of the shared ranged config's spawn offset, so the shot can start at the weapon tip.")]
+    private bool _overrideProjectileSpawnDistance;
+    [SerializeField, Min(0f), Tooltip("Distance along the aim from the attack origin to the projectile spawn. Used only when the override is set.")]
+    private float _projectileSpawnDistance;
     [SerializeField, Min(0f)] private float _staminaCost;
     [SerializeField] private DamageType _damageType = DamageType.Physical;
     [SerializeField, Min(0f)] private float _knockbackForce;
@@ -47,6 +51,8 @@ public sealed class WeaponDefinition : ScriptableObject
     public float BaseDamage => _baseDamage;
     public float AttackIntervalSeconds => _attackIntervalSeconds;
     public float AttackReleaseSeconds => _attackReleaseSeconds;
+    public bool HasProjectileSpawnDistance => _overrideProjectileSpawnDistance;
+    public float ProjectileSpawnDistance => _projectileSpawnDistance;
     public float Range => _range;
     public float StaminaCost => _staminaCost;
     public DamageType DamageType => _damageType;
@@ -82,6 +88,18 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!IsFinite(_attackReleaseSeconds) || _attackReleaseSeconds < 0f)
         {
             error = $"Weapon definition '{name}' has invalid attack release delay.";
+            return false;
+        }
+
+        if (!IsFinite(_projectileSpawnDistance) || _projectileSpawnDistance < 0f)
+        {
+            error = $"Weapon definition '{name}' has invalid projectile spawn distance '{_projectileSpawnDistance}'.";
+            return false;
+        }
+
+        if (_overrideProjectileSpawnDistance && _primaryAttack is not RangedAttackConfig)
+        {
+            error = $"Weapon definition '{name}' overrides the projectile spawn distance but is not ranged.";
             return false;
         }
 
