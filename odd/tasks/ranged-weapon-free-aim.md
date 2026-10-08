@@ -17,16 +17,20 @@ Out of scope: gamepad right-stick aim (no input action exists), clip regeneratio
 Substantial ODD, no SDD. Branch `feat/ranged-weapon-free-aim` from `New-Testing` (be0a3913). Strict TDD enabled (global CLAUDE.md); runner: Unity Test Framework via Unity MCP `run_tests` (EditMode/PlayMode). Writer delegation: units touch 2+ non-trivial files. Delivery strategy: ask-on-risk.
 
 ## Tasks
-- [ ] T1 Networked `AimDirection` + `PlayerAimMath.ResolveAimDirection` (zero sentinel keeps previous aim; restore-safe init). Route: delegated writer.
-- [ ] T2 Ranged path in `TryExecuteAttack` uses `AimDirection`; melee keeps `FacingDirection`. Route: delegated writer.
-- [ ] T3 `RangedWeaponAimPoseMath` pure type + EditMode tests. Route: delegated writer.
-- [ ] T4 `WeaponAimMode` in `PresentationConfig` + validation tests. Route: delegated writer.
+- [x] T1 Networked `AimDirection` + `PlayerAimMath.ResolveAimDirection` (zero sentinel keeps previous aim; restore-safe init). Route: delegated writer.
+- [x] T2 Ranged path in `TryExecuteAttack` uses `AimDirection`; melee keeps `FacingDirection`. Route: delegated writer.
+- [x] T3 `RangedWeaponAimPoseMath` pure type + EditMode tests. Route: delegated writer.
+- [x] T4 `WeaponAimMode` in `PresentationConfig` + validation tests. Route: delegated writer.
 - [ ] T5 `PlayerWeaponPresenter` free-aim override for both rigs (+ prefab anchor if needed). Route: delegated writer + Unity MCP inspection.
 - [ ] T6 Free-aim VFX anchoring (bow shot, Cast Flash). Route: delegated writer.
 - [ ] T7 Set `FreeAim` on five ranged assets; update PlayerCombatArchitecture.md and PlayerMovementArchitecture.md. Route: delegated writer.
 
 ## Evidence
-(none yet)
+- T1 `2bcabb38`: RED = compile errors (`ResolveAimDirection` missing). GREEN = EditMode job c5138816 PlayerAimMathTests 24/24; PlayerMovementRulesTests job 28be9075 23/23.
+- T2 `e6181542`: direction choice extracted to pure `PlayerAimMath.TryResolveAttackDirection` (PlayMode fixture drives a full Fusion runner; no per-direction seam). RED = compile errors. GREEN = EditMode job bbcf1e5c PlayerAimMathTests 30/30; PlayMode job 5acf105c PlayerCombatNetworkControllerPlayModeTests 13/13.
+- T4 `d513c4f7`: RED = compile error (`WeaponAimMode` missing). GREEN = EditMode job e44ec145 WeaponAimModeValidationTests 6/6.
+- T3 `2d06f5ea`: RED = compile error (`RangedWeaponAimPose` missing). GREEN = EditMode job 470c2d17 RangedWeaponAimPoseMathTests (211 incl. ranged cases) all passed.
+- Regression: PlayerWeaponPresentationMathTests job c7aca975 31/32; the one failure (`PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy`) loads `NetworkPlayerMelee/Ranged.prefab`, which are not tracked in git (pre-existing). Full EditMode job 262b2a59 has other pre-existing failures (missing prefabs, unrelated) and also regenerated `.anim` files, which were reverted.
 
 ## Next step
-T1–T4 via one delegated writer.
+T5 presenter free-aim override. Open: `StanceOffset` is not consumed by any runtime script (only validated), so T5 needs its own anchor.
