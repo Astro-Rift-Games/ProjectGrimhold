@@ -5220,6 +5220,7 @@ GameObject:
   - component: {fileID: -977575455703964601}
   - component: {fileID: -2736405989838392395}
   - component: {fileID: 987654321012345678}
+  - component: {fileID: 704239012396382804}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5327,6 +5328,8 @@ MonoBehaviour:
     RawValue: 0
   _FacingDirection: {x: 0, y: 0}
   _IsMoving:
+    RawValue: 0
+  _IsImmobilized:
     RawValue: 0
   _IsAttacking:
     RawValue: 0
@@ -5568,6 +5571,7 @@ MonoBehaviour:
   - {fileID: 4419076183045921921}
   - {fileID: -977575455703964601}
   - {fileID: -2736405989838392395}
+  - {fileID: 704239012396382804}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -5827,6 +5831,18 @@ MonoBehaviour:
   _targetId: 
   _zoneId: 
   _defeatProgressAmount: 1
+--- !u!114 &704239012396382804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90f7460743e805f4281d562e79d43e76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ImmobilizeEffect
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

@@ -266,6 +266,28 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 }
             }
 
+            // Enemies are spawned (dynamic) objects, so the effect on an enemy is restored here. The effect's own
+            // timers and values are copied state; only its source, a player avatar, needs remapping. A source that
+            // is not in the snapshot (for example a player who left) cancels the effect instead of aborting the
+            // whole restore: the damage must never be credited to a stale or reused EntityId.
+            if (obj.TryGetBehaviour<ImmobilizeEffect>(out var immobilize) && immobilize.HasRestoredActiveEffect)
+            {
+                EntityId oldSource = new EntityId(immobilize.GetRestoredSourceEntityIdValue());
+                NetworkId oldNetId = new NetworkId { Raw = (uint)oldSource.Value };
+                if (oldSource.Value != 0 &&
+                    _restoredDynamicObjects.TryGetValue(oldNetId, out NetworkObject resolvedDynamic))
+                {
+                    immobilize.SetRestoredSourceEntityId(new EntityId((int)resolvedDynamic.Id.Raw));
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        $"[HostMigrationSnapshotRestorer] Cancelled a restored ImmobilizeEffect: its source {oldSource.Value} is not part of the snapshot.",
+                        this);
+                    immobilize.CancelRestoredEffect();
+                }
+            }
+
             if (obj.TryGetBehaviour<PlayerExtractionController>(out var e))
             {
                 EntityId oldZone = new EntityId(e.GetRestoredActiveZoneIdValue());

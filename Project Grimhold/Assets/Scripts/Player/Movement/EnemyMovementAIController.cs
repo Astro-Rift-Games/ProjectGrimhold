@@ -135,6 +135,13 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [Networked] public NetworkBool IsMoving { get; private set; }
 
     /// <summary>
+    /// True while an external effect (for example the Trap's immobilize) holds the enemy in place. Independent of
+    /// <see cref="IsControlEnabled"/>, which the FSM states rewrite on every transition. It zeroes voluntary
+    /// displacement only: knockback, sensing, facing and attacking are unaffected.
+    /// </summary>
+    [Networked] public NetworkBool IsImmobilized { get; private set; }
+
+    /// <summary>
     /// True when the enemy has an active target within attack range.
     /// Written exclusively by EvaluateActiveTarget; read by EnemyFSM states and EnemyCombatAIController.
     /// </summary>
@@ -215,6 +222,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             if (!HostMigrationRestoreUtility.IsRestoreSpawn(this))
             {
                 IsControlEnabled = true;
+                IsImmobilized = false;
 
                 Vector2 initialFacing = _defaultFacingDirection.sqrMagnitude > 0.001f
                     ? _defaultFacingDirection.normalized
@@ -317,7 +325,11 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         Vector2 moveDirection = ComputeMoveDirection();
 
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
-        bool canMove = IsControlEnabled && isAlive;
+        // IsImmobilized is deliberately separate from IsControlEnabled (rewritten by every FSM state Enter). It
+        // zeroes only the voluntary displacement below: the knockback block stays untouched, and attacking never
+        // reads this value. Feeding it into canMove also makes an attacking, held enemy keep facing its target
+        // (UpdateFacingDirection) and stops pursuit facing from following a path it cannot walk.
+        bool canMove = IsControlEnabled && isAlive && !IsImmobilized;
 
         UpdateFacingDirection(moveDirection, canMove, isAlive);
 
@@ -361,6 +373,21 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         }
 
         IsControlEnabled = enabled;
+        return true;
+    }
+
+    /// <summary>
+    /// Authoritatively holds or releases the enemy in place (see <see cref="IsImmobilized"/>).
+    /// Requires State Authority.
+    /// </summary>
+    public bool TrySetImmobilized(bool immobilized)
+    {
+        if (!HasStateAuthority)
+        {
+            return false;
+        }
+
+        IsImmobilized = immobilized;
         return true;
     }
 
