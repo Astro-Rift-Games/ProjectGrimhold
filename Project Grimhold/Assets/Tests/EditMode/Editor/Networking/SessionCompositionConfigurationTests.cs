@@ -435,7 +435,7 @@ public sealed class SessionCompositionConfigurationTests
             "_staminaController", "_combatController", "_extractionController",
             "_extractionProgressController", "_lootTransferController", "_lootDropController",
             "_consumableController", "_weaponEquipmentController", "_cameraShakeBinder",
-            "_cameraShakeConfig"
+            "_cameraShakeConfig", "_abilityHudPresenter", "_abilityController", "_manaController"
         };
         for (int index = 0; index < hudDependencyFields.Length; index++)
         {

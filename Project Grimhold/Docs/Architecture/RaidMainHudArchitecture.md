@@ -205,6 +205,39 @@ may retarget `LocalCameraController`, but never rebinds HUD or authority to the 
 - **Session Abandonment and Return**: A living player preserves the existing authoritative abandonment contract. A defeated Client sends one `NetworkRaidParticipant.RequestReturn()` intent; State Authority records the generation-scoped Controlled Return before setting `IsReturnAuthorized`. Views never shut down runners or load scenes directly.
 
 
+## Ability HUD (`RaidAbilityHudPresenter` / `RaidAbilityHudView`)
+
+The two universal ability slots (Q / E) are projected by `RaidAbilityHud`, a bottom-centered root beside `RaidCooldownHud` on `LocalGameplayHud`. It is presentation-only: no `[Networked]` field, no RPC and no simulation input are added, and it reflects **confirmed** state only.
+
+```text
+LocalPlayerHudBinder
+  -> RaidAbilityHudPresenter.Bind(PlayerAbilityRuntimeNetworkController,
+                                  PlayerManaNetworkController, PlayerStaminaNetworkController)
+      -> RaidAbilityHudView -> RaidAbilityHudSlotView x2
+```
+
+**Sources of truth.**
+
+| Element | Source |
+| --- | --- |
+| Slot empty / prepared, icon, key label | `TryGetSlot` -> `AbilityDefinition.Icon`; `TownAbilitySlotKeyLabels` |
+| Preparing / Executing | `AbilityExecutionSnapshot.Phase` from `TryGetExecutionSnapshot` |
+| Cooldown fill and seconds | `IsOnCooldown`, `GetRemainingCooldownSeconds`, total from `AbilityDefinition.CooldownSeconds` |
+| Insufficient resource | `PlayerManaNetworkController.CurrentMana` / `PlayerStaminaNetworkController.CurrentStamina` against `AbilityDefinition.Cost`; an unknown balance is never flagged |
+
+`RaidAbilityHudModelBuilder` is the pure, Fusion-free projection from slot facts to `RaidAbilityHudSlotModel` (Empty, Ready, OnCooldown, Preparing, Executing plus the insufficient-resource flag). Cooldown fill is the normalized remaining time and is zero for an invalid total; seconds are rounded up to tenths like the weapon cooldown. The presenter reads through the internal `IRaidAbilityHudSource` seam (adapter `RaidAbilityHudControllerSource`), which exists only so the lifecycle is testable without a runner.
+
+**Binding and baseline rule.** `Bind` always calls `Unbind` first, subscribes `ActivationRejected` / `ExecutionInterrupted` (raised only on the owning Input Authority peer) and owns one `AbilityFeedbackTracker` per slot. On bind and on every re-enable it calls `Baseline` with the *current* confirmed `(Sequence, Phase)`; when the runtime is unconfirmed it resets the tracker so the next sample is adopted silently. Restore, Host Migration, rebind and reactivation therefore never replay a start cue for an execution that was already running. `OnDisable` unsubscribes, clears observed state and empties the view; `OnEnable` resubscribes once.
+
+**Cues.**
+
+- A `Started` edge from a *confirmed* new sequence plays the started cue. This is the only success cue.
+- A rejection shows a short Spanish message keyed by `AbilityActivationFailure` (cooldown, insufficient resource, requirements, already executing, behaviour/plan rejected, aim unavailable, generic otherwise) with a brief red flash and shake. It never touches the trackers, so a rejection can never look like a started execution.
+- An interruption (every stop except completion and participation teardown, per `AbilityFeedbackPolicy`) shows a short "Interrumpida" message.
+- Messages expire on the presenter's unscaled clock; the HUD owns no gameplay clock.
+
+World VFX and audio for abilities are not part of this HUD.
+
 ## Alternatives not selected
 
 - A loot-value calculator or projection object would duplicate existing public behavior and add no variation point.

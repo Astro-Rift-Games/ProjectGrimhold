@@ -28,6 +28,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidTeammateHudPresenter _teammateHudPresenter;
 
     [SerializeField]
+    private RaidAbilityHudPresenter _abilityHudPresenter;
+
+    [SerializeField]
     private RaidMinimapPresenter _raidMinimapPresenter;
 
     [SerializeField]
@@ -50,6 +53,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     [SerializeField]
     private PlayerStaminaNetworkController _staminaController;
+
+    [SerializeField]
+    private PlayerManaNetworkController _manaController;
+
+    [SerializeField]
+    private PlayerAbilityRuntimeNetworkController _abilityController;
 
     [SerializeField]
     private PlayerCombatNetworkController _combatController;
@@ -165,7 +174,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
         if (_hudRoot == null || _interactionPresenter == null || _lootPresenter == null ||
             _inventoryPresenter == null || _raidHudPresenter == null || _teammateHudPresenter == null ||
-            _combatFeedbackPresenter == null ||
+            _combatFeedbackPresenter == null || _abilityHudPresenter == null ||
+            _abilityController == null || _manaController == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
             _lootTransferController == null || _lootDropController == null || _consumableController == null ||
             _weaponEquipmentController == null ||
@@ -212,6 +222,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _extractionProgressController,
             _assignmentService,
             _entityRegistry);
+        _abilityHudPresenter.Bind(_abilityController, _manaController, _staminaController);
         BindTeammateHud();
         if (_raidMinimapPresenter != null)
         {
@@ -251,6 +262,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidHudPresenter != null)
         {
             _raidHudPresenter.Unbind();
+        }
+
+        if (_abilityHudPresenter != null)
+        {
+            _abilityHudPresenter.Unbind();
         }
 
         if (_teammateHudPresenter != null)

@@ -113,6 +113,15 @@ namespace Tests.PlayMode.Presentation
             AssertObjectReference(serializedBinder, "_playerCharacter");
             AssertObjectReference(serializedBinder, "_staminaController");
             AssertObjectReference(serializedBinder, "_combatController");
+            AssertObjectReference(serializedBinder, "_abilityHudPresenter");
+            AssertObjectReference(serializedBinder, "_abilityController");
+            AssertObjectReference(serializedBinder, "_manaController");
+            Assert.That(prefab.GetComponentsInChildren<RaidAbilityHudPresenter>(true), Has.Length.EqualTo(1));
+            RaidAbilityHudView abilityView = prefab.GetComponentInChildren<RaidAbilityHudView>(true);
+            Assert.That(abilityView.Slot1.Icon, Is.Not.Null);
+            Assert.That(abilityView.Slot2.CooldownFill, Is.Not.Null);
+            Assert.That(abilityView.Slot1.KeyLabel, Is.Not.Null);
+            Assert.That(abilityView.Slot2.MessageText, Is.Not.Null);
             AssertObjectReference(serializedBinder, "_combatFeedbackPresenter");
             Assert.That(prefab.GetComponentsInChildren<CombatFeedbackPresenter>(true), Has.Length.EqualTo(1));
 
