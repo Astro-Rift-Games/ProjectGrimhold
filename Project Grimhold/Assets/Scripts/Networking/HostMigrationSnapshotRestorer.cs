@@ -249,6 +249,23 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 }
             }
 
+            if (obj.TryGetBehaviour<NetworkTrap>(out var trap))
+            {
+                EntityId oldCaster = new EntityId(trap.GetRestoredCasterEntityIdValue());
+                if (oldCaster.Value != 0)
+                {
+                    NetworkId oldNetId = new NetworkId { Raw = (uint)oldCaster.Value };
+                    if (_restoredDynamicObjects.TryGetValue(oldNetId, out NetworkObject resolvedDynamic))
+                    {
+                        trap.SetRestoredCasterEntityId(new EntityId((int)resolvedDynamic.Id.Raw));
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Cannot resolve old EntityId {oldCaster.Value} for NetworkTrap caster in dynamic objects.");
+                    }
+                }
+            }
+
             if (obj.TryGetBehaviour<PlayerExtractionController>(out var e))
             {
                 EntityId oldZone = new EntityId(e.GetRestoredActiveZoneIdValue());
