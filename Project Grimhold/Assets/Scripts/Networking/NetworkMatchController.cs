@@ -164,6 +164,24 @@ public sealed class NetworkMatchController : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Reopens or closes the session gate while the match is in progress,
+    /// allowing or denying reconnections.
+    /// </summary>
+    public void SetSessionReopenState(bool isOpen)
+    {
+        if (!HasStateAuthority || Phase != MatchPhase.InProgress)
+        {
+            return;
+        }
+
+        if (Runner.SessionInfo.IsOpen != isOpen)
+        {
+            Runner.SessionInfo.IsOpen = isOpen;
+            Debug.Log($"[NetworkMatchController] Session IsOpen set to {isOpen}.", this);
+        }
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority)

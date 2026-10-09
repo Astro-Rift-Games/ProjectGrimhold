@@ -1392,33 +1392,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
-        participantObject.AssignInputAuthority(player);
-        _runner.SetPlayerObject(player, participantObject);
-        _admittedPlayers.Add(player);
-        _spawnedPlayers[player] = participantObject;
-        _admittedProfiles[profileId.Value] = player;
-
-        if (participant.State == RaidParticipantState.Raiding)
+        if (!TryBindRetainedParticipant(profileId, player, participantObject, participant))
         {
-            if (!participant.TryResolveCurrentAvatar(out NetworkObject avatar) || avatar == null)
-            {
-                throw new InvalidOperationException(
-                    $"Raiding participant '{profileId}' has no restored avatar.");
-            }
-
-            avatar.AssignInputAuthority(player);
-            _spawnedAvatars[player] = avatar;
+            return false;
         }
 
         _hostMigrationRecoveredProfiles[profileId] = player;
         _hostMigrationUnresolvedProfiles.Remove(profileId);
         _earlyHostMigrationReconnects.Remove(profileId);
-        TryBindRecoveredLocalPresentation(profileId, player, participant);
-        SignalRosterChanged();
-        Debug.Log(
-            $"[HM-MULTI] Participant rebound. ProfileId={profileId}, NewPlayerRef={player}, " +
-            $"State={participant.State}.",
-            this);
         return true;
     }
 
@@ -2013,6 +1994,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (!allowJoin)
         {
+            if (TryValidateReconnectToken(token, out RaidReconnectPayload reconnectPayload))
+            {
+                if (!_disconnectedRegistry.IsRetained(reconnectPayload.ProfileId) ||
+                    !_disconnectedRegistry.TryGetRetainedParticipant(reconnectPayload.ProfileId, out NetworkObject participantObject) ||
+                    participantObject == null ||
+                    !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                    participant.State != RaidParticipantState.Raiding ||
+                    participant.RaidGenerationId.ToString() != reconnectPayload.RaidGenerationId)
+                {
+                    Debug.LogWarning($"[NetworkSpawnManager] Refusing reconnect request: invalid or not retained profile {reconnectPayload.ProfileId.Value}.");
+                    request.Refuse();
+                }
+                else 
+                {
+                    Debug.Log($"[NetworkSpawnManager] Accepting reconnect request for profile {reconnectPayload.ProfileId.Value}.");
+                }
+                return;
+            }
+
             Debug.LogWarning($"[NetworkSpawnManager] Refusing connection request from {request.RemoteAddress} because the match has already started (Phase: {_matchController?.Phase}) and it's not a valid Host Migration window.");
             request.Refuse();
         }
@@ -2111,6 +2111,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (_matchController == null)
             return false;
+
+        byte[] token = runner.GetPlayerConnectionToken(player);
+        if (TryValidateReconnectToken(token, out RaidReconnectPayload reconnectPayload))
+        {
+            if (TryHandleReconnectArrival(player, reconnectPayload))
+            {
+                return true;
+            }
+            return false;
+        }
 
         if (!TryGetJoinData(runner, player, out PlayerJoinData joinData))
         {
@@ -3801,6 +3811,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     participant);
                 
                 ReevaluateRetainedParticipantsFallback();
+                UpdateMatchSessionGate();
                 return;
 
             case PlayerDepartureAction.FinalizeDefeated:
@@ -3852,6 +3863,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Debug.Log($"Despawned participant for player {player}.");
 
         ReevaluateRetainedParticipantsFallback();
+        UpdateMatchSessionGate();
     }
 
     private bool HasEligibleDecider(NetworkRaidParticipant disconnectedParticipant)
@@ -4223,6 +4235,79 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _launchContext,
             _playerSpawnAreas,
             out failure);
+    }
+    private bool TryValidateReconnectToken(byte[] token, out RaidReconnectPayload payload)
+    {
+        return RaidReconnectPayloadCodec.TryDecode(token, out payload) && payload.IsValid;
+    }
+
+    private bool TryHandleReconnectArrival(PlayerRef player, RaidReconnectPayload payload)
+    {
+        if (!_disconnectedRegistry.IsRetained(payload.ProfileId) ||
+            !_disconnectedRegistry.TryGetRetainedParticipant(payload.ProfileId, out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+            participant.State != RaidParticipantState.Raiding ||
+            participant.RaidGenerationId.ToString() != payload.RaidGenerationId)
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Reconnect arrival rejected for {payload.ProfileId.Value}.");
+            return false;
+        }
+
+        if (TryBindRetainedParticipant(payload.ProfileId, player, participantObject, participant))
+        {
+            if (participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+            {
+                connectivity.IsDisconnected = false;
+            }
+            _disconnectedRegistry.Remove(payload.ProfileId);
+            
+            UpdateMatchSessionGate();
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryBindRetainedParticipant(
+        ProfileId profileId, 
+        PlayerRef player, 
+        NetworkObject participantObject, 
+        NetworkRaidParticipant participant)
+    {
+        participantObject.AssignInputAuthority(player);
+        _runner.SetPlayerObject(player, participantObject);
+        _admittedPlayers.Add(player);
+        _spawnedPlayers[player] = participantObject;
+        _admittedProfiles[profileId.Value] = player;
+
+        if (participant.State == RaidParticipantState.Raiding)
+        {
+            if (!participant.TryResolveCurrentAvatar(out NetworkObject avatar) || avatar == null)
+            {
+                throw new InvalidOperationException(
+                    $"Raiding participant '{profileId}' has no restored avatar.");
+            }
+
+            avatar.AssignInputAuthority(player);
+            _spawnedAvatars[player] = avatar;
+        }
+
+        TryBindRecoveredLocalPresentation(profileId, player, participant);
+        SignalRosterChanged();
+        Debug.Log(
+            $"[NetworkSpawnManager] Participant rebound. ProfileId={profileId}, NewPlayerRef={player}, State={participant.State}.",
+            this);
+        return true;
+    }
+
+    private void UpdateMatchSessionGate()
+    {
+        if (_matchController != null)
+        {
+            bool hasRetained = _disconnectedRegistry.HasUnresolvedRetainedParticipant();
+            _matchController.SetSessionReopenState(hasRetained);
+        }
     }
 }
 
