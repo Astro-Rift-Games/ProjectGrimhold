@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. Concrete abilities, targeting, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)); its implementation is deferred. Concrete abilities, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
@@ -230,6 +230,72 @@ For future periodic costs, each due payment must be complete; insufficient resou
 
 The Mana resource contract's deactivation responsibility in [Downed and Revive Architecture](DownedAndReviveArchitecture.md) is fulfilled through the ability runtime's authoritative stop boundary: it may request cessation of periodic Mana drain, but does not write ability phases or own the execution. No competing execution state is introduced.
 
+## Targeting
+
+This section is the technical mapping of Game Design "15 - Targeting de Habilidades" (TASK 210). It defines ownership and timing only; it adds no code, no gameplay rule and no numeric value. Radii and placement distances remain per-ability configuration owned by Balance and must not change a category or a validation rule.
+
+### Categories and technical owners
+
+| Category | Used by | Target source | Technical owner |
+| --- | --- | --- | --- |
+| Directional | Embestida, Proyectil Arcano | The captured aim direction; no entity is selected | Common runtime captures the direction; the concrete behavior consumes it |
+| Area from caster | Golpe Sísmico, Potenciar, Restauración, Purificación, Drenaje Vital | Entities inside a radius centered on the caster | Common runtime owns the start gate and the valid-target predicate; the concrete behavior owns the radius and the effect |
+| Automatic position | Trampa | A position derived from the caster and the captured aim | Common runtime captures the direction; the concrete behavior owns the distance and the ground validity check |
+| Self | Orbes Protectores | The caster, implicitly; no search | Concrete behavior; the common runtime performs no target search |
+
+The common runtime never chooses a category: the concrete `AbilityExecutionBehaviour` declares it through its authored configuration. No ability selects an entity manually, so no target-selection input, replicated target field or target lock exists.
+
+### Aim capture
+
+The ability runtime is the only reader of aim for abilities. It reads the already-networked `AimDirection` owned by `PlayerMovementNetworkController` (see [Player Movement Architecture](PlayerMovementArchitecture.md), "Aim direction", and [Player Combat Architecture](PlayerCombatArchitecture.md), "Shared aim direction") and does not redefine it. Because the runtime runs at order -8, after the movement boundary at -10, it sees the aim of the same simulation tick.
+
+- **When:** once, in the simulation boundary that accepts the activation. For Proyectil Arcano this is the start of Preparing; there is no later re-adjustment before instantiation. Embestida and Trampa capture at the same acceptance point.
+- **Who:** State Authority only. Input Authority transports the cursor through the existing input flow and never supplies an ability aim.
+- **Fixed:** the captured direction is part of the accepted execution. Later aim changes, stick or cursor movement, and facing changes do not alter it.
+- **Source rules:** an unusable aim (no aim sentinel, non-finite or near-zero) follows the existing `AimDirection` semantics, which keep the previous valid aim. The runtime adds no second fallback. Every direction is valid to start: a blocked trajectory never rejects a directional ability, it is resolved later by the ability's collision rules.
+- **Behaviors:** concrete behaviors receive the captured direction through the accepted execution context. They never read input, the cursor, `FacingDirection` or `AimDirection` themselves.
+
+### Start validation and resolution
+
+```text
+Accepted-intent tick
+  -> common preflight (phase, slot, attributes, cooldown, resource availability)
+  -> TryPlanStart: targeting start rules, side-effect-free
+  -> complete payment + sequence + cooldown + captured aim (one boundary)
+  -> Begin / Simulate ... resolve: revalidate targets, apply the effect once
+```
+
+- **Start rules** run inside the side-effect-free `TryPlanStart`, before payment, using the same predicate as resolution. Area abilities require at least one valid target in the area, where Self may satisfy an ally requirement. Trampa requires a valid ground position. Directional and Self abilities have no target requirement.
+- **Invalid attempt:** a failed targeting start rule is an activation failure before acceptance. It leaves resource, execution sequence and cooldown unchanged and produces the local feedback channel already used for rejections. No concrete behavior may discover a targeting failure after payment.
+- **Resolution:** an area is centered on the caster's position at the resolving tick, and its targets are rebuilt then. Membership comes from the radius; line of sight is not required. An entity that enters before resolving may be affected and one that leaves is not.
+- **Valid start, no targets at resolution:** the execution finishes normally without effect. Cost and cooldown are not refunded and the execution is not cancelled because its initial targets became invalid.
+- **Resolve once:** the effect application is tied to the accepted execution sequence, so resimulation, rebind or Host Migration do not apply it twice.
+
+### Single valid-target predicate
+
+One predicate answers whether an entity is a valid target for a given ability at a given tick. The start rules and the resolution step call the same predicate, so they cannot diverge. It combines:
+
+- the relationship to the caster (enemy, ally, with the caster counting as its own ally for ally abilities);
+- the common state conditions of the entity (alive, Downed, Stun and similar) read from their existing authoritative owners;
+- the ability's own particular conditions, supplied by the concrete behavior.
+
+The predicate evaluates conditions; it owns no state and caches no target set. Self never bypasses a particular condition: a Downed caster is not a valid Restauración target and a Stunned caster cannot self-execute Purificación.
+
+The definition of a valid enemy, including PvP and Downed characters, belongs to Game Design and is an open dependency of US-56. PvP also remains blocked until networking provides an authoritative ally/enemy affiliation contract (see [Player Combat Architecture](PlayerCombatArchitecture.md)). This section fixes where the decision is applied, not what it decides.
+
+### State, Host Migration and rebind
+
+The captured aim direction, and a derived Trampa position when it applies, are committed execution context in the per-slot snapshot together with the sequence and phase (see "Per-slot state" and "Host Migration"). They are written once at acceptance, are restored by Fusion state copy and are never recomputed from the current aim after rebind or migration. Area target sets are never stored: they are always rebuilt from the predicate at resolution. `Rebind` reuses the committed direction without `Begin`, payment or recapture. Presentation observes the confirmed direction and never drives it.
+
+### Planned extensions (described only)
+
+Trampa placement, Self and allied targets extend this contract without changing it. Trampa adds a ground validity check inside its `TryPlanStart` and a computed position in its committed context. Ally and Self areas feed the same predicate. Concrete behaviors consume the contract and make no structural targeting decision.
+
+### Known gaps
+
+- No right-stick aim action exists, so `AimDirection` comes only from the cursor; gamepad aim and neutral-stick direction retention are not implemented (see [Player Combat Architecture](PlayerCombatArchitecture.md), known limitations).
+- Restricting area effects by Dungeon room or logical space is a non-blocking pending of Game Design. Until it is decided, areas use radius membership only.
+
 ## Interruptions and Raid lifecycle
 
 Live Ability Design distinguishes voluntary movement, forced movement and configured incapacitating categories. Stun blocks/interrupts character actions; already-active effects may have explicitly declared persistence exceptions. Consumables are incompatible with execution; loot/object interaction requires execution to finish; Weapon Set changes require no other action except movement. This contract does not invent concrete CC implementations or movement constraints.
@@ -297,7 +363,7 @@ The following implementation belongs to later tasks; this document defines its c
 
 - execution-specific replicated fields and concrete behavior dispatch beyond the implemented slot-binding component;
 - periodic payment schedule/progress and concrete execution-specific behavior;
-- targeting and target validation;
+- implementation of the targeting contract (aim capture, start validation, the shared valid-target predicate and resolution-time revalidation);
 - concrete Mana consumers and restoration sources;
 - Status Effects, Assist, toggles, summons, and persistent spawned effects;
 - the Raid ability HUD, audio, VFX, and animation (the Town preparation UI is the Abilities tab of the Town player menu, see [Town Player Menu Architecture](TownPlayerMenuArchitecture.md): it reads the profile through `LocalProfileStore` and mutates prepared slots only through the Ready-gated `TownAbilityMutationEndpoint`);
@@ -335,10 +401,20 @@ Those tasks must extend this boundary rather than add a parallel catalog, persis
 | State surviving Host Migration identified | Host Migration |
 | Concrete abilities can extend behavior without replacing the base contract | Common runtime versus concrete behavior; Deferred implementation |
 
+| TASK 210 criterion | Architecture section |
+| --- | --- |
+| Each targeting category has an explicit technical owner | Targeting: Categories and technical owners |
+| Who captures aim and when is defined | Targeting: Aim capture |
+| Start and resolution use the same valid-target rule | Targeting: Start validation and resolution; Single valid-target predicate |
+| An invalid attempt produces no payment or cooldown | Targeting: Start validation and resolution; Activation and execution |
+| Existing aim contract referenced, not duplicated | Targeting: Aim capture |
+| Host Migration and rebind behavior | Targeting: State, Host Migration and rebind |
+| Extension and known gaps | Targeting: Planned extensions; Known gaps |
+
 ## References and validation boundary
 
 Technical integration follows [Player Combat Architecture](PlayerCombatArchitecture.md), [Raid Participant Architecture](RaidParticipantArchitecture.md), [Downed and Revive Architecture](DownedAndReviveArchitecture.md) and [Host Migration Recovery Architecture](HostMigrationRecoveryArchitecture.md). This document does not supersede their state owners or session policies.
 
-Gameplay rules were checked against the live owning documents: [Ability Design](https://docs.google.com/document/d/14pw5-NsV_lw4_YGj5AuPg5wJUXqg1TWm6YEozcr1sMY/edit) sections 7-11, [Mana](https://docs.google.com/document/d/1HPk4UFBF3gpVPlrpYpYveaj3GNepg_nSR_4Qy61izZI/edit) sections 4-12, [Downed and Revive](https://docs.google.com/document/d/1DQGj9THvTb0QtBdg0CT-WiMIbTI3j580ePjf-gznXGI/edit) section 5, and [States of the Game](https://docs.google.com/document/d/1j-1yZ6eiJacTdVl4EOya570zt1pvVNYtWvXHDo2orDk/edit) section 13. Those documents own gameplay intent; architecture owns the technical mapping.
+Gameplay rules were checked against the live owning documents: [Ability Design](https://docs.google.com/document/d/14pw5-NsV_lw4_YGj5AuPg5wJUXqg1TWm6YEozcr1sMY/edit) sections 7-11, [Ability Targeting](https://docs.google.com/document/d/1sLRrRTRbIBl0vTDwweju3hjIr-DGvcphCqBPusdirZo/edit) sections 4-9, [Mana](https://docs.google.com/document/d/1HPk4UFBF3gpVPlrpYpYveaj3GNepg_nSR_4Qy61izZI/edit) sections 4-12, [Downed and Revive](https://docs.google.com/document/d/1DQGj9THvTb0QtBdg0CT-WiMIbTI3j580ePjf-gznXGI/edit) section 5, and [States of the Game](https://docs.google.com/document/d/1j-1yZ6eiJacTdVl4EOya570zt1pvVNYtWvXHDo2orDk/edit) section 13. Those documents own gameplay intent; architecture owns the technical mapping.
 
 TASK 444 is verified by structural readback, cross-contract consistency, acceptance traceability and a focused documentation diff. It does not prove Unity composition or runtime behavior. Later implementation must validate zero/one/two prepared slots, rejected/accepted/interrupted execution, authoritative payment, independent cooldowns, retained disconnect/reconnect, Downed/revive, terminal cleanup and migration without duplicate payment/resolution. Actual Host Migration proof requires the multi-process scenario specified by its owning architecture.
