@@ -256,7 +256,7 @@ namespace Tests.PlayMode.Abilities
                     var catalog = (AbilityDefinitionCatalog)typeof(PlayerAbilityRuntimeNetworkController)
                         .GetField("_catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
                     Assert.That(catalog.TryGet(new AbilityId("charge"), out var definition), Is.True);
-                    var behaviour = instance.gameObject.AddComponent<ChargeAbilityBehaviour>();
+                    var behaviour = instance.GetComponent<ChargeAbilityBehaviour>(); // The prefab composes it; the tuning is overridden per test.
                     SetField(behaviour, "_definition", definition, typeof(AbilityExecutionBehaviour));
                     SetField(behaviour, "_distance", distance);
                     SetField(behaviour, "_speed", speed);

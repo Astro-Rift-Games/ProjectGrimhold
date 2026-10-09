@@ -40,8 +40,62 @@ public sealed class PlayerAbilityRuntimeCompositionTests
             Is.EqualTo(1 << LayerMask.NameToLayer("Character")),
             "Creature damage hitboxes live on the Character layer, like the melee target mask.");
         Assert.That(finder.IsConfigured, Is.True);
-        Assert.That(serialized.FindProperty("_executionBehaviours").arraySize, Is.Zero,
-            "Concrete effects are not implemented by TASK447; production must not compose a placeholder.");
         Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(runtimes[0]));
+    }
+
+    [Test]
+    public void RaidAvatar_ComposesChargeAndSeismicStrikeOnceEachWithTheirCanonicalDefinitions()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var runtime = prefab.GetComponent<PlayerAbilityRuntimeNetworkController>();
+        var charge = prefab.GetComponents<ChargeAbilityBehaviour>();
+        var seismic = prefab.GetComponents<SeismicStrikeAbilityBehaviour>();
+        Assert.That(charge, Has.Length.EqualTo(1));
+        Assert.That(seismic, Has.Length.EqualTo(1));
+        Assert.That(charge[0].Definition,
+            Is.SameAs(AssetDatabase.LoadAssetAtPath<AbilityDefinition>(
+                "Assets/Scriptable Objects/Abilities/Definitions/ChargeDefinition.asset")));
+        Assert.That(seismic[0].Definition,
+            Is.SameAs(AssetDatabase.LoadAssetAtPath<AbilityDefinition>(
+                "Assets/Scriptable Objects/Abilities/Definitions/SeismicStrikeDefinition.asset")));
+        Assert.That(charge[0].Definition.Id, Is.EqualTo("charge"));
+        Assert.That(seismic[0].Definition.Id, Is.EqualTo("seismic_strike"));
+
+        var bindings = new SerializedObject(runtime).FindProperty("_executionBehaviours");
+        Assert.That(bindings.arraySize, Is.EqualTo(2));
+        var registered = new[]
+        {
+            bindings.GetArrayElementAtIndex(0).objectReferenceValue,
+            bindings.GetArrayElementAtIndex(1).objectReferenceValue
+        };
+        Assert.That(registered, Does.Contain(charge[0]));
+        Assert.That(registered, Does.Contain(seismic[0]));
+        Assert.That(registered[0], Is.Not.SameAs(registered[1]), "No behaviour is registered twice.");
+
+        // Mirrors the runtime's own binding validation: canonical catalog definitions, no duplicates, same avatar.
+        var catalog = (AbilityDefinitionCatalog)new SerializedObject(runtime).FindProperty("_catalog").objectReferenceValue;
+        foreach (AbilityExecutionBehaviour behaviour in registered)
+        {
+            Assert.That(behaviour.gameObject, Is.SameAs(prefab));
+            Assert.That(catalog.TryGetId(behaviour.Definition, out _), Is.True);
+        }
+        Assert.That(((AbilityExecutionBehaviour)registered[0]).Definition,
+            Is.Not.SameAs(((AbilityExecutionBehaviour)registered[1]).Definition));
+    }
+
+    [Test]
+    public void RaidAvatar_ChargeTargetsTheLayersOfTheCreatureDamageColliders()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var chargeMask = new SerializedObject(prefab.GetComponent<ChargeAbilityBehaviour>())
+            .FindProperty("_targetLayerMask").intValue;
+        var finderMask = new SerializedObject(prefab.GetComponent<AbilityAreaTargetFinder>())
+            .FindProperty("_targetLayerMask").intValue;
+        Assert.That(chargeMask, Is.Not.Zero);
+        Assert.That(chargeMask, Is.EqualTo(finderMask), "Charge and the area finder both target the creature hitbox layers.");
+        Assert.That(chargeMask, Is.EqualTo(1 << LayerMask.NameToLayer("Character")));
+        var enemy = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemies/NetworkEnemy.prefab");
+        Assert.That(enemy.layer, Is.EqualTo(LayerMask.NameToLayer("Character")),
+            "The creature root hitbox layer is the one both abilities target.");
     }
 }

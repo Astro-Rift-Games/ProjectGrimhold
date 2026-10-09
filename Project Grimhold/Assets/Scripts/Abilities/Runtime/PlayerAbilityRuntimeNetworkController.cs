@@ -171,6 +171,23 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Asks every active execution, Slot1 then Slot2, to stop for <paramref name="reason"/> through
+    /// <see cref="TryInterrupt"/>, so each behavior still decides whether a non-mandatory reason applies.
+    /// Returns how many executions stopped. Same authority and forward-simulation rules as <see cref="TryInterrupt"/>.
+    /// </summary>
+    public int InterruptActiveExecutions(AbilityExecutionStopReason reason)
+    {
+        int interrupted = 0;
+        if (TryInterruptActive(UniversalAbilitySlot.Slot1, reason)) interrupted++;
+        if (TryInterruptActive(UniversalAbilitySlot.Slot2, reason)) interrupted++;
+        return interrupted;
+    }
+
+    private bool TryInterruptActive(UniversalAbilitySlot slot, AbilityExecutionStopReason reason) =>
+        TryGetExecutionSnapshot(slot, out var snapshot) && snapshot.IsActive &&
+        TryInterrupt(slot, snapshot.Sequence, reason);
+
     private AbilityActivationFailure TryStartExecution(UniversalAbilitySlot slot)
     {
         if (!TryBuildContext(slot, out var context) || !_playerCharacter.IsAlive ||

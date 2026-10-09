@@ -1032,6 +1032,64 @@ namespace Tests.PlayMode.Abilities
             Assert.That(target.IsInitialized, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator PlayerKnockback_InterruptsOnlyTheActiveExecutionsThatAcceptIt()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-knockback",
+                new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("seismic_strike"))), true,
+                "charge", "seismic_strike");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviours = runtime.GetComponents<TestAbilityExecutionBehaviour>();
+            foreach (var behaviour in behaviours) behaviour.PreparingSeconds = 5f;
+            var interruptible = behaviours[0];
+            var steady = behaviours[1];
+            steady.Interruptible = false;
+            yield return PressBothSlots();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var firstAccepted);
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot2, out var secondAccepted);
+            Assert.That(firstAccepted.IsActive && secondAccepted.IsActive, Is.True, "Both executions are accepted.");
+
+            yield return InSimulation(() =>
+                runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.right, 6f));
+
+            Assert.That(interruptible.Stops, Is.EqualTo(1));
+            Assert.That(interruptible.LastStop, Is.EqualTo(AbilityExecutionStopReason.Knockback));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var first);
+            Assert.That(first.IsActive, Is.False);
+            Assert.That(first.Cooldown.IsRunning, Is.True, "An interrupted execution keeps its cooldown.");
+            Assert.That(steady.Stops, Is.Zero, "An execution that declares an exception keeps running.");
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot2, out var second);
+            Assert.That(second.IsActive, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerKnockback_WithoutForce_DoesNotInterrupt()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-knockback-zero",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.PreparingSeconds = 5f;
+            yield return PressSlot1();
+
+            yield return InSimulation(() =>
+                runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.right, 0f));
+
+            Assert.That(behaviour.Stops, Is.Zero, "A push that does not apply is not a knockback.");
+            Assert.That(runtime.HasActiveExecution, Is.True);
+        }
+
+        private IEnumerator PressBothSlots()
+        {
+            _inputDriver.Buttons = default;
+            yield return WaitTicks();
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot1, true);
+            _inputDriver.Buttons.Set(PlayerInputButton.AbilitySlot2, true);
+            yield return WaitTicks();
+        }
+
         private IEnumerator StartRunner()
         {
             var runnerObject = new GameObject("AbilityRuntimeTestRunner");

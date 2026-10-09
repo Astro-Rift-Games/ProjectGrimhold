@@ -7,6 +7,7 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
     public bool RejectStart;
     public float PreparingSeconds;
     public bool Complete;
+    public bool Interruptible = true;
     public int Begins;
     public int Stops;
     public int Rebinds;
@@ -37,7 +38,7 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
             return new AbilityExecutionPlan(AbilityExecutionPhase.Executing);
         return new AbilityExecutionPlan(snapshot.Phase);
     }
-    public override bool CanInterrupt(AbilityExecutionStopReason reason) => true;
+    public override bool CanInterrupt(AbilityExecutionStopReason reason) => Interruptible;
     public override void Stop(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot,
         AbilityExecutionStopReason reason)
     {

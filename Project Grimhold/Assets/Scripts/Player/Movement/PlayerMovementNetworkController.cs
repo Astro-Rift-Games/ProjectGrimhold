@@ -107,6 +107,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private CharacterBase _characterBase;
     private PlayerDownedStateNetworkController _downedState;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private NetworkMatchController _matchController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
 
@@ -296,6 +297,12 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Add to velocity so it decays over time.
         KnockbackVelocity += impactDirection.normalized * force;
+
+        // A push that applied is a Knockback: interruptible executions stop, the rest decide for themselves.
+        if (_abilityRuntime != null)
+        {
+            _abilityRuntime.InterruptActiveExecutions(AbilityExecutionStopReason.Knockback);
+        }
     }
 
     /// <summary>
@@ -444,6 +451,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_equipmentController == null)
         {
             _equipmentController = GetComponent<PlayerWeaponEquipmentNetworkController>();
+        }
+
+        if (_abilityRuntime == null)
+        {
+            _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
         }
     }
 
