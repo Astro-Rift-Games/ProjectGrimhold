@@ -1,3 +1,4 @@
+using System;
 using Fusion;
 using UnityEngine;
 
@@ -301,7 +302,30 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     }
 #endif
 
+    /// <summary>Raised on the owning Input Authority peer when State Authority rejected a slot activation.</summary>
+    public event Action<UniversalAbilitySlot, AbilityActivationFailure> ActivationRejected;
+
+    /// <summary>Raised on the owning Input Authority peer when State Authority stopped an active execution early.</summary>
+    public event Action<UniversalAbilitySlot, AbilityExecutionStopReason> ExecutionInterrupted;
+
+    // One-shot presentation notices: not state, never read by simulation, never replayed on restore or rebind.
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_NotifyActivationRejected(byte slot, byte failure) =>
+        ActivationRejected?.Invoke((UniversalAbilitySlot)slot, (AbilityActivationFailure)failure);
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_NotifyExecutionInterrupted(byte slot, byte reason) =>
+        ExecutionInterrupted?.Invoke((UniversalAbilitySlot)slot, (AbilityExecutionStopReason)reason);
+
     private AbilityActivationFailure TryStartExecution(UniversalAbilitySlot slot)
+    {
+        var failure = TryStartExecutionCore(slot);
+        if (HasStateAuthority && Runner != null && Runner.IsForward && AbilityFeedbackPolicy.ShouldNotifyRejection(failure))
+            RPC_NotifyActivationRejected((byte)slot, (byte)failure);
+        return failure;
+    }
+
+    private AbilityActivationFailure TryStartExecutionCore(UniversalAbilitySlot slot)
     {
         if (!TryBuildContext(slot, out var context) || !_playerCharacter.IsAlive ||
             PlayerDownedGate.IsDowned(_playerCharacter)) return AbilityActivationFailure.PlayerUnavailable;
@@ -393,6 +417,8 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         state.PhaseDeadline = TickTimer.None;
         state.AimDirection = default; // The callback still receives the captured direction through `stopped`.
         WriteExecution(slot, state); // Commit before callback: no repeated completion/reentrant stop.
+        if (Runner != null && Runner.IsForward && AbilityFeedbackPolicy.ShouldNotifyInterruption(reason))
+            RPC_NotifyExecutionInterrupted((byte)slot, (byte)reason);
         var behaviour = ReadBehaviour(slot);
         // Stop must not depend on live slot binding: the cached behaviour survives a transient unresolve.
         if (behaviour != null && TryBuildStopContext(slot, behaviour, out var context)) behaviour.Stop(context, stopped, reason);

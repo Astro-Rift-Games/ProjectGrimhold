@@ -337,6 +337,12 @@ Trampa placement, Self and allied targets extend this contract without changing 
 - `Physics2DAttackTargetQuery` reads at most 64 colliders per query (`_colliderBufferSize`) and silently drops the rest. Area queries share that limit, and the `Character` layer also holds player hitboxes, so a very dense area could omit valid enemies. The buffer is unchanged by TASK 212.
 - As with melee, the query does not synchronize Physics2D transforms first; it observes the physics state of the last step.
 
+## Presentation feedback signals
+
+Presentation observes confirmed state and never advances simulation. Start, phase change and end are derived on every peer from the copied `(Sequence, Phase)` of each slot by `AbilityFeedbackTracker`, which adopts its first sample silently so restore, Host Migration, rebind and presenter reactivation never replay an old activation.
+
+The two outcomes that are not visible in copied state reach only the owning client, as one-shot RPCs from State Authority to Input Authority: `ActivationRejected(slot, AbilityActivationFailure)` and `ExecutionInterrupted(slot, AbilityExecutionStopReason)` on `PlayerAbilityRuntimeNetworkController`. They are notifications, not state: they add no `[Networked]` field, are never read by simulation, are sent only in forward simulation, and are not restored or replayed. `AbilityFeedbackPolicy` decides which outcomes notify (every rejection; every stop except completion and participation teardown).
+
 ## Interruptions and Raid lifecycle
 
 Live Ability Design distinguishes voluntary movement, forced movement and configured incapacitating categories. Stun blocks/interrupts character actions; already-active effects may have explicitly declared persistence exceptions. Consumables are incompatible with execution; loot/object interaction requires execution to finish; Weapon Set changes require no other action except movement. This contract does not invent concrete CC implementations or movement constraints.

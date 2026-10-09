@@ -233,7 +233,12 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => runtime.IsInitialized);
             var mana = GetMana(runtime);
             yield return InSimulation(() => mana.GetType().GetProperty("CurrentMana").SetValue(mana, 1f));
+            var rejections = new System.Collections.Generic.List<(UniversalAbilitySlot, AbilityActivationFailure)>();
+            runtime.ActivationRejected += (slot, failure) => rejections.Add((slot, failure));
             yield return PressSlot1();
+            yield return WaitUntil(() => rejections.Count > 0);
+            Assert.That(rejections, Is.EqualTo(new[] { (UniversalAbilitySlot.Slot1, AbilityActivationFailure.InsufficientResource) }),
+                "The owner is told once about the rejection; it is never reported as a start.");
             Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.InsufficientResource));
             Assert.That(ReadMana(mana), Is.EqualTo(1f));
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var state);
