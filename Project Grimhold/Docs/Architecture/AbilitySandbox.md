@@ -24,7 +24,7 @@ The Host connects through Photon, so a working network connection and Fusion app
 `F9` toggles the IMGUI panel. Tabs:
 
 - **Player**: Health set/refill, Mana refill, god mode, infinite mana, teleport, reset cooldowns, attribute offsets (step, +/-, reset), equipment from `LootDefinitionCatalog` (Weapon Set A/B, Off Hand option) and per-slot unequip.
-- **Abilities**: pick Slot 1 and Slot 2 from the catalog and apply. Entries without an execution behaviour are shown as "no behaviour" and cannot be selected. Live readout per slot: remaining cooldown, execution phase, last activation failure; plus Mana and Stamina.
+- **Abilities**: **Ignore session rules** checkbox (default ON), then pick Slot 1 and Slot 2 from the catalog and apply. Every catalog ability is listed with its attribute requirement next to the live value (for example `needs Strength 10 (current 12)`). Entries without an execution behaviour are shown as "(no behaviour - cannot cast)" and cannot be selected. Live readout per slot: remaining cooldown, execution phase, last activation failure; plus Mana and Stamina.
 - **Enemies**: kind (melee, ranged, dummy), count, pattern (ring, grid, line), spacing, spawn at player, clear all.
 - **Dummy**: last damage, total damage and hit count per dummy and in total, reset.
 
@@ -64,3 +64,16 @@ All mutations run on State Authority. Any peer may submit a request through an R
 T4 adds no production-script changes: the launcher is a new Editor-only script and the scene is new.
 
 See also: [Ability System Architecture](AbilitySystemArchitecture.md).
+
+## Ignore session rules
+
+`SandboxPlayerController.IgnoreSessionRules` is a networked flag that State Authority sets to `true` at spawn and the Abilities tab can toggle. Each tick the controller pushes it to `PlayerAbilityRuntimeNetworkController.SandboxSetIgnoreSessionRules(bool)`.
+
+- **Skipped when ON**: the cast-time attribute-requirement check (`SandboxRuleBypass.EvaluateRequirements`). Slot selection already bypasses profile unlock, Town and the prepared loadout (`SandboxOverrideSlots`; `AbilityRuntimeSlots.TryCreate` only checks shape and catalog membership).
+- **Still enforced**: alive/downed, match phase (it is `InProgress` in the sandbox), cooldown, resource cost (use Reset cooldowns / infinite mana; stamina has no refill hook), aim and behaviour rules (for example Seismic Strike needs an enemy in range).
+- **Limitation**: only Charge and Seismic Strike have an execution behaviour. The other catalog abilities are listed but cannot be cast; they are not selectable.
+- **Attribute tool**: the override controller accepts only +/-1 and +/-5 and one pending request per tick. The sandbox facade now splits any step (1..10, total up to 50) into supported steps and dispatches one per Fusion tick, so clicks are no longer dropped.
+
+### Production hooks added (dev-guarded)
+
+- `PlayerAbilityRuntimeNetworkController.SandboxIgnoreSessionRules { get; }` and `bool SandboxSetIgnoreSessionRules(bool enabled)` (State Authority only, default off), consulted in `TryStartExecution`.

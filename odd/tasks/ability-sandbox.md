@@ -16,6 +16,7 @@ Dev-only sandbox scene to test abilities: fully customizable player, any number/
 - [x] T2 Dummy prefab + `SandboxEnemySpawner` — route: delegated writer
 - [x] T3 Player customization RPCs + ability slot/cooldown/resource hooks (+tests) — route: delegated writer
 - [x] T4 Sandbox UI + scene + launcher + `Docs/Architecture/AbilitySandbox.md` — route: delegated writer
+- [x] T5 Ignore session rules + attribute tool fix + ability list/requirement UI (+tests) — route: delegated writer
 
 ## Acceptance
 - Dummy is hit by abilities, records damage, never loses health, receives knockback.
@@ -39,6 +40,11 @@ Dev-only sandbox scene to test abilities: fully customizable player, any number/
 - T4 Play Mode OBSERVED (Editor, Host): scene loaded as raid scene, state Raid, match InProgress, 1 player spawned (100/100 HP), no errors on start. Via code calls (not the IMGUI): slots set to Charge/Seismic Strike (both bound), 1 dummy + 2 melee spawned (SpawnedCount 3), direct dummy ApplyDamage(25) kept HP 1000 and logged total 25 / 1 hit, god mode refilled HP 40 -> 100. Console: `EnemyCombatAIController requires a component implementing IAttack` x2 from the `NetworkEnemy` melee prefab (no IAttack assigned; production spawn list uses only the ranged variant).
 - T4 NOT validated: F9 panel rendering/clicks, ability casts, ability damage, knockback, equipment, teleport, attributes, Client peer, built player, stamina.
 - T4 commit: see git log (`feat(sandbox): add ability sandbox scene, panel and docs`).
+- T5 root cause OBSERVED in Play Mode (Host): attribute tool worked only for steps 1 and 5 (`RuntimeAttributeOverrideNetworkController.IsSupportedAdjustment`); the panel allowed steps 1..10, so steps 2-4 and 6-10 were rejected, and a second request in the same tick returned false (one pending slot). Persisted Strength was 5 (Charge needs 10, Seismic Strike 15); with bypass OFF both casts returned `RequirementsNotMet`. Match phase was InProgress, player alive. Seismic Strike `BehaviourRejected` = no enemy in range (normal rule).
+- T5 fix: `SandboxRuleBypass` (pure) + `SandboxPlayerController` attribute queue (split into +/-1/+/-5, one per tick) + `IgnoreSessionRules` (default ON) + hook `PlayerAbilityRuntimeNetworkController.SandboxSetIgnoreSessionRules`. RED = CS0103 `SandboxRuleBypass` missing (observed). GREEN = `Tests.EditMode.Sandbox` + `Tests.EditMode.Abilities` 145/145 (14 new), 0 failed; 0 CS errors.
+- T5 OBSERVED: +7 then +3 queued back-to-back took Strength 5 -> 15; with Strength 5 and bypass OFF, TryStartExecution returned RequirementsNotMet for Charge and Seismic Strike; with bypass ON it passed that gate and returned InsufficientResource (called outside Fusion simulation, where `TrySpend` cannot mutate, so this is a test-harness artifact, stamina was 100/100).
+- T5 NOT validated: real input cast end to end (phase/damage/knockback), IMGUI checkbox/labels rendering and clicks, Client peer, built player, the 7 abilities without behaviour (cannot be cast by design).
+- T5 commit: see git log (`feat(sandbox): bypass session rules and requirements for ability testing`).
 
 ## Known follow-ups
 - Add a dev-guarded `SandboxRefill()` to `PlayerStaminaNetworkController` (stamina refill/infinite stamina).

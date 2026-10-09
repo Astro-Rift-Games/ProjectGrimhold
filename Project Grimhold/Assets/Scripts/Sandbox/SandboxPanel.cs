@@ -304,6 +304,12 @@ public sealed class SandboxPanel : MonoBehaviour
             return;
         }
 
+        bool ignoreRules = GUILayout.Toggle(
+            _player.IgnoreSessionRules, "Ignore session rules (skip attribute requirements when casting)");
+        if (ignoreRules != _player.IgnoreSessionRules)
+            Report(_player.RequestSetIgnoreSessionRules(ignoreRules), "Ignore session rules");
+        GUILayout.Label("Resource, cooldown and aim rules still apply. Abilities with no behaviour cannot be cast.");
+
         GUILayout.Label($"Slot 1: {SlotName(_state.Slot1Index)}    Slot 2: {SlotName(_state.Slot2Index)}");
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Apply to player"))
@@ -311,6 +317,13 @@ public sealed class SandboxPanel : MonoBehaviour
         if (GUILayout.Button("Clear Slot 1")) _state.ClearSlot(1);
         if (GUILayout.Button("Clear Slot 2")) _state.ClearSlot(2);
         GUILayout.EndHorizontal();
+
+        bool hasAttributes = false;
+        CharacterAttributeState effective = default;
+        if (_participant != null)
+        {
+            hasAttributes = _participant.TryGetCharacterAttributeState(out effective);
+        }
 
         IReadOnlyList<AbilityDefinition> definitions = _abilityCatalog.Definitions;
         for (int i = 0; i < definitions.Count; i++)
@@ -323,7 +336,9 @@ public sealed class SandboxPanel : MonoBehaviour
 
             bool hasBehaviour = _abilityRuntime != null && _abilityRuntime.SandboxHasBehaviour(definition.AbilityId);
             GUILayout.BeginHorizontal();
-            GUILayout.Label(hasBehaviour ? definition.DisplayName : $"{definition.DisplayName} (no behaviour)");
+            GUILayout.Label(
+                SandboxRuleBypass.DescribeAbility(definition.DisplayName, hasBehaviour) +
+                RequirementSuffix(definition, hasAttributes, effective));
             GUI.enabled = hasBehaviour;
             if (GUILayout.Button("Slot 1", GUILayout.Width(60f))) SelectAbility(1, i, hasBehaviour);
             if (GUILayout.Button("Slot 2", GUILayout.Width(60f))) SelectAbility(2, i, hasBehaviour);
@@ -342,6 +357,26 @@ public sealed class SandboxPanel : MonoBehaviour
         DrawSlotReadout(UniversalAbilitySlot.Slot1);
         DrawSlotReadout(UniversalAbilitySlot.Slot2);
         GUILayout.Label($"{ManaText()}   {StaminaText()}");
+    }
+
+    private static string RequirementSuffix(
+        AbilityDefinition definition, bool hasAttributes, in CharacterAttributeState effective)
+    {
+        IReadOnlyList<CharacterAttributeRequirement> requirements = definition.AttributeRequirements.Requirements;
+        if (requirements.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var text = new System.Text.StringBuilder();
+        foreach (CharacterAttributeRequirement requirement in requirements)
+        {
+            int? current = hasAttributes && effective.TryGetValue(requirement.Attribute, out int value) ? value : (int?)null;
+            text.Append("  [").Append(SandboxRuleBypass.DescribeRequirement(
+                requirement.Attribute.ToString(), requirement.MinimumValue, current)).Append(']');
+        }
+
+        return text.ToString();
     }
 
     private void DrawSlotReadout(UniversalAbilitySlot slot)

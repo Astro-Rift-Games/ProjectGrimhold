@@ -28,7 +28,29 @@ public sealed class SandboxPlayerController : NetworkBehaviour
         RefillMana = 6,
         SetGodMode = 7,
         SetInfiniteMana = 8,
-        Teleport = 9
+        Teleport = 9,
+        SetIgnoreSessionRules = 10
+    }
+
+    private enum AttributeOpKind : byte
+    {
+        Adjust = 0,
+        Reset = 1,
+        ResetAll = 2
+    }
+
+    private readonly struct AttributeOp
+    {
+        public readonly AttributeOpKind Kind;
+        public readonly CharacterAttribute Attribute;
+        public readonly int Amount;
+
+        public AttributeOp(AttributeOpKind kind, CharacterAttribute attribute = default, int amount = 0)
+        {
+            Kind = kind;
+            Attribute = attribute;
+            Amount = amount;
+        }
     }
 
     private readonly struct Request
@@ -50,12 +72,24 @@ public sealed class SandboxPlayerController : NetworkBehaviour
     }
 
     private const int MaxPendingRequests = 32;
+    private const int MaxPendingAttributeOps = 64;
+    private const int MaxAttributeDispatchFailures = 120;
 
     [SerializeField] private AbilityDefinitionCatalog _abilityCatalog;
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
 
     private readonly Queue<Request> _pending = new Queue<Request>();
+    private readonly Queue<AttributeOp> _attributeOps = new Queue<AttributeOp>();
+    private readonly List<int> _stepBuffer = new List<int>();
     private PlayerCharacter _player;
+    private int _lastAttributeDispatchTick = -1;
+    private int _attributeDispatchFailures;
+
+    /// <summary>
+    /// When true (the default, set by State Authority at spawn) the sandbox ignores session rules:
+    /// cast-time attribute requirements are skipped. Resource, cooldown and aim rules still apply.
+    /// </summary>
+    [Networked] public NetworkBool IgnoreSessionRules { get; private set; }
 
     [Networked] public NetworkBool GodMode { get; private set; }
     [Networked] public NetworkBool InfiniteMana { get; private set; }
@@ -83,14 +117,93 @@ public sealed class SandboxPlayerController : NetworkBehaviour
 
     // ---- Attributes: thin facade over the existing runtime override controller -------------------
 
-    public bool RequestAttributeAdjustment(CharacterAttribute attribute, int amount) =>
-        TryGetAttributeOverrides(out var overrides) && overrides.RequestAdjustment(attribute, amount);
+    // The override controller accepts only +/-1 and +/-5 and holds ONE pending request per tick, so any other
+    // amount (or a second click in the same tick) used to be dropped silently. Requests are split into
+    // supported steps and dispatched at most one per Fusion tick by Update.
+    public bool RequestAttributeAdjustment(CharacterAttribute attribute, int amount)
+    {
+        _stepBuffer.Clear();
+        if (!SandboxRuleBypass.TryDecomposeAdjustment(amount, _stepBuffer) ||
+            _attributeOps.Count + _stepBuffer.Count > MaxPendingAttributeOps)
+        {
+            return false;
+        }
+
+        foreach (int step in _stepBuffer)
+        {
+            _attributeOps.Enqueue(new AttributeOp(AttributeOpKind.Adjust, attribute, step));
+        }
+
+        return true;
+    }
 
     public bool RequestAttributeReset(CharacterAttribute attribute) =>
-        TryGetAttributeOverrides(out var overrides) && overrides.RequestReset(attribute);
+        EnqueueAttributeOp(new AttributeOp(AttributeOpKind.Reset, attribute));
 
-    public bool RequestAttributeResetAll() =>
-        TryGetAttributeOverrides(out var overrides) && overrides.RequestResetAll();
+    public bool RequestAttributeResetAll() => EnqueueAttributeOp(new AttributeOp(AttributeOpKind.ResetAll));
+
+    private bool EnqueueAttributeOp(in AttributeOp op)
+    {
+        if (_attributeOps.Count >= MaxPendingAttributeOps)
+        {
+            return false;
+        }
+
+        _attributeOps.Enqueue(op);
+        return true;
+    }
+
+    private void Update()
+    {
+        if (_attributeOps.Count == 0 || Object == null || !Object.IsValid || Runner == null)
+        {
+            return;
+        }
+
+        int tick = Runner.Tick.Raw;
+        if (tick == _lastAttributeDispatchTick)
+        {
+            return;
+        }
+
+        if (!TryGetAttributeOverrides(out var overrides))
+        {
+            DropAttributeOpsAfterRepeatedFailure();
+            return;
+        }
+
+        AttributeOp op = _attributeOps.Peek();
+        bool accepted;
+        switch (op.Kind)
+        {
+            case AttributeOpKind.Adjust: accepted = overrides.RequestAdjustment(op.Attribute, op.Amount); break;
+            case AttributeOpKind.Reset: accepted = overrides.RequestReset(op.Attribute); break;
+            default: accepted = overrides.RequestResetAll(); break;
+        }
+
+        if (accepted)
+        {
+            _attributeOps.Dequeue();
+            _attributeDispatchFailures = 0;
+            _lastAttributeDispatchTick = tick;
+        }
+        else
+        {
+            DropAttributeOpsAfterRepeatedFailure();
+        }
+    }
+
+    private void DropAttributeOpsAfterRepeatedFailure()
+    {
+        if (++_attributeDispatchFailures < MaxAttributeDispatchFailures)
+        {
+            return;
+        }
+
+        Debug.LogWarning($"{nameof(SandboxPlayerController)}: dropped attribute requests (override controller unavailable).", this);
+        _attributeOps.Clear();
+        _attributeDispatchFailures = 0;
+    }
 
     // ---- Requests (any peer) ---------------------------------------------------------------------
 
@@ -117,6 +230,8 @@ public sealed class SandboxPlayerController : NetworkBehaviour
     public bool RequestSetHealth(float health) => Submit(new Request(RequestKind.SetHealth, value: health));
     public bool RequestRefillHealth() => Submit(new Request(RequestKind.RefillHealth));
     public bool RequestRefillMana() => Submit(new Request(RequestKind.RefillMana));
+    public bool RequestSetIgnoreSessionRules(bool enabled) =>
+        Submit(new Request(RequestKind.SetIgnoreSessionRules, enabled ? 1 : 0));
     public bool RequestSetGodMode(bool enabled) => Submit(new Request(RequestKind.SetGodMode, enabled ? 1 : 0));
     public bool RequestSetInfiniteMana(bool enabled) =>
         Submit(new Request(RequestKind.SetInfiniteMana, enabled ? 1 : 0));
@@ -170,6 +285,14 @@ public sealed class SandboxPlayerController : NetworkBehaviour
 
     // ---- Authority simulation --------------------------------------------------------------------
 
+    public override void Spawned()
+    {
+        if (HasStateAuthority)
+        {
+            IgnoreSessionRules = true; // Sandbox default: no session rules.
+        }
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority || !Runner.IsForward || !TryGetPlayer(out PlayerCharacter player) ||
@@ -181,6 +304,11 @@ public sealed class SandboxPlayerController : NetworkBehaviour
         while (_pending.Count > 0)
         {
             Apply(_pending.Dequeue(), player);
+        }
+
+        if (player.TryGetComponent(out PlayerAbilityRuntimeNetworkController abilityRuntime))
+        {
+            abilityRuntime.SandboxSetIgnoreSessionRules(IgnoreSessionRules);
         }
 
         if (GodMode)
@@ -210,6 +338,7 @@ public sealed class SandboxPlayerController : NetworkBehaviour
             case RequestKind.SetHealth: ApplyHealth(request.Value, player); break;
             case RequestKind.RefillHealth: RefillHealth(player); break;
             case RequestKind.RefillMana: RefillMana(player); break;
+            case RequestKind.SetIgnoreSessionRules: IgnoreSessionRules = request.A != 0; break;
             case RequestKind.SetGodMode: GodMode = request.A != 0; break;
             case RequestKind.SetInfiniteMana: InfiniteMana = request.A != 0; break;
             case RequestKind.Teleport: ApplyTeleport(request.Position, player); break;

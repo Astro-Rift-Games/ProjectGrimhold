@@ -40,6 +40,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     private bool _hasSandboxSlotOverride;
     private PreparedAbilityLoadout _sandboxLoadout;
+    private bool _sandboxIgnoreSessionRules;
 #endif
 
     /// <summary>True only for the confirmed, resolved runtime of the current productive avatar.</summary>
@@ -242,6 +243,20 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         return true;
     }
 
+    /// <summary>Sandbox-only: true while cast-time attribute requirements are ignored.</summary>
+    public bool SandboxIgnoreSessionRules => _sandboxIgnoreSessionRules;
+
+    /// <summary>
+    /// Sandbox-only: when enabled, the cast-time attribute-requirement check is skipped. Alive/downed, match
+    /// phase, cooldown, resource and aim rules still apply. State Authority only; off by default.
+    /// </summary>
+    public bool SandboxSetIgnoreSessionRules(bool enabled)
+    {
+        if (!HasStateAuthority) return false;
+        _sandboxIgnoreSessionRules = enabled;
+        return true;
+    }
+
     /// <summary>Sandbox-only: clears both slot cooldowns without touching active phases. State Authority.</summary>
     public bool SandboxResetCooldowns()
     {
@@ -279,8 +294,11 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
             return AbilityActivationFailure.PlayerUnavailable;
         var behaviour = ReadBehaviour(slot);
         if (behaviour == null || !behaviour.isActiveAndEnabled) return AbilityActivationFailure.MissingBehaviour;
-        if (!context.Definition.AreAttributeRequirementsSatisfiedBy(context.Attributes))
-            return AbilityActivationFailure.RequirementsNotMet;
+        bool requirementsMet = context.Definition.AreAttributeRequirementsSatisfiedBy(context.Attributes);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        requirementsMet = SandboxRuleBypass.EvaluateRequirements(_sandboxIgnoreSessionRules, requirementsMet);
+#endif
+        if (!requirementsMet) return AbilityActivationFailure.RequirementsNotMet;
         var state = ReadExecution(slot);
         if (state.IsActive) return AbilityActivationFailure.AlreadyExecuting;
         if (state.Sequence == uint.MaxValue) return AbilityActivationFailure.PlayerUnavailable;
