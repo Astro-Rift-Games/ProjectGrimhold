@@ -139,13 +139,4 @@ public sealed class ChargeRulesTests
     {
         Assert.That(ChargeRules.Decide(true, false, true, true), Is.EqualTo(ChargeOutcome.Blocked));
     }
-
-    // ---- Damage pipeline routing ---------------------------------------------------------
-
-    [Test]
-    public void UsesDamagePipeline_OnlyForPositiveDamage()
-    {
-        Assert.That(ChargeRules.UsesDamagePipeline(10f), Is.True);
-        Assert.That(ChargeRules.UsesDamagePipeline(0f), Is.False);
-    }
 }

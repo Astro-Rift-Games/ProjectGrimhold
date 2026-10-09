@@ -246,6 +246,20 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 - **Overshoot:** the phase deadline is quantized to simulation ticks, so a charge that runs its full distance may cover up to about one motor step more than configured.
 - **Not yet validated:** actual multi-runner Host Migration of a charge in flight (PlayMode covers rules, the single-runner cycle and local components only), and composition on `NetworkPlayer.prefab`, which is a later task: until the behavior is added to the avatar's execution array an occupied Embestida slot still rejects before payment.
 
+### Golpe Sísmico (seismic_strike)
+
+`SeismicStrikeAbilityBehaviour` (`Assets/Scripts/Abilities/Behaviours/`) is the first Area-from-caster behavior. It owns the radius and the effect; the target layers live on the caster's `AbilityAreaTargetFinder`, reached only through `AbilityExecutionContext.TryFindEnemiesInArea`.
+
+- **Start validation:** `TryPlanStart` queries the area with a preallocated list. No valid enemy is a normal rejection (`BehaviourRejected`: no payment, no sequence, no cooldown). Unavailable targeting or an unusable configuration (non-positive radius or preparation, negative damage or knockback) is a configuration error: it is logged and yields an invalid plan (`InvalidPlan`). A valid start returns a `Preparing` plan of the configured seconds; `Begin` applies nothing.
+- **Resolution re-query:** the start targets are never reused. When the preparation deadline expires, `Simulate` queries again around the caster's position at that moment, affects every returned enemy in the finder's deterministic order (distance, then `EntityId`) within the same tick, and returns `Idle`, which the runtime completes as `Completed`. A local last-resolved-sequence guard keeps the resolution to once per sequence. An enemy that entered the area is affected; one that left is not; with no target left the ability finishes normally and cost and cooldown are not refunded.
+- **Valid enemy:** `AbilityTargetPredicate.IsValidEnemy`, so only creatures. Players are excluded until Game Design closes PvP.
+- **Interruption:** `CanInterrupt` accepts `Knockback` and `Stun`; Downed, participation closure and configuration loss remain mandatory in the runtime. An interrupted preparation applies no effect and refunds neither cost nor cooldown. `Stop` has nothing to release.
+- **Radial direction:** `SeismicStrikeRules.ResolveKnockbackDirection` returns the unit vector from the caster position to the target transform position. A coincident (or non-finite) position has no radial direction and uses the fixed `FallbackDirection` (up), so every simulation computes the same push.
+- **Damage and knockback:** through the shared `AbilityImpact.TryApply`, the same path as Embestida: a `DamageRequest` through `IDamageResolver` when damage is positive, otherwise a direct `IKnockbackReceiver.ReceiveKnockback` (the resolver rejects non-positive amounts). Radius, damage, knockback force and preparation are serialized parameters owned by Balance (baseline preparation 0.75 s; cost and cooldown live on the definition).
+- **Deferred seams:** Knockback immunity does not exist; the comment in `SeismicStrikeAbilityBehaviour.Resolve` marks where an immune target must still take damage without the push. Stun is not applied either, as no stun system exists.
+- **Rebind:** re-resolves local references only. No resolution is replayed.
+- **Not yet validated:** actual multi-runner Host Migration of a preparation in flight (PlayMode covers rules, the single-runner cycle and local components only), and composition on `NetworkPlayer.prefab`, which is a later task: until the behavior is added to the avatar's execution array an occupied slot still rejects before payment.
+
 ## Targeting
 
 This section is the technical mapping of Game Design "15 - Targeting de Habilidades" (TASK 210). It defines ownership and timing only; it adds no code, no gameplay rule and no numeric value. Radii and placement distances remain per-ability configuration owned by Balance and must not change a category or a validation rule.

@@ -157,20 +157,8 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
         Vector2 direction = snapshot.AimDirection.normalized;
         Vector2 hitPoint = _hits[candidate.HitIndex].collider.ClosestPoint(_collider.bounds.center);
 
-        if (ChargeRules.UsesDamagePipeline(_damage))
-        {
-            if (_damageResolver == null)
-            {
-                Debug.LogError($"{nameof(ChargeAbilityBehaviour)} requires an {nameof(IDamageResolver)} on the caster to apply damage.", this);
-                return;
-            }
-            _damageResolver.Resolve(new DamageRequest(context.Character.Id, candidate.Id, _damage, _damageType,
-                direction, hitPoint, context.Runner.Tick.Raw, _knockbackForce));
-        }
-        else if (_knockbackForce > 0f && target is IKnockbackReceiver receiver)
-        {
-            receiver.ReceiveKnockback(direction, _knockbackForce);
-        }
+        AbilityImpact.TryApply(_damageResolver, context.Character.Id, candidate.Id, target, _damage, _damageType,
+            _knockbackForce, direction, hitPoint, context.Runner.Tick.Raw, this);
     }
 
 #if UNITY_EDITOR

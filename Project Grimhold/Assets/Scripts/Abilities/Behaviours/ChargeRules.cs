@@ -83,12 +83,6 @@ internal static class ChargeRules
         return phaseExpired ? ChargeOutcome.Expired : ChargeOutcome.Continue;
     }
 
-    /// <summary>
-    /// The shared damage resolver rejects a non-positive amount (no damage applied, no knockback), so a charge
-    /// configured with zero damage pushes the enemy directly instead of going through the damage pipeline.
-    /// </summary>
-    public static bool UsesDamagePipeline(float damage) => damage > 0f;
-
     private static bool IsEarlier(in ChargeHitCandidate candidate, in ChargeHitCandidate current)
     {
         if (candidate.Distance != current.Distance) return candidate.Distance < current.Distance;
