@@ -170,10 +170,7 @@ confirmed elapsed phase, through a presentation-only resume event without repeat
 audio. Animator state and mutable shared executor config are neither copied nor required for release.
 Real multi-process migration during wind-up and immediately after consumption remains unvalidated.
 
-Known limitation: a Downed player who is also disconnected during migration is not covered. The
-disconnect-retention path (`RaidDefeatAndSpectatorArchitecture.md`, "Player departure") is runtime-only
-Host bookkeeping and is not part of the snapshot, so recovery eligibility for that participant follows
-the existing Raiding/unresolved rules rather than guaranteeing the drain reaches Defeat. Not validated.
+Known limitation: a `Raiding` player (Active or Downed) who is disconnected and retained during migration is not fully covered. The disconnect-retention path (`RaidConnectivityContinuityArchitecture.md`) and variables like `RemainingBudgetTicks` may rely on Host-runtime-only state or may not seamlessly restore on the new Host. This is an accepted limitation and recovery eligibility for that participant might not guarantee retention or budget persistence. Not validated.
 
 *Note: For Dungeon Pressure (PvE timers, phases, and active population) recovery rules, see `DungeonPressureArchitecture.md`.*
 

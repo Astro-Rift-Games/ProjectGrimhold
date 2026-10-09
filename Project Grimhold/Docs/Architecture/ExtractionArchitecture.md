@@ -55,6 +55,10 @@ An unavailable zone requests no starts and does not modify participants. Active 
 
 Start requires State Authority, complete prefab composition, a valid configuration, a valid participant identity and registration, `State == None`, a registered available zone, exact containment, and `IsAlive` when `RequireAliveToStart` is enabled. A second or overlapping zone cannot replace an active process.
 
+Additionally, a participant must be `Connected` to initiate or complete their individual extraction (the connectivity gate). A disconnected participant inside a zone cannot start or continue the countdown, and any active extraction process is cancelled upon disconnection.
+
+Team composition considers any `Raiding` member (Active or Downed), regardless of connectivity, as an active member (see `RaidConnectivityContinuityArchitecture.md`). The team extraction mechanics and shared quota remain deferred.
+
 While `InProgress`, evaluation order is:
 
 1. Resolve the active zone.

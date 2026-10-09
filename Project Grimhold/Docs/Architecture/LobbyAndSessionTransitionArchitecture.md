@@ -158,9 +158,9 @@ After the complete frozen cohort is prepared, State Authority changes the phase 
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
 bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
-Gameplay or represents failure as `InProgress`. Normal code admission is accepted
-only in `WaitingForPlayers`; Host Migration reconnect/rebind remains a separate
-validated path and must not reopen the session.
+Gameplay or represents failure as `InProgress`. 
+
+Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path.
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
 behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,
