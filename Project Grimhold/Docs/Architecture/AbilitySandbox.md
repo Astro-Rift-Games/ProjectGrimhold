@@ -10,14 +10,26 @@ The launcher (`Assets/Scripts/Editor/AbilitySandboxLauncher.cs`) reuses the exis
 
 1. Adds `AbilitySandbox` to the Editor build settings for this Play session only (the raid launcher resolves its gameplay scene by name from the build settings). It is removed again when Play Mode ends. Use **Grimhold > Ability Sandbox > Remove From Build Settings** if an Editor crash left it behind.
 2. Opens `MainMenu` and enters Play Mode.
-3. On the runtime `SessionConnectionCoordinator`, sets `_gameplaySceneName` to `AbilitySandbox` and enables the offline development profile on `DevelopmentProfileBootstrap` (runtime instance only; the prefab is not modified).
+3. On the runtime `SessionConnectionCoordinator`, sets `_gameplaySceneName` to `AbilitySandbox`. The file-backed `DevelopmentProfileBootstrap` stays disabled; `SandboxTestPlayerInstaller.TryInstall` installs the synthetic test player instead (see "Test player"). The prefab is not modified.
 4. Invokes `DirectRaidDevelopmentStarter.StartDirectHostRaid`, which loads `AbilitySandbox` as the raid scene. The normal admission pipeline then spawns the player and moves the match to `InProgress`, so the ability runtime works unmodified.
 
 The Host connects through Photon, so a working network connection and Fusion app settings are required, exactly as for the regular direct raid.
 
+## Test player
+
+The sandbox never uses a real, logged-in or development (`dev-local-*`) profile. `SandboxTestProfile` (pure, EditMode tested) builds a fixed synthetic profile and `SandboxTestPlayerInstaller` installs it before the raid starts:
+
+- Identity `sandbox-test-player`; Vitality, Resistance, Strength, Dexterity, Intelligence and Luck all `30`, no pending points.
+- Every ability in the `AbilityDefinitionCatalog` unlocked; no abilities prepared (pick them in the Abilities tab).
+- Empty stash and loadout, currency 0, no reservation or receipts. The configured recovery weapon (`LocalProfilePersistenceConfiguration`) is prepared in Weapon Set A Main Hand so the raid admission is valid.
+- Held only by an `InMemoryLocalProfileRepository`. The installer bypasses `ApplicationStashServiceBootstrapper`, attaches only the in-memory stash, loadout and currency services, and adds no `RemoteInventoryService`, `ProfileReconciliationService` or shop service. Nothing is read from or written to `persistentDataPath`, no backend call is possible, and the game code uses no `PlayerPrefs`.
+- It refuses to replace a profile that is already active.
+
+Previous behaviour (T4-T6): the sandbox enabled `DevelopmentProfileBootstrap`, which loaded and rewrote `grimhold-profile-dev-local-host.json`, retried that profile's pending extraction commit and attached the remote inventory service.
+
 ## Scene
 
-`Assets/Scenes/AbilitySandbox.unity` is a trimmed copy of `Gameplay.unity` (dungeon graybox, camera, light, input providers, `NetworkSpawnManager` scene configuration). Removed: traps, extraction sanctuaries, NPC, patrol routes and the mission debugger. All spawn-group amounts are `0`, so the initial raid bootstrap spawns no enemies, loot or breakables. Player spawn points are plain `SandboxSpawnpoints` transforms placed at the former sanctuary locations (the original player spawn points lived inside the sanctuary prefabs). `SandboxServices` hosts a `NetworkObject` with `SandboxEnemySpawner`, `SandboxPlayerController` and `SandboxPanel`.
+`Assets/Scenes/AbilitySandbox.unity` is a dedicated testing arena, not a Gameplay copy: a 40x30 flat floor (one tiled `SpriteRenderer` using an existing tile sprite), a one-tile boundary ring on the `WorldCollision` layer (`Walls` tilemap with composite collider, existing tile asset), one `PlayerSpawn` at the origin, the camera prefab, a 2D global light, `FusionInputProvider`/`PlayerInputReader`, `NetworkSpawnManager` with its scene configuration (one player area, empty spawn groups with amount `0`), `VisibilityManager`, `PathfindingGrid` (needs a Tilemap, built from the walls) and `SandboxServices` (`NetworkObject` with `SandboxEnemySpawner`, `SandboxPlayerController`, `SandboxPanel`). No dungeon rooms, traps, extraction, NPCs, loot, breakables, music or mission objects.
 
 ## Controls
 
@@ -32,7 +44,8 @@ The Host connects through Photon, so a working network connection and Fusion app
 
 | Component | Owns |
 | --- | --- |
-| `AbilitySandboxLauncher` (Editor) | Temporary build-settings entry and the direct Host raid start. |
+| `AbilitySandboxLauncher` (Editor) | Temporary build-settings entry, test player install and the direct Host raid start. |
+| `SandboxTestProfile`, `SandboxTestPlayerInstaller` | Synthetic in-memory test profile (pure builder) and its installation into `ApplicationStashContext`. |
 | `SandboxPanel` | IMGUI rendering and local reads only; issues requests. |
 | `SandboxPanelState` | Pure UI state: tab, selections, clamping, number parsing (EditMode tested). |
 | `SandboxPlayerController` | Request queue and State Authority application of slots, cooldown reset, equipment, health, god mode, infinite mana, teleport; attribute facade over `RuntimeAttributeOverrideNetworkController`. |
@@ -53,7 +66,7 @@ All mutations run on State Authority. Any peer may submit a request through an R
 - The `NetworkEnemy` melee prefab has no `IAttack` assigned; spawning it logs `EnemyCombatAIController requires a component implementing IAttack` and the enemy cannot attack. The ranged variant is the one the production spawn list uses.
 - Dummy damage counters are recorded on the State Authority only.
 - The melee `NetworkEnemy` is inert (no movement, no attacks) but is a valid, damageable, knockable ability target; it is useful as a passive target.
-- The sandbox starts with EMPTY slots when the dev profile has no prepared loadout; pick abilities in the Abilities tab. A real profile loadout is replaced by the first sandbox apply.
+- The sandbox always starts with EMPTY ability slots (the test player prepares none); pick abilities in the Abilities tab.
 - Not validated under a Client peer, in a built player, or with real mouse clicks on the IMGUI panel (the panel logic was driven by code).
 
 ## Production hooks added (all dev-guarded)

@@ -8,7 +8,8 @@ using UnityEngine;
 /// Editor-only launcher for the ability sandbox. The raid flow loads its gameplay scene by name from the
 /// build settings, so this tool (1) temporarily enables <c>AbilitySandbox</c> in the build settings,
 /// (2) opens MainMenu, (3) enters Play Mode, (4) points the runtime coordinator at the sandbox scene and
-/// (5) starts the existing direct Host raid. The build-settings entry is removed when Play Mode ends, so
+/// (5) installs the synthetic in-memory test player (never a real or development profile) and
+/// (6) starts the existing direct Host raid. The build-settings entry is removed when Play Mode ends, so
 /// the sandbox scene never ships. No production script is modified.
 /// </summary>
 [InitializeOnLoad]
@@ -102,19 +103,22 @@ public static class AbilitySandboxLauncher
         sceneName.stringValue = SandboxSceneName;
         serialized.ApplyModifiedPropertiesWithoutUndo();
 
-        // The offline development profile is opt-in on the prefab. Enable it on the runtime instance only
-        // so the direct raid does not need a real login; nothing is written back to the prefab or scene.
+        // The sandbox never uses a real or development profile. Keep the file-backed development profile
+        // bootstrap disabled on the runtime instance and install the synthetic in-memory test player instead.
         var profileBootstrap = starter.GetComponent<DevelopmentProfileBootstrap>();
         var profileSerialized = new SerializedObject(profileBootstrap);
         SerializedProperty enabled = profileSerialized.FindProperty("_enabled");
-        if (enabled == null)
+        if (enabled != null)
         {
-            Debug.LogError("[AbilitySandbox] DevelopmentProfileBootstrap._enabled was not found.");
-            return;
+            enabled.boolValue = false;
+            profileSerialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        enabled.boolValue = true;
-        profileSerialized.ApplyModifiedPropertiesWithoutUndo();
+        if (!SandboxTestPlayerInstaller.TryInstall(out string installError))
+        {
+            Debug.LogError($"[AbilitySandbox] Test player was not installed: {installError}");
+            return;
+        }
 
         MethodInfo start = typeof(DirectRaidDevelopmentStarter).GetMethod(
             "StartDirectHostRaid", BindingFlags.Instance | BindingFlags.NonPublic);
