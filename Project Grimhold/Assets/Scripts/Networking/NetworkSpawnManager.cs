@@ -94,8 +94,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
-    // Raiding participants whose peer disconnected while Downed; the drain keeps running on the Host.
-    private readonly List<NetworkObject> _retainedDownedParticipants = new();
+    private readonly DisconnectedParticipantRegistry _disconnectedRegistry = new();
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
@@ -171,29 +170,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 }
             }
 
-            return HasUnresolvedRetainedDownedParticipant();
+            return _disconnectedRegistry.HasUnresolvedRetainedParticipant();
         }
-    }
-
-    private bool HasUnresolvedRetainedDownedParticipant()
-    {
-        bool unresolved = false;
-        for (int index = _retainedDownedParticipants.Count - 1; index >= 0; index--)
-        {
-            NetworkObject participantObject = _retainedDownedParticipants[index];
-            if (participantObject == null ||
-                !participantObject.IsValid ||
-                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
-                RaidPlayerDeparturePolicy.IsRetainedDownedRaiderResolved(participant.State))
-            {
-                _retainedDownedParticipants.RemoveAt(index);
-                continue;
-            }
-
-            unresolved = true;
-        }
-
-        return unresolved;
     }
 
     /// <summary>Returns whether any participant still awaits durable local finalization.</summary>
@@ -399,7 +377,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
-        _retainedDownedParticipants.Clear();
+        _disconnectedRegistry.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -469,7 +447,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Clear();
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
-        _retainedDownedParticipants.Clear();
+        _disconnectedRegistry.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -2712,7 +2690,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
-        foreach (NetworkObject participantObject in _retainedDownedParticipants)
+        foreach (NetworkObject participantObject in _disconnectedRegistry.RetainedParticipants)
         {
             if (participantObject != null &&
                 participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
@@ -3772,10 +3750,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        _controlledReturns.MarkTerminal(in departureKey);
         if (participant.State == RaidParticipantState.Extracted &&
              !participant.IsExtractionProgressionComplete)
         {
+            _controlledReturns.MarkTerminal(in departureKey);
             if (avatarObject != null && !avatarObject.InputAuthority.IsNone)
             {
                 avatarObject.AssignInputAuthority(PlayerRef.None);
@@ -3789,24 +3767,51 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        if (RaidPlayerDeparturePolicy.ShouldRetainDownedRaider(
-                participant.State,
-                IsAvatarDowned(avatarObject)))
-        {
-            // Disconnecting never pauses or resolves Downed. Keep the avatar and participant so the
-            // Host drain can still deplete the reserve; HandleDeath then converts the body and
-            // TryMarkDefeated runs through CurrentAvatarId, which this bookkeeping does not touch.
-            if (!avatarObject.InputAuthority.IsNone)
-            {
-                avatarObject.AssignInputAuthority(PlayerRef.None);
-            }
+        bool isAvatarDowned = IsAvatarDowned(avatarObject);
+        bool hasEligibleDecider = HasEligibleDecider(participant);
+        bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity);
 
-            _retainedDownedParticipants.Add(participantObject);
-            Debug.Log(
-                $"[RAID-DOWNED] Downed participant '{profileId}' disconnected. " +
-                "Objects retained until definitive Defeat.",
-                participant);
-            return;
+        PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
+            participant.State,
+            isAvatarDowned,
+            hasEligibleDecider,
+            configValid);
+
+        switch (action)
+        {
+            case PlayerDepartureAction.RetainDisconnected:
+                if (avatarObject != null && !avatarObject.InputAuthority.IsNone)
+                {
+                    avatarObject.AssignInputAuthority(PlayerRef.None);
+                }
+                if (!participantObject.InputAuthority.IsNone)
+                {
+                    participantObject.AssignInputAuthority(PlayerRef.None);
+                }
+
+                if (connectivity != null)
+                {
+                    connectivity.IsDisconnected = true;
+                }
+
+                _disconnectedRegistry.Retain(participantObject);
+                Debug.Log(
+                    $"[RAID-DISCONNECT] Participant '{profileId}' disconnected. " +
+                    $"Objects retained (State={participant.State}, Downed={isAvatarDowned}).",
+                    participant);
+                
+                ReevaluateRetainedParticipantsFallback();
+                return;
+
+            case PlayerDepartureAction.FinalizeDefeated:
+            case PlayerDepartureAction.FinalizeExtracted:
+            case PlayerDepartureAction.FinalizeAborted:
+                _controlledReturns.MarkTerminal(in departureKey);
+                break;
+
+            case PlayerDepartureAction.FinalizeDefinitiveDisconnect:
+                _controlledReturns.MarkTerminal(in departureKey);
+                break;
         }
 
         bool preserveMaterialBody = participant.State == RaidParticipantState.Aborted &&
@@ -3845,6 +3850,96 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         runner.Despawn(participantObject);
 
         Debug.Log($"Despawned participant for player {player}.");
+
+        ReevaluateRetainedParticipantsFallback();
+    }
+
+    private bool HasEligibleDecider(NetworkRaidParticipant disconnectedParticipant)
+    {
+        if (!TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations))
+        {
+            return false;
+        }
+
+        ProfileId disconnectedProfileId = new ProfileId(disconnectedParticipant.ProfileId.ToString());
+        if (!affiliations.TryGetTeammateProfileId(disconnectedProfileId, out ProfileId teammateProfileId))
+        {
+            return false;
+        }
+
+        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+        {
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                participant.ProfileId.ToString() == teammateProfileId.Value &&
+                participant.State == RaidParticipantState.Raiding)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ReevaluateRetainedParticipantsFallback()
+    {
+        IReadOnlyList<NetworkObject> retained = _disconnectedRegistry.RetainedParticipants;
+        for (int i = retained.Count - 1; i >= 0; i--)
+        {
+            NetworkObject participantObject = retained[i];
+            if (participantObject == null || !participantObject.IsValid || !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+            {
+                continue;
+            }
+
+            if (participant.State != RaidParticipantState.Raiding)
+            {
+                continue;
+            }
+
+            bool isAvatarDowned = false;
+            NetworkObject avatarObject = null;
+            if (participant.TryResolveCurrentAvatar(out avatarObject))
+            {
+                isAvatarDowned = IsAvatarDowned(avatarObject);
+            }
+
+            bool hasEligibleDecider = HasEligibleDecider(participant);
+            bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity);
+
+            PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
+                participant.State,
+                isAvatarDowned,
+                hasEligibleDecider,
+                configValid);
+
+            if (action == PlayerDepartureAction.FinalizeDefinitiveDisconnect)
+            {
+                string profileId = participant.ProfileId.ToString();
+                Debug.Log($"[RAID-DISCONNECT] Retained participant '{profileId}' has lost their decider. Finalizing definitively.", participant);
+                
+                string generationId = participant.RaidGenerationId.ToString();
+                var departureKey = new ControlledReturnKey(profileId, generationId);
+                _controlledReturns.MarkTerminal(in departureKey);
+
+                if (avatarObject != null)
+                {
+                    _runner.Despawn(avatarObject);
+                }
+
+                PlayerExpeditionProgressionFinalizationResult progressionResult =
+                    participant.TryFinalizeDefinitiveDisconnectAfterMaterialClosure();
+                if (!progressionResult.IsCompleted)
+                {
+                    Debug.LogError(
+                        $"Definitive disconnect fallback for '{profileId}' could not finalize Progression " +
+                        $"({progressionResult.Status}).",
+                        participant);
+                }
+
+                _runner.Despawn(participantObject);
+            }
+        }
     }
 
     private static bool IsAvatarDowned(NetworkObject avatarObject) =>
@@ -3912,7 +4007,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _admittedPlayers.Clear();
             _spawnedPlayers.Clear();
             _spawnedAvatars.Clear();
-            _retainedDownedParticipants.Clear();
+            _disconnectedRegistry.Clear();
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
             _spawnedEnemies.Clear();
