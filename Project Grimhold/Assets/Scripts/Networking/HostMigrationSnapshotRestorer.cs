@@ -261,7 +261,12 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                     }
                     else
                     {
-                        throw new InvalidOperationException($"Cannot resolve old EntityId {oldCaster.Value} for NetworkTrap caster in dynamic objects.");
+                        // A trap outlives its cast, so its caster may be gone (for example a defeated avatar). Failing the
+                        // whole restore for it would be worse than losing the trap: it expires on its next tick instead.
+                        Debug.LogWarning(
+                            $"[HostMigrationSnapshotRestorer] Expiring a restored NetworkTrap: its caster {oldCaster.Value} is not part of the snapshot.",
+                            this);
+                        trap.ExpireRestoredTrap();
                     }
                 }
             }

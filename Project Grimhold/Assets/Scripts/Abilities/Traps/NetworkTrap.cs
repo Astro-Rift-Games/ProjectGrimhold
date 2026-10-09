@@ -5,8 +5,10 @@ using UnityEngine;
 
 /// <summary>
 /// Caster-owned, runtime-spawned trap entity. Under State Authority it waits for the first valid enemy of its caster
-/// inside its trigger radius, raises <see cref="Triggered"/> once and despawns; it also despawns when its lifetime
-/// ends. It owns no ability, placement or effect rules: those belong to the behaviour that spawns it.
+/// inside its trigger radius, applies its immobilize effect to that enemy through <see cref="ImmobilizeEffect"/>,
+/// raises <see cref="Triggered"/> once and despawns; it also despawns when its lifetime ends. The effect parameters
+/// are [Networked] state, so a Host Migration restore keeps a fully working trap (a C# subscription would be lost).
+/// It owns no ability or placement rules: those belong to the behaviour that spawns it.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class NetworkTrap : NetworkBehaviour
@@ -22,6 +24,11 @@ public sealed class NetworkTrap : NetworkBehaviour
     [Networked] private float TriggerRadius { get; set; }
     [Networked] private NetworkBool HasTriggered { get; set; }
     [Networked] private int TriggeredTargetIdValue { get; set; }
+    [Networked] private float ImmobilizeSeconds { get; set; }
+    [Networked] private float DamagePerTick { get; set; }
+    [Networked] private float TickIntervalSeconds { get; set; }
+    [Networked] private int DamageTypeValue { get; set; }
+    [Networked] private NetworkBool Purifiable { get; set; }
 
     private readonly Collider2D[] _overlapBuffer = new Collider2D[OverlapBufferSize];
     private ContactFilter2D _contactFilter;
@@ -53,7 +60,8 @@ public sealed class NetworkTrap : NetworkBehaviour
     /// Initializes the networked state before spawning completes. Only valid during the spawner's
     /// <c>onBeforeSpawned</c> callback on the State Authority.
     /// </summary>
-    public void InitializeNetworkState(EntityId casterId, float lifetimeSeconds, float triggerRadius, int targetLayerMask)
+    public void InitializeNetworkState(EntityId casterId, float lifetimeSeconds, float triggerRadius, int targetLayerMask,
+        float immobilizeSeconds, float damagePerTick, float tickIntervalSeconds, DamageType damageType, bool purifiable)
     {
         CasterEntityIdValue = casterId.Value;
         LifetimeTimer = TickTimer.CreateFromSeconds(Runner, lifetimeSeconds);
@@ -61,6 +69,11 @@ public sealed class NetworkTrap : NetworkBehaviour
         TargetLayerMaskValue = targetLayerMask;
         HasTriggered = false;
         TriggeredTargetIdValue = 0;
+        ImmobilizeSeconds = immobilizeSeconds;
+        DamagePerTick = damagePerTick;
+        TickIntervalSeconds = tickIntervalSeconds;
+        DamageTypeValue = (int)damageType;
+        Purifiable = purifiable;
     }
 
     public override void FixedUpdateNetwork()
@@ -77,8 +90,26 @@ public sealed class NetworkTrap : NetworkBehaviour
 
         HasTriggered = true;
         TriggeredTargetIdValue = enemyId.Value;
+        ApplyEffect(enemyId);
         Triggered?.Invoke(enemyId);
         Runner.Despawn(Object);
+    }
+
+    /// <summary>
+    /// Applies the effect to the triggering enemy, attributed to the caster. A failure is logged and never keeps
+    /// the trap alive: the trap is consumed by its trigger either way.
+    /// </summary>
+    private void ApplyEffect(EntityId enemyId)
+    {
+        ImmobilizeEffect effect = null;
+        if (_registry != null && _registry.TryGetTransform(enemyId, out Transform enemyTransform) && enemyTransform != null)
+            effect = enemyTransform.GetComponent<ImmobilizeEffect>() ?? enemyTransform.GetComponentInParent<ImmobilizeEffect>();
+
+        if (effect == null || !effect.TryApply(CasterId, ImmobilizeSeconds, DamagePerTick, TickIntervalSeconds,
+                (DamageType)DamageTypeValue, Purifiable))
+        {
+            Debug.LogError($"{nameof(NetworkTrap)} could not apply its effect to the triggering enemy.", this);
+        }
     }
 
     private bool TryFindTriggeringEnemy(out EntityId enemyId)
@@ -145,4 +176,15 @@ public sealed class NetworkTrap : NetworkBehaviour
 
     internal int GetRestoredCasterEntityIdValue() => CasterEntityIdValue;
     internal void SetRestoredCasterEntityId(EntityId newCasterId) => CasterEntityIdValue = newCasterId.Value;
+
+    /// <summary>
+    /// Ends the lifetime of a restored trap whose caster could not be remapped, so it despawns on its next
+    /// simulation tick without ever triggering, instead of failing the whole Host Migration restore.
+    /// </summary>
+    internal void ExpireRestoredTrap()
+    {
+        if (!HasStateAuthority) return;
+
+        LifetimeTimer = TickTimer.None;
+    }
 }

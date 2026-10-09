@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Fusion;
 using NUnit.Framework;
 using UnityEngine;
@@ -19,6 +20,9 @@ namespace Tests.PlayMode.Abilities
         private const string GreenSlimePrefabGuid = "5deca87613df0fa409d98702aec643d4";
         private const float TrapLifetimeSeconds = 30f;
         private const float TriggerRadius = 1.5f;
+        private const float ImmobilizeSeconds = 1f;
+        private const float DamagePerTick = 2f;
+        private const float TickIntervalSeconds = 0.25f;
         private static readonly Vector3 TrapPosition = new Vector3(20f, 0f, 0f);
         private static readonly EntityId Caster = new EntityId(900001);
         private static readonly EntityId OtherCaster = new EntityId(900002);
@@ -52,6 +56,56 @@ namespace Tests.PlayMode.Abilities
             yield return WaitTicks();
 
             Assert.That(triggered, Is.EqualTo(new[] { enemy.Id.Value }), "Raised once, with the triggering enemy.");
+        }
+
+        [UnityTest]
+        public IEnumerator Trigger_ImmobilizesTheEnemyAndDealsPeriodicDamageAttributedToTheCaster()
+        {
+            yield return Begin();
+            var caster = SpawnEnemy(new Vector3(0f, 60f, 0f));
+            caster.gameObject.AddComponent<DamageRecorder>();
+            var recorder = caster.GetComponent<DamageRecorder>();
+            var trap = SpawnTrap(TrapPosition, caster.Id, TrapLifetimeSeconds, out var triggered);
+            var trapId = trap.Object.Id;
+            var enemy = SpawnEnemy(TrapPosition + new Vector3(0.5f, 0f, 0f));
+            var effect = enemy.GetComponent<ImmobilizeEffect>();
+            float health = enemy.Health;
+
+            yield return WaitUntil(() => effect.IsActive);
+            Assert.That(effect.SourceId, Is.EqualTo(caster.Id), "The caster is credited, not the trap.");
+            Assert.That(effect.IsPurifiable, Is.True);
+            Assert.That((bool)enemy.GetComponent<EnemyMovementAIController>().IsImmobilized, Is.True);
+            yield return WaitUntil(() => !effect.IsActive);
+            yield return WaitTicks();
+
+            Assert.That(triggered, Is.EqualTo(new[] { enemy.Id.Value }));
+            Assert.That(_runner.TryFindObject(trapId, out _), Is.False, "The trap is consumed by its trigger.");
+            Assert.That(recorder.Events.Count, Is.EqualTo(4), "One tick per interval for the whole immobilization.");
+            Assert.That(enemy.Health, Is.EqualTo(health - 4 * DamagePerTick).Within(0.001f));
+            foreach (var resolved in recorder.Events)
+            {
+                Assert.That(resolved.Request.AttackerId, Is.EqualTo(caster.Id));
+                Assert.That(resolved.Request.TargetId, Is.EqualTo(enemy.Id));
+                Assert.That(resolved.Request.DamageType, Is.EqualTo(DamageType.Magical));
+            }
+            Assert.That((bool)enemy.GetComponent<EnemyMovementAIController>().IsImmobilized, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Trigger_WhenTheEffectCannotApply_LogsAnErrorAndStillDespawnsTheTrap()
+        {
+            yield return Begin();
+            var trap = SpawnTrap(TrapPosition, Caster, TrapLifetimeSeconds, out var triggered, immobilizeSeconds: 0f);
+            var trapId = trap.Object.Id;
+            LogAssert.Expect(UnityEngine.LogType.Error, new Regex("ImmobilizeEffect rejected its configuration"));
+            LogAssert.Expect(UnityEngine.LogType.Error, new Regex("NetworkTrap could not apply its effect"));
+            var enemy = SpawnEnemy(TrapPosition + new Vector3(0.5f, 0f, 0f));
+
+            yield return WaitUntil(() => !_runner.TryFindObject(trapId, out _));
+            yield return WaitTicks();
+
+            Assert.That(triggered, Is.EqualTo(new[] { enemy.Id.Value }), "Observers are still notified once.");
+            Assert.That(enemy.GetComponent<ImmobilizeEffect>().IsActive, Is.False);
         }
 
         [UnityTest]
@@ -113,6 +167,19 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator RestoredTrapWithAnUnresolvableCaster_ExpiresWithoutTriggering()
+        {
+            yield return Begin();
+            var trap = SpawnTrap(TrapPosition, Caster, TrapLifetimeSeconds, out var triggered);
+            var trapId = trap.Object.Id;
+
+            trap.ExpireRestoredTrap();
+
+            yield return WaitUntil(() => !_runner.TryFindObject(trapId, out _));
+            Assert.That(triggered, Is.Empty, "An orphaned restored trap must disappear, never act.");
+        }
+
+        [UnityTest]
         public IEnumerator LifetimeExpiry_DespawnsWithoutTriggering()
         {
             yield return Begin();
@@ -171,7 +238,7 @@ namespace Tests.PlayMode.Abilities
         }
 
         private NetworkTrap SpawnTrap(Vector3 position, EntityId caster, float lifetimeSeconds,
-            out List<int> triggeredIds)
+            out List<int> triggeredIds, float immobilizeSeconds = ImmobilizeSeconds)
         {
             var ids = new List<int>();
             triggeredIds = ids;
@@ -181,7 +248,8 @@ namespace Tests.PlayMode.Abilities
                 {
                     var trap = instance.GetComponent<NetworkTrap>();
                     trap.Triggered += id => ids.Add(id.Value);
-                    trap.InitializeNetworkState(caster, lifetimeSeconds, TriggerRadius, mask);
+                    trap.InitializeNetworkState(caster, lifetimeSeconds, TriggerRadius, mask, immobilizeSeconds,
+                        DamagePerTick, TickIntervalSeconds, DamageType.Magical, true);
                 });
             Physics2D.SyncTransforms();
             return spawned.GetComponent<NetworkTrap>();
@@ -198,6 +266,16 @@ namespace Tests.PlayMode.Abilities
             }
             Physics2D.SyncTransforms();
             return enemy.GetComponent<EnemyCharacter>();
+        }
+
+        private sealed class DamageRecorder : MonoBehaviour, IResolvedDamageFeedbackSink
+        {
+            public readonly List<DamageResolvedEvent> Events = new List<DamageResolvedEvent>();
+
+            public void RecordResolvedDamage(in DamageResolvedEvent resolvedDamage)
+            {
+                if (resolvedDamage.Result.IsApplied) Events.Add(resolvedDamage);
+            }
         }
 
         private static void ExpectAvatarValidationError() =>
