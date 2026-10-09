@@ -37,6 +37,10 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private bool _rebindExecutions;
     private AbilityActivationFailure _slot1Failure;
     private AbilityActivationFailure _slot2Failure;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private bool _hasSandboxSlotOverride;
+    private PreparedAbilityLoadout _sandboxLoadout;
+#endif
 
     /// <summary>True only for the confirmed, resolved runtime of the current productive avatar.</summary>
     public bool IsInitialized => isActiveAndEnabled && _spawned && Object != null && Object.IsValid &&
@@ -187,6 +191,84 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private bool TryInterruptActive(UniversalAbilitySlot slot, AbilityExecutionStopReason reason) =>
         TryGetExecutionSnapshot(slot, out var snapshot) && snapshot.IsActive &&
         TryInterrupt(slot, snapshot.Sequence, reason);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>Sandbox query: true when a catalog ability has an avatar execution behaviour bound.</summary>
+    public bool SandboxHasBehaviour(AbilityId abilityId)
+    {
+        if (_executionBehaviours == null || !abilityId.IsValid) return false;
+        foreach (var behaviour in _executionBehaviours)
+            if (behaviour != null && behaviour.Definition != null && behaviour.Definition.AbilityId == abilityId) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Sandbox-only: replaces the prepared pair, bypassing Town and the prepared loadout. State Authority,
+    /// forward simulation only. Active executions are stopped first (mandatory reason); changed slots lose
+    /// their cooldown. Empty ids clear a slot. The override survives rebinding.
+    /// </summary>
+    public bool SandboxOverrideSlots(AbilityId slot1, AbilityId slot2, out string error)
+    {
+        error = null;
+        if (!_spawned || _invalid || _ended || _catalog == null || !HasStateAuthority || Runner == null ||
+            !Runner.IsSimulationUpdating || !Runner.IsForward)
+        {
+            error = "Slot override requires a spawned runtime and State Authority forward simulation.";
+            return false;
+        }
+        if (!SandboxLoadoutRules.TryValidateAbilityPair(slot1, slot2,
+                id => _catalog.TryGet(id, out _) && SandboxHasBehaviour(id), out error)) return false;
+        var loadout = new PreparedAbilityLoadout(slot1, slot2);
+        if (!AbilityRuntimeSlots.TryCreate(loadout, _catalog, out var resolved, out error)) return false;
+        if (_slots != null)
+        {
+            InterruptActiveExecutions(AbilityExecutionStopReason.ConfigurationUnavailable);
+            if (Slot1Execution.IsActive || Slot2Execution.IsActive)
+            {
+                error = "An active ability execution could not be stopped.";
+                return false;
+            }
+        }
+        _sandboxLoadout = loadout;
+        _hasSandboxSlotOverride = true;
+        if (_slots == null) return true; // Applied by the next binding.
+        _slots = resolved;
+        _slot1Behaviour = ResolveBehaviour(UniversalAbilitySlot.Slot1);
+        _slot2Behaviour = ResolveBehaviour(UniversalAbilitySlot.Slot2);
+        ClearSandboxExecution(UniversalAbilitySlot.Slot1);
+        ClearSandboxExecution(UniversalAbilitySlot.Slot2);
+        _slot1Failure = AbilityActivationFailure.None;
+        _slot2Failure = AbilityActivationFailure.None;
+        return true;
+    }
+
+    /// <summary>Sandbox-only: clears both slot cooldowns without touching active phases. State Authority.</summary>
+    public bool SandboxResetCooldowns()
+    {
+        if (!HasStateAuthority || !IsInitialized) return false;
+        ClearSandboxCooldown(UniversalAbilitySlot.Slot1);
+        ClearSandboxCooldown(UniversalAbilitySlot.Slot2);
+        return true;
+    }
+
+    private void ClearSandboxCooldown(UniversalAbilitySlot slot)
+    {
+        var state = ReadExecution(slot);
+        state.Cooldown = TickTimer.None;
+        WriteExecution(slot, state);
+    }
+
+    // Keeps the sequence so identities stay monotonic; the slot content changed, so nothing else carries over.
+    private void ClearSandboxExecution(UniversalAbilitySlot slot)
+    {
+        var state = ReadExecution(slot);
+        state.Phase = AbilityExecutionPhase.Idle;
+        state.PhaseDeadline = TickTimer.None;
+        state.Cooldown = TickTimer.None;
+        state.AimDirection = default;
+        WriteExecution(slot, state);
+    }
+#endif
 
     private AbilityActivationFailure TryStartExecution(UniversalAbilitySlot slot)
     {
@@ -437,7 +519,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
             return;
         }
 
-        if (!participant.TryGetPreparedAbilityLoadout(out var prepared))
+        if (!TryResolvePreparedLoadout(participant, out var prepared))
         {
             return;
         }
@@ -460,6 +542,18 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
             Slot1Execution = default;
             Slot2Execution = default;
         }
+    }
+
+    private bool TryResolvePreparedLoadout(NetworkRaidParticipant participant, out PreparedAbilityLoadout prepared)
+    {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (_hasSandboxSlotOverride)
+        {
+            prepared = _sandboxLoadout;
+            return true;
+        }
+#endif
+        return participant.TryGetPreparedAbilityLoadout(out prepared);
     }
 
     private bool TryResolveCurrentParticipant(out NetworkRaidParticipant participant)

@@ -14,7 +14,7 @@ Dev-only sandbox scene to test abilities: fully customizable player, any number/
 ## Tasks
 - [x] T1 Targetability marker + `TrainingDummyCharacter` (+ EditMode tests) — route: delegated writer
 - [x] T2 Dummy prefab + `SandboxEnemySpawner` — route: delegated writer
-- [ ] T3 Player customization RPCs + ability slot/cooldown/resource hooks (+tests) — route: delegated writer
+- [x] T3 Player customization RPCs + ability slot/cooldown/resource hooks (+tests) — route: delegated writer
 - [ ] T4 Sandbox UI + scene + bootstrap + `Docs/Architecture/AbilitySandbox.md` — route: delegated writer
 
 ## Acceptance
@@ -30,5 +30,10 @@ Dev-only sandbox scene to test abilities: fully customizable player, any number/
 - T2: RED = CS0246 `SandboxSpawnPattern` not found (planner tests written first). GREEN = `Tests.EditMode.Sandbox` 19/19, then Sandbox + `Tests.EditMode.Abilities` 63/63 passed, 0 failed; no CS errors in console. Prefab `Assets/Prefabs/Sandbox/TrainingDummy.prefab` built via Unity MCP; YAML confirms layer 7 (Character), `_damageHitboxes` -> trigger hitbox, NetworkedBehaviours baked (NetworkTransform, DummyKnockbackMotor, TrainingDummyCharacter). Added dev-only `DummyKnockbackMotor` (no existing IKnockbackMotor outside player/enemy AI). Max-health override is rejected (no CharacterBase hook); AI freeze left out (no clean hook, FSM re-enables control each state). Spawner RPCs use `RpcSources.All` (scene object has no Input Authority).
 - T2 NOT validated: Fusion runtime spawn, EnemyCharacter/KillExperience/MissionProgress sources without a match controller, knockback visuals, RPC from a Client, Play Mode.
 
+- T2 commit: `53d4d6ae` `feat(sandbox): add training dummy prefab and enemy spawner`.
+- T3: partial work from a previous writer was audited and kept. RED = batchmode compile error CS0234 (`Fusion.Addons` unused using in `SandboxPlayerController`), fixed. GREEN = Unity compiled with 0 CS errors; `Tests.EditMode.Abilities` + `Tests.EditMode.Sandbox` 101/101 passed, 0 failed (includes new `SandboxLoadoutRulesTests`). Dev-guarded hooks: `PlayerAbilityRuntimeNetworkController.SandboxOverrideSlots/SandboxResetCooldowns/SandboxHasBehaviour`, `PlayerWeaponEquipmentNetworkController.SandboxSetEquipment`. Attributes via thin facade over `RuntimeAttributeOverrideNetworkController`. God mode = Health refill each tick; infinite Mana = refill each tick.
+- T3 left out: infinite/refill Stamina (`PlayerStaminaNetworkController` has no refill hook; smallest change: a dev-guarded `SandboxRefill()` there).
+- T3 NOT validated: Fusion runtime (RPC from Client, State Authority paths), Play Mode, equipment/slot hooks end-to-end, god-mode burst > Max Health, teleport.
+
 ## Next step
-T3.
+T4.

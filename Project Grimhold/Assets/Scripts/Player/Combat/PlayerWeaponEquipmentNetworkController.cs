@@ -690,6 +690,123 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         return true;
     }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// Sandbox-only: places a catalog item straight into <paramref name="slot"/> (or clears it with a
+    /// negative index), bypassing Inventory ownership and provenance. State Authority only. Slot
+    /// compatibility, weapon eligibility and the two-handed/Off Hand rule still apply. Sandbox-equipped
+    /// items carry no Raid origin, so a regular unequip of them is not supported.
+    /// </summary>
+    public bool SandboxSetEquipment(int catalogIndex, EquipmentSlot slot, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || !IsEquipmentReadable || !EquipmentSlotRules.IsEquipmentSlot(slot) ||
+            !ValidateEquipmentDependencies() || !CanMutateEquipment())
+        {
+            error = "Sandbox equipment requires State Authority, a living player and an in-progress match.";
+            return false;
+        }
+
+        if (_abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+        {
+            error = "Equipment cannot change during an active ability execution.";
+            return false;
+        }
+
+        LootDefinition definition = null;
+        bool equip = catalogIndex >= 0;
+        if (equip && (!_lootCatalog.TryGetByIndex(catalogIndex, out definition) || definition == null ||
+                      !EquipmentSlotRules.IsCompatible(definition, slot)))
+        {
+            error = "The catalog item cannot occupy that slot.";
+            return false;
+        }
+
+        bool twoHanded = equip && definition.Category == LootCategory.Weapon &&
+            definition.WeaponDefinition.Handedness == WeaponHandedness.TwoHanded;
+        EquipmentSlot offHand = EquipmentSlotRules.GetOffHandSlot(slot);
+        if (equip && EquipmentSlotRules.IsOffHandSlot(slot) &&
+            !SandboxLoadoutRules.TryValidateWeaponSetPair(
+                IsOffHandBlocked(EquipmentSlotRules.GetWeaponSet(slot)), true, out error))
+        {
+            return false;
+        }
+
+        bool becomesActive = false;
+        AttackConfig attackConfig = null;
+        CharacterAttributeState attributes = default;
+        if (equip && definition.Category == LootCategory.Weapon)
+        {
+            if (!ValidateWeaponDependencies() ||
+                TryResolveEligibleWeapon(catalogIndex, out _, out attackConfig, out attributes) !=
+                WeaponEligibilityFailure.None)
+            {
+                error = "The weapon is invalid or its attribute requirements are not met.";
+                return false;
+            }
+
+            becomesActive = EquipmentSlotRules.IsMainHandSlot(slot) &&
+                (ActiveWeaponSetSlot == WeaponSetSlot.None ||
+                 ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(slot));
+            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _))
+            {
+                error = "The weapon cannot configure a combat strategy.";
+                return false;
+            }
+        }
+
+        PlayerReviveGate.InterruptIfReviving(_character);
+        SandboxClearSlot(slot);
+        if (twoHanded)
+        {
+            SandboxClearSlot(offHand);
+        }
+
+        bool activeMainChanged = EquipmentSlotRules.IsMainHandSlot(slot) &&
+            ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(slot);
+        if (equip)
+        {
+            SetCatalogIndexPlusOne(slot, catalogIndex + 1);
+        }
+
+        EquipmentRevision++;
+        if (becomesActive)
+        {
+            ActiveWeaponSetSlotValue = (int)EquipmentSlotRules.GetWeaponSet(slot);
+            ApplyReplicatedActiveWeapon();
+        }
+        else if (!equip && activeMainChanged)
+        {
+            WeaponSetSlot other = EquipmentSlotRules.GetWeaponSet(slot) == WeaponSetSlot.SetA
+                ? WeaponSetSlot.SetB
+                : WeaponSetSlot.SetA;
+            ActiveWeaponSetSlotValue = IsSlotOccupied(other) ? (int)other : (int)WeaponSetSlot.None;
+            ApplyReplicatedActiveWeapon();
+        }
+        else
+        {
+            CaptureAppliedState();
+        }
+
+        return true;
+    }
+
+    private void SandboxClearSlot(EquipmentSlot slot)
+    {
+        if (slot == EquipmentSlot.None || !IsSlotOccupied(slot))
+        {
+            return;
+        }
+
+        if (TryGetSlotRaidOrigin(slot, out RaidLootOrigin origin))
+        {
+            _raidOriginState.TryClearEquipmentOrigin(slot, origin);
+        }
+
+        SetCatalogIndexPlusOne(slot, 0);
+    }
+#endif
+
     private EquipmentOperationResult TryEquipAuthority(int catalogIndex, EquipmentSlot targetSlot)
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
