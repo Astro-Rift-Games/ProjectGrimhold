@@ -24,7 +24,7 @@ The Host connects through Photon, so a working network connection and Fusion app
 `F9` toggles the IMGUI panel. Tabs:
 
 - **Player**: Health set/refill, Mana refill, god mode, infinite mana, teleport, reset cooldowns, attribute offsets (step, +/-, reset), equipment from `LootDefinitionCatalog` (Weapon Set A/B, Off Hand option) and per-slot unequip.
-- **Abilities**: **Ignore session rules** checkbox (default ON), then pick Slot 1 and Slot 2 from the catalog and apply. Every catalog ability is listed with its attribute requirement next to the live value (for example `needs Strength 10 (current 12)`). Entries without an execution behaviour are shown as "(no behaviour - cannot cast)" and cannot be selected. Live readout per slot: remaining cooldown, execution phase, last activation failure; plus Mana and Stamina.
+- **Abilities**: **Ignore session rules** checkbox (default ON). Shows what is **applied to the player** and what is **selected here**; picking a Slot button applies immediately (the selection starts from the applied loadout, so Apply never clears it by accident). **Cast Slot 1 / Cast Slot 2** buttons start the ability through the real activation path. Every catalog ability is listed with its attribute requirement next to the live value (for example `needs Strength 10 (current 12)`). Entries without an execution behaviour are shown as "(no behaviour - cannot cast)" and cannot be selected. Live readout per slot: bound ability, remaining cooldown, execution phase and the last activation failure with a plain-language explanation; plus Mana and Stamina. Seismic Strike only starts with at least one enemy or dummy within 3 units (`BehaviourRejected` otherwise, by design).
 - **Enemies**: kind (melee, ranged, dummy), count, pattern (ring, grid, line), spacing, spawn at player, clear all.
 - **Dummy**: last damage, total damage and hit count per dummy and in total, reset.
 
@@ -52,7 +52,9 @@ All mutations run on State Authority. Any peer may submit a request through an R
 - Equipment set through the sandbox bypasses inventory provenance (items carry no Raid origin).
 - The `NetworkEnemy` melee prefab has no `IAttack` assigned; spawning it logs `EnemyCombatAIController requires a component implementing IAttack` and the enemy cannot attack. The ranged variant is the one the production spawn list uses.
 - Dummy damage counters are recorded on the State Authority only.
-- Not validated under a Client peer, in a built player, or with ability casts, damage and knockback in Play Mode.
+- The melee `NetworkEnemy` is inert (no movement, no attacks) but is a valid, damageable, knockable ability target; it is useful as a passive target.
+- The sandbox starts with EMPTY slots when the dev profile has no prepared loadout; pick abilities in the Abilities tab. A real profile loadout is replaced by the first sandbox apply.
+- Not validated under a Client peer, in a built player, or with real mouse clicks on the IMGUI panel (the panel logic was driven by code).
 
 ## Production hooks added (all dev-guarded)
 
@@ -77,3 +79,9 @@ See also: [Ability System Architecture](AbilitySystemArchitecture.md).
 ### Production hooks added (dev-guarded)
 
 - `PlayerAbilityRuntimeNetworkController.SandboxIgnoreSessionRules { get; }` and `bool SandboxSetIgnoreSessionRules(bool enabled)` (State Authority only, default off), consulted in `TryStartExecution`.
+
+### Cast requests (T6, dev-guarded)
+
+`SandboxPlayerController.RequestCast(1|2)` queues a request that State Authority executes inside `FixedUpdateNetwork` by calling `PlayerAbilityRuntimeNetworkController.SandboxCast(UniversalAbilitySlot)`, which runs the real `TryStartExecution` (same gates, resource spend, cooldown and behaviour as an input rising edge). The result is stored as the slot's last activation failure and in `SandboxPlayerController.LastCastFailure` / `CastCount` (State Authority only).
+
+Production hook added (dev-guarded): `AbilityActivationFailure SandboxCast(UniversalAbilitySlot slot)`; returns `PlayerUnavailable` outside State Authority forward simulation, `MissingBehaviour` for an empty slot.

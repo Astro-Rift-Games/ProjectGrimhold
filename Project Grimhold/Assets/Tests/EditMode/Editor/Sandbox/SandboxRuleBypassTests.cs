@@ -65,5 +65,31 @@ namespace Tests.EditMode.Sandbox
             Assert.That(SandboxRuleBypass.DescribeAbility("Charge", true), Is.EqualTo("Charge"));
             Assert.That(SandboxRuleBypass.DescribeAbility("Heal", false), Is.EqualTo("Heal (no behaviour - cannot cast)"));
         }
+
+        [Test]
+        public void DescribeFailure_ExplainsEveryFailureWithDistinctText()
+        {
+            var seen = new HashSet<string>();
+            foreach (AbilityActivationFailure failure in System.Enum.GetValues(typeof(AbilityActivationFailure)))
+            {
+                string text = SandboxRuleBypass.DescribeFailure(failure);
+                Assert.That(text, Is.Not.Null.And.Not.Empty, failure.ToString());
+                Assert.That(seen.Add(text), Is.True, $"duplicate text for {failure}");
+            }
+        }
+
+        [Test]
+        public void DescribeFailure_BehaviourRejectedMentionsMissingEnemy()
+        {
+            Assert.That(
+                SandboxRuleBypass.DescribeFailure(AbilityActivationFailure.BehaviourRejected),
+                Does.Contain("enemy"));
+        }
+
+        [Test]
+        public void DescribeFailure_UnknownValueStillReturnsText()
+        {
+            Assert.That(SandboxRuleBypass.DescribeFailure((AbilityActivationFailure)200), Is.Not.Empty);
+        }
     }
 }

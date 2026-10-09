@@ -44,6 +44,9 @@ public sealed class SandboxPanel : MonoBehaviour
     private Rect _windowRect = new Rect(12f, 12f, 470f, 560f);
     private Vector2 _scroll;
     private string _status = string.Empty;
+    private bool _slotsSynced;
+    private GUIStyle _windowStyle;
+    private Texture2D _backgroundTexture;
     private string _healthText = "50";
     private string _teleportX = "0";
     private string _teleportY = "0";
@@ -119,9 +122,34 @@ public sealed class SandboxPanel : MonoBehaviour
             return;
         }
 
-        _windowRect = GUI.Window(888125, _windowRect, DrawWindow, $"Ability Sandbox [{ToggleKey}]");
+        EnsureWindowStyle();
+        _windowRect = GUI.Window(888125, _windowRect, DrawWindow, $"Ability Sandbox [{ToggleKey}]", _windowStyle);
         _windowRect.x = Mathf.Clamp(_windowRect.x, 0f, Mathf.Max(0f, Screen.width - _windowRect.width));
         _windowRect.y = Mathf.Clamp(_windowRect.y, 0f, Mathf.Max(0f, Screen.height - _windowRect.height));
+    }
+
+    // The default IMGUI window is translucent, which made the panel unreadable over the game HUD.
+    private void EnsureWindowStyle()
+    {
+        if (_windowStyle != null)
+        {
+            return;
+        }
+
+        _backgroundTexture = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+        _backgroundTexture.SetPixel(0, 0, new Color(0.1f, 0.11f, 0.14f, 0.97f));
+        _backgroundTexture.Apply();
+        _windowStyle = new GUIStyle(GUI.skin.window);
+        _windowStyle.normal.background = _backgroundTexture;
+        _windowStyle.onNormal.background = _backgroundTexture;
+    }
+
+    private void OnDestroy()
+    {
+        if (_backgroundTexture != null)
+        {
+            Destroy(_backgroundTexture);
+        }
     }
 
     private void DrawWindow(int windowId)
@@ -310,13 +338,20 @@ public sealed class SandboxPanel : MonoBehaviour
             Report(_player.RequestSetIgnoreSessionRules(ignoreRules), "Ignore session rules");
         GUILayout.Label("Resource, cooldown and aim rules still apply. Abilities with no behaviour cannot be cast.");
 
-        GUILayout.Label($"Slot 1: {SlotName(_state.Slot1Index)}    Slot 2: {SlotName(_state.Slot2Index)}");
+        SyncSelectionFromPlayer();
+        GUILayout.Label($"Applied to player:  Slot 1: {AppliedName(UniversalAbilitySlot.Slot1)}    Slot 2: {AppliedName(UniversalAbilitySlot.Slot2)}");
+        GUILayout.Label($"Selected here:  Slot 1: {SlotName(_state.Slot1Index)}    Slot 2: {SlotName(_state.Slot2Index)}  (picking a Slot button applies it immediately)");
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Apply to player"))
-            Report(_player.RequestAbilitySlots(_state.Slot1Index, _state.Slot2Index), "Apply ability slots");
-        if (GUILayout.Button("Clear Slot 1")) _state.ClearSlot(1);
-        if (GUILayout.Button("Clear Slot 2")) _state.ClearSlot(2);
+        if (GUILayout.Button("Apply to player")) ApplySelection();
+        if (GUILayout.Button("Clear Slot 1")) { _state.ClearSlot(1); ApplySelection(); }
+        if (GUILayout.Button("Clear Slot 2")) { _state.ClearSlot(2); ApplySelection(); }
         GUILayout.EndHorizontal();
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Cast Slot 1")) Report(_player.RequestCast(1), "Cast Slot 1");
+        if (GUILayout.Button("Cast Slot 2")) Report(_player.RequestCast(2), "Cast Slot 2");
+        if (GUILayout.Button("Reset cooldowns")) Report(_player.RequestResetCooldowns(), "Reset cooldowns");
+        GUILayout.EndHorizontal();
+        GUILayout.Label("Seismic Strike needs at least one enemy or dummy within 3 units of the player.");
 
         bool hasAttributes = false;
         CharacterAttributeState effective = default;
@@ -384,17 +419,59 @@ public sealed class SandboxPanel : MonoBehaviour
         string phase = _abilityRuntime.TryGetExecutionSnapshot(slot, out AbilityExecutionSnapshot snapshot)
             ? $"{snapshot.Phase} (#{snapshot.Sequence})"
             : "unbound";
+        AbilityActivationFailure failure = _abilityRuntime.GetLastActivationFailure(slot);
         GUILayout.Label(
-            $"{slot}: cooldown {_abilityRuntime.GetRemainingCooldownSeconds(slot):0.0}s   phase {phase}   " +
-            $"last failure {_abilityRuntime.GetLastActivationFailure(slot)}");
+            $"{slot}: {AppliedName(slot)}   cooldown {_abilityRuntime.GetRemainingCooldownSeconds(slot):0.0}s   phase {phase}");
+        GUILayout.Label($"   last failure: {failure} - {SandboxRuleBypass.DescribeFailure(failure)}");
     }
 
     private void SelectAbility(int slot, int catalogIndex, bool hasBehaviour)
     {
-        _status = _state.TrySelectAbility(slot, catalogIndex, hasBehaviour, out string error)
-            ? string.Empty
-            : error;
+        if (!_state.TrySelectAbility(slot, catalogIndex, hasBehaviour, out string error))
+        {
+            _status = error;
+            return;
+        }
+
+        ApplySelection();
     }
+
+    private void ApplySelection() =>
+        Report(_player.RequestAbilitySlots(_state.Slot1Index, _state.Slot2Index), "Apply ability slots");
+
+    // The selection starts from what the player really has, so "Apply" never silently clears a loadout.
+    private void SyncSelectionFromPlayer()
+    {
+        if (_slotsSynced || _abilityRuntime == null || !_abilityRuntime.IsInitialized)
+        {
+            return;
+        }
+
+        _state.SyncSlots(AppliedIndex(UniversalAbilitySlot.Slot1), AppliedIndex(UniversalAbilitySlot.Slot2));
+        _slotsSynced = true;
+    }
+
+    private int AppliedIndex(UniversalAbilitySlot slot)
+    {
+        if (_abilityRuntime == null || _abilityCatalog == null ||
+            !_abilityRuntime.TryGetSlot(slot, out AbilityRuntimeSlot state) || !state.IsPrepared)
+        {
+            return SandboxPanelState.NoAbility;
+        }
+
+        IReadOnlyList<AbilityDefinition> definitions = _abilityCatalog.Definitions;
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            if (definitions[i] == state.Definition)
+            {
+                return i;
+            }
+        }
+
+        return SandboxPanelState.NoAbility;
+    }
+
+    private string AppliedName(UniversalAbilitySlot slot) => SlotName(AppliedIndex(slot));
 
     private string SlotName(int index)
     {

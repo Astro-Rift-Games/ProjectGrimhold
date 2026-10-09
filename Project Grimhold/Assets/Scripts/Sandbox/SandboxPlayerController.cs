@@ -29,7 +29,8 @@ public sealed class SandboxPlayerController : NetworkBehaviour
         SetGodMode = 7,
         SetInfiniteMana = 8,
         Teleport = 9,
-        SetIgnoreSessionRules = 10
+        SetIgnoreSessionRules = 10,
+        CastSlot = 11
     }
 
     private enum AttributeOpKind : byte
@@ -90,6 +91,12 @@ public sealed class SandboxPlayerController : NetworkBehaviour
     /// cast-time attribute requirements are skipped. Resource, cooldown and aim rules still apply.
     /// </summary>
     [Networked] public NetworkBool IgnoreSessionRules { get; private set; }
+
+    /// <summary>Outcome of the last sandbox cast processed on State Authority (not replicated).</summary>
+    public AbilityActivationFailure LastCastFailure { get; private set; }
+
+    /// <summary>Number of sandbox casts processed on State Authority (not replicated).</summary>
+    public int CastCount { get; private set; }
 
     [Networked] public NetworkBool GodMode { get; private set; }
     [Networked] public NetworkBool InfiniteMana { get; private set; }
@@ -210,6 +217,10 @@ public sealed class SandboxPlayerController : NetworkBehaviour
     /// <summary>Sets Slot1/Slot2 by <see cref="AbilityDefinitionCatalog.Definitions"/> index; negative clears.</summary>
     public bool RequestAbilitySlots(int slot1CatalogIndex, int slot2CatalogIndex) =>
         Submit(new Request(RequestKind.SetAbilitySlots, slot1CatalogIndex, slot2CatalogIndex));
+
+    /// <summary>Starts Slot1 (1) or Slot2 (2) through the real activation path on State Authority.</summary>
+    public bool RequestCast(int slot) =>
+        (slot == 1 || slot == 2) && Submit(new Request(RequestKind.CastSlot, slot));
 
     public bool RequestResetCooldowns() => Submit(new Request(RequestKind.ResetCooldowns));
 
@@ -334,6 +345,7 @@ public sealed class SandboxPlayerController : NetworkBehaviour
                     Debug.LogWarning($"{nameof(SandboxPlayerController)}: ability runtime is not initialized.", this);
                 }
                 break;
+            case RequestKind.CastSlot: ApplyCast(request.A, player); break;
             case RequestKind.SetEquipment: ApplyEquipment(request.A, request.B, player); break;
             case RequestKind.SetHealth: ApplyHealth(request.Value, player); break;
             case RequestKind.RefillHealth: RefillHealth(player); break;
@@ -343,6 +355,20 @@ public sealed class SandboxPlayerController : NetworkBehaviour
             case RequestKind.SetInfiniteMana: InfiniteMana = request.A != 0; break;
             case RequestKind.Teleport: ApplyTeleport(request.Position, player); break;
         }
+    }
+
+    private void ApplyCast(int slotNumber, PlayerCharacter player)
+    {
+        if ((slotNumber != 1 && slotNumber != 2) ||
+            !player.TryGetComponent(out PlayerAbilityRuntimeNetworkController runtime))
+        {
+            Debug.LogError($"{nameof(SandboxPlayerController)} rejected a cast request.", this);
+            return;
+        }
+
+        UniversalAbilitySlot slot = slotNumber == 1 ? UniversalAbilitySlot.Slot1 : UniversalAbilitySlot.Slot2;
+        LastCastFailure = runtime.SandboxCast(slot);
+        CastCount++;
     }
 
     private void ApplyAbilitySlots(int index1, int index2, PlayerCharacter player)

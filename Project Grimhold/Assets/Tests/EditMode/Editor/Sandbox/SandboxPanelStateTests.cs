@@ -188,5 +188,28 @@ namespace Tests.EditMode.Sandbox
 
             Assert.That(state.Tab, Is.EqualTo(SandboxPanelTab.Dummy));
         }
+
+        [Test]
+        public void SyncSlots_ReplacesSelectionWithAppliedIndices()
+        {
+            var state = new SandboxPanelState();
+            state.TrySelectAbility(1, 4, true, out _);
+
+            state.SyncSlots(0, 1);
+
+            Assert.That(state.Slot1Index, Is.EqualTo(0));
+            Assert.That(state.Slot2Index, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SyncSlots_NegativeIndicesBecomeEmpty()
+        {
+            var state = new SandboxPanelState();
+
+            state.SyncSlots(-5, 3);
+
+            Assert.That(state.Slot1Index, Is.EqualTo(SandboxPanelState.NoAbility));
+            Assert.That(state.Slot2Index, Is.EqualTo(3));
+        }
     }
 }

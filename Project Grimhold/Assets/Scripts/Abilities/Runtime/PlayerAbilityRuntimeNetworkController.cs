@@ -266,6 +266,22 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Sandbox-only: starts <paramref name="slot"/> through the real <c>TryStartExecution</c> path, exactly as an
+    /// accepted rising-edge input would. Must be called from State Authority forward simulation
+    /// (<c>FixedUpdateNetwork</c>). The outcome is also stored as the slot's last activation failure.
+    /// </summary>
+    public AbilityActivationFailure SandboxCast(UniversalAbilitySlot slot)
+    {
+        if (!_spawned || _invalid || _ended || !HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating ||
+            !Runner.IsForward || !IsInitialized) return AbilityActivationFailure.PlayerUnavailable;
+        if (!IsSlotAvailable(slot)) return AbilityActivationFailure.MissingBehaviour; // Empty slot.
+        var failure = TryStartExecution(slot);
+        if (slot == UniversalAbilitySlot.Slot1) _slot1Failure = failure;
+        else _slot2Failure = failure;
+        return failure;
+    }
+
     private void ClearSandboxCooldown(UniversalAbilitySlot slot)
     {
         var state = ReadExecution(slot);

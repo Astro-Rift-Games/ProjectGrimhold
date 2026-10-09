@@ -116,6 +116,13 @@ public sealed class SandboxPanelState
         return true;
     }
 
+    /// <summary>Replaces the selection with the indices currently applied to the player (negative = empty).</summary>
+    public void SyncSlots(int slot1Index, int slot2Index)
+    {
+        Slot1Index = slot1Index < 0 ? NoAbility : slot1Index;
+        Slot2Index = slot2Index < 0 ? NoAbility : slot2Index;
+    }
+
     public void ClearSlot(int slot)
     {
         if (slot == 1)
