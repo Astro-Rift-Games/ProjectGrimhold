@@ -81,6 +81,30 @@ Presentation only: `PlayerAnimatorView` may present a different body bucket than
 for a `FreeAim` weapon (hybrid free arc); that choice is not simulated and does not change
 `FacingDirection`.
 
+## Forced displacement
+
+`PlayerMovementNetworkController` exposes a minimal hook for an ability to move the avatar along a fixed
+direction at a fixed speed. It is not a general Dash: it owns no duration, input, cooldown or presentation.
+
+- **Ownership:** State Authority only, forward simulation only. `TryBeginForcedDisplacement(direction, speed)`
+  rejects a zero or non-finite direction, a non-positive or non-finite speed, a call without State Authority
+  or outside forward simulation, and a call while a displacement is already active. `EndForcedDisplacement()`
+  is idempotent. The caller (the ability runtime) owns the duration and ends the displacement explicitly, so
+  movement keeps no second clock.
+- **State:** `ForcedDirection` (unit `Vector2`), `ForcedSpeed` and `ForcedActive` are `[Networked]`, written by
+  State Authority and restored by `CopyStateFrom`. They are not initialized in `Spawned()`, and nothing in
+  the hook depends on tick values, so a Host Migration restore keeps the displacement until its owner ends it.
+- **Tick behaviour:** while active, voluntary input displacement is zero (voluntary and forced movement are
+  different events), `KnockbackVelocity` still adds, and `direction * speed * DeltaTime` is summed into the
+  single displacement passed to `Kinematic2DMovementMotor.Move`. Collision is the motor's, unchanged.
+- **Results:** `LastAppliedDisplacement` is what the motor actually applied in the last tick.
+  `WasForcedDisplacementBlocked` is true when the avatar advanced less than the forced step along the forced
+  direction (beyond `0.0001f`); sliding along a surface counts as blocked. Both are local to the simulating
+  peer and not replicated.
+- **Downed and death:** the displacement ends automatically on the tick the character is dead or Downed.
+- **Pure rules:** `ForcedDisplacementMath` (validation, step, blocked detection, continuation) is
+  allocation-free and covered by EditMode tests.
+
 ## 1. Propósito
 
 Este documento define la arquitectura v1 del movimiento sincronizado de jugadores para Project Grimhold.

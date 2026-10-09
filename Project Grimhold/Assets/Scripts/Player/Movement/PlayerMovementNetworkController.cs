@@ -79,6 +79,31 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     private Vector2 KnockbackVelocity { get; set; }
 
+    /// <summary>Unit direction of the active forced displacement. Written by State Authority only.</summary>
+    [Networked]
+    private Vector2 ForcedDirection { get; set; }
+
+    [Networked]
+    private float ForcedSpeed { get; set; }
+
+    [Networked]
+    private NetworkBool ForcedActive { get; set; }
+
+    /// <summary>
+    /// Whether an ability-imposed forced displacement currently moves the avatar. The duration is owned
+    /// by the caller, which ends it with <see cref="EndForcedDisplacement"/>.
+    /// </summary>
+    public bool IsForcedDisplacementActive => ForcedActive;
+
+    /// <summary>Displacement the motor actually applied in the last simulated tick (local, not replicated).</summary>
+    public Vector2 LastAppliedDisplacement { get; private set; }
+
+    /// <summary>
+    /// True when the last forced step advanced the avatar less than requested along the forced direction,
+    /// i.e. Environment blocked it (local, not replicated).
+    /// </summary>
+    public bool WasForcedDisplacementBlocked { get; private set; }
+
     private CharacterBase _characterBase;
     private PlayerDownedStateNetworkController _downedState;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
@@ -154,9 +179,22 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isDowned,
             isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f);
 
-        Vector2 displacement = canMove
+        if (ForcedActive && HasStateAuthority && Runner.IsForward &&
+            !ForcedDisplacementMath.ShouldRemainActive(isAlive, isDowned))
+        {
+            EndForcedDisplacement();
+        }
+
+        // Voluntary and forced movement are different events: a forced displacement replaces voluntary input.
+        bool forcedActive = ForcedActive;
+        Vector2 forcedStep = forcedActive
+            ? ForcedDisplacementMath.ComputeStep(ForcedDirection, ForcedSpeed, Runner.DeltaTime)
+            : Vector2.zero;
+
+        Vector2 displacement = canMove && !forcedActive
             ? moveDirection * effectiveSpeed * Runner.DeltaTime
             : Vector2.zero;
+        displacement += forcedStep;
 
         // Apply decaying knockback velocity.
         if (KnockbackVelocity.sqrMagnitude > 0.01f)
@@ -170,6 +208,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         }
 
         Vector2 appliedDisplacement = _movementMotor.Move(displacement);
+        LastAppliedDisplacement = appliedDisplacement;
+        WasForcedDisplacementBlocked = forcedActive &&
+            ForcedDisplacementMath.IsBlocked(forcedStep, appliedDisplacement);
 
         if (appliedDisplacement.sqrMagnitude > ValidMovementSqrThreshold)
         {
@@ -255,6 +296,39 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Add to velocity so it decays over time.
         KnockbackVelocity += impactDirection.normalized * force;
+    }
+
+    /// <summary>
+    /// Starts a forced displacement along <paramref name="direction"/> at <paramref name="speed"/> until
+    /// <see cref="EndForcedDisplacement"/>. State Authority and forward simulation only; rejects an invalid
+    /// request or one while another is active. Voluntary input is suppressed while active; knockback still adds.
+    /// </summary>
+    public bool TryBeginForcedDisplacement(Vector2 direction, float speed)
+    {
+        if (!HasStateAuthority || Runner == null || !Runner.IsForward || ForcedActive ||
+            !ForcedDisplacementMath.TryValidate(direction, speed, out Vector2 normalizedDirection))
+        {
+            return false;
+        }
+
+        ForcedDirection = normalizedDirection;
+        ForcedSpeed = speed;
+        ForcedActive = true;
+        return true;
+    }
+
+    /// <summary>Ends the forced displacement. State Authority and forward simulation only; idempotent.</summary>
+    public void EndForcedDisplacement()
+    {
+        if (!HasStateAuthority || Runner == null || !Runner.IsForward)
+        {
+            return;
+        }
+
+        ForcedActive = false;
+        ForcedDirection = Vector2.zero;
+        ForcedSpeed = 0f;
+        WasForcedDisplacementBlocked = false;
     }
 
     // Attack, Interact and an accepted shield defense aim at the cursor while held. The secondary
@@ -402,6 +476,58 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         }
     }
 #endif
+}
+
+/// <summary>
+/// Deterministic, allocation-free rules for the forced displacement hook (fixed direction and speed
+/// imposed by an ability). It owns no duration: the caller ends the displacement explicitly.
+/// </summary>
+internal static class ForcedDisplacementMath
+{
+    /// <summary>Forward shortfall (world units) below which a forced step counts as fully applied.</summary>
+    internal const float BlockedEpsilon = 0.0001f;
+
+    /// <summary>
+    /// Validates a request and normalizes its direction. Rejects zero or non-finite directions and
+    /// non-positive or non-finite speeds.
+    /// </summary>
+    internal static bool TryValidate(Vector2 direction, float speed, out Vector2 normalizedDirection)
+    {
+        normalizedDirection = Vector2.zero;
+
+        if (float.IsNaN(speed) || float.IsInfinity(speed) || speed <= 0f)
+        {
+            return false;
+        }
+
+        return PlayerAimMath.TryNormalizeDirection(direction, out normalizedDirection);
+    }
+
+    internal static Vector2 ComputeStep(Vector2 direction, float speed, float deltaTime)
+    {
+        return direction * (speed * deltaTime);
+    }
+
+    /// <summary>
+    /// A forced step is blocked when the motor advanced the avatar along the requested direction by less
+    /// than requested. Sliding along a surface gives no forward progress, so it counts as blocked.
+    /// </summary>
+    internal static bool IsBlocked(Vector2 requestedStep, Vector2 appliedDisplacement)
+    {
+        float requestedLength = requestedStep.magnitude;
+        if (requestedLength <= BlockedEpsilon)
+        {
+            return false;
+        }
+
+        float forwardProgress = Vector2.Dot(appliedDisplacement, requestedStep / requestedLength);
+        return requestedLength - forwardProgress > BlockedEpsilon;
+    }
+
+    internal static bool ShouldRemainActive(bool isAlive, bool isDowned)
+    {
+        return isAlive && !isDowned;
+    }
 }
 
 /// <summary>
