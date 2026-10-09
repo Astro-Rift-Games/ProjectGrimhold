@@ -25,6 +25,21 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         Assert.That(serialized.FindProperty("_movementController").objectReferenceValue,
             Is.SameAs(prefab.GetComponent<PlayerMovementNetworkController>()),
             "The runtime reads the networked aim from the avatar's movement controller.");
+        var finder = prefab.GetComponent<AbilityAreaTargetFinder>();
+        Assert.That(finder, Is.Not.Null);
+        Assert.That(serialized.FindProperty("_areaTargetFinder").objectReferenceValue, Is.SameAs(finder));
+        var finderSerialized = new SerializedObject(finder);
+        Assert.That(finderSerialized.FindProperty("_targetQuery").objectReferenceValue,
+            Is.SameAs(prefab.GetComponent<Physics2DAttackTargetQuery>()),
+            "Area abilities reuse the avatar's existing attack target query.");
+        var combatSerialized = new SerializedObject(prefab.GetComponent<PlayerCombatNetworkController>());
+        Assert.That(finderSerialized.FindProperty("_origin").objectReferenceValue,
+            Is.SameAs(combatSerialized.FindProperty("_attackOrigin").objectReferenceValue),
+            "The area is centered on the same point the equipped weapon uses.");
+        Assert.That(finderSerialized.FindProperty("_targetLayerMask").intValue,
+            Is.EqualTo(1 << LayerMask.NameToLayer("Character")),
+            "Creature damage hitboxes live on the Character layer, like the melee target mask.");
+        Assert.That(finder.IsConfigured, Is.True);
         Assert.That(serialized.FindProperty("_executionBehaviours").arraySize, Is.Zero,
             "Concrete effects are not implemented by TASK447; production must not compose a placeholder.");
         Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(runtimes[0]));

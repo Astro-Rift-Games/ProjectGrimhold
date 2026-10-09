@@ -6040,6 +6040,7 @@ GameObject:
   - component: {fileID: 5067162581458356925}
   - component: {fileID: 9200000000000000445}
   - component: {fileID: 9200000000000000199}
+  - component: {fileID: 9200000000000000212}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6499,6 +6500,7 @@ MonoBehaviour:
   _staminaController: {fileID: 7201000000000000006}
   _manaController: {fileID: 9200000000000000199}
   _movementController: {fileID: 7201000000000000005}
+  _areaTargetFinder: {fileID: 9200000000000000212}
   _executionBehaviours: []
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -8213,3 +8215,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerManaNetworkController
   _participantLink: {fileID: 5489547608340585132}
   _playerCharacter: {fileID: 729366679366126330}
+--- !u!114 &9200000000000000212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69b6c77c2267eb844967dfcb61cea4dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityAreaTargetFinder
+  _targetQuery: {fileID: 8300000000000000001}
+  _origin: {fileID: 5496709202239764530}
+  _targetLayerMask:
+    serializedVersion: 2
+    m_Bits: 128

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture; the target predicate and concrete targeting remain deferred. Concrete abilities, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture and TASK 212 implements the caster-centered area query with the creature-only valid-enemy predicate; PvP and Downed targets, ally and Self areas and Trampa placement remain pending Game Design or later tasks. Concrete abilities, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
@@ -273,6 +273,10 @@ Accepted-intent tick
 - **Valid start, no targets at resolution:** the execution finishes normally without effect. Cost and cooldown are not refunded and the execution is not cancelled because its initial targets became invalid.
 - **Resolve once:** the effect application is tied to the accepted execution sequence, so resimulation, rebind or Host Migration do not apply it twice.
 
+TASK 212 implements the area query for enemies as one code path. `AbilityExecutionContext.TryFindEnemiesInArea(radius, results)` is the only entry: a concrete behavior calls it inside `TryPlanStart` (reject when the list is empty, so the attempt is a `BehaviourRejected` activation failure before payment) and again in `Simulate` at resolution, which rebuilds the targets around the caster's position at that tick. The radius is a parameter owned by the behavior; changing it never changes a validation rule. The behavior supplies its own reusable `List<AttackTarget>`; the call replaces its content and returns false (empty list) when targeting is unavailable or the radius is not a finite positive number. Area target sets are never stored or replicated.
+
+The implementation is `AbilityAreaTargetFinder`, a plain component on `NetworkPlayer.prefab` referenced by `PlayerAbilityRuntimeNetworkController` (a missing or unconfigured finder is a configuration error in `Spawned`, like the other required references). It builds a normal `AttackTargetQuery` (zero direction, zero range, the radius, no target limit) and runs it through the avatar's existing `Physics2DAttackTargetQuery`, so identity resolution, damage-collider filtering, deduplication by `EntityId` (an entity with several hitboxes counts once) and the deterministic order (distance, then `EntityId`) are inherited unchanged. The query's reusable result list is copied into the caller's list immediately, so a melee query in the same tick cannot overwrite it. The origin is the `AttackOrigin` transform the equipped weapon uses (`PlayerCombatNetworkController`), and the serialized layer mask is the `Character` layer, where creature damage hitboxes live (the same layer as the melee target mask). Like melee, no physics synchronization is performed before the query. No raycast is made, so line of sight is never required.
+
 ### Single valid-target predicate
 
 One predicate answers whether an entity is a valid target for a given ability at a given tick. The start rules and the resolution step call the same predicate, so they cannot diverge. It combines:
@@ -284,6 +288,8 @@ One predicate answers whether an entity is a valid target for a given ability at
 The predicate evaluates conditions; it owns no state and caches no target set. Self never bypasses a particular condition: a Downed caster is not a valid Restauración target and a Stunned caster cannot self-execute Purificación.
 
 The definition of a valid enemy, including PvP and Downed characters, belongs to Game Design and is an open dependency of US-56. PvP also remains blocked until networking provides an authoritative ally/enemy affiliation contract (see [Player Combat Architecture](PlayerCombatArchitecture.md)). This section fixes where the decision is applied, not what it decides.
+
+TASK 212 implements the enemy case as `AbilityTargetPredicate.IsValidEnemy(casterId, damageable)`, the single rule used by the area query at start and at resolution. For now a valid enemy is a creature (`EnemyCharacter`) that is alive, can receive damage and is not the caster. Players of any team, Downed or not, are deliberately not valid targets until Game Design closes PvP and Downed targeting and an authoritative runtime affiliation contract exists; no affiliation is invented. The single extension point is the private affiliation check inside that class; ally and Self variants and Downed handling extend it without changing callers.
 
 ### State, Host Migration and rebind
 
@@ -297,6 +303,9 @@ Trampa placement, Self and allied targets extend this contract without changing 
 
 - No right-stick aim action exists, so `AimDirection` comes only from the cursor; gamepad aim and neutral-stick direction retention are not implemented (see [Player Combat Architecture](PlayerCombatArchitecture.md), known limitations).
 - Restricting area effects by Dungeon room or logical space is a non-blocking pending of Game Design. Until it is decided, areas use radius membership only.
+- Valid enemies are creatures only. Players (any team, Downed or not) are never area targets until Game Design closes PvP and Downed targeting and networking provides an authoritative affiliation contract.
+- `Physics2DAttackTargetQuery` reads at most 64 colliders per query (`_colliderBufferSize`) and silently drops the rest. Area queries share that limit, and the `Character` layer also holds player hitboxes, so a very dense area could omit valid enemies. The buffer is unchanged by TASK 212.
+- As with melee, the query does not synchronize Physics2D transforms first; it observes the physics state of the last step.
 
 ## Interruptions and Raid lifecycle
 
@@ -365,7 +374,7 @@ The following implementation belongs to later tasks; this document defines its c
 
 - execution-specific replicated fields and concrete behavior dispatch beyond the implemented slot-binding component;
 - periodic payment schedule/progress and concrete execution-specific behavior;
-- implementation of the targeting contract (aim capture, start validation, the shared valid-target predicate and resolution-time revalidation);
+- the remaining targeting contract: Trampa ground validity and placement, ally and Self areas, Downed/PvP enemy definition, and Dungeon-room restriction (aim capture and the caster-centered enemy area query with its creature-only predicate are implemented by TASK 211 and TASK 212);
 - concrete Mana consumers and restoration sources;
 - Status Effects, Assist, toggles, summons, and persistent spawned effects;
 - the Raid ability HUD, audio, VFX, and animation (the Town preparation UI is the Abilities tab of the Town player menu, see [Town Player Menu Architecture](TownPlayerMenuArchitecture.md): it reads the profile through `LocalProfileStore` and mutates prepared slots only through the Ready-gated `TownAbilityMutationEndpoint`);
@@ -412,6 +421,16 @@ Those tasks must extend this boundary rather than add a parallel catalog, persis
 | Existing aim contract referenced, not duplicated | Targeting: Aim capture |
 | Host Migration and rebind behavior | Targeting: State, Host Migration and rebind |
 | Extension and known gaps | Targeting: Planned extensions; Known gaps |
+
+| TASK 212 criterion | Architecture section |
+| --- | --- |
+| One area query built on the existing attack target detection | Targeting: Start validation and resolution |
+| Single valid-enemy predicate (creature only, PvP/Downed pending) | Targeting: Single valid-target predicate; Known gaps |
+| Start with no valid target is rejected without payment, sequence or cooldown | Targeting: Start validation and resolution |
+| Resolution rebuilds targets around the caster's current position | Targeting: Start validation and resolution |
+| No targets at resolution finishes normally without refund | Targeting: Start validation and resolution |
+| No line of sight; deterministic, deduplicated result | Targeting: Start validation and resolution |
+| Radius configurable without changing validation | Targeting: Start validation and resolution |
 
 ## References and validation boundary
 

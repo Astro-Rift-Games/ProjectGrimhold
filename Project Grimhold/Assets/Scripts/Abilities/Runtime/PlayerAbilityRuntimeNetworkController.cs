@@ -12,6 +12,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     [SerializeField] private PlayerStaminaNetworkController _staminaController;
     [SerializeField] private PlayerManaNetworkController _manaController;
     [SerializeField] private PlayerMovementNetworkController _movementController;
+    [SerializeField] private AbilityAreaTargetFinder _areaTargetFinder;
     [SerializeField] private AbilityExecutionBehaviour[] _executionBehaviours = System.Array.Empty<AbilityExecutionBehaviour>();
 
     [Networked] private NetworkBool InitializationConfirmed { get; set; }
@@ -54,9 +55,10 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         _invalid = false;
         ClearLocalBinding();
         if (_participantLink == null || _catalog == null || _playerCharacter == null || _staminaController == null ||
-            _manaController == null || _movementController == null)
+            _manaController == null || _movementController == null || _areaTargetFinder == null ||
+            !_areaTargetFinder.IsConfigured)
         {
-            RejectConfiguration("Raid ability runtime requires participant, catalog, character, Stamina, Mana and movement references.");
+            RejectConfiguration("Raid ability runtime requires participant, catalog, character, Stamina, Mana, movement and a configured area target finder.");
             return;
         }
         ValidateBehaviours();
@@ -268,7 +270,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     {
         context = default;
         if (behaviour.Definition == null || !_participantLink.TryGetCharacterAttributeState(out var attributes)) return false;
-        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, behaviour.Definition, attributes);
+        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, behaviour.Definition, attributes, _areaTargetFinder);
         return true;
     }
 
@@ -293,7 +295,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         context = default;
         if (_slots == null || !_slots.TryGetSlot(slot, out var prepared) || !prepared.IsPrepared ||
             !_participantLink.TryGetCharacterAttributeState(out var attributes)) return false;
-        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, prepared.Definition, attributes);
+        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, prepared.Definition, attributes, _areaTargetFinder);
         return true;
     }
 
