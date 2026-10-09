@@ -230,6 +230,22 @@ For future periodic costs, each due payment must be complete; insufficient resou
 
 The Mana resource contract's deactivation responsibility in [Downed and Revive Architecture](DownedAndReviveArchitecture.md) is fulfilled through the ability runtime's authoritative stop boundary: it may request cessation of periodic Mana drain, but does not write ability phases or own the execution. No competing execution state is introduced.
 
+### Embestida (charge)
+
+`ChargeAbilityBehaviour` (`Assets/Scripts/Abilities/Behaviours/`) is the first concrete behavior. It is a Directional ability: it never selects an entity and every direction is valid to start, so a blocked trajectory does not reject the attempt.
+
+- **Plan:** `TryPlanStart` is always valid and returns an `Executing` plan lasting `distance / speed`. An unusable configuration (non-positive or non-finite distance or speed, negative damage or knockback, empty target layers) is a configuration error, not a normal rejection: it is logged and yields an invalid plan, so the runtime rejects it as `InvalidPlan` before payment.
+- **Direction:** `Begin` uses `AbilityExecutionSnapshot.AimDirection`, captured with the sequence. Later aiming never bends the path.
+- **Displacement ownership:** `PlayerMovementNetworkController` owns the movement (see [Player Movement Architecture](PlayerMovementArchitecture.md), "Forced displacement"). The behavior calls `TryBeginForcedDisplacement(direction, speed)` once per accepted sequence, watches `IsForcedDisplacementActive` / `WasForcedDisplacementBlocked`, and `Stop` calls the idempotent `EndForcedDisplacement()` for every stop reason. If the begin fails, the error is logged and the next `Simulate` completes the execution.
+- **Completion** (decided by the pure `ChargeRules.Decide`): the displacement is no longer active (Downed, death), an enemy was hit, the Environment blocked the motor, or the phase deadline expired. An inactive displacement wins, so a stopped charge never resolves a hit.
+- **First-hit stop:** the motor does not collide with entities, so each tick `Simulate` sweeps the path the motor just applied (`LastAppliedDisplacement`) with a `Physics2D.BoxCast` sized from the caster's collider and a serialized target layer mask, using preallocated buffers. Colliders resolve to entities through `EntityRegistry` (damage colliders only) and the shared `AbilityTargetPredicate.IsValidEnemy`. The first enemy along the path wins (smallest distance, then `EntityId`); the charge never passes through it. The hit and the completion happen in the same step, once per sequence.
+- **Damage and knockback:** applied through the existing pipeline with a `DamageRequest` along the charge direction and the configured knockback force. `DamageResolver` only pushes a target when the damage was applied, and `CharacterBase.ApplyDamage` rejects a non-positive amount, so a charge configured with zero damage calls `IKnockbackReceiver.ReceiveKnockback` directly instead. Damage, distance, speed, knockback force and target layers are serialized parameters owned by Balance; the defaults are not final.
+- **Interruption:** `CanInterrupt` accepts `Knockback` and `Stun`; Downed, participation closure and configuration loss remain mandatory in the runtime.
+- **Rebind:** re-resolves local references only. No displacement start or hit is replayed.
+- **Stun is deferred:** Game Design stuns the enemy it hits, but no stun system exists. Nothing is implemented or simulated; the hit application in `ChargeAbilityBehaviour.ApplyImpact` is the extension seam.
+- **Overshoot:** the phase deadline is quantized to simulation ticks, so a charge that runs its full distance may cover up to about one motor step more than configured.
+- **Not yet validated:** actual multi-runner Host Migration of a charge in flight (PlayMode covers rules, the single-runner cycle and local components only), and composition on `NetworkPlayer.prefab`, which is a later task: until the behavior is added to the avatar's execution array an occupied Embestida slot still rejects before payment.
+
 ## Targeting
 
 This section is the technical mapping of Game Design "15 - Targeting de Habilidades" (TASK 210). It defines ownership and timing only; it adds no code, no gameplay rule and no numeric value. Radii and placement distances remain per-ability configuration owned by Balance and must not change a category or a validation rule.
