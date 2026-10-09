@@ -20,5 +20,5 @@ public static class AbilityTargetPredicate
     // Today only creatures are valid. Players of any team, Downed or not, are deliberately excluded until
     // Game Design closes PvP and Downed targeting and an authoritative runtime affiliation contract exists.
     // Do not invent affiliation here; replace this check when that contract is available.
-    private static bool IsEnemyAffiliation(IDamageable candidate) => candidate is EnemyCharacter;
+    private static bool IsEnemyAffiliation(IDamageable candidate) => candidate is IAbilityEnemyTarget;
 }

@@ -8,7 +8,7 @@ using Spawning;
 /// loot container without spawning a replacement corpse object.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class EnemyCharacter : CharacterBase
+public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
 {
     [Networked]
     public EnemyPopulationOrigin PopulationOrigin { get; set; }
