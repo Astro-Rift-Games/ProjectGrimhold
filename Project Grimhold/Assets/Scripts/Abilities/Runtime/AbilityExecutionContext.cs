@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Fusion;
+using UnityEngine;
 
 /// <summary>Current simulation context, not a second owner of mutable execution state.</summary>
 public readonly struct AbilityExecutionContext
@@ -12,9 +13,15 @@ public readonly struct AbilityExecutionContext
     public AbilityDefinition Definition { get; }
     public CharacterAttributeState Attributes { get; }
 
+    /// <summary>
+    /// Direction the execution captures (or already captured). Resolved by the runtime from the same source it
+    /// writes to the snapshot, so planning and execution never disagree. Read-only copy; the player's aim is untouched.
+    /// </summary>
+    public Vector2 AimDirection { get; }
+
     internal AbilityExecutionContext(NetworkRunner runner, PlayerCharacter character,
         UniversalAbilitySlot slot, AbilityDefinition definition, in CharacterAttributeState attributes,
-        AbilityAreaTargetFinder areaTargets)
+        AbilityAreaTargetFinder areaTargets, Vector2 aimDirection = default)
     {
         Runner = runner;
         Character = character;
@@ -22,7 +29,11 @@ public readonly struct AbilityExecutionContext
         Definition = definition;
         Attributes = attributes;
         _areaTargets = areaTargets;
+        AimDirection = aimDirection;
     }
+
+    internal AbilityExecutionContext WithAim(Vector2 aimDirection) =>
+        new AbilityExecutionContext(Runner, Character, Slot, Definition, Attributes, _areaTargets, aimDirection);
 
     /// <summary>
     /// Single entry for caster-centered area abilities. Call it from <c>TryPlanStart</c> (reject when the list is

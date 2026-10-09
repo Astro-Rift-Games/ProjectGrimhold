@@ -663,6 +663,22 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator AimCapture_IsAvailableToTheBehaviourWhenPlanningTheStart()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-aim-plan",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            yield return SetAim(runtime, Vector2.up);
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
+            Assert.That(behaviour.PlanAim, Is.EqualTo(Vector2.up),
+                "The planning context must expose the same direction the execution captures.");
+            Assert.That(accepted.AimDirection, Is.EqualTo(behaviour.PlanAim));
+        }
+
+        [UnityTest]
         public IEnumerator AimCapture_WithoutUsableAimUsesCharacterFacing()
         {
             yield return StartRunner();

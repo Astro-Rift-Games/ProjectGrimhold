@@ -343,11 +343,12 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         if (state.IsActive) return AbilityActivationFailure.AlreadyExecuting;
         if (state.Sequence == uint.MaxValue) return AbilityActivationFailure.PlayerUnavailable;
         if (!state.Cooldown.ExpiredOrNotRunning(Runner)) return AbilityActivationFailure.Cooldown;
-        if (!behaviour.TryPlanStart(context, out var plan)) return AbilityActivationFailure.BehaviourRejected;
-        if (!plan.IsValidStart) return AbilityActivationFailure.InvalidPlan;
-        // Resolved before payment so an unusable direction rejects without cost, sequence or cooldown.
+        // Resolved before planning so a behavior can validate against the direction this execution will capture,
+        // and before payment so an unusable direction rejects without cost, sequence or cooldown.
         if (!AbilityAimResolver.TryResolve(_movementController.FacingDirection, _movementController.AimDirection,
                 out Vector2 aimDirection)) return AbilityActivationFailure.AimUnavailable;
+        if (!behaviour.TryPlanStart(context.WithAim(aimDirection), out var plan)) return AbilityActivationFailure.BehaviourRejected;
+        if (!plan.IsValidStart) return AbilityActivationFailure.InvalidPlan;
         switch (context.Definition.Resource)
         {
             case AbilityResourceType.Stamina:
@@ -370,7 +371,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         state.AimDirection = aimDirection; // Captured once with the sequence; never re-read for this execution.
         WriteExecution(slot, state);
         PlayerReviveGate.InterruptIfReviving(_playerCharacter);
-        behaviour.Begin(context, state);
+        behaviour.Begin(context.WithAim(aimDirection), state);
         return AbilityActivationFailure.None;
     }
 
@@ -389,7 +390,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
             StopExecution(slot, AbilityExecutionStopReason.ConfigurationUnavailable);
             return;
         }
-        if (!TryBuildContext(slot, out var context)) return; // Temporary restore dependencies remain pending.
+        if (!TryBuildContext(slot, out var context, state.AimDirection)) return; // Temporary restore dependencies remain pending.
         var step = behaviour.Simulate(context, state);
         if (step.Phase == AbilityExecutionPhase.Idle)
         {
@@ -421,15 +422,17 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
             RPC_NotifyExecutionInterrupted((byte)slot, (byte)reason);
         var behaviour = ReadBehaviour(slot);
         // Stop must not depend on live slot binding: the cached behaviour survives a transient unresolve.
-        if (behaviour != null && TryBuildStopContext(slot, behaviour, out var context)) behaviour.Stop(context, stopped, reason);
+        if (behaviour != null && TryBuildStopContext(slot, behaviour, stopped.AimDirection, out var context))
+            behaviour.Stop(context, stopped, reason);
     }
 
-    private bool TryBuildStopContext(UniversalAbilitySlot slot, AbilityExecutionBehaviour behaviour,
+    private bool TryBuildStopContext(UniversalAbilitySlot slot, AbilityExecutionBehaviour behaviour, Vector2 aimDirection,
         out AbilityExecutionContext context)
     {
         context = default;
         if (behaviour.Definition == null || !_participantLink.TryGetCharacterAttributeState(out var attributes)) return false;
-        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, behaviour.Definition, attributes, _areaTargetFinder);
+        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, behaviour.Definition, attributes, _areaTargetFinder,
+            aimDirection);
         return true;
     }
 
@@ -446,15 +449,17 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     {
         var state = ReadExecution(slot);
         var behaviour = ReadBehaviour(slot);
-        if (state.IsActive && behaviour != null && TryBuildContext(slot, out var context)) behaviour.Rebind(context, state);
+        if (state.IsActive && behaviour != null && TryBuildContext(slot, out var context, state.AimDirection))
+            behaviour.Rebind(context, state);
     }
 
-    private bool TryBuildContext(UniversalAbilitySlot slot, out AbilityExecutionContext context)
+    private bool TryBuildContext(UniversalAbilitySlot slot, out AbilityExecutionContext context, Vector2 aimDirection = default)
     {
         context = default;
         if (_slots == null || !_slots.TryGetSlot(slot, out var prepared) || !prepared.IsPrepared ||
             !_participantLink.TryGetCharacterAttributeState(out var attributes)) return false;
-        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, prepared.Definition, attributes, _areaTargetFinder);
+        context = new AbilityExecutionContext(Runner, _playerCharacter, slot, prepared.Definition, attributes, _areaTargetFinder,
+            aimDirection);
         return true;
     }
 

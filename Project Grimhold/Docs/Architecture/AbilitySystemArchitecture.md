@@ -285,13 +285,14 @@ The ability runtime is the only reader of aim for abilities. It reads the alread
 - **Source rules:** an unusable aim (no aim sentinel, non-finite or near-zero) follows the existing `AimDirection` semantics, which keep the previous valid aim. The runtime adds no second fallback. Every direction is valid to start: a blocked trajectory never rejects a directional ability, it is resolved later by the ability's collision rules.
 - **Behaviors:** concrete behaviors receive the captured direction through the accepted execution snapshot (`AbilityExecutionSnapshot.AimDirection`, passed to `Begin`, `Simulate`, `Rebind` and `Stop`). They never read input, the cursor, `FacingDirection` or `AimDirection` themselves.
 
-TASK 211 implements this capture in `PlayerAbilityRuntimeNetworkController`, which reads the avatar's `PlayerMovementNetworkController` through a serialized reference. The pure `AbilityAimResolver` reuses the existing `PlayerAimMath` rule (continuous aim, falling back to `FacingDirection`). It runs after the non-mutating start checks and before payment: if neither direction is usable the attempt is rejected as `AimUnavailable` without payment, sequence or cooldown. The direction is written in the same boundary as the sequence, phase and cooldown, is zeroed when the execution stops, and every accepted ability receives it even if its category does not use it.
+TASK 211 implements this capture in `PlayerAbilityRuntimeNetworkController`, which reads the avatar's `PlayerMovementNetworkController` through a serialized reference. The pure `AbilityAimResolver` reuses the existing `PlayerAimMath` rule (continuous aim, falling back to `FacingDirection`). It runs after the non-mutating start checks and before `TryPlanStart` and payment: if neither direction is usable the attempt is rejected as `AimUnavailable` without payment, sequence or cooldown. The resolved direction is exposed to the behavior as a read-only copy in `AbilityExecutionContext.AimDirection` (planning, `Begin`, and, from the snapshot, `Simulate`, `Rebind` and `Stop`), so a behavior can validate against the exact direction its execution will capture. This resolver is ability-only: basic attacks keep reading `AimDirection` from `PlayerMovementNetworkController` directly and are unaffected. The direction is written in the same boundary as the sequence, phase and cooldown, is zeroed when the execution stops, and every accepted ability receives it even if its category does not use it.
 
 ### Start validation and resolution
 
 ```text
 Accepted-intent tick
   -> common preflight (phase, slot, attributes, cooldown, resource availability)
+  -> resolve aim (AimUnavailable rejects here), exposed via AbilityExecutionContext.AimDirection
   -> TryPlanStart: targeting start rules, side-effect-free
   -> complete payment + sequence + cooldown + captured aim (one boundary)
   -> Begin / Simulate ... resolve: revalidate targets, apply the effect once

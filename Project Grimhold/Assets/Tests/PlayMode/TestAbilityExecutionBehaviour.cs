@@ -12,6 +12,7 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
     public int Stops;
     public int Rebinds;
     public AbilityExecutionStopReason LastStop;
+    public Vector2 PlanAim;
     public Vector2 BeginAim;
     public Vector2 LastSimulateAim;
     public Vector2 LastRebindAim;
@@ -19,6 +20,7 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
 
     public override bool TryPlanStart(in AbilityExecutionContext context, out AbilityExecutionPlan plan)
     {
+        PlanAim = context.AimDirection;
         plan = new AbilityExecutionPlan(PreparingSeconds > 0f ? AbilityExecutionPhase.Preparing :
             AbilityExecutionPhase.Executing, PreparingSeconds);
         return !RejectStart;
