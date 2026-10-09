@@ -9,5 +9,6 @@ public enum AbilityActivationFailure : byte
     ResourceUnavailable,
     InsufficientResource,
     BehaviourRejected,
-    InvalidPlan
+    InvalidPlan,
+    AimUnavailable
 }

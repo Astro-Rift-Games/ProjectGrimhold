@@ -6498,6 +6498,7 @@ MonoBehaviour:
   _playerCharacter: {fileID: 729366679366126330}
   _staminaController: {fileID: 7201000000000000006}
   _manaController: {fileID: 9200000000000000199}
+  _movementController: {fileID: 7201000000000000005}
   _executionBehaviours: []
 --- !u!114 &7201000000000000001
 MonoBehaviour:

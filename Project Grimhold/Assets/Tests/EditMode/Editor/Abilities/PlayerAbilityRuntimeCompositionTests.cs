@@ -22,6 +22,9 @@ public sealed class PlayerAbilityRuntimeCompositionTests
             Is.SameAs(prefab.GetComponent<PlayerCharacter>()));
         Assert.That(serialized.FindProperty("_staminaController").objectReferenceValue,
             Is.SameAs(prefab.GetComponent<PlayerStaminaNetworkController>()));
+        Assert.That(serialized.FindProperty("_movementController").objectReferenceValue,
+            Is.SameAs(prefab.GetComponent<PlayerMovementNetworkController>()),
+            "The runtime reads the networked aim from the avatar's movement controller.");
         Assert.That(serialized.FindProperty("_executionBehaviours").arraySize, Is.Zero,
             "Concrete effects are not implemented by TASK447; production must not compose a placeholder.");
         Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(runtimes[0]));

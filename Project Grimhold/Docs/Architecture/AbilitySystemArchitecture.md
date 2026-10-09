@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)); its implementation is deferred. Concrete abilities, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture; the target predicate and concrete targeting remain deferred. Concrete abilities, Status Effects, Assist, UI, balance, toggles and summons remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
@@ -202,7 +202,7 @@ Ordinary C# notifications are not authoritative transition sources. Simulation r
 
 ### TASK 447 common-cycle implementation
 
-Each slot copies an `AbilityExecutionSnapshot`: phase (`Idle`, `Preparing`, `Executing`), accepted sequence, cooldown `TickTimer` and optional phase-deadline `TickTimer`. Cooldown is independent of execution phase; normal completion or interruption clears the phase deadline but retains the paid cost, sequence and cooldown. No replicated remaining-time, configuration reference or derived readiness flag is added. `TryGetExecutionSnapshot`, `IsOnCooldown`, `GetRemainingCooldownSeconds` and `HasActiveExecution` are read-only queries. `GetLastActivationFailure` reports the local authoritative attempt only, not replicated feedback.
+Each slot copies an `AbilityExecutionSnapshot`: phase (`Idle`, `Preparing`, `Executing`), accepted sequence, cooldown `TickTimer`, optional phase-deadline `TickTimer` and the captured `AimDirection` (TASK 211, see [Targeting](#targeting)). Cooldown is independent of execution phase; normal completion or interruption clears the phase deadline and the captured aim but retains the paid cost, sequence and cooldown. No replicated remaining-time, configuration reference or derived readiness flag is added. `TryGetExecutionSnapshot`, `IsOnCooldown`, `GetRemainingCooldownSeconds` and `HasActiveExecution` are read-only queries. `GetLastActivationFailure` reports the local authoritative attempt only, not replicated feedback.
 
 The runtime runs after the existing Stamina (-11), movement (-10) and equipment (-9) boundaries, and before primary combat (-7), using order -8. It processes Slot 1 then Slot 2 deterministically, rechecking available resources for each request. This is not universal cross-slot exclusivity. Existing executions progress without input; held/rejected presses never queue for later availability.
 
@@ -253,7 +253,9 @@ The ability runtime is the only reader of aim for abilities. It reads the alread
 - **Who:** State Authority only. Input Authority transports the cursor through the existing input flow and never supplies an ability aim.
 - **Fixed:** the captured direction is part of the accepted execution. Later aim changes, stick or cursor movement, and facing changes do not alter it.
 - **Source rules:** an unusable aim (no aim sentinel, non-finite or near-zero) follows the existing `AimDirection` semantics, which keep the previous valid aim. The runtime adds no second fallback. Every direction is valid to start: a blocked trajectory never rejects a directional ability, it is resolved later by the ability's collision rules.
-- **Behaviors:** concrete behaviors receive the captured direction through the accepted execution context. They never read input, the cursor, `FacingDirection` or `AimDirection` themselves.
+- **Behaviors:** concrete behaviors receive the captured direction through the accepted execution snapshot (`AbilityExecutionSnapshot.AimDirection`, passed to `Begin`, `Simulate`, `Rebind` and `Stop`). They never read input, the cursor, `FacingDirection` or `AimDirection` themselves.
+
+TASK 211 implements this capture in `PlayerAbilityRuntimeNetworkController`, which reads the avatar's `PlayerMovementNetworkController` through a serialized reference. The pure `AbilityAimResolver` reuses the existing `PlayerAimMath` rule (continuous aim, falling back to `FacingDirection`). It runs after the non-mutating start checks and before payment: if neither direction is usable the attempt is rejected as `AimUnavailable` without payment, sequence or cooldown. The direction is written in the same boundary as the sequence, phase and cooldown, is zeroed when the execution stops, and every accepted ability receives it even if its category does not use it.
 
 ### Start validation and resolution
 
@@ -285,7 +287,7 @@ The definition of a valid enemy, including PvP and Downed characters, belongs to
 
 ### State, Host Migration and rebind
 
-The captured aim direction, and a derived Trampa position when it applies, are committed execution context in the per-slot snapshot together with the sequence and phase (see "Per-slot state" and "Host Migration"). They are written once at acceptance, are restored by Fusion state copy and are never recomputed from the current aim after rebind or migration. Area target sets are never stored: they are always rebuilt from the predicate at resolution. `Rebind` reuses the committed direction without `Begin`, payment or recapture. Presentation observes the confirmed direction and never drives it.
+The captured aim direction (implemented) and, when it applies, a derived Trampa position (planned) are committed execution context in the per-slot snapshot together with the sequence and phase (see "Per-slot state" and "Host Migration"). They are written once at acceptance, are restored by Fusion state copy and are never recomputed from the current aim after rebind or migration. Area target sets are never stored: they are always rebuilt from the predicate at resolution. `Rebind` reuses the committed direction without `Begin`, payment or recapture. Presentation observes the confirmed direction and never drives it.
 
 ### Planned extensions (described only)
 

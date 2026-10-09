@@ -634,6 +634,110 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator AimCapture_AcceptedExecutionKeepsCapturedDirectionWhenAimChanges()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-aim-fixed",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.PreparingSeconds = 0.3f;
+            yield return SetAim(runtime, Vector2.up);
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
+            Assert.That(accepted.Phase, Is.EqualTo(AbilityExecutionPhase.Preparing));
+            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.up));
+            Assert.That(behaviour.BeginAim, Is.EqualTo(Vector2.up));
+
+            yield return SetAim(runtime, Vector2.right);
+            yield return WaitUntil(() => runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var s) &&
+                s.Phase == AbilityExecutionPhase.Executing);
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var executing);
+            Assert.That(executing.AimDirection, Is.EqualTo(Vector2.up), "Later aim changes must not alter the capture.");
+            Assert.That(behaviour.LastSimulateAim, Is.EqualTo(Vector2.up));
+        }
+
+        [UnityTest]
+        public IEnumerator AimCapture_WithoutUsableAimUsesCharacterFacing()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-aim-facing",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            yield return SetAim(runtime, Vector2.zero, Vector2.left);
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
+            Assert.That(accepted.Sequence, Is.EqualTo(1));
+            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.left));
+        }
+
+        [UnityTest]
+        public IEnumerator AimCapture_RejectionBeforePaymentWritesNoDirection()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-aim-rejected",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.RejectStart = true;
+            yield return SetAim(runtime, Vector2.up);
+            yield return PressSlot1();
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var snapshot);
+            Assert.That(behaviour.Begins, Is.Zero);
+            Assert.That(snapshot.Sequence, Is.Zero);
+            Assert.That(snapshot.AimDirection, Is.EqualTo(Vector2.zero));
+        }
+
+        [UnityTest]
+        public IEnumerator AimCapture_CompletedExecutionDeliversDirectionToStopThenClearsIt()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-aim-stop",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            behaviour.Complete = true;
+            yield return SetAim(runtime, Vector2.up);
+            yield return PressSlot1();
+            yield return WaitUntil(() => behaviour.Stops == 1);
+            Assert.That(behaviour.LastStopAim, Is.EqualTo(Vector2.up));
+            runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var stopped);
+            Assert.That(stopped.Phase, Is.EqualTo(AbilityExecutionPhase.Idle));
+            Assert.That(stopped.AimDirection, Is.EqualTo(Vector2.zero));
+        }
+
+        [UnityTest]
+        public IEnumerator AimCapture_CopiedActiveStateRestoresCapturedDirectionWithoutReadingLiveAim()
+        {
+            yield return StartRunner();
+            var prepared = new PreparedAbilityLoadout(new AbilityId("charge"), default);
+            var source = SpawnAvatar(SpawnParticipant("ability-aim-copy-source", prepared), true, "charge");
+            yield return WaitUntil(() => source.IsInitialized);
+            source.GetComponent<TestAbilityExecutionBehaviour>().PreparingSeconds = 5f;
+            yield return SetAim(source, Vector2.up);
+            yield return PressSlot1();
+            source.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var original);
+            Assert.That(original.AimDirection, Is.EqualTo(Vector2.up));
+            yield return SetAim(source, Vector2.right);
+
+            var target = SpawnAvatar(null, false, "charge");
+            SetRestoreGuard(target);
+            yield return CopyState(target, source);
+            var participant = SpawnParticipant("ability-aim-copy-target", prepared);
+            target.GetComponent<RaidAvatarParticipantLink>().SetRestoredParticipant(participant.Object.Id);
+            Assert.That(participant.TrySetCurrentAvatar(target.Object), Is.True);
+            yield return WaitUntil(() => target.IsInitialized);
+            yield return WaitTicks();
+
+            var behaviour = target.GetComponent<TestAbilityExecutionBehaviour>();
+            Assert.That(behaviour.Begins, Is.Zero);
+            Assert.That(behaviour.Rebinds, Is.EqualTo(1));
+            Assert.That(behaviour.LastRebindAim, Is.EqualTo(Vector2.up));
+            target.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var copied);
+            Assert.That(copied.AimDirection, Is.EqualTo(Vector2.up), "Restore must keep the capture, not the live aim.");
+        }
+
+        [UnityTest]
         public IEnumerator AbilityCycle_ConsumablesAndInteractionsRejectWhileExecutionIsActive()
         {
             yield return StartRunner();
@@ -1035,6 +1139,16 @@ namespace Tests.PlayMode.Abilities
             int previous = _driver.CompletionSequence;
             _driver.RequestOperation(operation);
             yield return WaitUntil(() => _driver.CompletionSequence != previous);
+        }
+
+        private IEnumerator SetAim(PlayerAbilityRuntimeNetworkController runtime, Vector2 aim, Vector2? facing = null)
+        {
+            var movement = runtime.GetComponent<PlayerMovementNetworkController>();
+            yield return InSimulation(() =>
+            {
+                SetNetworked(movement, nameof(PlayerMovementNetworkController.AimDirection), aim);
+                if (facing.HasValue) SetNetworked(movement, nameof(PlayerMovementNetworkController.FacingDirection), facing.Value);
+            });
         }
 
         private static void AssertSlot(PlayerAbilityRuntimeNetworkController runtime, UniversalAbilitySlot slot, string id)

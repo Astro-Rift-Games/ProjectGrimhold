@@ -11,6 +11,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     [SerializeField] private PlayerCharacter _playerCharacter;
     [SerializeField] private PlayerStaminaNetworkController _staminaController;
     [SerializeField] private PlayerManaNetworkController _manaController;
+    [SerializeField] private PlayerMovementNetworkController _movementController;
     [SerializeField] private AbilityExecutionBehaviour[] _executionBehaviours = System.Array.Empty<AbilityExecutionBehaviour>();
 
     [Networked] private NetworkBool InitializationConfirmed { get; set; }
@@ -52,9 +53,10 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         _ended = false;
         _invalid = false;
         ClearLocalBinding();
-        if (_participantLink == null || _catalog == null || _playerCharacter == null || _staminaController == null || _manaController == null)
+        if (_participantLink == null || _catalog == null || _playerCharacter == null || _staminaController == null ||
+            _manaController == null || _movementController == null)
         {
-            RejectConfiguration("Raid ability runtime requires participant, catalog, character, Stamina and Mana references.");
+            RejectConfiguration("Raid ability runtime requires participant, catalog, character, Stamina, Mana and movement references.");
             return;
         }
         ValidateBehaviours();
@@ -184,6 +186,9 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         if (!state.Cooldown.ExpiredOrNotRunning(Runner)) return AbilityActivationFailure.Cooldown;
         if (!behaviour.TryPlanStart(context, out var plan)) return AbilityActivationFailure.BehaviourRejected;
         if (!plan.IsValidStart) return AbilityActivationFailure.InvalidPlan;
+        // Resolved before payment so an unusable direction rejects without cost, sequence or cooldown.
+        if (!AbilityAimResolver.TryResolve(_movementController.FacingDirection, _movementController.AimDirection,
+                out Vector2 aimDirection)) return AbilityActivationFailure.AimUnavailable;
         switch (context.Definition.Resource)
         {
             case AbilityResourceType.Stamina:
@@ -203,6 +208,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         state.Phase = plan.Phase;
         state.PhaseDeadline = CreateDeadline(plan.DurationSeconds);
         state.Cooldown = TickTimer.CreateFromSeconds(Runner, context.Definition.CooldownSeconds);
+        state.AimDirection = aimDirection; // Captured once with the sequence; never re-read for this execution.
         WriteExecution(slot, state);
         PlayerReviveGate.InterruptIfReviving(_playerCharacter);
         behaviour.Begin(context, state);
@@ -250,6 +256,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         var stopped = state;
         state.Phase = AbilityExecutionPhase.Idle;
         state.PhaseDeadline = TickTimer.None;
+        state.AimDirection = default; // The callback still receives the captured direction through `stopped`.
         WriteExecution(slot, state); // Commit before callback: no repeated completion/reentrant stop.
         var behaviour = ReadBehaviour(slot);
         // Stop must not depend on live slot binding: the cached behaviour survives a transient unresolve.

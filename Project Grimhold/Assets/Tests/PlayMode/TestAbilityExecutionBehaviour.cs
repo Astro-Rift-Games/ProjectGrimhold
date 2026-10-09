@@ -11,6 +11,10 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
     public int Stops;
     public int Rebinds;
     public AbilityExecutionStopReason LastStop;
+    public Vector2 BeginAim;
+    public Vector2 LastSimulateAim;
+    public Vector2 LastRebindAim;
+    public Vector2 LastStopAim;
 
     public override bool TryPlanStart(in AbilityExecutionContext context, out AbilityExecutionPlan plan)
     {
@@ -19,9 +23,15 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
         return !RejectStart;
     }
 
-    public override void Begin(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot) => Begins++;
+    public override void Begin(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot)
+    {
+        Begins++;
+        BeginAim = snapshot.AimDirection;
+    }
+
     public override AbilityExecutionPlan Simulate(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot)
     {
+        LastSimulateAim = snapshot.AimDirection;
         if (Complete) return new AbilityExecutionPlan(AbilityExecutionPhase.Idle);
         if (snapshot.Phase == AbilityExecutionPhase.Preparing && snapshot.PhaseDeadline.Expired(context.Runner))
             return new AbilityExecutionPlan(AbilityExecutionPhase.Executing);
@@ -33,7 +43,13 @@ public sealed class TestAbilityExecutionBehaviour : AbilityExecutionBehaviour
     {
         Stops++;
         LastStop = reason;
+        LastStopAim = snapshot.AimDirection;
     }
-    public override void Rebind(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot) => Rebinds++;
+
+    public override void Rebind(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot)
+    {
+        Rebinds++;
+        LastRebindAim = snapshot.AimDirection;
+    }
 }
 #endif
