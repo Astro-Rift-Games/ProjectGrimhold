@@ -165,6 +165,17 @@ unchanged. This guarantee is relative to the received migration snapshot: Fusion
 cannot preserve attacks/projectiles committed after that snapshot, and this change adds no durable
 history beyond Fusion recovery state.
 
+Trap entities are restored as dynamic objects. `NetworkTrap` keeps its caster, running lifetime timer,
+trigger parameters and the immobilize effect parameters as [Networked] state, so a restored trap still
+triggers and applies its effect without any C# subscription. Its caster EntityId is remapped like a
+projectile owner; a caster that is not in the snapshot (for example a defeated avatar, since a trap outlives
+its cast) expires the restored trap on its next tick without triggering, instead of aborting the whole
+restore. `ImmobilizeEffect` on an enemy keeps both
+timers and its damage values as [Networked] state and only its source EntityId is remapped; a source that is
+not in the snapshot cancels the restored effect (immobilization and damage end together) instead of crediting
+a stale id. The casting execution itself restores through the ability runtime snapshot and never spawns a
+second trap (see [Ability System Architecture](AbilitySystemArchitecture.md), Trampa).
+
 Presentation baselines completed sequences and reconstructs only a saved pending wind-up at its
 confirmed elapsed phase, through a presentation-only resume event without repeating attack-start
 audio. Animator state and mutable shared executor config are neither copied nor required for release.

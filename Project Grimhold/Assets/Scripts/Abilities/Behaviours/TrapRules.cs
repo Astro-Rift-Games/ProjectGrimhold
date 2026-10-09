@@ -30,6 +30,21 @@ internal static class TrapRules
     }
 
     /// <summary>
+    /// The ground probe needs a positive footprint radius and at least one blocking layer; an empty mask would
+    /// silently accept every position, so it is a configuration error.
+    /// </summary>
+    public static bool TryValidatePlacementProbe(float clearanceRadius, int blockingMask, out string error)
+    {
+        if (!IsPositiveFinite(clearanceRadius))
+            error = "Trap placement clearance radius must be finite and greater than zero.";
+        else if (blockingMask == 0)
+            error = "Trap ground-blocking layer mask must not be empty.";
+        else
+            error = string.Empty;
+        return error.Length == 0;
+    }
+
+    /// <summary>
     /// Position ahead of the caster along the captured aim. Returns false, with a zero position, when the origin,
     /// the aim or the distance is unusable. Whether that position is valid ground is decided by the caller's
     /// physics query, never here.

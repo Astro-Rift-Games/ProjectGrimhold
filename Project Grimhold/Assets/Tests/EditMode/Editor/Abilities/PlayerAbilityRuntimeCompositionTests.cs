@@ -62,7 +62,7 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         Assert.That(seismic[0].Definition.Id, Is.EqualTo("seismic_strike"));
 
         var bindings = new SerializedObject(runtime).FindProperty("_executionBehaviours");
-        Assert.That(bindings.arraySize, Is.EqualTo(2));
+        Assert.That(bindings.arraySize, Is.EqualTo(3), "Charge, Seismic Strike and Trap.");
         var registered = new[]
         {
             bindings.GetArrayElementAtIndex(0).objectReferenceValue,
@@ -98,4 +98,36 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         Assert.That(enemy.layer, Is.EqualTo(LayerMask.NameToLayer("Character")),
             "The creature root hitbox layer is the one both abilities target.");
     }
+
+    [Test]
+    public void RaidAvatar_ComposesTrapOnceWithItsCanonicalDefinitionPrefabAndLayers()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var runtime = prefab.GetComponent<PlayerAbilityRuntimeNetworkController>();
+        var traps = prefab.GetComponents<TrapAbilityBehaviour>();
+        Assert.That(traps, Has.Length.EqualTo(1));
+        Assert.That(traps[0].Definition,
+            Is.SameAs(AssetDatabase.LoadAssetAtPath<AbilityDefinition>(
+                "Assets/Scriptable Objects/Abilities/Definitions/TrapDefinition.asset")));
+        Assert.That(traps[0].Definition.Id, Is.EqualTo("trap"));
+
+        var bindings = new SerializedObject(runtime).FindProperty("_executionBehaviours");
+        int registered = 0;
+        for (int i = 0; i < bindings.arraySize; i++)
+            if (bindings.GetArrayElementAtIndex(i).objectReferenceValue == traps[0]) registered++;
+        Assert.That(registered, Is.EqualTo(1), "Registered exactly once.");
+        Assert.That(bindings.arraySize, Is.EqualTo(3));
+
+        var serialized = new SerializedObject(traps[0]);
+        Assert.That(System.IO.File.ReadAllText("Assets/Prefabs/NetworkPlayer.prefab"),
+            Does.Contain("RawGuidValue: f350a40a118648c4e8e6edf70efaa3b5"), "The Trap behaviour references the NetworkTrap prefab.");
+        Assert.That(serialized.FindProperty("_groundBlockingMask").intValue,
+            Is.EqualTo(LayerMask.GetMask("WorldCollision", "Obstacles")));
+        Assert.That(serialized.FindProperty("_targetLayerMask").intValue, Is.EqualTo(LayerMask.GetMask("Character")));
+        var trapPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Abilities/NetworkTrap.prefab");
+        Assert.That(AssetDatabase.AssetPathToGUID("Assets/Prefabs/Abilities/NetworkTrap.prefab"),
+            Is.EqualTo("f350a40a118648c4e8e6edf70efaa3b5"));
+        Assert.That(trapPrefab.GetComponent<NetworkTrap>(), Is.Not.Null);
+    }
 }
+

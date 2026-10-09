@@ -6043,6 +6043,7 @@ GameObject:
   - component: {fileID: 9200000000000000212}
   - component: {fileID: 7831010654221445307}
   - component: {fileID: 8779510015049709313}
+  - component: {fileID: 5120938471620394857}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6506,6 +6507,7 @@ MonoBehaviour:
   _executionBehaviours:
   - {fileID: 7831010654221445307}
   - {fileID: 8779510015049709313}
+  - {fileID: 5120938471620394857}
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10368,3 +10370,34 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &5120938471620394857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6344f57b23f9de43842b8bcfd1a3925, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TrapAbilityBehaviour
+  _definition: {fileID: 11400000, guid: b4e93b6015e57c94583bfa363aa59b20, type: 2}
+  _placementDistance: 1.5
+  _placementClearanceRadius: 0.25
+  _groundBlockingMask:
+    serializedVersion: 2
+    m_Bits: 2112
+  _trapPrefab:
+    RawGuidValue: f350a40a118648c4e8e6edf70efaa3b5
+  _lifetimeSeconds: 20
+  _maxTrapsPerCaster: 3
+  _triggerRadius: 0.75
+  _targetLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  _immobilizeSeconds: 3
+  _periodicDamage: 2
+  _tickIntervalSeconds: 1
+  _damageType: 0
+  _purifiable: 1

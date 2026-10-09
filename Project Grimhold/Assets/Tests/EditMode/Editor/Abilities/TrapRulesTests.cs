@@ -132,4 +132,24 @@ public sealed class TrapRulesTests
         Assert.That(TrapRules.SelectEvictionIndex(null, 0, 3), Is.EqualTo(TrapRules.NoEviction));
         Assert.That(TrapRules.SelectEvictionIndex(new[] { 5 }, 0, 3), Is.EqualTo(TrapRules.NoEviction));
     }
+
+    // ---- Placement probe -----------------------------------------------------------------
+
+    [Test]
+    public void TryValidatePlacementProbe_PositiveRadiusAndNonEmptyMask_IsValid()
+    {
+        Assert.That(TrapRules.TryValidatePlacementProbe(0.25f, 1 << 6, out string error), Is.True);
+        Assert.That(error, Is.Empty);
+    }
+
+    [TestCase(0f, 64)]
+    [TestCase(-0.1f, 64)]
+    [TestCase(float.NaN, 64)]
+    [TestCase(float.PositiveInfinity, 64)]
+    [TestCase(0.25f, 0)]
+    public void TryValidatePlacementProbe_InvalidInput_IsRejectedWithAMessage(float clearanceRadius, int blockingMask)
+    {
+        Assert.That(TrapRules.TryValidatePlacementProbe(clearanceRadius, blockingMask, out string error), Is.False);
+        Assert.That(error, Is.Not.Empty);
+    }
 }
