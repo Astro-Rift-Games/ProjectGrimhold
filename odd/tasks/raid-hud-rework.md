@@ -20,8 +20,9 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests) (commit: `refactor(hud): split extraction text into quota, sanctuary and ritual sections`)
 - [x] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status (commit: `feat(hud): group minimap, objectives, sanctuary and ritual in a right panel`)
 - [x] T4 Expedition progress indicator from `ExtractionProgressSnapshot` (commit: `feat(hud): add individual expedition progress bar`)
-- [ ] T5 Inventory capacity bar (no monetary value)
-- [ ] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E; Quick Slot layout placeholder
+- [-] T5 Inventory capacity bar (no monetary value) — dropped by user: no bar needed, keep the existing "Inventario: n / m" text. Its leftover layout fix (overlap in the left frame) moves to T6.
+- [x] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E in one even 64x64 row; vitals block compacted, no overlap; no Quick Slot placeholders (commit: `feat(hud): align weapon and ability slots and compact the vitals block`)
+- [ ] T6b Remove the "Inventario: n / m" text from the HUD (user decision), shrink vitals block accordingly
 - [ ] T7 Interaction prompt with per-action key (check Input Actions asset first)
 - [ ] T8 Update `Docs/Architecture/RaidMainHudArchitecture.md` for the changed contract
 
@@ -47,5 +48,9 @@ T4 done: horizontal bar + "78%" under the quota text in ObjectivesBlock (not a r
 Visual: offscreen render at 78/100 seen; percent text sits close to the frame corner ornament. Not seen in Game view/Play Mode; concept image not viewed by the writer.
 Open question for user: concept shows a round ring bottom-left; ring could be done later with a dedicated sprite.
 
+T6 done: weapon (x -76), Q (0), E (+76), all 64x64 at the bottom center; vitals frame 279 -> 156 high; RaidDuoHud moved to y -250; NetworkPlayer.prefab hand-edited (Unity reserialization was ~7k lines, reverted). RaidBottomBarLayoutTests 9/9 (RED 7/9 first); EditMode Presentation 631 run, only the 2 known baseline failures; PlayMode 4/10, same 6 baseline.
+Side effect: the T6 writer discarded uncommitted leftovers of the interrupted T5 (RaidHudPresenter.cs, RaidHudPresenterTests.cs, RaidMainHudPlayModeTests.cs reverted, RaidCapacityWidgetPrefabTests deleted); backup patch in the session scratchpad. Nothing committed was affected.
+Unverified: Game view/Play Mode; ability/cooldown states not exercised visually; InteractionPrompt (y=120) and ability messages share the bar's vertical band (T7).
+
 ## Next step
-Start T5.
+Start T6b, then T7.
