@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -51,6 +52,196 @@ public sealed class RaidBottomBarLayoutTests
         float top = Mathf.Max(weapon.yMax, Mathf.Max(q.yMax, e.yMax));
         Assert.That(top, Is.LessThanOrEqualTo(height * 0.15f), "bar stays in the bottom 15% of the screen");
         Assert.That(Mathf.Min(weapon.yMin, Mathf.Min(q.yMin, e.yMin)), Is.GreaterThanOrEqualTo(0f));
+    }
+
+    [TestCase(1920f, 1080f)]
+    [TestCase(1440f, 1080f)]
+    public void SlotsAreLargeEnoughToReadAndIdentical(float width, float height)
+    {
+        (Rect weapon, Rect q, Rect e, _) = LoadBottomBar(width, height);
+
+        foreach (Rect slot in new[] { weapon, q, e })
+        {
+            Assert.That(slot.width, Is.GreaterThanOrEqualTo(72f), "slot width");
+            Assert.That(slot.height, Is.EqualTo(slot.width).Within(Tolerance), "slot is square");
+        }
+    }
+
+    [Test]
+    public void SlotIconsAndOverlaysFillMostOfTheSlotFrame()
+    {
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
+        RectTransform hudRoot = (RectTransform)abilityView.transform.parent;
+        Vector2 canvas = new Vector2(1920f, 1080f);
+
+        (RectTransform slot, string[] layers)[] slots =
+        {
+            ((RectTransform)FindUnder(hudRoot, "RaidCooldownHud"), new[] { "CooldownIcon", "CooldownFill" }),
+            ((RectTransform)abilityView.transform.Find("AbilitySlot1"), new[] { "Icon", "Empty", "InsufficientResource", "CooldownFill" }),
+            ((RectTransform)abilityView.transform.Find("AbilitySlot2"), new[] { "Icon", "Empty", "InsufficientResource", "CooldownFill" })
+        };
+
+        foreach ((RectTransform slot, string[] layers) in slots)
+        {
+            Rect slotRect = ResolveRect(slot, hudRoot, canvas);
+            foreach (string layer in layers)
+            {
+                Rect rect = ResolveRect((RectTransform)slot.Find(layer), hudRoot, canvas);
+                Assert.That(rect.width, Is.GreaterThanOrEqualTo(slotRect.width - 24f), slot.name + "/" + layer + " width");
+                Assert.That(rect.width, Is.LessThanOrEqualTo(slotRect.width - 12f), slot.name + "/" + layer + " stays inside the frame border");
+                Assert.That(rect.center.x, Is.EqualTo(slotRect.center.x).Within(Tolerance), slot.name + "/" + layer + " centered");
+                Assert.That(rect.center.y, Is.EqualTo(slotRect.center.y).Within(Tolerance), slot.name + "/" + layer + " centered");
+            }
+        }
+    }
+
+    [TestCase(1920f, 1080f)]
+    [TestCase(1440f, 1080f)]
+    public void ContainerBarEnclosesTheThreeSlotsWithEvenPaddingAndIsCenteredAtTheBottom(float width, float height)
+    {
+        (Rect weapon, Rect q, Rect e, RectTransform hudRoot) = LoadBottomBar(width, height);
+        Rect bar = ResolveRect(LoadActionBarFrame(hudRoot), hudRoot, new Vector2(width, height));
+
+        float left = Mathf.Min(weapon.xMin, Mathf.Min(q.xMin, e.xMin));
+        float right = Mathf.Max(weapon.xMax, Mathf.Max(q.xMax, e.xMax));
+        float bottom = Mathf.Min(weapon.yMin, Mathf.Min(q.yMin, e.yMin));
+        float top = Mathf.Max(weapon.yMax, Mathf.Max(q.yMax, e.yMax));
+
+        float padLeft = left - bar.xMin;
+        float padRight = bar.xMax - right;
+        float padBottom = bottom - bar.yMin;
+        float padTop = bar.yMax - top;
+        Assert.That(padLeft, Is.InRange(8f, 20f), "left padding");
+        Assert.That(padRight, Is.EqualTo(padLeft).Within(Tolerance), "right padding matches left");
+        Assert.That(padBottom, Is.EqualTo(padLeft).Within(Tolerance), "bottom padding matches left");
+        Assert.That(padTop, Is.EqualTo(padLeft).Within(Tolerance), "top padding matches left");
+
+        Assert.That(bar.center.x, Is.EqualTo(width * 0.5f).Within(Tolerance), "container centered");
+        Assert.That(bar.yMin, Is.GreaterThanOrEqualTo(0f), "container inside the screen");
+        Assert.That(bar.yMax, Is.LessThanOrEqualTo(height * 0.15f), "container stays in the bottom 15% of the screen");
+    }
+
+    [Test]
+    public void ContainerBarIsDrawnBehindEverySlotAndUsesTheDarkHudFrame()
+    {
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
+        RectTransform hudRoot = (RectTransform)abilityView.transform.parent;
+        RectTransform bar = LoadActionBarFrame(hudRoot);
+
+        Image image = bar.GetComponent<Image>();
+        Assert.That(image, Is.Not.Null, "container image");
+        Assert.That(image.sprite, Is.Not.Null, "container sprite");
+        Assert.That(image.type, Is.EqualTo(Image.Type.Sliced), "container is a sliced frame");
+        Assert.That(image.raycastTarget, Is.False, "container never blocks clicks");
+
+        int barIndex = bar.GetSiblingIndex();
+        Assert.That(FindUnder(hudRoot, "RaidCooldownHud").GetSiblingIndex(), Is.GreaterThan(barIndex), "weapon slot above container");
+        Assert.That(abilityView.transform.GetSiblingIndex(), Is.GreaterThan(barIndex), "ability slots above container");
+    }
+
+    [Test]
+    public void EverySlotHasAReadableKeyBadgeAtItsTopLeftCorner()
+    {
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
+        RectTransform hudRoot = (RectTransform)abilityView.transform.parent;
+        Vector2 canvas = new Vector2(1920f, 1080f);
+
+        (Transform slot, string expected)[] slots =
+        {
+            (FindUnder(hudRoot, "RaidCooldownHud"), RaidWeaponSlotKeyLabel.Label),
+            (abilityView.transform.Find("AbilitySlot1"), TownAbilitySlotKeyLabels.Slot1),
+            (abilityView.transform.Find("AbilitySlot2"), TownAbilitySlotKeyLabels.Slot2)
+        };
+
+        foreach ((Transform slot, string expected) in slots)
+        {
+            Rect slotRect = ResolveRect((RectTransform)slot, hudRoot, canvas);
+            RectTransform badge = (RectTransform)slot.Find("KeyBadge");
+            RectTransform key = (RectTransform)slot.Find("Key");
+            Assert.That(badge, Is.Not.Null, slot.name + " KeyBadge");
+            Assert.That(key, Is.Not.Null, slot.name + " Key label");
+
+            Image badgeImage = badge.GetComponent<Image>();
+            Assert.That(badgeImage, Is.Not.Null, slot.name + " badge image");
+            Assert.That(badgeImage.color.a, Is.GreaterThanOrEqualTo(0.8f), slot.name + " badge is opaque enough to read over the icon");
+            Assert.That(badgeImage.raycastTarget, Is.False, slot.name + " badge never blocks clicks");
+
+            Rect badgeRect = ResolveRect(badge, hudRoot, canvas);
+            Rect keyRect = ResolveRect(key, hudRoot, canvas);
+            Assert.That(badgeRect.height, Is.GreaterThanOrEqualTo(20f), slot.name + " badge height");
+            Assert.That(badgeRect.xMin - slotRect.xMin, Is.InRange(0f, 8f), slot.name + " badge hugs the left edge");
+            Assert.That(slotRect.yMax - badgeRect.yMax, Is.InRange(0f, 8f), slot.name + " badge hugs the top edge");
+            Assert.That(badgeRect.width, Is.LessThanOrEqualTo(slotRect.width * 0.6f), slot.name + " badge leaves most of the icon visible");
+            Assert.That(badgeRect.height, Is.LessThanOrEqualTo(slotRect.height * 0.35f), slot.name + " badge stays compact");
+            Assert.That(keyRect.xMin, Is.GreaterThanOrEqualTo(badgeRect.xMin - Tolerance), slot.name + " key inside badge (left)");
+            Assert.That(keyRect.xMax, Is.LessThanOrEqualTo(badgeRect.xMax + Tolerance), slot.name + " key inside badge (right)");
+            Assert.That(keyRect.yMax, Is.LessThanOrEqualTo(badgeRect.yMax + Tolerance), slot.name + " key inside badge (top)");
+            Assert.That(keyRect.yMin, Is.GreaterThanOrEqualTo(badgeRect.yMin - Tolerance), slot.name + " key inside badge (bottom)");
+
+            TMP_Text text = key.GetComponent<TMP_Text>();
+            Assert.That(text.text, Is.EqualTo(expected), slot.name + " key text");
+            Assert.That(text.fontSize, Is.GreaterThanOrEqualTo(14f), slot.name + " key font size");
+            Assert.That(key.GetSiblingIndex(), Is.GreaterThan(badge.GetSiblingIndex()), slot.name + " key drawn over its badge");
+        }
+    }
+
+    [Test]
+    public void CooldownSecondsAreLargeWithAnOutlineSoTheyStayReadableOverTheIcon()
+    {
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
+        RectTransform hudRoot = (RectTransform)abilityView.transform.parent;
+
+        (Transform seconds, string name)[] labels =
+        {
+            (FindUnder(hudRoot, "RaidCooldownHud").Find("CooldownSeconds"), "weapon"),
+            (abilityView.transform.Find("AbilitySlot1").Find("Seconds"), "Q"),
+            (abilityView.transform.Find("AbilitySlot2").Find("Seconds"), "E")
+        };
+
+        foreach ((Transform seconds, string name) in labels)
+        {
+            TMP_Text text = seconds.GetComponent<TMP_Text>();
+            Assert.That(text, Is.Not.Null, name + " seconds label");
+            float size = text.enableAutoSizing ? text.fontSizeMax : text.fontSize;
+            Assert.That(size, Is.GreaterThanOrEqualTo(20f), name + " seconds font size");
+            Material material = text.fontSharedMaterial;
+            Assert.That(material.HasProperty("_OutlineWidth"), Is.True, name + " material supports an outline");
+            Assert.That(material.GetFloat("_OutlineWidth"), Is.GreaterThan(0.05f), name + " outline is visible");
+            Assert.That(material.GetColor("_OutlineColor").a, Is.GreaterThan(0.5f), name + " outline colour is opaque");
+        }
+    }
+
+    [TestCase(1920f, 1080f)]
+    [TestCase(1440f, 1080f)]
+    public void ContainerBarDoesNotOverlapVitalsTeammateHudOrPressureHud(float width, float height)
+    {
+        (_, _, _, RectTransform hudRoot) = LoadBottomBar(width, height);
+        Vector2 canvas = new Vector2(width, height);
+        Rect bar = ResolveRect(LoadActionBarFrame(hudRoot), hudRoot, canvas);
+
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform root = (RectTransform)hud.transform;
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+        Assert.That(bar.Overlaps(ResolveRect(frame, root, canvas)), Is.False, "container vs vitals");
+        Assert.That(bar.Overlaps(ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, canvas)), Is.False, "container vs defeated indicator");
+        Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("RaidDuoHud"), root, canvas)), Is.False, "container vs teammate HUD");
+        Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("DungeonPressureHUD/Timer"), root, canvas)), Is.False, "container vs pressure timer");
+        Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("InteractionPrompt"), root, canvas)), Is.False, "container vs interaction prompt");
+        Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("InteractionFeedback"), root, canvas)), Is.False, "container vs interaction feedback");
+    }
+
+    [Test]
+    public void AttackTextOverlayFollowsTheWeaponSlot()
+    {
+        (Rect weapon, _, _, RectTransform hudRoot) = LoadBottomBar(1920f, 1080f);
+        Rect attack = ResolveRect((RectTransform)hudRoot.Find("AttackText"), hudRoot, new Vector2(1920f, 1080f));
+
+        Assert.That(attack.center.x, Is.EqualTo(weapon.center.x).Within(Tolerance), "AttackText x");
+        Assert.That(attack.center.y, Is.EqualTo(weapon.center.y).Within(Tolerance), "AttackText y");
     }
 
     [Test]
@@ -209,6 +400,7 @@ public sealed class RaidBottomBarLayoutTests
         RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
 
         float barTop = Mathf.Max(weapon.yMax, Mathf.Max(q.yMax, e.yMax));
+        barTop = Mathf.Max(barTop, ResolveRect(LoadActionBarFrame(abilityHudRoot), abilityHudRoot, new Vector2(width, height)).yMax);
         foreach (string slotName in new[] { "AbilitySlot1", "AbilitySlot2" })
         {
             Rect message = ResolveRect(
@@ -242,6 +434,13 @@ public sealed class RaidBottomBarLayoutTests
         Rect q = ResolveRect((RectTransform)abilityView.transform.Find("AbilitySlot1"), hudRoot, canvas);
         Rect e = ResolveRect((RectTransform)abilityView.transform.Find("AbilitySlot2"), hudRoot, canvas);
         return (weapon, q, e, hudRoot);
+    }
+
+    private static RectTransform LoadActionBarFrame(RectTransform hudRoot)
+    {
+        Transform bar = hudRoot.Find("ActionBarFrame");
+        Assert.That(bar, Is.Not.Null, "ActionBarFrame container under LocalGameplayHud");
+        return (RectTransform)bar;
     }
 
     private static Transform FindUnder(Transform root, string name)
