@@ -19,7 +19,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T1b Fix HUD prefab defects found by failing tests: RaidDuoHud root starts hidden; distinct `AttackText` label; invariant-culture cooldown seconds (commit: `fix(hud): ...`)
 - [x] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests) (commit: `refactor(hud): split extraction text into quota, sanctuary and ritual sections`)
 - [x] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status (commit: `feat(hud): group minimap, objectives, sanctuary and ritual in a right panel`)
-- [ ] T4 Expedition progress indicator from `ExtractionProgressSnapshot`
+- [x] T4 Expedition progress indicator from `ExtractionProgressSnapshot` (commit: `feat(hud): add individual expedition progress bar`)
 - [ ] T5 Inventory capacity bar (no monetary value)
 - [ ] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E; Quick Slot layout placeholder
 - [ ] T7 Interaction prompt with per-action key (check Input Actions asset first)
@@ -43,5 +43,9 @@ Deviations: labels are NEW objects (nested prefab children cannot be reparented)
 Visual check: offscreen RenderTexture renders only (no Game view/Play Mode); minimap slot rendered empty; concept image was not available to the writer (wrong path given).
 Known leftover: RaidMainHud left frame still has empty row and Stamina/Inventory overlap (T5/T6).
 
+T4 done: horizontal bar + "78%" under the quota text in ObjectivesBlock (not a ring: UI.png sprites are dark/ornate and a sprite-less Filled Image ignores fillAmount; follows the health/stamina scale.x convention). Fraction math in `ExpeditionProgressMath` (clamped, floors so 199/200 never shows 100%). Individual progress, no team wording. EditMode Presentation 620/622 (2 known baseline); PlayMode 4/10 (same 6 baseline). RED compile-level only.
+Visual: offscreen render at 78/100 seen; percent text sits close to the frame corner ornament. Not seen in Game view/Play Mode; concept image not viewed by the writer.
+Open question for user: concept shows a round ring bottom-left; ring could be done later with a dedicated sprite.
+
 ## Next step
-Start T4.
+Start T5.

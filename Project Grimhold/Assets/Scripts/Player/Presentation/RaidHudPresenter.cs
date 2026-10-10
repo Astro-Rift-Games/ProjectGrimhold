@@ -71,6 +71,10 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private int _observedQuotaTarget;
     private bool _observedQuotaComplete;
 
+    private bool _hasProgressState;
+    private int _observedProgressCurrent;
+    private int _observedProgressQuota;
+
     private bool _hasSanctuaryState;
 
     /// <summary>
@@ -347,6 +351,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         bool hasSanctuary = TryGetSanctuaryPresentation(out ExtractionRitualSnapshot ritual);
 
         RefreshQuotaSection(hasProgress, progress);
+        RefreshProgressSection(hasProgress, progress);
         RefreshSanctuarySection(hasSanctuary);
         RefreshRitualStatusSection(hasCountdown, countdown, hasSanctuary, ritual);
     }
@@ -384,6 +389,33 @@ public sealed class RaidHudPresenter : MonoBehaviour
         {
             _view?.PresentExtractionProgress(progress.CurrentProgress, progress.Quota);
         }
+    }
+
+    private void RefreshProgressSection(bool hasProgress, ExtractionProgressSnapshot progress)
+    {
+        if (!hasProgress ||
+            !ExpeditionProgressMath.TryGetFraction(progress.CurrentProgress, progress.Quota, out float fraction))
+        {
+            if (_hasProgressState)
+            {
+                _hasProgressState = false;
+                _view?.ClearExpeditionProgress();
+            }
+
+            return;
+        }
+
+        if (_hasProgressState &&
+            _observedProgressCurrent == progress.CurrentProgress &&
+            _observedProgressQuota == progress.Quota)
+        {
+            return;
+        }
+
+        _hasProgressState = true;
+        _observedProgressCurrent = progress.CurrentProgress;
+        _observedProgressQuota = progress.Quota;
+        _view?.PresentExpeditionProgress(fraction);
     }
 
     private void RefreshSanctuarySection(bool hasSanctuary)
@@ -583,6 +615,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedQuotaProgress = 0;
         _observedQuotaTarget = 0;
         _observedQuotaComplete = false;
+        _hasProgressState = false;
+        _observedProgressCurrent = 0;
+        _observedProgressQuota = 0;
         _hasSanctuaryState = false;
     }
 

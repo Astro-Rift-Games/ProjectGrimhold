@@ -239,6 +239,90 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 3 / 5"));
         }
 
+        [TestCase(78, 100, true, 0.78f)]
+        [TestCase(0, 100, true, 0f)]
+        [TestCase(100, 100, true, 1f)]
+        [TestCase(150, 100, true, 1f)]
+        [TestCase(-5, 100, true, 0f)]
+        [TestCase(5, 0, false, 0f)]
+        [TestCase(5, -3, false, 0f)]
+        public void ExpeditionProgressFractionIsNormalizedAndClamped(
+            int current,
+            int quota,
+            bool expectedValid,
+            float expectedFraction)
+        {
+            bool valid = ExpeditionProgressMath.TryGetFraction(current, quota, out float fraction);
+
+            Assert.That(valid, Is.EqualTo(expectedValid));
+            Assert.That(fraction, Is.EqualTo(expectedFraction).Within(0.0001f));
+        }
+
+        [Test]
+        public void ExpeditionProgressIndicatorPresentsFractionAndPercentage()
+        {
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(78, 100, false));
+
+            Assert.That(_view.ProgressRoot.activeSelf, Is.True);
+            Assert.That(_view.ProgressFill.fillAmount, Is.EqualTo(0.78f).Within(0.0001f));
+            Assert.That(_view.ProgressFill.rectTransform.localScale.x, Is.EqualTo(0.78f).Within(0.0001f));
+            Assert.That(_view.ProgressPercentText.text, Is.EqualTo("78%"));
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(199, 200, false));
+            Assert.That(_view.ProgressPercentText.text, Is.EqualTo("99%"));
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(250, 100, true));
+            Assert.That(_view.ProgressFill.fillAmount, Is.EqualTo(1f));
+            Assert.That(_view.ProgressPercentText.text, Is.EqualTo("100%"));
+        }
+
+        [Test]
+        public void ExpeditionProgressIndicatorClearsOnlyItselfWhenSourceIsPendingOrInvalid()
+        {
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(12, 30, false));
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(12, 30, false));
+            InvokeRefreshSanctuarySection(true);
+
+            InvokeRefreshProgressSection(false, default);
+
+            Assert.That(_view.ProgressRoot.activeSelf, Is.False);
+            Assert.That(_view.ProgressFill.fillAmount, Is.Zero);
+            Assert.That(_view.ProgressPercentText.text, Is.Empty);
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 12 / 30"));
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(12, 30, false));
+            Assert.That(_view.ProgressRoot.activeSelf, Is.True);
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(12, 0, false));
+            Assert.That(_view.ProgressRoot.activeSelf, Is.False);
+            Assert.That(_view.ProgressPercentText.text, Is.Empty);
+        }
+
+        [Test]
+        public void ExpeditionProgressIndicatorSkipsViewWritesWhileSourceIsUnchanged()
+        {
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(2, 5, false));
+            _view.ProgressPercentText.text = "marker-progress";
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(2, 5, false));
+            Assert.That(_view.ProgressPercentText.text, Is.EqualTo("marker-progress"));
+
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(3, 5, false));
+            Assert.That(_view.ProgressPercentText.text, Is.EqualTo("60%"));
+        }
+
+        [Test]
+        public void ExpeditionProgressIndicatorIsClearedWhenThePresenterIsUnbound()
+        {
+            InvokeRefreshProgressSection(true, new ExtractionProgressSnapshot(2, 5, false));
+
+            _presenter.Unbind();
+
+            Assert.That(_view.ProgressRoot.activeSelf, Is.False);
+            Assert.That(_view.ProgressPercentText.text, Is.Empty);
+        }
+
         [Test]
         public void RitualStatusKeepsDocumentedPriorityOrder()
         {
@@ -362,6 +446,11 @@ namespace Tests.EditMode.Presentation
         private void InvokeRefreshQuotaSection(bool hasProgress, ExtractionProgressSnapshot progress)
         {
             InvokePresenter("RefreshQuotaSection", hasProgress, progress);
+        }
+
+        private void InvokeRefreshProgressSection(bool hasProgress, ExtractionProgressSnapshot progress)
+        {
+            InvokePresenter("RefreshProgressSection", hasProgress, progress);
         }
 
         private void InvokeRefreshSanctuarySection(bool hasSanctuary)

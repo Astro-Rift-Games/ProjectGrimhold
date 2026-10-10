@@ -62,7 +62,25 @@ public sealed class RaidHudView : MonoBehaviour
     private TMP_Text _sanctuaryText;
 
     [SerializeField]
+    private GameObject _progressRoot;
+
+    [SerializeField]
+    private Image _progressFill;
+
+    [SerializeField]
+    private TMP_Text _progressPercentText;
+
+    [SerializeField]
     private GameObject _defeatedRoot;
+
+    /// <summary>Gets the expedition progress indicator root for presentation verification.</summary>
+    public GameObject ProgressRoot => _progressRoot;
+
+    /// <summary>Gets the expedition progress fill for presentation verification.</summary>
+    public Image ProgressFill => _progressFill;
+
+    /// <summary>Gets the expedition progress percentage label for presentation verification.</summary>
+    public TMP_Text ProgressPercentText => _progressPercentText;
 
     /// <summary>Gets the visual root controlled by this view.</summary>
     public GameObject MainHudRoot => _mainHudRoot;
@@ -250,6 +268,32 @@ public sealed class RaidHudView : MonoBehaviour
         SetText(_quotaText, string.Empty);
     }
 
+    /// <summary>Presents the local player's individual expedition progress as a bar and percentage.</summary>
+    public void PresentExpeditionProgress(float fraction)
+    {
+        float safeFraction = IsFinite(fraction) ? Mathf.Clamp01(fraction) : 0f;
+        if (_progressRoot != null && !_progressRoot.activeSelf)
+        {
+            _progressRoot.SetActive(true);
+        }
+
+        SetFill(_progressFill, safeFraction);
+        SetText(
+            _progressPercentText,
+            ExpeditionProgressMath.ToWholePercent(safeFraction).ToString(CultureInfo.InvariantCulture) + "%");
+    }
+
+    /// <summary>Clears and hides only the expedition progress indicator.</summary>
+    public void ClearExpeditionProgress()
+    {
+        SetFill(_progressFill, 0f);
+        SetText(_progressPercentText, string.Empty);
+        if (_progressRoot != null && _progressRoot.activeSelf)
+        {
+            _progressRoot.SetActive(false);
+        }
+    }
+
     /// <summary>Presents the confirmed individual Sanctuary assignment.</summary>
     public void PresentSanctuaryAssigned()
     {
@@ -302,6 +346,7 @@ public sealed class RaidHudView : MonoBehaviour
         ClearAttack();
         ClearInventory();
         ClearQuota();
+        ClearExpeditionProgress();
         ClearSanctuary();
         PresentExtractionUnavailable();
         PresentDefeated(false);

@@ -56,6 +56,48 @@ public sealed class RaidRightPanelPrefabTests
     }
 
     [Test]
+    public void ExpeditionProgressIndicatorLivesInsideTheObjectivesBlock()
+    {
+        GameObject hud = LoadHud();
+        RaidHudView view = hud.GetComponentInChildren<RaidHudView>(true);
+        Transform block = hud.transform.Find(PanelName)?.Find("ObjectivesBlock");
+        Assert.That(block, Is.Not.Null);
+
+        AssertProgressIndicator(view, block);
+    }
+
+    [Test]
+    public void NetworkPlayerResolvesTheExpeditionProgressIndicator()
+    {
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidHudView view = player.GetComponentInChildren<RaidHudView>(true);
+        Transform block = view.transform.Find(PanelName)?.Find("ObjectivesBlock");
+        Assert.That(block, Is.Not.Null);
+
+        AssertProgressIndicator(view, block);
+    }
+
+    private static void AssertProgressIndicator(RaidHudView view, Transform block)
+    {
+        Assert.That(view.ProgressRoot, Is.Not.Null);
+        Assert.That(view.ProgressFill, Is.Not.Null);
+        Assert.That(view.ProgressPercentText, Is.Not.Null);
+        Assert.That(view.ProgressRoot.transform.parent, Is.SameAs(block));
+        Assert.That(view.ProgressFill.transform.IsChildOf(view.ProgressRoot.transform), Is.True);
+        Assert.That(view.ProgressPercentText.transform.IsChildOf(view.ProgressRoot.transform), Is.True);
+        // Like the health and Stamina bars, the fill scales horizontally from its left edge.
+        Assert.That(view.ProgressFill.rectTransform.pivot.x, Is.Zero);
+        Assert.That(view.ProgressFill.raycastTarget, Is.False);
+        Assert.That(view.ProgressPercentText.raycastTarget, Is.False);
+        Assert.That(
+            view.ProgressPercentText.font,
+            Is.SameAs(block.Find("Header").GetComponent<TMP_Text>().font));
+        Assert.That(
+            view.ProgressRoot.transform.GetSiblingIndex(),
+            Is.GreaterThan(view.QuotaText.transform.GetSiblingIndex()));
+    }
+
+    [Test]
     public void PanelGraphicsDoNotBlockRaycasts()
     {
         Transform panel = LoadHud().transform.Find(PanelName);
