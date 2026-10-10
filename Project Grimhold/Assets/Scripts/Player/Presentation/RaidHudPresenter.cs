@@ -14,6 +14,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private PlayerCharacter _character;
     private PlayerStaminaNetworkController _staminaController;
+    private PlayerManaNetworkController _manaController;
     private PlayerCombatNetworkController _combatController;
     private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
     private PlayerExtractionController _extractionController;
@@ -36,6 +37,10 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private float _observedCurrentStamina;
     private float _observedMaximumStamina;
     private bool _observedExhausted;
+
+    private bool _hasManaState;
+    private float _observedCurrentMana;
+    private float _observedMaximumMana;
 
     private bool _hasCombatState;
     private bool _observedAttackAvailable;
@@ -91,10 +96,38 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ExtractionSanctuaryAssignmentService assignmentService,
         EntityRegistry entityRegistry)
     {
+        Bind(
+            character,
+            staminaController,
+            null,
+            combatController,
+            weaponEquipmentController,
+            extractionController,
+            extractionProgressController,
+            assignmentService,
+            entityRegistry);
+    }
+
+    /// <summary>
+    /// Binds the local presentation including the expedition-local Mana source.
+    /// A null or invalid Mana controller only degrades the Mana section.
+    /// </summary>
+    public void Bind(
+        PlayerCharacter character,
+        PlayerStaminaNetworkController staminaController,
+        PlayerManaNetworkController manaController,
+        PlayerCombatNetworkController combatController,
+        PlayerWeaponEquipmentNetworkController weaponEquipmentController,
+        PlayerExtractionController extractionController,
+        PlayerExtractionProgressController extractionProgressController,
+        ExtractionSanctuaryAssignmentService assignmentService,
+        EntityRegistry entityRegistry)
+    {
         Unbind();
 
         _character = character;
         _staminaController = staminaController;
+        _manaController = manaController;
         _combatController = combatController;
         _weaponEquipmentController = weaponEquipmentController;
         _extractionController = extractionController;
@@ -149,6 +182,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         _character = null;
         _staminaController = null;
+        _manaController = null;
         _combatController = null;
         _weaponEquipmentController = null;
         _extractionController = null;
@@ -191,6 +225,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
         RefreshHealth();
         RefreshStamina();
+        RefreshMana();
         RefreshCombat();
         RefreshExtraction();
     }
@@ -199,6 +234,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         RefreshHealth();
         RefreshStamina();
+        RefreshMana();
         RefreshCombat();
         RefreshExtraction();
     }
@@ -264,6 +300,41 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedMaximumStamina = maximumStamina;
         _observedExhausted = isExhausted;
         _view?.PresentStamina(currentStamina, maximumStamina, isExhausted);
+    }
+
+    private void RefreshMana()
+    {
+        float maximumMana = 0f;
+        bool hasMana = IsSpawned(_manaController) &&
+            _manaController.IsInitialized &&
+            _manaController.TryGetMaximumMana(out maximumMana);
+        RefreshManaSection(hasMana, hasMana ? _manaController.CurrentMana : 0f, maximumMana);
+    }
+
+    private void RefreshManaSection(bool hasMana, float currentMana, float maximumMana)
+    {
+        if (!hasMana)
+        {
+            if (_hasManaState)
+            {
+                _hasManaState = false;
+                _view?.ClearMana();
+            }
+
+            return;
+        }
+
+        if (_hasManaState &&
+            Mathf.Approximately(_observedCurrentMana, currentMana) &&
+            Mathf.Approximately(_observedMaximumMana, maximumMana))
+        {
+            return;
+        }
+
+        _hasManaState = true;
+        _observedCurrentMana = currentMana;
+        _observedMaximumMana = maximumMana;
+        _view?.PresentMana(currentMana, maximumMana);
     }
 
     private void RefreshCombat()
@@ -569,6 +640,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCurrentStamina = 0f;
         _observedMaximumStamina = 0f;
         _observedExhausted = false;
+        _hasManaState = false;
+        _observedCurrentMana = 0f;
+        _observedMaximumMana = 0f;
         _hasCombatState = false;
         _observedAttackAvailable = false;
         _observedCooldownDuration = 0f;

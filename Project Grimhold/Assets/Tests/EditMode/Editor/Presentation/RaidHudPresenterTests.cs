@@ -113,8 +113,9 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void MissingDependenciesKeepEveryGameplaySectionUnavailable()
         {
-            Assert.That(_view.HealthText.text, Is.EqualTo("Salud: — / —"));
-            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: — / —"));
+            Assert.That(_view.HealthText.text, Is.EqualTo("— / —"));
+            Assert.That(_view.StaminaText.text, Is.EqualTo("— / —"));
+            Assert.That(_view.ManaText.text, Is.EqualTo("— / —"));
             Assert.That(_view.AttackText.text, Is.Empty);
             Assert.That(_view.CooldownSecondsText.text, Is.Empty);
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
@@ -122,9 +123,11 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.SanctuaryText.text, Is.Empty);
             Assert.That(_view.HealthFill.fillAmount, Is.Zero);
             Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
+            Assert.That(_view.ManaFill.fillAmount, Is.Zero);
             Assert.That(_view.CooldownFill.fillAmount, Is.Zero);
             Assert.That(_view.HealthFill.rectTransform.localScale.x, Is.Zero);
             Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.Zero);
+            Assert.That(_view.ManaFill.rectTransform.localScale.x, Is.Zero);
             Assert.That(_view.CooldownRoot.gameObject.activeSelf, Is.False);
             Assert.That(_view.DefeatedRoot.activeSelf, Is.False);
         }
@@ -134,13 +137,88 @@ namespace Tests.EditMode.Presentation
         {
             _view.PresentStamina(25.4f, 100.4f, isExhausted: true);
 
-            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: 25 / 100 (Agotado)"));
+            Assert.That(_view.StaminaText.text, Is.EqualTo("25 / 100 (Agotado)"));
             Assert.That(_view.StaminaFill.fillAmount, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
             Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
 
             _view.PresentStamina(float.NaN, float.PositiveInfinity, isExhausted: false);
-            Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: 0 / 0"));
+            Assert.That(_view.StaminaText.text, Is.EqualTo("0 / 0"));
             Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
+        }
+
+        [TestCase(40f, 100f, "40 / 100", 0.4f)]
+        [TestCase(150f, 100f, "100 / 100", 1f)]
+        [TestCase(-5f, 100f, "0 / 100", 0f)]
+        [TestCase(float.NaN, float.PositiveInfinity, "0 / 0", 0f)]
+        [TestCase(10f, 0f, "0 / 0", 0f)]
+        public void ManaViewPresentsClampedValueAndFill(float current, float maximum, string expectedText, float expectedFill)
+        {
+            _view.PresentMana(current, maximum);
+
+            Assert.That(_view.ManaText.text, Is.EqualTo(expectedText));
+            Assert.That(_view.ManaFill.fillAmount, Is.EqualTo(expectedFill).Within(0.0001f));
+            Assert.That(_view.ManaFill.rectTransform.localScale.x, Is.EqualTo(expectedFill).Within(0.0001f));
+        }
+
+        [Test]
+        public void ManaSectionClearsOnlyItselfWhenItsSourceBecomesInvalid()
+        {
+            _view.PresentHealth(10f, 20f);
+            _view.PresentStamina(30f, 60f, isExhausted: false);
+            InvokeRefreshManaSection(true, 40f, 80f);
+            Assert.That(_view.ManaText.text, Is.EqualTo("40 / 80"));
+
+            InvokeRefreshManaSection(false, 0f, 0f);
+
+            Assert.That(_view.ManaText.text, Is.EqualTo("— / —"));
+            Assert.That(_view.ManaFill.fillAmount, Is.Zero);
+            Assert.That(_view.HealthText.text, Is.EqualTo("10 / 20"));
+            Assert.That(_view.StaminaText.text, Is.EqualTo("30 / 60"));
+        }
+
+        [Test]
+        public void ManaSectionSkipsViewWritesWhileItsSourceIsUnchanged()
+        {
+            InvokeRefreshManaSection(true, 40f, 80f);
+            _view.ManaText.text = "marker-mana";
+
+            InvokeRefreshManaSection(true, 40f, 80f);
+            Assert.That(_view.ManaText.text, Is.EqualTo("marker-mana"));
+
+            InvokeRefreshManaSection(true, 41f, 80f);
+            Assert.That(_view.ManaText.text, Is.EqualTo("41 / 80"));
+
+            InvokeRefreshManaSection(false, 0f, 0f);
+            _view.ManaText.text = "marker-mana";
+            InvokeRefreshManaSection(false, 0f, 0f);
+            Assert.That(_view.ManaText.text, Is.EqualTo("marker-mana"), "an already cleared section must not write again");
+        }
+
+        [Test]
+        public void ManaIsClearedWhenThePresenterIsUnbound()
+        {
+            InvokeRefreshManaSection(true, 40f, 80f);
+
+            _presenter.Unbind();
+
+            Assert.That(_view.ManaText.text, Is.EqualTo("— / —"));
+            Assert.That(_view.ManaFill.fillAmount, Is.Zero);
+        }
+
+        [Test]
+        public void ViewPresentsVitalsWithoutDuplicatedNameLabels()
+        {
+            _view.PresentHealth(25f, 75f);
+            _view.PresentStamina(75f, 75f, isExhausted: false);
+            _view.PresentMana(10f, 50f);
+
+            foreach (string text in new[] { _view.HealthText.text, _view.StaminaText.text, _view.ManaText.text })
+            {
+                Assert.That(text, Does.Not.Contain("Salud"));
+                Assert.That(text, Does.Not.Contain("Stamina"));
+                Assert.That(text, Does.Not.Contain("Mana"));
+                Assert.That(text, Does.Not.Contain(":"));
+            }
         }
 
         [TestCase(3.2f, "Extracción: 3,2 s")]
@@ -480,6 +558,11 @@ namespace Tests.EditMode.Presentation
         private void InvokeRefreshProgressSection(bool hasProgress, ExtractionProgressSnapshot progress)
         {
             InvokePresenter("RefreshProgressSection", hasProgress, progress);
+        }
+
+        private void InvokeRefreshManaSection(bool hasMana, float current, float maximum)
+        {
+            InvokePresenter("RefreshManaSection", hasMana, current, maximum);
         }
 
         private void InvokeRefreshSanctuarySection(bool hasSanctuary)

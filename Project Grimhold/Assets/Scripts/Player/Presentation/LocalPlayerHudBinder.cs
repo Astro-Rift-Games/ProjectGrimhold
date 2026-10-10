@@ -218,6 +218,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         _raidHudPresenter.Bind(
             _playerCharacter,
             _staminaController,
+            _manaController,
             _combatController,
             _weaponEquipmentController,
             _extractionController,

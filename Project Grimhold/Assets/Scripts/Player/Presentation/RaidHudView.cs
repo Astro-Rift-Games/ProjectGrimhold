@@ -28,6 +28,12 @@ public sealed class RaidHudView : MonoBehaviour
     private Image _staminaFill;
 
     [SerializeField]
+    private TMP_Text _manaText;
+
+    [SerializeField]
+    private Image _manaFill;
+
+    [SerializeField]
     private TMP_Text _attackText;
 
     [SerializeField]
@@ -94,6 +100,12 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Gets the Stamina fill for presentation verification.</summary>
     public Image StaminaFill => _staminaFill;
 
+    /// <summary>Gets the Mana value label for presentation verification.</summary>
+    public TMP_Text ManaText => _manaText;
+
+    /// <summary>Gets the Mana fill for presentation verification.</summary>
+    public Image ManaFill => _manaFill;
+
     /// <summary>Gets the primary-attack label for presentation verification.</summary>
     public TMP_Text AttackText => _attackText;
 
@@ -126,14 +138,14 @@ public sealed class RaidHudView : MonoBehaviour
     {
         float safeCurrent = IsFinite(currentHealth) ? Mathf.Max(0f, currentHealth) : 0f;
         float safeMaximum = IsFinite(maximumHealth) ? Mathf.Max(0f, maximumHealth) : 0f;
-        SetText(_healthText, $"Salud: {safeCurrent:0.#} / {safeMaximum:0.#}");
+        SetText(_healthText, $"{safeCurrent:0.#} / {safeMaximum:0.#}");
         SetFill(_healthFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
     }
 
     /// <summary>Restores the unavailable health placeholder and empty fill.</summary>
     public void ClearHealth()
     {
-        SetText(_healthText, $"Salud: {UnavailableValue} / {UnavailableValue}");
+        SetText(_healthText, $"{UnavailableValue} / {UnavailableValue}");
         SetFill(_healthFill, 0f);
     }
 
@@ -145,15 +157,31 @@ public sealed class RaidHudView : MonoBehaviour
         string exhaustionSuffix = isExhausted ? " (Agotado)" : string.Empty;
         SetText(
             _staminaText,
-            $"Stamina: {safeCurrent:0} / {safeMaximum:0}{exhaustionSuffix}");
+            $"{safeCurrent:0} / {safeMaximum:0}{exhaustionSuffix}");
         SetFill(_staminaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
     }
 
     /// <summary>Restores the unavailable Stamina placeholder and empty fill.</summary>
     public void ClearStamina()
     {
-        SetText(_staminaText, $"Stamina: {UnavailableValue} / {UnavailableValue}");
+        SetText(_staminaText, $"{UnavailableValue} / {UnavailableValue}");
         SetFill(_staminaFill, 0f);
+    }
+
+    /// <summary>Presents current and maximum Mana; the current value never exceeds the maximum.</summary>
+    public void PresentMana(float currentMana, float maximumMana)
+    {
+        float safeMaximum = IsFinite(maximumMana) ? Mathf.Max(0f, maximumMana) : 0f;
+        float safeCurrent = IsFinite(currentMana) ? Mathf.Clamp(currentMana, 0f, safeMaximum) : 0f;
+        SetText(_manaText, $"{safeCurrent:0} / {safeMaximum:0}");
+        SetFill(_manaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+    }
+
+    /// <summary>Restores the unavailable Mana placeholder and empty fill.</summary>
+    public void ClearMana()
+    {
+        SetText(_manaText, $"{UnavailableValue} / {UnavailableValue}");
+        SetFill(_manaFill, 0f);
     }
 
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
@@ -323,6 +351,7 @@ public sealed class RaidHudView : MonoBehaviour
 
         ClearHealth();
         ClearStamina();
+        ClearMana();
         ClearAttack();
         ClearQuota();
         ClearExpeditionProgress();

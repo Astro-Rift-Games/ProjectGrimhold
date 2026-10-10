@@ -70,18 +70,34 @@ public sealed class RaidBottomBarLayoutTests
     }
 
     [Test]
-    public void VitalsRowsDoNotOverlapAndStayInsideTheFrameInOrder()
+    public void VitalsBlockIsAnchoredAtTheBottomLeftWithAMargin()
+    {
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+
+        Assert.That(frame.anchorMin, Is.EqualTo(Vector2.zero), "anchor min bottom-left");
+        Assert.That(frame.anchorMax, Is.EqualTo(Vector2.zero), "anchor max bottom-left");
+        Assert.That(frame.pivot, Is.EqualTo(Vector2.zero), "pivot bottom-left");
+        Assert.That(frame.anchoredPosition.x, Is.InRange(16f, 32f), "left margin");
+        Assert.That(frame.anchoredPosition.y, Is.InRange(16f, 32f), "bottom margin");
+    }
+
+    [Test]
+    public void VitalsRowsAreHealthManaStaminaStackedWithoutOverlapInsideTheFrame()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
         RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
-        Rect frameRect = ResolveRect(frame, root, new Vector2(1920f, 1080f));
+        Vector2 size = new Vector2(1920f, 1080f);
+        Rect frameRect = ResolveRect(frame, root, size);
 
-        string[] order = { "Health", "Stamina", "DefeatedIndicator" };
+        string[] order = { "Health", "Mana", "Stamina" };
         Rect previous = default;
         for (int i = 0; i < order.Length; i++)
         {
-            Rect row = ResolveRect((RectTransform)frame.Find(order[i]), root, new Vector2(1920f, 1080f));
+            Transform rowTransform = frame.Find(order[i]);
+            Assert.That(rowTransform, Is.Not.Null, order[i] + " row");
+            Rect row = ResolveRect((RectTransform)rowTransform, root, size);
             Assert.That(row.xMin, Is.GreaterThanOrEqualTo(frameRect.xMin - Tolerance), order[i] + " left");
             Assert.That(row.xMax, Is.LessThanOrEqualTo(frameRect.xMax + Tolerance), order[i] + " right");
             Assert.That(row.yMax, Is.LessThanOrEqualTo(frameRect.yMax + Tolerance), order[i] + " top");
@@ -94,68 +110,94 @@ public sealed class RaidBottomBarLayoutTests
 
             previous = row;
         }
+
+        Assert.That(previous.yMin - frameRect.yMin, Is.LessThanOrEqualTo(16f), "frame is shrunk to its content");
     }
 
     [Test]
-    public void VitalsFrameHasNoEmptyRowAtTheBottom()
-    {
-        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
-        RectTransform root = (RectTransform)hud.transform;
-        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
-        Rect frameRect = ResolveRect(frame, root, new Vector2(1920f, 1080f));
-        Rect lastRow = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, new Vector2(1920f, 1080f));
-
-        Assert.That(lastRow.yMin - frameRect.yMin, Is.LessThanOrEqualTo(16f), "frame is shrunk to its content");
-    }
-
-    [Test]
-    public void VitalsFrameHasNoInventoryRowAndDefeatedSitsRightBelowStamina()
+    public void EachVitalsRowHasAnIconOnTheLeftAndABarToItsRight()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
         RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
         Vector2 size = new Vector2(1920f, 1080f);
 
-        Assert.That(frame.Find("InventoryText"), Is.Null, "inventory summary was removed from the frame");
-        foreach (Transform child in hud.GetComponentsInChildren<Transform>(true))
+        foreach (string rowName in new[] { "Health", "Mana", "Stamina" })
         {
-            Assert.That(child.name, Is.Not.EqualTo("InventoryText"), "no InventoryText object anywhere in the HUD");
-        }
+            RectTransform row = (RectTransform)frame.Find(rowName);
+            RectTransform icon = (RectTransform)row.Find(rowName + "Icon");
+            RectTransform track = (RectTransform)row.Find(rowName + "Track");
+            Assert.That(icon, Is.Not.Null, rowName + "Icon");
+            Assert.That(track, Is.Not.Null, rowName + "Track");
+            Assert.That(icon.GetComponent<Image>().sprite, Is.Not.Null, rowName + " icon sprite");
 
-        Rect stamina = ResolveRect((RectTransform)frame.Find("Stamina"), root, size);
-        Rect defeated = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, size);
-        Assert.That(stamina.yMin - defeated.yMax, Is.InRange(0f, 8f), "no empty row between Stamina and the defeated indicator");
+            Rect iconRect = ResolveRect(icon, root, size);
+            Rect trackRect = ResolveRect(track, root, size);
+            Assert.That(iconRect.xMax, Is.LessThanOrEqualTo(trackRect.xMin + Tolerance), rowName + " icon left of the bar");
+            Assert.That(trackRect.width, Is.GreaterThan(160f), rowName + " bar is wide enough for the value text");
+        }
     }
 
     [Test]
-    public void TeammateHudStaysJustBelowTheShrunkVitalsFrame()
+    public void DefeatedIndicatorSitsDirectlyAboveTheVitalsFrame()
+    {
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform root = (RectTransform)hud.transform;
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+        Vector2 size = new Vector2(1920f, 1080f);
+        Rect frameRect = ResolveRect(frame, root, size);
+        Rect defeated = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, size);
+
+        Assert.That(defeated.yMin - frameRect.yMax, Is.InRange(0f, 12f), "defeated indicator hugs the frame top");
+        Assert.That(defeated.xMin, Is.GreaterThanOrEqualTo(frameRect.xMin - Tolerance));
+        Assert.That(defeated.xMax, Is.LessThanOrEqualTo(frameRect.xMax + Tolerance));
+    }
+
+    [Test]
+    public void TeammateHudSitsAboveTheVitalsBlockAndDefeatedIndicator()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
         Vector2 size = new Vector2(1920f, 1080f);
-        Rect vitals = ResolveRect((RectTransform)hud.transform.Find("RaidMainHud"), root, size);
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+        Rect vitals = ResolveRect(frame, root, size);
+        Rect defeated = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, size);
         Rect duo = ResolveRect((RectTransform)hud.transform.Find("RaidDuoHud"), root, size);
 
-        Assert.That(vitals.yMin - duo.yMax, Is.InRange(0f, 24f), "teammate HUD sits right under the vitals frame");
+        Assert.That(duo.yMin, Is.GreaterThanOrEqualTo(defeated.yMax), "teammate HUD above the defeated indicator");
+        Assert.That(duo.yMin - vitals.yMax, Is.LessThanOrEqualTo(64f), "teammate HUD stays close to the vitals block");
+        Assert.That(duo.xMin, Is.EqualTo(vitals.xMin).Within(Tolerance), "teammate HUD shares the vitals left edge");
     }
 
     [TestCase(1920f, 1080f)]
     [TestCase(1440f, 1080f)]
-    public void VitalsDuoAndPressureHudsDoNotOverlap(float width, float height)
+    public void VitalsBlockDoesNotOverlapTheActionBarTeammateHudOrOtherHudBlocks(float width, float height)
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
         Vector2 size = new Vector2(width, height);
-        Rect vitals = ResolveRect((RectTransform)hud.transform.Find("RaidMainHud"), root, size);
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+        Rect vitals = ResolveRect(frame, root, size);
+        Rect defeated = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, size);
         Rect duo = ResolveRect((RectTransform)hud.transform.Find("RaidDuoHud"), root, size);
         Rect timer = ResolveRect((RectTransform)hud.transform.Find("DungeonPressureHUD/Timer"), root, size);
         Rect phase = ResolveRect((RectTransform)hud.transform.Find("DungeonPressureHUD/Phase"), root, size);
+        Rect prompt = ResolveRect((RectTransform)hud.transform.Find("InteractionPrompt"), root, size);
+        (Rect weapon, Rect q, Rect e, _) = LoadBottomBar(width, height);
 
         Assert.That(vitals.Overlaps(duo), Is.False, "vitals vs teammate HUD");
+        Assert.That(defeated.Overlaps(duo), Is.False, "defeated indicator vs teammate HUD");
         Assert.That(vitals.Overlaps(timer), Is.False, "vitals vs pressure timer");
         Assert.That(vitals.Overlaps(phase), Is.False, "vitals vs pressure phase");
         Assert.That(duo.Overlaps(timer), Is.False, "teammate HUD vs pressure timer");
         Assert.That(duo.Overlaps(phase), Is.False, "teammate HUD vs pressure phase");
+        Assert.That(vitals.Overlaps(weapon), Is.False, "vitals vs weapon slot");
+        Assert.That(vitals.Overlaps(q), Is.False, "vitals vs Q slot");
+        Assert.That(vitals.Overlaps(e), Is.False, "vitals vs E slot");
+        Assert.That(duo.Overlaps(weapon), Is.False, "teammate HUD vs weapon slot");
+        Assert.That(vitals.Overlaps(prompt), Is.False, "vitals vs interaction prompt");
+        Assert.That(vitals.xMin, Is.GreaterThanOrEqualTo(0f));
+        Assert.That(vitals.yMin, Is.GreaterThanOrEqualTo(0f));
     }
 
     [TestCase(1920f, 1080f)]

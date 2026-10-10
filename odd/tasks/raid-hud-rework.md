@@ -27,6 +27,13 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T7 Interaction prompt: key label from a tested constant matching the real Interact binding, "[F] action" format, prompt moved above the bottom bar. Per-action keys NOT done: there is a single Interact action (`<Keyboard>/f`), E is only AbilitySlot2; distinct keys per action would be an input/design change (commit: `feat(hud): show the interact key label and lift the prompt above the action bar`)
 - [x] T8 Update `RaidMainHudArchitecture.md`, `ExtractionArchitecture.md` and `PlayerInteractionArchitecture.md` for the changed contract (docs only; commit pending)
 
+## Phase 2 — visual fidelity to the concept (after owner review of the first pass)
+Owner ran the game and said the HUD "looks nothing like the reference". Cause: no task compared against the concept or was visually verified. A local, untracked preview harness now exists (`Assets/_HudPreview/`, excluded via .git/info/exclude): menu `Tools/HUD Preview/Build Scene`, Play Mode, `manage_camera screenshot` without camera, output folder `Temp/HudPreviewShots`. Every task below must capture, LOOK at the PNG and compare with the concept image before reporting.
+- [x] V1 Vitals bottom-left: clean health/mana/stamina bars with icon, no duplicated labels, left-anchored fills; mana bar (approved by owner; source PlayerManaNetworkController); 3 new 16x16 procedural pixel icons in Assets/Art/UI/Hud (placeholders, replace with real art if available) (commit: `feat(hud): rebuild the vitals block with icon bars and a mana bar`). Seen in the preview harness: three icon + bar rows at the bottom-left, no duplicated text. Unverified: real Fusion mana binding in a live match; DERROTADO red colour not rendered; pre-existing teammate bar draws as a thin line overlapping its text (not touched). Differences vs concept: no round progress ring / level badge, flatter bars.
+- [ ] V2 Bottom action bar: key labels (Q/E), icons, weapon slot label, presence similar to the concept; no 10 slots
+- [ ] V3 Minimap frame: ornate frame, zone name, compass N, controls, using existing data only
+- [ ] V4 Visual style pass: dark ornate frames and gold text across the HUD blocks; pixel font for the pressure timer/phase; interaction prompt framed; debug buttons out of the way
+
 ## Progress
 T1 done: 10 new EditMode tests green (DungeonPressureHudPresenterTests). Route: delegated writer (writer trigger: prefab + 3 scripts + tests).
 Unverified: Play Mode Host/Client; controller resolution via MatchController has no automated test.

@@ -25,7 +25,7 @@ Input Authority NetworkPlayer
 - `RaidTeammateHudPresenter` resolves the one frozen teammate by stable `ProfileId`, observes
   replicated participant/avatar state and performs section-local dirty checking. Its view owns only
   visibility, text and fill rendering.
-- `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. It now frames only the vitals block (Health, Stamina and the defeated indicator). The presenter and view remain on `LocalGameplayHud`, outside the visual root they control; the view's quota, Sanctuary, ritual/extraction and expedition-progress references point into `RaidRightPanel` (see Layout).
+- `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. It now frames only the vitals block (Health, Mana, Stamina; the defeated indicator sits just above the frame). The presenter and view remain on `LocalGameplayHud`, outside the visual root they control; the view's quota, Sanctuary, ritual/extraction and expedition-progress references point into `RaidRightPanel` (see Layout).
 - `RaidDuoHud` (the teammate HUD root, shown and hidden by `RaidTeammateHudView`) is authored inactive, so it is never visible before a teammate is presented.
 - `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the active weapon's `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress. The seconds text is formatted with `CultureInfo.InvariantCulture`, so the machine locale never changes the decimal separator. `RaidHudView` also owns a distinct, empty `AttackText` label instead of sharing the cooldown seconds label.
 
@@ -44,6 +44,7 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Teammate defeat | teammate `NetworkRaidParticipant.State == Defeated` |
 | Current Stamina and Exhaustion | `PlayerStaminaNetworkController` replicated state |
 | Maximum Stamina | `PlayerStaminaNetworkController.TryGetMaximumStamina` from the admitted attributes |
+| Current and maximum Mana | `PlayerManaNetworkController.CurrentMana` / `TryGetMaximumMana`, read only while `IsInitialized` |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
 | Active weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
 | Loot value inside the inventory screen | `LootInventoryValueCalculator.TryCalculate` over the inventory source's loot content, in `RaidInventoryPresenter` |
@@ -113,7 +114,7 @@ The always-visible HUD shows no inventory summary. The former `Inventario: n / m
 
 ## Dirty checking
 
-Health/defeat, Stamina/Exhaustion, attack/cooldown, quota, expedition progress, assigned Sanctuary and ritual/extraction status maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
+Health/defeat, Stamina/Exhaustion, Mana, attack/cooldown, quota, expedition progress, assigned Sanctuary and ritual/extraction status maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The Mana section follows the same rule through `RefreshManaSection`; an invalid or uninitialized Mana controller clears only Mana. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
 
 The teammate section independently dirty-checks its visible mode, Health and maximum. It follows
 the existing presentation `Update` pattern and never advances simulation state.
@@ -204,7 +205,7 @@ Positions below are authored in prefabs and guarded by EditMode layout tests; no
 
 - **Right panel.** `RaidRightPanel` in `LocalGameplayHud.prefab` is a top-right column (`VerticalLayoutGroup`, 240 wide) with four children in order: `RaidMinimap`, `ObjectivesBlock` ("Objetivos de expedición": quota text, then the expedition progress bar and percentage), `SanctuaryBlock` ("Santuario") and `RitualBlock` ("Estado del ritual"). Expedition progress is individual, not team.
 - **Bottom row.** The weapon cooldown (`RaidCooldownHud`) and the Q and E ability slots (`RaidAbilityHud`) form one even row of 64x64 slots at the bottom center, in the order weapon, Q, E, with equal gaps. The ability slots reuse the weapon slot frame style.
-- **Vitals block.** `RaidMainHud` is compacted to Health, Stamina and the defeated indicator, with no empty row. `RaidDuoHud` sits just below it, and none of them overlaps the Dungeon Pressure timer and phase.
+- **Vitals block.** `RaidMainHud` is anchored bottom-left (24 px margin) as three icon + bar rows (Health, Mana, Stamina). Each bar is a dark track with a coloured fill anchored and pivoted at the left edge, and one centered value text (for example `85 / 130`) drawn over the fill, never inside it. There are no static name labels. Icons are 16x16 pixel sprites under `Assets/Art/UI/Hud`. The defeated indicator sits just above the frame and `RaidDuoHud` above it; none of them overlaps the bottom action bar, the Dungeon Pressure timer and phase, or the interaction prompt.
 - **Quick Slots are not implemented.** The Game Design defines four Quick Slots and weapon sets A/B; neither is in the HUD and both remain future work. No placeholder slots exist.
 
 ## Dungeon Pressure HUD
