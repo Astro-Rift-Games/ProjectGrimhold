@@ -2,7 +2,7 @@
 
 ## Context
 
-The main HUD provides an always-available Raid summary for the local player and connects its extraction section to the existing confirmed extraction query. The HUD remains presentation-only: it does not own health, combat, loot, equipment, or extraction state, and it introduces no replicated fields.
+The main HUD provides an always-available Raid summary for the local player and connects its quota, Sanctuary and ritual/extraction sections to the existing confirmed extraction queries. The HUD remains presentation-only: it does not own health, combat, loot, equipment, or extraction state, and it introduces no replicated fields.
 
 The HUD is composed in the productive Raid avatar `NetworkPlayer.prefab` under the existing `LocalGameplayHud` Canvas.
 
@@ -15,6 +15,8 @@ Input Authority NetworkPlayer
           -> RaidHudView
       -> RaidTeammateHudPresenter
           -> RaidTeammateHudView
+      -> DungeonPressureHudPresenter
+          -> DungeonPressureHudView
 ```
 
 - `LocalPlayerHudBinder` remains the only local HUD binding boundary. A player without Input Authority keeps `LocalGameplayHud` inactive.
@@ -23,8 +25,9 @@ Input Authority NetworkPlayer
 - `RaidTeammateHudPresenter` resolves the one frozen teammate by stable `ProfileId`, observes
   replicated participant/avatar state and performs section-local dirty checking. Its view owns only
   visibility, text and fill rendering.
-- `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. The presenter and view remain on `LocalGameplayHud`, outside the visual root they control.
-- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the active weapon's `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress.
+- `RaidMainHud` is a non-interactive visual root and a sibling of `RaidInventoryScreen`. It now frames only the vitals block (Health, Stamina and the defeated indicator). The presenter and view remain on `LocalGameplayHud`, outside the visual root they control; the view's quota, Sanctuary, ritual/extraction and expedition-progress references point into `RaidRightPanel` (see Layout).
+- `RaidDuoHud` (the teammate HUD root, shown and hidden by `RaidTeammateHudView`) is authored inactive, so it is never visible before a teammate is presented.
+- `RaidCooldownHud` is a bottom-centered visual root on the same Canvas. `RaidHudPresenter` resolves the active weapon's `LootDefinition` from `PlayerWeaponEquipmentNetworkController` and uses its `Icon` (falling back to `WorldSprite`); a dark radial image and a compact decimal-seconds label render replicated cooldown progress. The seconds text is formatted with `CultureInfo.InvariantCulture`, so the machine locale never changes the decimal separator. `RaidHudView` also owns a distinct, empty `AttackText` label instead of sharing the cooldown seconds label.
 
 No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
@@ -43,11 +46,11 @@ No additional Canvas, HUD prefab, global manager, service locator, event bus, or
 | Maximum Stamina | `PlayerStaminaNetworkController.TryGetMaximumStamina` from the admitted attributes |
 | Attack availability and cooldown | `PlayerCombatNetworkController.TryGetPrimaryAttackStatus` |
 | Active weapon icon | `PlayerWeaponEquipmentNetworkController` -> `LootDefinition.Icon` / `WorldSprite` |
-| Occupied slots and capacity | `PlayerLootReceiver.OccupiedSlotCount` and `SlotCapacity` |
-| Loot value inside the inventory screen | `PlayerLootReceiver.TryCalculateTotalValue` |
-| Extraction | local `PlayerExtractionController.TryGetProgress` |
-| Individual extraction progress | local `PlayerExtractionProgressController.TryGetSnapshot` |
+| Loot value inside the inventory screen | `LootInventoryValueCalculator.TryCalculate` over the inventory source's loot content, in `RaidInventoryPresenter` |
+| Extraction countdown | local `PlayerExtractionController.TryGetProgress` |
+| Individual quota and expedition progress | local `PlayerExtractionProgressController.TryGetSnapshot`; bar fraction through `ExpeditionProgressMath` |
 | Sanctuary assignment and ritual | runner `ExtractionSanctuaryAssignmentService`, `EntityRegistry`, `IExtractionSanctuary` |
+| Dungeon Pressure timer and phase | `DungeonPressureController` on the match controller resolved through `NetworkSpawnManager.MatchController` |
 
 `CharacterBase.MaxHealth` exposes the effective maximum as read-only, locally derived data; it is
 not a second networked health value. The base implementation used by NPCs returns the maximum
@@ -104,13 +107,13 @@ active slot replaces the icon without changing combat or equipment state.
 
 ## Inventory summary and value recovery
 
-`RaidHudPresenter` displays only occupied slots and capacity in the always-visible summary. The complete loot value belongs to the existing personal panel inside `RaidInventoryScreen`; no duplicate value is rendered in `RaidMainHud`.
+The always-visible HUD shows no inventory summary. The former `Inventario: n / m` text was removed by product decision: `RaidHudView` has no inventory label, `RaidHudPresenter` no longer reads `PlayerLootReceiver` (its `Bind` overloads lost that parameter), and neither `RaidMainHud` nor `LocalGameplayHud` contains an `InventoryText` object. Inventory occupancy and the complete loot value belong to the `RaidInventoryScreen`, and the pickup toast (`LootHudPresenter`) keeps its own economic text. Both use `SellValuePerUnit`; `ExtractionValuePerUnit` is never shown as currency.
 
-`RaidInventoryPresenter` calls `PlayerLootReceiver.TryCalculateTotalValue` when it refreshes the player panel. A failed complete-value read displays `Valor: —`, keeps only the value refresh pending, and retries on subsequent presentation updates without rebuilding slots, using a timer, coroutine, or inventory subtotal. One diagnostic is emitted per failed episode. Once a complete read succeeds, the presenter stops recalculating until `LootChangeSequence` changes.
+`RaidInventoryPresenter` computes the complete value with `LootInventoryValueCalculator.TryCalculate` over the inventory source's loot content when it refreshes the player panel. A failed complete-value read displays `Valor: —`, keeps only the value refresh pending, and retries on subsequent presentation updates without rebuilding slots, using a timer, coroutine, or inventory subtotal. One diagnostic is emitted per failed episode. Once a complete read succeeds, the presenter stops recalculating until the inventory source `Revision` changes.
 
 ## Dirty checking
 
-Health/defeat, Stamina/Exhaustion, attack/cooldown, and inventory capacity maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
+Health/defeat, Stamina/Exhaustion, attack/cooldown, quota, expedition progress, assigned Sanctuary and ritual/extraction status maintain independent observed state. The presenter writes a section only when its visible state changes. The Stamina section reads the networked owner without advancing regeneration or consumption; an unresolved participant source clears only that section. The view additionally avoids assigning identical TMP text, fill, scale, active-state, or root-state values.
 
 The teammate section independently dirty-checks its visible mode, Health and maximum. It follows
 the existing presentation `Update` pattern and never advances simulation state.
@@ -130,9 +133,22 @@ does not implement reconnection or recovery.
 
 ## Extraction presentation
 
+The former single extraction label is split into three independent text sections plus one progress indicator, each with its own dirty check and its own clear operation:
+
+| Section | `RaidHudView` member | Content |
+| --- | --- | --- |
+| Quota | `QuotaText` | `Progreso: n / m`, or the persistent `Cuota completada` |
+| Expedition progress | `ProgressRoot`, `ProgressFill`, `ProgressPercentText` | Individual progress bar and whole percentage |
+| Sanctuary | `SanctuaryText` | `Santuario asignado` while a valid assignment resolves |
+| Ritual/extraction status | `ExtractionText` | Terminal, countdown, cancellation and ritual status (priority below) |
+
+A missing or invalid source clears only its own section. `Cuota completada` is persistent: it is the quota section's state whenever `IsQuotaComplete` is true, with no transient confirmation duration and no competition with the Sanctuary text. The only remaining presentation-time feedback is the extraction cancellation message (`_cancellationFeedbackDuration`, unscaled).
+
+The ritual/extraction status keeps one explicit priority: terminal `Extracted`, active extraction countdown, existing cancellation feedback, completed ritual, in-progress ritual, cancelled ritual, and finally the unavailable placeholder. The expedition progress fraction is clamped and floored by `ExpeditionProgressMath`, so 199/200 never shows 100%; a non-positive quota hides the indicator. Progress is individual (MVP): no text or projection speaks of team progress.
+
 `LocalPlayerHudBinder` passes the local `PlayerExtractionController` into `RaidHudPresenter`. The presenter baseline observes the first valid `ExtractionCountdownSnapshot`, so joining during an active countdown or after completion does not emit a false transition. This countdown contract was renamed from `ExtractionProgressSnapshot` when individual quota progress was introduced, so the latter can exclusively describe that progress. A valid `InProgress` snapshot displays the sanitized remaining duration, `InProgress -> None` displays one cancellation message for the configured presentation duration, and `Extracted` displays a persistent terminal label. An invalid or unavailable read clears the observation baseline and shows the unavailable placeholder without fabricating a cancellation or completion.
 
-The HUD adds no team progress projection. `ExtractionProgressSnapshot` is presented as the local individual quota text, while assignment and ritual text are derived from the runner-scoped assignment service, registry and Sanctuary snapshot. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
+The HUD adds no team progress projection. `ExtractionProgressSnapshot` is presented as the local individual quota text and expedition progress bar, while assignment and ritual text are derived from the runner-scoped assignment service, registry and Sanctuary snapshot. Pickups and inventory economic text use `SellValuePerUnit`; `ExtractionValuePerUnit` is never displayed as currency.
 
 The extraction HUD section never writes player state, calls an extraction command, or uses a parallel local countdown. The local HUD remains available after `Extracted`; authoritative interaction, damage and loot protocols continue to enforce the existing terminal restrictions.
 
@@ -158,8 +174,8 @@ or fallback logic. The presenter preserves the renderer's authored alpha and onl
 for state presentation.
 
 The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
-bound by `LocalPlayerHudBinder`; `RaidHudPresenter` retains responsibility only for textual HUD
-content. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
+bound by `LocalPlayerHudBinder` and composed as the first child of `RaidRightPanel`; `RaidHudPresenter` retains responsibility only for textual HUD
+content and the expedition progress bar. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
 `Floor`, `Walls` and `Obstacles` Tilemaps of `Dungeon_Graybox.prefab`, including its world pivot,
 cell size, occupancy and a source hash. `RaidMinimapGraphic` renders that north-up layout as uGUI
 geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
@@ -181,6 +197,23 @@ the current ritual snapshot and presents either the interior icon or exterior ar
 completion hides only the Sanctuary marker; defeat and extraction leave the minimap visible while
 the PlayerObject remains valid. Disable, despawn, replacement, shutdown and re-enable clear
 visuals and cached references without replaying historical transitions.
+
+## Layout
+
+Positions below are authored in prefabs and guarded by EditMode layout tests; none has been validated visually in the Game view or Play Mode.
+
+- **Right panel.** `RaidRightPanel` in `LocalGameplayHud.prefab` is a top-right column (`VerticalLayoutGroup`, 240 wide) with four children in order: `RaidMinimap`, `ObjectivesBlock` ("Objetivos de expedición": quota text, then the expedition progress bar and percentage), `SanctuaryBlock` ("Santuario") and `RitualBlock` ("Estado del ritual"). Expedition progress is individual, not team.
+- **Bottom row.** The weapon cooldown (`RaidCooldownHud`) and the Q and E ability slots (`RaidAbilityHud`) form one even row of 64x64 slots at the bottom center, in the order weapon, Q, E, with equal gaps. The ability slots reuse the weapon slot frame style.
+- **Vitals block.** `RaidMainHud` is compacted to Health, Stamina and the defeated indicator, with no empty row. `RaidDuoHud` sits just below it, and none of them overlaps the Dungeon Pressure timer and phase.
+- **Quick Slots are not implemented.** The Game Design defines four Quick Slots and weapon sets A/B; neither is in the HUD and both remain future work. No placeholder slots exist.
+
+## Dungeon Pressure HUD
+
+`DungeonPressureHudPresenter` is bound by `LocalPlayerHudBinder` with `Bind(NetworkRunner, NetworkSpawnManager)` and unbound with the rest of the HUD. It resolves the `DungeonPressureController` through `NetworkSpawnManager.MatchController` and revalidates it against the bound runner; there is no `FindObjectOfType` or scene scan. A missing runner, spawn manager, match controller or controller shows the unavailable timer `--:--` and clears only this section; a runner that stops running unbinds the presenter. It dirty-checks seconds and phase, adds no networked state and owns no clock.
+
+## Interaction prompt
+
+The local interaction prompt uses the format `[F] action`, built by `InteractionPromptText.Format` and shown by `InteractionHudPresenter` (`TownRaidPreparationView` uses the same helper). A blank action falls back to `Interactuar`. `InteractionPromptText.KeyLabel` is a constant, not a runtime read of the binding; an EditMode test (`InteractionPromptTextTests`) compares it with the keyboard path of the real `Gameplay/Interact` action (`<Keyboard>/f`) in `PlayerInputActions.inputactions`, so it cannot drift silently. There is a single Interact action; per-action keys are not implemented because they would need input and design decisions. The prompt (`InteractionPrompt` in `LocalGameplayHud.prefab`) is centered above the action bar and the ability messages.
 
 ## Raid Pause & Defeat Overlay (`RaidMenuPresenter` / `RaidMenuView`)
 
@@ -238,6 +271,17 @@ LocalPlayerHudBinder
 
 World VFX and audio for abilities are not part of this HUD.
 
+## Known limitations and open decisions
+
+- Enemy health bars are not in the HUD (needs a design decision).
+- Level and XP are not shown in Raid.
+- No universal Raid timer: the Game Design says it is not universal; only the Dungeon Pressure timer exists.
+- Progress is individual (MVP). Whether and how a team progress is shown is undecided.
+- Expedition progress is a horizontal bar; the concept image shows a ring, which would need a dedicated sprite.
+- Quick Slots and weapon sets A/B are not implemented.
+- `RaidMenuView` still carries a static `F — Interactuar` help line, independent of `InteractionPromptText`.
+- Layout and visuals of the rework (right panel, bottom row, vitals, prompt position) are pending validation in the Game view and Play Mode.
+
 ## Alternatives not selected
 
 - A loot-value calculator or projection object would duplicate existing public behavior and add no variation point.
@@ -247,7 +291,7 @@ World VFX and audio for abilities are not part of this HUD.
 
 ## Validation strategy
 
-EditMode tests cover equipped-weapon icon resolution and clearing, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
+EditMode tests cover the Dungeon Pressure binding and `--:--` fallback (`DungeonPressureHudPresenterTests`), the right panel composition (`RaidRightPanelPrefabTests`), the bottom row and vitals geometry (`RaidBottomBarLayoutTests`), removal of dead labels (`RaidMainHudPrefabCleanupTests`), the prompt key label against the real binding (`InteractionPromptTextTests`), equipped-weapon icon resolution and clearing, safe cooldown normalization, extraction snapshot mapping, one-shot cancellation presentation, missing-source placeholders, and duplicate view writes.
 
 PlayMode tests use the existing Single Runner style to cover prefab composition, serialized references, initial and clear values, unresolved participant links, local and remote ownership, equipped-icon changes, combat status during and after cooldown, read-only combat queries, loot-value failure and recovery, bind/disable/re-enable cleanup, listener uniqueness, and local participant defeat without hiding the HUD after avatar authority is removed.
 
@@ -262,5 +306,5 @@ Manual validation remains necessary for:
 - teammate placeholder while the participant/avatar is absent and re-resolution when an already
   supported lifecycle such as Host Migration/rebind materializes the same `ProfileId`;
 - complete session restart;
-- layout, anchors, contrast, radial fill, target resolutions, and coexistence with inventory and the interaction prompt;
+- layout, anchors, contrast, radial fill, target resolutions, and coexistence of the right panel, bottom row and interaction prompt (not yet observed in the Game view);
 - defeat, loot collection/transfer, equipped weapon icons, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.

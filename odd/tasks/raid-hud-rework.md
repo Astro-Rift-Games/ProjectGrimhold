@@ -24,8 +24,8 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E in one even 64x64 row; vitals block compacted, no overlap; no Quick Slot placeholders (commit: `feat(hud): align weapon and ability slots and compact the vitals block`)
 - [x] T6b Remove the "Inventario: n / m" text from the HUD (user decision), shrink vitals block accordingly (commit: `refactor(hud): remove the inventory summary text from the raid HUD`)
 - [x] T6c Delete dead labels (InventoryText, ExtractionText, QuotaText, SanctuaryText) from source RaidMainHud.prefab and the dangling removed-object entry in LocalGameplayHud; confirmed no leftovers from the reverted T5 (commit: `chore(hud): delete dead labels from the RaidMainHud prefab`)
-- [ ] T7 Interaction prompt with per-action key (check Input Actions asset first)
-- [ ] T8 Update `Docs/Architecture/RaidMainHudArchitecture.md` for the changed contract
+- [x] T7 Interaction prompt: key label from a tested constant matching the real Interact binding, "[F] action" format, prompt moved above the bottom bar. Per-action keys NOT done: there is a single Interact action (`<Keyboard>/f`), E is only AbilitySlot2; distinct keys per action would be an input/design change (commit: `feat(hud): show the interact key label and lift the prompt above the action bar`)
+- [x] T8 Update `RaidMainHudArchitecture.md`, `ExtractionArchitecture.md` and `PlayerInteractionArchitecture.md` for the changed contract (docs only; commit pending)
 
 ## Progress
 T1 done: 10 new EditMode tests green (DungeonPressureHudPresenterTests). Route: delegated writer (writer trigger: prefab + 3 scripts + tests).
@@ -59,5 +59,9 @@ Leftovers: the source RaidMainHud.prefab still contains the stale InventoryText 
 
 T6c done: source RaidMainHud.prefab lost the 4 dead labels (552 pure deletions, hand-edited YAML); `RaidMainHudPrefabCleanupTests` 2/2 (only the first was RED); EditMode 637 run with only the 2 baseline failures; PlayMode 4/10 same 6 baseline; console clean of missing-reference warnings. No T5 leftovers found (no Assets/Screenshots, RaidCapacityWidget*, InventoryFill or orphan .meta). Not opened in the Editor.
 
+T7 done: `InteractionPromptText` (KeyLabel "F", Format -> "[F] action", blank -> "Interactuar"), used by InteractionHudPresenter and TownRaidPreparationView (small scope extension for the same hardcoded string); InteractionPrompt y 120 -> 190 (hand-edited YAML). No input bindings changed. EditMode 644 run, only the 2 baseline failures; PlayMode InteractionLootHudPlayModeTests all passed, RaidMainHudPlayModeTests same 6 baseline failures.
+Caveats: KeyLabel is a constant guarded by a test against the real binding (not read at runtime, same approach as TownAbilitySlotKeyLabels); RaidMenuView.cs:16 still has a static "F — Interactuar" help line; no visual check in Play Mode; plain text, no key badge.
+
 ## Next step
-Start T7.
+All planned tasks are done (T5 dropped by user). T8 updated the three architecture docs (also corrected a pre-existing error: value recovery uses `LootInventoryValueCalculator.TryCalculate`, not `PlayerLootReceiver.TryCalculateTotalValue`). The notes above about stale labels and the architecture docs are resolved by T6c and T8.
+Pending, outside this branch's scope: manual Game view / Play Mode validation (nothing visual was ever observed live), stale tests (separate spawned task), `NetworkPlayerPrefabHasOneCompleteRaidHudOnExistingCanvas` (RaidMenuView.ProgressionExperienceFill null), "F — Interactuar" static line in RaidMenuView, open design decisions listed in RaidMainHudArchitecture.md.

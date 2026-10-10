@@ -80,7 +80,7 @@ This contract defines how candidates are found in the 2D world. `Physics2DIntera
 
 `LocalInteractionCandidateSource` runs `InteractionResolver.TrySelect` during `Render` only for the player with Input Authority. It exposes a read-only local candidate for the predictive prompt. This prompt does not guarantee acceptance and does not synchronize text or visual resources.
 
-For a changed candidate, the source resolves the exact runner-local `NetworkObject` and reads optional `InteractionPromptMetadata` once. The cached local text remains until the target or resolved instance changes; missing metadata falls back to `Interactuar`. Candidate loss, disable, despawn or a runner/session change clears the cache. Metadata never enters `EntityRegistry`, gameplay contracts or network state.
+For a changed candidate, the source resolves the exact runner-local `NetworkObject` and reads optional `InteractionPromptMetadata` once. The cached local text remains until the target or resolved instance changes; missing metadata falls back to `Interactuar`. `InteractionHudPresenter` renders the text as `[F] action` through `InteractionPromptText.Format`; the `F` label is a constant guarded by an EditMode test against the real `Gameplay/Interact` keyboard binding, and the prompt sits above the HUD action bar. Candidate loss, disable, despawn or a runner/session change clears the cache. Metadata never enters `EntityRegistry`, gameplay contracts or network state.
 
 In Town, `SocialPlayerInteractable` shares the avatar `EntityId` and registers only its
 dedicated layer-8 trigger. Its replicated `SocialPlayerIdentity.DisplayName` supplies the

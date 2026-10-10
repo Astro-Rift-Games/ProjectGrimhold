@@ -158,6 +158,32 @@ public sealed class RaidBottomBarLayoutTests
         Assert.That(duo.Overlaps(phase), Is.False, "teammate HUD vs pressure phase");
     }
 
+    [TestCase(1920f, 1080f)]
+    [TestCase(1440f, 1080f)]
+    public void InteractionPromptSitsClearlyAboveTheActionBarAndAbilityMessages(float width, float height)
+    {
+        (Rect weapon, Rect q, Rect e, RectTransform abilityHudRoot) = LoadBottomBar(width, height);
+        GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+        RaidAbilityHudView abilityView = player.GetComponentInChildren<RaidAbilityHudView>(true);
+
+        float barTop = Mathf.Max(weapon.yMax, Mathf.Max(q.yMax, e.yMax));
+        foreach (string slotName in new[] { "AbilitySlot1", "AbilitySlot2" })
+        {
+            Rect message = ResolveRect(
+                (RectTransform)abilityView.transform.Find(slotName).Find("Message"), abilityHudRoot, new Vector2(width, height));
+            barTop = Mathf.Max(barTop, message.yMax);
+        }
+
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform root = (RectTransform)hud.transform;
+        RectTransform prompt = (RectTransform)hud.transform.Find("InteractionPrompt");
+        Assert.That(prompt, Is.Not.Null, "InteractionPrompt in LocalGameplayHud.prefab");
+        Rect promptRect = ResolveRect(prompt, root, new Vector2(width, height));
+
+        Assert.That(promptRect.yMin, Is.GreaterThanOrEqualTo(barTop + 16f), "prompt clearly above the bar and ability messages");
+        Assert.That(promptRect.center.x, Is.EqualTo(width * 0.5f).Within(Tolerance), "prompt centered");
+    }
+
     private static (Rect weapon, Rect q, Rect e, RectTransform hudRoot) LoadBottomBar(float width, float height)
     {
         GameObject player = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);

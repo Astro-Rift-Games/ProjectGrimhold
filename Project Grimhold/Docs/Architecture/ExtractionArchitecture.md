@@ -86,7 +86,7 @@ Enemy AI has no extraction dependency. `EnemyMovementAIController` owns one atom
 
 ## Extraction presentation boundary
 
-`RaidHudPresenter` is bound only to the Input Authority player's `PlayerExtractionController`. It reads `TryGetProgress` during presentation updates and renders the confirmed local countdown, a one-shot cancellation message, or the terminal `Extracted` label. It does not start, cancel or complete extraction and does not maintain a gameplay timer. The cancellation message uses an unscaled presentation-only duration.
+`RaidHudPresenter` is bound only to the Input Authority player's `PlayerExtractionController`. It reads `TryGetProgress` during presentation updates and renders the confirmed local countdown, a one-shot cancellation message, or the terminal `Extracted` label in the ritual/extraction status section of the HUD (`RaidHudView.ExtractionText`, inside `RitualBlock` of `RaidRightPanel`). It does not start, cancel or complete extraction and does not maintain a gameplay timer. The cancellation message uses an unscaled presentation-only duration.
 
 `PlayerExtractionPresenter` observes the replicated `ExtractionState` on every peer. When the state is `Extracted`, it hides only the serialized `Body` and `CombatVisuals` roots. The NetworkObject, colliders, camera, HUD, interaction and authoritative gameplay components remain active. Disabling the presenter restores its serialized visual state; re-enabling it reapplies the terminal visual from the current confirmed state.
 
@@ -166,13 +166,20 @@ runner-scoped `EntityRegistry`, `IExtractionSanctuary`, `ExtractionProgressSnaps
 evaluated independently: a missing assignment service or sanctuary does not hide valid
 progress, and a missing progress source does not disable the rest of the HUD.
 
-The extraction text has one explicit priority: terminal `Extracted`, active extraction
+The former single extraction label is split into three independent HUD sections, each with
+its own dirty check and clear operation: quota (`QuotaText`, `Progreso: n / m` or the persistent
+`Cuota completada`), assigned Sanctuary (`SanctuaryText`) and ritual/extraction status
+(`ExtractionText`). Individual progress also drives a bar and whole percentage in the objectives
+block, derived by `ExpeditionProgressMath`; it is individual (MVP) progress, not team progress.
+A missing source clears only its own section.
+
+The ritual/extraction status has one explicit priority: terminal `Extracted`, active extraction
 countdown, existing cancellation feedback, completed ritual, in-progress ritual, cancelled
-ritual, quota confirmation, assigned Sanctuary, completed quota without a resolvable
-assignment, individual progress, and finally the unavailable placeholder. Progress and
-countdown maintain separate observation baselines. The first valid snapshot and the first
-snapshot after an invalid interval establish a baseline; only an observed incomplete-to-
-complete quota transition produces the local, unscaled confirmation feedback.
+ritual, and finally the unavailable placeholder. Quota completion is no longer transient
+feedback: `Cuota completada` stays in the quota section while the quota is complete. Progress
+and countdown maintain separate observation baselines; the first valid snapshot and the first
+snapshot after an invalid interval establish a baseline, so only a countdown
+`InProgress -> None` transition produces the local, unscaled cancellation feedback.
 
 `ExtractionZone` is simulation-only and is the interaction area of the Sanctuary.
 `ExtractionSanctuaryPresenter` is the only renderer owner for the Sanctuary visual. It resolves the current local PlayerObject on every presentation
@@ -204,7 +211,7 @@ to the current Input Authority `NetworkObject`, `Transform`, `PlayerExtractionCo
 runner-local assignment service and `EntityRegistry`. Missing assignment infrastructure affects
 only the private Sanctuary marker and never disables the remaining HUD.
 
-`RaidMinimapView` is composed on the existing `LocalGameplayHud` Canvas. Its north-up
+`RaidMinimapView` is composed on the existing `LocalGameplayHud` Canvas, as the first child of the `RaidRightPanel` column. Its north-up
 `RaidMinimapGraphic` renders the immutable `MinimapLayout` generated from the serialized `Floor`,
 `Walls` and `Obstacles` Tilemaps in `Dungeon_Graybox.prefab`. The editor generator stores the
 combined bounds, cell size, world pivot, occupancy and a hash of those permitted sources, so a
