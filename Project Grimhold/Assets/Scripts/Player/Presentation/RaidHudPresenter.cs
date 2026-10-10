@@ -47,17 +47,31 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private int _observedLootSequence;
 
+    private enum RitualStatusKind
+    {
+        Unavailable,
+        Extracted,
+        Countdown,
+        Cancelled,
+        RitualCompleted,
+        RitualInProgress,
+        RitualCancelled,
+    }
+
     private bool _hasExtractionState;
     private ExtractionState _observedExtractionState;
     private float _cancellationFeedbackUntil;
 
-    [SerializeField]
-    [Min(0f)]
-    private float _quotaCompletedFeedbackDuration = 1.25f;
+    private bool _hasRitualStatus;
+    private RitualStatusKind _observedRitualStatus;
+    private float _observedRitualStatusSeconds;
 
-    private bool _hasProgressState;
+    private bool _hasQuotaState;
+    private int _observedQuotaProgress;
+    private int _observedQuotaTarget;
     private bool _observedQuotaComplete;
-    private float _quotaCompletedFeedbackUntil;
+
+    private bool _hasSanctuaryState;
 
     /// <summary>
     /// Binds the local presentation to the current Input Authority player's sources.
@@ -325,9 +339,80 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ExtractionCountdownSnapshot countdown = default;
         bool hasCountdown = IsSpawned(_extractionController) &&
             _extractionController.TryGetProgress(out countdown);
+
+        ExtractionProgressSnapshot progress = default;
+        bool hasProgress = IsSpawned(_extractionProgressController) &&
+            _extractionProgressController.TryGetSnapshot(out progress);
+
+        bool hasSanctuary = TryGetSanctuaryPresentation(out ExtractionRitualSnapshot ritual);
+
+        RefreshQuotaSection(hasProgress, progress);
+        RefreshSanctuarySection(hasSanctuary);
+        RefreshRitualStatusSection(hasCountdown, countdown, hasSanctuary, ritual);
+    }
+
+    private void RefreshQuotaSection(bool hasProgress, ExtractionProgressSnapshot progress)
+    {
+        if (!hasProgress)
+        {
+            if (_hasQuotaState)
+            {
+                _hasQuotaState = false;
+                _view?.ClearQuota();
+            }
+
+            return;
+        }
+
+        if (_hasQuotaState &&
+            _observedQuotaProgress == progress.CurrentProgress &&
+            _observedQuotaTarget == progress.Quota &&
+            _observedQuotaComplete == progress.IsQuotaComplete)
+        {
+            return;
+        }
+
+        _hasQuotaState = true;
+        _observedQuotaProgress = progress.CurrentProgress;
+        _observedQuotaTarget = progress.Quota;
+        _observedQuotaComplete = progress.IsQuotaComplete;
+        if (progress.IsQuotaComplete)
+        {
+            _view?.PresentQuotaCompleted();
+        }
+        else
+        {
+            _view?.PresentExtractionProgress(progress.CurrentProgress, progress.Quota);
+        }
+    }
+
+    private void RefreshSanctuarySection(bool hasSanctuary)
+    {
+        if (_hasSanctuaryState == hasSanctuary)
+        {
+            return;
+        }
+
+        _hasSanctuaryState = hasSanctuary;
+        if (hasSanctuary)
+        {
+            _view?.PresentSanctuaryAssigned();
+        }
+        else
+        {
+            _view?.ClearSanctuary();
+        }
+    }
+
+    private void RefreshRitualStatusSection(
+        bool hasCountdown,
+        ExtractionCountdownSnapshot countdown,
+        bool hasSanctuary,
+        ExtractionRitualSnapshot ritual)
+    {
         if (hasCountdown)
         {
-            ApplyExtractionSnapshot(countdown);
+            ObserveExtractionSnapshot(countdown);
         }
         else
         {
@@ -335,86 +420,99 @@ public sealed class RaidHudPresenter : MonoBehaviour
             _cancellationFeedbackUntil = 0f;
         }
 
-        ExtractionProgressSnapshot progress = default;
-        bool hasProgress = IsSpawned(_extractionProgressController) &&
-            _extractionProgressController.TryGetSnapshot(out progress);
-        if (hasProgress)
+        ResolveRitualStatus(
+            hasCountdown,
+            countdown,
+            hasSanctuary,
+            ritual,
+            out RitualStatusKind status,
+            out float seconds);
+        if (_hasRitualStatus &&
+            _observedRitualStatus == status &&
+            Mathf.Approximately(_observedRitualStatusSeconds, seconds))
         {
-            ApplyProgressSnapshot(progress);
-        }
-        else
-        {
-            _hasProgressState = false;
-            _quotaCompletedFeedbackUntil = 0f;
+            return;
         }
 
+        _hasRitualStatus = true;
+        _observedRitualStatus = status;
+        _observedRitualStatusSeconds = seconds;
+        switch (status)
+        {
+            case RitualStatusKind.Extracted:
+                _view?.PresentExtractionCompleted();
+                break;
+            case RitualStatusKind.Countdown:
+                _view?.PresentExtractionCountdown(seconds);
+                break;
+            case RitualStatusKind.Cancelled:
+                _view?.PresentExtractionCancelled();
+                break;
+            case RitualStatusKind.RitualCompleted:
+                _view?.PresentSanctuaryEnabled();
+                break;
+            case RitualStatusKind.RitualInProgress:
+                _view?.PresentRitualProgress(seconds);
+                break;
+            case RitualStatusKind.RitualCancelled:
+                _view?.PresentRitualCancelled();
+                break;
+            default:
+                _view?.PresentExtractionUnavailable();
+                break;
+        }
+    }
+
+    private void ResolveRitualStatus(
+        bool hasCountdown,
+        ExtractionCountdownSnapshot countdown,
+        bool hasSanctuary,
+        ExtractionRitualSnapshot ritual,
+        out RitualStatusKind status,
+        out float seconds)
+    {
+        seconds = 0f;
         if (hasCountdown && countdown.State == ExtractionState.Extracted)
         {
-            _view?.PresentExtractionCompleted();
+            status = RitualStatusKind.Extracted;
             return;
         }
 
         if (hasCountdown && countdown.State == ExtractionState.InProgress)
         {
-            _view?.PresentExtractionCountdown(SanitizeExtractionRemaining(countdown.RemainingSeconds));
+            status = RitualStatusKind.Countdown;
+            seconds = SanitizeExtractionRemaining(countdown.RemainingSeconds);
             return;
         }
 
         if (_cancellationFeedbackUntil > Time.unscaledTime)
         {
-            _view?.PresentExtractionCancelled();
+            status = RitualStatusKind.Cancelled;
             return;
         }
 
-        bool hasSanctuary = TryGetSanctuaryPresentation(
-            out ExtractionRitualState ritualState,
-            out ExtractionRitualSnapshot ritual);
-        if (hasSanctuary)
+        status = RitualStatusKind.Unavailable;
+        if (!hasSanctuary)
         {
-            switch (ritualState)
-            {
-                case ExtractionRitualState.Completed:
-                    _view?.PresentSanctuaryEnabled();
-                    return;
-                case ExtractionRitualState.InProgress:
-                    _view?.PresentRitualProgress(SanitizeRitualRemaining(ritual.RemainingSeconds));
-                    return;
-                case ExtractionRitualState.Cancelled:
-                    _view?.PresentRitualCancelled();
-                    return;
-            }
-        }
-
-        if (_quotaCompletedFeedbackUntil > Time.unscaledTime)
-        {
-            _view?.PresentQuotaCompleted();
             return;
         }
 
-        if (hasSanctuary)
+        switch (ritual.State)
         {
-            _view?.PresentSanctuaryAssigned();
-            return;
+            case ExtractionRitualState.Completed:
+                status = RitualStatusKind.RitualCompleted;
+                break;
+            case ExtractionRitualState.InProgress:
+                status = RitualStatusKind.RitualInProgress;
+                seconds = SanitizeRitualRemaining(ritual.RemainingSeconds);
+                break;
+            case ExtractionRitualState.Cancelled:
+                status = RitualStatusKind.RitualCancelled;
+                break;
         }
-
-        if (hasProgress)
-        {
-            if (progress.IsQuotaComplete)
-            {
-                _view?.PresentQuotaCompleted();
-            }
-            else
-            {
-                _view?.PresentExtractionProgress(progress.CurrentProgress, progress.Quota);
-            }
-
-            return;
-        }
-
-        _view?.PresentExtractionUnavailable();
     }
 
-    private void ApplyExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
+    private void ObserveExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
     {
         ExtractionState previousState = _observedExtractionState;
         bool hadObservedState = _hasExtractionState;
@@ -426,17 +524,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
             snapshot.State == ExtractionState.None)
         {
             float duration = SanitizeDuration(_cancellationFeedbackDuration);
-            if (duration > 0f)
-            {
-                _cancellationFeedbackUntil = Time.unscaledTime + duration;
-                _view?.PresentExtractionCancelled();
-            }
-            else
-            {
-                _cancellationFeedbackUntil = 0f;
-                _view?.PresentExtractionUnavailable();
-            }
-
+            _cancellationFeedbackUntil = duration > 0f
+                ? Time.unscaledTime + duration
+                : 0f;
             return;
         }
 
@@ -447,34 +537,10 @@ public sealed class RaidHudPresenter : MonoBehaviour
         }
 
         _cancellationFeedbackUntil = 0f;
-        PresentExtractionSnapshot(snapshot);
     }
 
-    private void ApplyProgressSnapshot(ExtractionProgressSnapshot snapshot)
+    private bool TryGetSanctuaryPresentation(out ExtractionRitualSnapshot ritualSnapshot)
     {
-        if (!_hasProgressState)
-        {
-            _hasProgressState = true;
-            _observedQuotaComplete = snapshot.IsQuotaComplete;
-            return;
-        }
-
-        if (!_observedQuotaComplete && snapshot.IsQuotaComplete)
-        {
-            float duration = SanitizeDuration(_quotaCompletedFeedbackDuration);
-            _quotaCompletedFeedbackUntil = duration > 0f
-                ? Time.unscaledTime + duration
-                : 0f;
-        }
-
-        _observedQuotaComplete = snapshot.IsQuotaComplete;
-    }
-
-    private bool TryGetSanctuaryPresentation(
-        out ExtractionRitualState ritualState,
-        out ExtractionRitualSnapshot ritualSnapshot)
-    {
-        ritualState = default;
         ritualSnapshot = default;
         if (!IsSpawned(_extractionProgressController) ||
             _assignmentService == null ||
@@ -485,34 +551,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
         }
 
         SanctuaryAssignmentResult assignment = _assignmentService.TryGetAssignment(_extractionProgressController.Id);
-        if (!assignment.Success || assignment.SanctuaryId.Value == 0 ||
-            !_entityRegistry.TryGetExtractionSanctuary(assignment.SanctuaryId, out IExtractionSanctuary sanctuary) ||
-            sanctuary == null || !sanctuary.TryGetRitualProgress(out ritualSnapshot))
-        {
-            return false;
-        }
-
-        ritualState = ritualSnapshot.State;
-        return true;
-    }
-
-    private void PresentExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
-    {
-        switch (snapshot.State)
-        {
-            case ExtractionState.None:
-                _view?.PresentExtractionUnavailable();
-                break;
-            case ExtractionState.InProgress:
-                _view?.PresentExtractionCountdown(SanitizeExtractionRemaining(snapshot.RemainingSeconds));
-                break;
-            case ExtractionState.Extracted:
-                _view?.PresentExtractionCompleted();
-                break;
-            default:
-                _view?.PresentExtractionUnavailable();
-                break;
-        }
+        return assignment.Success && assignment.SanctuaryId.Value != 0 &&
+            _entityRegistry.TryGetExtractionSanctuary(assignment.SanctuaryId, out IExtractionSanctuary sanctuary) &&
+            sanctuary != null && sanctuary.TryGetRitualProgress(out ritualSnapshot);
     }
 
     private void ResetObservedState()
@@ -535,9 +576,14 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _hasExtractionState = false;
         _observedExtractionState = ExtractionState.None;
         _cancellationFeedbackUntil = 0f;
-        _hasProgressState = false;
+        _hasRitualStatus = false;
+        _observedRitualStatus = RitualStatusKind.Unavailable;
+        _observedRitualStatusSeconds = 0f;
+        _hasQuotaState = false;
+        _observedQuotaProgress = 0;
+        _observedQuotaTarget = 0;
         _observedQuotaComplete = false;
-        _quotaCompletedFeedbackUntil = 0f;
+        _hasSanctuaryState = false;
     }
 
     private static float NormalizeCooldown(float durationSeconds, float remainingSeconds)

@@ -89,6 +89,8 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.CooldownSecondsText.text, Is.Empty);
             Assert.That(_view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
+            Assert.That(_view.QuotaText.text, Is.Empty);
+            Assert.That(_view.SanctuaryText.text, Is.Empty);
             Assert.That(_view.HealthFill.fillAmount, Is.Zero);
             Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
             Assert.That(_view.CooldownFill.fillAmount, Is.Zero);
@@ -133,16 +135,19 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void ExtractionViewPresentsQuotaAndRitualStates()
+        public void ExtractionViewRoutesQuotaSanctuaryAndRitualToTheirOwnLabels()
         {
             _view.PresentExtractionProgress(12, 30);
-            Assert.That(_view.ExtractionText.text, Is.EqualTo("Progreso: 12 / 30"));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 12 / 30"));
+            Assert.That(_view.SanctuaryText.text, Is.Empty);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
 
             _view.PresentQuotaCompleted();
-            Assert.That(_view.ExtractionText.text, Is.EqualTo("Cuota completada"));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Cuota completada"));
 
             _view.PresentSanctuaryAssigned();
-            Assert.That(_view.ExtractionText.text, Is.EqualTo("Santuario asignado"));
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Cuota completada"));
 
             _view.PresentRitualProgress(2.34f);
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 2,3 s"));
@@ -152,6 +157,118 @@ namespace Tests.EditMode.Presentation
 
             _view.PresentSanctuaryEnabled();
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Santuario habilitado"));
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Cuota completada"));
+        }
+
+        [Test]
+        public void ExtractionViewSectionsClearIndependently()
+        {
+            _view.PresentExtractionProgress(1, 3);
+            _view.PresentSanctuaryAssigned();
+            _view.PresentRitualProgress(4f);
+
+            _view.ClearQuota();
+            Assert.That(_view.QuotaText.text, Is.Empty);
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 4,0 s"));
+
+            _view.PresentExtractionProgress(1, 3);
+            _view.ClearSanctuary();
+            Assert.That(_view.SanctuaryText.text, Is.Empty);
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 1 / 3"));
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 4,0 s"));
+
+            _view.PresentSanctuaryAssigned();
+            _view.Clear();
+            Assert.That(_view.QuotaText.text, Is.Empty);
+            Assert.That(_view.SanctuaryText.text, Is.Empty);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
+        }
+
+        [Test]
+        public void QuotaSectionClearsOnlyItselfWhenItsSourceBecomesInvalid()
+        {
+            InvokeRefreshSanctuarySection(true);
+            InvokeRefreshRitualStatusSection(
+                false,
+                default,
+                true,
+                new ExtractionRitualSnapshot(ExtractionRitualState.InProgress, 5f, 2.34f, 0.5f));
+
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(12, 30, false));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 12 / 30"));
+
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(30, 30, true));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Cuota completada"));
+
+            InvokeRefreshQuotaSection(false, default);
+            Assert.That(_view.QuotaText.text, Is.Empty);
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 2,4 s"));
+        }
+
+        [Test]
+        public void SanctuarySectionClearsOnlyItselfWhenItsSourceBecomesInvalid()
+        {
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(2, 5, false));
+            InvokeRefreshSanctuarySection(true);
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("Santuario asignado"));
+
+            InvokeRefreshSanctuarySection(false);
+
+            Assert.That(_view.SanctuaryText.text, Is.Empty);
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 2 / 5"));
+        }
+
+        [Test]
+        public void SectionsSkipViewWritesWhileTheirSourceIsUnchanged()
+        {
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(2, 5, false));
+            InvokeRefreshSanctuarySection(true);
+            _view.QuotaText.text = "marker-quota";
+            _view.SanctuaryText.text = "marker-sanctuary";
+
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(2, 5, false));
+            InvokeRefreshSanctuarySection(true);
+
+            Assert.That(_view.QuotaText.text, Is.EqualTo("marker-quota"));
+            Assert.That(_view.SanctuaryText.text, Is.EqualTo("marker-sanctuary"));
+
+            InvokeRefreshQuotaSection(true, new ExtractionProgressSnapshot(3, 5, false));
+            Assert.That(_view.QuotaText.text, Is.EqualTo("Progreso: 3 / 5"));
+        }
+
+        [Test]
+        public void RitualStatusKeepsDocumentedPriorityOrder()
+        {
+            var completedRitual = new ExtractionRitualSnapshot(ExtractionRitualState.Completed, 5f, 0f, 1f);
+            var activeRitual = new ExtractionRitualSnapshot(ExtractionRitualState.InProgress, 5f, 2.34f, 0.5f);
+            var cancelledRitual = new ExtractionRitualSnapshot(ExtractionRitualState.Cancelled, 5f, 5f, 0f);
+            var countdown = new ExtractionCountdownSnapshot(
+                ExtractionState.InProgress, default, 2.34f, 5f, 0.5f);
+
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.Extracted(default), true, completedRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
+
+            InvokeRefreshRitualStatusSection(true, countdown, true, completedRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: 2,4 s"));
+
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.None(), true, completedRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: cancelada"));
+
+            SetPresenterFloat("_cancellationFeedbackUntil", -1f);
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.None(), true, completedRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Santuario habilitado"));
+
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.None(), true, activeRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual: 2,4 s"));
+
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.None(), true, cancelledRitual);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Ritual cancelado"));
+
+            InvokeRefreshRitualStatusSection(true, ExtractionCountdownSnapshot.None(), false, default);
+            Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
         }
 
         [Test]
@@ -186,7 +303,7 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void ConfirmedExtractionSnapshotsDriveBaselineAndOneShotCancellation()
         {
-            InvokeApplyExtractionSnapshot(new ExtractionCountdownSnapshot(
+            InvokeRefreshCountdownOnly(new ExtractionCountdownSnapshot(
                 ExtractionState.InProgress,
                 default,
                 2.34f,
@@ -194,18 +311,18 @@ namespace Tests.EditMode.Presentation
                 0.5f));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: 2,4 s"));
 
-            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.None());
+            InvokeRefreshCountdownOnly(ExtractionCountdownSnapshot.None());
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: cancelada"));
 
             SetPresenterFloat("_cancellationFeedbackUntil", -1f);
-            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.None());
+            InvokeRefreshCountdownOnly(ExtractionCountdownSnapshot.None());
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
         }
 
         [Test]
         public void InitialConfirmedTerminalSnapshotDoesNotEmitCancellation()
         {
-            InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot.Extracted(default));
+            InvokeRefreshCountdownOnly(ExtractionCountdownSnapshot.Extracted(default));
 
             Assert.That(_view.ExtractionText.text, Is.EqualTo("EXTRAÍDO"));
         }
@@ -228,13 +345,37 @@ namespace Tests.EditMode.Presentation
             return (float)method.Invoke(null, new object[] { remaining });
         }
 
-        private void InvokeApplyExtractionSnapshot(ExtractionCountdownSnapshot snapshot)
+        private void InvokeRefreshCountdownOnly(ExtractionCountdownSnapshot snapshot)
+        {
+            InvokeRefreshRitualStatusSection(true, snapshot, false, default);
+        }
+
+        private void InvokeRefreshRitualStatusSection(
+            bool hasCountdown,
+            ExtractionCountdownSnapshot countdown,
+            bool hasSanctuary,
+            ExtractionRitualSnapshot ritual)
+        {
+            InvokePresenter("RefreshRitualStatusSection", hasCountdown, countdown, hasSanctuary, ritual);
+        }
+
+        private void InvokeRefreshQuotaSection(bool hasProgress, ExtractionProgressSnapshot progress)
+        {
+            InvokePresenter("RefreshQuotaSection", hasProgress, progress);
+        }
+
+        private void InvokeRefreshSanctuarySection(bool hasSanctuary)
+        {
+            InvokePresenter("RefreshSanctuarySection", hasSanctuary);
+        }
+
+        private void InvokePresenter(string methodName, params object[] arguments)
         {
             MethodInfo method = typeof(RaidHudPresenter).GetMethod(
-                "ApplyExtractionSnapshot",
+                methodName,
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null);
-            method.Invoke(_presenter, new object[] { snapshot });
+            Assert.That(method, Is.Not.Null, methodName);
+            method.Invoke(_presenter, arguments);
         }
 
         private void SetPresenterFloat(string fieldName, float value)

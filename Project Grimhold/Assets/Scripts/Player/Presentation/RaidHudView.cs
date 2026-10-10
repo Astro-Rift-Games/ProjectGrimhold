@@ -56,6 +56,12 @@ public sealed class RaidHudView : MonoBehaviour
     private TMP_Text _extractionText;
 
     [SerializeField]
+    private TMP_Text _quotaText;
+
+    [SerializeField]
+    private TMP_Text _sanctuaryText;
+
+    [SerializeField]
     private GameObject _defeatedRoot;
 
     /// <summary>Gets the visual root controlled by this view.</summary>
@@ -91,8 +97,14 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Gets the inventory-capacity label for presentation verification.</summary>
     public TMP_Text InventoryText => _inventoryText;
 
-    /// <summary>Gets the extraction label for presentation verification.</summary>
+    /// <summary>Gets the ritual and extraction status label for presentation verification.</summary>
     public TMP_Text ExtractionText => _extractionText;
+
+    /// <summary>Gets the individual quota progress label for presentation verification.</summary>
+    public TMP_Text QuotaText => _quotaText;
+
+    /// <summary>Gets the assigned Sanctuary label for presentation verification.</summary>
+    public TMP_Text SanctuaryText => _sanctuaryText;
 
     /// <summary>Gets the defeated-state visual root.</summary>
     public GameObject DefeatedRoot => _defeatedRoot;
@@ -195,7 +207,7 @@ public sealed class RaidHudView : MonoBehaviour
         SetText(_inventoryText, $"Inventario: {UnavailableValue} / {UnavailableValue}");
     }
 
-    /// <summary>Presents the unavailable extraction state.</summary>
+    /// <summary>Presents the unavailable ritual and extraction status.</summary>
     public void PresentExtractionUnavailable()
     {
         SetText(_extractionText, "Extracción: no disponible");
@@ -223,19 +235,31 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Presents the local player's confirmed individual quota progress.</summary>
     public void PresentExtractionProgress(int currentProgress, int quota)
     {
-        SetText(_extractionText, $"Progreso: {Mathf.Max(0, currentProgress)} / {Mathf.Max(0, quota)}");
+        SetText(_quotaText, $"Progreso: {Mathf.Max(0, currentProgress)} / {Mathf.Max(0, quota)}");
     }
 
-    /// <summary>Presents a transient confirmation that the individual quota was completed.</summary>
+    /// <summary>Presents the confirmed completion of the individual quota.</summary>
     public void PresentQuotaCompleted()
     {
-        SetText(_extractionText, "Cuota completada");
+        SetText(_quotaText, "Cuota completada");
+    }
+
+    /// <summary>Clears only the quota progress section.</summary>
+    public void ClearQuota()
+    {
+        SetText(_quotaText, string.Empty);
     }
 
     /// <summary>Presents the confirmed individual Sanctuary assignment.</summary>
     public void PresentSanctuaryAssigned()
     {
-        SetText(_extractionText, "Santuario asignado");
+        SetText(_sanctuaryText, "Santuario asignado");
+    }
+
+    /// <summary>Clears only the assigned Sanctuary section.</summary>
+    public void ClearSanctuary()
+    {
+        SetText(_sanctuaryText, string.Empty);
     }
 
     /// <summary>Presents the confirmed ritual progress derived from Fusion's snapshot.</summary>
@@ -277,6 +301,8 @@ public sealed class RaidHudView : MonoBehaviour
         ClearStamina();
         ClearAttack();
         ClearInventory();
+        ClearQuota();
+        ClearSanctuary();
         PresentExtractionUnavailable();
         PresentDefeated(false);
     }

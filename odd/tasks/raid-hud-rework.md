@@ -17,7 +17,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 ## Tasks
 - [x] T1 Move `DungeonPressureHudPresenter` to `LocalPlayerHudBinder` (remove `FindObjectOfType`) and add tests (commit: `feat(hud): bind dungeon pressure HUD through LocalPlayerHudBinder`)
 - [x] T1b Fix HUD prefab defects found by failing tests: RaidDuoHud root starts hidden; distinct `AttackText` label; invariant-culture cooldown seconds (commit: `fix(hud): ...`)
-- [ ] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests)
+- [x] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests) (commit: `refactor(hud): split extraction text into quota, sanctuary and ritual sections`)
 - [ ] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status
 - [ ] T4 Expedition progress indicator from `ExtractionProgressSnapshot`
 - [ ] T5 Inventory capacity bar (no monetary value)
@@ -33,5 +33,10 @@ Unity-touched assets (alagard SDF, EditorBuildSettings, EditorSettings) delibera
 
 T1b done: RaidHudPresenterTests and RaidTeammateHudTests 35/35 green; PlayMode ClearAndPresentationOperationsKeepSafeValuesAndDefeatVisible green. Remaining failures are not HUD-rework scope: stale tests (deleted Melee/Ranged variants, duplicated return-gate row) handed to a separate task, and `NetworkPlayerPrefabHasOneCompleteRaidHudOnExistingCanvas` now fails later on `RaidMenuView.ProgressionExperienceFill` being null in NetworkPlayer.prefab (to investigate). New `AttackText` child is empty and not a raycast target; not checked visually in the Game view.
 
+T2 done: RaidHudPresenterTests 30/30, RaidTeammateHudTests + DungeonPressureHudPresenterTests 20/20, RaidMinimapPrefabTests 5/5; PlayMode RaidMainHudPlayModeTests same 6 baseline failures, none new. RED was compile-level only.
+Behavior change: "Cuota completada" is now persistent in the quota section (was transient and beat "Santuario asignado"); `_quotaCompletedFeedbackDuration` removed. Needs user confirmation.
+Unverified: Game view layout of the new labels (QuotaText y -203, SanctuaryText y -235, panel height 279); prefab YAML for RaidMainHud was hand-written and loaded fine in tests but was not inspected in the Inspector.
+`ExtractionArchitecture.md` still describes the single text: covered by T8.
+
 ## Next step
-Start T2.
+Start T3.
