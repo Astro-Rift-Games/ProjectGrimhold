@@ -34,6 +34,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidMinimapPresenter _raidMinimapPresenter;
 
     [SerializeField]
+    private DungeonPressureHudPresenter _dungeonPressureHudPresenter;
+
+    [SerializeField]
     private CombatFeedbackPresenter _combatFeedbackPresenter;
 
     [SerializeField]
@@ -234,6 +237,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _assignmentService,
                 _entityRegistry);
         }
+        if (_dungeonPressureHudPresenter != null)
+        {
+            _dungeonPressureHudPresenter.Bind(
+                _boundRunner,
+                _boundRunner.GetComponent<NetworkSpawnManager>());
+        }
         _combatFeedbackPresenter.Bind(_combatController, _playerCharacter);
 
         if (_cameraShakeBinder != null)
@@ -277,6 +286,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_raidMinimapPresenter != null)
         {
             _raidMinimapPresenter.Unbind();
+        }
+
+        if (_dungeonPressureHudPresenter != null)
+        {
+            _dungeonPressureHudPresenter.Unbind();
         }
 
         if (_combatFeedbackPresenter != null)

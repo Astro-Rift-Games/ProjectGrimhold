@@ -6584,6 +6584,7 @@ MonoBehaviour:
   _teammateHudPresenter: {fileID: 8800000000000000118}
   _abilityHudPresenter: {fileID: 2116062982825614417}
   _raidMinimapPresenter: {fileID: 9200000000000000007}
+  _dungeonPressureHudPresenter: {fileID: 9200000000000000500}
   _combatFeedbackPresenter: {fileID: 9100000000000000001}
   _menuPresenter: {fileID: 8800000000000000115}
   _candidateSource: {fileID: 8800000000000000001}
@@ -8213,6 +8214,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidMinimapPresenter
 
+--- !u!114 &9200000000000000500 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5516386674260007579, guid: 641fcb581b6043c4f9639cada0350750, type: 3}
+  m_PrefabInstance: {fileID: 7666507331312808495}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cf103c075efbf14b99e9a7340167261, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureHudPresenter
 --- !u!114 &9200000000000000199
 MonoBehaviour:
   m_ObjectHideFlags: 0
