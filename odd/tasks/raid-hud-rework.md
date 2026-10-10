@@ -23,6 +23,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [-] T5 Inventory capacity bar (no monetary value) — dropped by user: no bar needed, keep the existing "Inventario: n / m" text. Its leftover layout fix (overlap in the left frame) moves to T6.
 - [x] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E in one even 64x64 row; vitals block compacted, no overlap; no Quick Slot placeholders (commit: `feat(hud): align weapon and ability slots and compact the vitals block`)
 - [x] T6b Remove the "Inventario: n / m" text from the HUD (user decision), shrink vitals block accordingly (commit: `refactor(hud): remove the inventory summary text from the raid HUD`)
+- [x] T6c Delete dead labels (InventoryText, ExtractionText, QuotaText, SanctuaryText) from source RaidMainHud.prefab and the dangling removed-object entry in LocalGameplayHud; confirmed no leftovers from the reverted T5 (commit: `chore(hud): delete dead labels from the RaidMainHud prefab`)
 - [ ] T7 Interaction prompt with per-action key (check Input Actions asset first)
 - [ ] T8 Update `Docs/Architecture/RaidMainHudArchitecture.md` for the changed contract
 
@@ -55,6 +56,8 @@ Unverified: Game view/Play Mode; ability/cooldown states not exercised visually;
 T6b done: removed `_inventoryText`/PresentInventory from RaidHudView, loot receiver reads from RaidHudPresenter (Bind overloads lost the PlayerLootReceiver parameter; LocalPlayerHudBinder and tests updated), InventoryText deleted from the LocalGameplayHud instance (nested removal), vitals frame 156 -> 120 high, RaidDuoHud y -214. EditMode 635 run, only the 2 known baseline failures; PlayMode 4/10, same 6 baseline.
 Unverified: ALL visuals; the writer could not obtain a usable offscreen render (flat background). Geometry only. Please check the Game view.
 Leftovers: the source RaidMainHud.prefab still contains the stale InventoryText object and the inactive Extraction/Quota/Sanctuary labels (delete by hand in the Editor). `RaidMainHudArchitecture.md` still describes the inventory summary (T8).
+
+T6c done: source RaidMainHud.prefab lost the 4 dead labels (552 pure deletions, hand-edited YAML); `RaidMainHudPrefabCleanupTests` 2/2 (only the first was RED); EditMode 637 run with only the 2 baseline failures; PlayMode 4/10 same 6 baseline; console clean of missing-reference warnings. No T5 leftovers found (no Assets/Screenshots, RaidCapacityWidget*, InventoryFill or orphan .meta). Not opened in the Editor.
 
 ## Next step
 Start T7.
