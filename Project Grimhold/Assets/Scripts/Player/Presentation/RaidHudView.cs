@@ -1,3 +1,4 @@
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -142,7 +143,7 @@ public sealed class RaidHudView : MonoBehaviour
         }
 
         bool showCooldown = !isAvailable && IsFinite(remainingSeconds) && remainingSeconds > 0f;
-        SetText(_cooldownSecondsText, showCooldown ? remainingSeconds.ToString("0.0") : string.Empty);
+        SetText(_cooldownSecondsText, showCooldown ? remainingSeconds.ToString("0.0", CultureInfo.InvariantCulture) : string.Empty);
         SetRadialFill(_cooldownFill, showCooldown ? normalizedRemaining : 0f);
         if (_cooldownFill != null && _cooldownFill.enabled != showCooldown)
         {

@@ -16,6 +16,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 
 ## Tasks
 - [x] T1 Move `DungeonPressureHudPresenter` to `LocalPlayerHudBinder` (remove `FindObjectOfType`) and add tests (commit: `feat(hud): bind dungeon pressure HUD through LocalPlayerHudBinder`)
+- [x] T1b Fix HUD prefab defects found by failing tests: RaidDuoHud root starts hidden; distinct `AttackText` label; invariant-culture cooldown seconds (commit: `fix(hud): ...`)
 - [ ] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests)
 - [ ] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status
 - [ ] T4 Expedition progress indicator from `ExtractionProgressSnapshot`
@@ -29,6 +30,8 @@ T1 done: 10 new EditMode tests green (DungeonPressureHudPresenterTests). Route: 
 Unverified: Play Mode Host/Client; controller resolution via MatchController has no automated test.
 Pre-existing failures on the base (identical with changes stashed): 3 EditMode Presentation tests and 6/10 RaidMainHudPlayModeTests, including NetworkPlayerPrefabHasOneCompleteRaidHudOnExistingCanvas.
 Unity-touched assets (alagard SDF, EditorBuildSettings, EditorSettings) deliberately excluded from commits.
+
+T1b done: RaidHudPresenterTests and RaidTeammateHudTests 35/35 green; PlayMode ClearAndPresentationOperationsKeepSafeValuesAndDefeatVisible green. Remaining failures are not HUD-rework scope: stale tests (deleted Melee/Ranged variants, duplicated return-gate row) handed to a separate task, and `NetworkPlayerPrefabHasOneCompleteRaidHudOnExistingCanvas` now fails later on `RaidMenuView.ProgressionExperienceFill` being null in NetworkPlayer.prefab (to investigate). New `AttackText` child is empty and not a raycast target; not checked visually in the Game view.
 
 ## Next step
 Start T2.

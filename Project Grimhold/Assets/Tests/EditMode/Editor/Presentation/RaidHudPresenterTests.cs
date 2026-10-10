@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System.Globalization;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
@@ -57,6 +58,26 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.CooldownFill.fillAmount, Is.EqualTo(expected).Within(0.0001f));
             Assert.That(_view.CooldownFill.fillAmount, Is.InRange(0f, 1f));
             Assert.That(_view.CooldownFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [Test]
+        public void CooldownSecondsUseInvariantCultureAndKeepAttackTextDistinct()
+        {
+            CultureInfo previous = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("es-ES");
+
+                _view.PresentAttack(false, 1.2f, 0.6f);
+
+                Assert.That(_view.CooldownSecondsText.text, Is.EqualTo("1.2"));
+                Assert.That(_view.AttackText, Is.Not.SameAs(_view.CooldownSecondsText));
+                Assert.That(_view.AttackText.text, Is.Empty);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previous;
+            }
         }
 
         [Test]
