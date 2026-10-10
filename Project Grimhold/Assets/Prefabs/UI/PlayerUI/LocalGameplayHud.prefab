@@ -874,7 +874,6 @@ MonoBehaviour:
   _cooldownIcon: {fileID: 1453912837521797860}
   _cooldownFill: {fileID: 1290212109944746830}
   _cooldownSecondsText: {fileID: 1290212109944746872}
-  _inventoryText: {fileID: 1290212109944746820}
   _extractionText: {fileID: 3949102682231695797}
   _quotaText: {fileID: 8723869958241128711}
   _sanctuaryText: {fileID: 7141187990992324598}
@@ -5961,7 +5960,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6704074102567516760, guid: b338748eef9f0c0448c9e85530fed51d, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -250
+      value: -214
       objectReference: {fileID: 0}
     - target: {fileID: 6704074102567516760, guid: b338748eef9f0c0448c9e85530fed51d, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -6054,7 +6053,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5477663040845887272, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 156
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 5477663040845887272, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6090,7 +6089,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5477663040845887272, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -105.5
+      value: -87.5
       objectReference: {fileID: 0}
     - target: {fileID: 5477663040845887272, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -6108,24 +6107,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: RaidMainHud
       objectReference: {fileID: 0}
-    - target: {fileID: 5477663040845887340, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
+    - target: {fileID: 5477663040845887362, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: -98
       objectReference: {fileID: 0}
-    - target: {fileID: 5477663040845887362, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: -134
-      objectReference: {fileID: 0}
     - target: {fileID: 6861444047846277159, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 16
+      value: -2
       objectReference: {fileID: 0}
     - target: {fileID: 6895231494112402358, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 52
+      value: 34
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 5477663040845887341, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
@@ -6142,17 +6138,6 @@ GameObject:
 --- !u!114 &1290212109944746774 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5477663040845887292, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
-  m_PrefabInstance: {fileID: 6765339676972565546}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
---- !u!114 &1290212109944746820 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5477663040845887342, guid: 08fe49e1a0bdd84488ad68b05a94ec52, type: 3}
   m_PrefabInstance: {fileID: 6765339676972565546}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}

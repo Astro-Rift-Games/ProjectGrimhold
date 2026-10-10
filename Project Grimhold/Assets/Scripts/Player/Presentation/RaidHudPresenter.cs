@@ -16,7 +16,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private PlayerStaminaNetworkController _staminaController;
     private PlayerCombatNetworkController _combatController;
     private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
-    private PlayerLootReceiver _lootReceiver;
     private PlayerExtractionController _extractionController;
     private PlayerExtractionProgressController _extractionProgressController;
     private ExtractionSanctuaryAssignmentService _assignmentService;
@@ -44,8 +43,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private float _observedCooldownRemaining;
     private float _observedCooldownFill;
     private Sprite _observedWeaponIcon;
-
-    private int _observedLootSequence;
 
     private enum RitualStatusKind
     {
@@ -89,7 +86,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         PlayerStaminaNetworkController staminaController,
         PlayerCombatNetworkController combatController,
         PlayerWeaponEquipmentNetworkController weaponEquipmentController,
-        PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController,
         PlayerExtractionProgressController extractionProgressController,
         ExtractionSanctuaryAssignmentService assignmentService,
@@ -101,7 +97,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _staminaController = staminaController;
         _combatController = combatController;
         _weaponEquipmentController = weaponEquipmentController;
-        _lootReceiver = lootReceiver;
         _extractionController = extractionController;
         _extractionProgressController = extractionProgressController;
         _assignmentService = assignmentService;
@@ -119,10 +114,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
     public void Bind(
         PlayerCharacter character,
         PlayerCombatNetworkController combatController,
-        PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController)
     {
-        Bind(character, null, combatController, null, lootReceiver, extractionController, null, null, null);
+        Bind(character, null, combatController, null, extractionController, null, null, null);
     }
 
     /// <summary>
@@ -132,7 +126,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
     public void Bind(
         PlayerCharacter character,
         PlayerCombatNetworkController combatController,
-        PlayerLootReceiver lootReceiver,
         PlayerExtractionController extractionController,
         PlayerExtractionProgressController extractionProgressController,
         ExtractionSanctuaryAssignmentService assignmentService,
@@ -143,7 +136,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
             null,
             combatController,
             null,
-            lootReceiver,
             extractionController,
             extractionProgressController,
             assignmentService,
@@ -159,7 +151,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _staminaController = null;
         _combatController = null;
         _weaponEquipmentController = null;
-        _lootReceiver = null;
         _extractionController = null;
         _extractionProgressController = null;
         _assignmentService = null;
@@ -201,7 +192,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         RefreshHealth();
         RefreshStamina();
         RefreshCombat();
-        RefreshInventoryIfNeeded();
         RefreshExtraction();
     }
 
@@ -210,7 +200,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         RefreshHealth();
         RefreshStamina();
         RefreshCombat();
-        RefreshInventoryIfNeeded();
         RefreshExtraction();
     }
 
@@ -318,24 +307,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCooldownFill = fill;
         _observedWeaponIcon = weaponIcon;
         _view?.PresentAttack(status.IsAvailable, visibleRemaining, fill, weaponIcon);
-    }
-
-    private void RefreshInventoryIfNeeded()
-    {
-        if (!IsSpawned(_lootReceiver))
-        {
-            _view?.ClearInventory();
-            return;
-        }
-
-        int currentSequence = _lootReceiver.LootChangeSequence;
-        if (currentSequence == _observedLootSequence)
-        {
-            return;
-        }
-
-        _view?.PresentInventory(_lootReceiver.OccupiedSlotCount, _lootReceiver.SlotCapacity);
-        _observedLootSequence = currentSequence;
     }
 
     private void RefreshExtraction()
@@ -604,7 +575,6 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedCooldownRemaining = 0f;
         _observedCooldownFill = 0f;
         _observedWeaponIcon = null;
-        _observedLootSequence = int.MinValue;
         _hasExtractionState = false;
         _observedExtractionState = ExtractionState.None;
         _cancellationFeedbackUntil = 0f;

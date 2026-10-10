@@ -122,7 +122,6 @@ public sealed class RaidRightPanelPrefabTests
         Assert.That(views[0].SanctuaryText.transform.IsChildOf(panel), Is.True);
         Assert.That(views[0].ExtractionText.transform.IsChildOf(panel), Is.True);
         Assert.That(views[0].HealthText, Is.Not.Null);
-        Assert.That(views[0].InventoryText, Is.Not.Null);
     }
 
     private static void AssertBlock(Transform panel, string blockName, string headerText, TMP_Text label)

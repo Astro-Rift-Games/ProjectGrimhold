@@ -220,7 +220,6 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _staminaController,
             _combatController,
             _weaponEquipmentController,
-            _lootReceiver,
             _extractionController,
             _extractionProgressController,
             _assignmentService,

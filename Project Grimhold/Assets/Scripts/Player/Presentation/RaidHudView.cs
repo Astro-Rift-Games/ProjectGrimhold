@@ -50,9 +50,6 @@ public sealed class RaidHudView : MonoBehaviour
     private TMP_Text _cooldownSecondsText;
 
     [SerializeField]
-    private TMP_Text _inventoryText;
-
-    [SerializeField]
     private TMP_Text _extractionText;
 
     [SerializeField]
@@ -111,9 +108,6 @@ public sealed class RaidHudView : MonoBehaviour
 
     /// <summary>Gets the compact remaining-seconds label.</summary>
     public TMP_Text CooldownSecondsText => _cooldownSecondsText;
-
-    /// <summary>Gets the inventory-capacity label for presentation verification.</summary>
-    public TMP_Text InventoryText => _inventoryText;
 
     /// <summary>Gets the ritual and extraction status label for presentation verification.</summary>
     public TMP_Text ExtractionText => _extractionText;
@@ -209,20 +203,6 @@ public sealed class RaidHudView : MonoBehaviour
 
         _cooldownIcon.sprite = icon;
         _cooldownIcon.enabled = icon != null;
-    }
-
-    /// <summary>Presents occupied and available inventory slots.</summary>
-    public void PresentInventory(int occupiedSlots, int slotCapacity)
-    {
-        SetText(
-            _inventoryText,
-            $"Inventario: {Mathf.Max(0, occupiedSlots)} / {Mathf.Max(0, slotCapacity)}");
-    }
-
-    /// <summary>Restores the unavailable inventory placeholder.</summary>
-    public void ClearInventory()
-    {
-        SetText(_inventoryText, $"Inventario: {UnavailableValue} / {UnavailableValue}");
     }
 
     /// <summary>Presents the unavailable ritual and extraction status.</summary>
@@ -344,7 +324,6 @@ public sealed class RaidHudView : MonoBehaviour
         ClearHealth();
         ClearStamina();
         ClearAttack();
-        ClearInventory();
         ClearQuota();
         ClearExpeditionProgress();
         ClearSanctuary();

@@ -223,7 +223,6 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.StaminaText.text, Is.EqualTo("Stamina: — / —"));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.Empty);
-                Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
                 Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
                 Assert.That(view.HealthFill.fillAmount, Is.Zero);
                 Assert.That(view.StaminaFill.fillAmount, Is.Zero);
@@ -236,7 +235,6 @@ namespace Tests.PlayMode.Presentation
                 view.PresentHealth(25f, 100f);
                 view.PresentStamina(25.4f, 100.4f, isExhausted: true);
                 view.PresentAttack(false, 1.2f, 0.6f);
-                view.PresentInventory(3, 16);
                 view.PresentDefeated(true);
 
                 Assert.That(view.HealthText.text, Is.EqualTo("Salud: 25 / 100"));
@@ -250,7 +248,6 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.CooldownFill.fillAmount, Is.EqualTo(0.6f).Within(0.0001f));
                 Assert.That(view.CooldownFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
                 Assert.That(view.CooldownRoot.gameObject.activeSelf, Is.True);
-                Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: 3 / 16"));
                 Assert.That(view.DefeatedRoot.activeSelf, Is.True);
                 Assert.That(view.MainHudRoot.activeSelf, Is.True);
             }
@@ -648,7 +645,6 @@ namespace Tests.PlayMode.Presentation
             Assert.That(initialCharacter.MaxHealth, Is.EqualTo(100f));
             Assert.That(initialCharacter.Health, Is.EqualTo(100f));
             Assert.That(view.HealthText.text, Is.EqualTo("Salud: 100 / 100"));
-            Assert.That(view.InventoryText.text, Is.EqualTo("Inventario: 0 / 16"));
             Assert.That(inventoryView.PlayerPanel.TotalValueText.text, Is.EqualTo("Valor: 0"));
             Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
 
@@ -874,7 +870,6 @@ namespace Tests.PlayMode.Presentation
             Assert.That(view.CooldownIcon, Is.Not.Null);
             Assert.That(view.CooldownFill, Is.Not.Null);
             Assert.That(view.CooldownSecondsText, Is.Not.Null);
-            Assert.That(view.InventoryText, Is.Not.Null);
             Assert.That(view.ExtractionText, Is.Not.Null);
             Assert.That(view.DefeatedRoot, Is.Not.Null);
         }

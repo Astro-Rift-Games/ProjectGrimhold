@@ -22,7 +22,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T4 Expedition progress indicator from `ExtractionProgressSnapshot` (commit: `feat(hud): add individual expedition progress bar`)
 - [-] T5 Inventory capacity bar (no monetary value) — dropped by user: no bar needed, keep the existing "Inventario: n / m" text. Its leftover layout fix (overlap in the left frame) moves to T6.
 - [x] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E in one even 64x64 row; vitals block compacted, no overlap; no Quick Slot placeholders (commit: `feat(hud): align weapon and ability slots and compact the vitals block`)
-- [ ] T6b Remove the "Inventario: n / m" text from the HUD (user decision), shrink vitals block accordingly
+- [x] T6b Remove the "Inventario: n / m" text from the HUD (user decision), shrink vitals block accordingly (commit: `refactor(hud): remove the inventory summary text from the raid HUD`)
 - [ ] T7 Interaction prompt with per-action key (check Input Actions asset first)
 - [ ] T8 Update `Docs/Architecture/RaidMainHudArchitecture.md` for the changed contract
 
@@ -52,5 +52,9 @@ T6 done: weapon (x -76), Q (0), E (+76), all 64x64 at the bottom center; vitals 
 Side effect: the T6 writer discarded uncommitted leftovers of the interrupted T5 (RaidHudPresenter.cs, RaidHudPresenterTests.cs, RaidMainHudPlayModeTests.cs reverted, RaidCapacityWidgetPrefabTests deleted); backup patch in the session scratchpad. Nothing committed was affected.
 Unverified: Game view/Play Mode; ability/cooldown states not exercised visually; InteractionPrompt (y=120) and ability messages share the bar's vertical band (T7).
 
+T6b done: removed `_inventoryText`/PresentInventory from RaidHudView, loot receiver reads from RaidHudPresenter (Bind overloads lost the PlayerLootReceiver parameter; LocalPlayerHudBinder and tests updated), InventoryText deleted from the LocalGameplayHud instance (nested removal), vitals frame 156 -> 120 high, RaidDuoHud y -214. EditMode 635 run, only the 2 known baseline failures; PlayMode 4/10, same 6 baseline.
+Unverified: ALL visuals; the writer could not obtain a usable offscreen render (flat background). Geometry only. Please check the Game view.
+Leftovers: the source RaidMainHud.prefab still contains the stale InventoryText object and the inactive Extraction/Quota/Sanctuary labels (delete by hand in the Editor). `RaidMainHudArchitecture.md` still describes the inventory summary (T8).
+
 ## Next step
-Start T6b, then T7.
+Start T7.

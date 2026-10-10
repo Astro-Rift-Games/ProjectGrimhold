@@ -27,7 +27,7 @@ namespace Tests.EditMode.Presentation
             _view = _instance.GetComponentInChildren<RaidHudView>(true);
             Assert.That(_presenter, Is.Not.Null);
             Assert.That(_view, Is.Not.Null);
-            _presenter.Bind(null, null, null, null);
+            _presenter.Bind(null, null, null);
         }
 
         [TearDown]
@@ -81,13 +81,42 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void ViewNoLongerExposesTheInventorySummary()
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            Assert.That(typeof(RaidHudView).GetProperty("InventoryText", all), Is.Null);
+            Assert.That(typeof(RaidHudView).GetField("_inventoryText", all), Is.Null);
+            Assert.That(typeof(RaidHudView).GetMethod("PresentInventory", all), Is.Null);
+            Assert.That(typeof(RaidHudView).GetMethod("ClearInventory", all), Is.Null);
+        }
+
+        [Test]
+        public void PresenterNoLongerReadsThePlayerLootReceiverForTheHud()
+        {
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            foreach (FieldInfo field in typeof(RaidHudPresenter).GetFields(all))
+            {
+                Assert.That(field.FieldType, Is.Not.EqualTo(typeof(PlayerLootReceiver)), field.Name);
+            }
+
+            foreach (MethodInfo method in typeof(RaidHudPresenter).GetMethods(all))
+            {
+                foreach (ParameterInfo parameter in method.GetParameters())
+                {
+                    Assert.That(parameter.ParameterType, Is.Not.EqualTo(typeof(PlayerLootReceiver)), method.Name);
+                }
+            }
+
+            Assert.That(typeof(RaidHudPresenter).GetMethod("RefreshInventoryIfNeeded", all), Is.Null);
+        }
+
+        [Test]
         public void MissingDependenciesKeepEveryGameplaySectionUnavailable()
         {
             Assert.That(_view.HealthText.text, Is.EqualTo("Salud: — / —"));
             Assert.That(_view.StaminaText.text, Is.EqualTo("Stamina: — / —"));
             Assert.That(_view.AttackText.text, Is.Empty);
             Assert.That(_view.CooldownSecondsText.text, Is.Empty);
-            Assert.That(_view.InventoryText.text, Is.EqualTo("Inventario: — / —"));
             Assert.That(_view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
             Assert.That(_view.QuotaText.text, Is.Empty);
             Assert.That(_view.SanctuaryText.text, Is.Empty);
@@ -358,7 +387,7 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void DisableClearsViewButRetainsPresenterBinding()
         {
-            _presenter.Bind(null, null, null, null, null, null, null);
+            _presenter.Bind(null, null, null, null, null, null);
 
             MethodInfo method = typeof(RaidHudPresenter).GetMethod(
                 "OnDisable",

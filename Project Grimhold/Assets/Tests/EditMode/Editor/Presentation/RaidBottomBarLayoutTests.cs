@@ -77,7 +77,7 @@ public sealed class RaidBottomBarLayoutTests
         RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
         Rect frameRect = ResolveRect(frame, root, new Vector2(1920f, 1080f));
 
-        string[] order = { "Health", "Stamina", "InventoryText", "DefeatedIndicator" };
+        string[] order = { "Health", "Stamina", "DefeatedIndicator" };
         Rect previous = default;
         for (int i = 0; i < order.Length; i++)
         {
@@ -106,6 +106,37 @@ public sealed class RaidBottomBarLayoutTests
         Rect lastRow = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, new Vector2(1920f, 1080f));
 
         Assert.That(lastRow.yMin - frameRect.yMin, Is.LessThanOrEqualTo(16f), "frame is shrunk to its content");
+    }
+
+    [Test]
+    public void VitalsFrameHasNoInventoryRowAndDefeatedSitsRightBelowStamina()
+    {
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform root = (RectTransform)hud.transform;
+        RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
+        Vector2 size = new Vector2(1920f, 1080f);
+
+        Assert.That(frame.Find("InventoryText"), Is.Null, "inventory summary was removed from the frame");
+        foreach (Transform child in hud.GetComponentsInChildren<Transform>(true))
+        {
+            Assert.That(child.name, Is.Not.EqualTo("InventoryText"), "no InventoryText object anywhere in the HUD");
+        }
+
+        Rect stamina = ResolveRect((RectTransform)frame.Find("Stamina"), root, size);
+        Rect defeated = ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, size);
+        Assert.That(stamina.yMin - defeated.yMax, Is.InRange(0f, 8f), "no empty row between Stamina and the defeated indicator");
+    }
+
+    [Test]
+    public void TeammateHudStaysJustBelowTheShrunkVitalsFrame()
+    {
+        GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+        RectTransform root = (RectTransform)hud.transform;
+        Vector2 size = new Vector2(1920f, 1080f);
+        Rect vitals = ResolveRect((RectTransform)hud.transform.Find("RaidMainHud"), root, size);
+        Rect duo = ResolveRect((RectTransform)hud.transform.Find("RaidDuoHud"), root, size);
+
+        Assert.That(vitals.yMin - duo.yMax, Is.InRange(0f, 24f), "teammate HUD sits right under the vitals frame");
     }
 
     [TestCase(1920f, 1080f)]
