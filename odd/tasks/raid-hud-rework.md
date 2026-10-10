@@ -18,7 +18,7 @@ Rework the Raid HUD using the concept image as layout reference while respecting
 - [x] T1 Move `DungeonPressureHudPresenter` to `LocalPlayerHudBinder` (remove `FindObjectOfType`) and add tests (commit: `feat(hud): bind dungeon pressure HUD through LocalPlayerHudBinder`)
 - [x] T1b Fix HUD prefab defects found by failing tests: RaidDuoHud root starts hidden; distinct `AttackText` label; invariant-culture cooldown seconds (commit: `fix(hud): ...`)
 - [x] T2 Split `_extractionText` into quota, sanctuary and ritual sections (view, presenter, tests) (commit: `refactor(hud): split extraction text into quota, sanctuary and ritual sections`)
-- [ ] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status
+- [x] T3 Unified right panel: minimap, objectives, assigned sanctuary, ritual status (commit: `feat(hud): group minimap, objectives, sanctuary and ritual in a right panel`)
 - [ ] T4 Expedition progress indicator from `ExtractionProgressSnapshot`
 - [ ] T5 Inventory capacity bar (no monetary value)
 - [ ] T6 Bottom bar re-layout: weapon cooldown + abilities Q/E; Quick Slot layout placeholder
@@ -38,5 +38,10 @@ Behavior change: "Cuota completada" is now persistent in the quota section (was 
 Unverified: Game view layout of the new labels (QuotaText y -203, SanctuaryText y -235, panel height 279); prefab YAML for RaidMainHud was hand-written and loaded fine in tests but was not inspected in the Inspector.
 `ExtractionArchitecture.md` still describes the single text: covered by T8.
 
+T3 done: new `RaidRightPanel` column (top-right, 240 wide, VerticalLayoutGroup) in LocalGameplayHud with RaidMinimap, ObjectivesBlock, SanctuaryBlock, RitualBlock. RaidRightPanelPrefabTests 5/5; EditMode Presentation 607/609 (2 known baseline); PlayMode RaidMainHudPlayModeTests 4/10, same 6 baseline failures.
+Deviations: labels are NEW objects (nested prefab children cannot be reparented), `_quotaText`/`_sanctuaryText`/`_extractionText` repointed; old labels in RaidMainHud.prefab only deactivated (delete by hand in Editor). LocalGameplayHud.prefab diff is large because Unity reserialized it.
+Visual check: offscreen RenderTexture renders only (no Game view/Play Mode); minimap slot rendered empty; concept image was not available to the writer (wrong path given).
+Known leftover: RaidMainHud left frame still has empty row and Stamina/Inventory overlap (T5/T6).
+
 ## Next step
-Start T3.
+Start T4.

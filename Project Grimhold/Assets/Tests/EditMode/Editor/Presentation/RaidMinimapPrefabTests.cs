@@ -74,7 +74,7 @@ public sealed class RaidMinimapPrefabTests
     public void GraphicEmitsOneQuadForEachLayoutLayerWithoutTextureAssets()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-        RaidMinimapGraphic graphic = prefab.transform.Find("LocalGameplayHud/RaidMinimap/Viewport/Map")
+        RaidMinimapGraphic graphic = prefab.transform.Find("LocalGameplayHud/RaidRightPanel/RaidMinimap/Viewport/Map")
             .GetComponent<RaidMinimapGraphic>();
         Assert.That(graphic.TryConfigure(4f, out Vector2 uiSize, out string error), Is.True, error);
         Assert.That(uiSize, Is.EqualTo(graphic.Layout.WorldSize * 4f));
@@ -111,9 +111,9 @@ public sealed class RaidMinimapPrefabTests
         try
         {
             RaidMinimapView view = instance.GetComponentInChildren<RaidMinimapView>(true);
-            Image icon = instance.transform.Find("LocalGameplayHud/RaidMinimap/Viewport/SanctuaryIcon")
+            Image icon = instance.transform.Find("LocalGameplayHud/RaidRightPanel/RaidMinimap/Viewport/SanctuaryIcon")
                 .GetComponent<Image>();
-            Image arrow = instance.transform.Find("LocalGameplayHud/RaidMinimap/Viewport/SanctuaryArrow")
+            Image arrow = instance.transform.Find("LocalGameplayHud/RaidRightPanel/RaidMinimap/Viewport/SanctuaryArrow")
                 .GetComponent<Image>();
 
             view.PresentSanctuaryArrow(Vector2.right, 90f, 15f, Color.cyan, 1.2f);
