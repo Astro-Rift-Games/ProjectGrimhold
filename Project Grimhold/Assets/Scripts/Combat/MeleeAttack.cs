@@ -258,6 +258,18 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                     continue;
                 }
 
+                // Interception applies only to the exact orb overlapped by the query, not a whole-player
+                // shield. Consumption bypasses Resolve entirely, so blocking grants no damage/Assist credit.
+                if (target.ProtectiveOrb != null)
+                {
+                    if (target.ProtectiveOrb.TryConsumeEnemyImpact(request.AttackerId))
+                    {
+                        targetsCount++;
+                        if (targetsCount >= _config.MaximumTargets) break;
+                    }
+                    continue;
+                }
+
                 // Generate damage request
                 DamageRequest damageRequest = new DamageRequest(
                     request.AttackerId,

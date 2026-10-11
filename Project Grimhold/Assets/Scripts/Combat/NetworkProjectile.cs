@@ -49,6 +49,11 @@ public sealed class NetworkProjectile : NetworkBehaviour
     [Networked]
     private NetworkBool EnemyOnly { get; set; }
 
+    // Committed source affiliation, independent of the shooter's later eligibility or registry lifetime.
+    // Spawned/rebind reconstruct local dependencies only; Fusion copies this with the flight snapshot.
+    [Networked]
+    private NetworkBool SourceWasPvEEnemy { get; set; }
+
     [Networked]
     private int ImpactLayerMaskValue { get; set; }
 
@@ -146,6 +151,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
             return false;
         }
 
+        // Orb children are local interception geometry, never registry entities or ordinary world blockers.
+        // PvE player projectiles (EnemyOnly), own/friendly and consumed orbs must pass through them.
+        if (collider.TryGetComponent(out ProtectiveOrbCollider orb))
+            return !enemyOnly && Object != null && Object.IsValid &&
+                orb.CanInterceptEnemyProjectileImpact(ownerId, SourceWasPvEEnemy);
+
         // Static world geometry has no entity id but still consumes the projectile.
         if (_registry == null || !_registry.TryGetEntityId(collider, out targetId))
         {
@@ -170,6 +181,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
     /// </summary>
     public void InitializeNetworkState(in ProjectileSpawnRequest request, int impactLayerMaskValue)
     {
+        if (!HasStateAuthority) return;
+
+        EntityRegistry sourceRegistry = Runner.GetComponent<EntityRegistry>();
+        SourceWasPvEEnemy = sourceRegistry != null &&
+            sourceRegistry.TryGetDamageable(request.OwnerId, out IDamageable source) &&
+            source is IAbilityEnemyTarget;
         OwnerEntityIdValue = request.OwnerId.Value;
         Damage = request.Damage;
         DamageType = request.DamageType;
@@ -266,6 +283,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
 
         // Clear the local hit buffer
         System.Array.Clear(_hitBuffer, 0, hitCount);
+
+        // Commit only the selected orb, before marking/despawning the projectile. An inactive slot cannot
+        // become geometry blockage, including when a previous projectile consumed it in this same tick.
+        if (foundImpact && selectedHit.collider.TryGetComponent(out ProtectiveOrbCollider orb))
+            foundImpact = !EnemyOnly && orb.TryConsumeEnemyProjectileImpact(
+                new EntityId(OwnerEntityIdValue), SourceWasPvEEnemy);
 
         // 6. Process impact or move the projectile forward
         if (foundImpact)

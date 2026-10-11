@@ -86,8 +86,38 @@ See also: [Ability System Architecture](AbilitySystemArchitecture.md).
 
 - **Skipped when ON**: the cast-time attribute-requirement check (`SandboxRuleBypass.EvaluateRequirements`). Slot selection already bypasses profile unlock, Town and the prepared loadout (`SandboxOverrideSlots`; `AbilityRuntimeSlots.TryCreate` only checks shape and catalog membership).
 - **Still enforced**: alive/downed, match phase (it is `InProgress` in the sandbox), cooldown, resource cost (use Reset cooldowns / infinite mana; stamina has no refill hook), aim and behaviour rules (for example Seismic Strike needs an enemy in range).
-- **Limitation**: only Charge and Seismic Strike have an execution behaviour. The other catalog abilities are listed but cannot be cast; they are not selectable.
+- **Available behaviours**: the current NetworkPlayer bindings support Charge, Seismic Strike, Trap, Arcane Projectile and Protective Orbs (`protective_orbs`). Other catalog entries without a bound behaviour remain listed but cannot be selected or cast. Availability is read through `SandboxHasBehaviour`, not a sandbox-specific ability list.
 - **Attribute tool**: the override controller accepts only +/-1 and +/-5 and one pending request per tick. The sandbox facade now splits any step (1..10, total up to 50) into supported steps and dispatches one per Fusion tick, so clicks are no longer dropped.
+
+## Protective Orbs quick check (TASK203)
+
+The sandbox uses the existing catalog and fifth NetworkPlayer behaviour binding; no special sandbox cast script is needed. This is a PvE check, not PvP support or a full-player shield.
+
+1. Launch **Grimhold > Ability Sandbox > Play (Direct Host Raid)**, open **F9 > Abilities**, and select **Protective Orbs > Slot 1** (or Slot 2). Slots start empty; selection applies immediately.
+2. Refill Mana in **Player**, then use **Cast Slot 1 / Cast Slot 2** or Q/E. No enemy is required. Expect an instant execution, Mana 30 spent, a 25 s cooldown and eight orbiting slots lasting 15 s. Ignore session rules does not bypass cost, cooldown or Downed; with it OFF the definition requires Resistance 10.
+3. Spawn a dummy/enemy and move an orb into its damage hitbox: the contacting orb disappears and deals 3 Magical damage. Other slots keep their original spacing with a visible hole. The prefab currently uses radius 1 and speed 30°/s; these and contact damage are provisional, not final Balance.
+4. For projectile interception, use a ranged enemy. Only an actual orb collision blocks one projectile; shots through gaps/body-only hits may damage the player. Environment and other-player colliders do not consume orbs. Do not use the inert melee enemy as proof of melee interception; use the automated actual-melee fixture below.
+5. Let the timer expire, or reset cooldowns/refill Mana and cast again. A new accepted cast replaces the effect; resetting cooldowns alone does not replenish slots. Testing permanent lifetime requires configuration `0`, not a panel toggle. Do not treat god mode as proof that blocking worked.
+
+See [Orbes Protectores architecture](AbilitySystemArchitecture.md#orbes-protectores-protective_orbs-task203) for Inspector references, authority, effect persistence through Downed/CC and terminal cleanup. **Parent-observed sandbox check:** eight blue orbs after a real cast, Mana 100 → 70 and last failure `None`; screenshot in ignored `Library/Task203Validation/protective-orbs-sandbox.png`. The Editor was stopped afterward. Full-Raid extraction/closure and recovery with three separate processes remain unvalidated.
+
+### Protective Orbs verification
+
+In Unity **Test Runner**, select these fixtures under the corresponding EditMode/PlayMode tabs:
+
+| Fixture / test | Contract exercised |
+| --- | --- |
+| `ProtectiveOrbsRulesTests` (EditMode) | 1..32 mask capacity, invalid configuration, independent consumption and original-slot tick-orbit inputs |
+| `ProtectiveOrbsIntegrationTests` (EditMode) | Existing definition, fifth binding, local orb prefab and copied Fusion state fields |
+| `ProtectiveOrbsAbilityPlayModeTests` (ordinary tests) | Instant cast, physical projectile/melee/contact paths, dead/despawned shooter flight, no blocking Assist, body-only damage, Downed/defeat, lifetime and state-copy/replay guards |
+| `HostAndClient_ProxyShowsReplicatedSlotsButCannotConsumeEvenWithARegisteredEnemy` (Explicit) | Real Host + Client replicated local geometry and proxy mutation rejection |
+| `RealHostMigration_ResumeSnapshotPreservesConsumedOrbsAndContinuesOnPromotedHost` (Explicit) | Cloud snapshot/token/resume, partial mask/start/deadline preservation and continued consumption on the promoted Host; targeted effect recovery, not full Raid roster/lifecycle validation |
+
+The two network tests are marked `Explicit`: select the individual test by its full name in `Tests.PlayMode.Abilities.ProtectiveOrbsAbilityPlayModeTests` and run it directly; ordinary fixture/suite runs do not establish their outcome. They require configured Photon connectivity; the fixture uses real Host/Client runners and its isolated template scene, not the sandbox launcher or Single mode.
+
+**Parent-reported final evidence (not rerun for this documentation edit):** focused EditMode 211/211 passed; PlayMode Abilities 138 total, 136 passed and two Explicit skipped. Both named network tests above were then selected separately and passed; final job `98d3f45cfb904070a761557e3fef7d07`. Broad Combat/Abilities completed 318 tests with six legacy failures referencing `NetworkPlayerMelee`/`NetworkPlayerRanged` prefabs absent at HEAD (deleted in `30ec4fb3`); those tests are unchanged, and the broad suite is not green.
+
+**Observed targeted migration:** real `PushSnapshot`, a genuine Client token and the promoted Host's actual resume callback preserved partial mask `219` (six remaining slots), original start tick and lifetime deadline. Consumed slots stayed consumed and the new Host continued consumption. This fixture does not prove full-Raid recovery/closure or a three-separate-process scenario. Native review remains pending; no approval is claimed.
 
 ### Production hooks added (dev-guarded)
 

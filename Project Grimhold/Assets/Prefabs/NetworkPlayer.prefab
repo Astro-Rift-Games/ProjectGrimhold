@@ -6045,6 +6045,8 @@ GameObject:
   - component: {fileID: 8779510015049709313}
   - component: {fileID: 5120938471620394857}
   - component: {fileID: 8646188970029706921}
+  - component: {fileID: 4242006676801392986}
+  - component: {fileID: 791565168402413673}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6485,6 +6487,7 @@ MonoBehaviour:
   - {fileID: 5067162581458356925}
   - {fileID: 9200000000000000445}
   - {fileID: 9200000000000000199}
+  - {fileID: 4242006676801392986}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9200000000000000445
 MonoBehaviour:
@@ -6510,6 +6513,7 @@ MonoBehaviour:
   - {fileID: 8779510015049709313}
   - {fileID: 5120938471620394857}
   - {fileID: 8646188970029706921}
+  - {fileID: 791565168402413673}
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10590,4 +10594,49 @@ MonoBehaviour:
   _projectileSpawnerSource: {fileID: 8300000000000000004}
   _projectileSpeed: 6
   _damage: 5
+  _damageType: 1
+--- !u!114 &4242006676801392986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aea54404b4ab4222b44d38f10894f73b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProtectiveOrbsNetworkEffect
+  _playerCharacter: {fileID: 729366679366126330}
+  _damageResolverSource: {fileID: 438361259854513489}
+  _orbPrefab: {fileID: 2993688396697356280, guid: fe183fcbf99a5c8459053a6d6f109349, type: 3}
+  _targetLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  _ActiveMask: 0
+  _InitialCount: 0
+  _StartTick: 0
+  _OrbitRadius: 0
+  _AngularSpeedDegreesPerSecond: 0
+  _ContactDamage: 0
+  _ContactDamageType: 0
+--- !u!114 &791565168402413673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d906e9e4d724a56ad0b643a21f50a89, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProtectiveOrbsAbilityBehaviour
+  _definition: {fileID: 11400000, guid: 4497e7ef5eda101419f2fe4b51b2a213, type: 2}
+  _effect: {fileID: 4242006676801392986}
+  _orbCount: 8
+  _orbitRadius: 1
+  _angularSpeedDegreesPerSecond: 30
+  _lifetimeSeconds: 15
+  _contactDamage: 3
   _damageType: 1

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture and TASK 212 implements the caster-centered area query with the creature-only valid-enemy predicate; PvP and Downed targets and ally and Self areas remain pending Game Design or later tasks. Embestida, Golpe Sísmico, Trampa and the PvE-only Proyectil Arcano are implemented (see their sections); Trampa is the first persistent spawned effect. A generic Status Effect system, Assist, balance, toggles and a generic summon system remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture and TASK 212 implements the caster-centered area query with the creature-only valid-enemy predicate; PvP and Downed targets and ally and Self areas remain pending Game Design or later tasks. Embestida, Golpe Sísmico, Trampa, the PvE-only Proyectil Arcano and Orbes Protectores (TASK203) are implemented and bound on `NetworkPlayer.prefab` (see their sections); Trampa is the first persistent spawned effect, while Orbes is an avatar-owned effect with local pooled geometry. A generic Status Effect system, Assist, balance, toggles and a generic summon system remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
@@ -206,7 +206,7 @@ Each slot copies an `AbilityExecutionSnapshot`: phase (`Idle`, `Preparing`, `Exe
 
 The runtime runs after the existing Stamina (-11), movement (-10) and equipment (-9) boundaries, and before primary combat (-7), using order -8. It processes Slot 1 then Slot 2 deterministically, rechecking available resources for each request. This is not universal cross-slot exclusivity. Existing executions progress without input; held/rejected presses never queue for later availability.
 
-`AbilityExecutionBehaviour` is an abstract, avatar-local composition seam, bound through a serialized array and a canonical `AbilityDefinition` reference. Duplicate definitions, foreign-avatar behaviors and non-catalog references are configuration errors. The production array is deliberately empty: an occupied slot without a concrete behavior rejects before payment. Mana payment uses the separate character resource owner; no ability-local fallback pool or instant placeholder execution is supplied.
+`AbilityExecutionBehaviour` is an abstract, avatar-local composition seam, bound through a serialized array and a canonical `AbilityDefinition` reference. Duplicate definitions, foreign-avatar behaviors and non-catalog references are configuration errors. The production array now binds Charge, Seismic Strike, Trap, Arcane Projectile and Protective Orbs, in that order; an occupied slot without a concrete behavior still rejects before payment. Mana payment uses the separate character resource owner; no ability-local fallback pool or instant placeholder execution is supplied.
 
 `TryPlanStart` is side-effect-free and returns an authored phase/duration plan before the all-or-nothing payment through the selected Stamina or Mana owner. `Begin` runs only after acceptance. `Simulate` requests continued execution, a preparation-to-execution transition after its original deadline, or completion; the owner alone commits phase changes. An unchanged phase never restarts its timer. `Stop` receives the accepted snapshot after the owner has cleared its active phase. `TryInterrupt(slot, sequence, reason)` accepts only a matching active execution at the authoritative forward-simulation boundary. Downed/Stun and participation closure cannot be vetoed; concrete behaviors own configured exceptions for other interruption categories. Effects already created by a future behavior remain independently owned.
 
@@ -224,7 +224,7 @@ Abilities consume character resources; they do not own resource pools. Stamina r
 
 Maximum increases do not refill Current Mana; decreases clamp only an excess. Maximum is re-read at every payment/restoration so equipment changes cannot permit spending a stale excess. In an authorized operation, excess is clamped even when the requested cost or restoration is rejected; this maintenance is not partial payment. The maintenance tick runs at order -12 before the ability runtime; it performs no regeneration. Downed and revive do not write Mana. A temporarily unresolved participant freezes copied state, while terminal participation, generation/avatar replacement or Raid closure clears temporary Mana and makes the owner unavailable without allowing fresh reinitialization. Disable/re-enable preserves the balance. Despawn disposes the avatar-owned resource.
 
-The ability runtime selects the existing Stamina owner or the Mana owner after all start preflight checks, then commits sequence, phase and cooldown only after complete payment. Unavailable Mana rejects as `ResourceUnavailable`; insufficient Mana rejects as `InsufficientResource`. The production avatar composes the Mana component and serialized references, but concrete behavior composition remains a later task. `TryRestore` provides a seam only; no restoration source or consumable is implemented here.
+The ability runtime selects the existing Stamina owner or the Mana owner after all start preflight checks, then commits sequence, phase and cooldown only after complete payment. Unavailable Mana rejects as `ResourceUnavailable`; insufficient Mana rejects as `InsufficientResource`. The production avatar composes the Mana component, serialized references and the five concrete behaviors listed above. `TryRestore` provides a seam only; no restoration source or consumable is implemented here.
 
 For future periodic costs, each due payment must be complete; insufficient resource terminates the ability without partial payment or a negative balance. Periodic schedule/progress belongs to the ability execution snapshot, while the current balance belongs to the resource owner. Mana restored by another valid source may extend execution without changing those owners.
 
@@ -244,7 +244,7 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 - **Rebind:** re-resolves local references only. No displacement start or hit is replayed.
 - **Stun is deferred:** Game Design stuns the enemy it hits, but no stun system exists. Nothing is implemented or simulated; the hit application in `ChargeAbilityBehaviour.ApplyImpact` is the extension seam.
 - **Overshoot:** the phase deadline is quantized to simulation ticks, so a charge that runs its full distance may cover up to about one motor step more than configured.
-- **Not yet validated:** actual multi-runner Host Migration of a charge in flight (PlayMode covers rules, the single-runner cycle and local components only), and composition on `NetworkPlayer.prefab`, which is a later task: until the behavior is added to the avatar's execution array an occupied Embestida slot still rejects before payment.
+- **Composition and validation boundary:** Charge is bound in `NetworkPlayer.prefab`'s execution array. Actual multi-runner Host Migration of a charge in flight remains unvalidated; the existing PlayMode coverage is rules, the single-runner cycle and local components.
 
 ### Golpe Sísmico (seismic_strike)
 
@@ -258,7 +258,7 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 - **Damage and knockback:** through the shared `AbilityImpact.TryApply`, the same path as Embestida: a `DamageRequest` through `IDamageResolver` when damage is positive, otherwise a direct `IKnockbackReceiver.ReceiveKnockback` (the resolver rejects non-positive amounts). Radius, damage, knockback force and preparation are serialized parameters owned by Balance (baseline preparation 0.75 s; cost and cooldown live on the definition).
 - **Deferred seams:** Knockback immunity does not exist; the comment in `SeismicStrikeAbilityBehaviour.Resolve` marks where an immune target must still take damage without the push. Stun is not applied either, as no stun system exists.
 - **Rebind:** re-resolves local references only. No resolution is replayed.
-- **Not yet validated:** actual multi-runner Host Migration of a preparation in flight (PlayMode covers rules, the single-runner cycle and local components only), and composition on `NetworkPlayer.prefab`, which is a later task: until the behavior is added to the avatar's execution array an occupied slot still rejects before payment.
+- **Composition and validation boundary:** Seismic Strike is bound in `NetworkPlayer.prefab`'s execution array. Actual multi-runner Host Migration of a preparation in flight remains unvalidated; the existing PlayMode coverage is rules, the single-runner cycle and local components.
 
 ### Trampa (trap)
 
@@ -289,11 +289,48 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 | Flight | Request explicitly opts into copied `IsUnbounded` and `EnemyOnly` modes. No lifetime timer, range clamp, huge sentinel range or caster-lifecycle cleanup. Caster/player colliders are ignored; the shared valid-enemy predicate filters creature damage hitboxes. First valid enemy or environment consumes the projectile once, without piercing; non-character world objects consume it as geometry. Existing requests default to bounded/all-damageable behavior. |
 | Damage ownership | MagicProjectile must compose its own existing `DamageResolver`. Its Spawned callback derives EntityRegistry and optional NetworkSpawnManager from the projectile's runner; no serialized resolver dependencies or global locator are added. The spawner's avatar resolver is not retained for unbounded flight. The original caster EntityId remains on every DamageRequest even after avatar removal. Target damage does not require a registered attacker; attacker-dependent feedback/rewards keep their existing eligibility checks and are not guaranteed after removal. |
 
-**Composition:** add Arcane to NetworkPlayer's existing execution array without replacing Charge/Seismic Strike/Trap; assign the canonical `arcane_projectile` definition, the existing avatar spawner, MagicProjectile prefab and Character/WorldCollision/Obstacles impact layers. Add DamageResolver to MagicProjectile and save/rebake its Fusion NetworkObject composition. No new projectile family is introduced.
+**Composition:** Arcane is the fourth binding in NetworkPlayer's execution array, alongside Charge/Seismic Strike/Trap and now Protective Orbs. It references the canonical `arcane_projectile` definition, the existing avatar spawner, MagicProjectile prefab and Character/WorldCollision/Obstacles impact layers. Add DamageResolver to MagicProjectile and save/rebake its Fusion NetworkObject composition. No new projectile family is introduced.
 
 **Balance:** damage 5, projectile speed 6 and preparation movement multiplier 0.5 are explicit provisional serialized defaults, not final Game Design values. Preparation/cost/cooldown retain their authored baselines and remain configurable.
 
 **Scope and limits:** PvP tasks #441/#442 remain Planned follow-up, not a PvE blocker. Unbounded dungeon flight assumes the user-confirmed collider walls enclose the dungeon; missing/incorrect boundary colliders can leave a projectile flying until runner teardown. Full multiplayer and Host Migration evidence belong to wider US55 validation. Migration *after caster removal* remains an explicit follow-up: the unchanged restorer rejects an absent projectile-owner mapping. This implementation neither clears attribution nor claims that recovery case works. Unity composition and automated/runtime validation must be observed separately; code alone is not their proof.
+
+### Orbes Protectores (protective_orbs, TASK203)
+
+Instant **Self** cast with an independently simulated, avatar-owned effect. This section records the current PvE implementation, not new Game Design or final Balance. PvP is future work, explicitly outside TASK203.
+
+#### Configuration and composition
+
+`ProtectiveOrbsAbilityBehaviour` is the fifth entry in `NetworkPlayer.prefab`'s execution array. It references the canonical catalog definition and the same-root `ProtectiveOrbsNetworkEffect`; the effect references the same-root PlayerCharacter/DamageResolver, Character target layers and `Assets/Prefabs/Abilities/ProtectiveOrb.prefab`.
+
+| Configuration | Current value / constraint |
+| --- | --- |
+| Definition | `protective_orbs`: Resistance 10, Mana 30, cooldown 25 s; unchanged |
+| Initial count | 8 by default; 1..32 supported. 32 is the technical `uint` mask capacity, not a Balance limit |
+| Lifetime | 15 s by default; 0 means permanent (`TickTimer.None`), still subject to consumption and lifecycle cleanup |
+| Orbit radius / angular speed | Prefab: 1 unit / 30° per second; provisional. The C# speed initializer also matches 30°/s |
+| Contact damage | 3 Magical per consumed orb; provisional, configurable, no knockback |
+| Local orb prefab | Character-layer trigger `CircleCollider2D` (radius 0.14), `ProtectiveOrbCollider` and sprite; no NetworkObject/NetworkBehaviour |
+
+Planning checks configuration and authoritative effect readiness before payment, without enemy search. Acceptance uses the common Mana/cooldown/sequence boundary; `Begin` activates once and `Simulate` completes the instant execution. `Stop`/`Rebind` never remove, replenish or reactivate the effect. Missing dependencies produce `InvalidPlan` before payment; a post-acceptance activation failure is logged without refund or retry.
+
+#### State, geometry and impacts
+
+- **Copied state:** the avatar effect owns `[Networked]` `ActiveMask`, `InitialCount`, `StartTick`, `LifetimeTimer`, orbit/contact parameters and `ActivationSequence`. Old or duplicate accepted sequences cannot refill consumed slots or restart time; a genuinely newer accepted cast replaces the effect.
+- **Local pool:** `Spawned` builds 32 local child slots once. These are neither spawned NetworkObjects nor EntityRegistry entities. Inactive slots disable collider and sprite synchronously; consumed holes retain their original index. Survivors never redistribute around a smaller circle.
+- **Simulation:** orbit phase is `(Runner.Tick - StartTick) * Runner.DeltaTime`, using the original count. State Authority alone commits activation, consumption, damage and cleanup in forward simulation. Authoritative geometry advances on ticks; proxies reconstruct geometry/visuals from copied state, including in `Render`, without committing gameplay.
+- **Enemy contact:** after updating geometry and `Physics2D.SyncTransforms`, the effect uses a reusable 64-collider non-alloc overlap buffer per active slot. Registry damage-hitbox checks and the ordinary `AbilityTargetPredicate.IsValidEnemy` select the nearest valid creature (EntityId tie-break). Players and environment never consume contact slots; dense overlaps can exceed the buffer.
+- **Consume before damage:** clear only the selected bit and disable its collider before `DamageResolver.Resolve`. Positive contact damage retains the caster's current EntityId in `DamageRequest`; different slots may each damage the same enemy. Zero damage still consumes the contacting slot.
+- **Physical interception, not a full-player shield:** projectile sweeps and melee overlaps must select an actual active orb collider. `AttackTarget.ProtectiveOrb` carries the selected melee collider, deduplicated by owner; a body-only hit still damages normally. One blocked impact consumes one selected slot, bypasses damage resolution and grants no Block/Assist contribution. A consumed slot cannot block a later same-tick hit.
+- **Independent hostile flight:** `NetworkProjectile.InitializeNetworkState` captures `[Networked] SourceWasPvEEnemy` from the registered source's `IAbilityEnemyTarget` affiliation. Interception uses that committed affiliation and retained source EntityId, not a live shooter lookup, so already-fired enemy projectiles remain blockable after shooter death/despawn. `Spawned` never recalculates it. Own/other-player and `EnemyOnly` player projectiles pass through orb geometry; melee/contact retain the ordinary live-enemy predicate.
+
+#### Lifecycle and recovery boundary
+
+Walls/environment do not consume orbs, and existing effects persist through knockback, Stun interruption requests and Downed. This is effect persistence, not a new CC implementation or permission to cast while Downed. Exhaustion of the mask, lifetime expiry, definitive defeat, successful extraction, terminal participation/avatar replacement or Raid Closing/Finished ends the effect; despawn disables local slots. A temporary unresolved participant fixup is not terminal cleanup.
+
+Fusion `CopyStateFrom` restores the effect with its containing avatar. `Spawned` performs **no network initialization**, even for an empty/fully consumed snapshot; it rebuilds only local dependencies/pool/geometry. Original slots, start tick, deadline and activation identity remain copied, with no new EntityId fixup or separate spawned-orb restoration path. Existing projectile-owner migration limitations remain unchanged.
+
+**Verification boundary:** `ProtectiveOrbsRulesTests` covers configuration, mask capacity/consumption and original-slot orbit math; `ProtectiveOrbsIntegrationTests` covers definition, prefab composition and Fusion fields. `ProtectiveOrbsAbilityPlayModeTests` covers instant payment/cooldown, actual projectile/melee/contact paths, dead/despawned shooters, body-only damage, no blocking Assist, Downed/defeat, expiry/permanence and real behavior-state copy without timer/refill replay. Explicit Host/Client and targeted cloud-migration fixtures are separate from ordinary tests; see [Sandbox verification](AbilitySandbox.md#protective-orbs-verification). State-copy coverage is not migration proof, and the targeted migration fixture does not validate full Raid recovery-roster closure.
 
 ## Targeting
 
@@ -355,7 +392,7 @@ The predicate evaluates conditions; it owns no state and caches no target set. S
 
 The definition of a valid enemy, including PvP and Downed characters, belongs to Game Design and is an open dependency of US-56. PvP also remains blocked until networking provides an authoritative ally/enemy affiliation contract (see [Player Combat Architecture](PlayerCombatArchitecture.md)). This section fixes where the decision is applied, not what it decides.
 
-TASK 212 implements the enemy case as `AbilityTargetPredicate.IsValidEnemy(casterId, damageable)`, the single rule used by the area query at start and at resolution. For now a valid enemy is a creature (`EnemyCharacter`) that is alive, can receive damage and is not the caster. Players of any team, Downed or not, are deliberately not valid targets until Game Design closes PvP and Downed targeting and an authoritative runtime affiliation contract exists; no affiliation is invented. The single extension point is the private affiliation check inside that class; ally and Self variants and Downed handling extend it without changing callers.
+TASK 212 implements the enemy case as `AbilityTargetPredicate.IsValidEnemy(casterId, damageable)`, the single rule used by the area query at start and at resolution. For now a valid enemy implements `IAbilityEnemyTarget` (`EnemyCharacter` and the sandbox dummy), is alive, can receive damage and is not the caster. Players of any team, Downed or not, are deliberately not valid targets until Game Design closes PvP and Downed targeting and an authoritative runtime affiliation contract exists; no affiliation is invented. The single extension point is the private affiliation check inside that class; ally and Self variants and Downed handling extend it without changing callers.
 
 ### State, Host Migration and rebind
 
@@ -363,7 +400,7 @@ The captured aim direction (implemented; Trampa derives its position from it wit
 
 ### Planned extensions (described only)
 
-Self and allied targets extend this contract without changing it. Trampa, the Automatic-position behavior, is implemented (see its section): it validates ground inside its `TryPlanStart` and recomputes the position from the committed aim at `Begin`, so no derived position is stored. Ally and Self areas feed the same predicate. Concrete behaviors consume the contract and make no structural targeting decision.
+The implicit Self cast is implemented by Protective Orbs without target search. Allied targets and Self areas remain extensions of this contract. Trampa, the Automatic-position behavior, is implemented (see its section): it validates ground inside its `TryPlanStart` and recomputes the position from the committed aim at `Begin`, so no derived position is stored. Ally and Self areas feed the same predicate. Concrete behaviors consume the contract and make no structural targeting decision.
 
 ### Known gaps
 

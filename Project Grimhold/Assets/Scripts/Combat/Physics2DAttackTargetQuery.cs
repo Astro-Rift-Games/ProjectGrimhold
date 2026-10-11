@@ -21,6 +21,7 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
     {
         public EntityId Id;
         public IDamageable Damageable;
+        public ProtectiveOrbCollider ProtectiveOrb;
         public Vector2 HitPoint;
         public float SqrDistance;
     }
@@ -82,13 +83,17 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
                 continue;
             }
 
-            // Retrieve EntityId from registry (avoiding global component searches)
-            if (!_registry.TryGetEntityId(col, out EntityId targetId))
+            // Local orb geometry has no registry mapping. Only an actual valid enemy overlap may
+            // supply its owner as a candidate; ordinary body hits still follow the existing damage path.
+            ProtectiveOrbCollider protectiveOrb = null;
+            EntityId targetId;
+            if (col.TryGetComponent(out ProtectiveOrbCollider orb))
             {
-                continue;
+                if (!orb.CanInterceptEnemyImpact(query.AttackerId)) continue;
+                protectiveOrb = orb;
+                targetId = orb.OwnerId;
             }
-
-            if (!_registry.IsDamageCollider(targetId, col))
+            else if (!_registry.TryGetEntityId(col, out targetId) || !_registry.IsDamageCollider(targetId, col))
             {
                 continue;
             }
@@ -125,12 +130,16 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
             // Deduplicate before sorting: retain the closest hit per EntityId
             if (_entityIdToCandidateIndex.TryGetValue(targetId, out int existingIndex))
             {
-                if (sqrDistance < _candidates[existingIndex].SqrDistance)
+                CandidateTarget previous = _candidates[existingIndex];
+                if (sqrDistance < previous.SqrDistance ||
+                    (sqrDistance == previous.SqrDistance && protectiveOrb != null && previous.ProtectiveOrb != null &&
+                     protectiveOrb.SlotIndex < previous.ProtectiveOrb.SlotIndex))
                 {
                     _candidates[existingIndex] = new CandidateTarget
                     {
                         Id = targetId,
                         Damageable = damageable,
+                        ProtectiveOrb = protectiveOrb,
                         HitPoint = hitPoint,
                         SqrDistance = sqrDistance
                     };
@@ -143,6 +152,7 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
                 {
                     Id = targetId,
                     Damageable = damageable,
+                    ProtectiveOrb = protectiveOrb,
                     HitPoint = hitPoint,
                     SqrDistance = sqrDistance
                 });
@@ -167,7 +177,7 @@ public sealed class Physics2DAttackTargetQuery : NetworkBehaviour, IAttackTarget
         for (int i = 0; i < targetsToTake; i++)
         {
             CandidateTarget candidate = _candidates[i];
-            _results.Add(new AttackTarget(candidate.Id, candidate.HitPoint));
+            _results.Add(new AttackTarget(candidate.Id, candidate.HitPoint, candidate.ProtectiveOrb));
         }
 
         return _results;
