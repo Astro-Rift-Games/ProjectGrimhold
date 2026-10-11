@@ -178,7 +178,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isSprinting,
             _sprintSpeedMultiplier,
             isDowned,
-            isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f);
+            isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f,
+            _abilityRuntime != null ? _abilityRuntime.VoluntaryMovementSpeedMultiplier : 1f);
 
         if (ForcedActive && HasStateAuthority && Runner.IsForward &&
             !ForcedDisplacementMath.ShouldRemainActive(isAlive, isDowned))
@@ -392,14 +393,12 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool isSprinting,
         float sprintSpeedMultiplier,
         bool isDowned,
-        float downedSpeedMultiplier)
+        float downedSpeedMultiplier,
+        float abilitySpeedMultiplier = 1f)
     {
-        if (isDowned)
-        {
-            return moveSpeed * downedSpeedMultiplier;
-        }
-
-        return isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
+        float voluntarySpeed = isDowned ? moveSpeed * downedSpeedMultiplier :
+            isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
+        return voluntarySpeed * abilitySpeedMultiplier;
     }
 
     private bool WeaponAllowsAimStance()

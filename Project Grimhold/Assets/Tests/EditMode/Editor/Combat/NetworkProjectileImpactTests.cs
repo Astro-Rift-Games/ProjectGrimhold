@@ -84,6 +84,122 @@ namespace Tests.EditMode.Combat
             Assert.That(targetId, Is.EqualTo(damageable.Id));
         }
 
+        [Test]
+        public void DefaultTargetMode_StillConsumesAnotherPlayersDamageCollider()
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(false, out Collider2D collider);
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), false, out EntityId targetId), Is.True);
+            Assert.That(targetId.Value, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void EnemyOnlyMode_IgnoresAnotherPlayersDamageCollider()
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(false, out Collider2D collider);
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), true, out _), Is.False);
+        }
+
+        [Test]
+        public void EnemyOnlyMode_ConsumesALivingMarkedEnemyDamageCollider()
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out Collider2D collider);
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), true, out EntityId targetId), Is.True);
+            Assert.That(targetId.Value, Is.EqualTo(2));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void BothTargetModes_IgnoreCasterDamageColliders(bool enemyOnly)
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out Collider2D collider);
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(2), enemyOnly, out _), Is.False);
+        }
+
+        [Test]
+        public void EnemyOnlyMode_IgnoresDeadOrUndamageableEnemies()
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out Collider2D collider);
+            var enemy = _targetObject.GetComponent<MarkedEnemyDamageable>();
+            enemy.IsAlive = false;
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), true, out _), Is.False);
+
+            enemy.IsAlive = true;
+            enemy.CanReceiveDamage = false;
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), true, out _), Is.False);
+        }
+
+        [Test]
+        public void EnemyOnlyMode_IgnoresEnemyMovementColliderWhenDamageHitboxIsExplicit()
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out Collider2D collider);
+            BoxCollider2D movementCollider = _targetObject.AddComponent<BoxCollider2D>();
+            EntityRegistry registry = _registryObject.GetComponent<EntityRegistry>();
+            var enemy = _targetObject.GetComponent<MarkedEnemyDamageable>();
+            Assert.That(registry.TryRegisterDamageable(enemy.Id, enemy,
+                new Collider2D[] { collider, movementCollider }, new Collider2D[] { collider }), Is.True);
+
+            Assert.That(InvokeTargetModeImpact(projectile, movementCollider, new EntityId(1), true, out _), Is.False);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void BothTargetModes_ConsumeUnregisteredEnvironmentWithoutDamageTarget(bool enemyOnly)
+        {
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out _);
+            _worldObject = new GameObject("Wall");
+            var collider = _worldObject.AddComponent<BoxCollider2D>();
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(1), enemyOnly, out EntityId targetId), Is.True);
+            Assert.That(targetId.Value, Is.Zero);
+        }
+
+        [Test]
+        public void EnemyOnlyMode_StillAcceptsAnEnemyAfterCasterRegistrationIsGone()
+        {
+            // The caster is deliberately absent from the registry, as after defeat/extraction/despawn.
+            NetworkProjectile projectile = CreateRegisteredTarget(true, out Collider2D collider);
+
+            Assert.That(InvokeTargetModeImpact(projectile, collider, new EntityId(99), true, out EntityId targetId), Is.True);
+            Assert.That(targetId.Value, Is.EqualTo(2));
+        }
+
+        private NetworkProjectile CreateRegisteredTarget(bool markedEnemy, out Collider2D collider)
+        {
+            _projectileObject = CreateProjectileObject();
+            NetworkProjectile projectile = _projectileObject.AddComponent<NetworkProjectile>();
+            _registryObject = new GameObject("Registry");
+            EntityRegistry registry = _registryObject.AddComponent<EntityRegistry>();
+            _targetObject = new GameObject(markedEnemy ? "Enemy" : "OtherPlayer");
+            collider = _targetObject.AddComponent<BoxCollider2D>();
+            IDamageable target = markedEnemy
+                ? (IDamageable)_targetObject.AddComponent<MarkedEnemyDamageable>()
+                : _targetObject.AddComponent<PlayerLikeDamageable>();
+            Assert.That(registry.TryRegisterDamageable(target.Id, target,
+                new Collider2D[] { collider }, new Collider2D[] { collider }), Is.True);
+            typeof(NetworkProjectile).GetField("_registry", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(projectile, registry);
+            return projectile;
+        }
+
+        // Explicit owner/mode parameters keep target selection testable without touching unspawned Fusion state.
+        private static bool InvokeTargetModeImpact(NetworkProjectile projectile, Collider2D collider,
+            EntityId ownerId, bool enemyOnly, out EntityId targetId)
+        {
+            MethodInfo method = typeof(NetworkProjectile).GetMethod("TryGetImpact",
+                BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(Collider2D), typeof(EntityId), typeof(bool), typeof(EntityId).MakeByRefType() }, null);
+            Assert.That(method, Is.Not.Null,
+                "TASK202 requires a deterministic TryGetImpact(Collider2D, EntityId, bool enemyOnly, out EntityId) seam.");
+            object[] arguments = { collider, ownerId, enemyOnly, default(EntityId) };
+            bool result = (bool)method.Invoke(projectile, arguments);
+            targetId = (EntityId)arguments[3];
+            return result;
+        }
+
         private static bool InvokeTryGetImpact(
             NetworkProjectile projectile,
             Collider2D collider,
@@ -91,7 +207,8 @@ namespace Tests.EditMode.Combat
         {
             MethodInfo method = typeof(NetworkProjectile).GetMethod(
                 "TryGetImpact",
-                BindingFlags.Instance | BindingFlags.NonPublic);
+                BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(Collider2D), typeof(EntityId).MakeByRefType() }, null);
             Assert.That(method, Is.Not.Null);
 
             object[] arguments = { collider, default(EntityId) };
@@ -107,6 +224,16 @@ namespace Tests.EditMode.Combat
             projectileObject.AddComponent<BoxCollider2D>();
             return projectileObject;
         }
+
+        private class PlayerLikeDamageable : MonoBehaviour, IDamageable, ICharacter
+        {
+            public EntityId Id => new EntityId(2);
+            public bool IsAlive { get; set; } = true;
+            public bool CanReceiveDamage { get; set; } = true;
+            public DamageResult ApplyDamage(in DamageRequest request) => default;
+        }
+
+        private sealed class MarkedEnemyDamageable : PlayerLikeDamageable, IAbilityEnemyTarget { }
 
         private sealed class DummyDamageable : MonoBehaviour, IDamageable
         {

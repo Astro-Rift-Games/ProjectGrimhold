@@ -44,6 +44,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
     private TickTimer LifetimeTimer { get; set; }
 
     [Networked]
+    private NetworkBool IsUnbounded { get; set; }
+
+    [Networked]
+    private NetworkBool EnemyOnly { get; set; }
+
+    [Networked]
     private int ImpactLayerMaskValue { get; set; }
 
     [Networked]
@@ -84,6 +90,15 @@ public sealed class NetworkProjectile : NetworkBehaviour
             Debug.LogError($"{nameof(NetworkProjectile)}: EntityRegistry was not found on the NetworkRunner GameObject.", this);
         }
 
+        // Independent flight uses the projectile's own authoritative resolver, including after restore.
+        // Its Spawned() reconstructs runner-local registry/manager references; no caster reference survives.
+        if (IsUnbounded)
+        {
+            _damageResolver = GetComponent<DamageResolver>();
+            if (_damageResolver == null)
+                Debug.LogError($"{nameof(NetworkProjectile)} requires a projectile-local {nameof(DamageResolver)} for unbounded flight.", this);
+        }
+
         // Align physical starting state and force Unity physics synchronization
         if (_rigidbody != null)
         {
@@ -117,6 +132,13 @@ public sealed class NetworkProjectile : NetworkBehaviour
 
     private bool TryGetImpact(Collider2D collider, out EntityId targetId)
     {
+        bool hasState = Object != null && Object.IsValid;
+        return TryGetImpact(collider, new EntityId(hasState ? OwnerEntityIdValue : 0),
+            hasState && EnemyOnly, out targetId);
+    }
+
+    private bool TryGetImpact(Collider2D collider, EntityId ownerId, bool enemyOnly, out EntityId targetId)
+    {
         targetId = default;
 
         if (collider == null || collider == _projectileCollider)
@@ -130,9 +152,16 @@ public sealed class NetworkProjectile : NetworkBehaviour
             return true;
         }
 
-        int ownerEntityId = Object != null && Object.IsValid ? OwnerEntityIdValue : 0;
-        return targetId.Value != ownerEntityId &&
-            _registry.IsDamageCollider(targetId, collider);
+        if (targetId == ownerId) return false;
+        if (!enemyOnly) return _registry.IsDamageCollider(targetId, collider);
+        if (_registry.TryGetDamageable(targetId, out IDamageable candidate) &&
+            (candidate is ICharacter || candidate is IAbilityEnemyTarget))
+            return _registry.IsDamageCollider(targetId, collider) &&
+                AbilityTargetPredicate.IsValidEnemy(ownerId, candidate);
+
+        // Registered non-character world objects are geometry in the PvE ability mode, not damage targets.
+        targetId = default;
+        return true;
     }
 
     /// <summary>
@@ -148,9 +177,12 @@ public sealed class NetworkProjectile : NetworkBehaviour
         Speed = request.Speed;
         SpawnPosition = request.Origin;
         MaximumRange = request.MaximumRange;
-        LifetimeTimer = TickTimer.CreateFromSeconds(Runner, request.LifetimeSeconds);
+        IsUnbounded = request.IsUnbounded;
+        EnemyOnly = request.EnemyOnly;
+        LifetimeTimer = request.IsUnbounded ? TickTimer.None : TickTimer.CreateFromSeconds(Runner, request.LifetimeSeconds);
         ImpactLayerMaskValue = impactLayerMaskValue;
         ImpactConsumed = false;
+        ImpactWasGeometryOnly = false;
         SpawnSimulationTick = request.SimulationTick;
         KnockbackForce = request.KnockbackForce;
 
@@ -168,13 +200,13 @@ public sealed class NetworkProjectile : NetworkBehaviour
     public override void FixedUpdateNetwork()
     {
         // Execute gameplay simulation exclusively under State Authority
-        if (!HasStateAuthority)
+        if (!HasStateAuthority || !Runner.IsForward || ImpactConsumed)
         {
             return;
         }
 
         // 1. Validate expiration by lifetime
-        if (LifetimeTimer.ExpiredOrNotRunning(Runner))
+        if (!IsUnbounded && LifetimeTimer.ExpiredOrNotRunning(Runner))
         {
             Debug.Log($"[CombatTrace] Projectile despawned: Lifetime expired.", this);
             Runner.Despawn(Object);
@@ -183,20 +215,23 @@ public sealed class NetworkProjectile : NetworkBehaviour
 
         // 2. Calculate accumulated distance and remaining range
         Vector2 currentPosition = _rigidbody.position;
-        float traveledDistance = Vector2.Distance(SpawnPosition, currentPosition);
-        float remainingRange = MaximumRange - traveledDistance;
-
-        if (remainingRange <= 0f)
+        float remainingRange = 0f;
+        if (!IsUnbounded)
         {
-            Debug.Log($"[CombatTrace] Projectile despawned: Range limit exceeded (travelled: {traveledDistance}, max: {MaximumRange}).", this);
-            Runner.Despawn(Object);
-            return;
+            float traveledDistance = Vector2.Distance(SpawnPosition, currentPosition);
+            remainingRange = MaximumRange - traveledDistance;
+            if (remainingRange <= 0f)
+            {
+                Debug.Log($"[CombatTrace] Projectile despawned: Range limit exceeded (travelled: {traveledDistance}, max: {MaximumRange}).", this);
+                Runner.Despawn(Object);
+                return;
+            }
         }
 
-        // 3. Determine distance to travel in this tick
+        // 3. Unbounded means no distance/lifetime policy, not an invented huge limit.
         float requestedDistance = Speed * Runner.DeltaTime;
-        bool reachesMaximumRange = requestedDistance >= remainingRange;
-        float travelDistance = Mathf.Min(requestedDistance, remainingRange);
+        bool reachesMaximumRange = !IsUnbounded && requestedDistance >= remainingRange;
+        float travelDistance = IsUnbounded ? requestedDistance : Mathf.Min(requestedDistance, remainingRange);
 
         // 4. Perform collider cast using the projectile's real collision volume
         Physics2D.SyncTransforms();

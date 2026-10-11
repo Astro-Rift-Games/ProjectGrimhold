@@ -12,7 +12,7 @@ using Object = UnityEngine.Object;
 namespace Tests.PlayMode.Abilities
 {
     /// <summary>
-    /// Proves the productive avatar prefab composes Charge and Seismic Strike as authored: no test behavior is
+    /// Proves the productive avatar prefab composes Charge, Seismic Strike and Arcane Projectile as authored: no test behavior is
     /// added and the serialized behaviour bindings, definitions and layer masks are exactly the prefab's.
     /// </summary>
     public sealed class AbilityPrefabCompositionPlayModeTests
@@ -101,9 +101,36 @@ namespace Tests.PlayMode.Abilities
             Assert.That(snapshot.Cooldown.IsRunning, Is.True, "Cooldown is not refunded.");
         }
 
+        [UnityTest]
+        public IEnumerator ArcaneProjectile_OnThePrefab_PreparesPaysManaAndDamagesAnEnemy()
+        {
+            yield return Begin("arcane_projectile", null);
+            yield return SetAim(Vector2.right);
+            var behaviour = _avatar.GetComponent<ArcaneProjectileAbilityBehaviour>();
+            Assert.That(behaviour, Is.Not.Null, "The prefab, not the fixture, must compose Arcane.");
+            var enemy = SpawnEnemy(new Vector3(2f, 0f, 0f));
+            float health = enemy.Health;
+            var mana = _avatar.GetComponent<PlayerManaNetworkController>();
+            yield return WaitUntil(() => mana.IsInitialized);
+            float beforePayment = mana.CurrentMana;
+            _avatar.TryGetSlot(UniversalAbilitySlot.Slot1, out var slot);
+
+            yield return Press(PlayerInputButton.AbilitySlot1);
+            Assert.That(_avatar.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.None));
+            Assert.That(_avatar.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var preparing), Is.True);
+            Assert.That(preparing.Phase, Is.EqualTo(AbilityExecutionPhase.Preparing));
+            Assert.That(beforePayment - mana.CurrentMana, Is.EqualTo(slot.Definition.Cost).Within(0.001f));
+            Assert.That(enemy.Health, Is.EqualTo(health));
+            yield return WaitUntil(() => enemy.Health < health);
+            float damage = ReadBehaviourField<float>(typeof(ArcaneProjectileAbilityBehaviour), "_damage");
+            Assert.That(enemy.Health, Is.EqualTo(health - damage).Within(0.001f));
+            Assert.That(_avatar.HasActiveExecution, Is.False);
+            Assert.That(_avatar.IsOnCooldown(UniversalAbilitySlot.Slot1), Is.True);
+        }
+
         // ---- Fixture ---------------------------------------------------------------------
 
-        private IEnumerator Begin()
+        private IEnumerator Begin(string slot1 = "charge", string slot2 = "seismic_strike")
         {
             var runnerObject = new GameObject("AbilityCompositionTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
@@ -127,7 +154,7 @@ namespace Tests.PlayMode.Abilities
             var participant = _runner.Spawn(LoadPrefab(ParticipantPrefabGuid),
                 onBeforeSpawned: (_, instance) => instance.GetComponent<NetworkRaidParticipant>().Initialize(
                     "ability-composition", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
-                    preparedAbilities: new PreparedAbilityLoadout(new AbilityId("charge"), new AbilityId("seismic_strike"))))
+                    preparedAbilities: new PreparedAbilityLoadout(new AbilityId(slot1), slot2 != null ? new AbilityId(slot2) : default)))
                 .GetComponent<NetworkRaidParticipant>();
             ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,

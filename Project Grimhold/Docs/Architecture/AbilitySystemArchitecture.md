@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture and TASK 212 implements the caster-centered area query with the creature-only valid-enemy predicate; PvP and Downed targets and ally and Self areas remain pending Game Design or later tasks. Embestida, Golpe Sísmico and Trampa are implemented (see their sections); Trampa is the first persistent spawned effect. A generic Status Effect system, Assist, balance, toggles and a generic summon system remain deferred.
+This document defines the Ability System foundation and the authoritative Raid runtime contract (TASK 417 and TASK 444). The foundation establishes identity, Town preparation and frozen Raid admission. TASK 445 implements slot binding, TASK 446 implements activation intentions and TASK 447 implements the common authoritative activation/execution/cooldown cycle. TASK 199 implements Current Mana and initial Mana payment. TASK 210 defines the targeting contract (see [Targeting](#targeting)) and TASK 211 implements its aim capture and TASK 212 implements the caster-centered area query with the creature-only valid-enemy predicate; PvP and Downed targets and ally and Self areas remain pending Game Design or later tasks. Embestida, Golpe Sísmico, Trampa and the PvE-only Proyectil Arcano are implemented (see their sections); Trampa is the first persistent spawned effect. A generic Status Effect system, Assist, balance, toggles and a generic summon system remain deferred.
 
 The names used for future roles in this document describe responsibilities, not existing runtime types. Later tasks may choose concrete type names while preserving these boundaries.
 
@@ -275,6 +275,25 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 - **Failure and feedback:** `BehaviourRejected` reaches the owner through the existing channel: `TryStartExecution` sends `RPC_NotifyActivationRejected` for every failure other than `None` (`AbilityFeedbackPolicy.ShouldNotifyRejection`), the controller raises `ActivationRejected` on the owning peer and the Raid ability HUD shows its message. No new UI was added.
 - **Host Migration:** `NetworkTrap` and `ImmobilizeEffect` hold only [Networked] state and are restored as dynamic objects; see [Host Migration Recovery Architecture](HostMigrationRecoveryArchitecture.md).
 - **Residual risks:** if the spawn fails after payment (for example while the raid is closing), cost and cooldown stay spent and the error is logged; there is no retry. Multi-runner Host Migration of a live trap was not exercised, only the single-runner cycle. Eviction and trigger are decided on State Authority only.
+
+### Proyectil Arcano (arcane_projectile, TASK202 #491)
+
+`ArcaneProjectileAbilityBehaviour` prepares, then spawns the existing `NetworkProjectile` through the avatar's `FusionProjectileSpawner`. It is independent of the equipped weapon and does not alter its ranged configuration.
+
+| Boundary | Contract |
+| --- | --- |
+| Acceptance | Definition owns INT 10, Mana 15 and cooldown 5 s. The side-effect-free plan validates explicit prefab/mask/spawner, finite tuning, runner registry and projectile-local resolver composition before payment. No enemy or clear trajectory is required. |
+| Preparation | Baseline 0.5 s, configurable. Runtime captures aim at Preparing start and owns the copied phase/deadline/sequence. Movement reads a derived multiplier on every simulating peer; only voluntary walking/sprinting is scaled, never forced displacement or knockback. Other abilities default to 1. |
+| Resolution | State Authority forward simulation consumes the sequence before the spawn attempt and completes in that tick. Missing input does not stall it; Begin/Rebind never spawn or restart the deadline. Spawn failure retains cost/cooldown and is not retried. |
+| Interruption | Knockback/Stun and runtime-mandatory Downed/participation closure stop preparation before spawn without refund. Stop never deletes an already-spawned projectile. |
+| Flight | Request explicitly opts into copied `IsUnbounded` and `EnemyOnly` modes. No lifetime timer, range clamp, huge sentinel range or caster-lifecycle cleanup. Caster/player colliders are ignored; the shared valid-enemy predicate filters creature damage hitboxes. First valid enemy or environment consumes the projectile once, without piercing; non-character world objects consume it as geometry. Existing requests default to bounded/all-damageable behavior. |
+| Damage ownership | MagicProjectile must compose its own existing `DamageResolver`. Its Spawned callback derives EntityRegistry and optional NetworkSpawnManager from the projectile's runner; no serialized resolver dependencies or global locator are added. The spawner's avatar resolver is not retained for unbounded flight. The original caster EntityId remains on every DamageRequest even after avatar removal. Target damage does not require a registered attacker; attacker-dependent feedback/rewards keep their existing eligibility checks and are not guaranteed after removal. |
+
+**Composition:** add Arcane to NetworkPlayer's existing execution array without replacing Charge/Seismic Strike/Trap; assign the canonical `arcane_projectile` definition, the existing avatar spawner, MagicProjectile prefab and Character/WorldCollision/Obstacles impact layers. Add DamageResolver to MagicProjectile and save/rebake its Fusion NetworkObject composition. No new projectile family is introduced.
+
+**Balance:** damage 5, projectile speed 6 and preparation movement multiplier 0.5 are explicit provisional serialized defaults, not final Game Design values. Preparation/cost/cooldown retain their authored baselines and remain configurable.
+
+**Scope and limits:** PvP tasks #441/#442 remain Planned follow-up, not a PvE blocker. Unbounded dungeon flight assumes the user-confirmed collider walls enclose the dungeon; missing/incorrect boundary colliders can leave a projectile flying until runner teardown. Full multiplayer and Host Migration evidence belong to wider US55 validation. Migration *after caster removal* remains an explicit follow-up: the unchanged restorer rejects an absent projectile-owner mapping. This implementation neither clears attribution nor claims that recovery case works. Unity composition and automated/runtime validation must be observed separately; code alone is not their proof.
 
 ## Targeting
 

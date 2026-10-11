@@ -15,6 +15,9 @@ public abstract class AbilityExecutionBehaviour : MonoBehaviour
     public abstract bool CanInterrupt(AbilityExecutionStopReason reason);
     public abstract void Stop(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot,
         AbilityExecutionStopReason reason);
+    /// <summary>Read-only locomotion contribution from copied execution state; never scales forced movement or knockback.</summary>
+    public virtual float GetVoluntaryMovementSpeedMultiplier(in AbilityExecutionSnapshot snapshot) => 1f;
+
     /// <summary>Reconstruct local references only. Must not replay accepted effects.</summary>
     public abstract void Rebind(in AbilityExecutionContext context, in AbilityExecutionSnapshot snapshot);
 }

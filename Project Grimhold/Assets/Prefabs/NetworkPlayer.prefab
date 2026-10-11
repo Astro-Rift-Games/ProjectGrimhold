@@ -6044,6 +6044,7 @@ GameObject:
   - component: {fileID: 7831010654221445307}
   - component: {fileID: 8779510015049709313}
   - component: {fileID: 5120938471620394857}
+  - component: {fileID: 8646188970029706921}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6508,6 +6509,7 @@ MonoBehaviour:
   - {fileID: 7831010654221445307}
   - {fileID: 8779510015049709313}
   - {fileID: 5120938471620394857}
+  - {fileID: 8646188970029706921}
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10565,3 +10567,27 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8646188970029706921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02d0d0d566e35344699c98809244e995, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ArcaneProjectileAbilityBehaviour
+  _definition: {fileID: 11400000, guid: 51c61f7cffd5d1941b20ff172398afcc, type: 2}
+  _preparationSeconds: 0.5
+  _preparationMovementSpeedMultiplier: 0.5
+  _projectilePrefab:
+    RawGuidValue: cdc42ba57b303264fb49354983542d59
+  _impactLayerMask:
+    serializedVersion: 2
+    m_Bits: 2240
+  _projectileSpawnerSource: {fileID: 8300000000000000004}
+  _projectileSpeed: 6
+  _damage: 5
+  _damageType: 1

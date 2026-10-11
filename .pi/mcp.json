@@ -2,8 +2,34 @@
     "mcpServers": {
         "unity": {
             "url": "http://127.0.0.1:8081/mcp",
-            "lifecycle": "eager",
-            "directTools": true
+            "exposure": "codemode"
+        },
+        "grimhold-docs": {
+            "command": "node",
+            "args": [
+                "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/src/index.js"
+            ],
+            "env": {
+                "GRIMHOLD_DRIVE_ROOT_FOLDER_ID": "15hA44M-8_9rO_YXn5IQANWSn91JVkYMp",
+                "GOOGLE_OAUTH_CREDENTIALS_PATH": "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/credentials.json",
+                "GOOGLE_OAUTH_TOKEN_PATH": "C:/Users/Dani/OneDrive/Documentos/GitHub/ProjectGrimhold/tools/grimhold-docs-mcp/.auth/token.json"
+            },
+            "exposure": "codemode",
+            "timeout": 30
+        },
+        "hacknplan": {
+            "command": "C:/Program Files/dotnet/dotnet.exe",
+            "args": [
+                "C:/Tools/HacknPlanMcp/bin/Debug/net8.0/HacknPlanMcp.dll"
+            ],
+            "cwd": "C:/Tools/HacknPlanMcp",
+            "env": {
+                "HACKNPLAN_API_KEY": "${HACKNPLAN_API_KEY}",
+                "HACKNPLAN_PROJECT_ID": "239834",
+                "HACKNPLAN_DEFAULT_BOARD_ID": "681000"
+            },
+            "exposure": "codemode",
+            "timeout": 30
         }
     }
 }

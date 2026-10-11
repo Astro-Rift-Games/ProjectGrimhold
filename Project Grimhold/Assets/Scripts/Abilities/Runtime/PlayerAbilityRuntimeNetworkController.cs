@@ -139,6 +139,37 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         }
     }
 
+    /// <summary>Derived from copied phases on every simulating peer, including prediction and restore; no second modifier state.</summary>
+    public float VoluntaryMovementSpeedMultiplier
+    {
+        get
+        {
+            if (!HasActiveExecution) return 1f;
+            return Mathf.Min(ReadMovementMultiplier(UniversalAbilitySlot.Slot1),
+                ReadMovementMultiplier(UniversalAbilitySlot.Slot2));
+        }
+    }
+
+    private float ReadMovementMultiplier(UniversalAbilitySlot slot)
+    {
+        var state = ReadExecution(slot);
+        if (!state.IsActive) return 1f;
+        var behaviour = ReadBehaviour(slot);
+        // Movement precedes runtime binding. Resolve only the immutable definition during restore/prediction;
+        // this query must never initialize, pay, rebind an execution, or change its deadlines.
+        if (behaviour == null && _participantLink != null && _executionBehaviours != null &&
+            _participantLink.TryResolveParticipant(out var participant) && participant.CurrentAvatarId == Object.Id &&
+            TryResolvePreparedLoadout(participant, out var prepared))
+        {
+            foreach (var candidate in _executionBehaviours)
+                if (candidate != null && candidate.Definition != null && candidate.Definition.AbilityId == prepared.Get(slot))
+                { behaviour = candidate; break; }
+        }
+        if (behaviour == null || !behaviour.isActiveAndEnabled) return 1f;
+        float multiplier = behaviour.GetVoluntaryMovementSpeedMultiplier(state);
+        return AttackTiming.IsFinite(multiplier) ? Mathf.Clamp01(multiplier) : 1f;
+    }
+
     public bool TryGetExecutionSnapshot(UniversalAbilitySlot slot, out AbilityExecutionSnapshot snapshot)
     {
         snapshot = default;

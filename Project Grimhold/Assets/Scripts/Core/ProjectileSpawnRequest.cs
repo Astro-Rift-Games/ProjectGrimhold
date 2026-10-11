@@ -19,6 +19,9 @@ public readonly struct ProjectileSpawnRequest
     // Optional committed projectile configuration. Legacy consumers still use the spawner's config.
     public NetworkPrefabRef ProjectilePrefab { get; }
     public int ImpactLayerMask { get; }
+    // Explicit opt-ins; existing weapon/enemy requests retain bounded, all-damageable impacts.
+    public bool IsUnbounded { get; }
+    public bool EnemyOnly { get; }
 
     /// <summary>
     /// Knockback force in world units per second applied to the target on impact.
@@ -39,7 +42,9 @@ public readonly struct ProjectileSpawnRequest
         int simulationTick,
         float knockbackForce = 0f,
         NetworkPrefabRef projectilePrefab = default,
-        int impactLayerMask = 0)
+        int impactLayerMask = 0,
+        bool isUnbounded = false,
+        bool enemyOnly = false)
     {
         OwnerId        = ownerId;
         Origin         = origin;
@@ -53,12 +58,15 @@ public readonly struct ProjectileSpawnRequest
         KnockbackForce = Mathf.Max(0f, knockbackForce);
         ProjectilePrefab = projectilePrefab;
         ImpactLayerMask = impactLayerMask;
+        IsUnbounded = isUnbounded;
+        EnemyOnly = enemyOnly;
     }
 
     public bool TryValidate() =>
         AttackTiming.IsFinite(Origin) && AttackTiming.IsFinite(Direction) && Direction.sqrMagnitude > 0.0001f &&
         AttackTiming.IsFinite(Damage) && Damage > 0f && System.Enum.IsDefined(typeof(DamageType), DamageType) &&
-        AttackTiming.IsFinite(Speed) && Speed > 0f && AttackTiming.IsFinite(LifetimeSeconds) && LifetimeSeconds > 0f &&
-        AttackTiming.IsFinite(MaximumRange) && MaximumRange > 0f &&
+        AttackTiming.IsFinite(Speed) && Speed > 0f &&
+        AttackTiming.IsFinite(LifetimeSeconds) && (IsUnbounded ? LifetimeSeconds >= 0f : LifetimeSeconds > 0f) &&
+        AttackTiming.IsFinite(MaximumRange) && (IsUnbounded ? MaximumRange >= 0f : MaximumRange > 0f) &&
         AttackTiming.IsFinite(KnockbackForce) && KnockbackForce >= 0f;
 }

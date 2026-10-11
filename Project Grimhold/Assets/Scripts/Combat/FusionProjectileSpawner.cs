@@ -62,6 +62,20 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
         return _config != null && _config.TryValidate(out _) && _damageResolver != null;
     }
 
+    /// <summary>Side-effect-free ability preflight; independent flight must not retain an avatar-owned resolver.</summary>
+    public bool CanSpawnIndependentProjectile(NetworkPrefabRef prefab, int impactMask)
+    {
+        if (!enabled || !HasStateAuthority || !prefab.IsValid || impactMask == 0 || Runner == null ||
+            !Runner.IsForward || Runner.Config == null || Runner.GetComponent<EntityRegistry>() == null) return false;
+        NetworkPrefabId id = Runner.Config.PrefabTable.GetId((NetworkObjectGuid)prefab);
+        if (!id.IsValid) return false;
+        NetworkObject prefabObject = Runner.Config.PrefabTable.Load(id, true);
+        if (prefabObject == null) return false;
+        var projectile = prefabObject.GetComponent<NetworkProjectile>();
+        var resolver = prefabObject.GetComponent<DamageResolver>();
+        return projectile != null && projectile.enabled && resolver != null && resolver.enabled;
+    }
+
     /// <summary>
     /// Attempts to spawn a projectile on the network authoritatively.
     /// Validates network authority, configuration, and dependencies before spawning.
@@ -86,9 +100,9 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
             return new ProjectileSpawnResult(false);
         }
 
-        if (_damageResolver == null)
+        if (request.IsUnbounded ? !CanSpawnIndependentProjectile(prefab, impactMask) : _damageResolver == null)
         {
-            Debug.LogError($"[CombatTrace] Projectile spawn rejected: Missing IDamageResolver dependency.", this);
+            Debug.LogError($"[CombatTrace] Projectile spawn rejected: Missing IDamageResolver dependency or independent projectile composition.", this);
             return new ProjectileSpawnResult(false);
         }
 
@@ -123,7 +137,8 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
                 if (networkObject.TryGetComponent(out NetworkProjectile projectile))
                 {
                     projectile.InitializeNetworkState(in localRequest, impactMask);
-                    projectile.SetRuntimeDependencies(_damageResolver);
+                    projectile.SetRuntimeDependencies(localRequest.IsUnbounded
+                        ? networkObject.GetComponent<DamageResolver>() : _damageResolver);
                     projectileInitialized = true;
                     Debug.Log($"[CombatTrace] Projectile inlined onBeforeSpawned initialized.", networkObject);
                 }
