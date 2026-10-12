@@ -1,0 +1,9 @@
+results/
+.venv/
+*.png
+qa-*.json
+__pycache__/
+*.pyc
+.test-output-*/
+*.tmp
+*.temp
