@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -13,6 +14,9 @@ import uuid
 POLL_INTERVAL_SECONDS = 0.1
 CLEANUP_GRACE_SECONDS = 2.0
 DEFAULT_RESULTS_DIR = Path(__file__).resolve().parent / "results"
+SCHEMA_VERSION = 1
+PHASE_NAMES = ("launch", "observe", "cleanup")
+PLAYER_LOG_CHUNK_BYTES = 64 * 1024
 
 
 class ReportIOError(OSError):
@@ -39,18 +43,26 @@ def write_report(stream, report):
     stream.flush()
 
 
-def reserve_report(directory, report):
-    """Exclusively create and preflight a report before starting any process."""
+def reserve_report(directory, report, bind=None):
+    """Exclusively create and preflight a report before starting any process.
+
+    The accepted uuid names the file and becomes `report["run_id"]`; `bind`
+    (optional) receives it before the preflight write to derive per-run paths.
+    """
     stream = None
     try:
         directory.mkdir(parents=True, exist_ok=True)
         while True:
-            path = directory / f"qa-{uuid.uuid4().hex}.json"
+            run_id = uuid.uuid4().hex
+            path = directory / f"qa-{run_id}.json"
             try:
                 stream = path.open("x", encoding="utf-8")
                 break
             except FileExistsError:
                 continue
+        report["run_id"] = run_id
+        if bind is not None:
+            bind(run_id)
         write_report(stream, report)
         return path, stream
     except OSError as exc:
@@ -90,11 +102,55 @@ def cleanup(process):
     return errors, interrupted
 
 
+def inspect_player_log(path):
+    """Evidence status only; hash in bounded chunks, never raise or return content."""
+    status = {"status": "missing", "size_bytes": None, "sha256": None, "error": None}
+    digest, size = hashlib.sha256(), 0
+    try:
+        with open(path, "rb") as stream:
+            while True:
+                chunk = stream.read(PLAYER_LOG_CHUNK_BYTES)
+                if not chunk:
+                    break
+                digest.update(chunk)
+                size += len(chunk)
+    except FileNotFoundError:
+        return status
+    except OSError as exc:
+        status.update(status="error", error=f"{type(exc).__name__}: {exc}")
+        return status
+    status.update(status="present", size_bytes=size, sha256=digest.hexdigest())
+    return status
+
+
+def seconds_since(origin):
+    """Launch-relative monotonic seconds; None when unknown. Timing never aborts a run."""
+    if origin is None:
+        return None
+    try:
+        return max(0.0, time.monotonic() - origin)
+    except Exception:
+        return None
+
+
+def first_failure(report, phase_errors):
+    """Earliest failing stage: action errors outrank their enclosing phase."""
+    for action in report["actions"]:
+        # Key-release errors are cleanup evidence and surface via the cleanup phase.
+        if action.get("status") == "error" and action["name"] != "key_release_cleanup":
+            return {"stage": action["name"], "error": action.get("error")}
+    for name in PHASE_NAMES:
+        if name in phase_errors:
+            return {"stage": name, "error": phase_errors[name]}
+    return None
+
+
 def run(executable, duration, results_dir, *, command=None, demo=None, control_factory=None):
     """Return (report, path). `command` is internal argv for stdlib child tests.
 
     ReportIOError means no reliable final report could be saved. The CLI never
-    exposes command arguments; it launches only the resolved executable.
+    exposes command arguments; it launches only the resolved executable, adding
+    only `-logFile <results>/qa-<run_id>-player.log`.
     """
     duration = positive_duration(duration)
     if demo is not None:
@@ -103,6 +159,8 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
     results_dir = Path(results_dir).resolve()
     from readiness import initial_report
     report = {
+        "schema_version": SCHEMA_VERSION,
+        "run_id": None,
         "readiness": initial_report(demo.readiness if demo is not None else None),
         "date_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "executable": str(executable),
@@ -113,6 +171,12 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
         "gameplay_validated": False,
         "actions": [],
         "evidence": [],
+        "player_log": {"requested": command is None, "path": None,
+                       "status": "pending" if command is None else "not_requested",
+                       "size_bytes": None, "sha256": None, "error": None},
+        "phases": [{"name": name, "status": "skipped",
+                    "started_at_seconds": None, "ended_at_seconds": None} for name in PHASE_NAMES],
+        "first_failure": None,
         "error": "Run incomplete; final report has not been saved.",
     }
     if demo is not None:
@@ -122,19 +186,42 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
         report["actions"] = requested_actions(demo)
         if control_factory is None:
             control_factory = Demo
-    path, stream = reserve_report(results_dir, report)
+    def bind_log_path(run_id):
+        if command is None:
+            report["player_log"]["path"] = str(results_dir / f"qa-{run_id}-player.log")
+
+    path, stream = reserve_report(results_dir, report, bind_log_path)
+    phases = {phase["name"]: phase for phase in report["phases"]}
+    phase_errors = {}
+    stage = "launch"
+    origin = None
     process = None
     control = None
+
+    def end_phase(name, status, message=None):
+        phases[name].update(status=status, ended_at_seconds=seconds_since(origin))
+        if message is not None:
+            phase_errors[name] = message
+
     try:
         with stream:
             report.pop("error")
             try:
-                argv = [str(executable)] if command is None else list(command)
+                if command is None:
+                    argv = [str(executable), "-logFile", report["player_log"]["path"]]
+                else:
+                    argv = list(command)
+                origin = time.monotonic()
+                phases["launch"]["started_at_seconds"] = 0.0
                 process = subprocess.Popen(argv, shell=False, cwd=str(executable.parent))
                 report["pid"] = process.pid
                 started = time.monotonic()
+                phases["launch"].update(status="completed", ended_at_seconds=started - origin)
+                phases["observe"]["started_at_seconds"] = started - origin
+                stage = "observe"
                 if demo is not None:
                     control = control_factory(process, started + duration, report, path, demo)
+                    control.origin = origin
                     try:
                         control.execute()
                     finally:
@@ -146,17 +233,24 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
                     if returncode is not None:
                         report["returncode"] = returncode
                         report["error"] = f"Process exited early (return code {returncode})."
+                        end_phase("observe", "error", report["error"])
                         break
                     if elapsed >= duration:
                         report["result"] = "success"
+                        end_phase("observe", "completed")
                         break
                     time.sleep(min(POLL_INTERVAL_SECONDS, duration - elapsed))
             except KeyboardInterrupt:
                 report["result"] = "interrupted"
                 report["error"] = "Observation interrupted by KeyboardInterrupt."
+                end_phase(stage, "interrupted", report["error"])
             except Exception as exc:
                 report["error"] = f"Launch/observation failed: {type(exc).__name__}: {exc}"
+                end_phase(stage, "error", report["error"])
             finally:
+                cleanup_errors, cleanup_interrupted = [], False
+                if process is not None:
+                    phases["cleanup"]["started_at_seconds"] = seconds_since(origin)
                 if (report["readiness"]["requested"]
                         and report["readiness"].get("error") == "Readiness has not completed."):
                     report["readiness"].update(state="blocked", error=report.get("error", "Readiness did not complete."))
@@ -167,6 +261,8 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
                     except (Exception, KeyboardInterrupt) as exc:
                         errors = [f"Key cleanup failed: {type(exc).__name__}: {exc}"]
                         interrupted = isinstance(exc, KeyboardInterrupt)
+                    cleanup_errors += errors
+                    cleanup_interrupted |= interrupted
                     if errors:
                         report["error"] = "; ".join(filter(None, [report.get("error"), *errors]))
                         if report["result"] != "interrupted":
@@ -175,6 +271,8 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
                         report["result"] = "interrupted"
                 if process is not None:
                     errors, interrupted = cleanup(process)
+                    cleanup_errors += errors
+                    cleanup_interrupted |= interrupted
                     if errors:
                         report["error"] = "; ".join(filter(None, [report.get("error"), *errors]))
                         if report["result"] != "interrupted":
@@ -183,6 +281,17 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
                         report["result"] = "interrupted"
                     if process.returncode is not None:
                         report["returncode"] = process.returncode
+                    end_phase("cleanup", "interrupted" if cleanup_interrupted
+                              else "error" if cleanup_errors else "completed",
+                              "; ".join(cleanup_errors) if cleanup_errors else None)
+            if report["player_log"]["requested"]:
+                # Inspect only after cleanup so the owned process cannot still be writing.
+                try:
+                    report["player_log"].update(inspect_player_log(report["player_log"]["path"]))
+                except KeyboardInterrupt:
+                    report["player_log"].update(status="error", error="Interrupted while reading the player log.")
+                    report["result"] = "interrupted"
+            report["first_failure"] = first_failure(report, phase_errors)
             write_report(stream, report)
     except OSError as exc:
         raise ReportIOError(f"Cannot save final report {path}: {exc}") from exc

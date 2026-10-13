@@ -1,6 +1,7 @@
 """QA-001 runner tests; temporary report directories stay inside qa-runner."""
 
 from contextlib import contextmanager
+import hashlib
 import importlib
 import io
 import json
@@ -11,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 QA_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(QA_ROOT))
@@ -84,7 +85,8 @@ class RunnerTests(unittest.TestCase):
             self.assertFalse(unowned.terminated)
             self.assertFalse(unowned.killed)
             launch.assert_called_once_with(
-                [str(Path(sys.executable).resolve())],
+                [str(Path(sys.executable).resolve()), "-logFile",
+                 str(Path(directory).resolve() / f"qa-{report['run_id']}-player.log")],
                 shell=False,
                 cwd=str(Path(sys.executable).resolve().parent),
             )
@@ -140,7 +142,15 @@ class RunnerTests(unittest.TestCase):
 
     def test_monotonic_exception_after_launch_still_cleans_up(self):
         with self.simulate() as (runner, process, directory, _):
-            with patch.object(runner.time, "monotonic", side_effect=RuntimeError("clock broke")):
+            reads = iter([0.0])
+
+            def broken_after_launch():
+                try:
+                    return next(reads)
+                except StopIteration:
+                    raise RuntimeError("clock broke") from None
+
+            with patch.object(runner.time, "monotonic", broken_after_launch):
                 report, _ = runner.run(sys.executable, 1, directory)
             self.assertEqual(report["result"], "failure")
             self.assertIn("clock broke", report["error"])
@@ -300,9 +310,11 @@ class RunnerTests(unittest.TestCase):
             executable.parent.mkdir()
             executable.write_bytes(b"fake executable")
             relative = executable.relative_to(Path.cwd())
-            runner.run(relative, 0.5, directory)
-            launch.assert_called_once_with([str(executable.resolve())], shell=False,
-                                           cwd=str(executable.resolve().parent))
+            report, _ = runner.run(relative, 0.5, directory)
+            launch.assert_called_once_with(
+                [str(executable.resolve()), "-logFile",
+                 str(Path(directory).resolve() / f"qa-{report['run_id']}-player.log")],
+                shell=False, cwd=str(executable.resolve().parent))
 
     def test_cli_exit_codes_for_results_and_report_errors(self):
         runner = importlib.import_module("runner")
@@ -355,6 +367,295 @@ class RunnerTests(unittest.TestCase):
             self.assertGreaterEqual(report["observed_duration_seconds"], 0.2)
             self.assertEqual(len(handles), 1)
             self.assertIsNotNone(handles[0].poll())
+
+
+class ReportV1Tests(unittest.TestCase):
+    """E3 minimal: versioned report, per-run player log, phases, first_failure."""
+
+    simulate = RunnerTests.simulate
+
+    def log_path(self, directory, report):
+        return Path(directory).resolve() / f"qa-{report['run_id']}-player.log"
+
+    @staticmethod
+    def writing_launch(process, content=None, directory=False):
+        """Fake Popen that records argv and optionally creates the requested log."""
+        calls = []
+
+        def launch(argv, **kwargs):
+            calls.append(argv)
+            if "-logFile" in argv:
+                target = Path(argv[argv.index("-logFile") + 1])
+                if directory:
+                    target.mkdir()
+                elif content is not None:
+                    target.write_bytes(content)
+            return process
+
+        return launch, calls
+
+    def test_schema_version_and_run_id_match_report_filename(self):
+        with self.simulate() as (runner, _, directory, _):
+            report, path = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["schema_version"], 1)
+            self.assertRegex(report["run_id"], r"^[0-9a-f]{32}$")
+            self.assertEqual(path.name, f"qa-{report['run_id']}.json")
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(saved, report)
+            self.assertEqual(saved["schema_version"], 1)
+
+    def test_legacy_fields_keep_their_semantics(self):
+        with self.simulate() as (runner, _, directory, _):
+            report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["result"], "success")
+            self.assertEqual(report["functional_validation"], "not_performed")
+            self.assertIs(report["gameplay_validated"], False)
+            self.assertEqual((report["actions"], report["evidence"]), ([], []))
+            self.assertNotIn("error", report)
+
+    def test_report_name_collision_reuses_single_generated_run_id(self):
+        with self.simulate() as (runner, _, directory, _):
+            (directory / "qa-existing.json").write_text("{}", encoding="utf-8")
+            with patch.object(runner.uuid, "uuid4", side_effect=[
+                    SimpleNamespace(hex="existing"), SimpleNamespace(hex="fresh")]):
+                report, path = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["run_id"], "fresh")
+            self.assertEqual(path.name, "qa-fresh.json")
+            self.assertEqual(report["player_log"]["path"], str(self.log_path(directory, report)))
+
+    def test_real_executable_gets_absolute_log_file_argument_only(self):
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, calls = self.writing_launch(process)
+            executable = directory / "Grim hold" / "Game build.exe"
+            executable.parent.mkdir()
+            executable.write_bytes(b"x")
+            report, _ = runner.run(executable, 0.5, directory)
+            log = self.log_path(directory, report)
+            self.assertEqual(calls, [[str(executable.resolve()), "-logFile", str(log)]])
+            self.assertTrue(log.is_absolute())
+            self.assertEqual(log.name, f"qa-{report['run_id']}-player.log")
+            self.assertEqual(report["player_log"]["path"], str(log))
+
+    def test_internal_command_child_gets_no_log_file_and_is_not_requested(self):
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, calls = self.writing_launch(process)
+            report, _ = runner.run(sys.executable, 0.5, directory, command=["child", "--flag"])
+            self.assertEqual(calls, [["child", "--flag"]])
+            self.assertEqual(report["player_log"], {
+                "requested": False, "path": None, "status": "not_requested",
+                "size_bytes": None, "sha256": None, "error": None})
+
+    def test_player_log_present_records_size_and_sha256_only(self):
+        content = b"Unity player log\n" * 10000 + "ñ".encode("utf-8")
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, _ = self.writing_launch(process, content)
+            report, path = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["player_log"], {
+                "requested": True, "path": str(self.log_path(directory, report)),
+                "status": "present", "size_bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(), "error": None})
+            self.assertEqual(report["result"], "success")
+            self.assertNotIn("Unity player log", path.read_text(encoding="utf-8"))
+
+    def test_player_log_is_inspected_only_after_process_cleanup(self):
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, _ = self.writing_launch(process, b"log")
+            events = []
+            original = runner.inspect_player_log
+
+            def terminate():
+                events.append("terminate")
+                process.returncode = -15
+
+            def inspect(*args):
+                events.append("inspect")
+                return original(*args)
+
+            with patch.object(process, "terminate", side_effect=terminate), \
+                    patch.object(runner, "inspect_player_log", side_effect=inspect):
+                runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(events, ["terminate", "inspect"])
+
+    def test_missing_player_log_is_visible_but_does_not_change_result(self):
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, _ = self.writing_launch(process)
+            report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["result"], "success")
+            self.assertNotIn("error", report)
+            self.assertIsNone(report["first_failure"])
+            self.assertIs(report["player_log"]["requested"], True)
+            self.assertEqual(report["player_log"]["status"], "missing")
+            self.assertIsNone(report["player_log"]["size_bytes"])
+            self.assertIsNone(report["player_log"]["sha256"])
+
+    def test_player_log_read_error_is_reported_without_raising_or_changing_result(self):
+        with self.simulate() as (runner, process, directory, launch):
+            # A directory at the log path is a genuine OSError on open().
+            launch.side_effect, _ = self.writing_launch(process, directory=True)
+            report, path = runner.run(sys.executable, 0.5, directory)
+            log = report["player_log"]
+            self.assertEqual(report["result"], "success")
+            self.assertEqual(log["status"], "error")
+            self.assertTrue(log["error"])
+            self.assertEqual((log["size_bytes"], log["sha256"]), (None, None))
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+
+    def test_player_log_mid_read_oserror_is_reported(self):
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, _ = self.writing_launch(process, b"abc")
+            broken = Mock()
+            broken.__enter__ = Mock(return_value=broken)
+            broken.__exit__ = Mock(return_value=False)
+            broken.read.side_effect = OSError("read denied")
+            with patch.object(runner, "open", create=True, return_value=broken):
+                report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["result"], "success")
+            self.assertEqual(report["player_log"]["status"], "error")
+            self.assertIn("read denied", report["player_log"]["error"])
+            self.assertIsNone(report["player_log"]["sha256"])
+
+    def test_phases_for_healthy_run_use_launch_relative_monotonic_seconds(self):
+        with self.simulate() as (runner, _, directory, _):
+            report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["phases"], [
+                {"name": "launch", "status": "completed", "started_at_seconds": 0.0, "ended_at_seconds": 0.0},
+                {"name": "observe", "status": "completed", "started_at_seconds": 0.0, "ended_at_seconds": 0.5},
+                {"name": "cleanup", "status": "completed", "started_at_seconds": 0.5, "ended_at_seconds": 0.5}])
+            self.assertIsNone(report["first_failure"])
+
+    def test_launch_origin_is_read_before_popen(self):
+        with self.simulate() as (runner, process, directory, launch):
+            clock = Clock()
+            clock.now = 100.0
+
+            def slow_launch(argv, **kwargs):
+                clock.now += 0.25
+                return process
+
+            launch.side_effect = slow_launch
+            with patch.object(runner.time, "monotonic", clock.monotonic), \
+                    patch.object(runner.time, "sleep", clock.sleep):
+                report, _ = runner.run(sys.executable, 0.5, directory)
+            launch_phase, observe_phase = report["phases"][:2]
+            self.assertEqual((launch_phase["started_at_seconds"], launch_phase["ended_at_seconds"]), (0.0, 0.25))
+            self.assertEqual(observe_phase["started_at_seconds"], 0.25)
+            self.assertEqual(report["observed_duration_seconds"], 0.5)
+
+    def test_early_exit_phases_and_first_failure_are_observe(self):
+        with self.simulate() as (runner, process, directory, _):
+            process.returncode = 7
+            report, _ = runner.run(sys.executable, 1, directory)
+            statuses = {p["name"]: p["status"] for p in report["phases"]}
+            self.assertEqual(statuses, {"launch": "completed", "observe": "error", "cleanup": "completed"})
+            self.assertEqual(report["first_failure"], {"stage": "observe", "error": report["error"]})
+            self.assertIn("return code 7", report["first_failure"]["error"])
+
+    def test_keyboard_interrupt_phases_and_first_failure(self):
+        with self.simulate() as (runner, process, directory, _):
+            with patch.object(runner.time, "sleep", side_effect=KeyboardInterrupt):
+                report, path = runner.run(sys.executable, 1, directory)
+            statuses = {p["name"]: p["status"] for p in report["phases"]}
+            self.assertEqual(statuses, {"launch": "completed", "observe": "interrupted", "cleanup": "completed"})
+            self.assertEqual(report["first_failure"]["stage"], "observe")
+            self.assertIn("KeyboardInterrupt", report["first_failure"]["error"])
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+
+    def test_launch_failure_skips_observe_and_cleanup(self):
+        for exception, status in ((OSError("launch denied"), "error"), (KeyboardInterrupt(), "interrupted")):
+            with self.subTest(status=status), self.simulate() as (runner, _, directory, launch):
+                launch.side_effect = exception
+                report, _ = runner.run(sys.executable, 1, directory)
+                phases = {p["name"]: p for p in report["phases"]}
+                self.assertEqual(phases["launch"]["status"], status)
+                self.assertEqual(phases["launch"]["started_at_seconds"], 0.0)
+                self.assertEqual(phases["observe"], {"name": "observe", "status": "skipped",
+                                                     "started_at_seconds": None, "ended_at_seconds": None})
+                self.assertEqual(phases["cleanup"]["status"], "skipped")
+                self.assertIsNone(phases["cleanup"]["started_at_seconds"])
+                self.assertEqual(report["first_failure"]["stage"], "launch")
+                self.assertEqual(report["player_log"]["status"], "missing")
+
+    def test_cleanup_error_is_first_failure_only_when_nothing_failed_earlier(self):
+        with self.simulate() as (runner, process, directory, _):
+            with patch.object(process, "terminate", side_effect=OSError("terminate denied")):
+                report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual({p["name"]: p["status"] for p in report["phases"]},
+                             {"launch": "completed", "observe": "completed", "cleanup": "error"})
+            self.assertEqual(report["first_failure"]["stage"], "cleanup")
+            self.assertIn("terminate denied", report["first_failure"]["error"])
+        with self.simulate() as (runner, process, directory, _):
+            with patch.object(runner.time, "sleep", side_effect=KeyboardInterrupt), \
+                    patch.object(process, "terminate", side_effect=OSError("terminate denied")):
+                report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["first_failure"]["stage"], "observe")
+            self.assertEqual(report["phases"][2]["status"], "error")
+
+    def test_cleanup_interruption_marks_cleanup_interrupted(self):
+        with self.simulate() as (runner, process, directory, _):
+            with patch.object(process, "terminate", side_effect=KeyboardInterrupt):
+                report, _ = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["phases"][2]["status"], "interrupted")
+            self.assertEqual(report["first_failure"]["stage"], "cleanup")
+
+    def test_unavailable_report_directory_still_raises_without_partial_claims(self):
+        with self.simulate() as (runner, _, directory, launch):
+            blocker = directory / "not-a-directory"
+            blocker.write_text("keep", encoding="utf-8")
+            with self.assertRaises(runner.ReportIOError):
+                runner.run(sys.executable, 1, blocker)
+            launch.assert_not_called()
+            self.assertEqual(sorted(p.name for p in directory.iterdir()), ["not-a-directory"])
+
+    def test_preflight_report_declares_pending_log_and_skipped_phases(self):
+        with self.simulate() as (runner, process, directory, launch):
+            snapshots = []
+
+            def observe_preflight(argv, **kwargs):
+                (path,) = directory.glob("qa-*.json")
+                snapshots.append(json.loads(path.read_text(encoding="utf-8")))
+                return process
+
+            launch.side_effect = observe_preflight
+            report, _ = runner.run(sys.executable, 0.5, directory)
+            early = snapshots[0]
+            self.assertEqual((early["schema_version"], early["run_id"]), (1, report["run_id"]))
+            self.assertEqual(early["player_log"]["status"], "pending")
+            self.assertEqual({p["status"] for p in early["phases"]}, {"skipped"})
+            self.assertIsNone(early["first_failure"])
+            self.assertIn("error", early)
+
+    def test_stdout_file_and_environment_secrets_never_reach_the_report(self):
+        secret = "QA_SYNTHETIC_SECRET_7f3a"
+        runner = importlib.import_module("runner")
+        with tempfile.TemporaryDirectory(prefix=".test-output-", dir=QA_ROOT) as directory:
+            leak = Path(directory) / "leak.txt"
+            code = ("import sys, time\n"
+                    f"print({secret!r}); sys.stdout.flush()\n"
+                    f"open({str(leak)!r}, 'w').write({secret!r})\n"
+                    "time.sleep(30)\n")
+            real_popen = subprocess.Popen
+
+            def quiet(*args, **kwargs):
+                return real_popen(*args, stdout=subprocess.DEVNULL, **kwargs)
+
+            with patch.dict("os.environ", {"QA_SYNTHETIC_ENV_SECRET": secret}), \
+                    patch.object(runner.subprocess, "Popen", side_effect=quiet):
+                report, path = runner.run(sys.executable, 1.0, directory,
+                                          command=[sys.executable, "-c", code])
+            self.assertEqual(leak.read_text(), secret)
+            self.assertEqual(report["result"], "success")
+            serialized = path.read_text(encoding="utf-8")
+            self.assertNotIn(secret, serialized)
+            self.assertNotIn(secret, json.dumps(report))
+            self.assertNotIn("QA_SYNTHETIC_ENV_SECRET", serialized)
+
+    def test_log_content_with_secret_is_hashed_never_copied(self):
+        secret = "QA_SYNTHETIC_SECRET_7f3a"
+        with self.simulate() as (runner, process, directory, launch):
+            launch.side_effect, _ = self.writing_launch(process, secret.encode())
+            report, path = runner.run(sys.executable, 0.5, directory)
+            self.assertEqual(report["player_log"]["sha256"], hashlib.sha256(secret.encode()).hexdigest())
+            self.assertNotIn(secret, path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

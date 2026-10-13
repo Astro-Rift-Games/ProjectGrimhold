@@ -694,6 +694,116 @@ class IntegrationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(sys.platform == "win32", "ctypes Windows ABI tests use a mocked DLL")
+class ActionTimingTests(unittest.TestCase):
+    """E3: action timestamps are seconds on the injected clock, relative to the launch origin."""
+
+    simulation = DemoTests.simulation
+    execute_and_release = DemoTests.execute_and_release
+
+    def test_actions_record_clock_seconds_relative_to_launch_origin(self):
+        with self.simulation() as (control, _, clock, _, gui, report, _):
+            control.origin = -1.0  # launch began one second before the clock's zero
+            original_down = gui.keyDown
+
+            def slow_down(key):
+                clock.now += 0.5
+                original_down(key)
+
+            gui.keyDown = slow_down
+            self.execute_and_release(control)
+            actions = {a["name"]: a for a in report["actions"]}
+            self.assertEqual((actions["setup"]["started_at_seconds"], actions["setup"]["ended_at_seconds"]), (1.0, 1.0))
+            self.assertEqual((actions["key_down"]["started_at_seconds"], actions["key_down"]["ended_at_seconds"]),
+                             (1.0, 1.5))
+            hold = actions["key_hold"]
+            self.assertEqual(hold["started_at_seconds"], 1.5)
+            self.assertAlmostEqual(hold["ended_at_seconds"], 1.7, places=6)
+            previous_end = 0.0
+            for action in report["actions"]:
+                self.assertGreaterEqual(action["started_at_seconds"], previous_end)
+                self.assertGreaterEqual(action["ended_at_seconds"], action["started_at_seconds"])
+                previous_end = action["ended_at_seconds"]
+
+    def test_failed_action_keeps_timing_and_later_actions_stay_none(self):
+        with self.simulation() as (control, _, clock, _, gui, report, _):
+            control.origin = 0.0
+            gui.down_error = RuntimeError("down")
+            with self.assertRaises(RuntimeError):
+                self.execute_and_release(control)
+            actions = {a["name"]: a for a in report["actions"]}
+            self.assertEqual(actions["key_down"]["status"], "error")
+            self.assertEqual(actions["key_down"]["started_at_seconds"], 0.0)
+            self.assertEqual(actions["key_down"]["ended_at_seconds"], 0.0)
+            for name in ("key_hold", "key_up", "capture_delay", "capture"):
+                self.assertEqual(actions[name]["status"], "skipped")
+                self.assertIsNone(actions[name]["started_at_seconds"])
+                self.assertIsNone(actions[name]["ended_at_seconds"])
+            cleanup = actions["key_release_cleanup"]
+            self.assertEqual(cleanup["started_at_seconds"], 0.0)
+            self.assertEqual(cleanup["ended_at_seconds"], 0.0)
+
+    def test_requested_actions_start_with_unknown_times(self):
+        wc = importlib.import_module("windows_control")
+        for action in wc.requested_actions(wc.DemoOptions("w")):
+            self.assertIsNone(action["started_at_seconds"])
+            self.assertIsNone(action["ended_at_seconds"])
+
+    def test_without_origin_timestamps_stay_none(self):
+        with self.simulation() as (control, _, _, _, _, report, _):
+            self.execute_and_release(control)
+            for action in report["actions"]:
+                self.assertEqual(action["status"], "executed")
+                self.assertIsNone(action["started_at_seconds"])
+                self.assertIsNone(action["ended_at_seconds"])
+
+    def test_runner_passes_launch_origin_and_action_error_wins_first_failure(self):
+        wc = importlib.import_module("windows_control")
+        runner = importlib.import_module("runner")
+        process, clock, gui, windows = FakeProcess(), Clock(), GUI(), Windows()
+        clock.now = 50.0
+        gui.down_error = RuntimeError("down")
+
+        def factory(*args):
+            return wc.Demo(*args, windows=windows, gui_loader=lambda: gui, clock=clock)
+
+        def launch(argv, **kwargs):
+            clock.now += 0.25
+            return process
+
+        with tempfile.TemporaryDirectory(prefix=".test-output-", dir=QA_ROOT) as directory:
+            with patch.object(runner.subprocess, "Popen", side_effect=launch),                     patch.object(runner.time, "monotonic", clock.monotonic),                     patch.object(runner.time, "sleep", clock.sleep):
+                report, path = runner.run(sys.executable, 2, directory,
+                                          demo=wc.DemoOptions("w"), control_factory=factory)
+            actions = {a["name"]: a for a in report["actions"]}
+            self.assertEqual(actions["setup"]["started_at_seconds"], 0.25)
+            self.assertEqual(actions["key_down"]["status"], "error")
+            observe = next(p for p in report["phases"] if p["name"] == "observe")
+            self.assertEqual(observe["status"], "error")
+            self.assertEqual(observe["started_at_seconds"], 0.25)
+            self.assertEqual(report["first_failure"],
+                             {"stage": "key_down", "error": "RuntimeError: down"})
+            self.assertEqual(report["result"], "failure")
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+
+    def test_key_release_cleanup_error_does_not_outrank_the_original_failure(self):
+        wc = importlib.import_module("windows_control")
+        runner = importlib.import_module("runner")
+        process, clock, gui, windows = FakeProcess(), Clock(), GUI(), Windows()
+        gui.down_error = RuntimeError("down")
+        gui.up_errors = [OSError("cannot release")] * 3
+
+        def factory(*args):
+            return wc.Demo(*args, windows=windows, gui_loader=lambda: gui, clock=clock)
+
+        with tempfile.TemporaryDirectory(prefix=".test-output-", dir=QA_ROOT) as directory:
+            with patch.object(runner.subprocess, "Popen", return_value=process),                     patch.object(runner.time, "monotonic", clock.monotonic),                     patch.object(runner.time, "sleep", clock.sleep):
+                report, _ = runner.run(sys.executable, 2, directory,
+                                       demo=wc.DemoOptions("w"), control_factory=factory)
+            self.assertEqual(report["first_failure"]["stage"], "key_down")
+            cleanup = next(p for p in report["phases"] if p["name"] == "cleanup")
+            self.assertEqual(cleanup["status"], "error")
+
+
 class Win32BoundaryTests(unittest.TestCase):
     def setUp(self):
         self.wc = importlib.import_module("windows_control")

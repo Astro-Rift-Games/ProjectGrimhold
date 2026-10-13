@@ -41,9 +41,12 @@ py -3 tools/qa-runner/runner.py --exe "C:\Builds\Grimhold\Project Grimhold.exe" 
 - The process working directory is the executable's parent so a Unity build can
   find its adjacent data. Keep the executable and all required build files
   together. No build is bundled with this tool.
-- The CLI accepts no game arguments or test-only command options. Output streams
-  are inherited; the runner does not capture game logs. Without `--demo-key`, it
-  never imports PyAutoGUI or sends input/captures images.
+- The CLI accepts no user-supplied game arguments or test-only command options.
+  The runner itself always appends `-logFile <results>/qa-<run_id>-player.log`
+  (absolute path, still one `Popen` argument list, `shell=False`) when launching
+  the real build; see [Player log](#player-log). Output streams are inherited; the
+  runner does not capture them. Without `--demo-key`, it never imports PyAutoGUI
+  or sends input/captures images.
 
 ## Observation, outcome, and cleanup
 
@@ -99,6 +102,54 @@ Each final report contains:
 | `actions` | Ordered demo steps/cleanup; empty in default mode |
 | `evidence` | Accepted saved PNG records; empty in default mode |
 | `readiness` | Independent `not_checked` (unrequested), `blocked`, or `ready` visual gate |
+| `schema_version` | Report schema version; currently `1` |
+| `run_id` | 32-hex uuid of the run; equals the `<UUID>` in `qa-<UUID>.json` |
+| `player_log` | Evidence status of the per-run Unity Player log (see below) |
+| `phases` | `launch`, `observe`, `cleanup` entries: `status` (`completed`, `error`, `interrupted`, `skipped`) plus `started_at_seconds`/`ended_at_seconds` |
+| `first_failure` | `null` for a healthy run, else `{"stage", "error"}` for the earliest failing stage |
+
+Report schema v1 is this table. Reports without `schema_version` are legacy v0:
+they are not migrated or reinterpreted, and no code reads old reports. Every v0
+field above keeps its meaning in v1.
+
+`phases` times are `time.monotonic()` seconds relative to the launch start (the
+instant just before `Popen`), or `null` when not reached/unknown. A skipped phase
+(for example `observe` after a launch error) has `null` times. In demo mode each
+`actions` entry also carries `started_at_seconds`/`ended_at_seconds` on the same
+origin (`null` for actions never attempted). `first_failure.stage` is an action
+name when an action failed (it outranks the enclosing `observe` phase), otherwise
+the failing phase: an early process exit is `observe`, an interruption is the
+phase where it happened, and cleanup errors count only if nothing failed earlier.
+
+### Player log
+
+For the real executable the runner passes Unity's `-logFile <pathname>` Player
+command-line argument (Unity 6000.0 documentation) with
+`<results>/qa-<run_id>-player.log`. This file lives in the ignored results
+directory, **may contain sensitive data (local paths, user names, machine
+details) and must be reviewed before sharing**. Log content is never copied into
+the report. After owned-process cleanup the runner records only
+`player_log`: `requested`, `path`, `status`, `size_bytes`, `sha256` and `error`.
+
+| `player_log.status` | Meaning |
+| --- | --- |
+| `not_requested` | Internal test child launched with `command`; no `-logFile` |
+| `pending` | Only in the initial preflight report |
+| `present` | File exists; `size_bytes` and `sha256` recorded |
+| `missing` | File was not created |
+| `error` | The file could not be read; `error` has the message |
+
+A `missing` or `error` log is evidence status only: it never changes `result`.
+The report never includes environment variables or child output.
+
+Live check (2026-10-12): one attended default-mode run (15s, no input or
+capture) against a local Windows build reported `schema_version` 1, a `run_id`
+matching the filename, three `completed` phases, `first_failure: null` and a
+`present` Player log (1955 bytes; recorded SHA256 matched the file). The log was
+created at the requested path and reports engine `6000.5.1f1`; the root PID was
+gone. Because the runner terminates the build, the log ends at that point and
+may be incomplete. Crash, interruption, unavailable disk and synthetic-secret
+cases are covered by unit tests only.
 
 JSON is UTF-8 and written with `allow_nan=False`. The observed interval can be
 slightly longer than requested due to scheduling. If observation itself raises,

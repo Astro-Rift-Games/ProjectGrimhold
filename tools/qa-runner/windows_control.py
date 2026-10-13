@@ -62,7 +62,8 @@ def requested_actions(options):
         names.insert(2, "readiness")
     return [{"name": name, "requested": True, "attempted": False,
              "executed": False, "status": "skipped", "key": options.key,
-             "global_input_attempted": False, "global_input_completed": False}
+             "global_input_attempted": False, "global_input_completed": False,
+             "started_at_seconds": None, "ended_at_seconds": None}
             for name in names]
 
 
@@ -199,7 +200,9 @@ class Win32:
 
 class Demo:
     def __init__(self, process, deadline, report, report_path, options, *,
-                 windows=None, gui_loader=load_gui, clock=time):
+                 windows=None, gui_loader=load_gui, clock=time, origin=None):
+        # `origin` is the launch-start instant on `clock`; action times are relative to it.
+        self.origin = origin
         self.process, self.deadline, self.report = process, deadline, report
         self.report_path, self.options = Path(report_path), options
         self.windows, self.gui_loader, self.clock = windows, gui_loader, clock
@@ -227,17 +230,28 @@ class Demo:
         if self.windows.foreground() != self.hwnd:
             raise RuntimeError("owned window does not have exact foreground focus")
 
+    def _elapsed(self):
+        """Launch-relative seconds on the injected clock; None when unknown."""
+        if self.origin is None:
+            return None
+        try:
+            return max(0.0, self.clock.monotonic() - self.origin)
+        except Exception:
+            return None
+
     @contextmanager
     def action(self, name):
         action = next(a for a in self.report["actions"] if a["name"] == name)
-        action.update(attempted=True, executed=False, status="attempted")
+        action.update(attempted=True, executed=False, status="attempted",
+                      started_at_seconds=self._elapsed())
         try:
             yield action
         except (Exception, KeyboardInterrupt) as exc:
-            action.update(status="error", error=f"{type(exc).__name__}: {exc}")
+            action.update(status="error", error=f"{type(exc).__name__}: {exc}",
+                          ended_at_seconds=self._elapsed())
             raise
         else:
-            action.update(executed=True, status="executed")
+            action.update(executed=True, status="executed", ended_at_seconds=self._elapsed())
 
     def wait_window(self):
         end = min(self.clock.monotonic() + self.options.window_wait_seconds,
@@ -401,6 +415,7 @@ class Demo:
                       "attempted": False, "executed": False, "status": "attempted",
                       "global_input_attempted": False, "global_input_completed": False,
                       "unsafe_global_release": False, "failsafe_bypassed_for_release": False,
+                      "started_at_seconds": self._elapsed(), "ended_at_seconds": None,
                       "risk": "Emergency global release may reach another app or release a human-held key."}
             self.report["actions"].append(action)
             bypass = False
@@ -433,6 +448,7 @@ class Demo:
                     action.setdefault("errors", []).append(error)
                     bypass |= isinstance(exc, self.gui.FailSafeException)
                     action.update(status="error", error=error)
+            action["ended_at_seconds"] = self._elapsed()
         if self.held_keys:
             self.report["held_keys_unreleased"] = sorted(self.held_keys)
             errors.append("Runner-owned key release failed; keys may remain held globally.")
