@@ -6047,6 +6047,11 @@ GameObject:
   - component: {fileID: 8646188970029706921}
   - component: {fileID: 4242006676801392986}
   - component: {fileID: 791565168402413673}
+  - component: {fileID: 5774937839556620212}
+  - component: {fileID: 7776138370272337216}
+  - component: {fileID: 1267196868118603551}
+  - component: {fileID: 5243855592634014373}
+  - component: {fileID: 7073042522070677366}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6184,6 +6189,7 @@ MonoBehaviour:
   _activeAttackSource: {fileID: 0}
   _movementController: {fileID: 7201000000000000005}
   _shieldDefenseController: {fileID: 8400000000000000005}
+  _empowerEffect: {fileID: 5774937839556620212}
   _IsAttackEnabled:
     RawValue: 0
 --- !u!114 &2425433471524800765
@@ -6488,6 +6494,8 @@ MonoBehaviour:
   - {fileID: 9200000000000000445}
   - {fileID: 9200000000000000199}
   - {fileID: 4242006676801392986}
+  - {fileID: 5774937839556620212}
+  - {fileID: 7776138370272337216}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9200000000000000445
 MonoBehaviour:
@@ -6514,6 +6522,9 @@ MonoBehaviour:
   - {fileID: 5120938471620394857}
   - {fileID: 8646188970029706921}
   - {fileID: 791565168402413673}
+  - {fileID: 5243855592634014373}
+  - {fileID: 1267196868118603551}
+  - {fileID: 7073042522070677366}
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10640,3 +10651,78 @@ MonoBehaviour:
   _lifetimeSeconds: 15
   _contactDamage: 3
   _damageType: 1
+--- !u!114 &5774937839556620212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c232ca7c9c59540b4137b8ae566fdd, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::EmpowerNetworkEffect
+  _character: {fileID: 729366679366126330}
+--- !u!114 &7776138370272337216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90569b3154d9e3a429e93ee788c9216d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PurificationNetworkEffect
+  _character: {fileID: 729366679366126330}
+--- !u!114 &1267196868118603551
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b39ed0ee4a957674998a01b531365214, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RestorationAbilityBehaviour
+  _definition: {fileID: 11400000, guid: 2ce312723b638ce4ab3851ac78eca10e, type: 2}
+  _radius: 3
+  _preparationSeconds: 1
+  _preparationMovementSpeedMultiplier: 0.5
+  _healAmount: 30
+--- !u!114 &5243855592634014373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28611afb95e316c4982953d64d805590, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::EmpowerAbilityBehaviour
+  _definition: {fileID: 11400000, guid: db551ee820cf778429d5ecb1a75568d0, type: 2}
+  _radius: 3
+  _damageBonusFraction: 0.3
+  _durationSeconds: 10
+--- !u!114 &7073042522070677366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f28bfb5881ce7b74f8e8fff1eb3d5c23, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PurificationAbilityBehaviour
+  _definition: {fileID: 11400000, guid: a3daf809c6cdc6343965fbb5434e0076, type: 2}
+  _radius: 3
+  _castSeconds: 0.5
+  _protectionSeconds: 5

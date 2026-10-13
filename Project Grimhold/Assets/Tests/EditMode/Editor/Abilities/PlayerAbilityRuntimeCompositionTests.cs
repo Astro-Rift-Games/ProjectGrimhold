@@ -6,6 +6,160 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class PlayerAbilityRuntimeCompositionTests
 {
+    private const int ProductionBindingCount = 8;
+    private const string ProductionBindingOrder =
+        "Charge, Seismic Strike, Trap, Arcane Projectile, Protective Orbs, Empower, Restoration and Purification.";
+
+    [TestCase(typeof(EmpowerAbilityBehaviour), "EmpowerDefinition", "empower")]
+    [TestCase(typeof(RestorationAbilityBehaviour), "RestorationDefinition", "restoration")]
+    [TestCase(typeof(PurificationAbilityBehaviour), "PurificationDefinition", "purification")]
+    public void RaidAvatar_ComposesSupportAbilityOnceWithItsCanonicalDefinition(
+        System.Type behaviourType, string definitionAsset, string expectedId)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var behaviours = prefab.GetComponents(behaviourType);
+        Assert.That(behaviours, Has.Length.EqualTo(1));
+        var behaviour = (AbilityExecutionBehaviour)behaviours[0];
+        Assert.That(behaviour.Definition, Is.SameAs(AssetDatabase.LoadAssetAtPath<AbilityDefinition>(
+            $"Assets/Scriptable Objects/Abilities/Definitions/{definitionAsset}.asset")));
+        Assert.That(behaviour.Definition.Id, Is.EqualTo(expectedId));
+
+        var bindings = new SerializedObject(prefab.GetComponent<PlayerAbilityRuntimeNetworkController>())
+            .FindProperty("_executionBehaviours");
+        int registered = 0;
+        for (int i = 0; i < bindings.arraySize; i++)
+            if (bindings.GetArrayElementAtIndex(i).objectReferenceValue == behaviour) registered++;
+        Assert.That(registered, Is.EqualTo(1), "Registered exactly once.");
+    }
+
+    [Test]
+    public void RaidAvatar_ComposesSupportEffectsOnItsNetworkRootAndFeedsEmpowerToBasicAttacks()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var character = prefab.GetComponent<PlayerCharacter>();
+        var networkObject = prefab.GetComponent<NetworkObject>();
+        var empower = prefab.GetComponents<EmpowerNetworkEffect>();
+        var purification = prefab.GetComponents<PurificationNetworkEffect>();
+        Assert.That(empower, Has.Length.EqualTo(1));
+        Assert.That(purification, Has.Length.EqualTo(1));
+        Assert.That(new SerializedObject(empower[0]).FindProperty("_character").objectReferenceValue, Is.SameAs(character));
+        Assert.That(new SerializedObject(purification[0]).FindProperty("_character").objectReferenceValue, Is.SameAs(character));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(empower[0]));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(purification[0]));
+        Assert.That(new SerializedObject(prefab.GetComponent<PlayerCombatNetworkController>())
+                .FindProperty("_empowerEffect").objectReferenceValue, Is.SameAs(empower[0]),
+            "Basic weapon attacks read the avatar's own Empower multiplier.");
+    }
+
+    [TestCase(false, false, true)]
+    [TestCase(true, false, false)]
+    [TestCase(false, true, false)]
+    public void Combat_EmpowerReferenceIsRequiredOnlyForComposedCapability(
+        bool composeEffect, bool composeBehaviour, bool expectedValid)
+    {
+        var avatar = new GameObject("InactiveCombatConfiguration");
+        avatar.SetActive(false);
+        try
+        {
+            var character = avatar.AddComponent<PlayerCharacter>();
+            // Movement requires a motor, which requires a concrete Collider2D (the base type is abstract).
+            avatar.AddComponent<Rigidbody2D>();
+            avatar.AddComponent<BoxCollider2D>();
+            avatar.AddComponent<Kinematic2DMovementMotor>();
+            var movement = avatar.AddComponent<PlayerMovementNetworkController>();
+            Assert.That(movement, Is.Not.Null, "Combat's required movement dependency must be composed.");
+            var combat = avatar.AddComponent<PlayerCombatNetworkController>();
+            if (composeEffect) avatar.AddComponent<EmpowerNetworkEffect>();
+            if (composeBehaviour) avatar.AddComponent<EmpowerAbilityBehaviour>();
+            SetPrivate(combat, "_character", character);
+            SetPrivate(combat, "_movementController", movement);
+            SetPrivate(combat, "_attackOrigin", avatar.transform);
+            if (!expectedValid)
+                UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error,
+                    "PlayerCombatNetworkController requires an assigned same-avatar EmpowerNetworkEffect on an Empower-capable avatar.");
+            Assert.That(ValidateCombat(combat), Is.EqualTo(expectedValid));
+        }
+        finally { Object.DestroyImmediate(avatar); }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void Combat_EmpowerReferenceRejectsForeignEffectOrMalformedOwner(bool foreignEffect, bool foreignOwner)
+    {
+        var avatar = new GameObject("InactiveCombatConfiguration");
+        var other = new GameObject("InactiveOtherAvatar");
+        avatar.SetActive(false);
+        other.SetActive(false);
+        try
+        {
+            var character = avatar.AddComponent<PlayerCharacter>();
+            var otherCharacter = other.AddComponent<PlayerCharacter>();
+            avatar.AddComponent<Rigidbody2D>();
+            avatar.AddComponent<BoxCollider2D>();
+            avatar.AddComponent<Kinematic2DMovementMotor>();
+            var movement = avatar.AddComponent<PlayerMovementNetworkController>();
+            Assert.That(movement, Is.Not.Null, "Combat's required movement dependency must be composed.");
+            var combat = avatar.AddComponent<PlayerCombatNetworkController>();
+            var effect = (foreignEffect ? other : avatar).AddComponent<EmpowerNetworkEffect>();
+            SetPrivate(effect, "_character", foreignOwner || foreignEffect ? otherCharacter : character);
+            SetPrivate(combat, "_character", character);
+            SetPrivate(combat, "_movementController", movement);
+            SetPrivate(combat, "_attackOrigin", avatar.transform);
+            SetPrivate(combat, "_empowerEffect", effect);
+            bool expectedValid = !foreignEffect && !foreignOwner;
+            if (!expectedValid)
+                UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error,
+                    "PlayerCombatNetworkController requires its assigned EmpowerNetworkEffect to have a valid same-avatar owner.");
+            Assert.That(ValidateCombat(combat), Is.EqualTo(expectedValid));
+        }
+        finally
+        {
+            Object.DestroyImmediate(avatar);
+            Object.DestroyImmediate(other);
+        }
+    }
+
+    [TestCase(typeof(EmpowerNetworkEffect))]
+    [TestCase(typeof(PurificationNetworkEffect))]
+    public void SupportEffect_ReadinessRejectsMissingForeignAndUnspawnedOwners(System.Type effectType)
+    {
+        var avatar = new GameObject("InactiveEffectConfiguration");
+        var other = new GameObject("InactiveOtherAvatar");
+        avatar.SetActive(false);
+        other.SetActive(false);
+        try
+        {
+            var character = avatar.AddComponent<PlayerCharacter>();
+            var foreign = other.AddComponent<PlayerCharacter>();
+            var effect = avatar.AddComponent(effectType);
+            var ownerQuery = effectType.GetProperty("IsOwnerConfigured");
+            var readinessQuery = effectType.GetProperty("IsReadyToApply");
+            Assert.That(ownerQuery.GetValue(effect), Is.False);
+            Assert.That(readinessQuery.GetValue(effect), Is.False);
+            SetPrivate(effect, "_character", foreign);
+            Assert.That(ownerQuery.GetValue(effect), Is.False);
+            Assert.That(readinessQuery.GetValue(effect), Is.False);
+            SetPrivate(effect, "_character", character);
+            Assert.That(ownerQuery.GetValue(effect), Is.True);
+            Assert.That(readinessQuery.GetValue(effect), Is.False, "An unspawned effect cannot write Fusion state.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(avatar);
+            Object.DestroyImmediate(other);
+        }
+    }
+
+    private static void SetPrivate(object target, string name, object value) =>
+        target.GetType().GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .SetValue(target, value);
+
+    private static bool ValidateCombat(PlayerCombatNetworkController combat) =>
+        (bool)typeof(PlayerCombatNetworkController)
+            .GetMethod("ValidateDependencies", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Invoke(combat, null);
+
     [Test]
     public void RaidAvatar_HasOneRuntimeWithExplicitParticipantAndAuthorizedCatalog()
     {
@@ -62,7 +216,7 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         Assert.That(seismic[0].Definition.Id, Is.EqualTo("seismic_strike"));
 
         var bindings = new SerializedObject(runtime).FindProperty("_executionBehaviours");
-        Assert.That(bindings.arraySize, Is.EqualTo(3), "Charge, Seismic Strike and Trap.");
+        Assert.That(bindings.arraySize, Is.EqualTo(ProductionBindingCount), ProductionBindingOrder);
         var registered = new[]
         {
             bindings.GetArrayElementAtIndex(0).objectReferenceValue,
@@ -116,7 +270,7 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         for (int i = 0; i < bindings.arraySize; i++)
             if (bindings.GetArrayElementAtIndex(i).objectReferenceValue == traps[0]) registered++;
         Assert.That(registered, Is.EqualTo(1), "Registered exactly once.");
-        Assert.That(bindings.arraySize, Is.EqualTo(3));
+        Assert.That(bindings.arraySize, Is.EqualTo(ProductionBindingCount), ProductionBindingOrder);
 
         var serialized = new SerializedObject(traps[0]);
         Assert.That(System.IO.File.ReadAllText("Assets/Prefabs/NetworkPlayer.prefab"),

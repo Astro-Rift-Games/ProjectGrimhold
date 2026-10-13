@@ -199,8 +199,20 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
     /// <summary>
     /// Executes the melee attack strategy authoritatively on the State Authority.
     /// </summary>
-    public AttackResult Execute(in AttackRequest request)
+    public AttackResult Execute(in AttackRequest request) => Execute(in request, 1f);
+
+    /// <summary>
+    /// Executes the swing with its damage scaled by <paramref name="damageMultiplier"/>. Only the player's basic
+    /// weapon attack passes a multiplier; the single-argument overload (enemies, tests) always deals the
+    /// configured damage.
+    /// </summary>
+    public AttackResult Execute(in AttackRequest request, float damageMultiplier)
     {
+        if (!AttackTiming.IsFinite(damageMultiplier) || damageMultiplier < 0f)
+        {
+            return AttackResult.Rejected(AttackFailureReason.ExecutionFailed);
+        }
+
         if (!_isValid)
         {
             _isValid = ValidateDependencies();
@@ -223,6 +235,8 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
 
         // Clear the buffer at the start of each execution
         _tempProcessedIds.Clear();
+
+        float damage = _runtimeParameters.Damage * damageMultiplier;
 
         // 1. Build the target query (with normalized direction)
         AttackTargetQuery targetQuery = new AttackTargetQuery(
@@ -274,7 +288,7 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                 DamageRequest damageRequest = new DamageRequest(
                     request.AttackerId,
                     target.TargetId,
-                    _runtimeParameters.Damage,
+                    damage,
                     _runtimeParameters.DamageType,
                     request.Direction,
                     target.HitPoint,

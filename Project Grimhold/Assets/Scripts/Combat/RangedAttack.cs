@@ -29,13 +29,24 @@ public sealed class RangedAttack : MonoBehaviour, IAttack
     public float CooldownSeconds => _runtimeParameters.CooldownSeconds;
     public AttackInputMode InputMode => _config != null ? _config.InputMode : AttackInputMode.Press;
 
-    /// <summary>Captures a player wind-up without spawning. Executor reconfiguration cannot mutate it.</summary>
+    /// <summary>
+    /// Captures a player wind-up without spawning. Executor reconfiguration cannot mutate it. The committed
+    /// projectile damage is the weapon damage scaled by <paramref name="damageMultiplier"/> at acceptance, so the
+    /// fired projectile keeps it whatever happens during the wind-up or flight.
+    /// </summary>
     public bool TryAcceptRelease(in AttackRequest request, float deltaTime, out RangedAttackRelease release,
-        float? releaseDelayOverrideSeconds = null)
+        float? releaseDelayOverrideSeconds = null, float damageMultiplier = 1f)
     {
         release = default;
-        return (_isValid || TryInitialize()) &&
-            release.TryAccept(request, _config, _runtimeParameters, deltaTime, releaseDelayOverrideSeconds);
+        if (!AttackTiming.IsFinite(damageMultiplier) || damageMultiplier < 0f ||
+            !(_isValid || TryInitialize()) ||
+            !release.TryAccept(request, _config, _runtimeParameters, deltaTime, releaseDelayOverrideSeconds))
+        {
+            return false;
+        }
+
+        release.Damage *= damageMultiplier;
+        return true;
     }
 
     private void Awake()

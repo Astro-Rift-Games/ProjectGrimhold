@@ -35,6 +35,10 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     [SerializeField]
     private PlayerShieldDefenseNetworkController _shieldDefenseController;
 
+    [Tooltip("Required same-avatar effect when this avatar composes Empower. Optional only on avatars without Empower capability; those use multiplier 1.")]
+    [SerializeField]
+    private EmpowerNetworkEffect _empowerEffect;
+
     private ICharacter _character;
     private IAttack _activeAttack;
     private bool _dependenciesValid;
@@ -366,7 +370,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 : null;
             aimedRelease = aimedSeconds.HasValue;
             accepted = _releaseSpawner != null &&
-                rangedAttack.TryAcceptRelease(request, Runner.DeltaTime, out release, aimedSeconds);
+                rangedAttack.TryAcceptRelease(request, Runner.DeltaTime, out release, aimedSeconds,
+                    GetBasicAttackDamageMultiplier());
             if (!accepted) return;
             // Capture all projectile data before the shared executor can be reconfigured.
             PendingRangedRelease = release;
@@ -436,6 +441,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         ? (Vector2)_attackOrigin.position
         : (Vector2)transform.position;
 
+    // Applies to the player's basic weapon attacks only: enemies and abilities never go through this controller.
+    private float GetBasicAttackDamageMultiplier() => _empowerEffect != null
+        ? _empowerEffect.GetBasicAttackDamageMultiplier()
+        : 1f;
+
     private int GetActiveWeaponCatalogIndexPlusOne() => _equipmentController != null
         ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
         : 0;
@@ -474,7 +484,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 GetAttackOriginPosition(),
                 direction,
                 (int)Runner.Tick);
-            if (meleeAttack.Execute(in request).WasExecuted)
+            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier()).WasExecuted)
                 LastAttackCancellationTick = -1;
         }
     }
@@ -705,6 +715,22 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (_movementController == null)
         {
             Debug.LogError($"{nameof(PlayerCombatNetworkController)} requires an assigned {nameof(PlayerMovementNetworkController)}.", this);
+            return false;
+        }
+
+        // This is a one-time composition check, never a gameplay search or an implicit assignment.
+        // Generic combat avatars/fixtures deliberately without Empower remain valid with multiplier 1.
+        if (_empowerEffect == null &&
+            (GetComponent<EmpowerNetworkEffect>() != null || GetComponent<EmpowerAbilityBehaviour>() != null))
+        {
+            Debug.LogError($"{nameof(PlayerCombatNetworkController)} requires an assigned same-avatar {nameof(EmpowerNetworkEffect)} on an Empower-capable avatar.", this);
+            return false;
+        }
+
+        if (_empowerEffect != null &&
+            (_empowerEffect.gameObject != gameObject || !_empowerEffect.IsOwnerConfigured))
+        {
+            Debug.LogError($"{nameof(PlayerCombatNetworkController)} requires its assigned {nameof(EmpowerNetworkEffect)} to have a valid same-avatar owner.", this);
             return false;
         }
 

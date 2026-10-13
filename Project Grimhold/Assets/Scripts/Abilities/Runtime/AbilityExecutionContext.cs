@@ -43,4 +43,14 @@ public readonly struct AbilityExecutionContext
     public bool TryFindEnemiesInArea(float radius, List<AttackTarget> results) =>
         _areaTargets != null && Character != null &&
         _areaTargets.TryFindEnemies(Runner, Character.Id, radius, results);
+
+    /// <summary>
+    /// Caster-centered area entry for ally abilities. The caster is part of its own ally set and comes first, then
+    /// initial teammates by distance and EntityId. Call it from <c>TryPlanStart</c> and again from resolution; each
+    /// call rebuilds the allies around the caster's current position. Particular conditions are the caller's.
+    /// Returns false when targeting is unavailable.
+    /// </summary>
+    public bool TryFindAlliesInArea(float radius, List<PlayerCharacter> results) =>
+        _areaTargets != null && Character != null &&
+        _areaTargets.TryFindAllies(Runner, Character, radius, results);
 }
