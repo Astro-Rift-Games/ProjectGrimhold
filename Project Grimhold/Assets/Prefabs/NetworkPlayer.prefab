@@ -6052,6 +6052,7 @@ GameObject:
   - component: {fileID: 1267196868118603551}
   - component: {fileID: 5243855592634014373}
   - component: {fileID: 7073042522070677366}
+  - component: {fileID: 9200000000000000494}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -6525,6 +6526,25 @@ MonoBehaviour:
   - {fileID: 5243855592634014373}
   - {fileID: 1267196868118603551}
   - {fileID: 7073042522070677366}
+  - {fileID: 9200000000000000494}
+--- !u!114 &9200000000000000494
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 649c0a7ebf17450b872d5fda5760d9a1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::VitalDrainAbilityBehaviour
+  _definition: {fileID: 11400000, guid: 0f09c3fe24156c34698f5699dae2624d, type: 2}
+  _radius: 3
+  _preparationSeconds: 0.75
+  _damage: 5
+  _damageType: 1
+  _drainProportion: 0.5
 --- !u!114 &7201000000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
