@@ -229,6 +229,21 @@ class RunnerTests(unittest.TestCase):
                     runner.main(args)
                 self.assertEqual(raised.exception.code, 2)
 
+    def test_cli_acquire_focus_requires_demo_key_and_reaches_demo_options(self):
+        runner = importlib.import_module("runner")
+        base = ["--exe", sys.executable, "--duration", "2"]
+        with patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                runner.main(base + ["--acquire-focus"])
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("--acquire-focus requires --demo-key", stderr.getvalue())
+        for extra, expected in (([], False), (["--acquire-focus"], True)):
+            with self.subTest(extra=extra), \
+                    patch.object(runner, "run", return_value=({"result": "success"}, Path("r.json"))) as run, \
+                    patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(runner.main(base + ["--demo-key", "w"] + extra), 0)
+                self.assertIs(run.call_args.kwargs["demo"].acquire_focus, expected)
+
     def test_json_schema_utc_finite_and_unique_reports(self):
         with self.simulate() as (runner, _, directory, _):
             first_report, first_path = runner.run(sys.executable, 0.5, directory)

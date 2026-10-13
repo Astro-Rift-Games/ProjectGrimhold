@@ -49,6 +49,12 @@ class Windows:
         self.region = (10, 20, 320, 240)
         self.pressed = set()
         self.pixel_context = False
+        self.set_foreground_calls = []
+        self.on_set_foreground = lambda hwnd, attempt: False
+
+    def set_foreground(self, hwnd):
+        self.set_foreground_calls.append(hwnd)
+        return bool(self.on_set_foreground(hwnd, len(self.set_foreground_calls)))
 
     @contextmanager
     def physical_pixels(self):
@@ -532,6 +538,165 @@ class DemoTests(unittest.TestCase):
             self.assertTrue(Path(second).is_file())
 
 
+class FocusAcquisitionTests(unittest.TestCase):
+    """Opt-in SetForegroundWindow on the owned HWND only; mocks, never a desktop."""
+    simulation = DemoTests.simulation
+    execute_and_release = DemoTests.execute_and_release
+
+    def grant_on(self, windows, attempt_number):
+        def grant(hwnd, attempt):
+            if attempt == attempt_number:
+                windows.focus = hwnd
+            return attempt == attempt_number
+        windows.on_set_foreground = grant
+
+    def test_flag_absent_never_calls_set_foreground_and_reports_manual_policy(self):
+        for focused in (True, False):
+            with self.subTest(focused=focused), self.simulation(window_wait_seconds=0.5) as values:
+                control, _, _, windows, gui, report, _ = values
+                if focused:
+                    self.execute_and_release(control)
+                else:
+                    windows.focus = 999
+                    with self.assertRaisesRegex(RuntimeError, "timeout"):
+                        self.execute_and_release(control)
+                    self.assertEqual(gui.events, [])
+                self.assertEqual(windows.set_foreground_calls, [])
+                focus = report["focus"]
+                self.assertEqual(focus["policy"], "manual")
+                self.assertEqual(focus["set_foreground_attempts"], 0)
+                self.assertEqual(focus["set_foreground_results"], [])
+                self.assertIsNone(focus["error"])
+
+    def test_acquire_already_foreground_makes_no_attempt(self):
+        with self.simulation(acquire_focus=True) as (control, _, _, windows, gui, report, _):
+            self.execute_and_release(control)
+            self.assertEqual(windows.set_foreground_calls, [])
+            self.assertEqual(report["focus"], {
+                "policy": "acquire", "auto_foreground": True, "set_foreground_attempts": 0,
+                "set_foreground_results": [], "acquired": True, "error": None})
+            self.assertEqual([e[0] for e in gui.events], ["down", "up", "capture"])
+
+    def test_acquire_succeeds_after_second_attempt_half_a_second_apart(self):
+        with self.simulation(acquire_focus=True) as (control, _, clock, windows, gui, report, _):
+            windows.focus = 999
+            times = []
+            self.grant_on(windows, 2)
+            granting = windows.on_set_foreground
+            windows.on_set_foreground = lambda hwnd, attempt: (times.append(clock.now), granting(hwnd, attempt))[1]
+            self.execute_and_release(control)
+            focus = report["focus"]
+            self.assertEqual(focus["set_foreground_results"], [False, True])
+            self.assertEqual(focus["set_foreground_attempts"], 2)
+            self.assertFalse(focus["auto_foreground"])
+            self.assertTrue(focus["acquired"])
+            self.assertIsNone(focus["error"])
+            self.assertGreaterEqual(times[1] - times[0], 0.5)
+            self.assertEqual([e[0] for e in gui.events], ["down", "up", "capture"])
+            json.dumps(report, allow_nan=False)
+
+    def test_acquire_always_refused_blocks_with_foreground_lock_and_bounded_attempts(self):
+        with self.simulation(duration=30, window_wait_seconds=8, acquire_focus=True) as values:
+            control, _, clock, windows, gui, report, _ = values
+            windows.focus = 999
+            with self.assertRaisesRegex(RuntimeError, r"^foreground lock:.*foreground"):
+                self.execute_and_release(control)
+            self.assertEqual(gui.events, [])
+            self.assertEqual(windows.set_foreground_calls, [101] * 4)
+            self.assertLessEqual(clock.now, 8)
+            focus = report["focus"]
+            self.assertEqual(focus["set_foreground_attempts"], 4)
+            self.assertEqual(focus["set_foreground_results"], [False] * 4)
+            self.assertFalse(focus["acquired"])
+            self.assertFalse(focus["auto_foreground"])
+            self.assertTrue(focus["error"].startswith("foreground lock:"))
+            self.assertEqual(report["actions"][1]["status"], "error")
+            self.assertIn("foreground lock:", report["actions"][1]["error"])
+            self.assertEqual(report["actions"][-1]["status"], "skipped")
+
+    def test_attempts_stay_within_the_window_wait_deadline(self):
+        with self.simulation(duration=30, window_wait_seconds=0.7, acquire_focus=True) as values:
+            control, _, clock, windows, gui, report, _ = values
+            windows.focus = 999
+            with self.assertRaisesRegex(RuntimeError, "^foreground lock:"):
+                self.execute_and_release(control)
+            self.assertLessEqual(clock.now, 0.7)
+            self.assertEqual(report["focus"]["set_foreground_attempts"], 2)
+
+    def test_ambiguous_or_absent_windows_fail_before_any_set_foreground(self):
+        for handles, error in (([101, 102], "ambiguous"), ([], "timeout")):
+            with self.subTest(handles=handles), self.simulation(window_wait_seconds=0.3,
+                                                                acquire_focus=True) as values:
+                control, _, _, windows, gui, report, _ = values
+                windows.handles, windows.focus = handles, 999
+                with self.assertRaisesRegex(RuntimeError, error):
+                    self.execute_and_release(control)
+                self.assertEqual(windows.set_foreground_calls, [])
+                self.assertEqual(gui.events, [])
+                self.assertEqual(report["focus"]["set_foreground_attempts"], 0)
+                self.assertFalse(report["focus"]["acquired"])
+
+    def test_second_window_appearing_mid_wait_stops_attempts(self):
+        with self.simulation(duration=30, window_wait_seconds=5, acquire_focus=True) as values:
+            control, _, _, windows, gui, report, _ = values
+            windows.focus = 999
+            def refuse_and_add_window(hwnd, attempt):
+                windows.handles = [101, 102]
+                return False
+            windows.on_set_foreground = refuse_and_add_window
+            with self.assertRaisesRegex(RuntimeError, "ambiguous"):
+                self.execute_and_release(control)
+            self.assertEqual(windows.set_foreground_calls, [101])
+            self.assertEqual(gui.events, [])
+
+    def test_set_foreground_only_receives_the_owned_hwnd(self):
+        with self.simulation(duration=30, window_wait_seconds=3, acquire_focus=True) as values:
+            control, _, _, windows, _, _, _ = values
+            windows.focus = 999
+            with self.assertRaises(RuntimeError):
+                self.execute_and_release(control)
+            self.assertTrue(windows.set_foreground_calls)
+            self.assertEqual(set(windows.set_foreground_calls), {101})
+
+    def test_options_default_is_manual_and_flag_must_be_boolean(self):
+        wc = importlib.import_module("windows_control")
+        self.assertFalse(wc.DemoOptions("w").acquire_focus)
+        self.assertTrue(wc.DemoOptions("w", acquire_focus=True).acquire_focus)
+        with self.assertRaises(ValueError):
+            wc.DemoOptions("w", acquire_focus="yes")
+
+    def test_runner_persists_focus_report_and_keeps_schema_version(self):
+        wc = importlib.import_module("windows_control")
+        runner = importlib.import_module("runner")
+        process, clock, gui, windows = FakeProcess(), Clock(), GUI(), Windows()
+        windows.focus = 999
+        def factory(*args):
+            return wc.Demo(*args, windows=windows, gui_loader=lambda: gui, clock=clock)
+        with tempfile.TemporaryDirectory(prefix=".test-output-", dir=QA_ROOT) as directory:
+            with patch.object(runner.subprocess, "Popen", return_value=process), \
+                    patch.object(runner.time, "monotonic", clock.monotonic), \
+                    patch.object(runner.time, "sleep", clock.sleep):
+                report, path = runner.run(sys.executable, 20, directory,
+                                          demo=wc.DemoOptions("w", window_wait_seconds=3, acquire_focus=True),
+                                          control_factory=factory)
+            self.assertEqual(report["schema_version"], 1)
+            self.assertEqual(report["result"], "failure")
+            self.assertEqual(report["first_failure"]["stage"], "window_wait")
+            self.assertIn("foreground lock:", report["first_failure"]["error"])
+            self.assertEqual(gui.events, [])
+            self.assertIsNotNone(process.returncode)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+            self.assertEqual(report["focus"]["policy"], "acquire")
+            self.assertGreater(report["focus"]["set_foreground_attempts"], 0)
+
+    def test_module_source_excludes_forbidden_focus_techniques(self):
+        source = (QA_ROOT / "windows_control.py").read_text(encoding="utf-8")
+        for name in ("AttachThreadInput", "keybd_event", "SendInput", "ShowWindow",
+                     "AllowSetForegroundWindow", "SystemParametersInfo", "LockSetForegroundWindow",
+                     "BringWindowToTop", "SwitchToThisWindow"):
+            self.assertNotIn(name, source)
+
+
 class IntegrationTests(unittest.TestCase):
     def test_demo_report_and_cleanup_before_process_termination(self):
         wc = importlib.import_module("windows_control")
@@ -906,6 +1071,20 @@ class Win32BoundaryTests(unittest.TestCase):
         self.api.GetAsyncKeyState.return_value = -32768
         self.assertTrue(self.windows.physically_held("ctrl"))
         self.api.GetAsyncKeyState.assert_called_with(0x11)
+
+    def test_set_foreground_binds_lazily_with_hwnd_bool_signature_and_returns_bool(self):
+        self.assertFalse(hasattr(self.api, "SetForegroundWindow"))  # not required by setup
+        self.api.SetForegroundWindow = Mock(side_effect=[0, 5])
+        self.assertIs(self.windows.set_foreground(self.hwnd), False)
+        self.assertIs(self.windows.set_foreground(self.hwnd), True)
+        self.assertEqual(self.api.SetForegroundWindow.argtypes, [wintypes.HWND])
+        self.assertEqual(self.api.SetForegroundWindow.restype, wintypes.BOOL)
+        self.assertEqual([c.args for c in self.api.SetForegroundWindow.call_args_list],
+                         [(self.hwnd,), (self.hwnd,)])
+
+    def test_set_foreground_missing_api_fails_instead_of_falling_back(self):
+        with self.assertRaises(AttributeError):
+            self.windows.set_foreground(self.hwnd)
 
 
 @unittest.skipUnless(importlib.util.find_spec("PIL"), "PNG decode checks require demo Pillow dependency")

@@ -225,6 +225,27 @@ verification**:
   **only the launched root PID**, never titles. Absent windows/wrong focus time
   out; multiple candidates fail rather than choosing one. Child-process windows
   and owned dialogs are unsupported.
+- `--acquire-focus` (requires `--demo-key`; off by default) replaces the manual
+  focus step. Without it the runner never calls `SetForegroundWindow`. With it, once
+  exactly one owned visible root HWND exists for the launched PID and it is not
+  the exact foreground window, the runner calls `SetForegroundWindow(hwnd)` on
+  **that HWND only**, every 0.5 s, at most 4 attempts, all inside the existing
+  window-wait deadline. Success is the unchanged exact-foreground guard, not the
+  call's return value. Ambiguous or absent windows fail before any call. If focus is
+  not obtained, the run fails with an error starting `foreground lock:`, exactly
+  like a window-wait failure: no input, readiness `blocked` if requested, cleanup.
+  - **Measured limitation (2026-10-13):** Windows' foreground lock prevents a
+    process without foreground rights from taking focus. Launched from a
+    non-foreground process, the build window never received focus and
+    `SetForegroundWindow` returned 0 (also with `AttachThreadInput`). Launched from
+    a foreground terminal, the window received focus by itself in ~1 s (2/2).
+  - **Launch requirement:** start the runner from the foreground interactive
+    context (a focused terminal), not from a background or scheduled process. The
+    flag cannot bypass the lock; it only requests focus and reports the outcome.
+  - **Excluded techniques:** `AttachThreadInput`, synthetic key events
+    (`keybd_event`/`SendInput`), `ShowWindow`/minimize tricks,
+    `AllowSetForegroundWindow`, `SystemParametersInfo`, and touching any window
+    other than the owned HWND.
 - HWND/PID validity, sole-root ownership, process liveness, unsafe held modifiers,
   and exact foreground HWND are rechecked before every normal key event
   (including release) and around capture, and approximately every 20ms while
@@ -282,6 +303,12 @@ The QA-001 JSON reservation/timestamp/lifecycle remains unchanged. Demo reports
 also set `demo_requested: true`, add `window` metadata (HWND, PID, physical-pixel
 coordinates, primary-only limitation), and list these ordered action steps:
 `setup`, `window_wait`, `key_down`, `key_hold`, `key_up`, `capture_delay`, `capture`.
+Demo reports also carry a `focus` object (additive; `schema_version` stays 1):
+`policy` (`"manual"` or `"acquire"`), `auto_foreground` (exact focus was present
+before any `SetForegroundWindow` call), `set_foreground_attempts` (int),
+`set_foreground_results` (list of the calls' boolean results), `acquired` (exact
+foreground was reached under `acquire`) and `error` (`foreground lock: ...` or
+null). For `manual`, attempts are `0`, results `[]` and `acquired` is `false`.
 Additional `key_release_cleanup` actions are appended when needed. Setup/window/
 input/capture failures and interruptions are persisted after cleanup, provided
 report storage remains writable.

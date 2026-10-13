@@ -315,6 +315,9 @@ def main(argv=None):
     parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS_DIR,
                         help=f"report directory (default: {DEFAULT_RESULTS_DIR})")
     parser.add_argument("--demo-key", help="opt in to one global key press/release then PNG capture (Windows only)")
+    parser.add_argument("--acquire-focus", action="store_true",
+                        help="demo-only opt-in: request foreground focus for the owned window "
+                             "(launch the runner from the foreground interactive context)")
     parser.add_argument("--window-wait", type=duration_argument, default=None,
                         help="demo-only manual focus/window wait seconds (default 10; maximum 60)")
     parser.add_argument("--key-hold", type=duration_argument, default=None,
@@ -345,6 +348,8 @@ def main(argv=None):
     if args.demo_key is None:
         if any(value is not None for value in (args.window_wait, args.key_hold, args.capture_delay)):
             parser.error("demo timing options require --demo-key")
+        if args.acquire_focus:
+            parser.error("--acquire-focus requires --demo-key")
     else:
         from windows_control import DemoOptions
         try:
@@ -352,7 +357,7 @@ def main(argv=None):
                                window_wait_seconds=args.window_wait if args.window_wait is not None else 10,
                                hold_seconds=args.key_hold if args.key_hold is not None else 0.2,
                                capture_delay_seconds=args.capture_delay if args.capture_delay is not None else 0.2,
-                               readiness=ready)
+                               readiness=ready, acquire_focus=args.acquire_focus)
             demo.validate_duration(args.duration)
         except ValueError as exc:
             parser.error(str(exc))

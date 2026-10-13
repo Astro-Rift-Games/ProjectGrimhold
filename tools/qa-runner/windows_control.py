@@ -22,6 +22,8 @@ VIRTUAL_KEYS = {"w": 0x57, "a": 0x41, "s": 0x53, "d": 0x44, "q": 0x51,
                 "left": 0x25, "right": 0x27, "shift": 0x10, "ctrl": 0x11,
                 "alt": 0x12, "winleft": 0x5B, "winright": 0x5C}
 CHECK_INTERVAL = 0.02
+FOCUS_ATTEMPT_INTERVAL = 0.5
+FOCUS_MAX_ATTEMPTS = 4
 RELEASE_ATTEMPTS = 3
 ACTION_NAMES = ("setup", "window_wait", "key_down", "key_hold", "key_up", "capture_delay", "capture")
 
@@ -33,8 +35,11 @@ class DemoOptions:
     hold_seconds: float = 0.2
     capture_delay_seconds: float = 0.2
     readiness: object = None
+    acquire_focus: bool = False
 
     def __post_init__(self):
+        if not isinstance(self.acquire_focus, bool):
+            raise ValueError("acquire_focus must be a boolean")
         if self.readiness is not None:
             from readiness import ReadyOptions
             if not isinstance(self.readiness, ReadyOptions):
@@ -153,6 +158,12 @@ class Win32:
     def foreground(self):
         return self.api.GetForegroundWindow()
 
+    def set_foreground(self, hwnd):
+        # Opt-in focus acquisition only: lazily bound so the default setup is unchanged.
+        function = self.api.SetForegroundWindow
+        function.argtypes, function.restype = [wintypes.HWND], wintypes.BOOL
+        return bool(function(hwnd))
+
     def physically_held(self, key):
         return bool(self.api.GetAsyncKeyState(VIRTUAL_KEYS[key]) & 0x8000)
 
@@ -210,6 +221,7 @@ class Demo:
         self.held_keys = set()
         from readiness import initial_report
         report.setdefault("readiness", initial_report(options.readiness))
+        self.focus_report()
         if not report["actions"]:
             report["actions"] = requested_actions(options)
 
@@ -253,12 +265,35 @@ class Demo:
         else:
             action.update(executed=True, status="executed", ended_at_seconds=self._elapsed())
 
+    def focus_report(self):
+        # Looked up on the current report: callers may rebind `report` after construction.
+        return self.report.setdefault("focus", {
+            "policy": "acquire" if self.options.acquire_focus else "manual", "auto_foreground": False,
+            "set_foreground_attempts": 0, "set_foreground_results": [],
+            "acquired": False, "error": None})
+
+    def _acquire_foreground(self, next_attempt):
+        """Ask for focus on the validated owned HWND only; returns the next attempt time."""
+        focus = self.focus_report()
+        now = self.clock.monotonic()
+        if focus["set_foreground_attempts"] >= FOCUS_MAX_ATTEMPTS or now < next_attempt:
+            return next_attempt
+        self.windows.validate(self.hwnd, self.process.pid)
+        focus["set_foreground_results"].append(bool(self.windows.set_foreground(self.hwnd)))
+        focus["set_foreground_attempts"] += 1
+        return now + FOCUS_ATTEMPT_INTERVAL
+
     def wait_window(self):
         end = min(self.clock.monotonic() + self.options.window_wait_seconds,
                   self.deadline - self.options.hold_seconds - self.options.capture_delay_seconds)
+        focus, next_attempt = self.focus_report(), 0.0
         while True:
             self._alive()
             if self.clock.monotonic() >= end:
+                if self.options.acquire_focus and self.hwnd is not None:
+                    focus["error"] = ("foreground lock: the owned window never received foreground focus; "
+                                      "launch the runner from the foreground interactive context")
+                    raise RuntimeError(focus["error"])
                 raise RuntimeError("owned window/manual focus wait timeout within observation deadline")
             handles = self.windows.owned_windows(self.process.pid)
             if len(handles) > 1:
@@ -269,8 +304,13 @@ class Demo:
                 self.report["window"] = {"hwnd": int(self.hwnd), "pid": self.process.pid,
                                          "coordinate_space": "physical_pixels", "monitor": "primary_only"}
                 if self.windows.foreground() == self.hwnd:
+                    if self.options.acquire_focus:
+                        focus["auto_foreground"] = focus["set_foreground_attempts"] == 0
+                        focus["acquired"] = True
                     self.guard()
                     return
+                if self.options.acquire_focus:
+                    next_attempt = self._acquire_foreground(next_attempt)
             self.clock.sleep(max(0, min(CHECK_INTERVAL, end - self.clock.monotonic())))
 
     def guarded_wait(self, seconds):

@@ -329,6 +329,19 @@ class ReadinessLifecycleTests(unittest.TestCase):
                 self.assertNotEqual(report["readiness"]["error"], "Readiness has not completed.")
                 self.assertEqual(report["evidence"], [])
 
+    def test_foreground_lock_blocks_requested_readiness_without_input_or_evidence(self):
+        with self.simulation() as (control, _, _, windows, gui, report, _):
+            object.__setattr__(control.options, "acquire_focus", True)
+            windows.focus = 999
+            with self.assertRaisesRegex(RuntimeError, "^foreground lock:"):
+                self.execute(control)
+            self.assert_no_input(gui)
+            self.assertEqual(report["readiness"]["state"], "blocked")
+            self.assertIn("foreground lock:", report["readiness"]["error"])
+            self.assertEqual(report["evidence"], [])
+            self.assertGreater(report["focus"]["set_foreground_attempts"], 0)
+            self.assertEqual(set(windows.set_foreground_calls), {101})
+
     def test_processing_and_window_wait_share_original_deadline(self):
         with self.simulation(duration=0.5, timeout=10) as values:
             control, _, clock, windows, gui, report, _ = values
