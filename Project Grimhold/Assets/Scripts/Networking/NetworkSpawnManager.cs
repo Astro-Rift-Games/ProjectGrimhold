@@ -91,6 +91,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     [SerializeField]
     private AbilityDefinitionCatalog _abilityCatalog;
 
+    [SerializeField]
+    private ReconnectBudgetConfig _reconnectBudgetConfig;
+
     private readonly HashSet<PlayerRef> _admittedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
@@ -1982,6 +1985,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
+        if (TryValidateReconnectToken(token, out RaidReconnectPayload reconnectPayload))
+        {
+            if (!_disconnectedRegistry.IsRetained(reconnectPayload.ProfileId) ||
+                !_disconnectedRegistry.TryGetRetainedParticipant(reconnectPayload.ProfileId, out NetworkObject participantObject) ||
+                participantObject == null ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.State != RaidParticipantState.Raiding ||
+                participant.RaidGenerationId.ToString() != reconnectPayload.RaidGenerationId)
+            {
+                Debug.LogWarning($"[NetworkSpawnManager] Refusing reconnect request: invalid or not retained profile {reconnectPayload.ProfileId.Value}.");
+                request.Refuse();
+            }
+            else
+            {
+                Debug.Log($"[NetworkSpawnManager] Accepting reconnect request for profile {reconnectPayload.ProfileId.Value}.");
+            }
+            return;
+        }
+
         if (_launchContext != null && !TryValidateRaidAdmissionToken(token, out _))
         {
             Debug.LogWarning("[NetworkSpawnManager] Refusing connection request with an invalid raid admission token.");
@@ -1994,25 +2016,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (!allowJoin)
         {
-            if (TryValidateReconnectToken(token, out RaidReconnectPayload reconnectPayload))
-            {
-                if (!_disconnectedRegistry.IsRetained(reconnectPayload.ProfileId) ||
-                    !_disconnectedRegistry.TryGetRetainedParticipant(reconnectPayload.ProfileId, out NetworkObject participantObject) ||
-                    participantObject == null ||
-                    !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
-                    participant.State != RaidParticipantState.Raiding ||
-                    participant.RaidGenerationId.ToString() != reconnectPayload.RaidGenerationId)
-                {
-                    Debug.LogWarning($"[NetworkSpawnManager] Refusing reconnect request: invalid or not retained profile {reconnectPayload.ProfileId.Value}.");
-                    request.Refuse();
-                }
-                else 
-                {
-                    Debug.Log($"[NetworkSpawnManager] Accepting reconnect request for profile {reconnectPayload.ProfileId.Value}.");
-                }
-                return;
-            }
-
             Debug.LogWarning($"[NetworkSpawnManager] Refusing connection request from {request.RemoteAddress} because the match has already started (Phase: {_matchController?.Phase}) and it's not a valid Host Migration window.");
             request.Refuse();
         }
@@ -2670,6 +2673,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             runner.Despawn(participantObject);
             Debug.LogError($"Rejecting spawn for player {player}: participant initialization failed.");
             return false;
+        }
+
+        if (participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+        {
+            connectivity.InitializeBudget(_reconnectBudgetConfig);
+        }
+        else
+        {
+            Debug.LogError(
+                $"[NetworkSpawnManager] Participant prefab is missing {nameof(RaidParticipantConnectivity)}.",
+                participantObject);
         }
 
         runner.SetPlayerObject(player, participantObject);
@@ -3779,7 +3793,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         bool isAvatarDowned = IsAvatarDowned(avatarObject);
         bool hasEligibleDecider = HasEligibleDecider(participant);
-        bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity);
+        bool hasValidBudgetConfig = _reconnectBudgetConfig != null && _reconnectBudgetConfig.TryValidate(out _);
+        bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity) && hasValidBudgetConfig;
+
+        if (!hasValidBudgetConfig && participant.State == RaidParticipantState.Raiding)
+        {
+            Debug.LogError(
+                $"[RAID-DISCONNECT] ReconnectBudgetConfig is missing or invalid on Host. " +
+                $"Retaining participant '{profileId}' disabled; falling back to definitive disconnect.",
+                this);
+        }
 
         PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
             participant.State,
@@ -3917,7 +3940,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
 
             bool hasEligibleDecider = HasEligibleDecider(participant);
-            bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity);
+            bool hasValidBudgetConfig = _reconnectBudgetConfig != null && _reconnectBudgetConfig.TryValidate(out _);
+            bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity) && hasValidBudgetConfig;
 
             PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
                 participant.State,
