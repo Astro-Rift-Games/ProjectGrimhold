@@ -37,6 +37,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _clientJoinRetryDelaySeconds = 0.5f;
 
+    [SerializeField, Min(1f)]
+    private float _clientSessionAvailabilityTimeoutSeconds = 40f;
+
     [Header("Direct Development Context")]
     [SerializeField]
     private string _developmentRaidCode = "900001";
@@ -65,8 +68,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private SessionTransitionResult? _pendingTransitionFailure;
     private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
-
-    private const int MaximumCoordinatedClientAttempts = 5;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -339,6 +340,20 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return launchContext != null &&
                role == RaidConnectionRole.Client &&
                FusionSessionLauncher.IsSessionAvailabilityPending(shutdownReason);
+    }
+
+    /// <summary>
+    /// Determines whether a Client should keep polling while a frozen cohort waits for its Host,
+    /// bounded by the remaining availability timeout budget.
+    /// </summary>
+    public static bool ShouldRetryRaidSessionAvailability(
+        RaidLaunchContext launchContext,
+        RaidConnectionRole role,
+        ShutdownReason shutdownReason,
+        float remainingSeconds)
+    {
+        return remainingSeconds > 0f &&
+               ShouldRetryRaidSessionAvailability(launchContext, role, shutdownReason);
     }
 
     internal static bool ShouldRecoverRaidShutdown(
@@ -857,8 +872,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             bool started = false;
             bool availabilityWaitLogged = false;
+            ShutdownReason lastObservedShutdownReason = ShutdownReason.Ok;
             int coordinatedAttempt = 0;
-            while (!started && coordinatedAttempt < MaximumCoordinatedClientAttempts)
+            float deadline = Time.realtimeSinceStartup + _clientSessionAvailabilityTimeoutSeconds;
+            while (!started)
             {
                 if (_isQuitting)
                 {
@@ -883,25 +900,47 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     break;
                 }
 
+                ShutdownReason lastReason = _raidLauncher.LastStartShutdownReason;
+                float remainingSeconds = deadline - Time.realtimeSinceStartup;
                 bool hostSessionPending = ShouldRetryRaidSessionAvailability(
                                               ticket.LaunchContext,
                                               ticket.Request.Role,
-                                              _raidLauncher.LastStartShutdownReason);
+                                              lastReason,
+                                              remainingSeconds);
                 if (!hostSessionPending || _isQuitting)
                 {
+                    if (ticket.Request.Role == RaidConnectionRole.Client &&
+                        ticket.LaunchContext != null &&
+                        FusionSessionLauncher.IsSessionAvailabilityPending(lastReason) &&
+                        remainingSeconds <= 0f)
+                    {
+                        Debug.LogWarning(
+                            $"[{nameof(SessionConnectionCoordinator)}] Timed out waiting for Host raid session " +
+                            $"'{ticket.Request.SessionName}' after {coordinatedAttempt} attempts. LastReason={lastReason}.",
+                            this);
+                    }
                     break;
                 }
 
                 if (!availabilityWaitLogged)
                 {
                     availabilityWaitLogged = true;
+                    lastObservedShutdownReason = lastReason;
                     Debug.Log(
                         $"[{nameof(SessionConnectionCoordinator)}] Waiting for Host raid session " +
-                        $"'{ticket.Request.SessionName}' to become available.",
+                        $"'{ticket.Request.SessionName}' to become available. Reason={lastReason}.",
+                        this);
+                }
+                else if (lastReason != lastObservedShutdownReason)
+                {
+                    lastObservedShutdownReason = lastReason;
+                    Debug.Log(
+                        $"[{nameof(SessionConnectionCoordinator)}] Host raid session availability state changed to {lastReason}.",
                         this);
                 }
 
-                int retryDelayMilliseconds = Mathf.CeilToInt(_clientJoinRetryDelaySeconds * 1000f);
+                float delaySeconds = Mathf.Min(_clientJoinRetryDelaySeconds, remainingSeconds);
+                int retryDelayMilliseconds = Mathf.CeilToInt(delaySeconds * 1000f);
                 if (retryDelayMilliseconds > 0)
                 {
                     await Task.Delay(retryDelayMilliseconds, cancellationToken);
@@ -1290,7 +1329,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         // [AUDIT] Log entry conditions for recovery
         ApplicationStashContext auditStash = FindAnyObjectByType<ApplicationStashContext>();
-        Debug.LogError(
+        Debug.LogWarning(
             $"[AUDIT][SessionConnectionCoordinator] RecoverTownAfterRaidFailureAsync entered. " +
             $"Failure={failure}. RaidAdmissionConfirmed={_raidAdmissionConfirmed}. " +
             $"HasTicket={_activeTicket.HasValue}. " +

@@ -43,11 +43,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     /// <summary>
     /// Returns whether a coordinated Client should keep waiting for its exact Host session.
-    /// Only a missing session is transient while the Host is still creating it. A closed
-    /// session already exists and is therefore a terminal transition failure.
+    /// The Host creates the coordinated session initially closed and hidden until its
+    /// initial scene and bootstrap are ready, so both GameNotFound and GameClosed
+    /// represent transient availability states during coordinated launch.
     /// </summary>
     public static bool IsSessionAvailabilityPending(ShutdownReason shutdownReason) =>
-        shutdownReason == ShutdownReason.GameNotFound;
+        shutdownReason == ShutdownReason.GameNotFound || shutdownReason == ShutdownReason.GameClosed;
 
     public Task<bool> StartCoordinatedSessionAsync(
         string sessionName,
@@ -243,13 +244,21 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 LastStartShutdownReason = result.ShutdownReason;
 
                 // [AUDIT] Log full failure details for clients to distinguish ConnectionRefused causes
-                Debug.LogError(
-                    $"[AUDIT][FusionSessionLauncher] Fusion StartGame FAILED. " +
+                string auditMessage =
+                    $"[AUDIT][FusionSessionLauncher] Fusion StartGame {(IsSessionAvailabilityPending(result.ShutdownReason) ? "pending availability" : "FAILED")}. " +
                     $"Mode={mode}. Reason={result.ShutdownReason}. " +
                     $"ErrorMessage={(result.ErrorMessage ?? "none")}. " +
                     $"SessionName={sessionName}. " +
-                    $"IsSessionAvailabilityPending={IsSessionAvailabilityPending(result.ShutdownReason)}.",
-                    this);
+                    $"IsSessionAvailabilityPending={IsSessionAvailabilityPending(result.ShutdownReason)}.";
+
+                if (IsSessionAvailabilityPending(result.ShutdownReason))
+                {
+                    Debug.Log(auditMessage, this);
+                }
+                else
+                {
+                    Debug.LogError(auditMessage, this);
+                }
 
                 await ShutdownAndDestroyRunnerAsync();
                 return false;

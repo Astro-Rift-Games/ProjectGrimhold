@@ -154,6 +154,14 @@ the frozen cohort's profiles. The session then enters technical
 `WaitingForPlayers`; no player-facing preparation UI exists in Gameplay.
 No initial enemies, loot containers or breakables are generated in this phase.
 
+Because the Host runner is created closed and hidden while loading Gameplay and executing
+its local bootstrap, incoming Client peers from a frozen cohort encounter `ShutdownReason.GameNotFound`
+(prior to room creation) or `ShutdownReason.GameClosed` (during scene loading and host bootstrap).
+Clients in a coordinated launch treat both reasons as pending session availability subject to a bounded
+timeout (`_clientSessionAvailabilityTimeoutSeconds`). Definitive connection failures or timeout expiration
+trigger terminal recovery to Town with loadout reservation rollback. Manual code joins and Host instances
+never poll.
+
 After the complete frozen cohort is prepared, State Authority changes the phase to
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
