@@ -86,7 +86,7 @@ Las PlayMode tests existentes (`TownPlayerMenuPresenterPlayModeTests`, `TownMenu
 | Ventana por PID/HWND, foco exacto, captura | Todo | Existe (QA-002) | — |
 | Teclas Tab y Escape | P1, P2, V1 | Falta: `DEMO_KEYS` no las incluye | E6 |
 | Detección de menú principal listo | Entrada | Parcial: QA-003 sin commit, sin comprobación real | Precondición de E4 |
-| Click en *Create Room*/Login | PRE-3, PRE-4 | Falta | E4 |
+| Click en INICIAR (*Create Room*)/Login | PRE-3, PRE-4 | Falta | E4 |
 | Escritura de credenciales | PRE-3 | Falta | E5 |
 | Cuenta QA con personaje y reset | PRE-2 | Falta (`seed-test-accounts.js` no alcanza) | E1 |
 | Configuración Fusion/Photon del ambiente QA | PRE-4 | Sin verificar | E1 |
@@ -101,7 +101,7 @@ Las PlayMode tests existentes (`TownPlayerMenuPresenterPlayModeTests`, `TownMenu
 | ID | Tema | Fuentes | Impacto en el contrato | Decisión pendiente |
 |---|---|---|---|---|
 | C1a | Recuperación de sesión | GD UI §4.1: recupera sesión al iniciar. Código: sin persistencia de token ni restore. | Hoy cada proceso nuevo arranca sin sesión; PRE-3 usa login real. Si se implementa, E4 y E7 deben garantizar el estado de sesión. | Producto/backend: ¿se implementa? |
-| C1b | Opciones del menú principal | GD UI §4.2 lista Jugar/Configurar/Créditos/Salir/sesión. GD 02 §5 es permisivo ("según UI/UX"). Código: solo *Create Room* (Join oculto). | Ninguno directo; el recorrido usa *Create Room*. | Producto/UI |
+| C1b | Opciones del menú principal | GD UI §4.2 lista Jugar/Configurar/Créditos/Salir/sesión. GD 02 §5 es permisivo ("según UI/UX"). Implementación: `MainMenu.prefab` muestra INICIAR, OPCIONES, CREDITOS y SALIR, pero solo INICIAR tiene acción (`CreateRoom`); OPCIONES, CREDITOS y SALIR no tienen acción conectada (ni en el prefab ni en `MainMenuController`) y Join está oculto. Observado en la build local durante QA-003. | Ninguno directo; el recorrido usa INICIAR. Los botones sin acción no deben usarse como expectativa. | Producto/UI |
 | C2 | Teclas, ventana con pestañas, HUD oculto | Solo Arq; GD no define el menú personal. | EXP-1, 2, 4, 6, 7, 9 se respaldan en Arquitectura. | Confirmar que Arquitectura es dueña de estas reglas. |
 | C3 | Bloqueo de input en Town | GD 16 §6 lo define para Dungeon; en Town solo Arq. | EXP-5/EXP-8 se respaldan en Arquitectura. | Game Design |
 | C4 | Atributos como pestaña | GD UI §5.4: estadísticas y build en interfaz independiente. Implementación: pestaña del mismo menú. | X1 excluida. | Game Design/UI |

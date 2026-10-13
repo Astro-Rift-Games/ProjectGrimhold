@@ -98,7 +98,7 @@ Estas evidencias muestran acciones y capturas de QA-002. No prueban QA-003 ni re
 
 - El login actual obtiene identidad, perfil, inventario y progresión, valida coherencia de revisiones e inicializa el contexto del personaje.
 - `MainMenuController` tiene un gate de login al crear sala cuando no hay autenticación. No asumir un botón/flujo de entrada distinto sin inspeccionar la build.
-- No se encontró recuperación automática de sesión ni las opciones Configuración/Créditos/Salir que describe GD UI §4.1–4.2; el menú principal ofrece *Create Room* (Join permanece oculto). Registrar en E0 como conflicto; no implementarlo como parte del runner.
+- No se encontró recuperación automática de sesión (GD UI §4.1). El menú principal muestra INICIAR, OPCIONES, CREDITOS y SALIR (`Prefabs/UI/MainMenu.prefab`), pero solo INICIAR tiene acción (`MainMenuController.CreateRoom`); OPCIONES, CREDITOS y SALIR no tienen acción conectada y Join permanece oculto (GD UI §4.2). Registrar en E0 como conflicto; no implementarlo como parte del runner.
 - Existe hidratación y hay adaptadores remotos. Las afirmaciones heredadas de persistencia exclusivamente en memoria no describen todos los campos actuales.
 - `LocalPlayerPersistenceArchitecture.md` documenta límites específicos, incluidos los Off Hands frente al DTO remoto de seis slots. Una mutación de UI/local no prueba durabilidad.
 - `backend/scripts/seed-test-accounts.js` prepara dos cuentas, pero no aporta reset integral ni guard suficiente contra bases no descartables. Evitar passwords por argv/defaults en el futuro harness.
@@ -293,7 +293,7 @@ Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los 
 
 - **Objetivo:** click reproducible en el área cliente validada y primera prueba funcional real: el gate de login del menú principal.
 - **Dependencias:** E3; QA-003 con commit propio y comprobación real del gate registrada.
-- **Alcance/entrega:** click sobre coordenada local o anchor visual único, guard antes/después y release de botones. Recorrido: launch → menú principal listo (QA-003) → click en *Create Room* sin sesión → panel de login visible → click en *Back* → menú principal restaurado. Sin backend ni credenciales.
+- **Alcance/entrega:** click sobre coordenada local o anchor visual único, guard antes/después y release de botones. Recorrido: launch → menú principal listo (QA-003) → click en INICIAR (*Create Room*) sin sesión → panel de login visible → click en *Back* → menú principal restaurado. Sin backend ni credenciales.
 - **Exclusiones:** drag-and-drop, multiscale general, localización fuera de la ventana, escritura de texto y login real.
 - **Aceptación:** ningún click con foco/ownership inválidos, geometría cambiada o target ambiguo; nunca usar posición absoluta de escritorio sin conversión validada. El recorrido produce resultado de feature según §4, con esperado tomado de `MainMenuController` y GD UI §4.1, y evidencia antes/durante/después sin campos de credenciales.
 - **Validación:** tests con mocks y ejecución atendida autorizada del recorrido; mover/redimensionar ventana y perder foco; control defectuoso sintético (captura sin panel de login) que falle por la aserción prevista. Si se implementa recuperación de sesión (conflicto de E0), el fixture debe garantizar estado sin sesión.
