@@ -1847,6 +1847,7 @@ MonoBehaviour:
   _registerButton: {fileID: 6251837957436135679}
   _backButton: {fileID: 7988644391861725757}
   _statusText: {fileID: 759321168733576584}
+  _cancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
 --- !u!1 &7789283991066203258
 GameObject:
   m_ObjectHideFlags: 0

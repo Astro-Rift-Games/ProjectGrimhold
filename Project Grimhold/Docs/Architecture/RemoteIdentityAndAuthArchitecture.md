@@ -72,6 +72,22 @@ sequenceDiagram
     Flow-->>UI: LoginFlowResult.Success
 ```
 
+### Keyboard Access (Main Menu and Login Panel)
+
+The main menu and `LoginPanelView` are fully operable from the keyboard:
+
+*   **Default selection**: `DefaultSelectableOnEnable` sits on the main menu panel and selects the INICIAR (Play) button every time that panel is enabled (initial load, connection failure, or Back from the login panel). Enter/Space then activate it through the standard `InputSystemUIInputModule` Submit action. If no `EventSystem` exists yet when the component enables, the selection happens on the next frame.
+*   **Back**: while `LoginPanelView` is enabled it listens to the UI/Cancel action (`_cancelAction`, Escape by default) and invokes the Back button's `onClick`, reusing the exact Back path. Nothing happens while the Back button is non-interactable (for example during a login request).
+
+`MainMenuController` writes two ordinary `Debug.Log` lines that the QA runner observes in the Player log:
+
+```text
+[MainMenuController] Login panel shown.
+[MainMenuController] Login panel closed.
+```
+
+These exact strings are an observation contract for the QA runner. They are regular logs, not test hooks: they do not alter behavior and must not be used to drive or short-circuit the flow.
+
 ### Logout Lifecycle
 
 The session lifecycle is completed by allowing the user to explicitly log out from the Town or MainMenu.

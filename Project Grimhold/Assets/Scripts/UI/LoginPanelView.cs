@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
@@ -14,9 +15,58 @@ public sealed class LoginPanelView : MonoBehaviour
     [SerializeField] private Button _registerButton;
     [SerializeField] private Button _backButton;
     [SerializeField] private TextMeshProUGUI _statusText;
+    [SerializeField] private InputActionReference _cancelAction;
+
+    private InputAction _subscribedCancelAction;
+    private bool _enabledCancelAction;
+    private bool _missingCancelActionLogged;
 
     public string Username => _usernameInput.text.Trim();
     public string Password => _passwordInput.text;
+
+    private void OnEnable()
+    {
+        InputAction action = _cancelAction != null ? _cancelAction.action : null;
+        if (action == null)
+        {
+            if (!_missingCancelActionLogged)
+            {
+                _missingCancelActionLogged = true;
+                Debug.LogError($"[{nameof(LoginPanelView)}] No cancel action assigned; Escape cannot trigger Back.", this);
+            }
+            return;
+        }
+
+        action.performed += OnCancelPerformed;
+        _subscribedCancelAction = action;
+
+        if (!action.enabled)
+        {
+            action.Enable();
+            _enabledCancelAction = true;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (_subscribedCancelAction == null) return;
+
+        _subscribedCancelAction.performed -= OnCancelPerformed;
+        if (_enabledCancelAction)
+        {
+            _subscribedCancelAction.Disable();
+        }
+
+        _subscribedCancelAction = null;
+        _enabledCancelAction = false;
+    }
+
+    private void OnCancelPerformed(InputAction.CallbackContext context)
+    {
+        if (_backButton == null || !_backButton.isActiveAndEnabled || !_backButton.interactable) return;
+
+        _backButton.onClick.Invoke();
+    }
 
     public void SetInteractable(bool interactable)
     {

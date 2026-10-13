@@ -288,6 +288,7 @@ public sealed class MainMenuController : MonoBehaviour
         _loginPanel.SetStatus(string.Empty);
         _loginPanel.SetInteractable(true);
         _loginPanel.gameObject.SetActive(true);
+        Debug.Log($"[{nameof(MainMenuController)}] Login panel shown.", this);
     }
 
     private void OnLoginBackButtonClicked()
@@ -297,6 +298,7 @@ public sealed class MainMenuController : MonoBehaviour
         _loginPanel.gameObject.SetActive(false);
         menuPanel.SetActive(true);
         createRoomButton.interactable = true;
+        Debug.Log($"[{nameof(MainMenuController)}] Login panel closed.", this);
     }
 
     public async void JoinRoom()
