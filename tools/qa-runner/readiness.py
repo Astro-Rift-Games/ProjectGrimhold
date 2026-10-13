@@ -194,3 +194,61 @@ def wait_ready(control):
                 if isinstance(evidence_exc, KeyboardInterrupt):
                     raise
         raise
+
+
+DEADLINE_MARGIN = 0.1
+
+
+def wait_stable_state(control, detector, *, present, timeout_seconds, interval_seconds=0.2,
+                      consistent_count=3):
+    """Wait for the reference to be stably present/absent in guarded client frames.
+
+    Returns {status, frames, location, frame}: `observed` when the expected state was
+    stable, `contradicted` when the opposite state was the last stable one at timeout,
+    else `unavailable`. Guard/deadline failures raise; never sends or releases keys.
+    """
+    clock = control.clock
+    start = clock.monotonic()
+    end = min(start + timeout_seconds, control.deadline - DEADLINE_MARGIN)
+    if end <= start:
+        raise RuntimeError("insufficient time before observation deadline")
+    expected = "present" if present else "absent"
+    frames, streak, previous, last_stable, location, frame = 0, 0, None, None, None, None
+
+    def check():
+        control.guard()
+        control.gui.failSafeCheck()
+
+    while True:
+        check()
+        image, region = control.acquire_image({}, client=True)
+        frames += 1
+
+        def frame_check():
+            check()
+            if control.windows.client_region(control.hwnd) != region:
+                raise RuntimeError("client geometry changed during visual wait")
+
+        result = detector.match(image, check=frame_check)
+        frame_check()
+        location, frame = result["location"], (image, region)
+        if result["ambiguous"]:
+            state, identity = None, None
+        elif location is None:
+            state, identity = "absent", (region, None)
+        else:
+            state, identity = "present", (region, tuple(location))
+        streak = streak + 1 if state is not None and identity == previous else int(state is not None)
+        previous = identity
+        if streak >= consistent_count:
+            last_stable = state
+            if state == expected:
+                return {"status": "observed", "frames": frames, "location": location, "frame": frame}
+        if clock.monotonic() >= end:
+            break
+        wait_end = min(clock.monotonic() + interval_seconds, end)
+        while clock.monotonic() < wait_end:
+            check()
+            clock.sleep(max(0, min(0.02, wait_end - clock.monotonic())))
+    return {"status": "contradicted" if last_stable is not None else "unavailable",
+            "frames": frames, "location": location, "frame": frame}

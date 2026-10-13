@@ -97,7 +97,7 @@ Each final report contains:
 | `error` | Present on failure/interruption, including cleanup errors |
 | `pid` | Present if a process was launched |
 | `returncode` | Present if the owned process's exit code is known |
-| `functional_validation` | Always `not_performed` |
+| `functional_validation` | `not_performed`, except `performed` in `--flow` mode (E4) |
 | `gameplay_validated` | Always `false` |
 | `actions` | Ordered demo steps/cleanup; empty in default mode |
 | `evidence` | Accepted saved PNG records; empty in default mode |
@@ -107,6 +107,7 @@ Each final report contains:
 | `player_log` | Evidence status of the per-run Unity Player log (see below) |
 | `phases` | `launch`, `observe`, `cleanup` entries: `status` (`completed`, `error`, `interrupted`, `skipped`) plus `started_at_seconds`/`ended_at_seconds` |
 | `first_failure` | `null` for a healthy run, else `{"stage", "error"}` for the earliest failing stage |
+| `flow` | Only in `--flow` mode: the E4 feature result and assertions (see E4) |
 
 Report schema v1 is this table. Reports without `schema_version` are legacy v0:
 they are not migrated or reinterpreted, and no code reads old reports. Every v0
@@ -163,7 +164,7 @@ elapsed interval.
 | `2` | Invalid/missing CLI arguments (`argparse`) |
 | `130` | Interrupted run |
 
-The CLI prints the report path and result; errors go to stderr. Storage can become
+`--flow` adds exit codes `3`, `4` and `5` (see E4). The CLI prints the report path and result; errors go to stderr. Storage can become
 unwritable after preflight. Final report IO errors are reported to stderr with a
 nonzero exit code **after owned-process cleanup**; no success is claimed. An
 unexpected shutdown, disk failure, or interruption during report IO may leave an
@@ -423,6 +424,187 @@ An offline 20-iteration benchmark (no Win32 guards, no capture/IO) matched the
 the prior blank interior (7.31ms) and OPCIONES/CREDITOS/SALIR crops, and matched a
 1920x1080 synthetic translated fixture (23.94ms). These are local detector-only
 measurements, not a live capture/polling performance guarantee.
+
+## E4: login-gate flow
+
+`--flow login-gate` is the first feature check of the runner: starting from the
+main menu it presses **Enter**, expects the login panel, presses **Escape**, and
+expects the main menu again. It is not a gameplay or multiplayer test and covers
+only this one UI transition. It reuses the QA-002 safety model (owned HWND/PID,
+exact foreground focus, modifier guard, bounded guarded waits, key release before
+process termination) and the QA003 visual detector; it adds no dependency.
+
+**Do not run it on an unattended/shared desktop**: like the demo it injects global
+keys. It is an attended run on the local desktop with an authorized local build.
+
+### Game contract
+
+Introduced by commit `bd94ea44` (`feat(ui): add keyboard access to main menu and
+login panel`):
+
+- **INICIAR** is the default selection whenever the main menu is shown, so Enter
+  activates it through the standard UI Submit and the login panel opens.
+- **Escape** (UI/Cancel) acts as **Back** on the login panel and returns to the
+  main menu.
+- The game writes two ordinary Player log lines, matched as the **exact complete
+  line** (not a substring):
+  - `[MainMenuController] Login panel shown.`
+  - `[MainMenuController] Login panel closed.`
+
+### Oracle
+
+Two independent signals must **agree** for each step; neither alone passes:
+
+1. **Visual**: the versioned `references/main-menu-iniciar.png` (INICIAR button)
+   must be stably present/absent in guarded client-area frames (default 3
+   consistent frames).
+2. **Player log**: the expected line must be appended **after** the key press.
+   Only bytes written after a per-step mark are read, a trailing unterminated
+   line is ignored, and log text is never copied into the report.
+
+Flow: **precondition** (INICIAR stably present, up to 20s) -> **A2** press Enter,
+INICIAR absent and `Login panel shown.` -> **A3** press Escape (only if A2
+passed), INICIAR present again and `Login panel closed.`. Each step waits up to
+10s for the visual and up to 2s for the log line.
+
+### Assertion and feature result
+
+| Assertion status | Visual | Log |
+| --- | --- | --- |
+| `PASS` | observed | observed |
+| `FAIL` | contradicted | contradicted or unavailable |
+| `FAIL` | unavailable | contradicted |
+| `INCONCLUSIVE` | any other combination (the signals disagree or are both missing) | |
+
+A log that is missing, unreadable or shrank is `unavailable`, never a pass. After
+any non-`PASS` assertion no further key is sent.
+
+`flow.feature_result` is `PASS` only if both A2 and A3 pass; otherwise the first
+non-`PASS` assertion status (`FAIL` or `INCONCLUSIVE`); `BLOCKED` when the flow
+could not produce a verdict (precondition not reached, setup/window/focus failure,
+unusable evidence, guard failure, deadline, interruption, no Player log) with the
+cause in `flow.blocked_reason`. `BLOCKED` is never a pass or a fail of the feature.
+
+### Report and evidence
+
+Additive to schema v1 (the version stays `1`): `flow` holds `name`, `control`,
+`feature_result`, `blocked_reason`, `precondition` and `assertions`
+(`id`, `step`, `key`, `sources`, `visual`, `log`, `status`, `evidence_path`, times).
+It is present only in flow mode. In flow mode `functional_validation` is
+`performed` and `gameplay_validated` stays `false`. `result` keeps its supervision
+meaning (process observed for the whole `--duration`, clean cleanup) and is
+**independent** of `feature_result`. Requested `actions` are `setup`,
+`window_wait`, `flow` plus one `flow_key_press` per key actually pressed.
+
+If the flow does not complete, the first earlier failure (for example
+`window_wait`) stays `first_failure`. Otherwise a non-`PASS` feature result becomes
+`first_failure` with `stage` `flow:A2`, `flow:A3` or `flow:precondition` and the
+assertion status or `blocked_reason` as `error`.
+
+Evidence files, all in the results directory (ignored by git, **may show other
+desktop content or sensitive data; review before sharing**): `qa-<run_id>.json`,
+`qa-<run_id>-player.log`, and one client-area PNG for the precondition and one for
+each executed assertion (`flow.*.evidence_path`, also listed in `evidence`).
+
+### Key delivery: real scan codes
+
+Flow keys (`enter`, `escape`, `q`) are injected by `win_keyboard.ScanCodeKeyboard`
+with `keybd_event(vk, MapVirtualKeyW(vk, MAPVK_VK_TO_VSC), flags, 0)`, not through
+PyAutoGUI. PyAutoGUI sends `keybd_event(vk, 0, ...)` (scan code 0) and Unity's Input
+System identifies keys by physical scan code, so the Player ignores those events.
+Measured live on 2026-10-13 with the same build, changing only the scan code:
+
+| Mode | Result |
+| --- | --- |
+| scan code 0 (PyAutoGUI) | `{"mode":"scan0","shown":false,"closed":false}` |
+| real scan codes | `{"mode":"scancode","enter_scan":28,"shown":true,"escape_scan":1,"closed":true}` |
+
+Scan codes used: Enter `0x1C`, Escape `0x01`, Q `0x10`. The runner fails closed
+(raises, sends nothing) if a scan code resolves to 0. Each `flow_key_press` action
+and each `key_release_cleanup` for a flow key records the `scan_code` used, and a
+flow key is always released through the same scan-code path it was pressed with.
+This module is used only to press flow keys after focus was acquired; focus is never
+obtained by injection.
+
+**Known limitation (follow-up):** the QA-002 demo keys (`w`, `a`, `s`, `d`, `q`,
+`e`, `space`, arrows) still use PyAutoGUI scan-code-0 events and were therefore
+likely never received by the Player. That behavior is unchanged in this task.
+
+### Control and launch requirement
+
+`--flow-control wrong-key` is an **explicit negative control**: it presses `Q`
+instead of Enter in A2. A working oracle must then report A2 `FAIL`,
+`feature_result` `FAIL` and send no Escape. Run it to prove the check can fail;
+it is accepted only with `--flow`.
+
+The flow needs the real executable (the Player log is requested via `-logFile`).
+Start the runner from the **foreground interactive context** (an attended
+terminal in the logged-in desktop session): the flow always acquires focus, and
+if Windows refuses to give the owned window the foreground the run fails with
+`foreground lock` and the feature is `BLOCKED` without any key sent.
+
+### CLI and exit codes
+
+`--flow` is mutually exclusive with `--demo-key`, `--key-hold`, `--capture-delay`,
+`--ready-*` and `--acquire-focus` (parser error, exit `2`). Allowed with it:
+`--duration` (required; the global deadline, which must cover up to 20s
+precondition plus both steps, so use at least 90), `--window-wait` (default 10),
+`--results-dir` and `--flow-control wrong-key`. The summary line is
+`QA runner: <result>; feature: <feature_result>; report: <path>`.
+
+| Flow exit code | Meaning |
+| --- | --- |
+| `0` | `result` `success` and `feature_result` `PASS` |
+| `1` | `result` `failure` (any feature result), or report/path IO error |
+| `2` | Invalid CLI arguments |
+| `3` | `result` `success` but `feature_result` `FAIL` |
+| `4` | `result` `success` but `feature_result` `INCONCLUSIVE` |
+| `5` | `result` `success` but `feature_result` `BLOCKED` |
+| `130` | Interrupted |
+
+A wrong-key control that behaves correctly therefore exits `3`.
+
+Healthy run:
+
+```powershell
+& tools/qa-runner/.venv/Scripts/python.exe tools/qa-runner/runner.py --exe "C:\Builds\Grimhold\Project Grimhold.exe" --duration 90 --flow login-gate --window-wait 15
+```
+
+Negative control:
+
+```powershell
+& tools/qa-runner/.venv/Scripts/python.exe tools/qa-runner/runner.py --exe "C:\Builds\Grimhold\Project Grimhold.exe" --duration 90 --flow login-gate --window-wait 15 --flow-control wrong-key
+```
+
+Unit tests use fakes only and prove no live behavior.
+
+### E4 live validation (2026-10-13)
+
+Autonomous runs, each launched once from an attended foreground PowerShell with no
+further interaction, against a local Windows build that includes commit `bd94ea44`
+(main menu keyboard access and log lines), primary monitor 1920x1080 at 100%,
+client area 960x540, `--duration 40 --window-wait 15`.
+
+| Run | Focus | Precondition | A2 (Enter) | A3 (Escape) | Feature | Exit |
+| --- | --- | --- | --- | --- | --- | --- |
+| L1-1 | auto | observed at `(120, 222)` | PASS (visual + log observed, 1.5s) | PASS (1.4s) | PASS | 0 |
+| L1-2 | acquired with 1 `SetForegroundWindow` (`[true]`) | observed | PASS (1.5s) | PASS (1.5s) | PASS | 0 |
+| L1-3 | auto | observed | PASS (1.4s) | PASS (1.4s) | PASS | 0 |
+| L2 wrong-key | auto | observed | FAIL (`Q` sent; visual and log contradicted after 12.3s) | not run, no Escape sent | FAIL | 3 |
+
+Keys were sent with scan codes Enter 28, Escape 1 and Q 16. Every run left the
+launched root PID gone and a `present` Player log. The A2 evidence frame of L1-1
+shows the INICIAR SESION panel with empty fields and no main menu.
+
+An earlier attempt with PyAutoGUI scan-code-0 key events failed A2 in three healthy
+runs (INICIAR stayed stable, no log line): the oracle reported the missing
+reaction correctly, and the cause was fixed as described in *Key delivery*.
+
+Not validated live: a build without the game change (old-build case, which must
+never PASS; covered by unit tests only), focus loss or a held modifier during the
+flow, window move/resize, descendant processes, and runs started from a
+non-foreground context other than the earlier `foreground lock` check (4 refused
+`SetForegroundWindow` attempts, no key sent, feature `BLOCKED`).
 
 ## Verify
 

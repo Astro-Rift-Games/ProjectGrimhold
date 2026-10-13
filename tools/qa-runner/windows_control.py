@@ -20,7 +20,10 @@ MODIFIERS = ("shift", "ctrl", "alt", "winleft", "winright")
 VIRTUAL_KEYS = {"w": 0x57, "a": 0x41, "s": 0x53, "d": 0x44, "q": 0x51,
                 "e": 0x45, "space": 0x20, "up": 0x26, "down": 0x28,
                 "left": 0x25, "right": 0x27, "shift": 0x10, "ctrl": 0x11,
-                "alt": 0x12, "winleft": 0x5B, "winright": 0x5C}
+                "alt": 0x12, "winleft": 0x5B, "winright": 0x5C,
+                "enter": 0x0D, "escape": 0x1B}
+# Flow-only keys (E4 login-gate); the QA-002 DEMO_KEYS allowlist is unchanged.
+FLOW_KEYS = ("enter", "escape", "q")
 CHECK_INTERVAL = 0.02
 FOCUS_ATTEMPT_INTERVAL = 0.5
 FOCUS_MAX_ATTEMPTS = 4
@@ -30,21 +33,31 @@ ACTION_NAMES = ("setup", "window_wait", "key_down", "key_hold", "key_up", "captu
 
 @dataclass(frozen=True)
 class DemoOptions:
-    key: str
+    key: str = None  # None only for a flow, which sends its own keys
     window_wait_seconds: float = 10.0
     hold_seconds: float = 0.2
     capture_delay_seconds: float = 0.2
     readiness: object = None
     acquire_focus: bool = False
+    flow: str = None
+    flow_control: str = None
 
     def __post_init__(self):
+        from login_gate import CONTROLS, FLOW_NAME
+        if self.flow not in (None, FLOW_NAME):
+            raise ValueError(f"flow must be {FLOW_NAME}")
+        if self.flow_control not in CONTROLS or (self.flow_control is not None and self.flow is None):
+            raise ValueError("flow control must be wrong-key and requires a flow")
         if not isinstance(self.acquire_focus, bool):
             raise ValueError("acquire_focus must be a boolean")
         if self.readiness is not None:
             from readiness import ReadyOptions
             if not isinstance(self.readiness, ReadyOptions):
                 raise ValueError("readiness must be a validated ReadyOptions object")
-        if self.key not in DEMO_KEYS:
+        if self.flow is not None:
+            if self.key is not None:
+                raise ValueError("a flow takes no demo key")
+        elif self.key not in DEMO_KEYS:
             raise ValueError(f"demo key must be one of: {', '.join(DEMO_KEYS)}")
         for name, limit in (("window_wait_seconds", 60), ("hold_seconds", 10),
                             ("capture_delay_seconds", 30)):
@@ -63,7 +76,9 @@ class DemoOptions:
 
 def requested_actions(options):
     names = list(ACTION_NAMES)
-    if options.readiness is not None:
+    if options.flow is not None:
+        names = ["setup", "window_wait", "flow"]
+    elif options.readiness is not None:
         names.insert(2, "readiness")
     return [{"name": name, "requested": True, "attempted": False,
              "executed": False, "status": "skipped", "key": options.key,
@@ -211,14 +226,17 @@ class Win32:
 
 class Demo:
     def __init__(self, process, deadline, report, report_path, options, *,
-                 windows=None, gui_loader=load_gui, clock=time, origin=None):
+                 windows=None, gui_loader=load_gui, clock=time, origin=None, flow_factory=None, keyboard=None):
         # `origin` is the launch-start instant on `clock`; action times are relative to it.
         self.origin = origin
         self.process, self.deadline, self.report = process, deadline, report
         self.report_path, self.options = Path(report_path), options
         self.windows, self.gui_loader, self.clock = windows, gui_loader, clock
         self.gui, self.hwnd = None, None
+        self.flow_factory = flow_factory or (lambda demo: demo.default_flow())
+        self.keyboard = keyboard  # scan-code keyboard for flow keys; created lazily on Windows
         self.held_keys = set()
+        self.flow_held = set()  # held keys that were injected by scan code and must be released that way
         from readiness import initial_report
         report.setdefault("readiness", initial_report(options.readiness))
         self.focus_report()
@@ -252,8 +270,8 @@ class Demo:
             return None
 
     @contextmanager
-    def action(self, name):
-        action = next(a for a in self.report["actions"] if a["name"] == name)
+    def action(self, name, *, entry=None):
+        action = entry if entry is not None else next(a for a in self.report["actions"] if a["name"] == name)
         action.update(attempted=True, executed=False, status="attempted",
                       started_at_seconds=self._elapsed())
         try:
@@ -351,6 +369,10 @@ class Demo:
                 self.gui.PAUSE = 0
                 with self.action("window_wait"):
                     self.wait_window()
+                if self.options.flow is not None:
+                    with self.action("flow"):
+                        self.report["flow"] = self.flow_factory(self).run()
+                    return
                 if self.options.readiness is not None:
                     from readiness import wait_ready
                     with self.action("readiness"):
@@ -381,6 +403,52 @@ class Demo:
             finally:
                 self.gui.PAUSE = previous_pause
 
+    def default_flow(self):
+        """The real login-gate flow; it needs the Player log of a real executable launch."""
+        from login_gate import DEFAULT_REFERENCE, LoginGateFlow, PlayerLogWatcher
+        from readiness import Detector
+        player_log = self.report["player_log"]
+        if not player_log.get("requested") or not player_log.get("path"):
+            raise RuntimeError("flow requires the Player log of a real executable launch")
+        return LoginGateFlow(self, Detector(DEFAULT_REFERENCE), PlayerLogWatcher(player_log["path"]),
+                             control_mode=self.options.flow_control)
+
+    def flow_keyboard(self):
+        if self.keyboard is None:
+            from win_keyboard import ScanCodeKeyboard
+            self.keyboard = ScanCodeKeyboard()
+        return self.keyboard
+
+    def press_flow_key(self, key, hold_seconds=0.1):
+        """One guarded down/hold/up of a flow key; a failed up stays in held_keys for release_keys."""
+        if key not in FLOW_KEYS:
+            raise ValueError(f"flow key must be one of: {', '.join(FLOW_KEYS)}")
+        entry = {"name": "flow_key_press", "requested": True, "attempted": False,
+                 "executed": False, "status": "skipped", "key": key,
+                 "scan_code": None, "global_input_attempted": False,
+                 "global_input_completed": False, "started_at_seconds": None,
+                 "ended_at_seconds": None}
+        self.report["actions"].append(entry)
+        with self.action("flow_key_press", entry=entry) as action:
+            if self.windows.physically_held(key):
+                raise RuntimeError(f"flow key already physically held: {key}")
+            self.guard()
+            keyboard = self.flow_keyboard()
+            action["scan_code"] = keyboard.scan_code(key)  # fails closed before anything is sent
+            # Injection might happen before key_down raises. Mark BEFORE call.
+            self.held_keys.add(key)
+            self.flow_held.add(key)
+            action["global_input_attempted"] = True
+            keyboard.key_down(key)
+            self.guarded_wait(hold_seconds)
+            self.guard()
+            self.gui.failSafeCheck()
+            self.guard()
+            keyboard.key_up(key)
+            self.held_keys.remove(key)
+            self.flow_held.remove(key)
+            action["global_input_completed"] = True
+
     def capture(self, action):
         image, region = self.acquire_image(action)
         self.save_image(image, region, action)
@@ -409,7 +477,9 @@ class Demo:
             raise ValueError("readiness screenshot dimensions do not match owned client region")
         return image, region
 
-    def save_image(self, image, region, action, *, purpose=None, captured_at=None, historical=False):
+    def save_image(self, image, region, action, *, purpose=None, captured_at=None, historical=False,
+                   client=False):
+        region_query = self.windows.client_region if client else self.windows.window_region
         if historical:
             if self.clock.monotonic() >= self.deadline:
                 raise RuntimeError("global deadline reached before diagnostic save")
@@ -432,7 +502,7 @@ class Demo:
                 raise RuntimeError("global deadline reached while saving diagnostic; evidence discarded")
         else:
             self.guard()
-            if self.windows.window_region(self.hwnd) != region:
+            if region_query(self.hwnd) != region:
                 raise RuntimeError("window geometry changed while saving; evidence discarded")
         self.report["evidence"].append({
             "path": str(path), "format": "PNG", "status": "saved", "hwnd": int(self.hwnd),
@@ -457,6 +527,9 @@ class Demo:
                       "unsafe_global_release": False, "failsafe_bypassed_for_release": False,
                       "started_at_seconds": self._elapsed(), "ended_at_seconds": None,
                       "risk": "Emergency global release may reach another app or release a human-held key."}
+            flow_key = key in self.flow_held
+            if flow_key:
+                action["scan_code"] = None
             self.report["actions"].append(action)
             bypass = False
             for attempt in range(RELEASE_ATTEMPTS):
@@ -475,10 +548,16 @@ class Demo:
                             # Only this previously attempted held key's UP may bypass.
                             self.gui.FAILSAFE = False
                             action["failsafe_bypassed_for_release"] = True
-                        self.gui.keyUp(key)
+                        if flow_key:
+                            # Pressed by scan code, so released by scan code (PyAutoGUI's UP has scan 0).
+                            action["scan_code"] = self.keyboard.scan_code(key)
+                            self.keyboard.key_up(key)
+                        else:
+                            self.gui.keyUp(key)
                     finally:
                         self.gui.FAILSAFE = previous_failsafe
                     self.held_keys.remove(key)
+                    self.flow_held.discard(key)
                     action.update(executed=True, status="executed", global_input_completed=True)
                     break
                 except (Exception, KeyboardInterrupt) as exc:

@@ -244,6 +244,71 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(runner.main(base + ["--demo-key", "w"] + extra), 0)
                 self.assertIs(run.call_args.kwargs["demo"].acquire_focus, expected)
 
+    def test_cli_flow_options_are_mutually_exclusive_with_demo_and_readiness_options(self):
+        runner = importlib.import_module("runner")
+        base = ["--exe", sys.executable, "--duration", "60", "--flow", "login-gate"]
+        rejected = [["--demo-key", "w"], ["--key-hold", "0.2"], ["--capture-delay", "0.2"],
+                    ["--acquire-focus"], ["--ready-reference", "x.png"], ["--ready-timeout", "5"],
+                    ["--ready-interval", "0.2"], ["--ready-tolerance", "12"], ["--ready-count", "3"]]
+        for extra in rejected:
+            with self.subTest(extra=extra), patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    runner.main(base + extra)
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(f"--flow cannot be combined with {extra[0]}", stderr.getvalue())
+        for args in (["--exe", sys.executable, "--duration", "60", "--flow", "other"],
+                     ["--exe", sys.executable, "--duration", "60", "--flow-control", "wrong-key"],
+                     base + ["--flow-control", "other"]):
+            with self.subTest(args=args), patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as raised:
+                    runner.main(args)
+                self.assertEqual(raised.exception.code, 2)
+
+    def test_cli_flow_reaches_demo_options_with_defaults_and_allowed_options(self):
+        runner = importlib.import_module("runner")
+        base = ["--exe", sys.executable, "--duration", "60", "--flow", "login-gate"]
+        report = ({"result": "success", "flow": {"feature_result": "PASS"}}, Path("r.json"))
+        for extra, wait, control in (([], 10, None),
+                                     (["--window-wait", "7", "--flow-control", "wrong-key",
+                                       "--results-dir", "out"], 7, "wrong-key")):
+            with self.subTest(extra=extra), patch.object(runner, "run", return_value=report) as run, \
+                    patch("sys.stdout", new_callable=io.StringIO):
+                self.assertEqual(runner.main(base + extra), 0)
+                options = run.call_args.kwargs["demo"]
+                self.assertEqual((options.flow, options.flow_control, options.window_wait_seconds),
+                                 ("login-gate", control, wait))
+                self.assertTrue(options.acquire_focus)
+        with patch.object(runner, "run", return_value=report) as run, patch("sys.stdout", new_callable=io.StringIO):
+            runner.main(["--exe", sys.executable, "--duration", "2", "--demo-key", "w"])
+            self.assertIsNone(run.call_args.kwargs["demo"].flow)
+
+    def test_cli_window_wait_and_flow_control_still_need_their_mode(self):
+        runner = importlib.import_module("runner")
+        for extra in (["--window-wait", "5"], ["--flow-control", "wrong-key"]):
+            with self.subTest(extra=extra), patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as raised:
+                    runner.main(["--exe", sys.executable, "--duration", "2"] + extra)
+                self.assertEqual(raised.exception.code, 2)
+
+    def test_cli_flow_exit_codes_and_stdout_summary(self):
+        runner = importlib.import_module("runner")
+        args = ["--exe", sys.executable, "--duration", "60", "--flow", "login-gate"]
+        cases = [("success", "PASS", 0), ("success", "FAIL", 3), ("success", "INCONCLUSIVE", 4),
+                 ("success", "BLOCKED", 5), ("success", None, 5), ("failure", "PASS", 1),
+                 ("failure", "BLOCKED", 1), ("interrupted", "BLOCKED", 130)]
+        for result, feature, expected in cases:
+            with self.subTest(result=result, feature=feature), \
+                    patch.object(runner, "run", return_value=(
+                        {"result": result, "flow": {"feature_result": feature}}, Path("report.json"))), \
+                    patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                self.assertEqual(runner.main(args), expected)
+                self.assertEqual(stdout.getvalue().strip(),
+                                 f"QA runner: {result}; feature: {feature}; report: report.json")
+        with patch.object(runner, "run", return_value=({"result": "success"}, Path("report.json"))), \
+                patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            self.assertEqual(runner.main(["--exe", sys.executable, "--duration", "1"]), 0)
+            self.assertEqual(stdout.getvalue().strip(), "QA runner: success; report: report.json")
+
     def test_json_schema_utc_finite_and_unique_reports(self):
         with self.simulate() as (runner, _, directory, _):
             first_report, first_path = runner.run(sys.executable, 0.5, directory)

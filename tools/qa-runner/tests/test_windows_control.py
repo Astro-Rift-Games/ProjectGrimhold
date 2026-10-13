@@ -137,6 +137,33 @@ class GUI:
         return Image(self)
 
 
+class ScanKeyboard:
+    """Stands in for win_keyboard.ScanCodeKeyboard; records instead of injecting."""
+    SCANS = {"enter": 0x1C, "escape": 0x01, "q": 0x10}
+
+    def __init__(self):
+        self.events = []
+        self.down_error = None
+        self.up_errors = []
+
+    def scan_code(self, key):
+        return self.SCANS[key]
+
+    def key_down(self, key):
+        self.events.append(("down", key))
+        if self.down_error:
+            raise self.down_error
+        return self.SCANS[key]
+
+    def key_up(self, key):
+        self.events.append(("up", key))
+        if self.up_errors:
+            error = self.up_errors.pop(0)
+            if error:
+                raise error
+        return self.SCANS[key]
+
+
 class DemoTests(unittest.TestCase):
     @contextmanager
     def simulation(self, duration=2, **options):
@@ -695,6 +722,73 @@ class FocusAcquisitionTests(unittest.TestCase):
                      "AllowSetForegroundWindow", "SystemParametersInfo", "LockSetForegroundWindow",
                      "BringWindowToTop", "SwitchToThisWindow"):
             self.assertNotIn(name, source)
+
+
+class FlowKeyDeliveryTests(unittest.TestCase):
+    """Flow keys go through the scan-code keyboard; QA-002 demo keys keep the PyAutoGUI path."""
+    def demo(self, options=None):
+        process, clock, windows, gui, keyboard = FakeProcess(), Clock(), Windows(), GUI(), ScanKeyboard()
+        report = {"actions": [], "evidence": []}
+        demo = importlib.import_module("windows_control").Demo(
+            process, 100, report, Path("qa-x.json"), options or importlib.import_module("windows_control").DemoOptions("w"),
+            windows=windows, gui_loader=lambda: gui, clock=clock, keyboard=keyboard)
+        demo.gui, demo.hwnd = gui, 101
+        return demo, gui, keyboard, report
+
+    def test_press_flow_key_uses_scan_code_keyboard_not_gui(self):
+        demo, gui, keyboard, _ = self.demo()
+        demo.press_flow_key("enter", 0.05)
+        self.assertEqual(keyboard.events, [("down", "enter"), ("up", "enter")])
+        self.assertEqual(gui.events, [])
+        self.assertEqual(demo.held_keys, set())
+
+    def test_flow_key_press_entry_records_scan_code(self):
+        demo, _, _, report = self.demo()
+        demo.press_flow_key("escape", 0.05)
+        entry = report["actions"][-1]
+        self.assertEqual((entry["name"], entry["key"], entry["scan_code"], entry["status"]),
+                         ("flow_key_press", "escape", 0x01, "executed"))
+
+    def test_failed_flow_key_up_stays_held_and_release_uses_scan_code_path(self):
+        demo, gui, keyboard, report = self.demo()
+        keyboard.up_errors = [RuntimeError("up failed")]
+        with self.assertRaisesRegex(RuntimeError, "up failed"):
+            demo.press_flow_key("q", 0.05)
+        self.assertEqual(demo.held_keys, {"q"})
+        demo.release_keys()
+        self.assertEqual(keyboard.events, [("down", "q"), ("up", "q"), ("up", "q")])
+        self.assertEqual(gui.events, [])
+        self.assertEqual(demo.held_keys, set())
+        cleanup = report["actions"][-1]
+        self.assertEqual((cleanup["name"], cleanup["key"], cleanup["scan_code"], cleanup["status"]),
+                         ("key_release_cleanup", "q", 0x10, "executed"))
+
+    def test_qa002_demo_keys_still_use_gui_and_have_no_scan_code(self):
+        demo, gui, keyboard, report = self.demo()
+        demo.held_keys.add("w")
+        demo.release_keys()
+        self.assertEqual([e[:2] for e in gui.events], [("up", "w")])
+        self.assertEqual(keyboard.events, [])
+        self.assertNotIn("scan_code", report["actions"][-1])
+
+    def test_keyboard_is_created_lazily_by_default(self):
+        wc_module = importlib.import_module("windows_control")
+        demo = wc_module.Demo(FakeProcess(), 100, {"actions": [], "evidence": []}, Path("qa-x.json"),
+                              wc_module.DemoOptions("w"), windows=Windows(), gui_loader=lambda: GUI(),
+                              clock=Clock())
+        self.assertIsNone(demo.keyboard)
+        created = ScanKeyboard()
+        with patch("win_keyboard.ScanCodeKeyboard", return_value=created) as factory:
+            self.assertIs(demo.flow_keyboard(), created)
+            self.assertIs(demo.flow_keyboard(), created)
+        factory.assert_called_once_with()
+
+    def test_keyboard_failure_sends_nothing_and_holds_nothing(self):
+        demo, gui, keyboard, _ = self.demo()
+        keyboard.scan_code = Mock(side_effect=RuntimeError("scan code is 0"))
+        with self.assertRaisesRegex(RuntimeError, "scan code"):
+            demo.press_flow_key("enter", 0.05)
+        self.assertEqual((keyboard.events, gui.events, demo.held_keys), ([], [], set()))
 
 
 class IntegrationTests(unittest.TestCase):

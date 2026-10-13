@@ -17,6 +17,9 @@ DEFAULT_RESULTS_DIR = Path(__file__).resolve().parent / "results"
 SCHEMA_VERSION = 1
 PHASE_NAMES = ("launch", "observe", "cleanup")
 PLAYER_LOG_CHUNK_BYTES = 64 * 1024
+FLOW_NAME = "login-gate"
+# Flow mode, supervision `success` only: any other result keeps its own code (1 or 130).
+FEATURE_EXIT_CODES = {"PASS": 0, "FAIL": 3, "INCONCLUSIVE": 4, "BLOCKED": 5}
 
 
 class ReportIOError(OSError):
@@ -145,6 +148,30 @@ def first_failure(report, phase_errors):
     return None
 
 
+def settle_flow(report):
+    """A flow that never reported is BLOCKED by the earlier failure; a non-PASS flow can be the first failure."""
+    flow, failure = report["flow"], report["first_failure"]
+    if flow["feature_result"] is None:
+        reason = (failure["error"] or failure["stage"]) if failure else "flow did not run"
+        flow.update(feature_result="BLOCKED", blocked_reason=reason)
+    if failure is None and flow["feature_result"] != "PASS":
+        report["first_failure"] = flow_failure(flow)
+
+
+def flow_failure(flow):
+    """first_failure entry for a non-PASS feature result: the assertion (or precondition) at fault."""
+    for assertion in flow["assertions"]:
+        if assertion["status"] != "PASS":
+            reason = flow["blocked_reason"] if flow["feature_result"] == "BLOCKED" else None
+            return {"stage": f"flow:{assertion['id']}", "error": reason or assertion["status"]}
+    precondition = flow["precondition"]
+    if precondition is not None and precondition.get("status") == "observed":
+        stage = f"A{len(flow['assertions']) + 2}"  # blocked while running the next step
+    else:
+        stage = "precondition"
+    return {"stage": f"flow:{stage}", "error": flow["blocked_reason"] or flow["feature_result"]}
+
+
 def run(executable, duration, results_dir, *, command=None, demo=None, control_factory=None):
     """Return (report, path). `command` is internal argv for stdlib child tests.
 
@@ -184,6 +211,10 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
         from windows_control import Demo, requested_actions
         report["demo_requested"] = True
         report["actions"] = requested_actions(demo)
+        if demo.flow is not None:
+            from login_gate import initial_flow
+            report["flow"] = initial_flow(demo.flow_control)
+            report["functional_validation"] = "performed"
         if control_factory is None:
             control_factory = Demo
     def bind_log_path(run_id):
@@ -292,6 +323,8 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
                     report["player_log"].update(status="error", error="Interrupted while reading the player log.")
                     report["result"] = "interrupted"
             report["first_failure"] = first_failure(report, phase_errors)
+            if "flow" in report:
+                settle_flow(report)
             write_report(stream, report)
     except OSError as exc:
         raise ReportIOError(f"Cannot save final report {path}: {exc}") from exc
@@ -314,12 +347,17 @@ def main(argv=None):
                         help="positive finite observation duration in seconds")
     parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS_DIR,
                         help=f"report directory (default: {DEFAULT_RESULTS_DIR})")
+    parser.add_argument("--flow", choices=(FLOW_NAME,),
+                        help="run the E4 login-gate feature flow (needs a real --exe; always acquires focus; "
+                             "allowed with --duration, --window-wait, --results-dir, --flow-control)")
+    parser.add_argument("--flow-control", choices=("wrong-key",), default=None,
+                        help="flow-only negative control: send Q instead of Enter; the flow must then FAIL")
     parser.add_argument("--demo-key", help="opt in to one global key press/release then PNG capture (Windows only)")
     parser.add_argument("--acquire-focus", action="store_true",
                         help="demo-only opt-in: request foreground focus for the owned window "
                              "(launch the runner from the foreground interactive context)")
     parser.add_argument("--window-wait", type=duration_argument, default=None,
-                        help="demo-only manual focus/window wait seconds (default 10; maximum 60)")
+                        help="demo/flow window wait seconds (default 10; maximum 60)")
     parser.add_argument("--key-hold", type=duration_argument, default=None,
                         help="demo-only key hold seconds (default 0.2; maximum 10)")
     parser.add_argument("--capture-delay", type=duration_argument, default=None,
@@ -330,6 +368,16 @@ def main(argv=None):
     parser.add_argument("--ready-tolerance", type=float, default=None, help="RGB error tolerance, 1..20 (default 12)")
     parser.add_argument("--ready-count", type=int, default=None, help="stable consecutive frames, 2..10 (default 3)")
     args = parser.parse_args(argv)
+    if args.flow is None and args.flow_control is not None:
+        parser.error("--flow-control requires --flow")
+    if args.flow is not None:
+        excluded = {"--demo-key": args.demo_key, "--key-hold": args.key_hold, "--capture-delay": args.capture_delay,
+                    "--acquire-focus": args.acquire_focus or None, "--ready-reference": args.ready_reference,
+                    "--ready-timeout": args.ready_timeout, "--ready-interval": args.ready_interval,
+                    "--ready-tolerance": args.ready_tolerance, "--ready-count": args.ready_count}
+        for name, value in excluded.items():
+            if value is not None:
+                parser.error(f"--flow cannot be combined with {name} (the flow always acquires focus)")
     ready = None
     ready_timings = (args.ready_timeout, args.ready_interval, args.ready_tolerance, args.ready_count)
     if args.ready_reference is not None or any(value is not None for value in ready_timings):
@@ -345,7 +393,15 @@ def main(argv=None):
         except ValueError as exc:
             parser.error(str(exc))
     demo = None
-    if args.demo_key is None:
+    if args.flow is not None:
+        from windows_control import DemoOptions
+        try:
+            demo = DemoOptions(None, window_wait_seconds=args.window_wait if args.window_wait is not None else 10,
+                               acquire_focus=True, flow=args.flow, flow_control=args.flow_control)
+            demo.validate_duration(args.duration)
+        except ValueError as exc:
+            parser.error(str(exc))
+    elif args.demo_key is None:
         if any(value is not None for value in (args.window_wait, args.key_hold, args.capture_delay)):
             parser.error("demo timing options require --demo-key")
         if args.acquire_focus:
@@ -372,10 +428,17 @@ def main(argv=None):
     except KeyboardInterrupt:
         print("QA runner interrupted; final report may be incomplete.", file=sys.stderr)
         return 130
-    print(f"QA runner: {report['result']}; report: {path}")
+    feature = report.get("flow", {}).get("feature_result") if args.flow is not None else None
+    summary = f"QA runner: {report['result']}"
+    if args.flow is not None:
+        summary += f"; feature: {feature}"
+    print(f"{summary}; report: {path}")
     if "error" in report:
         print(report["error"], file=sys.stderr)
-    return {"success": 0, "failure": 1, "interrupted": 130}[report["result"]]
+    code = {"success": 0, "failure": 1, "interrupted": 130}[report["result"]]
+    if code == 0 and args.flow is not None:
+        code = FEATURE_EXIT_CODES.get(feature, FEATURE_EXIT_CODES["BLOCKED"])
+    return code
 
 
 if __name__ == "__main__":
