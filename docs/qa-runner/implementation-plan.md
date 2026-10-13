@@ -6,6 +6,8 @@
 
 **Baseline de la investigación:** rama `feat/qa-runner`, commit `dff293a2` para QA-001/QA-002, con QA-003 presente sin commit. Las referencias al estado actual son una fotografía de la investigación, no garantías sobre futuras builds. Antes de implementar, volver a comprobar código, branch, working tree, arquitectura y Game Design vigente.
 
+**Revisión de orden (2026-10-12):** E0 se reduce a contrato mínimo y requisitos; el roadmap prioriza un primer recorrido real de punta a punta (E4) y divide la ejecución en una línea de cliente y otra de ambiente. E2 se pospone hasta antes de la primera ejecución sin supervisión, y E10 se divide en E10a (solo imagen) y E10b (con oráculos de estado). Los IDs existentes se conservan.
+
 **Objetivo final:** recibir una feature concreta, preparar un ambiente reproducible, ejecutar una prueba sobre una build real, evaluar sus resultados y entregar evidencia de los fallos encontrados, sin intervención humana durante el recorrido soportado.
 
 **Recomendación:** automatización determinista más observación confiable y una capa opcional de IA para interpretación, composición limitada de planes y triage. No construir inicialmente un bot general que juega mirando screenshots.
@@ -96,6 +98,7 @@ Estas evidencias muestran acciones y capturas de QA-002. No prueban QA-003 ni re
 
 - El login actual obtiene identidad, perfil, inventario y progresión, valida coherencia de revisiones e inicializa el contexto del personaje.
 - `MainMenuController` tiene un gate de login al crear sala cuando no hay autenticación. No asumir un botón/flujo de entrada distinto sin inspeccionar la build.
+- No se encontró recuperación automática de sesión ni las opciones Configuración/Créditos/Salir que describe GD UI §4.1–4.2; el menú principal ofrece *Create Room* (Join permanece oculto). Registrar en E0 como conflicto; no implementarlo como parte del runner.
 - Existe hidratación y hay adaptadores remotos. Las afirmaciones heredadas de persistencia exclusivamente en memoria no describen todos los campos actuales.
 - `LocalPlayerPersistenceArchitecture.md` documenta límites específicos, incluidos los Off Hands frente al DTO remoto de seis slots. Una mutación de UI/local no prueba durabilidad.
 - `backend/scripts/seed-test-accounts.js` prepara dos cuentas, pero no aporta reset integral ni guard suficiente contra bases no descartables. Evitar passwords por argv/defaults en el futuro harness.
@@ -234,52 +237,51 @@ Los reintentos no borran fallos. Definir cuándo son seguros, especialmente para
 ### Dependencias y entregas útiles
 
 ```text
-E0 → E1 → E2 → E3 → E4 → E5 → E6 → E7
-                                      ↓
-                        E8 → E9 → E10 → E11
-                                      ↓
-                         E12 → E13 → E14 → E15 → E16
+Línea cliente:   E0 → E3 → E4 (primer E2E: gate de login) → E5 → E6 ─┐
+Línea ambiente:  E0 → E1 ────────────────────────────────────────────┤
+                                                                     ↓
+                                                   E7 → E10a (menú de Town, solo imagen)
+                                                    │
+                                                    ├→ E8 → E9 → E10b → E11
+                                                    └→ E2 (worker aislado)
+                                                                      ↓
+                                   E11 + E2 → E12 → E13 → E14 → E15 → E16
 
-E17 comienza con E10 y amplía su catálogo con E11–E16.
+E17 comienza con E10a y amplía su catálogo con E10b–E16.
 E18 depende de E17 y es opcional si IDs/alias satisfacen los pedidos.
-E19 cierra operación autónoma sobre la cobertura acordada.
+E19 requiere E2 y cierra operación autónoma sobre la cobertura acordada.
 ```
 
-Este orden prioriza una unidad verificable por vez; no prohíbe investigación independiente. No solapar escritores en el mismo working tree ni crear worktrees sin autorización.
+Orden de ejecución recomendado: E0 → E3 → E4 → E5 → E6, con E1 en paralelo; luego E7 → E10a → E8 → E9 → E10b → E11 → E2 → E12–E16. La primera prueba funcional real ocurre en E4 y la primera feature de Town se evalúa en E10a.
 
-### Hito A — Ambiente reproducible y evidencia
+Este orden prioriza una unidad verificable por vez; no prohíbe investigación independiente. Las dos líneas pueden avanzar en paralelo solo con responsables distintos. No solapar escritores en el mismo working tree ni crear worktrees sin autorización.
 
-#### E0. Primer contrato funcional
+Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los guards de QA-002 (foco exacto, ownership por PID/HWND, release y cleanup) y sin afirmar autonomía.
 
-- **Objetivo:** seleccionar una feature pequeña ya implementada; propuesta: abrir/cerrar el menú personal de Town.
+### Hito A — Contrato, ambiente y evidencia
+
+#### E0. Primer contrato funcional (reducido)
+
+- **Objetivo:** fijar la feature objetivo (abrir/cerrar el menú personal de Town) y derivar de ella los requisitos de E1–E7.
 - **Dependencias:** ninguna.
-- **Alcance/entrega:** contrato de prueba con contexto de login, input, estados esperados, evidencia y exclusiones; matriz de capacidades existentes/faltantes.
-- **Exclusiones:** combate, persistencia de Equipment y exploración general.
-- **Aceptación:** cada expectativa tiene fuente propietaria; precondiciones y resultado evaluable inequívocos; conflictos registrados.
-- **Validación:** revisión contra código, arquitectura y documentos vigentes. Revisar el estado real de QA-003 y decidir si es precondición de este recorrido.
+- **Alcance/entrega:** expectativas con su fuente propietaria (GD, Arquitectura o código); precondiciones del recorrido (cuenta con personaje creado, Host en Town, menú conectado, sin otros paneles abiertos); matriz de capacidades existentes/faltantes con la etapa que las cubre; conflictos registrados; decisión sobre QA-003.
+- **Exclusiones:** plantillas visuales, regiones, tiempos, formato de evidencia y esquema de escenario (se definen en E6/E10a sobre UI vigente); combate, persistencia de Equipment y exploración general.
+- **Aceptación:** cada expectativa tiene fuente propietaria; precondiciones y resultado evaluable inequívocos; conflictos registrados; ningún detalle depende de UI provisoria pendiente de UI.2/UI.3.
+- **Validación:** revisión contra código, arquitectura y documentos vigentes. QA-003 no es precondición de E0; con commit propio y comprobación real del gate registrada, es precondición de E4.
 
 #### E1. Cuentas y fixtures mínimos
 
 - **Objetivo:** preparar estado inicial repetible sin tocar producción.
-- **Dependencias:** E0.
-- **Alcance/entrega:** backend/DB descartables, cuentas QA, identidad/perfil/inventario inicial y reset idempotente; referencias a secretos fuera de repo/argv.
+- **Dependencias:** E0. Avanza en paralelo a E3–E6.
+- **Alcance/entrega:** backend/DB descartables, cuentas QA con personaje creado, identidad/perfil/inventario inicial y reset idempotente; configuración Photon/Fusion del ambiente QA identificada; referencias a secretos fuera de repo/argv.
 - **Exclusiones:** reset administrativo sobre datos reales, una plataforma general de provisioning.
 - **Aceptación:** destino explícitamente autorizado; rechazo de otro destino antes de mutar; fixture verificado; cuentas y datos identificados por ejecución.
 - **Validación:** preparar dos veces, comparar estado y probar negativa con un destino no autorizado. Destruir o restaurar únicamente recursos descartables propios.
 
-#### E2. Worker Windows aislado
-
-- **Objetivo:** escritorio gráfico estable y control seguro.
-- **Dependencias:** E1.
-- **Alcance/entrega:** perfil de VM/máquina dedicada, build manifest, health check de sesión/captura, ownership de procesos y política de foco autónomo opt-in dentro del worker.
-- **Exclusiones:** apropiarse del escritorio del desarrollador, matar procesos por nombre.
-- **Aceptación:** detectar sesión bloqueada/foco perdido; stop de emergencia; cleanup bajo propiedad demostrada, incluidos descendientes relevantes; timeout visible.
-- **Validación:** launch normal, exe inválido, crash, bloqueo de sesión, pérdida de foco y árbol de procesos de control. Validar GPU/rendering; un flag `vm-confirm` no prueba aislamiento por sí solo.
-
 #### E3. Reporte versionado y logs
 
 - **Objetivo:** evidencia útil antes de agregar autonomía funcional.
-- **Dependencias:** E2.
+- **Dependencias:** E0. Entregar el mínimo que necesita E4 y ampliarlo con los casos reales.
 - **Alcance/entrega:** esquema versionado, Player log por ejecución mediante `-logFile`, timeline, artefactos y redacción/límites.
 - **Exclusiones:** dashboard, almacenamiento distribuido, publicación remota.
 - **Aceptación:** reconstruir secuencia y primera falla; compatibilidad explícita; secretos ausentes; errores de disco/evidencia no ocultos.
@@ -287,14 +289,16 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 
 ### Hito B — UI y autenticación reales
 
-#### E4. Mouse seguro
+#### E4. Mouse seguro y primer recorrido de punta a punta
 
-- **Objetivo:** click reproducible en el área cliente validada.
-- **Dependencias:** E2–E3.
-- **Alcance/entrega:** click sobre coordenada local o anchor visual único, guard antes/después y release de botones.
-- **Exclusiones:** drag-and-drop, multiscale general y localización fuera de la ventana.
-- **Aceptación:** ningún click con foco/ownership inválidos, geometría cambiada o target ambiguo; nunca usar posición absoluta de escritorio sin conversión validada.
-- **Validación:** tests con mocks y prueba real autorizada de una UI; mover/redimensionar ventana y perder foco.
+- **Objetivo:** click reproducible en el área cliente validada y primera prueba funcional real: el gate de login del menú principal.
+- **Dependencias:** E3; QA-003 con commit propio y comprobación real del gate registrada.
+- **Alcance/entrega:** click sobre coordenada local o anchor visual único, guard antes/después y release de botones. Recorrido: launch → menú principal listo (QA-003) → click en *Create Room* sin sesión → panel de login visible → click en *Back* → menú principal restaurado. Sin backend ni credenciales.
+- **Exclusiones:** drag-and-drop, multiscale general, localización fuera de la ventana, escritura de texto y login real.
+- **Aceptación:** ningún click con foco/ownership inválidos, geometría cambiada o target ambiguo; nunca usar posición absoluta de escritorio sin conversión validada. El recorrido produce resultado de feature según §4, con esperado tomado de `MainMenuController` y GD UI §4.1, y evidencia antes/durante/después sin campos de credenciales.
+- **Validación:** tests con mocks y ejecución atendida autorizada del recorrido; mover/redimensionar ventana y perder foco; control defectuoso sintético (captura sin panel de login) que falle por la aserción prevista. Si se implementa recuperación de sesión (conflicto de E0), el fixture debe garantizar estado sin sesión.
+
+**Entrega temprana:** primer recorrido real de punta a punta, con resultado de feature y evidencia, sin backend.
 
 #### E5. Texto y credenciales
 
@@ -316,14 +320,23 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 
 #### E7. Login y contexto posterior
 
-- **Objetivo:** primer recorrido funcional real, sin saltar autenticación.
-- **Dependencias:** E1–E6.
+- **Objetivo:** primer recorrido autenticado real, sin saltar autenticación.
+- **Dependencias:** E1, E3–E6. Ejecución atendida en escritorio local hasta E2. La precondición de sesión depende de resolver el conflicto de recuperación de sesión registrado en E0.
 - **Alcance/entrega:** navegar al gate de login, ingresar cuenta y comprobar identidad/hidratación/contexto. Lectura backend independiente cuando esté disponible.
 - **Exclusiones:** inyectar tokens para evitar el login probado; afirmar cobertura de gameplay por llegar a Town.
 - **Aceptación:** CharacterId del fixture, datos coherentes, estado posterior alcanzado; errores visibles ante rechazo o backend inaccesible.
 - **Validación:** credenciales válidas/incorrectas, backend indisponible y repeticiones desde proceso nuevo. Añadir expiración/token inválido como caso pequeño separado si el contrato lo exige.
 
-**Entrega útil A:** login/UI reproducibles, con evidencia y diagnóstico, todavía sin afirmar pruebas completas de gameplay.
+#### E10a. Menú personal de Town, solo imagen
+
+- **Objetivo:** evaluar el contrato de E0 sobre la build real usando solo observación visual.
+- **Dependencias:** E6–E7.
+- **Alcance/entrega:** Tab abre (ventana visible, Inventario y Equipamiento visibles, HUD oculto), Tab cierra (HUD restaurado) y Escape cierra. Referencias visuales creadas sobre la UI vigente al momento de ejecutar.
+- **Exclusiones:** supresión de input de gameplay (excluida explícitamente de la cobertura hasta E10b), C/Atributos, Escape→Options, rechazo con otro panel abierto, durable Equipment/Off Hand.
+- **Aceptación:** input real; el resultado cubre solo las aserciones visuales declaradas y el reporte lista las exclusiones; evidencia antes/durante/después y cleanup limpio.
+- **Validación:** build sana y controles defectuosos sintéticos (capturas sin ventana o con HUD visible) que fallen por la aserción prevista; repetir desde proceso nuevo.
+
+**Entrega útil A:** login/UI reproducibles y una primera feature de Town evaluada por imagen, con evidencia y diagnóstico, todavía sin afirmar pruebas completas de gameplay.
 
 ### Hito C — Features evaluadas por oráculos
 
@@ -345,11 +358,11 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 - **Aceptación:** dato ausente/vencido no pasa; tolerancias justificadas; cada assertion identifica fuente y contradicción.
 - **Validación:** controles sanos y observaciones incorrectas deliberadas; demostrar que cada assertion falla por su causa específica.
 
-#### E10. Primera feature completa de Town
+#### E10b. Primera feature completa de Town
 
-- **Objetivo:** completar el contrato de E0 sin intervención durante el recorrido.
-- **Dependencias:** E7–E9.
-- **Alcance/entrega:** abrir panel, comprobar contenido/visibilidad, supresión de input cuando aplique y cierre/restauración.
+- **Objetivo:** completar el contrato de E0 con oráculos de estado, sin intervención durante el recorrido.
+- **Dependencias:** E8–E9 y E10a.
+- **Alcance/entrega:** sumar a E10a la supresión de input y la coherencia modelo/presentación al abrir y cerrar.
 - **Exclusiones:** durable Equipment/Off Hand no resuelto, todas las pantallas simultáneamente.
 - **Aceptación:** input real, modelo/presentación acordes, evidencia antes/durante/después y cleanup limpio.
 - **Validación:** build sana y control defectuoso que no abra/cierre/restaure; repetir desde fixture nuevo. Después incorporar una operación de inventario por vez, por ejemplo split 13→5+8.
@@ -357,7 +370,7 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 #### E11. Gameplay por primitivas
 
 - **Objetivo:** probar acciones reales, no un bot de exploración general.
-- **Dependencias:** E8–E10.
+- **Dependencias:** E8–E9 y E10b.
 - **Alcance/entrega:** cuatro unidades independientes: movimiento; interacción; una habilidad válida con coste/cooldown; intento sin recurso suficiente.
 - **Exclusiones:** pathfinding general, todos los enemigos/habilidades, crear sistemas de gameplay ausentes.
 - **Aceptación de cada unidad:** fixture de mapa/objetivo conocido, input normal, observación confirmada y ventana temporal contractual. Regla vigente: sin recurso suficiente no inicia ejecución ni cooldown.
@@ -366,6 +379,15 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 **Entrega útil B:** una feature individual evaluada autónomamente y pruebas básicas de gameplay ampliables.
 
 ### Hito D — Multijugador y durabilidad
+
+#### E2. Worker Windows aislado
+
+- **Objetivo:** escritorio gráfico estable y control seguro.
+- **Dependencias:** E7. Requerido antes de E12 y de cualquier ejecución sin supervisión.
+- **Alcance/entrega:** perfil de VM/máquina dedicada, build manifest, health check de sesión/captura, ownership de procesos y política de foco autónomo opt-in dentro del worker.
+- **Exclusiones:** apropiarse del escritorio del desarrollador, matar procesos por nombre.
+- **Aceptación:** detectar sesión bloqueada/foco perdido; stop de emergencia; cleanup bajo propiedad demostrada, incluidos descendientes relevantes; timeout visible.
+- **Validación:** launch normal, exe inválido, crash, bloqueo de sesión, pérdida de foco y árbol de procesos de control. Validar GPU/rendering; un flag `vm-confirm` no prueba aislamiento por sí solo. Repetir sobre el worker los recorridos de E4, E7 y E10a.
 
 #### E12. Host y Client coordinados
 
@@ -419,7 +441,7 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 #### E17. Catálogo y selección
 
 - **Objetivo:** pedir una feature sin preparar manualmente el recorrido.
-- **Dependencias:** E10 para iniciar; ampliar con E11–E16.
+- **Dependencias:** E10a para iniciar; ampliar con E10b–E16.
 - **Alcance/entrega:** features/aliases, variantes, contratos, capacidades, fixtures, escenarios y cobertura.
 - **Exclusiones:** afirmar cobertura sobre features desconocidas.
 - **Aceptación:** pedido resuelve plan relevante, prepara y evalúa; explica exclusiones y bloquea capacidades ausentes.
@@ -437,7 +459,7 @@ Este orden prioriza una unidad verificable por vez; no prohíbe investigación i
 #### E19. Operación autónoma estable
 
 - **Objetivo:** completar recorrido sin intervención y reportar de forma confiable.
-- **Dependencias:** etapas necesarias para la cobertura acordada; E18 solo si se adopta.
+- **Dependencias:** E2 y las etapas necesarias para la cobertura acordada; E18 solo si se adopta.
 - **Alcance/entrega:** preflight→fixture→login→acciones→assertions→report→cleanup; repetición, clasificación local y guía de operación.
 - **Exclusiones:** dashboard o CI distribuidas como requisito; publicación remota automática no autorizada.
 - **Aceptación:** campaña sana repetible, controles defectuosos detectados por la razón esperada, resultados incompletos honestos y ambiente limpio.
@@ -508,7 +530,7 @@ No llamar al modelo por frame/click, no entrenar RL y no permitir que ajuste exp
 | Tema | Riesgo/decisión | Momento y recomendación |
 |---|---|---|
 | Backend | Seed actual no garantiza aislamiento/reset. | E1: allowlist de destino, recursos descartables y fixture verificado. |
-| Foco | Carrera residual de input global. | E2: worker dedicado; autonomía de foco explícita; fail closed. |
+| Foco | Carrera residual de input global. | E4–E11: ejecuciones atendidas con guards de QA-002, sin autonomía. E2, antes de E12/E19: worker dedicado; autonomía de foco explícita; fail closed. |
 | Sesión remota | Bloqueo/RDP/GPU pueden invalidar render/captura. | E2: prueba real del perfil de worker y health check. |
 | Instrumentación | Self-fulfilling test o exposición de control. | Antes de E8: observación mínima, producción deshabilitada, canal protegido. |
 | Documentación heredada | Expected equivocado sobre persistencia. | E0 y cada feature: matriz por campo/contrato; no blanket memory-only/durable. |
@@ -533,7 +555,7 @@ Las decisiones arquitectónicas y de Game Design deben aprobarse antes de cambia
 - Primero un worker local, después dos para Host/Client; escalar solamente con métricas reales.
 - No fijar cronograma preciso antes del piloto E7. Medir mantenimiento de localizadores, tiempo por escenario, fallos de ambiente, costos de máquinas/servicios y utilidad del reporte.
 - No incorporar nuevas dependencias o SDK comerciales sin comparación concreta de costo/beneficio y aprobación.
-- E0–E7 entregan valor antes de invertir en un bridge amplio o IA. E8–E10 prueban que el diseño puede evaluar una feature, no solo automatizarla.
+- E4 entrega el primer recorrido real y E0–E10a entregan valor antes de invertir en un bridge amplio, un worker dedicado o IA. E8–E10b prueban que el diseño puede evaluar una feature con oráculos de estado, no solo automatizarla.
 
 La automatización no elimina mantenimiento: actualizar contratos, fixtures y localizadores es parte del costo recurrente. Registrar propietario por escenario para evitar abandono.
 
@@ -606,10 +628,10 @@ No agrupar todas las mejoras en una segunda gran entrega. Cada una conserva obje
 
 ### Próxima acción propuesta
 
-Autorizar **E0**, no comenzar por IA. Elegir el primer caso de Town, su contexto/expected/evidencia y confirmar:
+Autorizar **E0 reducido**, no comenzar por IA. Fijar el caso de Town, sus expectativas, precondiciones y capacidades, y confirmar:
 
-- Disponibilidad de una build identificada y backend QA descartable.
-- Worker Windows gráfico dedicado y permiso posterior para pruebas reales.
+- Disponibilidad de una build identificada; backend QA descartable para E1/E7.
+- Permiso para ejecuciones atendidas en el escritorio local desde E4; worker Windows gráfico dedicado recién para E2.
 - Aprobación o rechazo de observación mínima en builds QA para E8.
 - Responsables de contratos y resolución de conflictos.
 
