@@ -8,6 +8,8 @@
 
 **Revisión de orden (2026-10-12):** E0 se reduce a contrato mínimo y requisitos; el roadmap prioriza un primer recorrido real de punta a punta (E4) y divide la ejecución en una línea de cliente y otra de ambiente. E2 se pospone hasta antes de la primera ejecución sin supervisión, y E10 se divide en E10a (solo imagen) y E10b (con oráculos de estado). Los IDs existentes se conservan.
 
+**Revisión de E4 (2026-10-13):** E4 pasa a ser un recorrido autónomo de punta a punta solo con teclado: el runner adquiere el foco de su propia ventana (opt-in), el juego incorpora navegación de UI por teclado en el menú principal y el panel de login, y el oráculo combina una referencia visual independiente de la posición con líneas del Player log. El mouse sale de E4 y se incorpora cuando un escenario lo requiera.
+
 **Objetivo final:** recibir una feature concreta, preparar un ambiente reproducible, ejecutar una prueba sobre una build real, evaluar sus resultados y entregar evidencia de los fallos encontrados, sin intervención humana durante el recorrido soportado.
 
 **Recomendación:** automatización determinista más observación confiable y una capa opcional de IA para interpretación, composición limitada de planes y triage. No construir inicialmente un bot general que juega mirando screenshots.
@@ -79,7 +81,9 @@ Para una feature nueva: localizar sus documentos propietarios, leer las seccione
 | Tests | Última verificación registrada: 104 pruebas pasando, 76 anteriores intactas y 28 nuevas. | No se ejecutaron nuevamente para elaborar el plan. Predominan imágenes sintéticas y Win32/GUI simulados; QA-001 también usa procesos stdlib reales. |
 | Reportes | Acciones y evidencia; `functional_validation: not_performed`, `gameplay_validated: false`. | Sin contrato de escenarios o aserciones; no convertir el éxito de proceso en éxito funcional. |
 
-QA-002 requiere foco manual. La autonomía futura necesitará una política nueva y explícita de adquisición de foco exclusivamente dentro de un worker aislado. No cambiar silenciosamente el comportamiento actual.
+QA-002 requiere foco manual. E4 introduce una política explícita y opt-in de adquisición de foco, solo sobre la ventana propia y con bloqueo si no se obtiene; E2 la endurece para el worker aislado. Sin el opt-in, el comportamiento de QA-002 no cambia.
+
+Windows impide que un proceso sin derecho al primer plano lo tome (*foreground lock*). Medición del 2026-10-13: lanzado desde un proceso que no está en primer plano, la ventana del juego no recibe el foco y `SetForegroundWindow` es rechazado, incluso con `AttachThreadInput`; lanzado desde una terminal en primer plano, la ventana recibe el foco sola en ~1 s (2/2). Por eso el runner debe iniciarse desde el contexto en primer plano; si no obtiene el foco, la corrida queda BLOCKED con motivo explícito. No se usan trucos de inyección de teclas ni `AttachThreadInput`.
 
 Las operaciones síncronas de captura, IO y Win32 no pueden interrumpirse mediante polling. Detectar una demora permite bloquear inputs posteriores, no garantizar un límite duro para la llamada en curso. Hard kill puede impedir cleanup; overlays pueden contaminar screenshots.
 
@@ -256,7 +260,7 @@ Orden de ejecución recomendado: E0 → E3 → E4 → E5 → E6, con E1 en paral
 
 Este orden prioriza una unidad verificable por vez; no prohíbe investigación independiente. Las dos líneas pueden avanzar en paralelo solo con responsables distintos. No solapar escritores en el mismo working tree ni crear worktrees sin autorización.
 
-Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los guards de QA-002 (foco exacto, ownership por PID/HWND, release y cleanup) y sin afirmar autonomía.
+Hasta E2, las corridas se ejecutan en el escritorio local. Desde E4 no requieren intervención durante la corrida (foco autónomo opt-in), conservan los guards de QA-002 (foco exacto, ownership por PID/HWND, modificadores, release y cleanup) y tienen a una persona responsable del equipo. La operación programada sin nadie presente requiere E2.
 
 ### Hito A — Contrato, ambiente y evidencia
 
@@ -289,21 +293,24 @@ Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los 
 
 ### Hito B — UI y autenticación reales
 
-#### E4. Mouse seguro y primer recorrido de punta a punta
+#### E4. Primer recorrido autónomo de punta a punta (teclado)
 
-- **Objetivo:** click reproducible en el área cliente validada y primera prueba funcional real: el gate de login del menú principal.
-- **Dependencias:** E3; QA-003 con commit propio y comprobación real del gate registrada.
-- **Alcance/entrega:** click sobre coordenada local o anchor visual único, guard antes/después y release de botones. Recorrido: launch → menú principal listo (QA-003) → click en INICIAR (*Create Room*) sin sesión → panel de login visible → click en *Back* → menú principal restaurado. Sin backend ni credenciales.
-- **Exclusiones:** drag-and-drop, multiscale general, localización fuera de la ventana, escritura de texto y login real.
-- **Aceptación:** ningún click con foco/ownership inválidos, geometría cambiada o target ambiguo; nunca usar posición absoluta de escritorio sin conversión validada. El recorrido produce resultado de feature según §4, con esperado tomado de `MainMenuController` y GD UI §4.1, y evidencia antes/durante/después sin campos de credenciales.
-- **Validación:** tests con mocks y ejecución atendida autorizada del recorrido; mover/redimensionar ventana y perder foco; control defectuoso sintético (captura sin panel de login) que falle por la aserción prevista. Si se implementa recuperación de sesión (conflicto de E0), el fixture debe garantizar estado sin sesión.
+- **Objetivo:** primera prueba funcional real sin intervención durante la corrida: el gate de login del menú principal.
+- **Dependencias:** E3; QA-003 con commit propio y comprobación real del gate registrada; build identificada que incluya la navegación por teclado.
+- **Alcance/entrega:**
+  - Juego: INICIAR seleccionado al mostrarse el menú (Enter/Space lo activa mediante el Submit estándar de UI), Escape equivale a *Volver* en el panel de login, y una línea de Player log al mostrar y al cerrar el panel. Sin hooks de QA.
+  - Runner: adquisición de foco autónoma opt-in solo sobre la ventana propia; recorrido launch → foco → menú listo (INICIAR) → Enter → login visible → Escape → menú restaurado; lectura del Player log durante la corrida.
+  - Oráculo: referencia visual de INICIAR independiente de la posición (presente/ausente estable) y líneas del Player log; ambas señales deben coincidir para PASS. Sin cálculo de posiciones desde el layout ni referencias nuevas.
+- **Exclusiones:** mouse, escritura de texto, login real, OCR, escenarios genéricos y referencias generadas por la propia prueba.
+- **Aceptación:** ninguna tecla sin foco/ownership válidos; foco no obtenido produce BLOCKED sin input; resultado de feature según §4 con esperado tomado de `MainMenuController` y GD UI §4.1; señales en desacuerdo producen INCONCLUSIVE; evidencia antes/durante/después.
+- **Validación:** tests del juego (EditMode/PlayMode) y del runner con mocks; medición real de adquisición de foco; tres recorridos sanos desde procesos nuevos; control defectuoso con input real (tecla equivocada) que falle por la aserción prevista; build sin la navegación por teclado que nunca produzca PASS. Si se implementa recuperación de sesión (conflicto de E0), el fixture debe garantizar estado sin sesión.
 
 **Entrega temprana:** primer recorrido real de punta a punta, con resultado de feature y evidencia, sin backend.
 
 #### E5. Texto y credenciales
 
 - **Objetivo:** completar formularios sin exponer secretos.
-- **Dependencias:** E4.
+- **Dependencias:** E4. Definir antes cómo se enfoca cada campo (navegación por teclado del juego o mouse seguro).
 - **Alcance/entrega:** escritura en campos conocidos, charset/layout explícitos, referencias a secretos resueltas en memoria.
 - **Exclusiones:** clipboard de secretos como default, Unicode arbitrario sin prueba de compatibilidad.
 - **Aceptación:** panel y destino verificados antes de escribir; no publicar credenciales ni capturas sensibles; cancelar ante incertidumbre de campo/foco.
@@ -313,7 +320,7 @@ Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los 
 
 - **Objetivo:** describir recorridos sin programar un script nuevo por prueba.
 - **Dependencias:** E3–E5.
-- **Alcance/entrega:** JSON pequeño con espera de estado, key/click/type, capture y assertions disponibles; validación antes del launch.
+- **Alcance/entrega:** JSON pequeño con espera de estado, key/type, capture y assertions disponibles; validación antes del launch. Click seguro (sobre anchor visual único, con guards y release) solo cuando un escenario lo requiera.
 - **Exclusiones:** loops sin límites, código Python/shell generado, framework de plugins.
 - **Aceptación:** allowlists, límites por paso/global, cancelación y cleanup; fallo de un paso impide acciones posteriores no autorizadas por el escenario.
 - **Validación:** esquema inválido, acción desconocida, orden incorrecto, timeout, interrupción y regresión de QA-001/002/003.
@@ -321,7 +328,7 @@ Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los 
 #### E7. Login y contexto posterior
 
 - **Objetivo:** primer recorrido autenticado real, sin saltar autenticación.
-- **Dependencias:** E1, E3–E6. Ejecución atendida en escritorio local hasta E2. La precondición de sesión depende de resolver el conflicto de recuperación de sesión registrado en E0.
+- **Dependencias:** E1, E3–E6. Ejecución autónoma en escritorio local hasta E2. La precondición de sesión depende de resolver el conflicto de recuperación de sesión registrado en E0.
 - **Alcance/entrega:** navegar al gate de login, ingresar cuenta y comprobar identidad/hidratación/contexto. Lectura backend independiente cuando esté disponible.
 - **Exclusiones:** inyectar tokens para evitar el login probado; afirmar cobertura de gameplay por llegar a Town.
 - **Aceptación:** CharacterId del fixture, datos coherentes, estado posterior alcanzado; errores visibles ante rechazo o backend inaccesible.
@@ -383,8 +390,8 @@ Hasta E2, los pilotos son ejecuciones atendidas en el escritorio local, con los 
 #### E2. Worker Windows aislado
 
 - **Objetivo:** escritorio gráfico estable y control seguro.
-- **Dependencias:** E7. Requerido antes de E12 y de cualquier ejecución sin supervisión.
-- **Alcance/entrega:** perfil de VM/máquina dedicada, build manifest, health check de sesión/captura, ownership de procesos y política de foco autónomo opt-in dentro del worker.
+- **Dependencias:** E7. Requerido antes de E12 y de la operación programada sin nadie presente.
+- **Alcance/entrega:** perfil de VM/máquina dedicada, build manifest, health check de sesión/captura, ownership de procesos y endurecimiento de la política de foco autónomo de E4 dentro del worker.
 - **Exclusiones:** apropiarse del escritorio del desarrollador, matar procesos por nombre.
 - **Aceptación:** detectar sesión bloqueada/foco perdido; stop de emergencia; cleanup bajo propiedad demostrada, incluidos descendientes relevantes; timeout visible.
 - **Validación:** launch normal, exe inválido, crash, bloqueo de sesión, pérdida de foco y árbol de procesos de control. Validar GPU/rendering; un flag `vm-confirm` no prueba aislamiento por sí solo. Repetir sobre el worker los recorridos de E4, E7 y E10a.
@@ -530,7 +537,7 @@ No llamar al modelo por frame/click, no entrenar RL y no permitir que ajuste exp
 | Tema | Riesgo/decisión | Momento y recomendación |
 |---|---|---|
 | Backend | Seed actual no garantiza aislamiento/reset. | E1: allowlist de destino, recursos descartables y fixture verificado. |
-| Foco | Carrera residual de input global. | E4–E11: ejecuciones atendidas con guards de QA-002, sin autonomía. E2, antes de E12/E19: worker dedicado; autonomía de foco explícita; fail closed. |
+| Foco | Carrera residual de input global; robo de foco en el escritorio local. | E4–E11: foco autónomo opt-in solo sobre la ventana propia, guards de QA-002 y fail closed; persona responsable del equipo. E2, antes de E12/E19: worker dedicado. |
 | Sesión remota | Bloqueo/RDP/GPU pueden invalidar render/captura. | E2: prueba real del perfil de worker y health check. |
 | Instrumentación | Self-fulfilling test o exposición de control. | Antes de E8: observación mínima, producción deshabilitada, canal protegido. |
 | Documentación heredada | Expected equivocado sobre persistencia. | E0 y cada feature: matriz por campo/contrato; no blanket memory-only/durable. |
@@ -631,7 +638,7 @@ No agrupar todas las mejoras en una segunda gran entrega. Cada una conserva obje
 Autorizar **E0 reducido**, no comenzar por IA. Fijar el caso de Town, sus expectativas, precondiciones y capacidades, y confirmar:
 
 - Disponibilidad de una build identificada; backend QA descartable para E1/E7.
-- Permiso para ejecuciones atendidas en el escritorio local desde E4; worker Windows gráfico dedicado recién para E2.
+- Permiso para ejecuciones autónomas en el escritorio local desde E4; worker Windows gráfico dedicado recién para E2.
 - Aprobación o rechazo de observación mínima en builds QA para E8.
 - Responsables de contratos y resolución de conflictos.
 
