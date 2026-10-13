@@ -101,7 +101,9 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
         demo.validate_duration(duration)
     executable = Path(executable).resolve()
     results_dir = Path(results_dir).resolve()
+    from readiness import initial_report
     report = {
+        "readiness": initial_report(demo.readiness if demo is not None else None),
         "date_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "executable": str(executable),
         "configured_duration_seconds": duration,
@@ -155,6 +157,9 @@ def run(executable, duration, results_dir, *, command=None, demo=None, control_f
             except Exception as exc:
                 report["error"] = f"Launch/observation failed: {type(exc).__name__}: {exc}"
             finally:
+                if (report["readiness"]["requested"]
+                        and report["readiness"].get("error") == "Readiness has not completed."):
+                    report["readiness"].update(state="blocked", error=report.get("error", "Readiness did not complete."))
                 # Keys MUST be released before the owned process is terminated.
                 if control is not None:
                     try:
@@ -207,7 +212,26 @@ def main(argv=None):
                         help="demo-only key hold seconds (default 0.2; maximum 10)")
     parser.add_argument("--capture-delay", type=duration_argument, default=None,
                         help="demo-only delay after release (default 0.2; maximum 30)")
+    parser.add_argument("--ready-reference", type=Path, help="opt-in same-scale main-menu PNG template")
+    parser.add_argument("--ready-timeout", type=float, default=None, help="readiness seconds, 0.05..60 (default 10)")
+    parser.add_argument("--ready-interval", type=float, default=None, help="poll seconds, 0.02..5 (default 0.2)")
+    parser.add_argument("--ready-tolerance", type=float, default=None, help="RGB error tolerance, 1..20 (default 12)")
+    parser.add_argument("--ready-count", type=int, default=None, help="stable consecutive frames, 2..10 (default 3)")
     args = parser.parse_args(argv)
+    ready = None
+    ready_timings = (args.ready_timeout, args.ready_interval, args.ready_tolerance, args.ready_count)
+    if args.ready_reference is not None or any(value is not None for value in ready_timings):
+        if args.demo_key is None or args.ready_reference is None:
+            parser.error("readiness options require --demo-key and --ready-reference")
+        from readiness import ReadyOptions
+        try:
+            ready = ReadyOptions(args.ready_reference,
+                                 timeout_seconds=args.ready_timeout if args.ready_timeout is not None else 10,
+                                 interval_seconds=args.ready_interval if args.ready_interval is not None else 0.2,
+                                 tolerance=args.ready_tolerance if args.ready_tolerance is not None else 12,
+                                 consistent_count=args.ready_count if args.ready_count is not None else 3)
+        except ValueError as exc:
+            parser.error(str(exc))
     demo = None
     if args.demo_key is None:
         if any(value is not None for value in (args.window_wait, args.key_hold, args.capture_delay)):
@@ -218,7 +242,8 @@ def main(argv=None):
             demo = DemoOptions(args.demo_key,
                                window_wait_seconds=args.window_wait if args.window_wait is not None else 10,
                                hold_seconds=args.key_hold if args.key_hold is not None else 0.2,
-                               capture_delay_seconds=args.capture_delay if args.capture_delay is not None else 0.2)
+                               capture_delay_seconds=args.capture_delay if args.capture_delay is not None else 0.2,
+                               readiness=ready)
             demo.validate_duration(args.duration)
         except ValueError as exc:
             parser.error(str(exc))

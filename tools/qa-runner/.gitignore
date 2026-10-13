@@ -1,6 +1,7 @@
 results/
 .venv/
 *.png
+!references/main-menu-iniciar.png
 qa-*.json
 __pycache__/
 *.pyc

@@ -32,8 +32,13 @@ class DemoOptions:
     window_wait_seconds: float = 10.0
     hold_seconds: float = 0.2
     capture_delay_seconds: float = 0.2
+    readiness: object = None
 
     def __post_init__(self):
+        if self.readiness is not None:
+            from readiness import ReadyOptions
+            if not isinstance(self.readiness, ReadyOptions):
+                raise ValueError("readiness must be a validated ReadyOptions object")
         if self.key not in DEMO_KEYS:
             raise ValueError(f"demo key must be one of: {', '.join(DEMO_KEYS)}")
         for name, limit in (("window_wait_seconds", 60), ("hold_seconds", 10),
@@ -52,10 +57,13 @@ class DemoOptions:
 
 
 def requested_actions(options):
+    names = list(ACTION_NAMES)
+    if options.readiness is not None:
+        names.insert(2, "readiness")
     return [{"name": name, "requested": True, "attempted": False,
              "executed": False, "status": "skipped", "key": options.key,
              "global_input_attempted": False, "global_input_completed": False}
-            for name in ACTION_NAMES]
+            for name in names]
 
 
 def load_gui():
@@ -172,6 +180,22 @@ class Win32:
             raise RuntimeError("owned window rectangle is not wholly within the primary monitor")
         return x, y, width, height
 
+    def client_region(self, hwnd):
+        # QA003 only: lazily bind so QA002's setup/API requirements stay unchanged.
+        for name, args in (("GetClientRect", [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]),
+                           ("ClientToScreen", [wintypes.HWND, ctypes.POINTER(wintypes.POINT)])):
+            function = getattr(self.api, name)
+            function.argtypes, function.restype = args, wintypes.BOOL
+        rect, origin = wintypes.RECT(), wintypes.POINT()
+        if not self.api.GetClientRect(hwnd, ctypes.byref(rect)) or not self.api.ClientToScreen(hwnd, ctypes.byref(origin)):
+            raise RuntimeError("cannot measure physical-pixel owned client area")
+        region = (origin.x, origin.y, rect.right - rect.left, rect.bottom - rect.top)
+        x, y, width, height = region
+        wx, wy, ww, wh = self.window_region(hwnd)
+        if width <= 0 or height <= 0 or x < wx or y < wy or x + width > wx + ww or y + height > wy + wh:
+            raise RuntimeError("client area outside owned primary-monitor window")
+        return region
+
 
 class Demo:
     def __init__(self, process, deadline, report, report_path, options, *,
@@ -181,6 +205,8 @@ class Demo:
         self.windows, self.gui_loader, self.clock = windows, gui_loader, clock
         self.gui, self.hwnd = None, None
         self.held_keys = set()
+        from readiness import initial_report
+        report.setdefault("readiness", initial_report(options.readiness))
         if not report["actions"]:
             report["actions"] = requested_actions(options)
 
@@ -246,6 +272,15 @@ class Demo:
             self.clock.sleep(max(0, min(CHECK_INTERVAL, remaining, self.deadline - self.clock.monotonic())))
 
     def execute(self):
+        try:
+            self._execute()
+        except (Exception, KeyboardInterrupt) as exc:
+            readiness = self.report["readiness"]
+            if self.options.readiness is not None and readiness["state"] != "ready":
+                readiness.update(state="blocked", error=f"{type(exc).__name__}: {exc}")
+            raise
+
+    def _execute(self):
         with ExitStack() as stack:
             with self.action("setup"):
                 self._alive()
@@ -262,6 +297,10 @@ class Demo:
                 self.gui.PAUSE = 0
                 with self.action("window_wait"):
                     self.wait_window()
+                if self.options.readiness is not None:
+                    from readiness import wait_ready
+                    with self.action("readiness"):
+                        wait_ready(self)
                 with self.action("key_down") as action:
                     if self.windows.physically_held(self.options.key):
                         raise RuntimeError(f"demo key already physically held: {self.options.key}")
@@ -289,10 +328,19 @@ class Demo:
                 self.gui.PAUSE = previous_pause
 
     def capture(self, action):
+        image, region = self.acquire_image(action)
+        self.save_image(image, region, action)
+
+    def acquire_image(self, action, *, client=False):
+        region_query = self.windows.client_region if client else self.windows.window_region
         self.guard()
-        region = self.windows.window_region(self.hwnd)
+        region = region_query(self.hwnd)
+        if client:
+            from readiness import MAX_FRAME_SIZE
+            if not 0 < region[2] <= MAX_FRAME_SIZE[0] or not 0 < region[3] <= MAX_FRAME_SIZE[1]:
+                raise RuntimeError("client screenshot exceeds bounded 1920x1080 dimensions")
         self.guard()
-        if self.windows.window_region(self.hwnd) != region:
+        if region_query(self.hwnd) != region:
             raise RuntimeError("window geometry changed before screenshot")
         self.gui.failSafeCheck()
         self.guard()
@@ -300,9 +348,17 @@ class Demo:
         image = self.gui.screenshot(region=region)
         # Do not save the image at all if ownership/focus/geometry changed in capture.
         self.guard()
-        if self.windows.window_region(self.hwnd) != region:
+        if region_query(self.hwnd) != region:
             raise RuntimeError("window geometry changed during screenshot; evidence discarded")
         self.guard()
+        if client and image.size != tuple(region[2:]):
+            raise ValueError("readiness screenshot dimensions do not match owned client region")
+        return image, region
+
+    def save_image(self, image, region, action, *, purpose=None, captured_at=None, historical=False):
+        if historical:
+            if self.clock.monotonic() >= self.deadline:
+                raise RuntimeError("global deadline reached before diagnostic save")
         while True:
             path = self.report_path.parent / f"{self.report_path.stem}-evidence-{uuid.uuid4().hex}.png"
             try:
@@ -317,15 +373,24 @@ class Demo:
             image.save(stream, format="PNG")
             stream.flush()
         verify_saved_png(path, region)
-        self.guard()
-        if self.windows.window_region(self.hwnd) != region:
-            raise RuntimeError("window geometry changed while saving; evidence discarded")
+        if historical:
+            if self.clock.monotonic() >= self.deadline:
+                raise RuntimeError("global deadline reached while saving diagnostic; evidence discarded")
+        else:
+            self.guard()
+            if self.windows.window_region(self.hwnd) != region:
+                raise RuntimeError("window geometry changed while saving; evidence discarded")
         self.report["evidence"].append({
             "path": str(path), "format": "PNG", "status": "saved", "hwnd": int(self.hwnd),
             "pid": self.process.pid, "region": list(region), "coordinate_space": "physical_pixels",
             "content_validation": "not_performed",
             "risk": "Visible desktop region may contain overlays/occlusion; not exclusive window content.",
         })
+        if historical:
+            self.report["evidence"][-1].update(
+                purpose=purpose, role="previous_guarded_frame_not_current_authority",
+                captured_at_monotonic_seconds=captured_at,
+                saved_at_monotonic_seconds=self.clock.monotonic(), stale=True)
         action.pop("discarded_evidence_path")
 
     def release_keys(self):

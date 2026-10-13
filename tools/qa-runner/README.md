@@ -1,4 +1,4 @@
-# QA-001 / QA-002 — Local process observation and opt-in Windows demo
+# QA-001 / QA-002 / QA003 — Local observation, Windows demo, visual readiness
 
 The default QA-001 mode is a Python standard-library-only runner that launches
 one build executable, observes its process for a configured duration, cleans up
@@ -7,11 +7,12 @@ Win32 calls, Unity Editor, or game-code changes are needed for the default mode.
 QA-002 optionally adds one global key press/release and a PNG evidence capture
 on Windows. Python 3.14 / Windows x64 is the tested environment.
 
-This checks **process lifetime only**. It does not test gameplay, rendering,
+Default QA-001 checks **process lifetime only**. Optional QA003 can gate QA-002
+input on a same-scale visual menu template; it does not establish functional
 readiness, responsiveness, input delivery/reaction, networking, or crash cause.
 Even a successful demo does **not** prove the game received the key or reacted.
-There is no vision,
-AI, Sheets integration, backend integration, or functional game-test framework.
+There is no OCR, AI, OpenCV, Sheets/backend integration, or functional game-test
+framework.
 
 ## Run on Windows
 
@@ -97,6 +98,7 @@ Each final report contains:
 | `gameplay_validated` | Always `false` |
 | `actions` | Ordered demo steps/cleanup; empty in default mode |
 | `evidence` | Accepted saved PNG records; empty in default mode |
+| `readiness` | Independent `not_checked` (unrequested), `blocked`, or `ready` visual gate |
 
 JSON is UTF-8 and written with `allow_nan=False`. The observed interval can be
 slightly longer than requested due to scheduling. If observation itself raises,
@@ -143,9 +145,12 @@ Default QA-001 continues to work without these packages or Windows.
 
 ## QA-002: single-key demo (manual opt-in only)
 
-**Do not run this on an unattended/shared desktop.** Use an isolated Windows VM
-with an authorized local build and no sensitive windows visible. The following
-is a usage example, **not a demo performed or authorized by unit verification**:
+**Do not run this on an unattended/shared desktop.** Until the isolated worker
+stage (E2 in `docs/qa-runner/implementation-plan.md`), live runs are attended runs
+on the local desktop, each explicitly authorized, with an authorized local build
+and no sensitive windows visible; after E2, use the isolated Windows worker. The
+following is a usage example, **not a demo performed or authorized by unit
+verification**:
 
 ```powershell
 & tools/qa-runner/.venv/Scripts/python.exe tools/qa-runner/runner.py --exe "C:\Builds\Grimhold\Project Grimhold.exe" --duration 30 --demo-key w --window-wait 10 --key-hold 0.2 --capture-delay 0.2
@@ -182,7 +187,7 @@ is a usage example, **not a demo performed or authorized by unit verification**:
   restored. Only a rectangle wholly inside the primary monitor is supported;
   unavailable DPI APIs, minimized/partially off-screen/secondary-monitor windows
   fail controlled rather than choosing a crop. Multi-monitor/mixed-DPI behavior
-  remains pending live VM verification. For the manual demo, use a normal,
+  remains pending live verification. For the manual demo, use a normal,
   non-maximized window wholly inside the primary monitor. Maximized windows can
   have negative frame coordinates in `GetWindowRect`; the primary-monitor guard
   intentionally rejects those rectangles.
@@ -194,8 +199,9 @@ change between the last guard and injection. This approved residual focus race
 cannot be eliminated by these checks. There is no absolute keyboard isolation.
 The screenshot is a **visible desktop region**, not exclusive content owned by
 that HWND. Overlays, notifications, occlusion, and other applications can appear
-inside it even while the HWND stays focused. No pixel interpretation, visual
-validation, or functional/gameplay conclusion is performed.
+inside it even while the HWND stays focused. QA-002 alone performs no pixel interpretation. QA003's optional template match
+cannot distinguish an occluding imitation from genuine game pixels; neither
+mode establishes a functional/gameplay conclusion.
 
 PyAutoGUI's corner failsafe remains enabled, including checks during the hold
 and before capture. Move the pointer to a primary-screen failsafe corner or use
@@ -250,6 +256,96 @@ PNG/report/temp files, `results/`, `.test-output-*/`, caches and `.venv/` are
 locally ignored. Custom result directories must be outside the repository or
 already ignored; the runner does not change ignore rules for arbitrary paths.
 
+## QA003: opt-in visual Game Ready gate
+
+This usage example is **not** authorization to run a live demo. Use only a
+separately authorized attended run under the QA-002 desktop policy above and
+manually focus the owned build:
+
+```powershell
+& tools/qa-runner/.venv/Scripts/python.exe tools/qa-runner/runner.py --exe "C:\Builds\Grimhold\Project Grimhold.exe" --duration 30 --demo-key w --ready-reference tools/qa-runner/references/main-menu-iniciar.png --ready-timeout 10 --ready-interval 0.2
+```
+
+There is **no default reference** and no automatic readiness activation. The
+`readiness` action is inserted strictly after `window_wait` and before `key_down`.
+Only consecutive stable matches authorize the existing single-key demo; blocked
+readiness sends **no down or up**, including cleanup. QA-001 and QA-002 without
+`--ready-reference` retain their original action sequences. All reports retain
+`gameplay_validated: false` and `functional_validation: not_performed`.
+
+- All readiness options require both `--demo-key` and `--ready-reference`.
+  `--ready-timeout`: finite 0.05..60 seconds, default 10; `--ready-interval`:
+  finite 0.02..5 seconds, default 0.2; `--ready-tolerance`: finite 1..20,
+  default 12; `--ready-count`: integer 2..10, default 3.
+- The effective readiness deadline is the minimum of its requested timeout and
+  the **original** observation deadline minus hold and capture-delay budget.
+  Window wait and analysis consume that original budget; timeout defaults are
+  not summed or required to fit the duration. Poll sleeps are guarded in 20ms
+  slices. Analysis checks safety/deadline before/after conversion, each row and
+  each candidate. Synchronous capture, Pillow operations, disk IO and Win32
+  calls cannot be forcibly interrupted; detected overruns block rather than
+  restart observation or send input.
+- QA003 reuses QA-002's guarded screenshot/save boundary but measures only the
+  Win32 **client area** using `GetClientRect`/`ClientToScreen` in physical pixels.
+  Ownership, liveness, modifiers, exact focus and geometry are checked around
+  screenshot and matching. Unsafe acquisitions are discarded. QA-002's final
+  post-key evidence remains a compatible whole-window capture.
+- No resize, multiscale search or DPI guessing: mismatched scale fails closed.
+  Client frames must fit the reference and be at most **1920x1080**. References
+  must be opaque PNG, at most 1 MiB, 16..256 by 8..128, at most 32768 pixels.
+  Missing, corrupt, blank, low-contrast or low-detail references block input.
+- The Pillow-only detector thresholds luminance at the reference contrast
+  midpoint and searches its most transition-rich binary row using byte search.
+  At most **4096 candidates** receive full-resolution ImageChops verification.
+  References require contrast >=80, >=32 foreground pixels, 3..50% foreground,
+  and >=8 transitions in at least three rows. Verification requires per-channel
+  mean RGB error both overall **and foreground-only** <= tolerance, peak error
+  <=3 times tolerance, and binary disagreement <=2% of foreground (minimum one
+  pixel). `score` is the larger RGB mean error (**lower is better**), not a
+  confidence percentage. Small color/antialias differences are tolerated only
+  while the anchor's threshold pattern stays intact. Flat background similarity
+  alone cannot pass. Multiple valid locations are conservatively no match.
+- The default three matches must be at the exact same client-relative pixel
+  location and screen rectangle. No match, flicker, movement or safely changed
+  geometry resets the streak; focus/ownership loss immediately blocks.
+- The independent `readiness` object includes requested parameters/reference
+  path, SHA256 after successful reference load, attempts, last score/location,
+  candidate count/ambiguity, streak, time-to-ready (from start of the gate),
+  error and diagnostic evidence path/error. Launch/setup/dependency/window wait
+  failures are `blocked`, never `not_checked`. Overall `result` still describes
+  supervision/demo/cleanup, not visual or gameplay success.
+- On failure, save only the **last previously guard-validated client frame**,
+  with a unique PNG filename and QA-002's real PNG integrity/dimension verifier.
+  No fresh capture is attempted after focus loss, exit or timeout. Evidence is
+  labeled `purpose: readiness_diagnostic`, `stale: true`, and
+  `role: previous_guarded_frame_not_current_authority`, with capture/save
+  monotonic timestamps. It does not claim current ownership or readiness.
+  Saving after the readiness timeout is allowed only before the global deadline;
+  save/verification overruns or failures leave discarded-path/error metadata,
+  not accepted evidence. With no safe frame, evidence is explicitly unavailable.
+  READY does not save an additional confirming frame; QA-002 still captures
+  its usual post-input evidence.
+
+### Versioned reference provenance
+
+`references/main-menu-iniciar.png` is an **88x30 RGB PNG** (1888 bytes), cropped
+at `(128, 253, 216, 283)` (left/top inclusive, right/bottom exclusive) from the
+976x579 QA-002 menu capture
+`qa-7cd50939ba2a440ea0a47c9817fa342f-evidence-d7b58fc46eac47c5aa8b04e07a312103.png`.
+Source report: `qa-7cd50939ba2a440ea0a47c9817fa342f.json`, dated
+`2026-10-12T05:48:23.754531Z`. The crop contains only INICIAR text and nearby
+button interior, no borders, desktop or window frame. Full captures remain
+local/ignored; only this exact reference PNG is excepted from the PNG ignore
+rule. SHA256: `93540e972bb47d2c0736d139762683344f7b9dbbb55675c40a5a0a45bbbe8ee3`.
+Never version full desktop/window screenshots. Offline matching is not live-build
+validation.
+
+An offline 20-iteration benchmark (no Win32 guards, no capture/IO) matched the
+960x540 menu interior at `(120, 222)` with RGB error 0 (median 7.46ms), rejected
+the prior blank interior (7.31ms) and OPCIONES/CREDITOS/SALIR crops, and matched a
+1920x1080 synthetic translated fixture (23.94ms). These are local detector-only
+measurements, not a live capture/polling performance guarantee.
+
 ## Verify
 
 From the repository root:
@@ -267,16 +363,53 @@ report directories are confined to ignored `.test-output-*` directories under
 this suite, and passing it is not game or Unity validation. QA-002 tests inject narrow
 Win32, foreground, PyAutoGUI, process and clock mocks. Synthetic PNG fixtures
 exercise real Pillow saving/validation without a desktop capture. No test imports
-PyAutoGUI, sends physical/global input, or takes a screenshot. Actual PNG decoding
+PyAutoGUI, sends physical/global input, or takes a screenshot. QA003 tests use
+synthetic frames incorporating the versioned crop, deterministic perturbations,
+negative patterns, bounds/deadlines, stability, diagnostics and mocked client
+geometry; they never depend on ignored local captures. Actual PNG decoding
 tests skip when Pillow is unavailable; use the local virtualenv for full coverage.
 
 When a build is available, the remaining manual check is to run the CLI against
 that build (including a path with spaces/Unicode), inspect the report, verify the
 root process is gone after the duration/Ctrl+C, and separately check for any
 surviving descendants. Unity, multiplayer, and functional gameplay validation
-remain outside QA-001/QA-002. No game build was available and no live GUI demo was
-performed. Pending **separately authorized** Windows VM checks: real build window
-identification and manual focus, global key lifecycle, corner failsafe/Ctrl+C,
-focus loss/Alt-Tab while held, DPI/crop/primary-monitor rejection, overlay risk,
-saved evidence/report inspection and cleanup. These are tooling checks only,
-not functional game tests; no gameplay/multiplayer validation is claimed.
+remain outside QA-001/QA-002. This implementation's verification did not launch
+a game build or perform a live GUI demo. These are tooling checks only, not
+functional game tests; no gameplay/multiplayer validation is claimed.
+
+### QA003 live validation (2026-10-12)
+
+Attended runs on the local desktop with `--demo-key q` against a local Windows
+build (`Project Grimhold.exe`, build commit not recorded), primary monitor
+1920x1080 at 100% scale (96 DPI), windowed 960x540 client area. Reports and PNGs
+remain in the ignored `results/` directory. The negative reference was a
+synthetic, valid, high-detail PNG generated outside the repository.
+
+| Run | Setup | Observed |
+|---|---|---|
+| R1 ready | Versioned reference, timeout 20s | `ready` after 7 attempts (5.9s); early non-matching loading frames, then 3 stable exact matches (score 0.0) at client `(120, 222)`; key down/up only after readiness; root PID gone. |
+| R2 timeout | Versioned reference, timeout 0.3s | `blocked` by readiness timeout after 1 attempt; no key event; stale diagnostic frame saved (960x540 client). |
+| R3 absent | Negative reference, timeout 8s | `blocked` by timeout after 11 attempts with 0 candidates while the real menu was visible; no key event. |
+| R4 Alt+Tab | Negative reference, Alt+Tab during readiness | `blocked` by `unsafe physically held modifier: alt` before any focus change could be observed; no key event. Alt+Tab cannot isolate the focus guard. |
+| R4b focus | Negative reference, mouse click on another window | `blocked` by `owned window does not have exact foreground focus`; no key event. |
+| R5 deadline | Negative reference, duration 8s, timeout 60s | `blocked` at 7.61s (deadline minus hold and capture-delay budget); diagnostic saved before the global deadline; no key event. |
+
+Every run ended with the launched root PID gone; descendants were not checked.
+
+Findings:
+
+- **Captures can contain other desktop content.** R2's diagnostic frame was
+  taken during the window-open animation and shows the terminal behind the
+  build. Treat every PNG as potentially sensitive and review it before sharing.
+- **Live readiness cadence is about 1.4 attempts per second**, not the requested
+  0.2s interval (R3: 11 attempts in 8s), while the offline detector benchmark
+  matches in milliseconds. The likely cause, not measured, is the per-row and
+  per-candidate safety checks (Win32 ownership/focus queries). This is slower,
+  not unsafe; `--ready-count` therefore costs roughly 0.7s per frame.
+- Timeout and deadline blocks report the same error text; the report does not
+  state which bound fired.
+
+Still pending: multi-monitor/mixed-DPI and scale other than 100%, corner
+failsafe/Ctrl+C during a live run, focus loss while a key is held, surviving
+descendant processes, a Unicode executable path against a live build (the
+validated path contained spaces), and the E2 isolated worker.
