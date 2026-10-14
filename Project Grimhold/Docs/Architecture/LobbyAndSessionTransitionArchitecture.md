@@ -164,7 +164,7 @@ validated path and must not reopen the session.
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
 behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,
-`PlayerInputReader`, `VisibilityObstacleCache` and `EntityVisibilitySystem`) that
+`PlayerInputReader` and `EntityVisibilitySystem`) that
 do not advance raid simulation during the waiting phase. Dynamic initial content
 is owned by `NetworkSpawnManager` and is now enabled only by the Starting
 bootstrap. No preplaced trap, hazard, extraction, sanctuary, timer or AI behaviour

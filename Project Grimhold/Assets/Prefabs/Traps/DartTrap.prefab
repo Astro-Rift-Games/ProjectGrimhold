@@ -212,6 +212,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
   _renderers:
   - {fileID: 2611892531448910942}
+  _occlusionOnly: 1
   _visibilityOffset: {x: 0, y: 0}
   _visibilityCollider: {fileID: 4222689577850092183}
   _useColliderBounds: 0
@@ -293,7 +294,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -551736471
-  m_SortingLayer: 1
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -6141252620728039444, guid: 2a2feb17f8cf36a47b8d9654f5b6c66d, type: 3}

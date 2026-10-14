@@ -89,6 +89,7 @@ MonoBehaviour:
   _Health: 0
   _IsDestroyed:
     RawValue: 0
+  _GenerationState: 0
 --- !u!212 &1000000000000000004
 SpriteRenderer:
   serializedVersion: 3
@@ -249,6 +250,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
   _renderers:
   - {fileID: 1000000000000000004}
+  - {fileID: 6897059507919886533}
+  - {fileID: 6455174266144747221}
+  _occlusionOnly: 1
   _visibilityOffset: {x: 0, y: 0}
   _visibilityCollider: {fileID: 0}
   _useColliderBounds: 0
@@ -5070,7 +5074,7 @@ ParticleSystemRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -316428783
-  m_SortingLayer: 3
+  m_SortingLayer: 4
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_RenderMode: 0
@@ -9984,7 +9988,7 @@ ParticleSystemRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -316428783
-  m_SortingLayer: 3
+  m_SortingLayer: 4
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_RenderMode: 0
