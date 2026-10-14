@@ -224,13 +224,13 @@ panel's `_authoredSlots`; the code only shows, hides and drives what the prefab 
 but it holds no rules. It hands every transfer, Take All / Leave All, equip and unequip to a
 `StashTransferCoordinator`, which runs them through one serialized queue so an equip never interleaves
 with a transfer waiting for the backend. The presenter keeps that coordinator across closing and
-reopening the screen and only rebuilds it when the profile or a service instance changes, because a
+reopening the screen and only rebuilds it when the profile, a service instance or its bound loot catalog changes, because a
 second queue would let a reopened screen run ahead of a transfer still waiting for the backend. A transfer is first checked with the Store's dry-run
 evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
 local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
-batch (GD 07, section 16): the coordinator snapshots all source IDs in Store order, including stacks
+batch (GD 07, section 16): the coordinator snapshots all source IDs in Stash-screen display order, including stacks
 outside the visible slot pool, and runs each as an independent full-stack transfer with the same
 pre-check, remote call and local apply before the next stack. The screen refreshes per commit through
 `ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
@@ -245,7 +245,19 @@ attempt succeeded, it retains the first failure's status and details with the fu
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
 no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
-actual Stash prefab. Page count covers the larger of configured capacity and accepted item count,
+actual Stash prefab. `StashDisplayOrder` sorts disposable copies of both Stash and Loadout before
+paging: Valuable, Material, Quest, Miscellaneous, Weapon, Helmet, Armor, Gloves, Boots, Shield,
+then None/unresolved/unrecognized categories at one shared last rank. Within a rank, display names
+use ordinal-ignore-case comparison, then raw LootId uses ordinal comparison. Blank or missing names
+fall back to raw LootId; missing icons do not change a resolved category. This explicit user-approved
+screen priority does not change persisted inventory order or the fixed Equipment slot order, and
+does not change other Town/Raid inventory screens. Projection and bulk sequences share this helper;
+bulk ordering snapshots the complete source inside the existing queue, never the visible page.
+The presenter supplies its bound catalog and retains the queue across reopen with unchanged bindings.
+For compatibility, coordinator callers omitting the optional catalog retain legacy source order;
+the Stash screen always supplies its catalog. `RaidInventorySlotData.WithDisplayName` copies all
+metadata for this screen's blank-name fallback without changing the shared `Create` factory.
+Page count covers the larger of configured capacity and accepted item count,
 so accepted remote excess is reachable. The last page hides unused authored slots beyond that
 extent, rather than inventing capacity. Refresh preserves/clamps the current page; reopening resets
 to page one. Rebinding dismisses tooltip/context and cancels an active drag, so interactions always

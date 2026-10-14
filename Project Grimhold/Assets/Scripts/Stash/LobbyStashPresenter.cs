@@ -23,6 +23,7 @@ public class LobbyStashPresenter : MonoBehaviour
     private IPlayerLoadoutService _coordinatorLoadoutService;
     private IRemoteInventoryService _coordinatorRemote;
     private IProfileReconciliation _coordinatorReconciliation;
+    private LootDefinitionCatalog _coordinatorCatalog;
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
     private DragPayload _activeDrag = DragPayload.Empty;
@@ -117,7 +118,8 @@ public class LobbyStashPresenter : MonoBehaviour
             ReferenceEquals(_coordinatorStashService, _stashService) &&
             ReferenceEquals(_coordinatorLoadoutService, _loadoutService) &&
             ReferenceEquals(_coordinatorRemote, remote) &&
-            ReferenceEquals(_coordinatorReconciliation, reconciliation))
+            ReferenceEquals(_coordinatorReconciliation, reconciliation) &&
+            ReferenceEquals(_coordinatorCatalog, _lootCatalog))
         {
             return _coordinator;
         }
@@ -133,12 +135,14 @@ public class LobbyStashPresenter : MonoBehaviour
             _loadoutService,
             remote,
             reconciliation,
-            equipment);
+            equipment,
+            _lootCatalog);
         _coordinatorProfileId = _localProfileId;
         _coordinatorStashService = _stashService;
         _coordinatorLoadoutService = _loadoutService;
         _coordinatorRemote = remote;
         _coordinatorReconciliation = reconciliation;
+        _coordinatorCatalog = _lootCatalog;
         return _coordinator;
     }
 
@@ -282,26 +286,8 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private IReadOnlyList<RaidInventorySlotData> MapToPresentation(IReadOnlyList<StashItem> items)
-    {
-        var presentationData = new List<RaidInventorySlotData>();
-        if (items != null)
-        {
-            foreach (var item in items)
-            {
-                LootDefinition definition = null;
-                if (_lootCatalog != null)
-                {
-                    _lootCatalog.TryGet(item.LootId.Value, out definition);
-                }
-
-                LootEntry entry = new LootEntry(item.LootId, item.Amount);
-                var slotData = RaidInventorySlotData.Create(entry, definition, ResolvePlaceholderIcon());
-                presentationData.Add(slotData);
-            }
-        }
-        return presentationData;
-    }
+    private IReadOnlyList<RaidInventorySlotData> MapToPresentation(IReadOnlyList<StashItem> items) =>
+        StashDisplayOrder.Project(items, _lootCatalog, ResolvePlaceholderIcon());
 
     private RaidInventorySlotData MapPreparedUnit(LootId lootId)
     {

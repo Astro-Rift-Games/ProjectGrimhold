@@ -183,6 +183,76 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_store.GetLoadout(), Has.Count.EqualTo(2));
         }
 
+        [UnityTest]
+        public IEnumerator DisplayOrder_RealPanelsAndBulkButtonsUseCompleteSortedCopiesWithoutDisplayWrites()
+        {
+            LootDefinitionCatalog authoredCatalog = _catalog;
+            var synthetic = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
+            var definitions = new List<LootDefinition>();
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            for (int i = 0; i < 18; i++)
+            {
+                var definition = Object.Instantiate(authoredCatalog.TryGetByIndex(0, out var template) ? template : null);
+                typeof(LootDefinition).GetField("_id", flags).SetValue(definition, $"sorted_{i:D2}");
+                typeof(LootDefinition).GetField("_displayName", flags).SetValue(definition, $"Name {i:D2}");
+                typeof(LootDefinition).GetField("_category", flags).SetValue(definition, LootCategory.Material);
+                definitions.Add(definition);
+            }
+            typeof(LootDefinitionCatalog).GetField("_definitions", flags).SetValue(synthetic, definitions);
+            _catalog = synthetic;
+            try
+            {
+                LootId[] expected = definitions.Select(d => d.LootId).ToArray();
+                CreateScreen(snapshot =>
+                {
+                    foreach (LootId id in expected.Reverse()) snapshot.Stash.Add(new StashItem(id, 1));
+                    foreach (LootId id in expected.Take(3).Reverse()) snapshot.Loadout.Add(new StashItem(id, 1));
+                });
+                var presenter = _instance.GetComponent<LobbyStashPresenter>();
+                _instance.SetActive(false);
+                typeof(LobbyStashPresenter).GetField("_lootCatalog", flags).SetValue(presenter, synthetic);
+                StashItem[] stashBefore = _store.GetStash().ToArray();
+                StashItem[] loadoutBefore = _store.GetLoadout().ToArray();
+                var equipmentBefore = _store.GetPreparedEquipment();
+                int revision = _store.RemoteRevision;
+                int commits = 0;
+                _store.ProfileCommitted += _ => commits++;
+                _instance.SetActive(true);
+                yield return null;
+                var visible = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)
+                    .Where(s => s.IsOccupied).Select(s => s.LootId).ToArray();
+                int pageSize = visible.Length;
+                Assert.That(pageSize, Is.LessThan(18), "Fixture must exercise a second page.");
+                Assert.That(visible, Is.EqualTo(expected.Take(pageSize)));
+                Assert.That(LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)
+                    .Where(s => s.IsOccupied).Select(s => s.LootId), Is.EqualTo(expected.Take(3)));
+                ((Button)typeof(LobbyStashUI).GetField("_stashNextPage", flags).GetValue(_view)).onClick.Invoke();
+                Assert.That(StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)
+                    .Where(s => s.IsOccupied).Select(s => s.LootId), Is.EqualTo(expected.Skip(pageSize)));
+                Assert.That(_store.GetStash(), Is.EqualTo(stashBefore));
+                Assert.That(_store.GetLoadout(), Is.EqualTo(loadoutBefore));
+                Assert.That(_store.GetPreparedEquipment(), Is.EqualTo(equipmentBefore));
+                Assert.That(_store.RemoteRevision, Is.EqualTo(revision));
+                Assert.That(commits, Is.Zero);
+                ((Button)typeof(LobbyStashUI).GetField("_takeAllButton", flags).GetValue(_view)).onClick.Invoke();
+                for (int frame = 0; frame < 5; frame++) yield return null;
+                Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toLoadout:{id.Value}:1")));
+                _remote.Calls.Clear();
+                var amounts = _store.GetLoadout().ToDictionary(s => s.LootId, s => s.Amount);
+                ((Button)typeof(LobbyStashUI).GetField("_leaveAllButton", flags).GetValue(_view)).onClick.Invoke();
+                for (int frame = 0; frame < 5; frame++) yield return null;
+                Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toStash:{id.Value}:{amounts[id]}")));
+            }
+            finally
+            {
+                if (_canvasObject != null) Object.DestroyImmediate(_canvasObject);
+                if (_contextObject != null) Object.DestroyImmediate(_contextObject);
+                _catalog = authoredCatalog;
+                foreach (var definition in definitions) Object.DestroyImmediate(definition);
+                Object.DestroyImmediate(synthetic);
+            }
+        }
+
         private void CreateScreen(Action<LocalProfileSnapshot> configure)
         {
             var profile = new ProfileId(ProfileValue);

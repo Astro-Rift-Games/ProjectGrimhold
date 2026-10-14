@@ -45,6 +45,11 @@ public readonly struct RaidInventorySlotData
 
     public static RaidInventorySlotData Empty => default;
 
+    /// <summary>Copies visual text without changing identity, quantity or definition metadata.</summary>
+    public RaidInventorySlotData WithDisplayName(string displayName) => new(
+        IsOccupied, LootId, Icon, displayName, Amount, UsesFallback, Tooltip,
+        Category, WeaponHandedness, HasWeaponDefinition);
+
     public static RaidInventorySlotData Create(
         LootEntry entry,
         LootDefinition definition,

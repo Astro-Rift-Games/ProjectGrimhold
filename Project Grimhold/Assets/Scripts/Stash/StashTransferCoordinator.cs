@@ -21,16 +21,19 @@ public sealed class StashTransferCoordinator
     private readonly IProfileReconciliation _reconciliation;
     private readonly ITownEquipmentMutationEndpoint _equipment;
     private readonly SemaphoreSlim _queue = new(1, 1);
+    private readonly LootDefinitionCatalog _catalog;
 
     /// <param name="remote">Backend operations; null when none is available, which makes transfers unavailable.</param>
     /// <param name="reconciliation">Reconciles the local profile after a remote failure; may be null.</param>
+    /// <param name="catalog">Stash-screen ordering metadata. Null preserves legacy source order for existing callers.</param>
     public StashTransferCoordinator(
         ProfileId profileId,
         IPlayerStashService stash,
         IPlayerLoadoutService loadout,
         IRemoteInventoryService remote,
         IProfileReconciliation reconciliation,
-        ITownEquipmentMutationEndpoint equipment)
+        ITownEquipmentMutationEndpoint equipment,
+        LootDefinitionCatalog catalog = null)
     {
         _profileId = profileId;
         _stash = stash ?? throw new ArgumentNullException(nameof(stash));
@@ -38,6 +41,7 @@ public sealed class StashTransferCoordinator
         _equipment = equipment ?? throw new ArgumentNullException(nameof(equipment));
         _remote = remote;
         _reconciliation = reconciliation;
+        _catalog = catalog;
     }
 
     public Task<StashTransferOutcome> TransferAsync(LootId lootId, bool fromStash, LootTransferQuantityMode mode) =>
@@ -108,7 +112,7 @@ public sealed class StashTransferCoordinator
     private Task<StashTransferOutcome> LeaveAllCoreAsync() => TransferEachStackAsync(fromStash: false);
 
     /// <summary>
-    /// Take All / Leave All snapshots all source IDs in Store order, including items outside the
+    /// Take All / Leave All snapshots all source IDs in display order (legacy Store order without a catalog), including items outside the
     /// visible pool. Each stack is checked, moved remotely and applied locally before the next.
     /// Ordinary failures are skipped, but failed reconciliation stops further mutations.
     /// Counts describe confirmed attempts versus unconfirmed/not-attempted IDs, not actual moves.
@@ -120,7 +124,9 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Unavailable();
         }
 
-        LootId[] order = (fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId))
+        IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
+        // Snapshot once inside the queue, not from a visible page or a cached projection.
+        LootId[] order = (_catalog != null ? StashDisplayOrder.SortedCopy(source, _catalog) : source)
             .Select(item => item.LootId)
             .ToArray();
         int completed = 0;
