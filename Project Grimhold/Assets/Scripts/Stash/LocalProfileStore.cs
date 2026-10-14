@@ -165,14 +165,10 @@ public sealed class LocalProfileStore
                 return AbilityUnlockResult.ProfileUnavailable;
             }
 
-            if (_abilityCatalog == null || !_abilityCatalog.TryGet(abilityId, out _))
+            AbilityUnlockResult validation = ValidateAbilityUnlock(current, abilityId);
+            if (validation != AbilityUnlockResult.Success)
             {
-                return AbilityUnlockResult.UnknownAbility;
-            }
-
-            if (current.UnlockedAbilities.Contains(abilityId))
-            {
-                return AbilityUnlockResult.AlreadyUnlocked;
+                return validation;
             }
 
             LocalProfileSnapshot next = current.Clone();
@@ -181,6 +177,69 @@ public sealed class LocalProfileStore
                 ? AbilityUnlockResult.Success
                 : AbilityUnlockResult.PersistenceFailed;
         }
+    }
+
+    /// <summary>
+    /// Debits <paramref name="price"/> Currency and unlocks the ability in one transaction.
+    /// Attribute requirements do not condition acquisition; an owned ability cannot be bought again.
+    /// </summary>
+    public AbilityPurchaseResult TryPurchaseAbility(AbilityId abilityId, long price)
+    {
+        if (!abilityId.IsValid)
+        {
+            return AbilityPurchaseResult.InvalidAbility;
+        }
+
+        if (price <= 0)
+        {
+            return AbilityPurchaseResult.InvalidPrice;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return AbilityPurchaseResult.ProfileUnavailable;
+            }
+
+            switch (ValidateAbilityUnlock(current, abilityId))
+            {
+                case AbilityUnlockResult.UnknownAbility:
+                    return AbilityPurchaseResult.UnknownAbility;
+                case AbilityUnlockResult.AlreadyUnlocked:
+                    return AbilityPurchaseResult.AlreadyUnlocked;
+            }
+
+            if (current.Currency < price)
+            {
+                return AbilityPurchaseResult.InsufficientCurrency;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.Currency -= price;
+            next.UnlockedAbilities.Add(abilityId);
+            return Commit(next) == StashOperationResult.Success
+                ? AbilityPurchaseResult.Success
+                : AbilityPurchaseResult.PersistenceFailed;
+        }
+    }
+
+    private AbilityUnlockResult ValidateAbilityUnlock(LocalProfileSnapshot candidate, AbilityId abilityId)
+    {
+        if (!abilityId.IsValid)
+        {
+            return AbilityUnlockResult.InvalidAbility;
+        }
+
+        if (_abilityCatalog == null || !_abilityCatalog.TryGet(abilityId, out _))
+        {
+            return AbilityUnlockResult.UnknownAbility;
+        }
+
+        return candidate.UnlockedAbilities.Contains(abilityId)
+            ? AbilityUnlockResult.AlreadyUnlocked
+            : AbilityUnlockResult.Success;
     }
 
     public AbilityPreparationResult TrySetPreparedAbility(
