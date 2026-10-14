@@ -37,20 +37,27 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
-        public IEnumerator Preparing_PaysOnceCapturesAimAndSpawnsOnceAtDeadlineEvenWithoutInput()
+        public IEnumerator Preparing_PaysOnceCapturesFacingAndSpawnsOnceAtDeadlineEvenWithoutInput()
         {
             yield return Begin();
+            // Walk left to set the facing, then stop: the cursor aim keeps pointing right.
+            _input.Move = Vector2.left;
+            yield return WaitTicks();
+            _input.Move = Vector2.zero;
+            yield return WaitTicks();
             float mana = Mana();
             yield return Press();
             Assert.That(_runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted), Is.True);
             Assert.That(accepted.Phase, Is.EqualTo(AbilityExecutionPhase.Preparing));
-            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.right));
+            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.left), "Arcane follows the facing, not the cursor.");
             Assert.That(mana - Mana(), Is.EqualTo(15f).Within(0.001f));
             Assert.That(_spawner.CallCount, Is.Zero);
             int deadline = (int)accepted.PhaseDeadline.TargetTick;
             Assert.That(deadline - _runner.Tick.Raw, Is.GreaterThan(0));
-            _input.Aim = Vector2.left * 10f;
+            _input.Move = Vector2.up;
+            _input.Aim = Vector2.down * 10f;
             yield return WaitTicks();
+            _input.Move = Vector2.zero;
             _input.SupplyInput = false;
             yield return WaitUntil(() => _spawner.CallCount == 1);
             Assert.That(_spawner.LastRequest.SimulationTick, Is.GreaterThanOrEqualTo(deadline));
@@ -246,6 +253,8 @@ namespace Tests.PlayMode.Abilities
                     var catalog = (AbilityDefinitionCatalog)typeof(PlayerAbilityRuntimeNetworkController)
                         .GetField("_catalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_runtime);
                     Assert.That(catalog.TryGet(new AbilityId("arcane_projectile"), out var definition), Is.True);
+                    // Arcane leaves along the facing: start facing the targets placed to the right of the caster.
+                    SetField(instance.GetComponent<PlayerMovementNetworkController>(), "_defaultFacingDirection", Vector2.right);
                     _behaviour = instance.GetComponent(type) as AbilityExecutionBehaviour;
                     if (_behaviour == null) _behaviour = (AbilityExecutionBehaviour)instance.gameObject.AddComponent(type);
                     _spawner = instance.gameObject.AddComponent<RecordingSpawner>();
