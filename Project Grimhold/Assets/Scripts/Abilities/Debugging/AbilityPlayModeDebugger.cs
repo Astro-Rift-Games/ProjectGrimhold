@@ -61,6 +61,12 @@ public sealed class AbilityPlayModeDebugger : MonoBehaviour
             Debug.Log($"[AbilityDebugger] Unlocked {unlocked} abilities.", this);
         }
 
+        if (GUILayout.Button("Relock all (clears prepared slots)"))
+        {
+            int relocked = AbilityDebugUnlocker.RelockAll(store);
+            Debug.Log($"[AbilityDebugger] Relocked {relocked} abilities.", this);
+        }
+
         _scroll = GUILayout.BeginScrollView(_scroll);
         foreach (AbilityDefinition definition in _catalog.Definitions)
         {

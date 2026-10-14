@@ -306,6 +306,35 @@ public sealed class LocalProfileStore
         }
     }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// Developer/test tooling only: clears the whole unlocked repertoire and both prepared slots in one
+    /// transaction. Gameplay acquisition stays permanent; no production flow calls this.
+    /// </summary>
+    public bool TryResetAbilityRepertoire()
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return false;
+            }
+
+            if (current.UnlockedAbilities.Count == 0 && !current.PreparedAbilities.Slot1.IsValid
+                && !current.PreparedAbilities.Slot2.IsValid)
+            {
+                return false;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.UnlockedAbilities.Clear();
+            next.PreparedAbilities = default;
+            return Commit(next) == StashOperationResult.Success;
+        }
+    }
+#endif
+
     public AbilityPreparationResult TryClearPreparedAbility(UniversalAbilitySlot slot)
     {
         if (!PreparedAbilityLoadout.IsKnownSlot(slot))

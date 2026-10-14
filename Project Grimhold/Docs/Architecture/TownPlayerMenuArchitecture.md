@@ -158,7 +158,7 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
   Acquisition sources); a fresh profile still shows the empty-repertoire note until one is used. For testing, the
   local player's `TownAbilitiesPresenter` adds the `AbilityPlayModeDebugger` overlay (F8, compiled only in the
   Editor and development builds) that unlocks abilities through `AbilityDebugUnlocker` and the normal store
-  transaction; unlocks are saved in the local profile. There is also no ability art: the optional
+  transaction ("Relock all" clears the repertoire and both prepared slots in one transaction so the Vendor purchase can be retested); unlocks are saved in the local profile. There is also no ability art: the optional
   `AbilityDefinition._icon` is empty and the tab shows placeholder frames.
 - The Abilities tab has no hotkey; opening it needs a new Input Action and a `PlayerInputReader` event.
 - The interaction hint texts ("F — Interactuar" and the dialogue continue hint) are hardcoded strings, not derived

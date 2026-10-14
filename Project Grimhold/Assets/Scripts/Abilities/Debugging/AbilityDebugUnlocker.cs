@@ -35,4 +35,18 @@ public static class AbilityDebugUnlocker
 
         return unlocked;
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>Clears the unlocked repertoire and prepared slots and returns how many unlocks were removed.</summary>
+    public static int RelockAll(LocalProfileStore store)
+    {
+        if (store == null)
+        {
+            return 0;
+        }
+
+        int removed = store.GetUnlockedAbilities().Count;
+        return store.TryResetAbilityRepertoire() ? removed : 0;
+    }
+#endif
 }
