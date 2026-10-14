@@ -120,6 +120,38 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
+        public IEnumerator TakeAllPointerClick_MovesStackFromStash()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3)));
+            yield return null;
+
+            Button button = GetButton("_takeAllButton");
+            Assert.That(button.IsInteractable(), Is.True, "The authored Take All button must accept pointer clicks.");
+            ClickButton(button);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 3) }));
+        }
+
+        [UnityTest]
+        public IEnumerator LeaveAllPointerClick_MovesStackFromLoadout()
+        {
+            CreateScreen(snapshot => snapshot.Loadout.Add(new StashItem(Bone, 3)));
+            yield return null;
+
+            Button button = GetButton("_leaveAllButton");
+            Assert.That(button.IsInteractable(), Is.True, "The authored Leave All button must accept pointer clicks.");
+            ClickButton(button);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:3" }));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 3) }));
+        }
+
+        [UnityTest]
         public IEnumerator MoveAllFromTheStash_IntoAFullLoadout_NeverReachesTheBackend()
         {
             LootId[] ids = DistinctLootIds(LocalProfileSnapshot.MaxLoadoutSlots + 1);
@@ -234,12 +266,12 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(_store.GetPreparedEquipment(), Is.EqualTo(equipmentBefore));
                 Assert.That(_store.RemoteRevision, Is.EqualTo(revision));
                 Assert.That(commits, Is.Zero);
-                ((Button)typeof(LobbyStashUI).GetField("_takeAllButton", flags).GetValue(_view)).onClick.Invoke();
+                ClickButton(GetButton("_takeAllButton"));
                 for (int frame = 0; frame < 5; frame++) yield return null;
                 Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toLoadout:{id.Value}:1")));
                 _remote.Calls.Clear();
                 var amounts = _store.GetLoadout().ToDictionary(s => s.LootId, s => s.Amount);
-                ((Button)typeof(LobbyStashUI).GetField("_leaveAllButton", flags).GetValue(_view)).onClick.Invoke();
+                ClickButton(GetButton("_leaveAllButton"));
                 for (int frame = 0; frame < 5; frame++) yield return null;
                 Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toStash:{id.Value}:{amounts[id]}")));
             }
@@ -313,6 +345,34 @@ namespace Tests.PlayMode.Presentation
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, fieldName);
             return (RaidLootPanelView)field.GetValue(_view);
+        }
+
+        private Button GetButton(string fieldName)
+        {
+            var field = typeof(LobbyStashUI).GetField(
+                fieldName,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            var button = (Button)field.GetValue(_view);
+            Assert.That(button, Is.Not.Null, fieldName);
+            return button;
+        }
+
+        private void ClickButton(Button button)
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                var eventSystemObject = new GameObject("LobbyStashPresenterTestEventSystem", typeof(EventSystem));
+                eventSystemObject.transform.SetParent(_canvasObject.transform, false);
+                eventSystem = eventSystemObject.GetComponent<EventSystem>();
+            }
+
+            Assert.That(button.IsActive(), Is.True, "The button must be active to receive pointer clicks.");
+            // Exercise Button's interactability guard, not UnityEvent.Invoke; no raycast or physical mouse is simulated.
+            ExecuteEvents.Execute(button.gameObject,
+                new PointerEventData(eventSystem) { button = PointerEventData.InputButton.Left },
+                ExecuteEvents.pointerClickHandler);
         }
 
         private void ClickMoveAll(RaidLootPanelView panel, int occupiedIndex = 0)
