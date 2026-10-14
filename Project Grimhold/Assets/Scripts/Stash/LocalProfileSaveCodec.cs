@@ -357,12 +357,8 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        if (candidate.Loadout.Count > LocalProfileSnapshot.MaxLoadoutSlots)
-        {
-            error = "Loadout exceeds the maximum number of slots.";
-            return false;
-        }
-
+        // Loadout slot capacity is a Store rule, not a storage rule: backend data over capacity
+        // must stay persistable so operations that reduce the excess can still commit.
         candidate.PreparedEquipment = ReadPreparedEquipment(
             data.schemaVersion >= 4 ? data.preparedWeaponSetAMainHand : data.preparedWeaponSlot1,
             data.schemaVersion >= 4 ? data.preparedWeaponSetBMainHand : data.preparedWeaponSlot2,

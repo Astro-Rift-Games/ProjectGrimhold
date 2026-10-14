@@ -6,7 +6,7 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
 {
     private BackendConfiguration _backendConfig;
     private LocalProfileStore _store;

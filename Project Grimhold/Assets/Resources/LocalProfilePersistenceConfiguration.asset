@@ -16,4 +16,5 @@ MonoBehaviour:
   _missionCatalog: {fileID: 11400000, guid: 618cdaeec4f78734381e1ab512d16113, type: 2}
   _abilityCatalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
   _receiptCapacity: 256
+  _stashCapacity: 60
   _recoveryWeaponLootId: arming_sword

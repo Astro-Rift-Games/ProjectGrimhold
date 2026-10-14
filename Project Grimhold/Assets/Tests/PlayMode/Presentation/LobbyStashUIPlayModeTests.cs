@@ -167,6 +167,115 @@ namespace Tests.PlayMode.Presentation
             Assert.That(requestedMode, Is.EqualTo(LootTransferQuantityMode.FullStack));
         }
 
+        [UnityTest]
+        public IEnumerator StashPagination_AcceptedExcessRemainsReachableWithCorrectIdentityAfterBackAndReopen()
+        {
+            var items = new RaidInventorySlotData[70];
+            LootDefinition definition = CreateTooltipDefinition("Capacity item", LootCategory.Material);
+            for (int i = 0; i < items.Length; i++)
+                items[i] = RaidInventorySlotData.Create(new LootEntry(new LootId($"capacity_{i}"), i + 1), definition, null);
+            Object.DestroyImmediate(definition);
+            _view.DisplayStash(items);
+            yield return null;
+            Button previous = Array.Find(_instance.GetComponentsInChildren<Button>(true), b => b.name == "StashPreviousPage");
+            Button next = Array.Find(_instance.GetComponentsInChildren<Button>(true), b => b.name == "StashNextPage");
+            TMP_Text label = Array.Find(_instance.GetComponentsInChildren<TMP_Text>(true), t => t.name == "StashPageLabel");
+            Assert.That(previous, Is.Not.Null, "The authored prefab must expose previous-page navigation.");
+            Assert.That(next, Is.Not.Null, "The authored prefab must expose next-page navigation.");
+            Assert.That(label, Is.Not.Null);
+            Assert.That(_stashPanel.GetComponentsInChildren<RaidInventorySlotView>(true), Has.Length.EqualTo(16));
+            LootId requested = default;
+            _view.TransferRequested += (id, fromStash, mode) => { Assert.That(fromStash, Is.True); requested = id; };
+            for (int cycle = 0; cycle < 2; cycle++)
+            {
+                Assert.That(previous.interactable, Is.False, "Opening the screen must reset to the first page.");
+                Assert.That(label.text, Is.EqualTo("1 / 5"));
+                for (int i = 0; i < 4; i++) { Assert.That(next.interactable, Is.True); next.onClick.Invoke(); }
+                yield return null;
+                Assert.That(label.text, Is.Not.Empty);
+                RaidInventorySlotView last = Array.Find(_stashPanel.GetComponentsInChildren<RaidInventorySlotView>(true),
+                    s => s.IsOccupied && s.LootId == new LootId("capacity_69"));
+                Assert.That(last, Is.Not.Null, "Accepted server excess must not be truncated to 60 or the authored 16 slots.");
+                last.OnPointerEnter(new PointerEventData(null));
+                Assert.That(_view.TooltipView.CurrentAnchor, Is.SameAs(last.transform));
+                last.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+                GetFirstVisibleContextAction().GetComponent<Button>().onClick.Invoke();
+                Assert.That(requested, Is.EqualTo(new LootId("capacity_69")));
+                previous.onClick.Invoke();
+                next.onClick.Invoke();
+                _instance.SetActive(false);
+                _instance.SetActive(true);
+                _view.DisplayStash(items);
+                yield return null;
+                Assert.That(previous.interactable, Is.False, "Reopening must reset to page one, not retain page five.");
+                Assert.That(label.text, Is.EqualTo("1 / 5"));
+                Assert.That(FindOccupiedSlot(_stashPanel).LootId, Is.EqualTo(new LootId("capacity_0")));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator StashPagination_NavigationFitsBetweenGridAndTakeAllAfterLayout()
+        {
+            _view.DisplayStash(Array.Empty<RaidInventorySlotData>());
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)_instance.transform);
+            Canvas.ForceUpdateCanvases();
+
+            GridLayoutGroup grid = _stashPanel.GetComponentInChildren<GridLayoutGroup>(true);
+            Assert.That(grid, Is.Not.Null, "The real Stash panel must contain its authored grid.");
+            Rect gridRect = WorldRect((RectTransform)grid.transform);
+            Rect takeAllRect = WorldRect((RectTransform)GetSerializedField<Button>("_takeAllButton").transform);
+            foreach (string name in new[] { "StashPreviousPage", "StashNextPage", "StashPageLabel" })
+            {
+                RectTransform control = Array.Find(_instance.GetComponentsInChildren<RectTransform>(true), r => r.name == name);
+                Assert.That(control, Is.Not.Null, name);
+                Rect navigationRect = WorldRect(control);
+                Assert.That(navigationRect.yMax, Is.LessThanOrEqualTo(gridRect.yMin + 0.01f),
+                    $"{name} must not overlap the authored Stash grid.");
+                Assert.That(navigationRect.yMin, Is.GreaterThanOrEqualTo(takeAllRect.yMax - 0.01f),
+                    $"{name} must remain above Take All.");
+            }
+        }
+
+        private static Rect WorldRect(RectTransform transform)
+        {
+            var corners = new Vector3[4];
+            transform.GetWorldCorners(corners);
+            Vector2 min = corners[0];
+            Vector2 max = corners[0];
+            for (int i = 1; i < corners.Length; i++)
+            {
+                min = Vector2.Min(min, corners[i]);
+                max = Vector2.Max(max, corners[i]);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        [UnityTest]
+        public IEnumerator StashPagination_CustomCapacityPadsOnlyToCapacityAndClampsAfterRemoval()
+        {
+            var items = new RaidInventorySlotData[33];
+            for (int i = 0; i < items.Length; i++)
+                items[i] = RaidInventorySlotData.Create(new LootEntry(new LootId($"capacity_{i}"), 1), null, null);
+            _view.DisplayStash(items, 17);
+            yield return null;
+            Button next = Array.Find(_instance.GetComponentsInChildren<Button>(true), b => b.name == "StashNextPage");
+            Button previous = Array.Find(_instance.GetComponentsInChildren<Button>(true), b => b.name == "StashPreviousPage");
+            Assert.That(next, Is.Not.Null);
+            Assert.That(previous, Is.Not.Null);
+            next.onClick.Invoke();
+            next.onClick.Invoke();
+            Assert.That(_stashPanel.SlotCount, Is.EqualTo(1));
+            _view.DisplayStash(Array.Empty<RaidInventorySlotData>(), 17);
+            Assert.That(_stashPanel.SlotCount, Is.EqualTo(1)); // Clamped to second/last page, one configured empty slot.
+            Assert.That(next.interactable, Is.False);
+            Assert.That(previous.interactable, Is.True);
+            previous.onClick.Invoke();
+            Assert.That(_stashPanel.SlotCount, Is.EqualTo(16));
+            Assert.That(previous.interactable, Is.False);
+        }
+
         private void OpenContextMenu(RaidLootPanelView panel)
         {
             RaidInventorySlotView occupied = FindOccupiedSlot(panel);

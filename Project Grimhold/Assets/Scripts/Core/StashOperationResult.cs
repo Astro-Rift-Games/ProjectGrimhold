@@ -32,5 +32,14 @@ public enum StashOperationResult
     AttributeRequirementsNotMet,
 
     /// <summary>The hydration process failed during initialization or reconciliation.</summary>
-    HydrationFailed
+    HydrationFailed,
+
+    /// <summary>
+    /// A raid reservation currently owns the Inventory and Equipment, so Stash, Loadout and
+    /// Equipment cannot change until it is confirmed or rolled back.
+    /// </summary>
+    ReservationPending,
+
+    /// <summary>The destination Inventory has no free slot for the item.</summary>
+    InventoryFull
 }

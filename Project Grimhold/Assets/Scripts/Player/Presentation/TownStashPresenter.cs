@@ -21,6 +21,7 @@ public sealed class TownStashPresenter : NetworkBehaviour
     private NetworkObject _openNpc;
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
+    private TownRaidPreparationDirectory _preparationDirectory;
 
     private void Awake()
     {
@@ -89,12 +90,31 @@ public sealed class TownStashPresenter : NetworkBehaviour
             return;
         }
 
+        LobbyStashPresenter stashPresenter = instance.GetComponentInChildren<LobbyStashPresenter>(true);
+        if (stashPresenter != null)
+        {
+            stashPresenter.SetEquipmentGate(CanMutateEquipment);
+        }
+
         _view.Close();
         _interactionController.InteractionResolved += OnInteractionResolved;
         if (_dialoguePresenter != null)
         {
             _dialoguePresenter.DialogueCompletedNormally += OnDialogueCompletedNormally;
         }
+    }
+
+    /// <summary>The Stash screen follows the same Ready gate as the Town Inventory screen.</summary>
+    private bool CanMutateEquipment()
+    {
+        if (_preparationDirectory == null)
+        {
+            _preparationDirectory = FindAnyObjectByType<TownRaidPreparationDirectory>();
+        }
+
+        LocalPlayerJoinContext joinContext = Runner != null ? Runner.GetComponent<LocalPlayerJoinContext>() : null;
+        ProfileId localProfileId = joinContext != null ? joinContext.JoinData.ProfileId : default;
+        return TownEquipmentMutationGate.CanMutate(_preparationDirectory, localProfileId);
     }
 
     private void OnInteractionResolved(InteractionPresentationEvent interactionEvent)

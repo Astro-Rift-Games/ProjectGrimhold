@@ -185,22 +185,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         }
     }
 
-    private bool CanMutateEquipment()
-    {
-        if (_preparationDirectory == null ||
-            !_preparationDirectory.TryGetPreparation(
-                _localProfileId,
-                out TownRaidPreparationNetworkController preparation))
-        {
-            return true;
-        }
-
-        return TownRaidPreparationPresentation.TryCreate(
-                preparation.Snapshot,
-                _localProfileId,
-                out TownRaidPreparationPresentation presentation) &&
-            !presentation.LocalReady;
-    }
+    private bool CanMutateEquipment() =>
+        TownEquipmentMutationGate.CanMutate(_preparationDirectory, _localProfileId);
 
     private async void SyncPreparedEquipmentAsync()
     {

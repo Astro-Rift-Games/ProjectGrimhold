@@ -106,6 +106,11 @@ namespace Tests.EditMode.Presentation
             }
 
             public StashOperationResult TryEquipFromStash(ProfileId profileId, LootId lootId, EquipmentSlot slot) => StashOperationResult.InvalidInventory;
+            public StashOperationResult EvaluateEquipFromStash(ProfileId profileId, LootId lootId, EquipmentSlot slot, out PreparedEquipmentLoadout equipment)
+            {
+                equipment = default;
+                return StashOperationResult.InvalidInventory;
+            }
 
             public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) =>
                 ExpeditionPreparationResult.ProfileUnavailable;
@@ -113,6 +118,10 @@ namespace Tests.EditMode.Presentation
             public StashOperationResult TryTransferToStash(ProfileId profileId, LootId lootId, int amount) => StashOperationResult.InvalidInventory;
             public StashOperationResult TryTransferAllToLoadout(ProfileId profileId) => StashOperationResult.InvalidInventory;
             public StashOperationResult TryTransferAllToStash(ProfileId profileId) => StashOperationResult.InvalidInventory;
+            public StashOperationResult EvaluateTransferToLoadout(ProfileId profileId, LootId lootId, int amount) => StashOperationResult.InvalidInventory;
+            public StashOperationResult EvaluateTransferToStash(ProfileId profileId, LootId lootId, int amount) => StashOperationResult.InvalidInventory;
+            public StashOperationResult EvaluateTransferAllToLoadout(ProfileId profileId) => StashOperationResult.InvalidInventory;
+            public StashOperationResult EvaluateTransferAllToStash(ProfileId profileId) => StashOperationResult.InvalidInventory;
             public StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items) => StashOperationResult.InvalidInventory;
             public StashOperationResult TryCreateLoadoutReservation(ProfileId profileId, string reservationId, out PendingLoadoutReservation reservation)
             {

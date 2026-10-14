@@ -211,7 +211,7 @@ The Town and Lobby Stash screen (`Assets/Prefabs/UI/StashInventory.prefab`) reus
 views instead of owning a parallel inventory implementation. `LobbyStashUI` drives two
 `RaidLootPanelView` panels — the stash and the loadout — plus the eight Equipment
 `RaidInventorySlotView`s of its eight-slot equipment panel, and it creates nothing at runtime. The panels,
-both 16-slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
+their slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
 authored in the prefab itself.
 
 Both screens were seeded once by a temporary Editor tool that has been removed. The prefabs are
@@ -220,25 +220,74 @@ regenerating tool can no longer overwrite manual layout work or renumber the aut
 Adding a slot to a pool means adding the slot instance in the prefab and appending it to the
 panel's `_authoredSlots`; the code only shows, hides and drives what the prefab already contains.
 
-`LobbyStashPresenter` remains the only owner of the profile services and of the stash, loadout and
-prepared-weapon intentions. The view pads each received stack list with empty entries up to its
-authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both Stash-screen pools
-currently hold 16 slots; unlike the shared personal Inventory prefab, that legacy Loadout panel does
-not yet visualize the full 30-slot `LocalProfileSnapshot.MaxLoadoutSlots` capacity. The stash has no service-side capacity, so
-content beyond the authored pool is reported once as an integration error and the panel shows its
-existing `Lleno` feedback; scrolling or pagination for a stash larger than its pool is not part of
-this contract.
+`LobbyStashPresenter` remains the only owner of the profile services and binds the screen's intentions,
+but it holds no rules. It hands every transfer, Take All / Leave All, equip and unequip to a
+`StashTransferCoordinator`, which runs them through one serialized queue so an equip never interleaves
+with a transfer waiting for the backend. The presenter keeps that coordinator across closing and
+reopening the screen and only rebuilds it when the profile, a service instance or its bound loot catalog changes, because a
+second queue would let a reopened screen run ahead of a transfer still waiting for the backend. A transfer is first checked with the Store's dry-run
+evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
+into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
+the remote-first order and reconciles the profile with the backend when a remote call fails or the
+local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
+batch (GD 07, section 16): the coordinator snapshots all source IDs in Stash-screen display order, including stacks
+outside the visible slot pool, and runs each as an independent full-stack transfer with the same
+pre-check, remote call and local apply before the next stack. The screen refreshes per commit through
+`ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
+there are no mutation retries or inferences of destination ownership. Failed reconciliation after a
+remote error or local divergence stops further calls and returns `RecoveryFailed`, preserving the
+original remote code/message or local rule separately from `RECONCILIATION_FAILED`. Bulk summaries
+count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source IDs
+(`Failed`), never actual moved/not-moved stacks. IDs whose source ownership disappears after
+reconciliation and IDs remaining when recovery stops are explicitly counted in `Failed`. Unless
+recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
+attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
+as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
+`LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
+no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
+actual Stash prefab. `StashDisplayOrder` sorts disposable copies of both Stash and Loadout before
+paging: Valuable, Material, Quest, Miscellaneous, Weapon, Helmet, Armor, Gloves, Boots, Shield,
+then None/unresolved/unrecognized categories at one shared last rank. Within a rank, display names
+use ordinal-ignore-case comparison, then raw LootId uses ordinal comparison. Blank or missing names
+fall back to raw LootId; missing icons do not change a resolved category. This explicit user-approved
+screen priority does not change persisted inventory order or the fixed Equipment slot order, and
+does not change other Town/Raid inventory screens. Projection and bulk sequences share this helper;
+bulk ordering snapshots the complete source inside the existing queue, never the visible page.
+The presenter supplies its bound catalog and retains the queue across reopen with unchanged bindings.
+For compatibility, coordinator callers omitting the optional catalog retain legacy source order;
+the Stash screen always supplies its catalog. `RaidInventorySlotData.WithDisplayName` copies all
+metadata for this screen's blank-name fallback without changing the shared `Create` factory.
+Page count covers the larger of configured capacity and accepted item count,
+so accepted remote excess is reachable. The last page hides unused authored slots beyond that
+extent, rather than inventing capacity. Refresh preserves/clamps the current page; reopening resets
+to page one. Rebinding dismisses tooltip/context and cancels an active drag, so interactions always
+carry the displayed item's LootId, never a stale page index. The presenter forwards capacity from
+its context's Store, without a global configuration lookup. Loadout presentation and its existing
+overflow behavior remain unchanged; Loadout pagination is not part of this contract.
 
 The Stash equipment panel authors the same eight slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
-right click on an owned stack opens the contextual menu. Equipment assignment is accepted only for
-units currently in the Loadout/Inventory; Stash-only units must first be transferred. The menu
+right click on an owned stack opens the contextual menu. `LobbyStashUI` emits the LootId,
+EquipmentSlot and explicit Stash-source flag; `LobbyStashPresenter` preserves that source into the
+coordinator. Stash-only units can be equipped directly: the Store projects final ownership without
+mutation, the coordinator moves one unit remotely then submits projected eight-slot Equipment,
+and only after both successes applies one atomic local Stash-to-Equipment transaction. Displaced
+units return to Loadout, including both hands and same-ID replacements. Capacity is checked against
+the final distinct-ID Loadout, not the intermediate remote move. The remote pair is nontransactional:
+failure or an unknown result reconciles once and stops without compensation/retry; the first move
+may remain committed. Copied preflight Stash/Loadout/Equipment ownership is checked after each
+successful await; drift reconciles once and stops before the next endpoint or local equip. Metadata
+revision changes are allowed: production responses each save/publish `SetRemoteRevision`, separate
+from the one final ownership transaction (the fake does not do this by default). The final ownership
+guard and Store apply have no intervening await. Local apply failure after remote success reports
+divergence or failed recovery.
+Loadout-source Equip retains its existing local-first path. The menu
 offers only the slots `EquipmentSlotRules` reports as compatible with that unit's category. The
 view resolves the category from the `RaidInventorySlotData` already projected into the panels, so
 it needs no catalog of its own. A left click on an occupied Equipment slot emits the release
-intention for that exact slot. The view emits typed `EquipmentSlot` intentions only;
+intention for that exact slot. The view emits typed equip intentions with their source;
 `LobbyStashPresenter` forwards them to `IPlayerLoadoutService`, which owns every rule about
-ownership, compatibility and the exclusive Inventory-to-Equipment move described in
+ownership, compatibility and the exclusive Inventory/Stash-to-Equipment moves described in
 `Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
 `TownStashPresenter` instantiates the authored prefab, resolves its `TownStashView` and only shows
 or hides it; it never adds components or configures the Canvas at runtime.

@@ -15,6 +15,12 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
     private LootDefinitionCatalog _catalog;
     private readonly AbilityDefinitionCatalog _abilityCatalog;
     private ProfileId _profileId;
+    private enum CacheRecoveryEligibility { None, ConfirmedDecodeFailure }
+    private CacheRecoveryEligibility _recoveryEligibility;
+
+    public bool CanRecoverCorruptCache =>
+        Status == LocalProfilePersistenceStatus.Unavailable &&
+        _recoveryEligibility == CacheRecoveryEligibility.ConfirmedDecodeFailure;
 
     public LocalProfilePersistenceStatus Status { get; private set; } = LocalProfilePersistenceStatus.Unavailable;
     public string LastError { get; private set; }
@@ -32,6 +38,9 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
 
     public bool Initialize(ProfileId profileId, LootDefinitionCatalog catalog)
     {
+        _recoveryEligibility = CacheRecoveryEligibility.None;
+        Snapshot = null;
+        Status = LocalProfilePersistenceStatus.Unavailable;
         _profileId = profileId;
         _catalog = catalog;
         if (!profileId.IsValid || catalog == null)
@@ -44,7 +53,9 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         _temporaryPath = _mainPath + ".tmp";
         _backupPath = _mainPath + ".bak";
 
-        if (!_fileStore.Exists(_mainPath) && !_fileStore.Exists(_backupPath))
+        bool mainExists = _fileStore.Exists(_mainPath);
+        bool backupExists = _fileStore.Exists(_backupPath);
+        if (!mainExists && !backupExists)
         {
             Snapshot = new LocalProfileSnapshot { ProfileId = profileId };
             Status = LocalProfilePersistenceStatus.Ready;
@@ -56,7 +67,8 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         string mainError = null;
         string mainReadError = null;
         LocalProfileSnapshot mainSnapshot = null;
-        if (_fileStore.Exists(_mainPath) && _fileStore.TryRead(_mainPath, out string mainJson, out mainReadError) &&
+        bool mainRead = false;
+        if (mainExists && (mainRead = _fileStore.TryRead(_mainPath, out string mainJson, out mainReadError)) &&
             LocalProfileSaveCodec.TryDecode(mainJson, profileId, catalog, _abilityCatalog, out mainSnapshot, out mainStatus, out mainError))
         {
             Snapshot = mainSnapshot;
@@ -74,7 +86,8 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         string backupError = null;
         LocalProfilePersistenceStatus backupStatus = LocalProfilePersistenceStatus.Unavailable;
         LocalProfileSnapshot backupSnapshot = null;
-        if (_fileStore.Exists(_backupPath) && _fileStore.TryRead(_backupPath, out string backupJson, out backupReadError) &&
+        bool backupRead = false;
+        if (backupExists && (backupRead = _fileStore.TryRead(_backupPath, out string backupJson, out backupReadError)) &&
             LocalProfileSaveCodec.TryDecode(backupJson, profileId, catalog, _abilityCatalog, out backupSnapshot, out backupStatus, out backupError))
         {
             Snapshot = backupSnapshot;
@@ -91,6 +104,11 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         {
             return Fail(backupStatus, backupError);
         }
+
+        // At least one readable file failed decoding; every other existing file must
+        // also have been readable. Missing files alone and IO failures never authorize reset.
+        if ((mainRead || backupRead) && (!mainExists || mainRead) && (!backupExists || backupRead))
+            _recoveryEligibility = CacheRecoveryEligibility.ConfirmedDecodeFailure;
 
         return Fail(LocalProfilePersistenceStatus.Unavailable,
             $"No valid profile state could be loaded. Main: {mainError ?? mainReadError}; Backup: {backupError ?? backupReadError}.");
@@ -113,6 +131,26 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
             return false;
         }
 
+        return TryWriteValidatedSnapshot(snapshot, out error);
+    }
+
+    public bool TryRecoverCorruptCache(ProfileId profileId, LocalProfileSnapshot candidate, out string error)
+    {
+        lock (_sync)
+        {
+            if (!CanRecoverCorruptCache || !profileId.IsValid || profileId != _profileId || _catalog == null)
+            {
+                error = "Profile cache is not eligible for authenticated corruption recovery.";
+                return false;
+            }
+
+            return TryWriteValidatedSnapshot(candidate, out error);
+        }
+    }
+
+    private bool TryWriteValidatedSnapshot(LocalProfileSnapshot snapshot, out string error)
+    {
+        error = null;
         if (snapshot == null || snapshot.ProfileId != _profileId)
         {
             error = "Snapshot profile ID does not match the initialized local profile.";
@@ -133,6 +171,7 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
         }
 
         Snapshot = snapshot.Clone();
+        _recoveryEligibility = CacheRecoveryEligibility.None;
         Status = LocalProfilePersistenceStatus.Ready;
         LastError = null;
         return true;
