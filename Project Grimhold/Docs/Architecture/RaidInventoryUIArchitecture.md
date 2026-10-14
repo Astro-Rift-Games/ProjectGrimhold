@@ -211,7 +211,7 @@ The Town and Lobby Stash screen (`Assets/Prefabs/UI/StashInventory.prefab`) reus
 views instead of owning a parallel inventory implementation. `LobbyStashUI` drives two
 `RaidLootPanelView` panels — the stash and the loadout — plus the eight Equipment
 `RaidInventorySlotView`s of its eight-slot equipment panel, and it creates nothing at runtime. The panels,
-both 16-slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
+their slot pools, the equipment panel, the screen's `TownStashView` and its Canvas sorting are
 authored in the prefab itself.
 
 Both screens were seeded once by a temporary Editor tool that has been removed. The prefabs are
@@ -243,13 +243,15 @@ reconciliation and IDs remaining when recovery stops are explicitly counted in `
 recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
 attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
-`LobbyStashPresenter.SetEquipmentGate`). The view pads each received stack list with empty entries up to its
-authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both Stash-screen pools
-currently hold 16 slots; unlike the shared personal Inventory prefab, that legacy Loadout panel does
-not yet visualize the full 30-slot `LocalProfileSnapshot.MaxLoadoutSlots` capacity. The stash has no service-side capacity, so
-content beyond the authored pool is reported once as an integration error and the panel shows its
-existing `Lleno` feedback; scrolling or pagination for a stash larger than its pool is not part of
-this contract.
+`LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
+no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
+actual Stash prefab. Page count covers the larger of configured capacity and accepted item count,
+so accepted remote excess is reachable. The last page hides unused authored slots beyond that
+extent, rather than inventing capacity. Refresh preserves/clamps the current page; reopening resets
+to page one. Rebinding dismisses tooltip/context and cancels an active drag, so interactions always
+carry the displayed item's LootId, never a stale page index. The presenter forwards capacity from
+its context's Store, without a global configuration lookup. Loadout presentation and its existing
+overflow behavior remain unchanged; Loadout pagination is not part of this contract.
 
 The Stash equipment panel authors the same eight slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a

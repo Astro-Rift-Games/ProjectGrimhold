@@ -258,7 +258,8 @@ public class LobbyStashPresenter : MonoBehaviour
         if (_stashService != null)
         {
             var stashItems = _stashService.GetStash(_localProfileId);
-            _stashUI.DisplayStash(MapToPresentation(stashItems));
+            _stashUI.DisplayStash(MapToPresentation(stashItems),
+                _context?.Store?.StashCapacity ?? LocalProfileStore.DefaultStashCapacity);
         }
 
         // Refresh Loadout

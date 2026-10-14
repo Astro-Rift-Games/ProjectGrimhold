@@ -22,6 +22,15 @@ public sealed class LocalProfilePersistenceConfiguration : ScriptableObject
     public AbilityDefinitionCatalog AbilityCatalog => _abilityCatalog;
     public int ReceiptCapacity => _receiptCapacity;
 
+    [SerializeField, Min(1)] private int _stashCapacity = LocalProfileStore.DefaultStashCapacity;
+    public int StashCapacity => _stashCapacity;
+
+    private void OnValidate()
+    {
+        if (_stashCapacity <= 0)
+            Debug.LogError("Stash capacity must be positive.", this);
+    }
+
     public LootId RecoveryWeaponLootId =>
         string.IsNullOrWhiteSpace(_recoveryWeaponLootId) ? default : new LootId(_recoveryWeaponLootId);
 }

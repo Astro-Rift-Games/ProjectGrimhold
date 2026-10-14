@@ -72,6 +72,21 @@ test-covered legacy infrastructure. They are not part of the runtime composition
 as `grimhold-profile.json` are ignored. They must not become a fallback when authentication or a
 backend operation fails.
 
+### Stash capacity admission
+
+`LocalProfilePersistenceConfiguration.StashCapacity` is static configuration (shipped value 60),
+forwarded by the bootstrapper into `LocalProfileStore`. Other callers default to 60; a nonpositive
+constructor capacity throws rather than silently clamping. Capacity is not profile/save schema.
+One distinct LootId consumes one slot; quantities have no stack cap beyond integer overflow.
+The shared Store admission check gates single/all transfers to Stash, secure-loot packages and
+mission item rewards before committing their cloned candidate. Existing-ID merges remain valid
+at or above capacity; new IDs that would exceed capacity return `InventoryFull`. No rejected
+operation changes ownership, currency, progression receipts or mission claim state, or publishes
+a profile commit. Mission rewards are one atomic package; a capacity refusal stays pending.
+The existing secure-loot boundary still rejects duplicate input IDs as `InvalidInventory`.
+Hydration and codec persistence do not impose Stash capacity: accepted server excess remains
+intact and can be reduced. Extraction and unequip destinations are unchanged.
+
 ### Backend persistence integration boundary
 
 Backend persistence is asynchronous and must remain outside the synchronous

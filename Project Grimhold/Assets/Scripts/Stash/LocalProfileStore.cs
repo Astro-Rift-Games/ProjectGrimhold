@@ -23,6 +23,8 @@ public sealed class LocalProfileStore
     public string LastError => _repository.LastError;
     public bool IsAvailable => Status == LocalProfilePersistenceStatus.Ready || Status == LocalProfilePersistenceStatus.RecoveredFromBackup;
     public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
+    public const int DefaultStashCapacity = 60;
+    public int StashCapacity { get; }
 
     public LocalProfileStore(
         ILocalProfileRepository repository,
@@ -30,9 +32,12 @@ public sealed class LocalProfileStore
         LootDefinitionCatalog lootCatalog = null,
         LootId recoveryWeaponLootId = default,
         MissionDefinitionCatalog missionCatalog = null,
-        AbilityDefinitionCatalog abilityCatalog = null)
+        AbilityDefinitionCatalog abilityCatalog = null,
+        int stashCapacity = DefaultStashCapacity)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        if (stashCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(stashCapacity));
+        StashCapacity = stashCapacity;
         _profileId = profileId;
         _lootCatalog = lootCatalog;
         _recoveryWeaponLootId = recoveryWeaponLootId;
@@ -513,6 +518,7 @@ public sealed class LocalProfileStore
 
             if (itemsToAdd.Count > 0)
             {
+                if (!CanAdmitStashItems(current.Stash, itemsToAdd)) return StashOperationResult.InventoryFull;
                 if (!TryMerge(next.Stash, itemsToAdd))
                     return StashOperationResult.PersistenceFailed;
                 Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
@@ -705,6 +711,8 @@ public sealed class LocalProfileStore
     public StashOperationResult TrySecureLoot(IReadOnlyList<StashItem> items)
     {
         if (!HasValidItems(items)) return StashOperationResult.InvalidInventory;
+        if (!IsAvailable || _repository.Snapshot == null) return StashOperationResult.InvalidInventory;
+        if (!CanAdmitStashItems(_repository.Snapshot.Stash, items)) return StashOperationResult.InventoryFull;
         var next = _repository.Snapshot.Clone();
         if (!TryMerge(next.Stash, items)) return StashOperationResult.InvalidInventory;
         return Commit(next);
@@ -890,6 +898,8 @@ public sealed class LocalProfileStore
         int available = FindAmount(candidate.Loadout, lootId);
         if (available <= 0) return StashOperationResult.InvalidInventory;
         int actualAmount = Math.Min(amount, available);
+        if (!CanAdmitStashItems(current.Stash, new[] { new StashItem(lootId, actualAmount) }))
+            return StashOperationResult.InventoryFull;
         if (!TryRemove(candidate.Loadout, lootId, actualAmount) ||
             !TryMerge(candidate.Stash, new[] { new StashItem(lootId, actualAmount) }))
             return StashOperationResult.InvalidInventory;
@@ -922,10 +932,21 @@ public sealed class LocalProfileStore
         if (gate != StashOperationResult.Success) return gate;
         if (current.Loadout.Count == 0) return StashOperationResult.Success;
         LocalProfileSnapshot candidate = current.Clone();
+        if (!CanAdmitStashItems(current.Stash, candidate.Loadout)) return StashOperationResult.InventoryFull;
         if (!TryMerge(candidate.Stash, candidate.Loadout)) return StashOperationResult.InvalidInventory;
         candidate.Loadout.Clear();
         next = candidate;
         return StashOperationResult.Success;
+    }
+
+    // Capacity is admission-only: accepted remote excess may remain and existing IDs may merge.
+    private bool CanAdmitStashItems(IReadOnlyList<StashItem> current, IReadOnlyList<StashItem> incoming)
+    {
+        var ids = new HashSet<LootId>();
+        foreach (StashItem item in current) ids.Add(item.LootId);
+        int existing = ids.Count;
+        foreach (StashItem item in incoming) ids.Add(item.LootId);
+        return ids.Count == existing || ids.Count <= StashCapacity;
     }
 
     public StashOperationResult TryImportItems(IReadOnlyList<StashItem> items)

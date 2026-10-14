@@ -24,6 +24,8 @@ namespace Tests.EditMode.Stash
         private static readonly LootId Sword = new("rapier");
 
         private LootDefinitionCatalog _catalog;
+        private LootDefinitionCatalog _capacityCatalog;
+        private readonly List<LootDefinition> _capacityDefinitions = new();
         private GameObject _services;
         private LocalProfileStore _store;
         private IPlayerStashService _stash;
@@ -47,6 +49,9 @@ namespace Tests.EditMode.Stash
         [TearDown]
         public void TearDown()
         {
+            if (_capacityCatalog != null) UnityEngine.Object.DestroyImmediate(_capacityCatalog);
+            foreach (LootDefinition definition in _capacityDefinitions) UnityEngine.Object.DestroyImmediate(definition);
+            _capacityDefinitions.Clear();
             if (_services != null)
             {
                 UnityEngine.Object.DestroyImmediate(_services);
@@ -77,6 +82,42 @@ namespace Tests.EditMode.Stash
             Assert.That(_remote.Calls, Is.Empty);
             Assert.That(_reconciliation.Calls, Is.Zero);
             Assert.That(_store.GetStash(), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task Transfer_FullStash_IsRejectedBeforeAnyRemoteCall()
+        {
+            LootId[] ids = CreateCapacityCatalog();
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                foreach (LootId id in ids.Take(60)) snapshot.Stash.Add(new StashItem(id, 1));
+                snapshot.Loadout.Add(new StashItem(ids[60], 1));
+            });
+            StashTransferOutcome outcome = await coordinator.TransferAsync(ids[60], false, LootTransferQuantityMode.FullStack);
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Rejected));
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_reconciliation.Calls, Is.Zero);
+            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task LeaveAll_StashFills_PreservesSuccessfulStacksAndSkipsRemoteForRejectedStack()
+        {
+            LootId[] ids = CreateCapacityCatalog();
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                foreach (LootId id in ids.Take(59)) snapshot.Stash.Add(new StashItem(id, 1));
+                snapshot.Loadout.Add(new StashItem(ids[59], 2));
+                snapshot.Loadout.Add(new StashItem(ids[60], 3));
+                snapshot.Loadout.Add(new StashItem(ids[0], 4));
+            });
+            StashTransferOutcome outcome = await coordinator.LeaveAllAsync();
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { $"toStash:{ids[59].Value}:2", $"toStash:{ids[0].Value}:4" }));
+            Assert.That(_store.GetStash(), Has.Count.EqualTo(60));
+            Assert.That(_store.GetStash().Single(x => x.LootId == ids[0]).Amount, Is.EqualTo(5));
+            Assert.That(_store.GetLoadout().Single(), Is.EqualTo(new StashItem(ids[60], 3)));
+            Assert.That(_reconciliation.Calls, Is.Zero);
         }
 
         [Test]
@@ -865,6 +906,24 @@ namespace Tests.EditMode.Stash
             {
                 await Task.Yield();
             }
+        }
+
+        private LootId[] CreateCapacityCatalog()
+        {
+            // Only the U6 capacity tests replace the fixture's productive catalog.
+            for (int i = 0; i < 70; i++)
+            {
+                var definition = ScriptableObject.CreateInstance<LootDefinition>();
+                typeof(LootDefinition).GetField("_id", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .SetValue(definition, $"stash_capacity_{i}");
+                _capacityDefinitions.Add(definition);
+            }
+            _capacityCatalog = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
+            typeof(LootDefinitionCatalog).GetField("_definitions", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .SetValue(_capacityCatalog, new List<LootDefinition>(_capacityDefinitions));
+            _catalog = _capacityCatalog;
+            Assert.That(_catalog.DefinitionCount, Is.EqualTo(70));
+            return _capacityDefinitions.Select(d => d.LootId).ToArray();
         }
 
         private LootId[] DistinctLootIds(int count)
