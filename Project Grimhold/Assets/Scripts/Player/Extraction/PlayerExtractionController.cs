@@ -78,7 +78,8 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         ZoneUnavailable,
         SanctuaryUnauthorized,
         CharacterNotAlive,
-        LeftZoneTolerance
+        LeftZoneTolerance,
+        ParticipantDisconnected
     }
 
     private void Awake()
@@ -176,6 +177,11 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             return false;
         }
 
+        if (!IsParticipantConnected())
+        {
+            return false;
+        }
+
         if (_config.RequireAliveToStart && (_character == null || !_character.IsAlive))
         {
             return false;
@@ -253,6 +259,12 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
             return false;
         }
 
+        if (!IsParticipantConnected())
+        {
+            reason = CancellationReason.ParticipantDisconnected;
+            return false;
+        }
+
         if (_config.CancelWhenNotAlive && (_character == null || !_character.IsAlive))
         {
             reason = CancellationReason.CharacterNotAlive;
@@ -273,6 +285,26 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         return _entityRegistry != null &&
             _entityRegistry.TryGetExtractionSanctuary(zoneId, out IExtractionSanctuary sanctuary) &&
             sanctuary != null && sanctuary.Id == zoneId && sanctuary.CanUseExtraction(Id);
+    }
+
+    private bool IsParticipantConnected()
+    {
+        if (_participantLink == null)
+        {
+            return true;
+        }
+
+        if (!_participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) || participant == null)
+        {
+            return true;
+        }
+
+        if (participant.TryGetComponent(out RaidParticipantConnectivity connectivity) && connectivity.IsDisconnected)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

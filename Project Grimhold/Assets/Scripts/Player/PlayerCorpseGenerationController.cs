@@ -75,7 +75,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
         {
             CacheDependencies();
             if (_lootReceiver == null || _weaponEquipment == null || _lootContainer == null || Runner == null ||
-                !Runner.IsSimulationUpdating)
+                (!Runner.IsSimulationUpdating && !Runner.IsServer))
             {
                 FailAndCompensate(contentLoaded, null, null, simulationTick, "Dependencies or runner are invalid.");
                 return false;

@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 770129000000000003}
   - component: {fileID: 770129000000000004}
   - component: {fileID: 5906812958196535237}
+  - component: {fileID: 1476313706646859869}
   m_Layer: 0
   m_Name: NetworkRaidParticipant
   m_TagString: Untagged
@@ -61,6 +62,7 @@ MonoBehaviour:
   - {fileID: 770129000000000002}
   - {fileID: 770129000000000003}
   - {fileID: 5906812958196535237}
+  - {fileID: 1476313706646859869}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &4242367586246355310
 MonoBehaviour:
@@ -172,3 +174,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dfc69026fb0eef147a861f07276e8a7f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMissionContributionLedger
+--- !u!114 &1476313706646859869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5004213290188446567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d21605b9f36354db3ec719b6821de6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RaidParticipantConnectivity
+  _IsDisconnected:
+    RawValue: 0
+  _RemainingBudgetTicks: 0

@@ -84,6 +84,7 @@ public sealed class SessionConnectionStateMachineTests
     [Test]
     public void PartyContinuation_SurvivesTownEntryAndClearsOnlyAfterObservationOrAbandonment()
     {
+        ProfileId previousProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         var owner = new GameObject("Party continuation coordinator test");
         owner.AddComponent<HubSessionLauncher>();
         owner.AddComponent<FusionSessionLauncher>();
@@ -95,6 +96,8 @@ public sealed class SessionConnectionStateMachineTests
 
         try
         {
+            LocalProfileProvider.SetRemoteCharacterId(host);
+
             Assert.That(coordinator.TryPreservePartyContinuation(continuation), Is.True);
             Assert.That(coordinator.TryPreservePartyContinuation(continuation), Is.True);
 
@@ -111,6 +114,15 @@ public sealed class SessionConnectionStateMachineTests
         }
         finally
         {
+            if (previousProfile.IsValid)
+            {
+                LocalProfileProvider.SetRemoteCharacterId(previousProfile);
+            }
+            else
+            {
+                LocalProfileProvider.ClearRemoteCharacterId();
+            }
+
             Object.DestroyImmediate(owner);
         }
     }

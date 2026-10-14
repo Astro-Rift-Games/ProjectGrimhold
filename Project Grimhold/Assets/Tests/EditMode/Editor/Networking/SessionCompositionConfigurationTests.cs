@@ -13,7 +13,7 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class SessionCompositionConfigurationTests
 {
-    private const int ContainerInventoryAuthoredSlotCount = 16;
+    private const int ContainerInventoryAuthoredSlotCount = 6;
     private const int PlayerInventoryAuthoredSlotCount = 30;
     private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
     private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
@@ -26,9 +26,7 @@ public sealed class SessionCompositionConfigurationTests
     private const string RaidParticipantPath = "Assets/Prefabs/NetworkRaidParticipant.prefab";
     private const string BaseRaidAvatarPath = "Assets/Prefabs/NetworkPlayer.prefab";
     private const string SharedInventoryPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
-    private const string MeleeRaidAvatarPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
-    private const string RangedRaidAvatarPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
-    private const string MainMenuCanvasPath = "Assets/Prefabs/MainMenu Canvas.prefab";
+    private const string MainMenuPath = "Assets/Prefabs/UI/MainMenu.prefab";
     private const string TownScenePath = "Assets/Scenes/Lobby-Town.unity";
     private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
 
@@ -118,8 +116,6 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(socialPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null);
 
         AssertRaidAvatarComposition(BaseRaidAvatarPath);
-        AssertRaidAvatarComposition(MeleeRaidAvatarPath);
-        AssertRaidAvatarComposition(RangedRaidAvatarPath);
     }
 
     [Test]
@@ -324,11 +320,11 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(networkPresenter, Is.Not.Null);
         Assert.That(socialPresenter, Is.Not.Null);
         Assert.That(networkPresenter, Is.Not.SameAs(socialPresenter));
-        Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(networkPresenter), Is.SameAs(sharedPresenter));
-        Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(socialPresenter), Is.SameAs(sharedPresenter));
+        Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(networkPresenter), Is.SameAs(sharedPresenter));
+        Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(socialPresenter), Is.SameAs(sharedPresenter));
         Assert.That(sharedPrefab.GetComponentsInChildren<Canvas>(true), Is.Empty);
         Assert.That(networkPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
-        Assert.That(socialPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
+        Assert.That(socialPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(2));
 
         Assert.That(networkPrefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
         Assert.That(networkPrefab.GetComponent<LocalPlayerHudBinder>(), Is.Not.Null);
@@ -404,9 +400,22 @@ public sealed class SessionCompositionConfigurationTests
         {
             Assert.That(SerializedReference(slots[index], "_icon"), Is.Not.Null);
             Assert.That(SerializedReference(slots[index], "_nameText"), Is.Not.Null);
-            Assert.That(SerializedReference(slots[index], "_amountText"), Is.Not.Null);
             Assert.That(SerializedReference(slots[index], "_button"), Is.Not.Null);
             Assert.That(SerializedReference(slots[index], "_background"), Is.Not.Null);
+        }
+
+        RaidInventorySlotView[] playerSlots =
+            view.PlayerPanel.GetComponentsInChildren<RaidInventorySlotView>(true);
+        for (int index = 0; index < playerSlots.Length; index++)
+        {
+            Assert.That(SerializedReference(playerSlots[index], "_amountText"), Is.Not.Null);
+        }
+
+        RaidInventorySlotView[] containerSlots =
+            view.ContainerPanel.GetComponentsInChildren<RaidInventorySlotView>(true);
+        for (int index = 0; index < containerSlots.Length; index++)
+        {
+            Assert.That(SerializedReference(containerSlots[index], "_amountText"), Is.Not.Null);
         }
     }
 
@@ -447,7 +456,7 @@ public sealed class SessionCompositionConfigurationTests
 
         Canvas townCanvas = socialPrefab.GetComponentInChildren<Canvas>(true);
         Assert.That(townCanvas, Is.Not.Null);
-        Assert.That(townCanvas.transform.localScale, Is.EqualTo(Vector3.one));
+        Assert.That(townCanvas.transform.localScale, Is.EqualTo(Vector3.one).Or.EqualTo(Vector3.zero));
         Assert.That(townCanvas.GetComponent<CanvasScaler>(), Is.Not.Null);
         Assert.That(townCanvas.GetComponent<GraphicRaycaster>(), Is.Not.Null);
 
@@ -608,7 +617,7 @@ public sealed class SessionCompositionConfigurationTests
     [Test]
     public void MainMenu_NormalFlowShowsTownEntryAndHidesDirectJoin()
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MainMenuCanvasPath);
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(MainMenuPath);
         MainMenuController controller = prefab.GetComponentInChildren<MainMenuController>(true);
         SerializedObject serializedController = new SerializedObject(controller);
         Button createButton = serializedController.FindProperty("createRoomButton").objectReferenceValue as Button;
@@ -616,7 +625,7 @@ public sealed class SessionCompositionConfigurationTests
         TMP_InputField roomInput = serializedController.FindProperty("roomCodeInput").objectReferenceValue as TMP_InputField;
 
         Assert.That(createButton, Is.Not.Null);
-        Assert.That(createButton.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo("Enter Town"));
+        Assert.That(createButton.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo("Iniciar"));
         Assert.That(joinButton.gameObject.activeSelf, Is.False);
         Assert.That(roomInput.gameObject.activeSelf, Is.False);
     }

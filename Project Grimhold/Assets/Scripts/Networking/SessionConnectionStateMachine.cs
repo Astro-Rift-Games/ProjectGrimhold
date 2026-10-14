@@ -45,6 +45,7 @@ public sealed class SessionConnectionStateMachine
                 nextState == SessionConnectionState.Failed,
             SessionConnectionState.Town =>
                 nextState == SessionConnectionState.PreparingRaid ||
+                nextState == SessionConnectionState.ConnectingRaid ||
                 nextState == SessionConnectionState.ReturningTown ||
                 nextState == SessionConnectionState.MainMenu ||
                 nextState == SessionConnectionState.Failed,

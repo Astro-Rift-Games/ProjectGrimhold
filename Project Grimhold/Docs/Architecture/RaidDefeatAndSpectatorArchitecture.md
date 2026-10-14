@@ -57,20 +57,15 @@ therefore reads `_spawnedPlayers[player]`, captures the participant's `ProfileId
 A consumed marker makes only that profile and generation terminal/no-rejoin and preserves
 the participant, corpse, loot and authoritative world state. A defeated departure without a
 marker is unexpected: it is not added to terminal profiles, its NetworkObjects and stable
-state are preserved, and only invalid PlayerRef routing is removed. Recovery/reconnect policy
-is deliberately deferred. Pending and terminal markers are cleared with runner/generation
-cleanup.
+state are preserved, and only invalid PlayerRef routing is removed. Pending and terminal markers
+are cleared with runner/generation cleanup. Reconnection policy for Defeated players remains deferred.
 
-A Raiding participant whose avatar is Downed (`RaidPlayerDeparturePolicy.ShouldRetainDownedRaider`)
-is neither despawned nor finalized as a definitive disconnect: disconnecting does not pause or
-resolve Downed. The Host removes the PlayerRef routing, removes input authority from the avatar,
-and tracks the participant in `NetworkSpawnManager._retainedDownedParticipants`. The reserve keeps
-draining and the avatar can still take damage; on depletion the normal `HandleDeath` path converts
-the body and `TryMarkDefeated` (keyed by `CurrentAvatarId`, not by PlayerRef) records Defeat, after
-which the ordinary Defeated finalization runs. While such a participant is still Raiding it counts
-in `HasRaidingParticipants` (the raid does not close under it) and is aborted by
-`AbortRaidingParticipantsForClosure`; it does not count as a connected remote participant.
-Reconnect and revive policy remain deferred.
+A `Raiding` participant (both Active and Downed) who disconnects is retained according to the
+policies defined in `Docs/Architecture/RaidConnectivityContinuityArchitecture.md`. The Host removes
+the PlayerRef routing and input authority, and tracks the participant for potential reconnection,
+without marking the profile as terminal. The participant remains in the Dungeon and counts in
+`HasRaidingParticipants` while their reconnect budget lasts. Reconnect and continuity mechanics
+are governed by `RaidConnectivityContinuityArchitecture.md`.
 
 ## Local spectator selection
 

@@ -49,6 +49,10 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
     private float _presentedHealth;
     private float _presentedMaximumHealth;
     private bool _presentedHasMaximumHealth;
+    private bool _presentedIsDisconnected;
+    private int _presentedRemainingBudgetSeconds;
+    private bool _presentedIsDecisionAvailable;
+    private bool _presentedIsAbandoned;
 
     public void Bind(
         NetworkRunner runner,
@@ -68,6 +72,12 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
         _hasTeammate = _isBound &&
             affiliations.TryGetTeammateProfileId(localProfileId, out _teammateProfileId);
 
+        if (_view != null)
+        {
+            _view.ContinueWithoutTeammateRequested -= OnContinueWithoutTeammateRequested;
+            _view.ContinueWithoutTeammateRequested += OnContinueWithoutTeammateRequested;
+        }
+
         _view?.SetVisible(_hasTeammate);
         if (!_hasTeammate)
         {
@@ -80,6 +90,11 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
 
     public void Unbind()
     {
+        if (_view != null)
+        {
+            _view.ContinueWithoutTeammateRequested -= OnContinueWithoutTeammateRequested;
+        }
+
         _runner = null;
         _localParticipant = null;
         _teammateParticipant = null;
@@ -96,6 +111,15 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
         ResetPresentedState();
         _view?.PresentUnavailable();
         _view?.SetVisible(false);
+    }
+
+    private void OnContinueWithoutTeammateRequested()
+    {
+        if (_localParticipant != null && _teammateParticipant != null && _teammateParticipant.Object != null)
+        {
+            _localParticipant.RequestContinueWithoutTeammate(_teammateParticipant.Object.Id);
+            _view?.SetContinueButtonVisible(false);
+        }
     }
 
     private void OnEnable()
@@ -170,7 +194,10 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
                 PresentHealth(_lastHealth, _lastMaximumHealth);
                 return;
             case ProjectionMode.Defeated:
-                PresentDefeated();
+                bool isAbandoned = _teammateParticipant != null &&
+                    _teammateParticipant.TryGetBehaviour(out RaidParticipantConnectivity defeatedConnectivity) &&
+                    defeatedConnectivity.IsAbsenceConfirmed;
+                PresentDefeated(isAbandoned);
                 return;
             default:
                 PresentUnavailable();
@@ -287,43 +314,70 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
 
     private void PresentHealth(float health, float maximumHealth)
     {
+        bool isDisconnected = false;
+        int remainingBudgetSeconds = -1;
+        bool isDecisionAvailable = false;
+        if (_teammateParticipant != null &&
+            _teammateParticipant.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+        {
+            isDisconnected = connectivity.IsDisconnected;
+            if (isDisconnected)
+            {
+                int tickRate = _runner != null && _runner.TickRate > 0 ? _runner.TickRate : 60;
+                remainingBudgetSeconds = Mathf.CeilToInt((float)connectivity.RemainingBudgetTicks / tickRate);
+                isDecisionAvailable = connectivity.IsDecisionAvailable;
+            }
+        }
+
         if (_hasPresented && _presentedMode == PresentationMode.Health &&
             Mathf.Approximately(_presentedHealth, health) &&
-            Mathf.Approximately(_presentedMaximumHealth, maximumHealth))
+            Mathf.Approximately(_presentedMaximumHealth, maximumHealth) &&
+            _presentedIsDisconnected == isDisconnected &&
+            _presentedRemainingBudgetSeconds == remainingBudgetSeconds &&
+            _presentedIsDecisionAvailable == isDecisionAvailable)
         {
             return;
         }
 
-        RecordPresentation(PresentationMode.Health, health, maximumHealth, true);
-        _view?.PresentHealth(health, maximumHealth);
+        RecordPresentation(PresentationMode.Health, health, maximumHealth, true, isDisconnected, remainingBudgetSeconds, isDecisionAvailable);
+        _view?.PresentHealth(health, maximumHealth, isDisconnected, remainingBudgetSeconds, isDecisionAvailable);
     }
 
-    private void PresentDefeated()
+    private void PresentDefeated(bool isAbandoned = false)
     {
         bool hasMaximumHealth = _hasLastHealth;
         float maximumHealth = hasMaximumHealth ? _lastMaximumHealth : 0f;
         if (_hasPresented && _presentedMode == PresentationMode.Defeated &&
             _presentedHasMaximumHealth == hasMaximumHealth &&
-            Mathf.Approximately(_presentedMaximumHealth, maximumHealth))
+            Mathf.Approximately(_presentedMaximumHealth, maximumHealth) &&
+            _presentedIsAbandoned == isAbandoned)
         {
             return;
         }
 
-        RecordPresentation(PresentationMode.Defeated, 0f, maximumHealth, hasMaximumHealth);
-        _view?.PresentDefeated(maximumHealth, hasMaximumHealth);
+        RecordPresentation(PresentationMode.Defeated, 0f, maximumHealth, hasMaximumHealth, isAbandoned: isAbandoned);
+        _view?.PresentDefeated(maximumHealth, hasMaximumHealth, isAbandoned);
     }
 
     private void RecordPresentation(
         PresentationMode mode,
         float health,
         float maximumHealth,
-        bool hasMaximumHealth)
+        bool hasMaximumHealth,
+        bool isDisconnected = false,
+        int remainingBudgetSeconds = -1,
+        bool isDecisionAvailable = false,
+        bool isAbandoned = false)
     {
         _hasPresented = true;
         _presentedMode = mode;
         _presentedHealth = health;
         _presentedMaximumHealth = maximumHealth;
         _presentedHasMaximumHealth = hasMaximumHealth;
+        _presentedIsDisconnected = isDisconnected;
+        _presentedRemainingBudgetSeconds = remainingBudgetSeconds;
+        _presentedIsDecisionAvailable = isDecisionAvailable;
+        _presentedIsAbandoned = isAbandoned;
     }
 
     private void ResetPresentedState()
@@ -333,6 +387,10 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
         _presentedHealth = 0f;
         _presentedMaximumHealth = 0f;
         _presentedHasMaximumHealth = false;
+        _presentedIsDisconnected = false;
+        _presentedRemainingBudgetSeconds = -1;
+        _presentedIsDecisionAvailable = false;
+        _presentedIsAbandoned = false;
     }
 
     private static bool TryReadProfileId(

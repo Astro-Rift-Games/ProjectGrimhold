@@ -111,6 +111,8 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         _view.ReadyRequested += SetReady;
         _view.StartRequested += StartRaid;
         _view.CloseRequested += ClosePanel;
+        _view.ReconnectRequested += OnReconnectRequested;
+        _view.DiscardReconnectRequested += OnDiscardReconnectRequested;
         _interactionController.InteractionResolved += OnInteractionResolved;
         if (_dialoguePresenter != null)
         {
@@ -194,6 +196,13 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 
     private void RefreshPreparationPresentation(bool force)
     {
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null && coordinator.HasActiveReconnectTicket)
+        {
+            _view.PresentReconnectOpportunity(coordinator.ActiveReconnectTicket.Value);
+            return;
+        }
+
         ProfileId localProfile = GetLocalProfile();
         TownRaidPreparationNetworkController preparation = null;
         bool hasPreparation = _directory != null && _directory.TryGetPreparation(localProfile, out preparation);
@@ -282,8 +291,26 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         return true;
     }
 
-    private void CreateRaid(string _) => _directory?.RequestCreate();
-    private void JoinRaid(string code) => _directory?.RequestJoin(code);
+    private void CreateRaid(string _)
+    {
+        if (SessionConnectionCoordinator.Instance != null && SessionConnectionCoordinator.Instance.HasActiveReconnectTicket)
+        {
+            return;
+        }
+
+        _directory?.RequestCreate();
+    }
+
+    private void JoinRaid(string code)
+    {
+        if (SessionConnectionCoordinator.Instance != null && SessionConnectionCoordinator.Instance.HasActiveReconnectTicket)
+        {
+            return;
+        }
+
+        _directory?.RequestJoin(code);
+    }
+
     private void LeaveRaid()
     {
         _directory?.RequestLeave();
@@ -306,6 +333,45 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         }
         _openNpc = null;
         ReleaseInputSuppression();
+    }
+
+    private async void OnReconnectRequested()
+    {
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator == null || !coordinator.HasActiveReconnectTicket)
+        {
+            return;
+        }
+
+        _view.SetBusy(true, "Reconectando a la raid...");
+        SessionTransitionResult result = await coordinator.ReconnectToRaidAsync();
+        if (this == null || _view == null)
+        {
+            return;
+        }
+
+        if (result != SessionTransitionResult.Succeeded)
+        {
+            _view.SetBusy(false);
+            _view.ShowTransitionFailure(result);
+            if (!coordinator.HasActiveReconnectTicket)
+            {
+                _view.HideReconnectOpportunity();
+                RefreshPreparationPresentation(true);
+            }
+        }
+    }
+
+    private void OnDiscardReconnectRequested()
+    {
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator != null)
+        {
+            coordinator.DiscardActiveReconnectTicket();
+        }
+
+        _view.HideReconnectOpportunity();
+        RefreshPreparationPresentation(true);
     }
 
     private void AcquireInputSuppression()
@@ -369,6 +435,8 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             _view.ReadyRequested -= SetReady;
             _view.StartRequested -= StartRaid;
             _view.CloseRequested -= ClosePanel;
+            _view.ReconnectRequested -= OnReconnectRequested;
+            _view.DiscardReconnectRequested -= OnDiscardReconnectRequested;
             Destroy(_view.gameObject);
             _view = null;
         }
