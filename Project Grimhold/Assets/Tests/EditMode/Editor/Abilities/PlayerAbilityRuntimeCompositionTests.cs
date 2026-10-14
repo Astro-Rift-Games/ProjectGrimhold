@@ -250,6 +250,22 @@ public sealed class PlayerAbilityRuntimeCompositionTests
         AssertHidesItsRenderersOutsideLocalVision(trap);
     }
 
+    [Test]
+    public void TrapEntity_DrawsOnTheTrapsSortingLayerAboveTheFloor()
+    {
+        var trap = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Abilities/NetworkTrap.prefab");
+        var environmentTrap = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Traps/SpikesTrap.prefab")
+            .GetComponentInChildren<SpriteRenderer>(true);
+        Assert.That(environmentTrap.sortingLayerName, Is.EqualTo("Traps"));
+        foreach (var sprite in trap.GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            Assert.That(sprite.sortingLayerID, Is.EqualTo(environmentTrap.sortingLayerID),
+                "The ability trap shares the environment traps' sorting layer.");
+            Assert.That(SortingLayer.GetLayerValueFromID(sprite.sortingLayerID),
+                Is.GreaterThan(SortingLayer.GetLayerValueFromName("Floor")), "A placed trap draws above the floor tilemap.");
+        }
+    }
+
     private static void AssertHidesItsRenderersOutsideLocalVision(GameObject prefab)
     {
         var presenters = prefab.GetComponents<ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter>();

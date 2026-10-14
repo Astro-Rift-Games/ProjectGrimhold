@@ -376,8 +376,8 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         if (!state.Cooldown.ExpiredOrNotRunning(Runner)) return AbilityActivationFailure.Cooldown;
         // Resolved before planning so a behavior can validate against the direction this execution will capture,
         // and before payment so an unusable direction rejects without cost, sequence or cooldown.
-        if (!AbilityAimResolver.TryResolve(_movementController.FacingDirection, _movementController.AimDirection,
-                out Vector2 aimDirection)) return AbilityActivationFailure.AimUnavailable;
+        if (!AbilityAimResolver.TryResolve(_movementController.FacingDirection, out Vector2 aimDirection))
+            return AbilityActivationFailure.AimUnavailable;
         if (!behaviour.TryPlanStart(context.WithAim(aimDirection), out var plan)) return AbilityActivationFailure.BehaviourRejected;
         if (!plan.IsValidStart) return AbilityActivationFailure.InvalidPlan;
         switch (context.Definition.Resource)
