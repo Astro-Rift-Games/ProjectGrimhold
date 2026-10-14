@@ -86,4 +86,26 @@ public static class TownAbilityText
         int number = slot == UniversalAbilitySlot.Slot2 ? 2 : 1;
         return alreadyInThisSlot ? $"Equipped in Slot {number}" : $"Equip to Slot {number}";
     }
+
+    /// <summary>Feedback line for a refused equip/clear. Empty when the change succeeded.</summary>
+    public static string Rejection(TownAbilityMutationResult result)
+    {
+        switch (result.Outcome)
+        {
+            case TownAbilityMutationOutcome.Success:
+                return string.Empty;
+            case TownAbilityMutationOutcome.BlockedByReadyState:
+                return "Abilities can't be changed while Ready.";
+        }
+
+        return result.Preparation switch
+        {
+            AbilityPreparationResult.AttributeRequirementsNotMet => "Attribute requirements not met.",
+            AbilityPreparationResult.AbilityNotUnlocked => "This ability is not unlocked.",
+            AbilityPreparationResult.DuplicateAbility => "Already equipped in the other slot.",
+            AbilityPreparationResult.ProfileUnavailable => "Profile unavailable. Nothing was changed.",
+            AbilityPreparationResult.PersistenceFailed => "Couldn't save your abilities. Nothing was changed.",
+            _ => "This ability can't be equipped there."
+        };
+    }
 }

@@ -47,6 +47,7 @@ public sealed class TownAbilitiesView : MonoBehaviour
     [SerializeField] private TownAbilityRequirementRowView _requirementRowTemplate;
     [SerializeField] private TMP_Text _requirementsNote;
     [SerializeField] private GameObject _lockedNote;
+    [SerializeField] private TMP_Text _feedbackText;
     [SerializeField] private Image[] _previewIcons;
     [SerializeField] private TMP_Text[] _previewKeyTexts;
 
@@ -58,6 +59,7 @@ public sealed class TownAbilitiesView : MonoBehaviour
     private readonly List<TownAbilityRequirementRowView> _requirementRows = new();
     private readonly List<Action> _unsubscribe = new();
     private AbilityId _shownAbility;
+    private bool _canMutate = true;
 
     public IReadOnlyList<TownAbilityCardView> Cards => _cards;
     public IReadOnlyList<TownAbilityRequirementRowView> RequirementRows => _requirementRows;
@@ -68,6 +70,7 @@ public sealed class TownAbilitiesView : MonoBehaviour
     public TMP_Text DetailsNote => _detailsNote;
     public TMP_Text DetailNameText => _detailNameText;
     public GameObject LockedNote => _lockedNote;
+    public TMP_Text FeedbackText => _feedbackText;
 
     public event Action<TownAbilitiesFilter> FilterRequested;
     public event Action<AbilityId> AbilitySelected;
@@ -118,9 +121,22 @@ public sealed class TownAbilitiesView : MonoBehaviour
 
     public void Close() => gameObject.SetActive(false);
 
+    /// <summary>
+    /// Shows a single feedback line; an empty message hides it. The line shares its spot with the locked
+    /// note, which yields to it while a message is visible.
+    /// </summary>
+    public void ShowFeedback(string message)
+    {
+        bool hasMessage = !string.IsNullOrEmpty(message);
+        _feedbackText.text = hasMessage ? message : string.Empty;
+        _feedbackText.gameObject.SetActive(hasMessage);
+        _lockedNote.SetActive(!_canMutate && !hasMessage);
+    }
+
     /// <summary>Replaces the whole tab with an "Abilities unavailable" note.</summary>
     public void PresentUnavailable()
     {
+        ShowFeedback(string.Empty);
         _contentRoot.SetActive(false);
         _unavailableNote.SetActive(true);
     }
@@ -135,6 +151,7 @@ public sealed class TownAbilitiesView : MonoBehaviour
         _contentRoot.SetActive(true);
         _unavailableNote.SetActive(false);
         _shownAbility = selectedId;
+        _canMutate = canMutate;
 
         PresentFilters(filter);
         IReadOnlyList<TownAbilityEntry> visible = presentation.Filtered(filter);
@@ -144,7 +161,7 @@ public sealed class TownAbilitiesView : MonoBehaviour
         PresentDetails(selected, presentation, canMutate, canEquip);
         PresentRequirements(selected);
         PresentSlots(presentation, canMutate);
-        _lockedNote.SetActive(!canMutate);
+        _lockedNote.SetActive(!canMutate && !_feedbackText.gameObject.activeSelf);
     }
 
     private void PresentFilters(TownAbilitiesFilter filter)

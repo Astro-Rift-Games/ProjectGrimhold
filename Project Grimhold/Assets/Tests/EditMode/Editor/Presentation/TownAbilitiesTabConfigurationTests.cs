@@ -25,7 +25,7 @@ namespace Tests.EditMode.Presentation
                          "_detailsRoot", "_detailsNote", "_detailIcon", "_detailIconPlaceholder",
                          "_detailNameText", "_detailSubtitleText", "_detailDescriptionText",
                          "_requirementValueText", "_resourceValueText", "_cooldownValueText",
-                         "_requirementRowsRoot", "_requirementRowTemplate", "_requirementsNote", "_lockedNote"
+                         "_requirementRowsRoot", "_requirementRowTemplate", "_requirementsNote", "_lockedNote", "_feedbackText"
                      })
             {
                 Assert.That(

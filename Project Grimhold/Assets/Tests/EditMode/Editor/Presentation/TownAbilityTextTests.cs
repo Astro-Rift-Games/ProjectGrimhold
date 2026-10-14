@@ -131,6 +131,50 @@ namespace Tests.EditMode.Presentation
             Assert.That(TownAbilityText.EquipLabel(UniversalAbilitySlot.Slot2, false), Is.EqualTo("Equip to Slot 2"));
             Assert.That(TownAbilityText.EquipLabel(UniversalAbilitySlot.Slot2, true), Is.EqualTo("Equipped in Slot 2"));
         }
+
+        [Test, Category("TASK206")]
+        public void Rejection_Success_IsEmpty()
+        {
+            Assert.That(
+                TownAbilityText.Rejection(TownAbilityMutationResult.From(AbilityPreparationResult.Success)),
+                Is.Empty);
+        }
+
+        [Test, Category("TASK206")]
+        public void Rejection_BlockedByReadyState_ExplainsTheReadyLock()
+        {
+            Assert.That(
+                TownAbilityText.Rejection(TownAbilityMutationResult.Blocked()),
+                Is.EqualTo("Abilities can't be changed while Ready."));
+        }
+
+        [TestCase(AbilityPreparationResult.AttributeRequirementsNotMet, "Attribute requirements not met.")]
+        [TestCase(AbilityPreparationResult.AbilityNotUnlocked, "This ability is not unlocked.")]
+        [TestCase(AbilityPreparationResult.DuplicateAbility, "Already equipped in the other slot.")]
+        [TestCase(AbilityPreparationResult.ProfileUnavailable, "Profile unavailable. Nothing was changed.")]
+        [TestCase(AbilityPreparationResult.PersistenceFailed, "Couldn't save your abilities. Nothing was changed.")]
+        [TestCase(AbilityPreparationResult.InvalidSlot, "This ability can't be equipped there.")]
+        [TestCase(AbilityPreparationResult.InvalidAbility, "This ability can't be equipped there.")]
+        [TestCase(AbilityPreparationResult.UnknownAbility, "This ability can't be equipped there.")]
+        [TestCase(AbilityPreparationResult.InvalidPreparedState, "This ability can't be equipped there.")]
+        [Category("TASK206")]
+        public void Rejection_MapsEveryRejectedReason(AbilityPreparationResult reason, string expected)
+        {
+            Assert.That(TownAbilityText.Rejection(TownAbilityMutationResult.From(reason)), Is.EqualTo(expected));
+        }
+
+        [Test, Category("TASK206")]
+        public void Rejection_EveryNonSuccessReasonHasAMessage()
+        {
+            foreach (AbilityPreparationResult reason in System.Enum.GetValues(typeof(AbilityPreparationResult)))
+            {
+                string message = TownAbilityText.Rejection(TownAbilityMutationResult.From(reason));
+                Assert.That(
+                    string.IsNullOrEmpty(message),
+                    Is.EqualTo(reason == AbilityPreparationResult.Success),
+                    $"{reason} must {(reason == AbilityPreparationResult.Success ? "not " : "")}produce a message.");
+            }
+        }
     }
 }
 #endif

@@ -122,6 +122,7 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
             _view.Open();
         }
 
+        ShowFeedback(string.Empty);
         StartListening();
         // The Ready state can change without a profile commit, so showing the tab always refreshes.
         Refresh();
@@ -174,6 +175,7 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
     {
         _selected = id;
         Refresh();
+        ShowFeedback(string.Empty);
     }
 
     private void OnEquipRequested(AbilityId id, UniversalAbilitySlot slot)
@@ -190,9 +192,13 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
                 // The endpoint already refreshed the view after persisting.
                 break;
             case TownAbilityMutationOutcome.Rejected:
-                Debug.LogWarning(
-                    $"[{nameof(TownAbilitiesPresenter)}] Equipping {id.Value} to {slot} was rejected: {result.Preparation}.",
-                    this);
+                if (IsUnexpectedFailure(result.Preparation))
+                {
+                    Debug.LogWarning(
+                        $"[{nameof(TownAbilitiesPresenter)}] Equipping {id.Value} to {slot} was rejected: {result.Preparation}.",
+                        this);
+                }
+
                 Refresh();
                 break;
             default:
@@ -200,6 +206,8 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
                 Refresh();
                 break;
         }
+
+        ShowFeedback(TownAbilityText.Rejection(result));
     }
 
     private void OnClearRequested(UniversalAbilitySlot slot)
@@ -210,9 +218,24 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
         }
 
         TownAbilityMutationResult result = _endpoint.TryClear(slot);
-        if (result.Outcome != TownAbilityMutationOutcome.Success)
+        if (!result.IsSuccess)
         {
             Refresh();
+        }
+
+        ShowFeedback(TownAbilityText.Rejection(result));
+    }
+
+    // Rule rejections are expected player feedback; only persistence/profile problems are worth a log.
+    private static bool IsUnexpectedFailure(AbilityPreparationResult preparation) =>
+        preparation == AbilityPreparationResult.ProfileUnavailable ||
+        preparation == AbilityPreparationResult.PersistenceFailed;
+
+    private void ShowFeedback(string message)
+    {
+        if (_view != null)
+        {
+            _view.ShowFeedback(message);
         }
     }
 
