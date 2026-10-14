@@ -48,7 +48,7 @@ public sealed class StashTransferCoordinator
     public Task<StashTransferOutcome> LeaveAllAsync() => RunExclusiveAsync(LeaveAllCoreAsync);
 
     /// <summary>
-    /// Equips one unit. The Stash source uses the local atomic Stash-to-Equipment operation; the
+    /// Equips one unit. The Stash source projects, moves remotely, syncs Equipment, then applies atomically; the
     /// Loadout source goes through the Town Equipment endpoint and its Ready gate.
     /// </summary>
     public Task<StashTransferOutcome> EquipAsync(LootId lootId, EquipmentSlot slot, bool fromStash) =>
@@ -192,12 +192,52 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Blocked();
         }
 
-        StashOperationResult local = fromStash
-            ? _loadout.TryEquipFromStash(_profileId, lootId, slot)
-            : _equipment.TryEquip(lootId, slot);
+        if (fromStash)
+        {
+            if (_remote == null) return StashTransferOutcome.Unavailable();
+
+            StashOperationResult rule = _loadout.EvaluateEquipFromStash(
+                _profileId, lootId, slot, out PreparedEquipmentLoadout projected);
+            if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
+
+            // Copy ownership, not the aggregate reference/revision: production requests
+            // save revision metadata while another endpoint can independently change items.
+            StashItem[] stashBefore = _stash.GetStash(_profileId).ToArray();
+            StashItem[] loadoutBefore = _loadout.GetLoadout(_profileId).ToArray();
+            PreparedEquipmentLoadout equipmentBefore = _loadout.GetPreparedEquipment(_profileId);
+
+            StashTransferOutcome move = await ExecuteRemoteAsync(() => _remote.MoveToLoadoutAsync(lootId, 1));
+            if (!move.IsSuccess) return move;
+            if (!OwnershipMatches(stashBefore, loadoutBefore, equipmentBefore))
+                return await ApplyLocalAsync(StashOperationResult.InvalidInventory);
+
+            StashTransferOutcome equip = await ExecuteRemoteAsync(() => _remote.UpdatePreparedEquipmentAsync(projected));
+            if (!equip.IsSuccess) return equip;
+            if (!OwnershipMatches(stashBefore, loadoutBefore, equipmentBefore))
+                return await ApplyLocalAsync(StashOperationResult.InvalidInventory);
+
+            // No await between the final guard and current-state Store revalidation/application.
+            return await ApplyLocalAsync(_loadout.TryEquipFromStash(_profileId, lootId, slot));
+        }
+
+        StashOperationResult local = _equipment.TryEquip(lootId, slot);
         return local == StashOperationResult.Success
             ? await SyncPreparedEquipmentAsync()
             : StashTransferOutcome.Rejected(local);
+    }
+
+    private bool OwnershipMatches(
+        StashItem[] stash, StashItem[] loadout, PreparedEquipmentLoadout equipment)
+    {
+        return equipment.Equals(_loadout.GetPreparedEquipment(_profileId)) &&
+            SameItems(stash, _stash.GetStash(_profileId)) &&
+            SameItems(loadout, _loadout.GetLoadout(_profileId));
+    }
+
+    private static bool SameItems(StashItem[] expected, IReadOnlyList<StashItem> current)
+    {
+        // Store inventories have one entry per ID; ordering is not ownership.
+        return expected.Length == current.Count && expected.All(item => current.Contains(item));
     }
 
     private async Task<StashTransferOutcome> UnequipCoreAsync(EquipmentSlot slot)
@@ -247,7 +287,20 @@ public sealed class StashTransferCoordinator
     private async Task<StashTransferOutcome> ExecuteRemoteAsync(
         Func<Task<(bool success, Grimhold.Backend.BackendError error)>> operation)
     {
-        (bool success, Grimhold.Backend.BackendError error) = await operation();
+        bool success;
+        Grimhold.Backend.BackendError error;
+        try
+        {
+            (success, error) = await operation();
+        }
+        catch (Exception)
+        {
+            // An exception cannot establish whether the server committed. Reconcile, never retry.
+            return await ReconcileAsync()
+                ? StashTransferOutcome.RemoteFailed("Remote result unavailable", "REMOTE_RESULT_UNKNOWN")
+                : StashTransferOutcome.RecoveryFailed(
+                    StashOperationResult.Success, "Remote result unavailable", "REMOTE_RESULT_UNKNOWN");
+        }
         if (success)
         {
             return StashTransferOutcome.Success();
@@ -259,8 +312,18 @@ public sealed class StashTransferCoordinator
             : StashTransferOutcome.RecoveryFailed(StashOperationResult.Success, error.message, error.error);
     }
 
-    private Task<bool> ReconcileAsync() =>
-        _reconciliation != null ? _reconciliation.ReconcileAsync() : Task.FromResult(false);
+    private async Task<bool> ReconcileAsync()
+    {
+        if (_reconciliation == null) return false;
+        try
+        {
+            return await _reconciliation.ReconcileAsync();
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     private int ResolveAmount(LootId lootId, bool fromStash, LootTransferQuantityMode mode)
     {

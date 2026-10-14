@@ -253,14 +253,27 @@ this contract.
 
 The Stash equipment panel authors the same eight slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
-right click on an owned stack opens the contextual menu. Equipment assignment is accepted only for
-units currently in the Loadout/Inventory; Stash-only units must first be transferred. The menu
+right click on an owned stack opens the contextual menu. `LobbyStashUI` emits the LootId,
+EquipmentSlot and explicit Stash-source flag; `LobbyStashPresenter` preserves that source into the
+coordinator. Stash-only units can be equipped directly: the Store projects final ownership without
+mutation, the coordinator moves one unit remotely then submits projected eight-slot Equipment,
+and only after both successes applies one atomic local Stash-to-Equipment transaction. Displaced
+units return to Loadout, including both hands and same-ID replacements. Capacity is checked against
+the final distinct-ID Loadout, not the intermediate remote move. The remote pair is nontransactional:
+failure or an unknown result reconciles once and stops without compensation/retry; the first move
+may remain committed. Copied preflight Stash/Loadout/Equipment ownership is checked after each
+successful await; drift reconciles once and stops before the next endpoint or local equip. Metadata
+revision changes are allowed: production responses each save/publish `SetRemoteRevision`, separate
+from the one final ownership transaction (the fake does not do this by default). The final ownership
+guard and Store apply have no intervening await. Local apply failure after remote success reports
+divergence or failed recovery.
+Loadout-source Equip retains its existing local-first path. The menu
 offers only the slots `EquipmentSlotRules` reports as compatible with that unit's category. The
 view resolves the category from the `RaidInventorySlotData` already projected into the panels, so
 it needs no catalog of its own. A left click on an occupied Equipment slot emits the release
-intention for that exact slot. The view emits typed `EquipmentSlot` intentions only;
+intention for that exact slot. The view emits typed equip intentions with their source;
 `LobbyStashPresenter` forwards them to `IPlayerLoadoutService`, which owns every rule about
-ownership, compatibility and the exclusive Inventory-to-Equipment move described in
+ownership, compatibility and the exclusive Inventory/Stash-to-Equipment moves described in
 `Docs/Architecture/LocalPlayerPersistenceArchitecture.md`.
 `TownStashPresenter` instantiates the authored prefab, resolves its `TownStashView` and only shows
 or hides it; it never adds components or configures the Canvas at runtime.

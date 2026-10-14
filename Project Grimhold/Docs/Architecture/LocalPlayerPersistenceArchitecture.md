@@ -133,7 +133,37 @@ Inventory and prepared Equipment are mutually exclusive ownership locations. Equ
 a usable Weapon definition. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
 confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
 rule is rechecked before preparation, reservation and rollback; armors have no attribute
-requirements during the MVP. Equip reads only Inventory, never Stash. Replacement removes the new
+requirements during the MVP. Ordinary Town Inventory Equip reads only Inventory. The Stash screen
+also supports direct Stash Equip through `EvaluateEquipFromStash` / `TryEquipFromStash`: both share
+one planner over an isolated snapshot clone. It removes exactly one Stash unit, returns displaced
+units (including same-ID replacement and both hands for a two-handed weapon) to Loadout, and checks
+final distinct-ID capacity before any commit. A full 30-ID Loadout can equip into an empty slot or
+merge displaced units into existing IDs, but cannot accept a new displaced ID. Backend-hydrated
+excess remains accepted; this operation cannot grow that excess. Evaluation publishes nothing;
+application replans against current state and commits the whole candidate once.
+
+The Stash coordinator checks the Ready gate, availability and Store rules, then calls
+`MoveToLoadout(id, 1)`, then `UpdatePreparedEquipment(projected)`, then the atomic local application.
+The coordinator copies Stash, Loadout and prepared Equipment ownership before sending and checks
+that ownership after each successful remote await. Drift reconciles once as divergence (or failed
+recovery), without sending the next endpoint or applying the Stash equip. Revision metadata alone
+is not drift. The final guard and Store revalidation/application have no intervening await; the
+Store still rejects changed attributes or reservation state.
+No local ownership or Equipment state changes during either request. Production
+`RemoteInventoryService` calls `SetRemoteRevision` after each successful response, producing two
+revision-only saves/events in addition to the single final ownership transaction. The test fake
+does not save revisions by default. These two remote mutations
+are **not** one transaction: the first may remain committed if the second fails. Failure or an
+unknown remote result reconciles once and stops without retry or compensation; a local refusal
+after remote success also reconciles and reports divergence (or failed recovery). Ordinary Loadout
+Equip/Unequip retain their existing local-first synchronization behavior.
+
+Design debt: Inventory document 16 section 4 says displaced Stash equipment returns to Stash,
+whereas Game Design document 12 section 6 says Inventory. The user explicitly approved Loadout
+(Inventory) for U5; this is an approved exception pending reconciliation of those live documents,
+not a claim that their conflict has been resolved.
+
+Ordinary Inventory replacement removes the new
 unit before returning up to two displaced hand units so capacity is evaluated against the final state
 without exposing an intermediate state. A two-handed weapon exists only in Main Hand and derives the
 blocked state of its Set's Off Hand. Direct assignment to a blocked Off Hand is rejected and never
@@ -150,13 +180,11 @@ a complete Inventory reference set as the latter and subtracts one unit per prep
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
 all-or-nothing, and new saves always write schema 4.
 
-TASK-330 keeps this migration local and does not change the backend contract. Backend hydration still
-maps legacy Weapon Slot 1 to Set A Main Hand and Weapon Slot 2 to Set B Main Hand; Off Hands hydrate
-empty. Town Equipment mutations commit against the process-local aggregate and do not wait for or
-roll back on a remote Equipment request. The existing reservation adapter sends only both Main Hands
-and armor through the legacy six-slot DTO. Consequently, Off Hand assignments and their exact remote
-reservation recovery are not durable across application restarts or devices until a separate backend
-migration introduces the four-hand contract.
+TASK-330 originally kept this migration local. The current prepared-Equipment adapter sends all
+eight slots: `weaponSlot1` / `weaponSlot2` map to Set A / B Main Hand, `offHand1` / `offHand2`
+map to their Off Hands, alongside Helmet, Armor, Gloves and Boots. The Stash flow above submits
+that projected eight-slot value before its local ownership commit. Reservation transport and
+recovery have their own contracts and are not changed by U5.
 
 This structure does not yet implement shield defence, Dual Wield attacks, accessories or Quick Slots.
 Those behaviors require their own rules without adding a competing Equipment source of truth.

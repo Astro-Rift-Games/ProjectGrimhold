@@ -281,9 +281,23 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public async Task Equip_FromTheStash_CommitsLocallyThenSyncsTheEquipment()
+        public async Task Equip_FromTheStash_MovesOneRemotelyThenProjectsEquipmentBeforeOneLocalCommit()
         {
-            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Sword, 1)));
+            var displaced = new LootId("arming_sword");
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 2));
+                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(displaced, default);
+            });
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+            _remote.OnCall = _ =>
+            {
+                Assert.That(commits, Is.Zero, "Neither request may publish optimistic local state.");
+                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+                Assert.That(_store.GetLoadout(), Is.Empty);
+                Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(displaced));
+            };
 
             StashTransferOutcome outcome = await coordinator.EquipAsync(
                 Sword,
@@ -291,8 +305,249 @@ namespace Tests.EditMode.Stash
                 fromStash: true);
 
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
             Assert.That(_remote.LastEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
-            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(displaced, 1) }));
+            Assert.That(commits, Is.EqualTo(1));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task Equip_FromStash_OwnershipChangesDuringEquipmentAwait_DivergesWithoutApplyingEquip(bool clearOtherSet)
+        {
+            var otherSword = new LootId("arming_sword");
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 2));
+                snapshot.Loadout.Add(new StashItem(Bone, 2));
+                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(default, otherSword);
+            });
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            StashOperationResult competingMutation = StashOperationResult.InvalidInventory;
+            _remote.OnCall = call =>
+            {
+                if (call != "equipment") return;
+                _remote.Gates.Enqueue(gate.Task);
+            };
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+
+            Task<StashTransferOutcome> pending = coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+            await YieldSeveralTimes();
+            // The second request has captured its DTO and is awaiting the gate. Another
+            // endpoint now commits a valid Store mutation before the request completes.
+            competingMutation = clearOtherSet
+                ? _store.TryClearPreparedEquipment(EquipmentSlot.WeaponSetBMainHand)
+                : _store.TryTransferToStash(Bone, 1);
+            gate.SetResult(true);
+            StashTransferOutcome outcome = await pending;
+
+            Assert.That(competingMutation, Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_remote.LastEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
+            Assert.That(_remote.LastEquipment.WeaponSetBMainHand, Is.EqualTo(otherSword));
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Diverged),
+                "A successful but different current-state plan must not be reported as the submitted plan's success.");
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
+            Assert.That(commits, Is.EqualTo(1), "Only the competing Store mutation may commit; the fake refresh writes nothing.");
+            Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand.IsValid, Is.False);
+            Assert.That(_store.GetStash(), Has.Some.EqualTo(new StashItem(Sword, 2)));
+            Assert.That(_store.GetLoadout().Any(item => item.LootId == Sword), Is.False);
+            if (clearOtherSet)
+            {
+                Assert.That(_store.GetPreparedEquipment().WeaponSetBMainHand.IsValid, Is.False);
+                Assert.That(_store.GetLoadout(), Has.Some.EqualTo(new StashItem(otherSword, 1)));
+            }
+            else
+            {
+                Assert.That(_store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(otherSword));
+                Assert.That(_store.GetLoadout(), Has.Some.EqualTo(new StashItem(Bone, 1)));
+                Assert.That(_store.GetStash(), Has.Some.EqualTo(new StashItem(Bone, 1)));
+            }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task Equip_FromStash_OwnershipDriftAfterFirstRequest_StopsBeforeEquipmentRequest(bool recoverySucceeds)
+        {
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 2));
+                snapshot.Loadout.Add(new StashItem(Bone, 2));
+            });
+            _reconciliation.Succeeds = recoverySucceeds;
+            StashOperationResult competingMutation = StashOperationResult.InvalidInventory;
+            _remote.OnCall = _ => competingMutation = _store.TryTransferToStash(Bone, 1);
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(competingMutation, Is.EqualTo(StashOperationResult.Success));
+            Assert.That(outcome.Status, Is.EqualTo(recoverySucceeds
+                ? StashTransferStatus.Diverged : StashTransferStatus.RecoveryFailed));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1" }));
+            Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(_store.GetStash(), Has.Some.EqualTo(new StashItem(Sword, 2)));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 1) }));
+        }
+
+        [Test]
+        public async Task Equip_FromStash_AttributesChangeAfterRemoteSuccess_LocalRefusalReconciles()
+        {
+            var greatsword = new LootId("long_sword");
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(greatsword, 1)));
+            Assert.That(CharacterAttributeState.TryCreate(5, 5, 10, 5, 5, 5, 0, out CharacterAttributeState eligible), Is.True);
+            Assert.That(CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState ineligible), Is.True);
+            _store.ForceCharacterAttributeState(eligible);
+            _remote.OnCall = call =>
+            {
+                if (call == "equipment") _store.ForceCharacterAttributeState(ineligible);
+            };
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(greatsword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:long_sword:1", "equipment" }));
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Diverged));
+            Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(greatsword, 1) }));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+        }
+
+        [Test]
+        public async Task Equip_FromStash_RemoteRevisionOnlyChanges_StillAppliesSubmittedOwnershipPlan()
+        {
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Sword, 2)));
+            int revision = 0;
+            _remote.OnCall = _ => _store.SetRemoteRevision(++revision);
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
+            Assert.That(_reconciliation.Calls, Is.Zero, "Endpoint revision updates alone are not ownership drift.");
+            Assert.That(_store.RemoteRevision, Is.EqualTo(2));
+            Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+        }
+
+        [TestCase("toLoadout:rapier:1")]
+        [TestCase("equipment")]
+        public async Task Equip_FromStash_RemoteFailureAtEitherStep_ReconcilesWithoutRetryOrLocalCommit(string failingCall)
+        {
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Sword, 2)));
+            _remote.FailWhen = call => call == failingCall;
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+            _reconciliation.OnCall = () =>
+            {
+                Assert.That(commits, Is.Zero);
+                Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+                Assert.That(_store.GetLoadout(), Is.Empty);
+            };
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RemoteFailed));
+            Assert.That(_remote.Calls, Is.EqualTo(failingCall == "equipment"
+                ? new[] { "toLoadout:rapier:1", "equipment" }
+                : new[] { "toLoadout:rapier:1" }));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(commits, Is.Zero);
+        }
+
+        [TestCase("toLoadout:rapier:1")]
+        [TestCase("equipment")]
+        public async Task Equip_FromStash_RemoteException_ReconcilesOnceAndStops(string throwingCall)
+        {
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Sword, 1)));
+            _remote.OnCall = call =>
+            {
+                if (call == throwingCall) throw new InvalidOperationException("response unavailable");
+            };
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RemoteFailed));
+            Assert.That(outcome.RemoteErrorCode, Is.EqualTo("REMOTE_RESULT_UNKNOWN"));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Is.EqualTo(throwingCall == "equipment"
+                ? new[] { "toLoadout:rapier:1", "equipment" } : new[] { "toLoadout:rapier:1" }));
+            Assert.That(commits, Is.Zero);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        }
+
+        [Test]
+        public async Task Equip_FromStash_SecondStepFailure_ReconciliationCanRestoreCommittedFirstMove()
+        {
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Sword, 2)));
+            _remote.FailWhen = call => call == "equipment";
+            _reconciliation.OnCall = () =>
+            {
+                Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+                Assert.That(_loadout.TryTransferToLoadout(_profile, Sword, 1), Is.EqualTo(StashOperationResult.Success));
+            };
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RemoteFailed));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+        }
+
+        [Test]
+        public async Task Equip_FromStash_WithoutRemote_IsUnavailableWithoutLocalCommit()
+        {
+            StashTransferCoordinator coordinator = Create(
+                snapshot => snapshot.Stash.Add(new StashItem(Sword, 1)), withRemote: false);
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Unavailable));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+            Assert.That(_store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+            Assert.That(commits, Is.Zero);
+            Assert.That(_remote.Calls, Is.Empty);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task Equip_FromStash_PreflightRejectsBeforeRemote(bool gateClosed)
+        {
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(new LootId("arming_sword"), default);
+                for (int index = 0; index < LocalProfileSnapshot.MaxLoadoutSlots; index++)
+                    snapshot.Loadout.Add(new StashItem(new LootId($"preflight-{index}"), 1));
+            });
+            _canMutateEquipment = !gateClosed;
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+
+            StashTransferOutcome outcome = await coordinator.EquipAsync(Sword, EquipmentSlot.WeaponSetAMainHand, true);
+
+            Assert.That(outcome.Status, Is.EqualTo(gateClosed ? StashTransferStatus.Blocked : StashTransferStatus.Rejected));
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_reconciliation.Calls, Is.Zero);
+            Assert.That(commits, Is.Zero);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("arming_sword")));
+            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(30));
         }
 
         [Test]

@@ -70,6 +70,40 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
+        public IEnumerator EquipFromRealStashContext_RoutesStashSourceAndReturnsDisplacedUnitToLoadout()
+        {
+            var sword = new LootId("rapier");
+            var displaced = new LootId("arming_sword");
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(sword, 2));
+                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(displaced, default);
+            });
+            yield return null;
+            {
+                RaidInventorySlotView occupied = FindOccupiedSlot(StashPanel());
+                Assert.That(occupied, Is.Not.Null);
+                occupied.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+                RaidLootContextMenuView menu = _instance.GetComponentInChildren<RaidLootContextMenuView>(true);
+                Assert.That(menu.IsOpen, Is.True);
+                RaidLootContextActionButton action = Array.Find(
+                    menu.GetComponentsInChildren<RaidLootContextActionButton>(true),
+                    candidate => candidate.gameObject.activeSelf &&
+                        candidate.GetComponentInChildren<TMPro.TMP_Text>(true).text == "Equipar en Set A / Main Hand");
+                Assert.That(action, Is.Not.Null);
+                action.GetComponent<Button>().onClick.Invoke();
+                for (int frame = 0; frame < 5; frame++) yield return null;
+
+                Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword),
+                    "The real Stash menu must retain its source through the presenter.");
+                Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
+                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(sword, 1) }));
+                Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(displaced, 1) }));
+                Assert.That(FindOccupiedSlot(LoadoutPanel()), Is.Not.Null);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator MoveAllFromTheStash_ReachesTheBackendThenMovesTheStackAndRefreshesTheView()
         {
             CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3)));

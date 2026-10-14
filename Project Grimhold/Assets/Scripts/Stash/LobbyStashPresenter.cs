@@ -193,7 +193,7 @@ public class LobbyStashPresenter : MonoBehaviour
         }
         else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
         {
-            OnPreparedEquipmentAssignmentRequested(payload.LootId, targetEquipmentSlot);
+            OnPreparedEquipmentAssignmentRequested(payload.LootId, targetEquipmentSlot, false);
         }
         else if (payload.Source == DragSlotLocation.Equipment && targetLocation == DragSlotLocation.Inventory)
         {
@@ -212,8 +212,8 @@ public class LobbyStashPresenter : MonoBehaviour
     private void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
         Run(coordinator => coordinator.TransferAsync(lootId, isFromStash, mode));
 
-    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot) =>
-        Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash: false));
+    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot, bool fromStash) =>
+        Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash));
 
     private void OnPreparedEquipmentClearRequested(EquipmentSlot slot) =>
         Run(coordinator => coordinator.UnequipAsync(slot));

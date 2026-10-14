@@ -69,7 +69,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
 
     /// <summary>Local intention to occupy one Equipment slot with an owned unit.</summary>
-    public event Action<LootId, EquipmentSlot> PreparedEquipmentAssignmentRequested;
+    public event Action<LootId, EquipmentSlot, bool> PreparedEquipmentAssignmentRequested;
 
     /// <summary>Local intention to release one Equipment slot.</summary>
     public event Action<EquipmentSlot> PreparedEquipmentClearRequested;
@@ -441,7 +441,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             if (actionId == EquipActionIds[index])
             {
-                PreparedEquipmentAssignmentRequested?.Invoke(_contextLootId, slots[index]);
+                PreparedEquipmentAssignmentRequested?.Invoke(_contextLootId, slots[index], _contextIsFromStash);
                 break;
             }
         }

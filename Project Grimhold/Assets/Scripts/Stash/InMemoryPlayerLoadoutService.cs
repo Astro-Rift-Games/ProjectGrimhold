@@ -41,6 +41,15 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
             ? _store.TryEquipFromStash(slot, lootId)
             : StashOperationResult.InvalidInventory;
 
+    public StashOperationResult EvaluateEquipFromStash(
+        ProfileId profileId, LootId lootId, EquipmentSlot slot, out PreparedEquipmentLoadout equipment)
+    {
+        equipment = default;
+        return IsProfile(profileId)
+            ? _store.EvaluateEquipFromStash(slot, lootId, out equipment)
+            : StashOperationResult.InvalidInventory;
+    }
+
     public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) =>
         IsProfile(profileId)
             ? _store.TryPrepareExpeditionEquipment()

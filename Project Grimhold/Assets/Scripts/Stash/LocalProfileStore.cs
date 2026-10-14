@@ -1029,8 +1029,24 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    public StashOperationResult EvaluateEquipFromStash(
+        EquipmentSlot slot, LootId lootId, out PreparedEquipmentLoadout equipment)
+    {
+        StashOperationResult result = PlanEquipFromStash(slot, lootId, out LocalProfileSnapshot next);
+        equipment = result == StashOperationResult.Success ? next.PreparedEquipment : default;
+        return result;
+    }
+
     public StashOperationResult TryEquipFromStash(EquipmentSlot slot, LootId lootId)
     {
+        StashOperationResult result = PlanEquipFromStash(slot, lootId, out LocalProfileSnapshot next);
+        return result == StashOperationResult.Success ? Commit(next) : result;
+    }
+
+    private StashOperationResult PlanEquipFromStash(
+        EquipmentSlot slot, LootId lootId, out LocalProfileSnapshot next)
+    {
+        next = null;
         if (!EquipmentSlotRules.IsEquipmentSlot(slot) || !lootId.IsValid || _lootCatalog == null)
         {
             return StashOperationResult.InvalidInventory;
@@ -1048,7 +1064,7 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        LocalProfileSnapshot next = current.Clone();
+        next = current.Clone();
         PreparedEquipmentLoadout candidate = next.PreparedEquipment;
         EquipmentSlot displacedSecondSlot = EquipmentSlot.None;
         if (!EquipmentSlotRules.IsCompatible(definition, slot))
@@ -1097,22 +1113,29 @@ public sealed class LocalProfileStore
         }
 
         LootId previousLootId = next.PreparedEquipment.Get(slot);
-        if (!TryReturnEquippedUnitToStash(next.Stash, previousLootId))
+        if (!TryReturnEquippedUnitToLoadout(next.Loadout, previousLootId))
         {
             return StashOperationResult.PersistenceFailed;
         }
 
         if (displacedSecondSlot != EquipmentSlot.None &&
-            !TryReturnEquippedUnitToStash(next.Stash, next.PreparedEquipment.Get(displacedSecondSlot)))
+            !TryReturnEquippedUnitToLoadout(next.Loadout, next.PreparedEquipment.Get(displacedSecondSlot)))
         {
             return StashOperationResult.PersistenceFailed;
         }
 
+        // Preserve hydrated excess without permitting it to grow. No intermediate
+        // Loadout slot is needed for the incoming Stash unit.
+        if (next.Loadout.Count > Math.Max(LocalProfileSnapshot.MaxLoadoutSlots, current.Loadout.Count))
+        {
+            return StashOperationResult.InventoryFull;
+        }
+
         next.PreparedEquipment = candidate;
-        return Commit(next);
+        return StashOperationResult.Success;
     }
 
-    private static bool TryReturnEquippedUnitToStash(List<StashItem> inventory, LootId lootId)
+    private static bool TryReturnEquippedUnitToLoadout(List<StashItem> inventory, LootId lootId)
     {
         if (!lootId.IsValid) return true;
         return TryMerge(inventory, new[] { new StashItem(lootId, 1) });
