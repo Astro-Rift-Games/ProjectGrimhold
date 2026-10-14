@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3547386505433135519}
   - component: {fileID: 1756968833685266222}
   - component: {fileID: 768673748151547832}
+  - component: {fileID: 6789838002655370327}
   m_Layer: 0
   m_Name: NetworkTrap
   m_TagString: Untagged
@@ -126,3 +127,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89ce8d3cdbae561499ddb14e8bd54e73, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkTrap
+--- !u!114 &6789838002655370327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2806603499892547580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1034b07a347ea6f49b3e51df4b7f18d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
+  _renderers:
+  - {fileID: 3547386505433135519}
+  _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0

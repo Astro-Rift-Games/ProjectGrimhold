@@ -17,7 +17,7 @@ namespace Tests.PlayMode.Abilities
         private const string PlayerGuid = "fea3a7b256f965a4eb9b965832939741";
         private const string ParticipantGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string EnemyGuid = "5deca87613df0fa409d98702aec643d4";
-        private const string ProjectileGuid = "cdc42ba57b303264fb49354983542d59";
+        private const string ProjectileGuid = "5cf65ecb3f382c147875a551556fad82";
         private NetworkRunner _runner;
         private PlayerAbilityRuntimeSimulationDriver _driver;
         private ArcaneInputDriver _input;
