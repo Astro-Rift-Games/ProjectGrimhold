@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f04aa516886c4e43acfa89c40692621, type: 3}
   m_Name: ReconnectBudgetConfig
   m_EditorClassIdentifier: Assembly-CSharp::ReconnectBudgetConfig
-  _durationSeconds: 300
+  _durationSeconds: 30

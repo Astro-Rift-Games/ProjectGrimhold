@@ -1126,10 +1126,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
                 ShutdownReason lastReason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
                 float remainingSeconds = deadline - Time.realtimeSinceStartup;
-                // For reconnect, GameNotFound is immediately terminal because the raid room was closed/cancelled.
-                // Only GameClosed may represent a transient state while the Host reopens the session gate.
-                bool sessionPending = lastReason == ShutdownReason.GameClosed && remainingSeconds > 0f;
-                if (!sessionPending || _isQuitting)
+                // For reconnect, GameNotFound and GameClosed are immediately terminal because the raid was cancelled or closed (e.g. host continued without teammate).
+                if (lastReason == ShutdownReason.GameNotFound || lastReason == ShutdownReason.GameClosed || remainingSeconds <= 0f || _isQuitting)
                 {
                     break;
                 }
@@ -1179,6 +1177,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         TransitionTo(SessionConnectionState.ReturningTown);
         await ShutdownActiveRunnersAsync();
+
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == _townSceneName)
+        {
+            var loadOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(_townSceneName);
+            while (loadOp != null && !loadOp.isDone)
+            {
+                await Task.Yield();
+            }
+        }
 
         CancellationToken cancellationToken = _isQuitting ? new CancellationToken(true) : CancellationToken.None;
         bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);

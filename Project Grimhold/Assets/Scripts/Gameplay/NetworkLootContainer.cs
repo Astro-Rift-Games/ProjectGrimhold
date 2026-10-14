@@ -450,7 +450,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             throw new InvalidOperationException($"{nameof(SetAvailability)} requires State Authority.");
         }
 
-        if (Runner == null || !Runner.IsSimulationUpdating)
+        if (Runner == null || (!Runner.IsSimulationUpdating && !Runner.IsServer))
         {
             throw new InvalidOperationException($"{nameof(SetAvailability)} must be called from authoritative simulation flow.");
         }
@@ -822,7 +822,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         out string error)
     {
         error = null;
-        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating)
+        if (!HasStateAuthority || Runner == null || (!Runner.IsSimulationUpdating && !Runner.IsServer))
         {
             error = "State Authority simulation is required.";
             return false;
@@ -954,7 +954,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         out string error)
     {
         error = null;
-        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating || IsAvailable)
+        if (!HasStateAuthority || Runner == null || (!Runner.IsSimulationUpdating && !Runner.IsServer) || IsAvailable)
         {
             error = "An unavailable State Authority container is required.";
             return false;

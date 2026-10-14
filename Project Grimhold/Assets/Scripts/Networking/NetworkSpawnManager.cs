@@ -2010,14 +2010,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (TryValidateReconnectToken(token, out RaidReconnectPayload reconnectPayload))
         {
-            if (!_disconnectedRegistry.IsRetained(reconnectPayload.ProfileId) ||
+            var returnKey = new ControlledReturnKey(reconnectPayload.ProfileId.Value, reconnectPayload.RaidGenerationId);
+            if (_controlledReturns.IsTerminal(in returnKey) ||
+                !_disconnectedRegistry.IsRetained(reconnectPayload.ProfileId) ||
                 !_disconnectedRegistry.TryGetRetainedParticipant(reconnectPayload.ProfileId, out NetworkObject participantObject) ||
                 participantObject == null ||
                 !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
                 participant.State != RaidParticipantState.Raiding ||
                 participant.RaidGenerationId.ToString() != reconnectPayload.RaidGenerationId)
             {
-                Debug.LogWarning($"[NetworkSpawnManager] Refusing reconnect request: invalid or not retained profile {reconnectPayload.ProfileId.Value}.");
+                Debug.LogWarning($"[NetworkSpawnManager] Refusing reconnect request: invalid, terminal or not retained profile {reconnectPayload.ProfileId.Value}.");
                 request.Refuse();
             }
             else
@@ -4362,6 +4364,104 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             bool hasRetained = _disconnectedRegistry.HasUnresolvedRetainedParticipant();
             _matchController.SetSessionReopenState(hasRetained);
         }
+    }
+
+    /// <summary>
+    /// Evaluates and executes the authoritative "continue without teammate" decision when a teammate's
+    /// reconnection budget is exhausted. Forces target defeat, converts body to corpse loot, marks terminal,
+    /// removes from disconnected registry, and updates the session gate.
+    /// </summary>
+    public bool TryConfirmTeammateAbsence(
+        NetworkRaidParticipant requester,
+        NetworkId targetParticipantId,
+        out TeammateAbsenceDecisionResult result)
+    {
+        result = TeammateAbsenceDecisionResult.RejectedAlreadyResolved;
+        if (_runner == null || !_runner.IsServer || requester == null)
+        {
+            return false;
+        }
+
+        if (!_runner.TryFindObject(targetParticipantId, out NetworkObject targetObject) ||
+            targetObject == null ||
+            !targetObject.TryGetBehaviour(out NetworkRaidParticipant targetParticipant))
+        {
+            result = TeammateAbsenceDecisionResult.RejectedAlreadyResolved;
+            return false;
+        }
+
+        bool isTeammate = false;
+        if (TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations))
+        {
+            isTeammate = affiliations.TryAreInitialTeammates(
+                requester.RaidParticipantId,
+                targetParticipant.RaidParticipantId,
+                out bool areTeammates) && areTeammates;
+        }
+
+        bool isConfirmerConnected = !_disconnectedRegistry.IsRetained(new ProfileId(requester.ProfileId.ToString()));
+
+        RaidConnectivitySnapshot targetSnapshot;
+        if (targetObject.TryGetBehaviour(out RaidParticipantConnectivity targetConnectivity))
+        {
+            targetSnapshot = targetConnectivity.CreateSnapshot();
+        }
+        else
+        {
+            targetSnapshot = new RaidConnectivitySnapshot(
+                _disconnectedRegistry.IsRetained(new ProfileId(targetParticipant.ProfileId.ToString())),
+                0,
+                targetParticipant.State);
+        }
+
+        result = RaidTeammateAbsenceDecisionRules.Evaluate(
+            targetSnapshot,
+            isTeammate,
+            isConfirmerConnected,
+            requester.State);
+
+        if (result != TeammateAbsenceDecisionResult.Confirmable)
+        {
+            Debug.LogWarning(
+                $"[RAID-ABSENCE] Teammate absence confirmation rejected for target '{targetParticipant.ProfileId}' by requester '{requester.ProfileId}'. Reason={result}.",
+                this);
+            return false;
+        }
+
+        string targetProfileId = targetParticipant.ProfileId.ToString();
+        string targetGenId = targetParticipant.RaidGenerationId.ToString();
+        var departureKey = new ControlledReturnKey(targetProfileId, targetGenId);
+
+        if (targetParticipant.TryResolveCurrentAvatar(out NetworkObject avatarObject) && avatarObject != null)
+        {
+            if (avatarObject.TryGetBehaviour(out PlayerCharacter character))
+            {
+                character.ForceDefinitiveDefeatFromAbsence();
+            }
+            else
+            {
+                targetParticipant.TryMarkDefeated(avatarObject);
+            }
+        }
+        else
+        {
+            targetParticipant.TryMarkDefeated(avatarObject);
+        }
+
+        if (targetConnectivity != null)
+        {
+            targetConnectivity.IsAbsenceConfirmed = true;
+        }
+
+        _controlledReturns.MarkTerminal(in departureKey);
+        _disconnectedRegistry.Remove(new ProfileId(targetProfileId));
+        UpdateMatchSessionGate();
+        SignalRosterChanged();
+
+        Debug.Log(
+            $"[RAID-ABSENCE] Teammate absence confirmed for target '{targetProfileId}' by requester '{requester.ProfileId}'. Defeat executed.",
+            this);
+        return true;
     }
 }
 

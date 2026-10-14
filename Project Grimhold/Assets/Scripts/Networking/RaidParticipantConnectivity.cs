@@ -14,9 +14,13 @@ public sealed class RaidParticipantConnectivity : NetworkBehaviour
     public int RemainingBudgetTicks { get; set; }
 
     [Networked]
+    public NetworkBool IsAbsenceConfirmed { get; set; }
+
+    [Networked]
     private NetworkBool IsInitialized { get; set; }
 
     public bool IsBudgetExhausted => RemainingBudgetTicks <= 0;
+    public bool IsDecisionAvailable => IsDisconnected && IsBudgetExhausted && _participant != null && _participant.State == RaidParticipantState.Raiding;
 
     private NetworkRaidParticipant _participant;
 

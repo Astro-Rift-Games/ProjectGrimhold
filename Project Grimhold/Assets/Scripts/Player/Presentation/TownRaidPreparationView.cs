@@ -22,10 +22,12 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private Button _readyButton;
     private Button _startButton;
     private Button _leaveButton;
+    [SerializeField]
     private Button _reconnectButton;
+    [SerializeField]
     private Button _discardReconnectButton;
-    private bool _localReady;
     private Button _closeButton;
+    private bool _localReady;
     private string _rejectionNotice;
 
     public event Action<string> CreateRequested;
@@ -38,6 +40,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public event Action DiscardReconnectRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
+    public Button ReconnectButton => _reconnectButton;
+    public Button DiscardReconnectButton => _discardReconnectButton;
 
 #if UNITY_EDITOR
     public static TownRaidPreparationView CreateEditorSource(Transform owner)
@@ -85,8 +89,14 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _readyButton = FindComponent<Button>("RaidCodePanel/Ready");
         _startButton = FindComponent<Button>("RaidCodePanel/Iniciar raid");
         _leaveButton = FindComponent<Button>("RaidCodePanel/Abandonar preparacion");
-        _reconnectButton = FindComponent<Button>("RaidCodePanel/Volver a la raid");
-        _discardReconnectButton = FindComponent<Button>("RaidCodePanel/Descartar reconexion");
+        if (_reconnectButton == null)
+        {
+            _reconnectButton = FindComponent<Button>("RaidCodePanel/Volver a la raid");
+        }
+        if (_discardReconnectButton == null)
+        {
+            _discardReconnectButton = FindComponent<Button>("RaidCodePanel/Descartar reconexion");
+        }
         _closeButton = FindComponent<Button>("RaidCodePanel/Cerrar");
 
         if (_panelRoot == null || _statusText == null || _codeInput == null)
@@ -156,8 +166,16 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void Open()
     {
-        _promptRoot?.SetActive(false);
-        _panelRoot?.SetActive(true);
+        if (_promptRoot != null)
+        {
+            _promptRoot.SetActive(false);
+        }
+
+        if (_panelRoot != null)
+        {
+            _panelRoot.SetActive(true);
+        }
+
         _rejectionNotice = null;
         ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
         SetBusy(false);
@@ -192,7 +210,10 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void Close()
     {
-        _panelRoot?.SetActive(false);
+        if (_panelRoot != null)
+        {
+            _panelRoot.SetActive(false);
+        }
     }
 
     public void SetBusy(bool busy, string status = null)
