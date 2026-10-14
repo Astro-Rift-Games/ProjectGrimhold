@@ -13,7 +13,8 @@ public struct RewardDefinition
         GuildReputation,
         Gold,
         Item,
-        Equipment
+        Equipment,
+        Ability
     }
 
     [Tooltip("Type of reward.")]
@@ -23,6 +24,6 @@ public struct RewardDefinition
     [Min(1)]
     public int Amount;
 
-    [Tooltip("Optional identifier for Item or Equipment rewards.")]
+    [Tooltip("Loot identifier for Item or Equipment rewards; Ability identifier for Ability rewards.")]
     public string ReferenceId;
 }

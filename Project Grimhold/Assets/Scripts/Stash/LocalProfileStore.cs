@@ -465,6 +465,21 @@ public sealed class LocalProfileStore
                         Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount}x {reward.ReferenceId} para el Stash.");
                     }
                 }
+                else if (reward.Type == RewardDefinition.RewardType.Ability)
+                {
+                    // An owned ability is not acquired again; the rest of the package is still claimed.
+                    AbilityId.TryCreate(reward.ReferenceId, out AbilityId abilityId);
+                    AbilityUnlockResult unlock = ValidateAbilityUnlock(next, abilityId);
+                    if (unlock == AbilityUnlockResult.Success)
+                    {
+                        next.UnlockedAbilities.Add(abilityId);
+                    }
+                    else if (unlock != AbilityUnlockResult.AlreadyUnlocked)
+                    {
+                        Debug.LogWarning($"[MissionBoard] Recompensa de habilidad inválida '{reward.ReferenceId}' ({unlock}); la reclamación se rechaza.");
+                        return StashOperationResult.InvalidInventory;
+                    }
+                }
             }
 
             if (itemsToAdd.Count > 0)
