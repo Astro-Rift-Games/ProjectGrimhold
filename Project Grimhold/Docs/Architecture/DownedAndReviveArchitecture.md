@@ -394,24 +394,22 @@ Game Design conflict with the current closure behavior and needs a decision befo
 
 ## 15. Disconnect
 
-Implemented (`NetworkSpawnManager.OnPlayerLeft`, `RaidPlayerDeparturePolicy.ShouldRetainDownedRaider`):
+Implemented (`NetworkSpawnManager.OnPlayerLeft`, `RaidParticipantConnectivity`, `RaidConnectivityContinuityArchitecture.md`):
 
-* A `Raiding` participant whose avatar is Downed is retained: not despawned, not finalized as a
-  definitive disconnect. The Host removes the avatar's input authority and tracks the participant
-  in `_retainedDownedParticipants`.
-* The reserve keeps draining and the avatar can still take damage. Depletion runs the normal
+* A `Raiding` participant (Active or Downed) is retained on disconnect, as long as they have a valid decider teammate and configuration. The Host removes the avatar's input authority and tracks the participant's connectivity state and budget.
+* For a Downed avatar, the reserve keeps draining and the avatar can still take damage. Depletion runs the normal
   `HandleDeath` path; `TryMarkDefeated` is keyed by `CurrentAvatarId`, not `PlayerRef`.
 * While retained and still `Raiding`, the participant counts in `HasRaidingParticipants` and is
-  aborted by `AbortRaidingParticipantsForClosure`; it is not a connected remote participant.
+  aborted by `AbortRaidingParticipantsForClosure`.
 
-Recovery behavior (TASK 452; the Self-revive row remains planned):
+Recovery behavior (TASK 452, US-52; the Self-revive row remains planned):
 
 | Case | Behavior |
 |---|---|
-| Downed player disconnects, no session | Continues draining; can still be revived or defeated (GD 13 §11) |
-| Downed player disconnects during a session | Session continues and may complete (PlayMode test removes the Downed avatar's input authority) |
+| Downed player disconnects, no session | Retained (if eligible); budget consumes. Continues draining; can still be revived or defeated (GD 13 §11). Can reconnect to resume. |
+| Downed player disconnects during a session | Session continues and may complete. Reconnection restores input authority to the Active avatar. |
 | Reviver disconnects | Session is interrupted (section 7) |
-| Downed disconnected player is revived | Returns Active with Health 1 and no input authority until reconnect; reconnect policy is deferred |
+| Downed disconnected player is revived | Returns Active with Health 1 and no input authority until reconnect; reconnects directly to Active state. |
 | Self-revive started, then disconnect | Not interrupted (GD 13) |
 
 The Accelerated Resolution evaluator treats a disconnected-but-retained Downed member as Downed

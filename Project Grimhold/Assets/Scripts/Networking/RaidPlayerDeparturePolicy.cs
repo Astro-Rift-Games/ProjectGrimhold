@@ -1,4 +1,16 @@
 /// <summary>
+/// Defines the action the Host should take when a Raid participant disconnects.
+/// </summary>
+public enum PlayerDepartureAction
+{
+    RetainDisconnected,
+    FinalizeDefinitiveDisconnect,
+    FinalizeDefeated,
+    FinalizeExtracted,
+    FinalizeAborted
+}
+
+/// <summary>
 /// Pure decisions for how the Host treats a Raid participant whose peer disconnected.
 /// </summary>
 public static class RaidPlayerDeparturePolicy
@@ -16,4 +28,30 @@ public static class RaidPlayerDeparturePolicy
     /// </summary>
     public static bool IsRetainedDownedRaiderResolved(RaidParticipantState state) =>
         state != RaidParticipantState.Raiding;
+
+    /// <summary>
+    /// Evaluates what action the Host should take when a peer disconnects.
+    /// </summary>
+    public static PlayerDepartureAction EvaluateDeparture(
+        RaidParticipantState state,
+        bool avatarIsDowned,
+        bool hasEligibleDecider,
+        bool configValid)
+    {
+        if (state == RaidParticipantState.Extracted) return PlayerDepartureAction.FinalizeExtracted;
+        if (state == RaidParticipantState.Defeated) return PlayerDepartureAction.FinalizeDefeated;
+        if (state == RaidParticipantState.Aborted) return PlayerDepartureAction.FinalizeAborted;
+
+        if (state == RaidParticipantState.Raiding)
+        {
+            if (hasEligibleDecider && configValid)
+            {
+                return PlayerDepartureAction.RetainDisconnected;
+            }
+
+            return PlayerDepartureAction.FinalizeDefinitiveDisconnect;
+        }
+
+        return PlayerDepartureAction.FinalizeDefinitiveDisconnect;
+    }
 }

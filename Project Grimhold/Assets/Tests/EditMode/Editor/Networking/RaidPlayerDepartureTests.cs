@@ -51,12 +51,12 @@ public sealed class RaidPlayerDepartureTests
     }
 
     [Test]
-    public void OnPlayerLeft_RetainsDownedRaiderBeforeAnyDespawnOrDisconnectFinalization()
+    public void OnPlayerLeft_RetainsDisconnectedParticipantBeforeAnyDespawnOrDisconnectFinalization()
     {
         string source = File.ReadAllText(SpawnManagerPath);
         string method = ReadBlock(source, "public override void OnPlayerLeft", "private bool TryResolveHostMigrationProfile");
 
-        int retain = method.IndexOf("ShouldRetainDownedRaider", StringComparison.Ordinal);
+        int retain = method.IndexOf("PlayerDepartureAction.RetainDisconnected", StringComparison.Ordinal);
         Assert.That(retain, Is.GreaterThanOrEqualTo(0));
         Assert.That(
             retain,
@@ -69,12 +69,12 @@ public sealed class RaidPlayerDepartureTests
 
         string branch = method.Substring(retain, method.IndexOf("return;", retain, StringComparison.Ordinal) - retain);
         Assert.That(branch, Does.Contain("AssignInputAuthority(PlayerRef.None)"));
-        Assert.That(branch, Does.Contain("_retainedDownedParticipants"));
+        Assert.That(branch, Does.Contain("_disconnectedRegistry.Retain"));
         Assert.That(branch, Does.Not.Contain("Despawn"));
     }
 
     [Test]
-    public void RetainedDownedRaider_KeepsRaidOpenAndIsAbortedOnClosure()
+    public void RetainedDisconnectedParticipant_KeepsRaidOpenAndIsAbortedOnClosure()
     {
         string source = File.ReadAllText(SpawnManagerPath);
 
@@ -82,17 +82,17 @@ public sealed class RaidPlayerDepartureTests
             source,
             "public bool HasRaidingParticipants",
             "/// <summary>Returns whether any participant still awaits");
-        Assert.That(raiding, Does.Contain("_retainedDownedParticipants"));
+        Assert.That(raiding, Does.Contain("_disconnectedRegistry"));
 
         string abort = ReadBlock(
             source,
             "public void AbortRaidingParticipantsForClosure",
             "/// <summary>\n    /// Cleans gameplay world state");
-        Assert.That(abort, Does.Contain("_retainedDownedParticipants"));
+        Assert.That(abort, Does.Contain("_disconnectedRegistry"));
     }
 
     [Test]
-    public void RetainedDownedRaider_DoesNotCountAsConnectedRemoteParticipant()
+    public void RetainedDisconnectedParticipant_DoesNotCountAsConnectedRemoteParticipant()
     {
         string source = File.ReadAllText(SpawnManagerPath);
         string remote = ReadBlock(
@@ -100,7 +100,7 @@ public sealed class RaidPlayerDepartureTests
             "public bool HasConnectedRemoteParticipants",
             "internal bool IsResultsReturnPhaseCompatible");
 
-        Assert.That(remote, Does.Not.Contain("_retainedDownedParticipants"));
+        Assert.That(remote, Does.Not.Contain("_disconnectedRegistry"));
     }
 
     private static string ReadBlock(string source, string startMarker, string endMarker)

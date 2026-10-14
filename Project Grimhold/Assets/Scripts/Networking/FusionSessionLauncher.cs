@@ -43,11 +43,12 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     /// <summary>
     /// Returns whether a coordinated Client should keep waiting for its exact Host session.
-    /// Only a missing session is transient while the Host is still creating it. A closed
-    /// session already exists and is therefore a terminal transition failure.
+    /// The Host creates the coordinated session initially closed and hidden until its
+    /// initial scene and bootstrap are ready, so both GameNotFound and GameClosed
+    /// represent transient availability states during coordinated launch.
     /// </summary>
     public static bool IsSessionAvailabilityPending(ShutdownReason shutdownReason) =>
-        shutdownReason == ShutdownReason.GameNotFound;
+        shutdownReason == ShutdownReason.GameNotFound || shutdownReason == ShutdownReason.GameClosed;
 
     public Task<bool> StartCoordinatedSessionAsync(
         string sessionName,
@@ -65,6 +66,129 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             launchContext,
             loadoutReservation,
             cancellationToken);
+    }
+
+    public async Task<bool> StartReconnectClientSessionAsync(
+        RaidReconnectTicket ticket,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ticket.IsValid)
+        {
+            throw new ArgumentException("Cannot reconnect with an invalid ticket.", nameof(ticket));
+        }
+
+        if (!RaidReconnectPayloadCodec.TryEncode(ticket.ToPayload(), out byte[] token))
+        {
+            throw new InvalidOperationException("Failed to encode reconnect token.");
+        }
+
+        var profileId = ticket.ProfileId;
+        var joinData = new PlayerJoinData(profileId);
+
+        if (_isStarting || _runner != null)
+        {
+            LastStartShutdownReason = ShutdownReason.Error;
+            return false;
+        }
+
+        _isStarting = true;
+        LastStartShutdownReason = ShutdownReason.Ok;
+
+        try
+        {
+            if (!NetworkRunnerFactory.TryCreate(
+                GameMode.Client,
+                SessionStartupContext.FreshSession,
+                _raidPlayerPrefab,
+                _raidParticipantPrefab,
+                _enemyPrefabs,
+                in joinData,
+                token,
+                launchContext: null,
+                loadoutReservation: null,
+                this,
+                out var composition))
+            {
+                LastStartShutdownReason = ShutdownReason.Error;
+                Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory for reconnect.", this);
+                return false;
+            }
+
+            _runnerObject = composition.RunnerObject;
+            _runner = composition.Runner;
+            _spawnManager = composition.SpawnManager;
+            _sanctuaryAssignmentService = composition.SanctuaryAssignmentService;
+
+            _shutdownListener = _runnerObject.AddComponent<LauncherShutdownListener>();
+            _shutdownListener.Initialize(_runner, HandleRunnerShutdown);
+
+            var args = new StartGameArgs
+            {
+                GameMode = GameMode.Client,
+                SessionName = ticket.SessionName,
+                PlayerCount = RaidPlayerCapacity,
+                ConnectionToken = token,
+                SceneManager = composition.SceneManager,
+                EnableClientSessionCreation = false
+            };
+
+            StartGameResult result = await _runner.StartGame(args);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!result.Ok)
+            {
+                LastStartShutdownReason = result.ShutdownReason;
+                string auditMessage =
+                    $"[AUDIT][FusionSessionLauncher] Reconnect StartGame {(IsSessionAvailabilityPending(result.ShutdownReason) ? "pending availability" : "FAILED")}. " +
+                    $"Reason={result.ShutdownReason}. ErrorMessage={(result.ErrorMessage ?? "none")}. SessionName={ticket.SessionName}.";
+
+                if (IsSessionAvailabilityPending(result.ShutdownReason))
+                {
+                    Debug.Log(auditMessage, this);
+                }
+                else
+                {
+                    Debug.LogError(auditMessage, this);
+                }
+
+                await ShutdownAndDestroyRunnerAsync();
+                return false;
+            }
+
+            LastStartShutdownReason = ShutdownReason.Ok;
+
+            if (!await WaitForLocalReconnectAdmissionAsync(profileId, cancellationToken))
+            {
+                Debug.LogError("[FusionSessionLauncher] Local raid reconnect admission did not complete.", this);
+                await ShutdownAndDestroyRunnerAsync();
+                return false;
+            }
+
+            Debug.Log(
+                $"Fusion reconnect session started. " +
+                $"Session: {_runner.SessionInfo.Name}. " +
+                $"Peer: Client.",
+                this);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            LastStartShutdownReason = ShutdownReason.Error;
+            await ShutdownAndDestroyRunnerAsync();
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LastStartShutdownReason = ShutdownReason.Error;
+            Debug.LogException(ex, this);
+            await ShutdownAndDestroyRunnerAsync();
+            throw;
+        }
+        finally
+        {
+            _isStarting = false;
+        }
     }
 
     private async Task<bool> StartSessionInternalAsync(
@@ -243,13 +367,21 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 LastStartShutdownReason = result.ShutdownReason;
 
                 // [AUDIT] Log full failure details for clients to distinguish ConnectionRefused causes
-                Debug.LogError(
-                    $"[AUDIT][FusionSessionLauncher] Fusion StartGame FAILED. " +
+                string auditMessage =
+                    $"[AUDIT][FusionSessionLauncher] Fusion StartGame {(IsSessionAvailabilityPending(result.ShutdownReason) ? "pending availability" : "FAILED")}. " +
                     $"Mode={mode}. Reason={result.ShutdownReason}. " +
                     $"ErrorMessage={(result.ErrorMessage ?? "none")}. " +
                     $"SessionName={sessionName}. " +
-                    $"IsSessionAvailabilityPending={IsSessionAvailabilityPending(result.ShutdownReason)}.",
-                    this);
+                    $"IsSessionAvailabilityPending={IsSessionAvailabilityPending(result.ShutdownReason)}.";
+
+                if (IsSessionAvailabilityPending(result.ShutdownReason))
+                {
+                    Debug.Log(auditMessage, this);
+                }
+                else
+                {
+                    Debug.LogError(auditMessage, this);
+                }
 
                 await ShutdownAndDestroyRunnerAsync();
                 return false;
@@ -390,6 +522,36 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     out _) &&
                 MatchesLoadout(reservation.Items, ownership.Inventory) &&
                 MatchesPreparedEquipment(reservation.PreparedEquipment, equipment))
+            {
+                return true;
+            }
+
+            await Task.Delay(50, cancellationToken);
+        }
+
+        return false;
+    }
+
+    private async Task<bool> WaitForLocalReconnectAdmissionAsync(
+        ProfileId localProfile,
+        CancellationToken cancellationToken)
+    {
+        if (_runner == null)
+        {
+            return false;
+        }
+
+        float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
+        while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
+            if (participantObject != null &&
+                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
+                participant.State == RaidParticipantState.Raiding &&
+                participant.TryResolveCurrentAvatar(out NetworkObject avatar) &&
+                avatar != null)
             {
                 return true;
             }

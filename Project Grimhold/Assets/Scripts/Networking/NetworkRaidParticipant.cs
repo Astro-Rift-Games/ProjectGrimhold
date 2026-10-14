@@ -583,12 +583,37 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     {
         if (HasInputAuthority)
         {
-            Debug.Log(
-                $"[RAID-SPECTATOR] NetworkRaidParticipant.RequestReturn. " +
-                $"State={State}, IsServer={Runner != null && Runner.IsServer}.",
-                this);
             RPC_RequestReturn();
         }
+    }
+
+    /// <summary>
+    /// Requests to continue the raid without a disconnected teammate whose budget is exhausted.
+    /// </summary>
+    public void RequestContinueWithoutTeammate(NetworkId targetParticipantId)
+    {
+        if (HasInputAuthority)
+        {
+            RPC_RequestContinueWithoutTeammate(targetParticipantId);
+        }
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_RequestContinueWithoutTeammate(NetworkId targetParticipantId, RpcInfo info = default)
+    {
+        NetworkSpawnManager spawnManager = Runner != null
+            ? Runner.GetComponent<NetworkSpawnManager>()
+            : null;
+
+        if (spawnManager == null)
+        {
+            Debug.LogWarning(
+                "[RaidTeammate] Continue without teammate rejected: missing NetworkSpawnManager.",
+                this);
+            return;
+        }
+
+        spawnManager.TryConfirmTeammateAbsence(this, targetParticipantId, out _);
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
