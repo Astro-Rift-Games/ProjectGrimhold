@@ -4005,7 +4005,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         participant);
                 }
 
+                _disconnectedRegistry.Remove(new ProfileId(profileId));
                 _runner.Despawn(participantObject);
+                UpdateMatchSessionGate();
             }
         }
     }

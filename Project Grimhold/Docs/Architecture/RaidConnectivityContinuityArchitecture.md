@@ -1,5 +1,7 @@
 # Raid Connectivity and Continuity Architecture
 
+**Status:** Implemented (US-52 / Story #471, TASK-187, TASK-188, TASK-189)
+
 ## 1. Context and Dimensions
 
 Historically, disconnecting from a Raid immediately finalized the participant as a definitive disconnect (or aborted). This architecture separates connectivity from the functional state of the participant.
@@ -97,12 +99,11 @@ The Host enforces single-writer ordering:
 ### Host Migration
 * Retained disconnected participants face a known limitation: since `_retainedDownedParticipants` and retention status are Host-runtime-only state (not networked), a participant who is disconnected during Host Migration might not be correctly retained on the new Host. This is an accepted limitation and is not redesigned here. 
 
-## 8. Pending Deadlines and Values (Game Design)
+## 8. Resolved Decisions and Operational Values
 
-The following values are structurally supported but lack production defaults. They must not be invented by engineering:
-* **P-1**: Consequences of XP for Forced Definitive Defeat of a disconnected player (document 05). Currently, `Defeated` retains 20%.
-* **P-2**: Fallback behavior when a retained player is left without a decider (fallback to legacy completion).
-* **P-3**: Time values (seconds) for the reconnect budget.
+* **P-1 (Defeat XP)**: Forced definitive defeat from absence (`ForceDefinitiveDefeatFromAbsence`) cleans up downed state, generates corpse loot without synthetic damage or Kill XP to the survivor, and transitions to canonical `Defeated` preserving 20% experience.
+* **P-2 (Fallback Without Decider)**: Implemented in `NetworkSpawnManager.ReevaluateRetainedParticipantsFallback()`. When a retained participant loses their eligible decider (e.g. teammate departs or dies), the retained participant transitions definitively to definitive disconnect (`FinalizeDefinitiveDisconnect`), cleans up avatar and participant objects, and updates the session gate.
+* **P-3 (Budget Duration)**: Configured in `ReconnectBudgetConfig.asset` (300 seconds for production, 30 seconds for local rapid testing). The budget is cumulative across disconnections as confirmed by Game Design.
 
 ## 9. Follow-ups (Outside Scope)
 
