@@ -91,6 +91,18 @@ The character aggregate owns a set of unlocked ability identities. Unlocking is 
 
 The current process-local persistence limitations still apply until backend integration exists; this architecture does not invent a second ability save path.
 
+### Acquisition sources
+
+Every source ends in the same persistent unlock and validates through one private store rule: valid identity, known to the catalog, not already unlocked. Attribute requirements are never checked on acquisition.
+
+| Source | Boundary | Transaction | Already unlocked |
+| --- | --- | --- | --- |
+| Town Ability Vendor NPC | `TownAbilityVendorPresenter` (Input Authority, local panel) | `LocalProfileStore.TryPurchaseAbility(id, price)` debits Currency and unlocks in one commit | Not offered as buyable; the store rejects with `AlreadyUnlocked` and charges nothing |
+| Mission reward (`RewardDefinition.RewardType.Ability`, `ReferenceId` = ability identity) | `LocalProfileStore.TryClaimMission` | The unlock joins the claim's single candidate snapshot | No-op; the rest of the reward package is still claimed |
+| Dungeon discovery | Not in the MVP | — | — |
+
+The vendor has no shared stock, so a purchase is not networked: like a merchant trade commit, the requesting client's store is the only writer. The price comes from `AbilityVendorCatalog`, never from the view, and the presenter rebuilds the offer from the confirmed profile before buying. Buying is not preparation and is not gated by Ready. An invalid or unknown ability reward rejects the whole mission claim without changing the confirmed snapshot. The vendor catalog content (nine abilities at a flat 100 Gold) is provisional until Game Design defines vendor offers and prices.
+
 ### Two universal prepared slots
 
 The persistent snapshot contains exactly two equivalent optional slot values:

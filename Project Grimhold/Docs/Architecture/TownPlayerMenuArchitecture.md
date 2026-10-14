@@ -5,7 +5,7 @@
 The Town player menu is one framed window with a tab bar that hosts the local player's personal screens
 in Town. It currently hosts **Inventory**, **Attributes**, **Abilities** and **Options**. Options replaces the former standalone Town pause menu and is where sound, graphics and other
 settings will be added; today it only offers Log out and Exit game. Raid keeps
-the standalone personal inventory and does not use this menu. Stash, Merchant, Mission Board and Raid
+the standalone personal inventory and does not use this menu. Stash, Merchant, Ability Vendor, Mission Board and Raid
 Preparation stay NPC-opened panels: they depend on a confirmed interaction and are not tabs yet.
 
 ## Ownership
@@ -105,7 +105,9 @@ endpoint is the only writer: it applies the same Town Ready gate as equipment (`
 never reaches the store while blocked, and returns its own outcome (Success / BlockedByReadyState / Rejected) so the
 Raid-consumed `AbilityPreparationResult` is untouched; the presenter decides from `Outcome`, never from
 `Preparation` when blocked. While Ready, the buttons are disabled and a locked note is shown. The store still
-validates unlock, requirements and duplicates, so the view's `CanEquip` hint is advisory.
+validates unlock, requirements and duplicates, so the view's `CanEquip` hint is advisory. A refused equip or
+clear shows one feedback line (`TownAbilityText.Rejection`) in the locked note's place; the last confirmed
+preparation is unchanged, and only profile or persistence failures are also logged.
 
 The slot key labels are Q and E (`TownAbilitySlotKeyLabels`), matching `Gameplay/AbilitySlot1` and
 `Gameplay/AbilitySlot2`; Interact is on F. A test compares the labels with the bindings in
@@ -152,8 +154,8 @@ party and a disbanded party all keep it hidden (`TownPartyHudView.ClearParty`).
 
 ## Known limits
 
-- No production source unlocks abilities yet (`LocalProfileStore.TryUnlockAbility` is only called by tests and
-  developer tools), so a fresh profile shows the empty-repertoire note in the Abilities tab. For testing, the
+- Abilities are unlocked by the Town Ability Vendor and by mission rewards (see `AbilitySystemArchitecture.md`,
+  Acquisition sources); a fresh profile still shows the empty-repertoire note until one is used. For testing, the
   local player's `TownAbilitiesPresenter` adds the `AbilityPlayModeDebugger` overlay (F8, compiled only in the
   Editor and development builds) that unlocks abilities through `AbilityDebugUnlocker` and the normal store
   transaction; unlocks are saved in the local profile. There is also no ability art: the optional
