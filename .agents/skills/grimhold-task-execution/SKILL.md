@@ -63,6 +63,6 @@ Return:
 
 ## References
 
-- `../../AGENTS.md`
-- `../../Project Grimhold/AGENTS.md`
+- `../../../AGENTS.md`
+- `../../../Project Grimhold/AGENTS.md`
 - `references/tool-routing.md`
