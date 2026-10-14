@@ -229,7 +229,19 @@ second queue would let a reopened screen run ahead of a transfer still waiting f
 evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
-local profile cannot apply a transfer the backend accepted. Equipment changes use the same Ready gate
+local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
+batch (GD 07, section 16): the coordinator snapshots all source IDs in Store order, including stacks
+outside the visible slot pool, and runs each as an independent full-stack transfer with the same
+pre-check, remote call and local apply before the next stack. The screen refreshes per commit through
+`ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
+there are no mutation retries or inferences of destination ownership. Failed reconciliation after a
+remote error or local divergence stops further calls and returns `RecoveryFailed`, preserving the
+original remote code/message or local rule separately from `RECONCILIATION_FAILED`. Bulk summaries
+count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source IDs
+(`Failed`), never actual moved/not-moved stacks. IDs whose source ownership disappears after
+reconciliation and IDs remaining when recovery stops are explicitly counted in `Failed`. Unless
+recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
+attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). The view pads each received stack list with empty entries up to its
 authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both Stash-screen pools

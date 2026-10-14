@@ -15,7 +15,7 @@ public enum StashTransferStatus
 
     /// <summary>
     /// The backend rejected or could not confirm the action and the profile was reconciled with it.
-    /// A transfer changed nothing locally.
+    /// The mutation may have committed remotely; reconciliation can change local ownership.
     /// </summary>
     RemoteFailed,
 
@@ -26,8 +26,20 @@ public enum StashTransferStatus
     Diverged,
 
     /// <summary>
+    /// A bulk sequence has unconfirmed or not-attempted stacks. Completed counts confirmed
+    /// successful attempts; Failed counts all other original source IDs. Neither infers actual moves.
+    /// </summary>
+    Partial,
+
+    /// <summary>
     /// No remote inventory service is available. A transfer changed nothing; an equip change was
     /// applied locally but is not persisted.
     /// </summary>
-    Unavailable
+    Unavailable,
+
+    /// <summary>
+    /// Reconciliation failed after a remote error or local divergence. Bulk processing stops;
+    /// the original remote error or local rule and the recovery failure remain distinguishable.
+    /// </summary>
+    RecoveryFailed
 }

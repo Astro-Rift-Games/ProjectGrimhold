@@ -89,14 +89,12 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Rejected(rule);
         }
 
-        (bool success, Grimhold.Backend.BackendError error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-            () => fromStash
-                ? _remote.MoveToLoadoutAsync(lootId, amount)
-                : _remote.MoveToStashAsync(lootId, amount),
-            ReconcileAsync);
-        if (!success)
+        StashTransferOutcome remote = await ExecuteRemoteAsync(() => fromStash
+            ? _remote.MoveToLoadoutAsync(lootId, amount)
+            : _remote.MoveToStashAsync(lootId, amount));
+        if (!remote.IsSuccess)
         {
-            return StashTransferOutcome.RemoteFailed(error.message);
+            return remote;
         }
 
         StashOperationResult local = fromStash
@@ -105,60 +103,86 @@ public sealed class StashTransferCoordinator
         return await ApplyLocalAsync(local);
     }
 
-    private async Task<StashTransferOutcome> TakeAllCoreAsync()
+    private Task<StashTransferOutcome> TakeAllCoreAsync() => TransferEachStackAsync(fromStash: true);
+
+    private Task<StashTransferOutcome> LeaveAllCoreAsync() => TransferEachStackAsync(fromStash: false);
+
+    /// <summary>
+    /// Take All / Leave All snapshots all source IDs in Store order, including items outside the
+    /// visible pool. Each stack is checked, moved remotely and applied locally before the next.
+    /// Ordinary failures are skipped, but failed reconciliation stops further mutations.
+    /// Counts describe confirmed attempts versus unconfirmed/not-attempted IDs, not actual moves.
+    /// </summary>
+    private async Task<StashTransferOutcome> TransferEachStackAsync(bool fromStash)
     {
         if (_remote == null)
         {
             return StashTransferOutcome.Unavailable();
         }
 
-        StashOperationResult rule = _loadout.EvaluateTransferAllToLoadout(_profileId);
-        if (rule != StashOperationResult.Success)
+        LootId[] order = (fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId))
+            .Select(item => item.LootId)
+            .ToArray();
+        int completed = 0;
+        int failed = 0;
+        StashTransferOutcome firstFailure = default;
+        for (int index = 0; index < order.Length; index++)
         {
-            return StashTransferOutcome.Rejected(rule);
-        }
-
-        StashItem[] items = _stash.GetStash(_profileId).ToArray();
-        foreach (StashItem item in items)
-        {
-            (bool success, Grimhold.Backend.BackendError error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-                () => _remote.MoveToLoadoutAsync(item.LootId, item.Amount),
-                ReconcileAsync);
-            if (!success)
+            LootId lootId = order[index];
+            // A reconciliation after an earlier failure may have changed the source, so every
+            // stack is re-read and checked against the current state.
+            if (!IsOwned(lootId, fromStash))
             {
-                return StashTransferOutcome.RemoteFailed(error.message);
+                if (failed++ == 0)
+                {
+                    firstFailure = StashTransferOutcome.Rejected(StashOperationResult.InvalidInventory);
+                }
+                continue;
+            }
+
+            StashTransferOutcome outcome = await TransferCoreAsync(lootId, fromStash, LootTransferQuantityMode.FullStack);
+            if (outcome.IsSuccess)
+            {
+                completed++;
+                continue;
+            }
+
+            if (failed++ == 0)
+            {
+                firstFailure = outcome;
+            }
+
+            if (outcome.Status == StashTransferStatus.RecoveryFailed)
+            {
+                return StashTransferOutcome.RecoveryFailed(
+                    outcome.Rule, outcome.RemoteError, outcome.RemoteErrorCode,
+                    completed, failed + order.Length - index - 1);
             }
         }
 
-        return await ApplyLocalAsync(_loadout.TryTransferAllToLoadout(_profileId));
+        if (failed == 0)
+        {
+            return StashTransferOutcome.Success(completed);
+        }
+
+        return completed == 0
+            ? firstFailure.WithCounts(completed, failed)
+            : StashTransferOutcome.Partial(
+                completed, failed, firstFailure.RemoteError, firstFailure.RemoteErrorCode, firstFailure.Rule);
     }
 
-    private async Task<StashTransferOutcome> LeaveAllCoreAsync()
+    private bool IsOwned(LootId lootId, bool fromStash)
     {
-        if (_remote == null)
+        IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
+        foreach (StashItem item in source)
         {
-            return StashTransferOutcome.Unavailable();
-        }
-
-        StashOperationResult rule = _loadout.EvaluateTransferAllToStash(_profileId);
-        if (rule != StashOperationResult.Success)
-        {
-            return StashTransferOutcome.Rejected(rule);
-        }
-
-        StashItem[] items = _loadout.GetLoadout(_profileId).ToArray();
-        foreach (StashItem item in items)
-        {
-            (bool success, Grimhold.Backend.BackendError error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-                () => _remote.MoveToStashAsync(item.LootId, item.Amount),
-                ReconcileAsync);
-            if (!success)
+            if (item.LootId == lootId)
             {
-                return StashTransferOutcome.RemoteFailed(error.message);
+                return true;
             }
         }
 
-        return await ApplyLocalAsync(_loadout.TryTransferAllToStash(_profileId));
+        return false;
     }
 
     private async Task<StashTransferOutcome> EquipCoreAsync(LootId lootId, EquipmentSlot slot, bool fromStash)
@@ -201,10 +225,7 @@ public sealed class StashTransferCoordinator
         }
 
         PreparedEquipmentLoadout prepared = _loadout.GetPreparedEquipment(_profileId);
-        (bool success, Grimhold.Backend.BackendError error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-            () => _remote.UpdatePreparedEquipmentAsync(prepared),
-            ReconcileAsync);
-        return success ? StashTransferOutcome.Success() : StashTransferOutcome.RemoteFailed(error.message);
+        return await ExecuteRemoteAsync(() => _remote.UpdatePreparedEquipmentAsync(prepared));
     }
 
     /// <summary>
@@ -218,8 +239,24 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Success();
         }
 
-        await ReconcileAsync();
-        return StashTransferOutcome.Diverged(local);
+        return await ReconcileAsync()
+            ? StashTransferOutcome.Diverged(local)
+            : StashTransferOutcome.RecoveryFailed(local);
+    }
+
+    private async Task<StashTransferOutcome> ExecuteRemoteAsync(
+        Func<Task<(bool success, Grimhold.Backend.BackendError error)>> operation)
+    {
+        (bool success, Grimhold.Backend.BackendError error) = await operation();
+        if (success)
+        {
+            return StashTransferOutcome.Success();
+        }
+
+        // Never retry: even an error response may follow a committed mutation.
+        return await ReconcileAsync()
+            ? StashTransferOutcome.RemoteFailed(error.message, error.error)
+            : StashTransferOutcome.RecoveryFailed(StashOperationResult.Success, error.message, error.error);
     }
 
     private Task<bool> ReconcileAsync() =>
