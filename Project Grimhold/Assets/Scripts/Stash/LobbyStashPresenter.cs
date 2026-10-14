@@ -18,6 +18,11 @@ public class LobbyStashPresenter : MonoBehaviour
     private IPlayerLoadoutService _loadoutService;
     private ApplicationStashContext _context;
     private StashTransferCoordinator _coordinator;
+    private ProfileId _coordinatorProfileId;
+    private IPlayerStashService _coordinatorStashService;
+    private IPlayerLoadoutService _coordinatorLoadoutService;
+    private IRemoteInventoryService _coordinatorRemote;
+    private IProfileReconciliation _coordinatorReconciliation;
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
     private DragPayload _activeDrag = DragPayload.Empty;
@@ -57,7 +62,7 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _stashService = _context.StashService;
             _loadoutService = _context.LoadoutService;
-            _coordinator = CreateCoordinator();
+            ResolveCoordinator();
             _context.ProfileCommitted += OnProfileCommitted;
             RefreshUI();
         }
@@ -86,17 +91,35 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
         _context = null;
-        _coordinator = null;
     }
 
-    private StashTransferCoordinator CreateCoordinator()
+    /// <summary>
+    /// Returns the coordinator for the current profile and services. It is kept across closing and
+    /// reopening the screen and only rebuilt when a dependency instance changes (a logout replaces
+    /// the services), because a new instance would start a second queue while a transfer from the
+    /// previous opening is still waiting for the backend.
+    /// </summary>
+    private StashTransferCoordinator ResolveCoordinator()
     {
         if (!_localProfileId.IsValid || _stashService == null || _loadoutService == null || _lootCatalog == null)
         {
             Debug.LogWarning(
                 "[LobbyStashPresenter] The profile, its services or the loot catalog are unavailable. " +
                 "Stash actions are disabled.");
+            _coordinator = null;
             return null;
+        }
+
+        IRemoteInventoryService remote = _context.GetComponent<IRemoteInventoryService>();
+        IProfileReconciliation reconciliation = _context.GetComponent<IProfileReconciliation>();
+        if (_coordinator != null &&
+            _coordinatorProfileId == _localProfileId &&
+            ReferenceEquals(_coordinatorStashService, _stashService) &&
+            ReferenceEquals(_coordinatorLoadoutService, _loadoutService) &&
+            ReferenceEquals(_coordinatorRemote, remote) &&
+            ReferenceEquals(_coordinatorReconciliation, reconciliation))
+        {
+            return _coordinator;
         }
 
         var equipment = new TownEquipmentMutationEndpoint(
@@ -104,13 +127,19 @@ public class LobbyStashPresenter : MonoBehaviour
             _localProfileId,
             _lootCatalog,
             () => _canMutateEquipment());
-        return new StashTransferCoordinator(
+        _coordinator = new StashTransferCoordinator(
             _localProfileId,
             _stashService,
             _loadoutService,
-            _context.GetComponent<IRemoteInventoryService>(),
-            _context.GetComponent<IProfileReconciliation>(),
+            remote,
+            reconciliation,
             equipment);
+        _coordinatorProfileId = _localProfileId;
+        _coordinatorStashService = _stashService;
+        _coordinatorLoadoutService = _loadoutService;
+        _coordinatorRemote = remote;
+        _coordinatorReconciliation = reconciliation;
+        return _coordinator;
     }
 
     private void CancelActiveDrag()

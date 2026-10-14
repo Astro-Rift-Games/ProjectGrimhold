@@ -109,6 +109,46 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
         }
 
+        [UnityTest]
+        public IEnumerator ReopeningTheScreen_KeepsOneActionQueueWhileABackendCallIsInFlight()
+        {
+            var sword = new LootId("rapier");
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 3));
+                snapshot.Stash.Add(new StashItem(sword, 1));
+            });
+            yield return null;
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _remote.Gates.Enqueue(gate.Task);
+
+            ClickMoveAll(StashPanel(), occupiedIndex: 0);
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+
+            _instance.SetActive(false);
+            _instance.SetActive(true);
+            yield return null;
+            ClickMoveAll(StashPanel(), occupiedIndex: 1);
+            yield return null;
+            yield return null;
+
+            Assert.That(
+                _remote.Calls,
+                Is.EqualTo(new[] { "toLoadout:bone:3" }),
+                "A reopened screen must queue behind the transfer still waiting for the backend.");
+
+            gate.SetResult(true);
+            for (int frame = 0; frame < 5; frame++)
+            {
+                yield return null;
+            }
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3", "toLoadout:rapier:1" }));
+            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(2));
+        }
+
         private void CreateScreen(Action<LocalProfileSnapshot> configure)
         {
             var profile = new ProfileId(ProfileValue);
@@ -171,10 +211,13 @@ namespace Tests.PlayMode.Presentation
             return (RaidLootPanelView)field.GetValue(_view);
         }
 
-        private void ClickMoveAll(RaidLootPanelView panel)
+        private void ClickMoveAll(RaidLootPanelView panel, int occupiedIndex = 0)
         {
-            RaidInventorySlotView occupied = FindOccupiedSlot(panel);
-            Assert.That(occupied, Is.Not.Null, "The panel must show the stack to move.");
+            RaidInventorySlotView[] occupiedSlots = Array.FindAll(
+                panel.GetComponentsInChildren<RaidInventorySlotView>(true),
+                slot => slot.IsOccupied);
+            Assert.That(occupiedSlots.Length, Is.GreaterThan(occupiedIndex), "The panel must show the stack to move.");
+            RaidInventorySlotView occupied = occupiedSlots[occupiedIndex];
             occupied.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
 
             RaidLootContextMenuView menu = _instance.GetComponentInChildren<RaidLootContextMenuView>(true);
@@ -192,24 +235,26 @@ namespace Tests.PlayMode.Presentation
         public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService
         {
             public readonly List<string> Calls = new();
+            public readonly Queue<Task> Gates = new();
 
-            public Task<(bool success, BackendError error)> MoveToLoadoutAsync(LootId lootId, int amount)
-            {
-                Calls.Add($"toLoadout:{lootId.Value}:{amount}");
-                return Task.FromResult((true, default(BackendError)));
-            }
+            public Task<(bool success, BackendError error)> MoveToLoadoutAsync(LootId lootId, int amount) =>
+                Run($"toLoadout:{lootId.Value}:{amount}");
 
-            public Task<(bool success, BackendError error)> MoveToStashAsync(LootId lootId, int amount)
-            {
-                Calls.Add($"toStash:{lootId.Value}:{amount}");
-                return Task.FromResult((true, default(BackendError)));
-            }
+            public Task<(bool success, BackendError error)> MoveToStashAsync(LootId lootId, int amount) =>
+                Run($"toStash:{lootId.Value}:{amount}");
 
             public Task<(bool success, BackendError error)> UpdatePreparedEquipmentAsync(
-                PreparedEquipmentLoadout equipment)
+                PreparedEquipmentLoadout equipment) => Run("equipment");
+
+            private async Task<(bool success, BackendError error)> Run(string call)
             {
-                Calls.Add("equipment");
-                return Task.FromResult((true, default(BackendError)));
+                Calls.Add(call);
+                if (Gates.Count > 0)
+                {
+                    await Gates.Dequeue();
+                }
+
+                return (true, default);
             }
         }
     }

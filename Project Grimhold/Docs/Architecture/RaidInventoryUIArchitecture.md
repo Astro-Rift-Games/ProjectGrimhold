@@ -223,7 +223,9 @@ panel's `_authoredSlots`; the code only shows, hides and drives what the prefab 
 `LobbyStashPresenter` remains the only owner of the profile services and binds the screen's intentions,
 but it holds no rules. It hands every transfer, Take All / Leave All, equip and unequip to a
 `StashTransferCoordinator`, which runs them through one serialized queue so an equip never interleaves
-with a transfer waiting for the backend. A transfer is first checked with the Store's dry-run
+with a transfer waiting for the backend. The presenter keeps that coordinator across closing and
+reopening the screen and only rebuilds it when the profile or a service instance changes, because a
+second queue would let a reopened screen run ahead of a transfer still waiting for the backend. A transfer is first checked with the Store's dry-run
 evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
