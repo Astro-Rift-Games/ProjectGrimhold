@@ -373,6 +373,7 @@ MonoBehaviour:
   _priceText: {fileID: 1190117249912127381}
   _stateText: {fileID: 5736934064371747432}
   _buyButton: {fileID: 6080669648275753867}
+  _buyLabel: {fileID: 685495477233702147}
   _requirementMetColor: {r: 0.45, g: 0.78, b: 0.4, a: 1}
   _requirementUnmetColor: {r: 0.85, g: 0.3, b: 0.25, a: 1}
 --- !u!1 &3475618712822133914

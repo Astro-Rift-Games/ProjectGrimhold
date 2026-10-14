@@ -15,6 +15,7 @@ public sealed class TownAbilityVendorRowView : MonoBehaviour
     [SerializeField] private TMP_Text _priceText;
     [SerializeField] private TMP_Text _stateText;
     [SerializeField] private Button _buyButton;
+    [SerializeField] private TMP_Text _buyLabel;
     [SerializeField] private Color _requirementMetColor = new(0.45f, 0.78f, 0.4f, 1f);
     [SerializeField] private Color _requirementUnmetColor = new(0.85f, 0.3f, 0.25f, 1f);
 
@@ -26,6 +27,7 @@ public sealed class TownAbilityVendorRowView : MonoBehaviour
     public TMP_Text RequirementText => _requirementText;
     public TMP_Text PriceText => _priceText;
     public TMP_Text StateText => _stateText;
+    public TMP_Text BuyLabel => _buyLabel;
 
     public event Action<AbilityId> BuyRequested;
 
@@ -37,6 +39,7 @@ public sealed class TownAbilityVendorRowView : MonoBehaviour
         if (_priceText == null) return Fail(nameof(_priceText), out error);
         if (_stateText == null) return Fail(nameof(_stateText), out error);
         if (_buyButton == null) return Fail(nameof(_buyButton), out error);
+        if (_buyLabel == null) return Fail(nameof(_buyLabel), out error);
 
         error = null;
         return true;
@@ -73,6 +76,7 @@ public sealed class TownAbilityVendorRowView : MonoBehaviour
         _requirementText.color = entry.RequirementsMet ? _requirementMetColor : _requirementUnmetColor;
         _priceText.text = AbilityVendorText.Price(entry.Price);
         _stateText.text = AbilityVendorText.StateLabel(entry.State);
+        _buyLabel.text = AbilityVendorText.BuyLabel(entry.State, entry.Price);
         _buyButton.interactable = entry.CanBuy;
         TownAbilityIconUtility.Apply(_icon, _iconPlaceholder, definition != null ? definition.Icon : null);
     }

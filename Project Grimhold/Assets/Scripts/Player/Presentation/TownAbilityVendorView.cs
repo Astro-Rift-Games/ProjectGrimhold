@@ -19,6 +19,7 @@ public sealed class TownAbilityVendorView : MonoBehaviour
     [SerializeField] private TownAbilityVendorRowView _rowPrefab;
     [SerializeField] private TMP_Text _goldText;
     [SerializeField] private TMP_Text _feedbackText;
+    [SerializeField] private TMP_Text _noticeText;
     [SerializeField] private Button _closeButton;
     [SerializeField] private GameObject _emptyNote;
 
@@ -30,6 +31,7 @@ public sealed class TownAbilityVendorView : MonoBehaviour
     public IReadOnlyList<TownAbilityVendorRowView> Rows => _rows;
     public TMP_Text GoldText => _goldText;
     public TMP_Text FeedbackText => _feedbackText;
+    public TMP_Text NoticeText => _noticeText;
 
     public event Action<AbilityId> BuyRequested;
     public event Action CloseRequested;
@@ -113,6 +115,10 @@ public sealed class TownAbilityVendorView : MonoBehaviour
             _emptyNote.SetActive(count == 0);
         }
 
+        string notice = AbilityVendorText.Notice(entries);
+        _noticeText.text = notice;
+        _noticeText.gameObject.SetActive(notice.Length > 0);
+
         _goldText.text = AbilityVendorText.Gold(currency);
     }
 
@@ -149,6 +155,7 @@ public sealed class TownAbilityVendorView : MonoBehaviour
         if (_rowPrefab == null) return Fail(nameof(_rowPrefab), out error);
         if (_goldText == null) return Fail(nameof(_goldText), out error);
         if (_feedbackText == null) return Fail(nameof(_feedbackText), out error);
+        if (_noticeText == null) return Fail(nameof(_noticeText), out error);
         if (_closeButton == null) return Fail(nameof(_closeButton), out error);
 
         if (!_rowPrefab.TryValidate(out string rowError))
