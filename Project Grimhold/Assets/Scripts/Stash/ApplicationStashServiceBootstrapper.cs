@@ -111,14 +111,23 @@ public static class ApplicationStashServiceBootstrapper
 
         if (inventoryData.HasValue || progressionData.HasValue)
         {
+            // Hydrate a clone and persist it, so the repository only ever holds a snapshot
+            // that passed the same save path every later Commit uses.
+            LocalProfileSnapshot hydrated = repository.Snapshot.Clone();
             if (!HydrateSnapshot(
                 profileId,
-                repository.Snapshot,
+                hydrated,
                 inventoryData,
                 progressionData,
                 _configuration.LootCatalog,
                 _configuration.AbilityCatalog))
             {
+                return false;
+            }
+
+            if (!repository.TrySave(hydrated, out string saveError))
+            {
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydrated profile could not be saved: {saveError}");
                 return false;
             }
         }
@@ -204,6 +213,11 @@ public static class ApplicationStashServiceBootstrapper
     /// - Shop receipts
     /// - PendingExtractionCommit
     /// - Off Hand weapon assignments
+    ///
+    /// Every input is validated before anything is written, so a rejected payload leaves the
+    /// snapshot untouched. Item lists are normalized to what the save codec accepts: unknown
+    /// LootIds and non-positive amounts are skipped and duplicates are merged. A Loadout over
+    /// its slot capacity is accepted as is; the Store only allows operations that reduce it.
     /// </summary>
     public static bool HydrateSnapshot(
         ProfileId profileId,
@@ -245,32 +259,38 @@ public static class ApplicationStashServiceBootstrapper
             validatedAbilities = revalidatedAbilities;
         }
 
+        System.Collections.Generic.List<StashItem> stash = null;
+        System.Collections.Generic.List<StashItem> loadout = null;
+        System.Collections.Generic.List<StashItem> reservationItems = null;
+        if (inventoryData.HasValue)
+        {
+            var data = inventoryData.Value;
+            if (data.currency < 0)
+            {
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: negative currency.");
+                return false;
+            }
+
+            if (!TryNormalizeItems(data.stash, catalog, "stash", out stash) ||
+                !TryNormalizeItems(data.loadout, catalog, "loadout", out loadout) ||
+                (data.pendingReservation.reservationId != null &&
+                 !TryNormalizeItems(data.pendingReservation.items, catalog, "reservation", out reservationItems)))
+            {
+                return false;
+            }
+        }
+
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
             snapshot.Currency = data.currency;
             snapshot.Stash.Clear();
-            if (data.stash != null)
-            {
-                foreach (var item in data.stash)
-                {
-                    if (catalog.TryGet(item.lootId, out _))
-                    {
-                        snapshot.Stash.Add(new StashItem(new LootId(item.lootId), item.amount));
-                    }
-                }
-            }
+            snapshot.Stash.AddRange(stash);
 
             if (data.loadout != null && snapshot.PendingExtractionCommit == null)
             {
                 snapshot.Loadout.Clear();
-                foreach (var item in data.loadout)
-                {
-                    if (catalog.TryGet(item.lootId, out _))
-                    {
-                        snapshot.Loadout.Add(new StashItem(new LootId(item.lootId), item.amount));
-                    }
-                }
+                snapshot.Loadout.AddRange(loadout);
             }
 
             if (snapshot.PendingExtractionCommit == null)
@@ -291,17 +311,6 @@ public static class ApplicationStashServiceBootstrapper
             if (data.pendingReservation.reservationId != null)
             {
                 var res = data.pendingReservation;
-                var resItems = new System.Collections.Generic.List<StashItem>();
-                if (res.items != null)
-                {
-                    foreach (var item in res.items)
-                    {
-                        if (catalog.TryGet(item.lootId, out _))
-                        {
-                            resItems.Add(new StashItem(new LootId(item.lootId), item.amount));
-                        }
-                    }
-                }
                 var resEq = res.preparedEquipment;
                 var preparedResEq = new PreparedEquipmentLoadout(
                     string.IsNullOrEmpty(resEq.weaponSlot1) ? default : new LootId(resEq.weaponSlot1),
@@ -314,7 +323,7 @@ public static class ApplicationStashServiceBootstrapper
                     string.IsNullOrEmpty(resEq.offHand2) ? default : new LootId(resEq.offHand2)
                 );
 
-                snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, resItems, preparedResEq);
+                snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, reservationItems, preparedResEq);
             }
 
             if (data.lastAppliedExtractionReceipt.resultSequence > 0)
@@ -361,6 +370,43 @@ public static class ApplicationStashServiceBootstrapper
             snapshot.CharacterAttributes = validatedAttributes.Value;
             snapshot.PreparedAbilities = validatedAbilities.Value;
             snapshot.RemoteRevision = prog.revision;
+        }
+
+        return true;
+    }
+
+    private static bool TryNormalizeItems(
+        InventoryItemData[] items,
+        LootDefinitionCatalog catalog,
+        string label,
+        out System.Collections.Generic.List<StashItem> normalized)
+    {
+        normalized = new System.Collections.Generic.List<StashItem>();
+        if (items == null) return true;
+
+        foreach (var item in items)
+        {
+            if (item.amount <= 0 || string.IsNullOrWhiteSpace(item.lootId) || !catalog.TryGet(item.lootId, out _))
+            {
+                continue;
+            }
+
+            var lootId = new LootId(item.lootId);
+            int index = normalized.FindIndex(existing => existing.LootId == lootId);
+            if (index < 0)
+            {
+                normalized.Add(new StashItem(lootId, item.amount));
+                continue;
+            }
+
+            long merged = (long)normalized[index].Amount + item.amount;
+            if (merged > int.MaxValue)
+            {
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: {label} amount overflow for '{item.lootId}'.");
+                return false;
+            }
+
+            normalized[index] = new StashItem(lootId, (int)merged);
         }
 
         return true;

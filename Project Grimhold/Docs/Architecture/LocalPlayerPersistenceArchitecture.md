@@ -85,6 +85,20 @@ The exact HTTP DTOs and endpoints belong to the backend contract and are not inv
 Until that contract is integrated, `ProfileCommitted` means only that the process-local aggregate
 accepted a transaction. It must not be interpreted as durable backend acknowledgement.
 
+Hydration (`ApplicationStashServiceBootstrapper.HydrateSnapshot`, used at login and by
+`LocalProfileStore.ReconcileRemoteState`) validates the whole backend payload before writing
+anything, so a rejected payload leaves the snapshot untouched. Item lists are normalized to what the
+save codec accepts: unknown LootIds and non-positive amounts are skipped, duplicate LootIds are
+merged, and an amount overflow on merge or a negative currency rejects the payload. Login hydrates a
+clone and persists it through `ILocalProfileRepository.TrySave`; it never mutates
+`repository.Snapshot` in place, so the repository only holds a snapshot that passed the same save
+path as every later commit. The backend has no Loadout slot limit, so a Loadout over
+`LocalProfileSnapshot.MaxLoadoutSlots` is accepted and persisted: slot capacity is a Store rule, not
+a codec rule. Store operations that need a new Loadout slot are refused (`InventoryFull`), so the
+excess can only shrink, and `TryCreateLoadoutReservation` refuses an over-capacity Loadout with
+`InventoryFull` so the excess never enters a Raid. The Town Inventory read source still reports an
+over-capacity Loadout as unavailable; the Stash screen is where the excess is moved out.
+
 ### Progression transaction
 
 `LastAppliedProgressionResultSequence` is the aggregate's at-most-once mechanism. A new

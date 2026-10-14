@@ -1282,6 +1282,13 @@ public sealed class LocalProfileStore
             return StashOperationResult.Success;
         }
 
+        // Backend data may leave the Loadout over capacity; the excess must be moved
+        // to the Stash before it can enter a raid, whose inventory is capped.
+        if (current.Loadout.Count > LocalProfileSnapshot.MaxLoadoutSlots)
+        {
+            return StashOperationResult.InventoryFull;
+        }
+
         if (!PreparedEquipmentLoadout.TryValidate(
                 current.PreparedEquipment,
                 _lootCatalog,
