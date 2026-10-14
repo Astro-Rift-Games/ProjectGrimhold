@@ -63,7 +63,7 @@ public static class ApplicationStashServiceBootstrapper
     /// Initializes the stash store for the given profile. Called by LoginFlowController
     /// after a successful login. Safe to call only once per profile per session.
     /// </summary>
-    public static bool InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
+    public static bool InitializeWithProfile(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null, bool allowCorruptCacheRecovery = false)
     {
         if (!profileId.IsValid)
         {
@@ -91,10 +91,10 @@ public static class ApplicationStashServiceBootstrapper
             return false;
         }
 
-        return InitializeStore(profileId, inventoryData, progressionData);
+        return InitializeStore(profileId, inventoryData, progressionData, allowCorruptCacheRecovery);
     }
 
-    private static bool InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null)
+    private static bool InitializeStore(ProfileId profileId, Grimhold.Backend.InventoryData? inventoryData = null, Grimhold.Backend.ProgressionData? progressionData = null, bool allowCorruptCacheRecovery = false)
     {
         var contextObject = _context.gameObject;
 
@@ -103,33 +103,10 @@ public static class ApplicationStashServiceBootstrapper
             fileStore,
             Application.persistentDataPath,
             _configuration.AbilityCatalog);
-        if (!repository.Initialize(profileId, _configuration.LootCatalog))
+        if (!PrepareRepositoryForLogin(repository, profileId, _configuration.LootCatalog,
+                _configuration.AbilityCatalog, inventoryData, progressionData, allowCorruptCacheRecovery))
         {
-            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile unavailable: {repository.LastError}");
             return false;
-        }
-
-        if (inventoryData.HasValue || progressionData.HasValue)
-        {
-            // Hydrate a clone and persist it, so the repository only ever holds a snapshot
-            // that passed the same save path every later Commit uses.
-            LocalProfileSnapshot hydrated = repository.Snapshot.Clone();
-            if (!HydrateSnapshot(
-                profileId,
-                hydrated,
-                inventoryData,
-                progressionData,
-                _configuration.LootCatalog,
-                _configuration.AbilityCatalog))
-            {
-                return false;
-            }
-
-            if (!repository.TrySave(hydrated, out string saveError))
-            {
-                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydrated profile could not be saved: {saveError}");
-                return false;
-            }
         }
 
         var store = new LocalProfileStore(
@@ -202,6 +179,59 @@ public static class ApplicationStashServiceBootstrapper
 
         _initializedProfileId = profileId;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
+        return true;
+    }
+
+    private static bool PrepareRepositoryForLogin(
+        LocalProfileRepository repository,
+        ProfileId profileId,
+        LootDefinitionCatalog catalog,
+        AbilityDefinitionCatalog abilityCatalog,
+        InventoryData? inventoryData,
+        ProgressionData? progressionData,
+        bool recoveryAllowed)
+    {
+        if (!repository.Initialize(profileId, catalog))
+        {
+            if (recoveryAllowed && repository.CanRecoverCorruptCache &&
+                inventoryData.HasValue && progressionData.HasValue &&
+                inventoryData.Value.revision == progressionData.Value.revision)
+            {
+                var candidate = new LocalProfileSnapshot { ProfileId = profileId };
+                if (!HydrateSnapshot(profileId, candidate, inventoryData, progressionData, catalog, abilityCatalog))
+                    return false;
+
+                if (!repository.TryRecoverCorruptCache(profileId, candidate, out string recoveryError))
+                {
+                    Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Corrupt profile recovery could not be saved: {recoveryError}");
+                    return false;
+                }
+
+                Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Corrupt local cache replaced from authenticated backend data. Unsent local state cannot be recovered.");
+                return true;
+            }
+
+            Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Local profile unavailable: {repository.LastError}");
+            return false;
+        }
+
+        if (inventoryData.HasValue || progressionData.HasValue)
+        {
+            // Hydrate a clone and persist it, so the repository only ever holds a snapshot
+            // that passed the same save path every later Commit uses.
+            LocalProfileSnapshot hydrated = repository.Snapshot.Clone();
+            if (!HydrateSnapshot(profileId, hydrated, inventoryData, progressionData, catalog, abilityCatalog))
+            {
+                return false;
+            }
+
+            if (!repository.TrySave(hydrated, out string saveError))
+            {
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydrated profile could not be saved: {saveError}");
+                return false;
+            }
+        }
+
         return true;
     }
 

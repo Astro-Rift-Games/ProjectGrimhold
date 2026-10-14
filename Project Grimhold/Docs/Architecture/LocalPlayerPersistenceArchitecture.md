@@ -4,8 +4,9 @@
 
 Project Grimhold currently keeps the character aggregate alive across scenes and
 `NetworkRunner` replacement during one application process. The backend owns character identity
-and is the target source of truth for durable metagame state. The temporary Unity composition must
-not let legacy local files block authentication or stand in for backend durability.
+and is the target source of truth for durable metagame state. The Unity file cache must not stand
+in for backend authority; cache initialization and save failures can stop profile hydration after
+authentication.
 
 ## Decision
 
@@ -15,22 +16,23 @@ and never generates or restores a productive identity through `PlayerPrefs`. A s
 injects the remote `CharacterId` before initializing profile services.
 
 `ApplicationStashServiceBootstrapper` creates one `ApplicationStashContext` before the first scene
-but defers store initialization until a valid remote identity is available. It then composes an
-`InMemoryLocalProfileRepository`. The context remains `DontDestroyOnLoad`; stash, loadout, prepared
-Equipment assignments, pending reservations, extraction receipts and progression state survive
-Town-Raid-Town transitions while the application remains open. They are discarded on application
-shutdown until the backend integration hydrates and commits this aggregate remotely.
+but defers store initialization until a valid remote identity is available. It composes a
+`LocalProfileRepository` backed by `LocalProfileFileStore`, using the per-ProfileId JSON cache.
+The context remains `DontDestroyOnLoad`; the aggregate survives scene and runner transitions.
+Login fetches backend inventory and progression with consistent revisions, hydrates an isolated
+candidate and saves it before publishing application services. The file cache preserves local-only
+and unsent fields across restarts; it is not a backend acknowledgement.
 
 `CharacterAttributeState` is part of that same character aggregate. New profiles initialize it
 from `ProgressionBalanceDefaults.InitialCharacterAttributeState`; assigned values and available
-points survive consumer, scene and runner replacement only while this application process remains
-open. They are intended for durable backend persistence when that integration exists.
+points survive consumer, scene and runner replacement. Login hydrates attributes from backend
+progression; the local aggregate is also encoded in the file cache.
 
 ```text
 IPlayerStashService / IPlayerLoadoutService
                 -> LocalProfileStore
                 -> ILocalProfileRepository
-                -> InMemoryLocalProfileRepository
+                -> LocalProfileRepository -> LocalProfileFileStore
 ```
 
 `LocalProfileStore` remains the transactional application boundary. It builds a candidate
@@ -62,15 +64,34 @@ and applying shop receipt idempotency. No other Commerce component mutates the L
 `LocalProfileStore`, and no replicated inventory shadow participates. Draft, presentation, stock
 and request-identity ownership belong to `CommerceArchitecture.md`.
 
-The productive `InMemoryLocalProfileRepository` accepts an isolated clone of that complete
-candidate after validating its readiness and profile identity. It never encodes or reconstructs
-the aggregate through `LocalProfileSaveCodec`; domain mutations are validated by
-`LocalProfileStore` and their pure rules.
+The productive `LocalProfileRepository` validates candidate identity and codec compatibility,
+then calls the file store's atomic-write operation before publishing a cloned Snapshot as Ready.
+The current save schema is 8; supported older schemas remain readable. The atomic operation's
+boolean result is the acceptance boundary, not a claim of filesystem flush durability.
 
-`LocalProfileRepository`, `LocalProfileFileStore` and `LocalProfileSaveCodec` remain isolated,
-test-covered legacy infrastructure. They are not part of the runtime composition and files such
-as `grimhold-profile.json` are ignored. They must not become a fallback when authentication or a
-backend operation fails.
+### Authenticated corrupt-cache recovery
+
+Startup and ordinary `InitializeWithProfile` calls default to no reset permission. Only the
+successful authenticated `LoginFlowController` path opts in after character/profile fetches and
+inventory/progression fetches with equal revisions. Missing payloads, revision mismatch and invalid
+hydration cannot reset the cache. Revisions need not be positive.
+
+Repository eligibility is typed, not inferred from error text: an existing readable file must fail
+decoding, every other existing file must also be readable, and neither may be a future schema.
+Missing files alone, IO failures, missing configuration and invalid identity do not qualify.
+Eligibility is cleared on every Initialize. A valid main or backup retains its existing load/repair
+behavior; an unsupported main still blocks backup fallback.
+
+Recovery builds a fresh snapshot for the initialized ProfileId, hydrates it from both backend
+payloads, validates identity and codec compatibility, and attempts one atomic write before Snapshot
+or Ready publication. Failure leaves the repository unavailable and does not admit the candidate;
+ordinary TrySave remains fail-closed. Successful replacement emits an explicit warning that unsent
+local state cannot be recovered. No deletion or backup manipulation precedes the validated write.
+Healthy cached PendingExtractionCommit and local-only fields are retained through normal hydration;
+the existing pending extraction retry is not replaced by corruption reset. Active missions, local
+abilities, receipts and other unsent local-only state cannot be reconstructed by backend hydration.
+A synchronous cache save adds login latency; save failure stops login hydration rather than admitting
+an unsaved profile. Authentication/fetch failures never authorize local fallback.
 
 ### Stash capacity admission
 
@@ -97,8 +118,8 @@ the application context. Network errors, cancellation, revision conflicts and re
 outcomes; none may create a local identity or silently accept a local file as authoritative.
 
 The exact HTTP DTOs and endpoints belong to the backend contract and are not invented here.
-Until that contract is integrated, `ProfileCommitted` means only that the process-local aggregate
-accepted a transaction. It must not be interpreted as durable backend acknowledgement.
+`ProfileCommitted` means that the local aggregate accepted a transaction. It must not by itself
+be interpreted as durable backend acknowledgement.
 
 Hydration (`ApplicationStashServiceBootstrapper.HydrateSnapshot`, used at login and by
 `LocalProfileStore.ReconcileRemoteState`) validates the whole backend payload before writing
@@ -184,8 +205,8 @@ without exposing an intermediate state. A two-handed weapon exists only in Main 
 blocked state of its Set's Off Hand. Direct assignment to a blocked Off Hand is rejected and never
 silently removes the two-handed weapon. Unequip rejects atomically when the returned unit would exceed Inventory
 capacity. A rejected operation moves nothing and never creates a Pickup.
-Extraction receipts and the rest of the aggregate remain available only for the current
-application process until backend persistence is connected.
+Extraction receipts and the rest of the aggregate are cached across processes; remote durability
+and replay acceptance remain backend responsibilities.
 
 Schema version 4 persists this Weapon Set contract. Schema 3 maps historical Weapon Slot 1 to Set A
 Main Hand and Weapon Slot 2 to Set B Main Hand; both Off Hands start empty. Pending reservations use
@@ -193,7 +214,7 @@ the same migration. Earlier schemas did not distinguish
 the former exclusive implementation from the temporary non-owning implementation. Decoding treats
 a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
-all-or-nothing, and new saves always write schema 4.
+all-or-nothing. This describes the schema-4 migration; new saves now write schema 8.
 
 TASK-330 originally kept this migration local. The current prepared-Equipment adapter sends all
 eight slots: `weaponSlot1` / `weaponSlot2` map to Set A / B Main Hand, `offHand1` / `offHand2`
@@ -251,9 +272,9 @@ would overwrite their result and a non-empty Loadout would make `TryCommitExtrac
 operations also fail with `InvalidInventory` instead of throwing when the profile is unavailable.
 The same reservation id is idempotent; a different id is rejected while pending. Pre-admission failure restores items and assignments in
 one rollback. After participant, avatar and exact `Inventory + the eight Equipment slots`
-ownership are observed, confirmation consumes the reservation. Closing the application currently
-discards an unfinished reservation; backend persistence must define recovery for remotely stored
-reservations.
+ownership are observed, confirmation consumes the reservation. On restart, login hydration restores
+backend reservation data; bootstrap retries pending extraction or rolls back an orphaned reservation
+through the existing paths.
 
 ### Extraction boundary
 
@@ -270,8 +291,9 @@ durable guarantee.
 
 ## Temporary limitations and failure policy
 
-- Closing or crashing the application discards the process-local aggregate.
-- Legacy JSON and `PlayerPrefs` state are ignored and never block login.
+- The per-profile schema-8 file cache survives process exit but is not backend authority.
+- PlayerPrefs never supplies a productive identity. Unsupported or unreadable caches block hydration;
+  confirmed corruption can be replaced only through the explicit authenticated flow above.
 - A backend load failure must remain visible and must not be replaced by a generated identity or
   legacy local profile.
 - Durable progression and extraction acknowledgement require backend-confirmed, idempotent
@@ -280,7 +302,8 @@ durable guarantee.
 ## Validation strategy
 
 EditMode tests verify the process-local lifetime, profile boundaries, progression watermark
-semantics and existing aggregate transactions. Codec and filesystem tests remain isolated coverage
-for inactive legacy infrastructure. Manual validation covers login with legacy files present and a
-complete Town-Raid-Town cycle in one run. Backend integration must add restart hydration, network
-failure/retry, revision-conflict, receipt-idempotency and real Host/Client validation.
+semantics and existing aggregate transactions. Codec and fake-file repository tests cover productive
+cache behavior, including authenticated corruption recovery and rejection without writes. Manual
+validation covers restart login, cache save failures and a complete Town-Raid-Town cycle. Backend
+integration must add restart hydration, network failure/retry, revision-conflict, receipt-idempotency
+and real Host/Client validation.
