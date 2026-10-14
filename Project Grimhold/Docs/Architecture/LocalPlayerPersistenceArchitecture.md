@@ -186,8 +186,13 @@ Raid never grants a recovery weapon. Preparation is inert while a reservation is
 the complete local Inventory plus its eight separately owned prepared assignments into `PendingLoadoutReservation`
 before the Town queue ACK. The active Town Loadout and its assignments are then empty and cannot
 ambiguously reference units already reserved for Raid. The requirement stays enforced here as a
-domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a
-different id is rejected while pending. Pre-admission failure restores items and assignments in
+domain invariant even though preparation already guaranteed it. While a reservation is pending the
+reservation owns Inventory and Equipment, so `LocalProfileStore` rejects every Stash/Loadout transfer,
+`TryEquipFromStash`, `TryAssignPreparedEquipment` and `TryClearPreparedEquipment` with
+`StashOperationResult.ReservationPending`, without changing or publishing anything: a later rollback
+would overwrite their result and a non-empty Loadout would make `TryCommitExtraction` fail. The same
+operations also fail with `InvalidInventory` instead of throwing when the profile is unavailable.
+The same reservation id is idempotent; a different id is rejected while pending. Pre-admission failure restores items and assignments in
 one rollback. After participant, avatar and exact `Inventory + the eight Equipment slots`
 ownership are observed, confirmation consumes the reservation. Closing the application currently
 discards an unfinished reservation; backend persistence must define recovery for remotely stored

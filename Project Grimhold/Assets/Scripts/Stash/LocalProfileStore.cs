@@ -813,10 +813,26 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
+    /// <summary>
+    /// Reads the confirmed snapshot for a Town Stash, Loadout or Equipment mutation. A reservation
+    /// owns Inventory and Equipment until it is confirmed or rolled back, so none of these
+    /// operations may run while one is pending: a later rollback would overwrite their result.
+    /// </summary>
+    private StashOperationResult BeginTownMutation(out LocalProfileSnapshot current)
+    {
+        current = _repository.Snapshot;
+        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+        return current.PendingReservation != null
+            ? StashOperationResult.ReservationPending
+            : StashOperationResult.Success;
+    }
+
     public StashOperationResult TryTransferToLoadout(LootId lootId, int amount)
     {
         if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;
-        var next = _repository.Snapshot.Clone();
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success) return gate;
+        var next = current.Clone();
         int available = FindAmount(next.Stash, lootId);
         if (available <= 0) return StashOperationResult.InvalidInventory;
         int actualAmount = Math.Min(amount, available);
@@ -830,7 +846,9 @@ public sealed class LocalProfileStore
     public StashOperationResult TryTransferToStash(LootId lootId, int amount)
     {
         if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;
-        var next = _repository.Snapshot.Clone();
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success) return gate;
+        var next = current.Clone();
         int available = FindAmount(next.Loadout, lootId);
         if (available <= 0) return StashOperationResult.InvalidInventory;
         int actualAmount = Math.Min(amount, available);
@@ -841,7 +859,9 @@ public sealed class LocalProfileStore
 
     public StashOperationResult TryTransferAllToLoadout()
     {
-        var next = _repository.Snapshot.Clone();
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success) return gate;
+        var next = current.Clone();
         if (next.Stash.Count == 0) return StashOperationResult.Success;
         int newSlots = 0;
         foreach (StashItem item in next.Stash)
@@ -855,7 +875,9 @@ public sealed class LocalProfileStore
 
     public StashOperationResult TryTransferAllToStash()
     {
-        var next = _repository.Snapshot.Clone();
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success) return gate;
+        var next = current.Clone();
         if (next.Loadout.Count == 0) return StashOperationResult.Success;
         if (!TryMerge(next.Stash, next.Loadout)) return StashOperationResult.InvalidInventory;
         next.Loadout.Clear();
@@ -887,10 +909,10 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        LocalProfileSnapshot current = _repository.Snapshot;
-        if (!IsAvailable || current == null)
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success)
         {
-            return StashOperationResult.InvalidInventory;
+            return gate;
         }
 
         if (FindAmount(current.Loadout, lootId) < 1 ||
@@ -970,10 +992,10 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        LocalProfileSnapshot current = _repository.Snapshot;
-        if (!IsAvailable || current == null)
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success)
         {
-            return StashOperationResult.InvalidInventory;
+            return gate;
         }
 
         if (FindAmount(current.Stash, lootId) < 1 ||
@@ -1068,10 +1090,10 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
-        LocalProfileSnapshot current = _repository.Snapshot;
-        if (!IsAvailable || current == null)
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success)
         {
-            return StashOperationResult.InvalidInventory;
+            return gate;
         }
 
         LootId previousLootId = current.PreparedEquipment.Get(slot);
