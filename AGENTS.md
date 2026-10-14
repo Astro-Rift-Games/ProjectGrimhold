@@ -6,6 +6,8 @@ These instructions apply to the whole `Astro-Rift-Games/ProjectGrimhold` reposit
 
 ```text
 ProjectGrimhold/
+├── .agents/
+│   └── skills/
 ├── AGENTS.md
 ├── Project Grimhold/        # Unity project
 │   ├── AGENTS.md            # Unity/Fusion rules
@@ -15,7 +17,6 @@ ProjectGrimhold/
 │   └── ProjectSettings/
 ├── backend/
 ├── docs/
-├── skills/
 └── tools/
     └── grimhold-docs-mcp/
 ```
