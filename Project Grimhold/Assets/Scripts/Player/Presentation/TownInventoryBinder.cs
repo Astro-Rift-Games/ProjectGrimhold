@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Owns the local Town lifecycle that connects the shared inventory screen to the
 /// confirmed application-level Loadout, and supplies the same confirmed-profile reads to the
-/// local merchant presenter. It never owns or replicates inventory state.
+/// local merchant and Ability Vendor presenters. It never owns or replicates inventory state.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class TownInventoryBinder : NetworkBehaviour
@@ -17,6 +17,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
 
     [SerializeField]
     private TownMerchantPresenter _merchantPresenter;
+
+    [SerializeField]
+    private TownAbilityVendorPresenter _abilityVendorPresenter;
 
     [SerializeField]
     private TownPlayerMenuPresenter _menuPresenter;
@@ -102,6 +105,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
         BindMerchantProfile();
+        BindAbilityVendorProfile();
     }
 
     private void BindMerchantProfile()
@@ -122,6 +126,22 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _inventorySource,
             _profileContext.CurrencyService,
             _profileContext.ShopTransactionService));
+    }
+
+    private void BindAbilityVendorProfile()
+    {
+        if (_abilityVendorPresenter == null)
+        {
+            return;
+        }
+
+        if (_profileContext.Store == null)
+        {
+            Debug.LogError($"{nameof(TownInventoryBinder)} could not bind the ability vendor: the profile has no store.", this);
+            return;
+        }
+
+        _abilityVendorPresenter.BindProfile(_profileContext.Store);
     }
 
     private void OnInputReaderChanged(PlayerInputReader inputReader)
@@ -216,6 +236,11 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         if (_merchantPresenter != null)
         {
             _merchantPresenter.UnbindProfile();
+        }
+
+        if (_abilityVendorPresenter != null)
+        {
+            _abilityVendorPresenter.UnbindProfile();
         }
 
         _inventorySource?.Dispose();
