@@ -22,6 +22,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private Button _readyButton;
     private Button _startButton;
     private Button _leaveButton;
+    private Button _reconnectButton;
+    private Button _discardReconnectButton;
     private bool _localReady;
     private Button _closeButton;
     private string _rejectionNotice;
@@ -32,6 +34,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public event Action StartRequested;
     public event Action LeaveRequested;
     public event Action CloseRequested;
+    public event Action ReconnectRequested;
+    public event Action DiscardReconnectRequested;
 
     public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
 
@@ -81,11 +85,33 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _readyButton = FindComponent<Button>("RaidCodePanel/Ready");
         _startButton = FindComponent<Button>("RaidCodePanel/Iniciar raid");
         _leaveButton = FindComponent<Button>("RaidCodePanel/Abandonar preparacion");
+        _reconnectButton = FindComponent<Button>("RaidCodePanel/Volver a la raid");
+        _discardReconnectButton = FindComponent<Button>("RaidCodePanel/Descartar reconexion");
         _closeButton = FindComponent<Button>("RaidCodePanel/Cerrar");
 
         if (_panelRoot == null || _statusText == null || _codeInput == null)
         {
             return;
+        }
+
+        if (_reconnectButton == null)
+        {
+            _reconnectButton = CreateButton("Volver a la raid", _panelRoot.transform, () => ReconnectRequested?.Invoke(), out _);
+            _reconnectButton.gameObject.SetActive(false);
+        }
+        else
+        {
+            WireButton(_reconnectButton, () => ReconnectRequested?.Invoke());
+        }
+
+        if (_discardReconnectButton == null)
+        {
+            _discardReconnectButton = CreateButton("Descartar reconexion", _panelRoot.transform, () => DiscardReconnectRequested?.Invoke(), out _);
+            _discardReconnectButton.gameObject.SetActive(false);
+        }
+        else
+        {
+            WireButton(_discardReconnectButton, () => DiscardReconnectRequested?.Invoke());
         }
 
         WireButton(_createButton, () => CreateRequested?.Invoke(null));
@@ -140,6 +166,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public void PresentNoPreparation()
     {
         _localReady = false;
+        HideReconnectOpportunity();
         if (_codeInput != null)
         {
             _codeInput.text = string.Empty;
@@ -181,6 +208,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         if (_readyButton != null) _readyButton.interactable = !busy;
         if (_startButton != null) _startButton.interactable = !busy;
         if (_leaveButton != null) _leaveButton.interactable = !busy;
+        if (_reconnectButton != null) _reconnectButton.interactable = !busy;
+        if (_discardReconnectButton != null) _discardReconnectButton.interactable = !busy;
         if (_closeButton != null) _closeButton.interactable = !busy;
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -240,6 +269,35 @@ public sealed class TownRaidPreparationView : MonoBehaviour
                 label.text = "Abandonar preparación";
             }
         }
+        HideReconnectOpportunity();
+    }
+
+    public void PresentReconnectOpportunity(in RaidReconnectTicket ticket)
+    {
+        _localReady = false;
+        if (_codeInput != null)
+        {
+            _codeInput.text = ticket.RaidCode.Value;
+            _codeInput.interactable = false;
+        }
+
+        ShowStatus($"Tenés una expedición en curso (Raid {ticket.RaidCode.Value}).\nPodés volver a la raid o descartar la oportunidad.");
+
+        if (_reconnectButton != null) _reconnectButton.gameObject.SetActive(true);
+        if (_discardReconnectButton != null) _discardReconnectButton.gameObject.SetActive(true);
+
+        if (_createButton != null) _createButton.gameObject.SetActive(false);
+        if (_joinButton != null) _joinButton.gameObject.SetActive(false);
+        if (_copyButton != null) _copyButton.gameObject.SetActive(false);
+        if (_readyButton != null) _readyButton.gameObject.SetActive(false);
+        if (_startButton != null) _startButton.gameObject.SetActive(false);
+        if (_leaveButton != null) _leaveButton.gameObject.SetActive(false);
+    }
+
+    public void HideReconnectOpportunity()
+    {
+        if (_reconnectButton != null) _reconnectButton.gameObject.SetActive(false);
+        if (_discardReconnectButton != null) _discardReconnectButton.gameObject.SetActive(false);
     }
 
     public void ShowInvalidCode()
@@ -250,7 +308,10 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public void ShowTransitionFailure(SessionTransitionResult result)
     {
         SetBusy(false);
-        ShowStatus($"No se pudo conectar a la raid: {result}.");
+        string message = result == SessionTransitionResult.ConnectionFailed
+            ? "No se pudo conectar a la expedición: la raid ya no está disponible o ha finalizado."
+            : $"No se pudo conectar a la raid: {result}.";
+        ShowStatus(message);
     }
 
     /// <summary>
@@ -317,6 +378,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _readyButton = CreateButton("Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _);
         _startButton = CreateButton("Iniciar raid", _panelRoot.transform, () => StartRequested?.Invoke(), out _);
         _leaveButton = CreateButton("Abandonar preparacion", _panelRoot.transform, () => LeaveRequested?.Invoke(), out _);
+        _reconnectButton = CreateButton("Volver a la raid", _panelRoot.transform, () => ReconnectRequested?.Invoke(), out _);
+        _discardReconnectButton = CreateButton("Descartar reconexion", _panelRoot.transform, () => DiscardReconnectRequested?.Invoke(), out _);
         _closeButton = CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
 
         _panelRoot.SetActive(false);
@@ -324,6 +387,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _readyButton.gameObject.SetActive(false);
         _startButton.gameObject.SetActive(false);
         _leaveButton.gameObject.SetActive(false);
+        _reconnectButton.gameObject.SetActive(false);
+        _discardReconnectButton.gameObject.SetActive(false);
     }
 
     private void Submit(Action<string> action)

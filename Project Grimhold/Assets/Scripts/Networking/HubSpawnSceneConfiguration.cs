@@ -17,13 +17,13 @@ public sealed class HubSpawnSceneConfiguration : MonoBehaviour
         position = default;
         rotation = Quaternion.identity;
 
-        if (_spawnPoints == null || _spawnPoints.Length < RaidSessionRules.MaxParticipants ||
-            stableIndex < 0 || stableIndex >= _spawnPoints.Length)
+        if (_spawnPoints == null || _spawnPoints.Length < RaidSessionRules.MaxParticipants)
         {
             return false;
         }
 
-        Transform spawnPoint = _spawnPoints[stableIndex];
+        int index = (stableIndex >= 0 ? stableIndex : -stableIndex) % _spawnPoints.Length;
+        Transform spawnPoint = _spawnPoints[index];
         if (spawnPoint == null)
         {
             return false;

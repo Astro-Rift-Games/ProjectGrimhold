@@ -57,6 +57,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _operationActive;
     private bool _isQuitting;
     private RaidTransitionTicket? _activeTicket;
+    private RaidReconnectTicket? _activeReconnectTicket;
+    private RaidCode _currentRaidCode;
+    private ProfileId _currentProfileId;
+    private string _currentRaidGenerationId;
+    private string _currentSessionName;
+    private RaidConnectionRole _currentRole;
     private TownPartyContinuationContext _pendingPartyContinuation;
     private int _acknowledgedLaunchSequence;
     private bool _launchDispatchActive;
@@ -71,11 +77,29 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
+    public bool HasActiveReconnectTicket => ActiveReconnectTicket.HasValue && ActiveReconnectTicket.Value.IsValid;
+    public RaidReconnectTicket? ActiveReconnectTicket
+    {
+        get
+        {
+            if (!_activeReconnectTicket.HasValue)
+            {
+                ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+                if (RaidReconnectTicketStore.TryLoad(localProfile, out RaidReconnectTicket persistedTicket))
+                {
+                    _activeReconnectTicket = persistedTicket;
+                }
+            }
+
+            return _activeReconnectTicket;
+        }
+    }
     public TownPartyContinuationContext PendingPartyContinuation => _pendingPartyContinuation;
     public bool HasPendingPartyContinuation => _pendingPartyContinuation != null;
     public bool IsTransitioning => _operationActive;
 
     public event Action<SessionConnectionState> StateChanged;
+    public event Action<RaidReconnectTicket?> ReconnectTicketChanged;
 
     public bool TryGetPendingPartyContinuation(out TownPartyContinuationContext context)
     {
@@ -963,6 +987,24 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             UpdateTicketState(SessionConnectionState.Raid);
             _raidAdmissionConfirmed = ticket.HasLoadoutReservation;
             _loadoutConfirmationPending = ticket.HasLoadoutReservation;
+            _currentRaidCode = ticket.LaunchContext.RaidCode;
+            _currentProfileId = ticket.LaunchContext.LocalProfileId;
+            _currentRaidGenerationId = ticket.LaunchContext.RaidCode.RaidId;
+            _currentSessionName = ticket.Request.SessionName;
+            _currentRole = ticket.Request.Role;
+
+            if (_currentRole == RaidConnectionRole.Client && _raidAdmissionConfirmed &&
+                _currentRaidCode.IsValid && _currentProfileId.IsValid &&
+                !string.IsNullOrEmpty(_currentRaidGenerationId) && !string.IsNullOrEmpty(_currentSessionName))
+            {
+                var clientTicket = new RaidReconnectTicket(
+                    _currentRaidCode,
+                    _currentProfileId,
+                    _currentRaidGenerationId,
+                    _currentSessionName);
+                RaidReconnectTicketStore.Save(clientTicket);
+            }
+
             TryConfirmActiveReservation();
             ResetHostResultsReturn();
             _pendingTransitionFailure = null;
@@ -995,6 +1037,174 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         {
             EndTransitionCancellation();
             _operationActive = false;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to reconnect the local client to the active raid represented by its in-memory ticket.
+    /// Shuts down the Town hub runner, connects via StartReconnectClientSessionAsync, and restores
+    /// Town if connection fails. Discards ticket permanently upon ConnectionRefused or GameNotFound.
+    /// </summary>
+    public async Task<SessionTransitionResult> ReconnectToRaidAsync()
+    {
+        if (_isQuitting)
+        {
+            return SessionTransitionResult.ConnectionFailed;
+        }
+
+        if (_operationActive)
+        {
+            return SessionTransitionResult.Busy;
+        }
+
+        if (!HasActiveReconnectTicket)
+        {
+            return SessionTransitionResult.InvalidRequest;
+        }
+
+        if (State != SessionConnectionState.Town)
+        {
+            return SessionTransitionResult.InvalidState;
+        }
+
+        _operationActive = true;
+        CancellationToken cancellationToken = BeginTransitionCancellation();
+        RaidReconnectTicket ticket = ActiveReconnectTicket.Value;
+
+        try
+        {
+            if (!TransitionTo(SessionConnectionState.ConnectingRaid))
+            {
+                return SessionTransitionResult.InvalidState;
+            }
+
+            bool hubShutdown = await _hubLauncher.ShutdownAndDestroyRunnerAsync();
+            if (_isQuitting)
+            {
+                return SessionTransitionResult.ConnectionFailed;
+            }
+
+            if (!hubShutdown)
+            {
+                TransitionTo(SessionConnectionState.Failed);
+                return await RecoverTownAfterFailedReconnectAsync();
+            }
+
+            bool connected = false;
+            float deadline = Time.realtimeSinceStartup + _clientSessionAvailabilityTimeoutSeconds;
+            int attempt = 0;
+            while (!connected)
+            {
+                if (_isQuitting)
+                {
+                    return SessionTransitionResult.ConnectionFailed;
+                }
+
+                attempt++;
+                try
+                {
+                    connected = await _raidLauncher.StartReconnectClientSessionAsync(ticket, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (this == null || _isQuitting)
+                    {
+                        return SessionTransitionResult.ConnectionFailed;
+                    }
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex, this);
+                    break;
+                }
+
+                if (connected)
+                {
+                    break;
+                }
+
+                ShutdownReason lastReason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
+                float remainingSeconds = deadline - Time.realtimeSinceStartup;
+                // For reconnect, GameNotFound is immediately terminal because the raid room was closed/cancelled.
+                // Only GameClosed may represent a transient state while the Host reopens the session gate.
+                bool sessionPending = lastReason == ShutdownReason.GameClosed && remainingSeconds > 0f;
+                if (!sessionPending || _isQuitting)
+                {
+                    break;
+                }
+
+                float delaySeconds = Mathf.Min(_clientJoinRetryDelaySeconds, remainingSeconds);
+                int retryDelayMilliseconds = Mathf.CeilToInt(delaySeconds * 1000f);
+                if (retryDelayMilliseconds > 0)
+                {
+                    await Task.Delay(retryDelayMilliseconds, cancellationToken);
+                }
+            }
+
+            if (!connected)
+            {
+                ShutdownReason reason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
+                Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reconnect to raid failed. LastStartShutdownReason={reason}.", this);
+
+                DiscardActiveReconnectTicket();
+
+                return await RecoverTownAfterFailedReconnectAsync();
+            }
+
+            TransitionTo(SessionConnectionState.Raid);
+            _raidAdmissionConfirmed = true;
+            _loadoutConfirmationPending = false;
+            _currentRaidCode = ticket.RaidCode;
+            _currentProfileId = ticket.ProfileId;
+            _currentRaidGenerationId = ticket.RaidGenerationId;
+            _currentSessionName = ticket.SessionName;
+            _currentRole = RaidConnectionRole.Client;
+            _activeReconnectTicket = null;
+            RaidReconnectTicketStore.Save(ticket);
+            ReconnectTicketChanged?.Invoke(null);
+            _pendingTransitionFailure = null;
+            ResetHostResultsReturn();
+
+            return SessionTransitionResult.Succeeded;
+        }
+        finally
+        {
+            EndTransitionCancellation();
+            _operationActive = false;
+        }
+    }
+
+    private async Task<SessionTransitionResult> RecoverTownAfterFailedReconnectAsync()
+    {
+        TransitionTo(SessionConnectionState.ReturningTown);
+        await ShutdownActiveRunnersAsync();
+
+        CancellationToken cancellationToken = _isQuitting ? new CancellationToken(true) : CancellationToken.None;
+        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+        if (!recovered)
+        {
+            TransitionTo(SessionConnectionState.Failed);
+            return SessionTransitionResult.RecoveryFailed;
+        }
+
+        TransitionTo(SessionConnectionState.Town);
+        CompleteTownEntry(SessionTransitionResult.ConnectionFailed);
+        return SessionTransitionResult.ConnectionFailed;
+    }
+
+    public void DiscardActiveReconnectTicket()
+    {
+        bool hadTicket = _activeReconnectTicket.HasValue;
+        _activeReconnectTicket = null;
+        _currentRaidCode = default;
+        _currentProfileId = default;
+        _currentRaidGenerationId = null;
+        _currentSessionName = null;
+        RaidReconnectTicketStore.Clear();
+        if (hadTicket)
+        {
+            ReconnectTicketChanged?.Invoke(null);
         }
     }
 
@@ -1048,6 +1258,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.InvalidState;
             }
 
+            DiscardActiveReconnectTicket();
             CompleteTownEntry();
             _pendingPartyContinuation = null;
             return SessionTransitionResult.Succeeded;
@@ -1147,6 +1358,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
 
+            DiscardActiveReconnectTicket();
             CompleteTownEntry();
             return SessionTransitionResult.Succeeded;
         }
@@ -1279,6 +1491,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             UpdateTicketState(SessionConnectionState.Raid);
             _raidAdmissionConfirmed = true;
             _loadoutConfirmationPending = true;
+            _currentRaidCode = launchContext.RaidCode;
+            _currentProfileId = launchContext.LocalProfileId;
+            _currentRaidGenerationId = launchContext.RaidCode.RaidId;
+            _currentSessionName = sessionName;
+            _currentRole = role;
             TryConfirmActiveReservation();
             ResetHostResultsReturn();
             _pendingTransitionFailure = null;
@@ -1627,6 +1844,32 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
+            if (State == SessionConnectionState.Raid && _raidAdmissionConfirmed && _currentRole == RaidConnectionRole.Client)
+            {
+                string genId = _currentRaidGenerationId;
+                if (_raidLauncher != null && _raidLauncher.MatchController != null)
+                {
+                    string matchGenId = _raidLauncher.MatchController.RaidGenerationId.ToString();
+                    if (!string.IsNullOrEmpty(matchGenId))
+                    {
+                        genId = matchGenId;
+                    }
+                }
+
+                if (_currentRaidCode.IsValid && _currentProfileId.IsValid &&
+                    !string.IsNullOrEmpty(genId) && !string.IsNullOrEmpty(_currentSessionName))
+                {
+                    _activeReconnectTicket = new RaidReconnectTicket(
+                        _currentRaidCode,
+                        _currentProfileId,
+                        genId,
+                        _currentSessionName);
+                    RaidReconnectTicketStore.Save(_activeReconnectTicket.Value);
+                    ReconnectTicketChanged?.Invoke(_activeReconnectTicket);
+                    Debug.Log($"[{nameof(SessionConnectionCoordinator)}] Reconnect ticket preserved for {_currentProfileId.Value} in session {_currentSessionName}.", this);
+                }
+            }
+
             TransitionTo(SessionConnectionState.ReturningTown);
             UpdateTicketState(SessionConnectionState.ReturningTown);
             bool shutdownSucceeded = await ShutdownActiveRunnersAsync();

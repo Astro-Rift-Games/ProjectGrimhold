@@ -506,6 +506,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _breakablePrefab = configuredManager._breakablePrefab;
         _lootCatalog = configuredManager._lootCatalog;
         _abilityCatalog = configuredManager._abilityCatalog;
+        if (configuredManager._reconnectBudgetConfig != null)
+        {
+            _reconnectBudgetConfig = configuredManager._reconnectBudgetConfig;
+        }
+#if UNITY_EDITOR
+        if (_reconnectBudgetConfig == null)
+        {
+            _reconnectBudgetConfig = UnityEditor.AssetDatabase.LoadAssetAtPath<ReconnectBudgetConfig>(
+                "Assets/Scriptable Objects/ReconnectBudgetConfig.asset");
+        }
+#endif
         if (!_lootContainerPrefab.IsValid)
         {
             Debug.LogError(
@@ -1330,10 +1341,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         bool isReturnAuthorized,
         bool terminalKnown)
     {
-        return profileId.IsValid && profileId != oldHostProfileId &&
-               !isReturnAuthorized && !terminalKnown &&
-               (state == RaidParticipantState.Raiding ||
-                state == RaidParticipantState.Defeated);
+        if (!profileId.IsValid || profileId == oldHostProfileId || terminalKnown)
+        {
+            return false;
+        }
+
+        if (state == RaidParticipantState.Raiding || state == RaidParticipantState.Defeated)
+        {
+            return !isReturnAuthorized;
+        }
+
+        if (state == RaidParticipantState.Extracted || state == RaidParticipantState.Aborted)
+        {
+            return isReturnAuthorized;
+        }
+
+        return false;
     }
 
     private bool AreAllEligibleProfilesRecovered()
@@ -3793,6 +3816,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         bool isAvatarDowned = IsAvatarDowned(avatarObject);
         bool hasEligibleDecider = HasEligibleDecider(participant);
+#if UNITY_EDITOR
+        if (_reconnectBudgetConfig == null)
+        {
+            _reconnectBudgetConfig = UnityEditor.AssetDatabase.LoadAssetAtPath<ReconnectBudgetConfig>(
+                "Assets/Scriptable Objects/ReconnectBudgetConfig.asset");
+        }
+#endif
         bool hasValidBudgetConfig = _reconnectBudgetConfig != null && _reconnectBudgetConfig.TryValidate(out _);
         bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity) && hasValidBudgetConfig;
 

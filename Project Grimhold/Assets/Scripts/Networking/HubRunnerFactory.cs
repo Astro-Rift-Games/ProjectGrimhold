@@ -30,6 +30,7 @@ public static class HubRunnerFactory
         GameObject runnerObject = new GameObject("HubNetworkRunner");
         NetworkRunner runner = runnerObject.AddComponent<NetworkRunner>();
         var sceneManager = runnerObject.AddComponent<NetworkSceneManagerDefault>();
+        sceneManager.IsSceneTakeOverEnabled = false;
         runnerObject.AddComponent<EntityRegistry>();
         runnerObject.AddComponent<LocalInputContext>();
         runnerObject.AddComponent<TownRaidPreparationDirectoryContext>();
@@ -41,7 +42,10 @@ public static class HubRunnerFactory
         var spawner = runnerObject.AddComponent<HubPlayerSpawner>();
         spawner.Initialize(socialPlayerPrefab);
         
-        Object.DontDestroyOnLoad(runnerObject);
+        if (Application.isPlaying)
+        {
+            Object.DontDestroyOnLoad(runnerObject);
+        }
         runner.ProvideInput = true;
 
         composition = new HubRunnerComposition(runnerObject, runner, sceneManager);
