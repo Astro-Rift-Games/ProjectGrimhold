@@ -1,12 +1,14 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
 /// The Presenter component of the MVP pattern for the Lobby Stash and Loadout.
 /// Bridges the UI view and the Stash/Loadout Services, isolating logic from rendering.
-/// Handles user requests to transfer items between Stash and Loadout.
+/// It turns user requests into <see cref="StashTransferCoordinator"/> actions: the coordinator owns
+/// the rules, the remote calls and the serialized queue, so this class only binds events and
+/// refreshes the view when the confirmed profile changes.
 /// </summary>
 public class LobbyStashPresenter : MonoBehaviour
 {
@@ -14,13 +16,23 @@ public class LobbyStashPresenter : MonoBehaviour
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
     private IPlayerStashService _stashService;
     private IPlayerLoadoutService _loadoutService;
-    private RemoteInventoryService _remoteInventoryService;
-    private ProfileReconciliationService _reconciliationService;
     private ApplicationStashContext _context;
+    private StashTransferCoordinator _coordinator;
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
     private DragPayload _activeDrag = DragPayload.Empty;
-    private bool _isTransferring;
+    private Func<bool> _canMutateEquipment = AllowEquipmentMutation;
+
+    /// <summary>
+    /// Supplies the Town Equipment gate (closed while the player is Ready). Without one, Equipment
+    /// changes are always allowed. The owner of the screen calls this before it opens.
+    /// </summary>
+    public void SetEquipmentGate(Func<bool> canMutateEquipment)
+    {
+        _canMutateEquipment = canMutateEquipment ?? AllowEquipmentMutation;
+    }
+
+    private static bool AllowEquipmentMutation() => true;
 
     private void OnEnable()
     {
@@ -33,7 +45,7 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
             _stashUI.PreparedEquipmentAssignmentRequested += OnPreparedEquipmentAssignmentRequested;
             _stashUI.PreparedEquipmentClearRequested += OnPreparedEquipmentClearRequested;
-            
+
             _stashUI.DragStarted += OnDragStarted;
             _stashUI.DragUpdated += OnDragUpdated;
             _stashUI.DragEnded += OnDragEnded;
@@ -45,8 +57,7 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _stashService = _context.StashService;
             _loadoutService = _context.LoadoutService;
-            _remoteInventoryService = _context.GetComponent<RemoteInventoryService>();
-            _reconciliationService = _context.GetComponent<ProfileReconciliationService>();
+            _coordinator = CreateCoordinator();
             _context.ProfileCommitted += OnProfileCommitted;
             RefreshUI();
         }
@@ -66,7 +77,7 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
             _stashUI.PreparedEquipmentAssignmentRequested -= OnPreparedEquipmentAssignmentRequested;
             _stashUI.PreparedEquipmentClearRequested -= OnPreparedEquipmentClearRequested;
-            
+
             _stashUI.DragStarted -= OnDragStarted;
             _stashUI.DragUpdated -= OnDragUpdated;
             _stashUI.DragEnded -= OnDragEnded;
@@ -75,6 +86,31 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
         _context = null;
+        _coordinator = null;
+    }
+
+    private StashTransferCoordinator CreateCoordinator()
+    {
+        if (!_localProfileId.IsValid || _stashService == null || _loadoutService == null || _lootCatalog == null)
+        {
+            Debug.LogWarning(
+                "[LobbyStashPresenter] The profile, its services or the loot catalog are unavailable. " +
+                "Stash actions are disabled.");
+            return null;
+        }
+
+        var equipment = new TownEquipmentMutationEndpoint(
+            _loadoutService,
+            _localProfileId,
+            _lootCatalog,
+            () => _canMutateEquipment());
+        return new StashTransferCoordinator(
+            _localProfileId,
+            _stashService,
+            _loadoutService,
+            _context.GetComponent<IRemoteInventoryService>(),
+            _context.GetComponent<IProfileReconciliation>(),
+            equipment);
     }
 
     private void CancelActiveDrag()
@@ -89,10 +125,10 @@ public class LobbyStashPresenter : MonoBehaviour
     private void OnDragStarted(DragPayload payload)
     {
         if (!payload.IsValid) return;
-        
+
         _activeDrag = payload;
         if (_stashUI.TooltipView != null) _stashUI.TooltipView.Hide();
-        
+
         if (_stashUI.DragPreview != null)
         {
             _stashUI.DragPreview.Show(payload.Icon, UnityEngine.Input.mousePosition);
@@ -114,7 +150,7 @@ public class LobbyStashPresenter : MonoBehaviour
     {
         if (!_activeDrag.IsValid) return;
         DragPayload payload = _activeDrag;
-        
+
         if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
         if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot)) return;
 
@@ -136,230 +172,44 @@ public class LobbyStashPresenter : MonoBehaviour
         }
         else if (payload.Source == DragSlotLocation.Stash && targetLocation == DragSlotLocation.Equipment)
         {
-            OnTryEquipFromStash(payload.LootId, targetEquipmentSlot);
+            Run(coordinator => coordinator.EquipAsync(payload.LootId, targetEquipmentSlot, fromStash: true));
         }
     }
 
-    private async void OnTryEquipFromStash(LootId lootId, EquipmentSlot slot)
+    private void OnTakeAllRequested() => Run(coordinator => coordinator.TakeAllAsync());
+
+    private void OnLeaveAllRequested() => Run(coordinator => coordinator.LeaveAllAsync());
+
+    private void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
+        Run(coordinator => coordinator.TransferAsync(lootId, isFromStash, mode));
+
+    private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot) =>
+        Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash: false));
+
+    private void OnPreparedEquipmentClearRequested(EquipmentSlot slot) =>
+        Run(coordinator => coordinator.UnequipAsync(slot));
+
+    /// <summary>Queues one action on the coordinator and reports, without throwing, how it ended.</summary>
+    private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action)
     {
-        if (_loadoutService == null) return;
-        
-        // This is a local atomic operation bridging Stash and Equipment.
-        // It relies on the persistence layer to sync these changes (or fails locally).
-        // Since equipment is in Loadout but source is Stash, it does affect both.
-        
-        // First we do the remote stash->loadout transfer if applicable? No, Equipment is NOT loadout in remote (or is it?).
-        // In this game, RemoteInventoryService.MoveToLoadoutAsync actually syncs the backend loadout.
-        // If an item goes from Stash to Equipment, we MUST call MoveToLoadoutAsync for it.
-        // And if an item is displaced from Equipment back to Stash, we MUST call MoveToStashAsync for it!
-        // But doing both sequentially is not atomic on the client. Wait, TryEquipFromStash handles it locally atomically.
-        // We can do the network sync after. If it fails, well, the local operation succeeded but we might have a sync issue.
-        // This is why we use SyncPreparedEquipmentAsync() for equipment! But Stash needs Sync too.
-
-        // For MVP, we'll execute the local atomic change, then force a sync or just use the local result.
-        // The instructions say "Etapa 6: tryEquipFromStash in LocalProfileStore", let's trust that the backend sync will be handled or is secondary here.
-        // Just call the service:
-
-        StashOperationResult result = _loadoutService.TryEquipFromStash(_localProfileId, lootId, slot);
-        if (result != StashOperationResult.Success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Equip from stash failed locally: {result}");
-            return;
-        }
-
-        // Like PreparedEquipmentAssignmentRequested, we should sync equipment state.
-        await SyncPreparedEquipmentAsync();
+        if (_coordinator == null) return;
+        _ = ObserveAsync(action(_coordinator));
     }
 
-    private async void OnTakeAllRequested()
+    private static async Task ObserveAsync(Task<StashTransferOutcome> action)
     {
-        if (_loadoutService == null || _remoteInventoryService == null) return;
-        if (_isTransferring) return;
-        _isTransferring = true;
-        
         try
         {
-            var stashItems = _stashService.GetStash(_localProfileId).ToList();
-            foreach (var item in stashItems)
+            StashTransferOutcome outcome = await action;
+            if (!outcome.IsSuccess)
             {
-                var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-                    () => _remoteInventoryService.MoveToLoadoutAsync(item.LootId, item.Amount),
-                    async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
-                );
-                if (!success)
-                {
-                    Debug.LogWarning($"[LobbyStashPresenter] Remote Take All failed for {item.LootId.Value}: {error.message}");
-                    return;
-                }
-            }
-
-            var result = _loadoutService.TryTransferAllToLoadout(_localProfileId);
-            if (result != StashOperationResult.Success)
-            {
-                Debug.LogWarning($"[LobbyStashPresenter] Take All failed locally: {result}");
-                // No need to reconcile here; local errors shouldn't happen if remote succeeded, but if they do, we're out of sync.
-                if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
+                Debug.LogWarning($"[{nameof(LobbyStashPresenter)}] Stash action did not complete: {outcome}.");
             }
         }
-        finally
+        catch (Exception exception)
         {
-            _isTransferring = false;
+            Debug.LogException(exception);
         }
-    }
-
-    private async void OnLeaveAllRequested()
-    {
-        if (_loadoutService == null || _remoteInventoryService == null) return;
-        if (_isTransferring) return;
-        _isTransferring = true;
-
-        try
-        {
-            var loadoutItems = _loadoutService.GetLoadout(_localProfileId).ToList();
-            foreach (var item in loadoutItems)
-            {
-                var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-                    () => _remoteInventoryService.MoveToStashAsync(item.LootId, item.Amount),
-                    async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
-                );
-                if (!success)
-                {
-                    Debug.LogWarning($"[LobbyStashPresenter] Remote Leave All failed for {item.LootId.Value}: {error.message}");
-                    return;
-                }
-            }
-
-            var result = _loadoutService.TryTransferAllToStash(_localProfileId);
-            if (result != StashOperationResult.Success)
-            {
-                Debug.LogWarning($"[LobbyStashPresenter] Leave All failed locally: {result}");
-                if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
-            }
-        }
-        finally
-        {
-            _isTransferring = false;
-        }
-    }
-
-    private async void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode)
-    {
-        if (_loadoutService == null || _remoteInventoryService == null) return;
-        if (_isTransferring) return;
-        _isTransferring = true;
-
-        try
-        {
-            int amountToTransfer = mode == LootTransferQuantityMode.FullStack ? int.MaxValue : 1;
-
-            if (amountToTransfer == int.MaxValue)
-            {
-                if (isFromStash)
-                {
-                    var item = _stashService.GetStash(_localProfileId).FirstOrDefault(i => i.LootId == lootId);
-                    if (item != null) amountToTransfer = item.Amount;
-                }
-                else
-                {
-                    var item = _loadoutService.GetLoadout(_localProfileId).FirstOrDefault(i => i.LootId == lootId);
-                    if (item != null) amountToTransfer = item.Amount;
-                }
-            }
-
-            if (amountToTransfer == int.MaxValue || amountToTransfer <= 0) return;
-
-            var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-                () => isFromStash 
-                    ? _remoteInventoryService.MoveToLoadoutAsync(lootId, amountToTransfer)
-                    : _remoteInventoryService.MoveToStashAsync(lootId, amountToTransfer),
-                async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
-            );
-
-            if (!success)
-            {
-                Debug.LogWarning($"[LobbyStashPresenter] Remote transfer failed: {error.message}");
-                return;
-            }
-
-            StashOperationResult result;
-            if (isFromStash)
-            {
-                result = _loadoutService.TryTransferToLoadout(_localProfileId, lootId, amountToTransfer);
-            }
-            else
-            {
-                result = _loadoutService.TryTransferToStash(_localProfileId, lootId, amountToTransfer);
-            }
-
-            if (result != StashOperationResult.Success)
-            {
-                Debug.LogWarning($"[LobbyStashPresenter] Transfer failed locally: {result}");
-                if (_reconciliationService != null) await _reconciliationService.ReconcileAsync();
-            }
-        }
-        finally
-        {
-            _isTransferring = false;
-        }
-    }
-
-    private async void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot)
-    {
-        if (_loadoutService == null) return;
-
-        StashOperationResult result = _loadoutService.TryAssignPreparedEquipment(
-            _localProfileId,
-            slot,
-            lootId);
-
-        if (result != StashOperationResult.Success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment assignment failed locally: {result}");
-            return;
-        }
-
-        await SyncPreparedEquipmentAsync();
-    }
-
-    private async void OnPreparedEquipmentClearRequested(EquipmentSlot slot)
-    {
-        if (_loadoutService == null) return;
-
-        StashOperationResult result = _loadoutService.TryClearPreparedEquipment(_localProfileId, slot);
-        if (result != StashOperationResult.Success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Prepared equipment clear failed locally: {result}");
-            return;
-        }
-
-        await SyncPreparedEquipmentAsync();
-    }
-
-    /// <summary>
-    /// Pushes the current local prepared-equipment state to the backend so it survives
-    /// logout/login. The local mutation has already been committed by the time this runs;
-    /// on remote failure we log rather than roll back, since the local operation is an
-    /// atomic multi-slot swap that isn't safely reversible from here.
-    /// </summary>
-    private async Task<bool> SyncPreparedEquipmentAsync()
-    {
-        if (_remoteInventoryService == null)
-        {
-            Debug.LogWarning("[LobbyStashPresenter] No RemoteInventoryService available; prepared equipment change will not persist across sessions.");
-            return false;
-        }
-
-        PreparedEquipmentLoadout prepared = _loadoutService.GetPreparedEquipment(_localProfileId);
-        var (success, error) = await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-            () => _remoteInventoryService.UpdatePreparedEquipmentAsync(prepared),
-            async () => _reconciliationService != null && await _reconciliationService.ReconcileAsync()
-        );
-        
-        if (!success)
-        {
-            Debug.LogWarning($"[LobbyStashPresenter] Remote prepared equipment sync failed: {error.message}");
-        }
-        return success;
     }
 
     private void OnProfileCommitted(ProfileId updatedProfileId)
@@ -414,7 +264,7 @@ public class LobbyStashPresenter : MonoBehaviour
                 {
                     _lootCatalog.TryGet(item.LootId.Value, out definition);
                 }
-                
+
                 LootEntry entry = new LootEntry(item.LootId, item.Amount);
                 var slotData = RaidInventorySlotData.Create(entry, definition, ResolvePlaceholderIcon());
                 presentationData.Add(slotData);

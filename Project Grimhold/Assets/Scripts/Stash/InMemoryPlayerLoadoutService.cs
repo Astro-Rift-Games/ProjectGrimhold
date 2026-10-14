@@ -58,6 +58,18 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
     public StashOperationResult TryTransferAllToStash(ProfileId profileId) =>
         IsProfile(profileId) ? _store.TryTransferAllToStash() : StashOperationResult.InvalidInventory;
 
+    public StashOperationResult EvaluateTransferToLoadout(ProfileId profileId, LootId lootId, int amount) =>
+        IsProfile(profileId) ? _store.EvaluateTransferToLoadout(lootId, amount) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferToStash(ProfileId profileId, LootId lootId, int amount) =>
+        IsProfile(profileId) ? _store.EvaluateTransferToStash(lootId, amount) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferAllToLoadout(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.EvaluateTransferAllToLoadout() : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferAllToStash(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.EvaluateTransferAllToStash() : StashOperationResult.InvalidInventory;
+
     public StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items) =>
         IsProfile(profileId) ? _store.TryImportItems(items) : StashOperationResult.InvalidInventory;
 

@@ -38,5 +38,8 @@ public enum StashOperationResult
     /// A raid reservation currently owns the Inventory and Equipment, so Stash, Loadout and
     /// Equipment cannot change until it is confirmed or rolled back.
     /// </summary>
-    ReservationPending
+    ReservationPending,
+
+    /// <summary>The destination Inventory has no free slot for the item.</summary>
+    InventoryFull
 }

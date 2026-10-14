@@ -220,8 +220,16 @@ regenerating tool can no longer overwrite manual layout work or renumber the aut
 Adding a slot to a pool means adding the slot instance in the prefab and appending it to the
 panel's `_authoredSlots`; the code only shows, hides and drives what the prefab already contains.
 
-`LobbyStashPresenter` remains the only owner of the profile services and of the stash, loadout and
-prepared-weapon intentions. The view pads each received stack list with empty entries up to its
+`LobbyStashPresenter` remains the only owner of the profile services and binds the screen's intentions,
+but it holds no rules. It hands every transfer, Take All / Leave All, equip and unequip to a
+`StashTransferCoordinator`, which runs them through one serialized queue so an equip never interleaves
+with a transfer waiting for the backend. A transfer is first checked with the Store's dry-run
+evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
+into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
+the remote-first order and reconciles the profile with the backend when a remote call fails or the
+local profile cannot apply a transfer the backend accepted. Equipment changes use the same Ready gate
+as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
+`LobbyStashPresenter.SetEquipmentGate`). The view pads each received stack list with empty entries up to its
 authored pool, exactly as `RaidInventoryProjection` does for the Raid screen. Both Stash-screen pools
 currently hold 16 slots; unlike the shared personal Inventory prefab, that legacy Loadout panel does
 not yet visualize the full 30-slot `LocalProfileSnapshot.MaxLoadoutSlots` capacity. The stash has no service-side capacity, so

@@ -58,6 +58,21 @@ public interface IPlayerLoadoutService
     StashOperationResult TryTransferAllToStash(ProfileId profileId);
 
     /// <summary>
+    /// Reports what <see cref="TryTransferToLoadout"/> would return right now without changing or
+    /// publishing anything, so callers can reject an action before it reaches the backend.
+    /// </summary>
+    StashOperationResult EvaluateTransferToLoadout(ProfileId profileId, LootId lootId, int amount);
+
+    /// <summary>Dry run of <see cref="TryTransferToStash"/>.</summary>
+    StashOperationResult EvaluateTransferToStash(ProfileId profileId, LootId lootId, int amount);
+
+    /// <summary>Dry run of <see cref="TryTransferAllToLoadout"/>.</summary>
+    StashOperationResult EvaluateTransferAllToLoadout(ProfileId profileId);
+
+    /// <summary>Dry run of <see cref="TryTransferAllToStash"/>.</summary>
+    StashOperationResult EvaluateTransferAllToStash(ProfileId profileId);
+
+    /// <summary>
     /// Generic method to import items into the Loadout from an external source (e.g. extraction).
     /// Enforces loadout capacity limits explicitly.
     /// </summary>
