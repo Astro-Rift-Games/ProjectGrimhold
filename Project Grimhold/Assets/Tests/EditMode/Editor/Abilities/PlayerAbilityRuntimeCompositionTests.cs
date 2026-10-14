@@ -6,9 +6,9 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class PlayerAbilityRuntimeCompositionTests
 {
-    private const int ProductionBindingCount = 8;
+    private const int ProductionBindingCount = 9;
     private const string ProductionBindingOrder =
-        "Charge, Seismic Strike, Trap, Arcane Projectile, Protective Orbs, Empower, Restoration and Purification.";
+        "Charge, Seismic Strike, Trap, Arcane Projectile, Protective Orbs, Empower, Restoration, Purification and Vital Drain.";
 
     [TestCase(typeof(EmpowerAbilityBehaviour), "EmpowerDefinition", "empower")]
     [TestCase(typeof(RestorationAbilityBehaviour), "RestorationDefinition", "restoration")]
@@ -195,6 +195,82 @@ public sealed class PlayerAbilityRuntimeCompositionTests
             "Creature damage hitboxes live on the Character layer, like the melee target mask.");
         Assert.That(finder.IsConfigured, Is.True);
         Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(runtimes[0]));
+    }
+
+    [Test]
+    public void RaidAvatar_EveryCatalogDefinitionResolvesExactlyOneSameRootBehaviour()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var runtime = prefab.GetComponent<PlayerAbilityRuntimeNetworkController>();
+        var catalog = (AbilityDefinitionCatalog)new SerializedObject(runtime).FindProperty("_catalog").objectReferenceValue;
+        Assert.That(catalog.TryValidate(out string catalogError), Is.True, catalogError);
+        Assert.That(catalog.DefinitionCount, Is.EqualTo(ProductionBindingCount), "One binding per MVP catalog ability.");
+
+        var bindings = new SerializedObject(runtime).FindProperty("_executionBehaviours");
+        Assert.That(bindings.arraySize, Is.EqualTo(ProductionBindingCount), ProductionBindingOrder);
+        foreach (AbilityDefinition definition in catalog.Definitions)
+        {
+            int resolved = 0;
+            for (int i = 0; i < bindings.arraySize; i++)
+            {
+                var behaviour = (AbilityExecutionBehaviour)bindings.GetArrayElementAtIndex(i).objectReferenceValue;
+                Assert.That(behaviour, Is.Not.Null, $"Binding {i} is missing.");
+                Assert.That(behaviour.gameObject, Is.SameAs(prefab), $"Binding {i} lives on the avatar root.");
+                if (behaviour.Definition == definition) resolved++;
+            }
+            Assert.That(resolved, Is.EqualTo(1), $"'{definition.Id}' resolves exactly one concrete behaviour.");
+        }
+    }
+
+    [Test]
+    public void RaidAvatar_ArcaneProjectileSpawnsItsOwnNetworkPrefabSeparateFromTheRangedWeapon()
+    {
+        const string arcanePath = "Assets/Prefabs/Abilities/ArcaneProjectile.prefab";
+        string arcaneGuid = AssetDatabase.AssetPathToGUID(arcanePath);
+        Assert.That(arcaneGuid, Is.Not.Empty, "The ability owns a dedicated projectile prefab.");
+        Assert.That(System.IO.File.ReadAllText("Assets/Prefabs/NetworkPlayer.prefab"),
+            Does.Contain($"RawGuidValue: {arcaneGuid}"), "Arcane Projectile references its own prefab.");
+        Assert.That(System.IO.File.ReadAllText("Assets/Scriptable Objects/RangePlayerAttackConfig.asset"),
+            Does.Not.Contain(arcaneGuid), "The basic ranged weapon does not share the ability projectile.");
+
+        var projectile = AssetDatabase.LoadAssetAtPath<GameObject>(arcanePath);
+        Assert.That(AssetDatabase.GetLabels(projectile), Does.Contain("FusionPrefab"));
+        var networkObject = projectile.GetComponent<NetworkObject>();
+        Assert.That(networkObject, Is.Not.Null);
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(projectile.GetComponent<NetworkProjectile>()));
+        Assert.That(networkObject.NetworkedBehaviours, Does.Contain(projectile.GetComponent<DamageResolver>()),
+            "Unbounded ability flight resolves damage through the projectile's own resolver.");
+        AssertHidesItsRenderersOutsideLocalVision(projectile);
+    }
+
+    [Test]
+    public void TrapEntity_HidesItsRendererOutsideLocalVision()
+    {
+        var trap = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Abilities/NetworkTrap.prefab");
+        AssertHidesItsRenderersOutsideLocalVision(trap);
+    }
+
+    private static void AssertHidesItsRenderersOutsideLocalVision(GameObject prefab)
+    {
+        var presenters = prefab.GetComponents<ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter>();
+        Assert.That(presenters, Has.Length.EqualTo(1));
+        var renderers = new SerializedObject(presenters[0]).FindProperty("_renderers");
+        Assert.That(renderers.arraySize, Is.GreaterThan(0));
+        for (int i = 0; i < renderers.arraySize; i++)
+        {
+            var renderer = renderers.GetArrayElementAtIndex(i).objectReferenceValue as Renderer;
+            Assert.That(renderer, Is.Not.Null, $"Visibility renderer {i} is assigned.");
+            Assert.That(renderer.transform.IsChildOf(prefab.transform), Is.True);
+        }
+        Assert.That(prefab.GetComponentsInChildren<SpriteRenderer>(true),
+            Is.SubsetOf(Enumerate(renderers)), "Every sprite of the entity is hidden together.");
+    }
+
+    private static System.Collections.Generic.List<Object> Enumerate(SerializedProperty array)
+    {
+        var items = new System.Collections.Generic.List<Object>();
+        for (int i = 0; i < array.arraySize; i++) items.Add(array.GetArrayElementAtIndex(i).objectReferenceValue);
+        return items;
     }
 
     [Test]

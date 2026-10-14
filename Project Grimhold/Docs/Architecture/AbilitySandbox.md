@@ -86,12 +86,12 @@ See also: [Ability System Architecture](AbilitySystemArchitecture.md).
 
 - **Skipped when ON**: the cast-time attribute-requirement check (`SandboxRuleBypass.EvaluateRequirements`). Slot selection already bypasses profile unlock, Town and the prepared loadout (`SandboxOverrideSlots`; `AbilityRuntimeSlots.TryCreate` only checks shape and catalog membership).
 - **Still enforced**: alive/downed, match phase (it is `InProgress` in the sandbox), cooldown, resource cost (use Reset cooldowns / infinite mana; stamina has no refill hook), aim and behaviour rules (for example Seismic Strike needs an enemy in range).
-- **Available behaviours**: the current NetworkPlayer bindings support Charge, Seismic Strike, Trap, Arcane Projectile and Protective Orbs (`protective_orbs`). Other catalog entries without a bound behaviour remain listed but cannot be selected or cast. Availability is read through `SandboxHasBehaviour`, not a sandbox-specific ability list.
+- **Available behaviours**: the NetworkPlayer bindings cover all nine catalog abilities: Charge, Seismic Strike, Trap, Arcane Projectile, Protective Orbs (`protective_orbs`), Empower, Restoration, Purification and Vital Drain (`life_drain`). A catalog entry without a bound behaviour would remain listed but could not be selected or cast. Availability is read through `SandboxHasBehaviour`, not a sandbox-specific ability list.
 - **Attribute tool**: the override controller accepts only +/-1 and +/-5 and one pending request per tick. The sandbox facade now splits any step (1..10, total up to 50) into supported steps and dispatches one per Fusion tick, so clicks are no longer dropped.
 
 ## Protective Orbs quick check (TASK203)
 
-The sandbox uses the existing catalog and fifth NetworkPlayer behaviour binding; no special sandbox cast script is needed. This is a PvE check, not PvP support or a full-player shield.
+The sandbox uses the existing catalog and the Protective Orbs NetworkPlayer behaviour binding; no special sandbox cast script is needed. This is a PvE check, not PvP support or a full-player shield.
 
 1. Launch **Grimhold > Ability Sandbox > Play (Direct Host Raid)**, open **F9 > Abilities**, and select **Protective Orbs > Slot 1** (or Slot 2). Slots start empty; selection applies immediately.
 2. Refill Mana in **Player**, then use **Cast Slot 1 / Cast Slot 2** or Q/E. No enemy is required. Expect an instant execution, Mana 30 spent, a 25 s cooldown and eight orbiting slots lasting 15 s. Ignore session rules does not bypass cost, cooldown or Downed; with it OFF the definition requires Resistance 10.

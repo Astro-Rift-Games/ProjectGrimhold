@@ -6541,7 +6541,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VitalDrainAbilityBehaviour
   _definition: {fileID: 11400000, guid: 0f09c3fe24156c34698f5699dae2624d, type: 2}
   _radius: 3
-  _preparationSeconds: 0.75
+  _preparationSeconds: 1
   _damage: 5
   _damageType: 1
   _drainProportion: 0.5
@@ -10441,7 +10441,7 @@ MonoBehaviour:
     m_Bits: 2112
   _trapPrefab:
     RawGuidValue: f350a40a118648c4e8e6edf70efaa3b5
-  _lifetimeSeconds: 20
+  _lifetimeSeconds: 30
   _maxTrapsPerCaster: 3
   _triggerRadius: 0.75
   _targetLayerMask:
@@ -10618,7 +10618,7 @@ MonoBehaviour:
   _preparationSeconds: 0.5
   _preparationMovementSpeedMultiplier: 0.5
   _projectilePrefab:
-    RawGuidValue: cdc42ba57b303264fb49354983542d59
+    RawGuidValue: 5cf65ecb3f382c147875a551556fad82
   _impactLayerMask:
     serializedVersion: 2
     m_Bits: 2240

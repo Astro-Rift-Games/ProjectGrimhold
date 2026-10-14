@@ -28,7 +28,7 @@ public sealed class TrapAbilityBehaviour : AbilityExecutionBehaviour
 
     [Header("Trap")]
     [SerializeField] private NetworkPrefabRef _trapPrefab;
-    [SerializeField, Min(0.01f)] private float _lifetimeSeconds = 20f;
+    [SerializeField, Min(0.01f)] private float _lifetimeSeconds = 30f;
     [SerializeField, Min(1)] private int _maxTrapsPerCaster = 3;
     [SerializeField, Min(0.01f)] private float _triggerRadius = 0.75f;
     [Tooltip("Layers holding the creatures' damage colliders; only valid enemies trigger the trap.")]
