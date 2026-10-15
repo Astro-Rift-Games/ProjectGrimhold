@@ -25,10 +25,9 @@ namespace ProjectGrimhold.Gameplay.Visibility
         private static readonly int NoiseStrengthId = Shader.PropertyToID("_NoiseStrength");
         private static readonly int WindVelocityId = Shader.PropertyToID("_WindVelocity");
         private static readonly int PixelsPerUnitId = Shader.PropertyToID("_PixelsPerUnit");
-        private static readonly int EdgeSoftnessId = Shader.PropertyToID("_EdgeSoftness");
         private static readonly int VisionMaskId = Shader.PropertyToID("_VisionMask");
         private static readonly int MaskWorldRectId = Shader.PropertyToID("_MaskWorldRect");
-        private static readonly int EdgeNoiseAmplitudeId = Shader.PropertyToID("_EdgeNoiseAmplitude");
+        private static readonly int EdgeBreakupId = Shader.PropertyToID("_EdgeBreakup");
         private static readonly int FarFogStartId = Shader.PropertyToID("_FarFogStart");
         private static readonly int FarFogEndId = Shader.PropertyToID("_FarFogEnd");
         private static readonly int FarFogDensityId = Shader.PropertyToID("_FarFogDensity");
@@ -118,13 +117,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _block.SetFloat(NoiseStrengthId, _settings.NoiseStrength);
             _block.SetVector(WindVelocityId, new Vector4(_settings.WindVelocity.x, _settings.WindVelocity.y, 0f, 0f));
             _block.SetFloat(PixelsPerUnitId, _settings.PixelsPerUnit);
-            _block.SetFloat(EdgeSoftnessId, _settings.EdgeSoftness);
             _block.SetVector(MaskWorldRectId, _mask.WorldRect);
             if (_mask.Texture != null)
             {
                 _block.SetTexture(VisionMaskId, _mask.Texture);
             }
-            _block.SetFloat(EdgeNoiseAmplitudeId, _settings.EdgeNoiseAmplitude);
+            _block.SetFloat(EdgeBreakupId, _settings.EdgeBreakup);
             _block.SetFloat(FarFogStartId, _settings.FarFogStart);
             _block.SetFloat(FarFogEndId, _settings.FarFogEnd);
             _block.SetFloat(FarFogDensityId, _settings.FarFogDensity);

@@ -9,6 +9,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
     public sealed class VisionFogMask : IDisposable
     {
         private static readonly int MaskWorldRectId = Shader.PropertyToID("_MaskWorldRect");
+        private static readonly int MaskSourceId = Shader.PropertyToID("_VisionFogMaskSource");
+        private static readonly int BlurStepId = Shader.PropertyToID("_VisionFogBlurStep");
+        private static readonly int MaskSourceLodId = Shader.PropertyToID("_VisionFogMaskSourceLod");
+        private RenderTexture _polygonTexture;
+        private RenderTexture _blurA;
+        private RenderTexture _blurB;
         private readonly Material _material;
         private readonly Mesh _mesh;
         private readonly CommandBuffer _commandBuffer;
@@ -51,18 +57,20 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
             textureWidth = Mathf.Max(16, textureWidth);
             textureHeight = Mathf.Max(16, textureHeight);
-            if (Texture == null || Texture.width != textureWidth || Texture.height != textureHeight)
+            if (_polygonTexture == null || _polygonTexture.width != textureWidth || _polygonTexture.height != textureHeight)
             {
                 ReleaseTexture();
                 RenderTextureFormat format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8)
                     ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32;
-                Texture = new RenderTexture(textureWidth, textureHeight, 0, format, RenderTextureReadWrite.Linear)
+                _polygonTexture = new RenderTexture(textureWidth, textureHeight, 0, format, RenderTextureReadWrite.Linear)
                 {
                     name = "VisionFogMask",
+                    useMipMap = true,
+                    autoGenerateMips = false,
                     filterMode = FilterMode.Bilinear,
                     wrapMode = TextureWrapMode.Clamp
                 };
-                Texture.Create();
+                _polygonTexture.Create();
             }
 
             int count = VisionFogFanRules.BuildRayAngles(Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg,
@@ -110,10 +118,42 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
             WorldRect = new Vector4(worldRect.xMin, worldRect.yMin, worldRect.width, worldRect.height);
             _commandBuffer.Clear();
-            _commandBuffer.SetRenderTarget(Texture);
+            _commandBuffer.SetRenderTarget(_polygonTexture);
             _commandBuffer.ClearRenderTarget(false, true, Color.clear);
             _block.SetVector(MaskWorldRectId, WorldRect);
             _commandBuffer.DrawMesh(_mesh, Matrix4x4.identity, _material, 0, 0, _block);
+            _commandBuffer.GenerateMips(_polygonTexture);
+            Texture = _polygonTexture;
+            if (settings.EdgeSoftness > 0f)
+            {
+                float radiusTexelsX = settings.EdgeSoftness / worldRect.width * textureWidth;
+                float radiusTexelsY = settings.EdgeSoftness / worldRect.height * textureHeight;
+                float radiusTexels = Mathf.Max(radiusTexelsX, radiusTexelsY);
+                int level = radiusTexels < 4f ? 0 : Mathf.Clamp(
+                    Mathf.FloorToInt(Mathf.Log(radiusTexels / 4f, 2f)), 0, _polygonTexture.mipmapCount - 1);
+                int lowWidth = Mathf.Max(1, textureWidth >> level);
+                int lowHeight = Mathf.Max(1, textureHeight >> level);
+                if (_blurA == null || _blurA.width != lowWidth || _blurA.height != lowHeight)
+                {
+                    ReleaseTexture(ref _blurA);
+                    ReleaseTexture(ref _blurB);
+                    _blurA = CreateBlurTexture(lowWidth, lowHeight, "VisionFogMaskBlurA");
+                    _blurB = CreateBlurTexture(lowWidth, lowHeight, "VisionFogMaskBlurB");
+                }
+
+                float mipScale = 1 << level;
+                _commandBuffer.SetRenderTarget(_blurA);
+                _commandBuffer.SetGlobalTexture(MaskSourceId, _polygonTexture);
+                _commandBuffer.SetGlobalFloat(MaskSourceLodId, level);
+                _commandBuffer.SetGlobalVector(BlurStepId, new Vector4(radiusTexelsX / mipScale / 4f / lowWidth, 0f, 0f, 0f));
+                _commandBuffer.DrawProcedural(Matrix4x4.identity, _material, 1, MeshTopology.Triangles, 3);
+                _commandBuffer.SetRenderTarget(_blurB);
+                _commandBuffer.SetGlobalTexture(MaskSourceId, _blurA);
+                _commandBuffer.SetGlobalFloat(MaskSourceLodId, 0f);
+                _commandBuffer.SetGlobalVector(BlurStepId, new Vector4(0f, radiusTexelsY / mipScale / 4f / lowHeight, 0f, 0f));
+                _commandBuffer.DrawProcedural(Matrix4x4.identity, _material, 1, MeshTopology.Triangles, 3);
+                Texture = _blurB;
+            }
             Graphics.ExecuteCommandBuffer(_commandBuffer);
         }
 
@@ -130,16 +170,38 @@ namespace ProjectGrimhold.Gameplay.Visibility
             DestroyObject(_mesh);
         }
 
+        private RenderTexture CreateBlurTexture(int width, int height, string name)
+        {
+            var texture = new RenderTexture(width, height, 0, _polygonTexture.format, RenderTextureReadWrite.Linear)
+            {
+                name = name,
+                useMipMap = false,
+                autoGenerateMips = false,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            texture.Create();
+            return texture;
+        }
+
         private void ReleaseTexture()
         {
-            if (Texture == null)
+            Texture = null;
+            ReleaseTexture(ref _polygonTexture);
+            ReleaseTexture(ref _blurA);
+            ReleaseTexture(ref _blurB);
+        }
+
+        private static void ReleaseTexture(ref RenderTexture texture)
+        {
+            if (texture == null)
             {
                 return;
             }
 
-            Texture.Release();
-            DestroyObject(Texture);
-            Texture = null;
+            texture.Release();
+            DestroyObject(texture);
+            texture = null;
         }
 
         private static void DestroyObject(Object target)

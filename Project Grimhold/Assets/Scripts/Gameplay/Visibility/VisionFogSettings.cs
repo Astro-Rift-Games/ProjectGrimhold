@@ -21,15 +21,15 @@ namespace ProjectGrimhold.Gameplay.Visibility
         [Min(0f)] public float PixelsPerUnit = 16f;
 
         [Header("Clear Shape")]
-        [Tooltip("World radius of the mask blur.")]
-        [Min(0f)] public float EdgeSoftness = 0.5f;
-        [Tooltip("World units a ray continues past an obstacle to reveal the blocking wall face.")]
-        [Min(0f)] public float WallRevealDepth = 0.5f;
+        [Tooltip("World width of the soft fade inside the visible area.")]
+        [Min(0f)] public float EdgeSoftness = 1.5f;
+        [Tooltip("Optional; clears this far into the blocking wall.")]
+        [Min(0f)] public float WallRevealDepth = 0f;
         [Range(0.25f, 10f)] public float ConeRayStepDegrees = 1f;
         [Range(1f, 45f)] public float OuterRayStepDegrees = 6f;
-        [Range(0.1f, 1f)] public float MaskResolutionScale = 0.35f;
-        [Tooltip("World units of noise-driven mask sampling jitter.")]
-        [Min(0f)] public float EdgeNoiseAmplitude = 0.6f;
+        [Range(0.1f, 1f)] public float MaskResolutionScale = 0.25f;
+        [Tooltip("How much noise erodes the clear edge inward; never extends clear onto walls.")]
+        [Range(0f, 0.45f)] public float EdgeBreakup = 0.25f;
 
         [Header("Distance")]
         [Tooltip("Distance where fog starts returning inside the unlimited cone.")]
@@ -59,7 +59,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
             ConeRayStepDegrees = Mathf.Clamp(ConeRayStepDegrees, 0.25f, 10f);
             OuterRayStepDegrees = Mathf.Clamp(OuterRayStepDegrees, 1f, 45f);
             MaskResolutionScale = Mathf.Clamp(MaskResolutionScale, 0.1f, 1f);
-            EdgeNoiseAmplitude = Mathf.Max(0f, EdgeNoiseAmplitude);
+            EdgeBreakup = Mathf.Clamp(EdgeBreakup, 0f, 0.45f);
             FarFogStart = Mathf.Max(0f, FarFogStart);
             FarFogEnd = Mathf.Max(FarFogStart, FarFogEnd);
             FarFogDensity = Mathf.Clamp01(FarFogDensity);
