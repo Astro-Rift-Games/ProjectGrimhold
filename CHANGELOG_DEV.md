@@ -305,6 +305,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Documentation
 
+- **changelog:** record changelog automation task evidence ([a90915a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a90915acaf67d6f2c3fc56cc3a8393a45710f8e0))
 - **changelog:** document player notes and teach commit skill to add them ([589c049](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/589c049bac133819303fe5dfc46a92ab7c44b598))
 - **raid:** define architectural contract for connectivity and continuity ([3bdc0ee](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3bdc0ee93176dcc500bb2fee0ba624130ac8e74c))
 - **abilities:** document ability acquisition sources and tab feedback ([ea144d7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ea144d7e370f3f76c9af291adf674a8ad06d349d))
