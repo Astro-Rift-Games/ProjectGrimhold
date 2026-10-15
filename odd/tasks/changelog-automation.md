@@ -13,8 +13,8 @@ Engram mirror topic: `odd/changelog-automation/tasks`.
 - S7 Out of scope: Unity UI, in-game download, news backend, notifications, localization, build pipeline, creating a real release.
 
 ## Tasks
-- [x] T1 (S1-S5) Generator library, CLI and automated tests | route: gentle-ai-worker (two passes: functional, then readability rewrite) | evidence: `npm test` 86/86 | commit: see T2 entry
-- [ ] T2 (S6) GitHub Actions workflows | route: inline after T1
+- [x] T1 (S1-S5) Generator library, CLI and automated tests | route: gentle-ai-worker (two passes: functional, then readability rewrite) | evidence: `npm test` 86/86 | commit: `b87900fe`
+- [x] T2 (S6) GitHub Actions workflows + `release-notes --strict` | route: inline (workflow YAML coupled to parent design; deviation from multi-file delegation noted) | evidence: RED 1 fail then 87/87, actionlint v1.7.7 clean (shellcheck unavailable), `bash -n` publish.sh | commit: see T3 entry
 - [ ] T3 (S2, S3) Commit-message skill adaptation + usage docs | route: inline
 - [ ] T4 Generate initial changelog files, idempotency and history checks | route: gentle-ai-verify
 

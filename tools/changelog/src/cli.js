@@ -22,7 +22,7 @@ const allowedFlags = {
   generate: ['root', 'ref', 'repo-url', 'strict', 'only'],
   check: ['root', 'ref', 'repo-url', 'strict', 'range'],
   preview: ['root', 'ref', 'repo-url', 'strict', 'range'],
-  'release-notes': ['root', 'ref', 'repo-url', 'tag'],
+  'release-notes': ['root', 'ref', 'repo-url', 'strict', 'tag'],
 };
 
 function validateOptions(command, options) {
@@ -89,8 +89,19 @@ function readOverrides(root, settings, history) {
   return validateOverrides(JSON.parse(rawDocument), history);
 }
 
-function warningScope(command, range, root, players, overrides) {
+function warningScope(command, options, root, players, overrides) {
   const pending = players.versions.at(-1);
+  const range = options.range;
+
+  if (command === 'release-notes') {
+    const release = players.versions.find(version => version.tag === options.tag);
+    const releaseShas = new Set((release?.commits ?? []).map(commit => commit.sha));
+
+    return {
+      pending,
+      warnings: players.warnings.filter(warning => releaseShas.has(warning.sha)),
+    };
+  }
 
   if (!range) {
     return { pending, warnings: players.warnings };
@@ -210,7 +221,7 @@ function runCommand(command, options) {
   const history = readCommits(root, ref);
   const overrides = readOverrides(root, settings, history);
   const players = playerVersions(versions, overrides);
-  const { pending, warnings } = warningScope(command, options.range, root, players, overrides);
+  const { pending, warnings } = warningScope(command, options, root, players, overrides);
 
   for (const warning of warnings) {
     console.error(`${warning.sha}: ${warning.message}`);

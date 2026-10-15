@@ -1,0 +1,99 @@
+# Keeps CHANGELOG_DEV.md current on New-Testing and lints player notes in pull requests.
+# Player-facing files are only written by changelog-release.yml when a release is published.
+name: Changelog
+
+on:
+  push:
+    branches: [New-Testing]
+  pull_request:
+    branches: [New-Testing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pull-request:
+    name: Test generator and lint player notes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: tools/changelog
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test changelog generator
+        working-directory: tools/changelog
+        run: npm test
+
+      - name: Preview and lint player notes of this pull request
+        env:
+          RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          node tools/changelog/src/cli.js preview --strict --range "$RANGE" \
+            > preview.md 2> warnings.txt
+          status=$?
+          set -e
+          {
+            echo "## Player notes in this pull request"
+            echo
+            cat preview.md
+            if [ -s warnings.txt ]; then
+              echo
+              echo "### Warnings"
+              echo
+              sed 's/^/- /' warnings.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat preview.md warnings.txt
+          exit $status
+
+  update-developer-changelog:
+    name: Update developer changelog
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/New-Testing'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Shared with changelog-release.yml so only one job pushes to New-Testing at a time.
+    concurrency:
+      group: changelog-New-Testing
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New-Testing
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: tools/changelog
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pushes made with GITHUB_TOKEN do not trigger new workflow runs, and the generator
+      # ignores chore(changelog) commits, so this update cannot loop or change its own output.
+      - name: Regenerate and push CHANGELOG_DEV.md
+        run: >
+          bash tools/changelog/scripts/publish.sh New-Testing
+          "chore(changelog): update developer changelog [skip ci]" --only dev
+
+      - name: Preview player notes pending release
+        run: |
+          {
+            echo "## Player notes pending release"
+            echo
+            node tools/changelog/src/cli.js preview 2> warnings.txt
+            if [ -s warnings.txt ]; then
+              echo
+              echo "### Warnings"
+              echo
+              sed 's/^/- /' warnings.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

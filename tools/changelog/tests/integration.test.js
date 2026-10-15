@@ -168,6 +168,17 @@ test('release-notes prints categories and final developer link for a known tag',
   assert.match(result.stdout, /Developer changes: .*CHANGELOG_DEV\.md\n$/);
 });
 
+test('strict release-notes only counts warnings from that release', context => {
+  const root = repositoryWithWarning(context);
+  assert.equal(runCli(root, 'release-notes', '--tag', 'v1.1.0', '--strict').status, 0);
+
+  git(root, ['tag', 'v1.2.0']);
+  const result = runCli(root, 'release-notes', '--tag', 'v1.2.0', '--strict');
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown player trailer/);
+});
+
 test('strict preview exits one on player warnings', context => {
   const root = repositoryWithWarning(context);
   const result = runCli(root, 'preview', '--strict');
