@@ -7,8 +7,10 @@ what limits what a player can see. Each peer hides world entities its own raid
 avatar cannot see, without changing authoritative gameplay, Fusion interest,
 interaction, or extraction state.
 
-Vision has no in-game presentation: no fog, darkening, mask, mesh, or visible
-cone. Floors and walls always render. Only entities are shown, faded, or hidden.
+Floors and walls always render. Only entities are shown, faded, or hidden by
+vision. The only in-game presentation of vision is an atmospheric fog that stays
+clear inside the vision shape (see Vision fog); it softens the cone and adds
+dungeon mood, but it never decides what is visible.
 
 ## Vision rule
 
@@ -101,6 +103,91 @@ No vision result is networked and no RPC, event bus, gameplay timer, or
 scene-wide per-frame lookup is introduced. Vision may be recalculated freely
 because it has no simulation side effects.
 
+## Vision fog
+
+`VisionFogPresenter` draws a fog over the whole Gameplay world that stays clear
+inside the active viewer's vision shape. It is a prototype of local presentation
+only: nothing is networked, it has no gameplay side effects, and it never
+decides entity visibility, which stays owned by `EntityVisibilitySystem`.
+
+- **Shape source.** Each `LateUpdate` the presenter reads
+  `EntityVisibilitySystem.TryBuildActiveQuery`, so it follows the same viewer
+  as entity visibility (spectated viewer first, then the local viewer) and the
+  same shape (`NearRadius`, `ConeAngleDegrees` from `VisibilitySettings`, exposed
+  on `VisionQuery`). There is one source of truth for the cone.
+- **Geometric mask, no occlusion.** The clear area is the near radius plus the
+  facing cone, computed in the shader from a few parameters. Walls do not cut
+  it, so the area behind a wall inside the cone looks clear while the entities
+  there stay hidden by occlusion. This is accepted for the prototype (option A).
+- **Fail-closed.** Without a viewer the clear shape fades out over
+  `ClearFadeSeconds` and the fog covers everything, matching the hidden
+  entities.
+- **Feel.** Facing is smoothed in presentation only (`FacingSharpness`), so
+  the clear cone turns smoothly while entity visibility keeps using the raw
+  facing. Edges are softened radially and angularly and broken up with noise,
+  fog creeps back inside the cone with distance (`FarFog*`), and faint wisps
+  remain inside the clear shape (`InsideDensity`). The noise is procedural, in
+  world space, drifts with `WindVelocity` and is snapped to `PixelsPerUnit` to
+  match the pixel art.
+- **Rendering.** `Grimhold/Visibility/VisionFog` is a hand-written URP unlit
+  shader drawn by the 2D Renderer on a built-in quad (`VisionFog` in
+  `Gameplay.unity`). It sits on the `Fog` sorting layer, above every world
+  layer. Walls share the `Characters` layer with characters, so the fog cannot
+  sit between them; this is consistent because dynamic entities are only
+  visible inside the clear shape, and static occlusion-only objects outside it
+  stay visible under partial fog. Screen-space UI draws above it. The quad is
+  moved and scaled to cover the orthographic camera in
+  `RenderPipelineManager.beginCameraRendering`, after camera followers move,
+  so it never lags a frame. It is one full-screen transparent draw with no
+  renderer feature and no package dependency.
+- **Configuration.** Art values live in the `VisionFogSettings`
+  ScriptableObject, separate from the balance values in `VisibilitySettings`.
+  The presenter pushes them every frame through a `MaterialPropertyBlock`, so
+  they can be tuned live in Play Mode. The project renders in linear color
+  space, so a dark fog looks lighter than its alpha suggests; tune
+  `FogColor` alpha with that in mind.
+
+`VisionFogRules` holds the pure presentation logic: facing smoothing, the
+clear-strength fade and the camera coverage.
+
+### Possible improvements
+
+These are not implemented. They are listed so the prototype can grow
+deliberately once the team validates the look.
+
+1. **Occlusion-aware clear area (option B).** Build the visibility polygon
+   with a fan of raycasts against `ObstacleLayer` (the same shape the
+   `LocalVisionSource` gizmo already draws), render it into a low-resolution
+   mask render texture (for example a quarter of the screen), blur it, and
+   sample it in the fog shader instead of the geometric mask. Walls would then
+   cut the clear area exactly where `VisionQuery` hides entities.
+2. **Lights thin the fog.** Pass a bounded list of active torches and braziers
+   (position, radius) to the shader so lit areas are clearer. This fits the
+   Game Design rule that torch light is shared by every nearby player and
+   reveals that someone passed through.
+3. **Explored memory.** Keep a persistent low-resolution texture per raid of
+   the areas already seen and draw a lighter fog over them. This changes
+   gameplay readability and needs a Game Design decision first.
+4. **Depth-based look.** Vary `FogColor`, density and wind per dungeon floor,
+   following the environmental progression by depth in the art direction.
+   Implement it by swapping `VisionFogSettings` assets per floor.
+5. **Accessibility and options.** A player setting to lower fog intensity or
+   disable its motion, for contrast and motion sensitivity.
+6. **Gameplay-driven feel.** Short presentation responses such as a
+   denser, closer fog while downed, a pulse on taking damage, or a widened
+   clear area during specific abilities. Each one must stay presentation-only.
+7. **Fog over entity edges.** Fade entities in sync with the fog edge (or
+   derive the visibility fade from the same smoothed facing) so an entity never
+   pops in visibly sharper than the fog around it.
+8. **Layered fog.** A second, slower and larger noise layer, or a separate
+   fog below the walls, for parallax depth.
+9. **Retire the legacy visibility mesh.** `Assets/Art/Shaders/VisibilityMesh.shader`
+   (built-in pipeline CG) and its material are leftovers from an earlier
+   approach; remove them, or reuse their idea for option B, once their test
+   reference is checked.
+10. **Validation tooling.** A debug toggle that fakes a viewer at the camera
+    center, so the look can be tuned without starting a Fusion session.
+
 ## Debugging
 
 - `LocalVisionSource` draws Scene-view gizmos: the near radius, the cone edges,
@@ -121,6 +208,9 @@ requires Fusion interest management and is outside this contract.
   the viewer, the unlimited cone range, and the facing fallback.
 - EditMode `VisibilityFadeRulesTests` cover fade-in, grace, fade-out, frames
   crossing the end of grace, regaining sight mid-fade, and instant timings.
+- EditMode `VisionFogRulesTests` cover facing smoothing (snapping, shortest
+  arc, frame-rate independence), the clear-strength fade and camera coverage.
+  The fog look itself requires manual Play Mode review.
 - EditMode `VisibilityPrefabCoverageTests` require each hidden entity prefab to
   list every renderer it owns and to use the expected static or dynamic rule.
 - Composition tests require raid avatars to include the binder with a
