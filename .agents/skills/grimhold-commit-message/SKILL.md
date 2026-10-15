@@ -4,7 +4,7 @@ description: "Trigger: commit message, commit title, título del commit, descrip
 license: Apache-2.0
 metadata:
   author: "Astro-Rift-Games"
-  version: "1.0"
+  version: "1.1"
 ---
 
 ## Activation Contract
@@ -39,6 +39,17 @@ Do not load for PR descriptions, changelogs or commits in other repositories.
 | Docs only | `docs` |
 | Restructure without behavior change | `refactor` |
 
+| Player impact | Player note |
+|---|---|
+| New content or feature a player can see and use | `Player-Added` |
+| Better feel, usability or flow of existing gameplay | `Player-Improved` |
+| Bug a player could notice is gone | `Player-Fixed` |
+| Tuned stats, costs, rates or difficulty | `Player-Balanced` |
+| Refactor, tests, docs, tooling, architecture, internal networking, debug/dev-only tools, or work that is incomplete or hidden from players | None |
+| Unclear whether a player can observe it | None; mention the omission so the user can add one |
+
+The type never implies a note: a `feat` gets one only when a player can observe the result.
+
 ## Execution Steps
 
 1. Run `git status --short`, `git diff --stat` and `git diff --numstat`; include untracked files.
@@ -50,17 +61,25 @@ Do not load for PR descriptions, changelogs or commits in other repositories.
    - derived values, contracts or configuration that reviewers must verify;
    - compact list of added or generalized tests;
    - docs updated.
-6. List excluded files with the reason.
+6. Add player notes with the player-impact gates, as the last body paragraph
+   (footer), one trailer per observable change, with no blank line between
+   them and other footers such as `Refs:`:
+   `Player-Fixed: Take All and Leave All buttons in the Stash work again.`
+   Write plain English for non-technical players: the observable result,
+   no class, system or network terms, one sentence of at most 240 characters.
+7. List excluded files with the reason.
 
 ## Output Contract
 
 Return, in the user's language for prose and English for the message:
 
 - **Title:** one fenced block with the subject.
-- **Description:** one fenced block with the body.
+- **Description:** one fenced block with the body, including any player-note footer.
+- Whether player notes were added, or why none apply.
 - Excluded files with reason and the suggested action.
 
 ## References
 
 - `../../../AGENTS.md` — commit language and scope policy.
 - `../../../Project Grimhold/AGENTS.md` — serialized asset and generated-file checks.
+- `../../../tools/changelog/README.md` — player-note trailers and how they reach the changelogs.
