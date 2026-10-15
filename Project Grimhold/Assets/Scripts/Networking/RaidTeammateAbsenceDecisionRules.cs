@@ -6,7 +6,8 @@ public enum TeammateAbsenceDecisionResult
     RejectedNotTeammate,
     RejectedConfirmerUnavailable,
     RejectedReconnected,
-    RejectedBudgetNotExhausted
+    RejectedBudgetNotExhausted,
+    RejectedTargetAvatarUnavailable
 }
 
 public static class RaidTeammateAbsenceDecisionRules
@@ -15,7 +16,8 @@ public static class RaidTeammateAbsenceDecisionRules
         RaidConnectivitySnapshot targetSnapshot,
         bool isTeammate,
         bool isConfirmerConnected,
-        RaidParticipantState confirmerState)
+        RaidParticipantState confirmerState,
+        bool isTargetAvatarResolvable = true)
     {
         if (targetSnapshot.State != RaidParticipantState.Raiding)
         {
@@ -40,6 +42,11 @@ public static class RaidTeammateAbsenceDecisionRules
         if (!targetSnapshot.IsBudgetExhausted)
         {
             return TeammateAbsenceDecisionResult.RejectedBudgetNotExhausted;
+        }
+
+        if (!isTargetAvatarResolvable)
+        {
+            return TeammateAbsenceDecisionResult.RejectedTargetAvatarUnavailable;
         }
 
         return TeammateAbsenceDecisionResult.Confirmable;

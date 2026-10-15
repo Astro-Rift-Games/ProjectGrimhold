@@ -122,6 +122,24 @@ namespace Tests.EditMode.Networking
         }
 
         [Test]
+        public void Evaluate_RejectsWhenTargetAvatarUnresolvable()
+        {
+            var targetSnapshot = new RaidConnectivitySnapshot(
+                isDisconnected: true,
+                remainingBudgetTicks: 0,
+                state: RaidParticipantState.Raiding);
+
+            TeammateAbsenceDecisionResult result = RaidTeammateAbsenceDecisionRules.Evaluate(
+                targetSnapshot,
+                isTeammate: true,
+                isConfirmerConnected: true,
+                confirmerState: RaidParticipantState.Raiding,
+                isTargetAvatarResolvable: false);
+
+            Assert.That(result, Is.EqualTo(TeammateAbsenceDecisionResult.RejectedTargetAvatarUnavailable));
+        }
+
+        [Test]
         public void View_PresentsDisconnectedAndRemainingBudget()
         {
             var go = new GameObject("TestTeammateHudView");

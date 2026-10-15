@@ -135,5 +135,13 @@ public sealed class RaidConnectivityContinuityTests
                 new RaidConnectivitySnapshot(true, 0, RaidParticipantState.Raiding),
                 isTeammate: true, isConfirmerConnected: true, RaidParticipantState.Raiding),
             Is.EqualTo(TeammateAbsenceDecisionResult.Confirmable));
+
+        // 7. RejectedTargetAvatarUnavailable
+        Assert.That(
+            RaidTeammateAbsenceDecisionRules.Evaluate(
+                new RaidConnectivitySnapshot(true, 0, RaidParticipantState.Raiding),
+                isTeammate: true, isConfirmerConnected: true, RaidParticipantState.Raiding,
+                isTargetAvatarResolvable: false),
+            Is.EqualTo(TeammateAbsenceDecisionResult.RejectedTargetAvatarUnavailable));
     }
 }

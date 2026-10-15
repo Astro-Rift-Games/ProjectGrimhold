@@ -4416,11 +4416,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 targetParticipant.State);
         }
 
+        bool isAvatarResolvable = targetParticipant.TryResolveCurrentAvatar(out NetworkObject avatarObject) && avatarObject != null;
+
         result = RaidTeammateAbsenceDecisionRules.Evaluate(
             targetSnapshot,
             isTeammate,
             isConfirmerConnected,
-            requester.State);
+            requester.State,
+            isAvatarResolvable);
 
         if (result != TeammateAbsenceDecisionResult.Confirmable)
         {
@@ -4434,20 +4437,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         string targetGenId = targetParticipant.RaidGenerationId.ToString();
         var departureKey = new ControlledReturnKey(targetProfileId, targetGenId);
 
-        if (targetParticipant.TryResolveCurrentAvatar(out NetworkObject avatarObject) && avatarObject != null)
+        bool defeatApplied = false;
+        if (avatarObject.TryGetBehaviour(out PlayerCharacter character))
         {
-            if (avatarObject.TryGetBehaviour(out PlayerCharacter character))
-            {
-                character.ForceDefinitiveDefeatFromAbsence();
-            }
-            else
-            {
-                targetParticipant.TryMarkDefeated(avatarObject);
-            }
+            character.ForceDefinitiveDefeatFromAbsence();
+            defeatApplied = targetParticipant.State == RaidParticipantState.Defeated;
         }
-        else
+
+        if (!defeatApplied)
         {
-            targetParticipant.TryMarkDefeated(avatarObject);
+            defeatApplied = targetParticipant.TryMarkDefeated(avatarObject);
+        }
+
+        if (!defeatApplied)
+        {
+            result = TeammateAbsenceDecisionResult.RejectedAlreadyResolved;
+            Debug.LogWarning(
+                $"[RAID-ABSENCE] Teammate absence confirmation rejected for target '{targetParticipant.ProfileId}' by requester '{requester.ProfileId}'. Forced defeat could not transition participant to Defeated.",
+                this);
+            return false;
         }
 
         if (targetConnectivity != null)
