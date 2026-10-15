@@ -15,8 +15,10 @@ Engram mirror topic: `odd/changelog-automation/tasks`.
 ## Tasks
 - [x] T1 (S1-S5) Generator library, CLI and automated tests | route: gentle-ai-worker (two passes: functional, then readability rewrite) | evidence: `npm test` 86/86 | commit: `b87900fe`
 - [x] T2 (S6) GitHub Actions workflows + `release-notes --strict` | route: inline (workflow YAML coupled to parent design; deviation from multi-file delegation noted) | evidence: RED 1 fail then 87/87, actionlint v1.7.7 clean (shellcheck unavailable), `bash -n` publish.sh | commit: `eb61577e`
-- [x] T3 (S2, S3) Commit-message skill adaptation + usage docs | route: inline (passive docs, no runnable RED) | evidence: skill registry refreshed (20 skills) | commit: see T4 entry
+- [x] T3 (S2, S3) Commit-message skill adaptation + usage docs | route: inline (passive docs, no runnable RED) | evidence: skill registry refreshed (20 skills) | commit: `589c049b`
 - [ ] T4 Generate initial changelog files, idempotency and history checks | route: gentle-ai-verify
 
 ## Log
 - L1 (2026-10-14) Repo state: `New-Testing` clean, in sync with origin; no `.github/`, no tags; default branch is `main`; 70 merges, ~690 non-merge commits, ~350 Conventional.
+- L2 Verifier (gentle-ai-verify) findings fixed: publish.sh staged absent player files with `--only dev` (high); `Merge ` subject exclusion dropped 2 real non-merge commits (`cac3ae59`, `189fe1c5`); duplicates differing only by `Co-Authored-By` were not merged (`bb4fba95`/`f635dc0b`, `30430b7a`/`396a0c5a`). RED 2 failures, GREEN 88/88; real history now links 696/696 non-merge commits once. Accepted: a message already listed in an earlier version drops later refs (documented).
+- L3 Unrelated working-tree changes appeared during the session (likely Unity Editor): `alagard SDF.asset` (content) and `DungeonGrayboxMinimapLayout.asset` (EOL only). Not touched, not committed.

@@ -148,11 +148,22 @@ test('chore(changelog) commits are excluded from developer and player output', (
   assert.equal(playerResult([parsed]).versions[0].notes.length, 0);
 });
 
-test('Merge subjects are defensively excluded', () => {
-  const parsed = commit('Merge branch feature');
+test('non-merge commits with Merge subjects stay in Other Changes', () => {
+  const parsed = commit('Merge Fixes');
+  const entries = developerVersions(versions([parsed]))[0].entries;
 
-  assert.equal(parsed.excluded, true);
-  assert.equal(developerVersions(versions([parsed]))[0].entries.length, 0);
+  assert.equal(parsed.excluded, false);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].section, 'Other Changes');
+});
+
+test('duplicates differing only by attribution trailers merge into one entry', () => {
+  const original = commit('fix: Door', 'Details\n\nCo-Authored-By: Someone <a@b.c>');
+  const rewritten = commit('fix: Door', 'Details\n\nSigned-off-by: Someone <a@b.c>', secondSha);
+  const result = developerVersions(versions([rewritten, original]));
+
+  assert.equal(result[0].entries.length, 1);
+  assert.deepEqual(result[0].entries[0].refs, [secondSha, firstSha]);
 });
 
 test('cherry-pick duplicates merge refs newest first without repeated SHAs', () => {

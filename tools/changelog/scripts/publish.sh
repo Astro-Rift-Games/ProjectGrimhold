@@ -25,7 +25,12 @@ for attempt in 1 2 3; do
     exit 0
   fi
 
-  git add -- "${outputs[@]}"
+  # --only dev may run before the player files exist.
+  for output in "${outputs[@]}"; do
+    if [ -e "$output" ]; then
+      git add -- "$output"
+    fi
+  done
   git commit --quiet -m "$message"
 
   if git push --quiet origin "HEAD:$branch"; then

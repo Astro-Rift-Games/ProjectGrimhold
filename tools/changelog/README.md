@@ -26,7 +26,7 @@ Use Conventional Commits (`type(scope): summary`). The developer changelog group
 | `revert` | Reverts |
 | anything else, legacy subjects | Other Changes |
 
-`type!:` or a `BREAKING CHANGE:` footer marks an entry as **BREAKING**. Merge commits and `chore(changelog)` commits (reserved for the bot) are skipped. Commits with the same message, such as cherry-picks, appear once with every commit link.
+`type!:` or a `BREAKING CHANGE:` footer marks an entry as **BREAKING**. Merge commits and `chore(changelog)` commits (reserved for the bot) are skipped. Commits with the same message appear once with every commit link. This covers cherry-picks and rewrites that only add or drop `Co-authored-by`/`Signed-off-by`. A message already listed in an earlier version is not repeated in later ones.
 
 ## Adding player notes
 

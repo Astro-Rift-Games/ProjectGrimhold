@@ -17,6 +17,8 @@ const headerPattern =
   /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<bang>!)?: (?<description>.+)$/;
 const trailerPattern = /^([A-Za-z][A-Za-z0-9-]*|BREAKING CHANGE): (.*)$/;
 const cherryPickPattern = /^\s*\(cherry picked from commit [0-9a-f]+\)\s*$/i;
+// History rewrites add or drop these without changing the commit itself.
+const attributionPattern = /^(Co-authored-by|Signed-off-by):/i;
 
 export const sectionOrder = [...new Set(Object.values(sections)), 'Other Changes'];
 
@@ -49,7 +51,7 @@ function parseFooter(body) {
 function commitIdentity(subject, body) {
   const identityBody = body
     .split('\n')
-    .filter(line => !cherryPickPattern.test(line))
+    .filter(line => !cherryPickPattern.test(line) && !attributionPattern.test(line))
     .join('\n');
 
   return `${subject}\n${identityBody}`
@@ -85,7 +87,7 @@ export function parseCommit(rawCommit) {
     section,
     ...footer,
     breaking: Boolean(header.bang) || footer.trailers.some(isBreakingTrailer),
-    excluded: automation || rawCommit.subject.startsWith('Merge '),
+    excluded: automation,
     identity: commitIdentity(rawCommit.subject, body),
     reverts: revertedSha?.toLowerCase(),
   };
