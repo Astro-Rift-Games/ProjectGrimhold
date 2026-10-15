@@ -115,16 +115,28 @@ decides entity visibility, which stays owned by `EntityVisibilitySystem`.
   as entity visibility (spectated viewer first, then the local viewer) and the
   same shape (`NearRadius`, `ConeAngleDegrees` from `VisibilitySettings`, exposed
   on `VisionQuery`). There is one source of truth for the cone.
-- **Geometric mask, no occlusion.** The clear area is the near radius plus the
-  facing cone, computed in the shader from a few parameters. Walls do not cut
-  it, so the area behind a wall inside the cone looks clear while the entities
-  there stay hidden by occlusion. This is accepted for the prototype (option A).
+- **Occlusion-aware clear area.** `VisionFogMask` casts a fan of rays from the
+  viewer each frame: dense rays across the facing cone (`ConeRayStepDegrees`,
+  long enough to leave the camera view) and sparse near-radius rays around the
+  rest of the circle (`OuterRayStepDegrees`), with a paired ray at each cone
+  edge (`VisionFogFanRules`). Each ray stops at
+  `VisionQuery.CastOcclusion`, the same obstacle rule entity visibility uses
+  (`ObstacleLayer`, no triggers, the viewer's own colliders ignored), plus
+  `WallRevealDepth` so the face of the blocking wall is revealed. The
+  resulting polygon is drawn into a low-resolution mask render texture
+  (`MaskResolutionScale` of the camera size) covering the camera view, and the
+  fog shader samples it with a small blur (`EdgeSoftness`) and noise jitter
+  (`EdgeNoiseAmplitude`). The fog therefore stops at walls exactly where
+  entities are hidden by occlusion, instead of shining over them.
+- **Cost.** About 140 raycasts per frame with the default steps, one small
+  mesh update and one draw into the mask, all without per-frame allocations.
+  Only the local peer pays it.
 - **Fail-closed.** Without a viewer the clear shape fades out over
   `ClearFadeSeconds` and the fog covers everything, matching the hidden
   entities.
 - **Feel.** Facing is smoothed in presentation only (`FacingSharpness`), so
   the clear cone turns smoothly while entity visibility keeps using the raw
-  facing. Edges are softened radially and angularly and broken up with noise,
+  facing. Edges are softened by the mask blur and broken up with noise,
   fog creeps back inside the cone with distance (`FarFog*`), and faint wisps
   remain inside the clear shape (`InsideDensity`). The noise is procedural, in
   world space, drifts with `WindVelocity` and is snapped to `PixelsPerUnit` to
@@ -155,12 +167,8 @@ clear-strength fade and the camera coverage.
 These are not implemented. They are listed so the prototype can grow
 deliberately once the team validates the look.
 
-1. **Occlusion-aware clear area (option B).** Build the visibility polygon
-   with a fan of raycasts against `ObstacleLayer` (the same shape the
-   `LocalVisionSource` gizmo already draws), render it into a low-resolution
-   mask render texture (for example a quarter of the screen), blur it, and
-   sample it in the fog shader instead of the geometric mask. Walls would then
-   cut the clear area exactly where `VisionQuery` hides entities.
+1. **Smarter ray placement.** Cast extra rays toward obstacle corners
+   (shadow-casting) so wall edges stay crisp at long range with fewer rays.
 2. **Lights thin the fog.** Pass a bounded list of active torches and braziers
    (position, radius) to the shader so lit areas are clearer. This fits the
    Game Design rule that torch light is shared by every nearby player and
@@ -183,7 +191,7 @@ deliberately once the team validates the look.
    fog below the walls, for parallax depth.
 9. **Retire the legacy visibility mesh.** `Assets/Art/Shaders/VisibilityMesh.shader`
    (built-in pipeline CG) and its material are leftovers from an earlier
-   approach; remove them, or reuse their idea for option B, once their test
+   approach, now superseded by `VisionFogMask`; remove them once their test
    reference is checked.
 10. **Validation tooling.** A debug toggle that fakes a viewer at the camera
     center, so the look can be tuned without starting a Fusion session.
@@ -210,6 +218,11 @@ requires Fusion interest management and is outside this contract.
   crossing the end of grace, regaining sight mid-fade, and instant timings.
 - EditMode `VisionFogRulesTests` cover facing smoothing (snapping, shortest
   arc, frame-rate independence), the clear-strength fade and camera coverage.
+- EditMode `VisionFogFanRulesTests` cover the ray fan: paired cone-edge rays,
+  ordering and step limits, facing shift, full and zero cones, capacity and
+  short buffers.
+- PlayMode `VisionOcclusionPlayModeTests` also prove `CastOcclusion` stops at a
+  wall face and ignores clear rays, the viewer's own collider and triggers.
   The fog look itself requires manual Play Mode review.
 - EditMode `VisibilityPrefabCoverageTests` require each hidden entity prefab to
   list every renderer it owns and to use the expected static or dynamic rule.
