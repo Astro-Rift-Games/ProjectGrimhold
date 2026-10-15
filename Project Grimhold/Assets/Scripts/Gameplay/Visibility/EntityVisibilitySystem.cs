@@ -93,7 +93,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
         private void LateUpdate()
         {
-            bool hasQuery = TryBuildQuery(out VisionQuery query);
+            bool hasQuery = TryBuildActiveQuery(out VisionQuery query);
             VisibilityFadeTimings timings = hasQuery ? query.FadeTimings : VisibilityFadeTimings.Instant;
             float deltaTime = Time.deltaTime;
 
@@ -122,7 +122,11 @@ namespace ProjectGrimhold.Gameplay.Visibility
             }
         }
 
-        private bool TryBuildQuery(out VisionQuery query)
+        /// <summary>
+        /// Builds this frame's query from the spectated viewer, else the local viewer.
+        /// Returns false when there is no viewer; callers must treat that as fail-closed.
+        /// </summary>
+        public bool TryBuildActiveQuery(out VisionQuery query)
         {
             query = default;
             if (IsAlive(ref _spectatedViewer))

@@ -45,6 +45,12 @@ namespace ProjectGrimhold.Gameplay.Visibility
 
         public Vector2 Origin => _origin;
 
+        public Vector2 Facing => _facing;
+
+        public float NearRadius => _nearRadius;
+
+        public float ConeHalfAngleCosine => _coneHalfAngleCosine;
+
         public Transform ViewerRoot => _viewerRoot;
 
         public VisibilityFadeTimings FadeTimings => _fadeTimings;
