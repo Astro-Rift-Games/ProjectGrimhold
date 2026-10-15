@@ -121,16 +121,23 @@ decides entity visibility, which stays owned by `EntityVisibilitySystem`.
   rest of the circle (`OuterRayStepDegrees`), with a paired ray at each cone
   edge (`VisionFogFanRules`). Each ray stops at
   `VisionQuery.CastOcclusion`, the same obstacle rule entity visibility uses
-  (`ObstacleLayer`, no triggers, the viewer's own colliders ignored), plus
-  `WallRevealDepth` so the face of the blocking wall is revealed. The
+  (`ObstacleLayer`, no triggers, the viewer's own colliders ignored), plus an
+  optional `WallRevealDepth` (0 by default, so walls are never cleared). The
   resulting polygon is drawn into a low-resolution mask render texture
-  (`MaskResolutionScale` of the camera size) covering the camera view, and the
-  fog shader samples it with a small blur (`EdgeSoftness`) and noise jitter
-  (`EdgeNoiseAmplitude`). The fog therefore stops at walls exactly where
-  entities are hidden by occlusion, instead of shining over them.
+  (`MaskResolutionScale` of the camera size) covering the camera view.
+- **Inward-only soft edge.** The mask is blurred with a separable gaussian at
+  a mip level where the blur radius (`EdgeSoftness`, world units) spans a few
+  texels, which avoids banding. The fog shader only clears where the blurred
+  mask is above 0.5 plus a noise threshold (`EdgeBreakup`), so the fade happens
+  inside the visible polygon and erodes inward with noise; outside the polygon
+  the blurred value is at most 0.5, so the fog never bleeds onto walls. The
+  fog therefore stops at walls exactly where entities are hidden by
+  occlusion. An `EdgeSoftness` larger than half a corridor width barely clears
+  narrow corridors.
 - **Cost.** About 140 raycasts per frame with the default steps, one small
-  mesh update and one draw into the mask, all without per-frame allocations.
-  Only the local peer pays it.
+  mesh update, one draw into the mask, a mip generation and two blur passes
+  on a small texture, all without per-frame allocations. Only the local peer
+  pays it.
 - **Fail-closed.** Without a viewer the clear shape fades out over
   `ClearFadeSeconds` and the fog covers everything, matching the hidden
   entities.
@@ -140,7 +147,13 @@ decides entity visibility, which stays owned by `EntityVisibilitySystem`.
   fog creeps back inside the cone with distance (`FarFog*`), and faint wisps
   remain inside the clear shape (`InsideDensity`). The noise is procedural, in
   world space, drifts with `WindVelocity` and is snapped to `PixelsPerUnit` to
-  match the pixel art.
+  match the pixel art. The noise hash avoids `sin()`, which loses GPU
+  precision on large arguments and draws stripes.
+- **Approved look.** A mid gray-blue mist (`FogColor` 0.38, 0.40, 0.46 at
+  alpha 0.6) with large, slow noise, visible wisps inside the clear area and
+  fog returning with distance (`FarFogStart` 4, `FarFogEnd` 10). Wide soft
+  edges, inside wisps and distance fog keep the clear area from reading as a
+  flashlight beam. These are the `VisionFogSettings` defaults.
 - **Rendering.** `Grimhold/Visibility/VisionFog` is a hand-written URP unlit
   shader drawn by the 2D Renderer on a built-in quad (`VisionFog` in
   `Gameplay.unity`). It sits on the `Fog` sorting layer, above every world
@@ -176,24 +189,27 @@ deliberately once the team validates the look.
 3. **Explored memory.** Keep a persistent low-resolution texture per raid of
    the areas already seen and draw a lighter fog over them. This changes
    gameplay readability and needs a Game Design decision first.
-4. **Depth-based look.** Vary `FogColor`, density and wind per dungeon floor,
+4. **Lit fog.** Render the fog with the 2D lights (a Sprite-Lit style pass)
+   so it darkens with the dungeon ambient light and brightens near torches.
+   The current fog is unlit, so a light tone can look bright in a dark room.
+5. **Depth-based look.** Vary `FogColor`, density and wind per dungeon floor,
    following the environmental progression by depth in the art direction.
    Implement it by swapping `VisionFogSettings` assets per floor.
-5. **Accessibility and options.** A player setting to lower fog intensity or
+6. **Accessibility and options.** A player setting to lower fog intensity or
    disable its motion, for contrast and motion sensitivity.
-6. **Gameplay-driven feel.** Short presentation responses such as a
+7. **Gameplay-driven feel.** Short presentation responses such as a
    denser, closer fog while downed, a pulse on taking damage, or a widened
    clear area during specific abilities. Each one must stay presentation-only.
-7. **Fog over entity edges.** Fade entities in sync with the fog edge (or
+8. **Fog over entity edges.** Fade entities in sync with the fog edge (or
    derive the visibility fade from the same smoothed facing) so an entity never
    pops in visibly sharper than the fog around it.
-8. **Layered fog.** A second, slower and larger noise layer, or a separate
+9. **Layered fog.** A second, slower and larger noise layer, or a separate
    fog below the walls, for parallax depth.
-9. **Retire the legacy visibility mesh.** `Assets/Art/Shaders/VisibilityMesh.shader`
+10. **Retire the legacy visibility mesh.** `Assets/Art/Shaders/VisibilityMesh.shader`
    (built-in pipeline CG) and its material are leftovers from an earlier
    approach, now superseded by `VisionFogMask`; remove them once their test
    reference is checked.
-10. **Validation tooling.** A debug toggle that fakes a viewer at the camera
+11. **Validation tooling.** A debug toggle that fakes a viewer at the camera
     center, so the look can be tuned without starting a Fusion session.
 
 ## Debugging

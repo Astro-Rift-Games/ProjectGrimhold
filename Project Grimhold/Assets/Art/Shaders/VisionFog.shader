@@ -3,18 +3,18 @@ Shader "Grimhold/Visibility/VisionFog"
 {
     Properties
     {
-        _FogColor ("Fog Color", Color) = (0.16, 0.17, 0.2, 0.93)
-        _InsideDensity ("Inside Density", Range(0, 1)) = 0.06
-        _NoiseScale ("Noise Scale", Float) = 0.35
-        _NoiseStrength ("Noise Strength", Range(0, 1)) = 0.3
-        _WindVelocity ("Wind Velocity", Vector) = (0.15, 0.05, 0, 0)
+        _FogColor ("Fog Color", Color) = (0.38, 0.4, 0.46, 0.6)
+        _InsideDensity ("Inside Density", Range(0, 1)) = 0.18
+        _NoiseScale ("Noise Scale", Float) = 0.12
+        _NoiseStrength ("Noise Strength", Range(0, 1)) = 0.45
+        _WindVelocity ("Wind Velocity", Vector) = (0.06, 0.02, 0, 0)
         _PixelsPerUnit ("Pixels Per Unit", Float) = 16
         _VisionMask ("Vision Mask", 2D) = "black" {}
         _MaskWorldRect ("Mask World Rect", Vector) = (0, 0, 1, 1)
         _EdgeBreakup ("Edge Breakup", Range(0, 0.45)) = 0.25
-        _FarFogStart ("Far Fog Start", Float) = 8
-        _FarFogEnd ("Far Fog End", Float) = 16
-        _FarFogDensity ("Far Fog Density", Range(0, 1)) = 0.35
+        _FarFogStart ("Far Fog Start", Float) = 4
+        _FarFogEnd ("Far Fog End", Float) = 10
+        _FarFogDensity ("Far Fog Density", Range(0, 1)) = 0.5
         _VisionOrigin ("Vision Origin", Vector) = (0, 0, 0, 0)
         _VisionClearStrength ("Vision Clear Strength", Range(0, 1)) = 0
     }
