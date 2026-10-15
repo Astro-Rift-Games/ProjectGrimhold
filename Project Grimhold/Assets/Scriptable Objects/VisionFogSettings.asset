@@ -12,14 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d575e25296f61945ba7e2409b3811ef, type: 3}
   m_Name: VisionFogSettings
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.VisionFogSettings
-  FogColor: {r: 0.05, g: 0.06, b: 0.08, a: 0.85}
+  FogColor: {r: 0.16, g: 0.17, b: 0.2, a: 0.93}
   InsideDensity: 0.06
   NoiseScale: 0.35
-  NoiseStrength: 0.45
+  NoiseStrength: 0.3
   WindVelocity: {x: 0.15, y: 0.05}
   PixelsPerUnit: 16
-  RadialSoftness: 1.5
-  AngularSoftnessDegrees: 12
+  EdgeSoftness: 0.5
+  WallRevealDepth: 0.5
+  ConeRayStepDegrees: 1
+  OuterRayStepDegrees: 6
+  MaskResolutionScale: 0.35
   EdgeNoiseAmplitude: 0.6
   FarFogStart: 8
   FarFogEnd: 16

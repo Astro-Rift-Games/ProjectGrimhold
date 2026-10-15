@@ -4,7 +4,8 @@ using UnityEngine.Rendering;
 namespace ProjectGrimhold.Gameplay.Visibility
 {
     /// <summary>
-    /// Local-only fog presentation reading the active viewer from the visibility system.
+    /// Local-only fog presentation reading the active viewer from the visibility system, with an
+    /// occlusion-aware clear area rendered via <see cref="VisionFogMask"/>.
     /// Never decides entity visibility; fails closed (no viewer means full fog).
     /// </summary>
     [DisallowMultipleComponent]
@@ -15,6 +16,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
         [Tooltip("Renderer on a centered built-in 1x1 Quad, not parented under a scaled transform.")]
         [SerializeField] private Renderer _renderer;
         [SerializeField] private VisionFogSettings _settings;
+        [Tooltip("Material using Hidden/Grimhold/Visibility/VisionFogMask; referenced so the shader ships in builds.")]
+        [SerializeField] private Material _maskMaterial;
 
         private static readonly int FogColorId = Shader.PropertyToID("_FogColor");
         private static readonly int InsideDensityId = Shader.PropertyToID("_InsideDensity");
@@ -22,36 +25,39 @@ namespace ProjectGrimhold.Gameplay.Visibility
         private static readonly int NoiseStrengthId = Shader.PropertyToID("_NoiseStrength");
         private static readonly int WindVelocityId = Shader.PropertyToID("_WindVelocity");
         private static readonly int PixelsPerUnitId = Shader.PropertyToID("_PixelsPerUnit");
-        private static readonly int RadialSoftnessId = Shader.PropertyToID("_RadialSoftness");
-        private static readonly int AngularSoftnessId = Shader.PropertyToID("_AngularSoftness");
+        private static readonly int EdgeSoftnessId = Shader.PropertyToID("_EdgeSoftness");
+        private static readonly int VisionMaskId = Shader.PropertyToID("_VisionMask");
+        private static readonly int MaskWorldRectId = Shader.PropertyToID("_MaskWorldRect");
         private static readonly int EdgeNoiseAmplitudeId = Shader.PropertyToID("_EdgeNoiseAmplitude");
         private static readonly int FarFogStartId = Shader.PropertyToID("_FarFogStart");
         private static readonly int FarFogEndId = Shader.PropertyToID("_FarFogEnd");
         private static readonly int FarFogDensityId = Shader.PropertyToID("_FarFogDensity");
         private static readonly int VisionOriginId = Shader.PropertyToID("_VisionOrigin");
-        private static readonly int VisionFacingId = Shader.PropertyToID("_VisionFacing");
-        private static readonly int VisionNearRadiusId = Shader.PropertyToID("_VisionNearRadius");
-        private static readonly int VisionHalfAngleId = Shader.PropertyToID("_VisionHalfAngle");
         private static readonly int VisionClearStrengthId = Shader.PropertyToID("_VisionClearStrength");
 
         private MaterialPropertyBlock _block;
         private Vector2 _origin;
         private Vector2 _facing = Vector2.up;
         private bool _hasFacing;
-        private float _nearRadius;
-        private float _halfAngle;
+        private VisionFogMask _mask;
         private float _clearStrength;
 
         private void Awake()
         {
-            if (_visibilitySystem == null || _camera == null || _renderer == null || _settings == null)
+            if (_visibilitySystem == null || _camera == null || _renderer == null || _settings == null || _maskMaterial == null)
             {
-                Debug.LogError($"{nameof(VisionFogPresenter)} requires a visibility system, camera, quad renderer and fog settings.", this);
+                Debug.LogError($"{nameof(VisionFogPresenter)} requires a visibility system, camera, quad renderer, fog settings and mask material.", this);
                 enabled = false;
                 return;
             }
 
             _block = new MaterialPropertyBlock();
+            _mask = new VisionFogMask(_maskMaterial);
+        }
+
+        private void OnDestroy()
+        {
+            _mask?.Dispose();
         }
 
         private void OnEnable()
@@ -95,8 +101,15 @@ namespace ProjectGrimhold.Gameplay.Visibility
                     ? query.Facing
                     : VisionFogRules.SmoothFacing(_facing, query.Facing, _settings.FacingSharpness, Time.deltaTime);
                 _hasFacing = true;
-                _nearRadius = query.NearRadius;
-                _halfAngle = Mathf.Acos(Mathf.Clamp(query.ConeHalfAngleCosine, -1f, 1f));
+                float coneAngleDegrees = 2f * Mathf.Acos(Mathf.Clamp(query.ConeHalfAngleCosine, -1f, 1f)) * Mathf.Rad2Deg;
+                Vector2 coverage = VisionFogRules.OrthographicCoverage(
+                    _camera.orthographicSize, _camera.aspect, _settings.CoverageMargin);
+                Vector3 cameraPosition = _camera.transform.position;
+                Rect worldRect = new Rect(cameraPosition.x - coverage.x * 0.5f,
+                    cameraPosition.y - coverage.y * 0.5f, coverage.x, coverage.y);
+                int width = Mathf.Max(16, Mathf.RoundToInt(_camera.pixelWidth * _settings.MaskResolutionScale));
+                int height = Mathf.Max(16, Mathf.RoundToInt(_camera.pixelHeight * _settings.MaskResolutionScale));
+                _mask.Render(in query, _facing, coneAngleDegrees, worldRect, width, height, _settings);
             }
 
             _block.SetColor(FogColorId, _settings.FogColor);
@@ -105,16 +118,17 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _block.SetFloat(NoiseStrengthId, _settings.NoiseStrength);
             _block.SetVector(WindVelocityId, new Vector4(_settings.WindVelocity.x, _settings.WindVelocity.y, 0f, 0f));
             _block.SetFloat(PixelsPerUnitId, _settings.PixelsPerUnit);
-            _block.SetFloat(RadialSoftnessId, _settings.RadialSoftness);
-            _block.SetFloat(AngularSoftnessId, _settings.AngularSoftnessDegrees * Mathf.Deg2Rad);
+            _block.SetFloat(EdgeSoftnessId, _settings.EdgeSoftness);
+            _block.SetVector(MaskWorldRectId, _mask.WorldRect);
+            if (_mask.Texture != null)
+            {
+                _block.SetTexture(VisionMaskId, _mask.Texture);
+            }
             _block.SetFloat(EdgeNoiseAmplitudeId, _settings.EdgeNoiseAmplitude);
             _block.SetFloat(FarFogStartId, _settings.FarFogStart);
             _block.SetFloat(FarFogEndId, _settings.FarFogEnd);
             _block.SetFloat(FarFogDensityId, _settings.FarFogDensity);
             _block.SetVector(VisionOriginId, new Vector4(_origin.x, _origin.y, 0f, 0f));
-            _block.SetVector(VisionFacingId, new Vector4(_facing.x, _facing.y, 0f, 0f));
-            _block.SetFloat(VisionNearRadiusId, _nearRadius);
-            _block.SetFloat(VisionHalfAngleId, _halfAngle);
             _block.SetFloat(VisionClearStrengthId, _clearStrength);
             _renderer.SetPropertyBlock(_block);
         }

@@ -1,24 +1,22 @@
-// Local presentation only: geometric mask (no occlusion), mirroring VisionConeRules shape.
+// Local presentation only: occlusion-aware clear mask rendered by VisionFogMask.
 Shader "Grimhold/Visibility/VisionFog"
 {
     Properties
     {
-        _FogColor ("Fog Color", Color) = (0.05, 0.06, 0.08, 0.85)
+        _FogColor ("Fog Color", Color) = (0.16, 0.17, 0.2, 0.93)
         _InsideDensity ("Inside Density", Range(0, 1)) = 0.06
         _NoiseScale ("Noise Scale", Float) = 0.35
-        _NoiseStrength ("Noise Strength", Range(0, 1)) = 0.45
+        _NoiseStrength ("Noise Strength", Range(0, 1)) = 0.3
         _WindVelocity ("Wind Velocity", Vector) = (0.15, 0.05, 0, 0)
         _PixelsPerUnit ("Pixels Per Unit", Float) = 16
-        _RadialSoftness ("Radial Softness", Float) = 1.5
-        _AngularSoftness ("Angular Softness (Radians)", Float) = 0.20943951
+        _VisionMask ("Vision Mask", 2D) = "black" {}
+        _MaskWorldRect ("Mask World Rect", Vector) = (0, 0, 1, 1)
+        _EdgeSoftness ("Edge Softness", Float) = 0.5
         _EdgeNoiseAmplitude ("Edge Noise Amplitude", Float) = 0.6
         _FarFogStart ("Far Fog Start", Float) = 8
         _FarFogEnd ("Far Fog End", Float) = 16
         _FarFogDensity ("Far Fog Density", Range(0, 1)) = 0.35
         _VisionOrigin ("Vision Origin", Vector) = (0, 0, 0, 0)
-        _VisionFacing ("Vision Facing", Vector) = (0, 1, 0, 0)
-        _VisionNearRadius ("Vision Near Radius", Float) = 0
-        _VisionHalfAngle ("Vision Half Angle (Radians)", Float) = 0
         _VisionClearStrength ("Vision Clear Strength", Range(0, 1)) = 0
     }
     SubShader
@@ -37,23 +35,23 @@ Shader "Grimhold/Visibility/VisionFog"
             #pragma fragment Frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+            TEXTURE2D(_VisionMask);
+            SAMPLER(sampler_VisionMask);
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _FogColor;
                 float4 _WindVelocity;
                 float4 _VisionOrigin;
-                float4 _VisionFacing;
+                float4 _MaskWorldRect;
                 float _InsideDensity;
                 float _NoiseScale;
                 float _NoiseStrength;
                 float _PixelsPerUnit;
-                float _RadialSoftness;
-                float _AngularSoftness;
+                float _EdgeSoftness;
                 float _EdgeNoiseAmplitude;
                 float _FarFogStart;
                 float _FarFogEnd;
                 float _FarFogDensity;
-                float _VisionNearRadius;
-                float _VisionHalfAngle;
                 float _VisionClearStrength;
             CBUFFER_END
 
@@ -89,6 +87,13 @@ Shader "Grimhold/Visibility/VisionFog"
                     + ValueNoise(p * 4.11 + float2(31.7, 47.3)) * 0.125) / 0.875;
             }
 
+            float SampleMask(float2 uv)
+            {
+                if (any(uv < 0.0) || any(uv > 1.0))
+                    return 0.0;
+                return SAMPLE_TEXTURE2D(_VisionMask, sampler_VisionMask, uv).r;
+            }
+
             half4 Frag(Varyings input) : SV_Target
             {
                 float2 p = input.positionWS;
@@ -98,18 +103,21 @@ Shader "Grimhold/Visibility/VisionFog"
                 float2 noisePosition = p * _NoiseScale + _Time.y * _WindVelocity.xy * _NoiseScale;
                 float noise1 = Fbm(noisePosition);
                 float noise2 = Fbm(noisePosition + float2(83.4, 129.7));
-                float2 d = p - _VisionOrigin.xy;
-                float dist = length(d);
-                float edge = (noise2 - 0.5) * 2.0 * _EdgeNoiseAmplitude;
-                float nearClear = 1.0 - smoothstep(_VisionNearRadius,
-                    _VisionNearRadius + max(_RadialSoftness, 1e-4), dist + edge);
-                float a = acos(clamp(dot(d / max(dist, 1e-4), _VisionFacing.xy), -1.0, 1.0));
-                float jitter = edge / max(dist, 0.5);
-                float coneClear = 1.0 - smoothstep(_VisionHalfAngle,
-                    _VisionHalfAngle + max(_AngularSoftness, 1e-4), a + jitter);
-                coneClear *= 1.0 - _FarFogDensity * smoothstep(_FarFogStart,
-                    max(_FarFogEnd, _FarFogStart + 1e-4), dist);
-                float clear = (dist < 1e-4 ? 1.0 : max(nearClear, coneClear)) * _VisionClearStrength;
+                float noise3 = Fbm(noisePosition + float2(219.8, 37.6));
+                float2 jitter = (float2(noise2, noise3) - 0.5) * 2.0 * _EdgeNoiseAmplitude;
+                // Guard the initial no-viewer state, before a mask has been rendered.
+                float2 rectSize = max(_MaskWorldRect.zw, float2(1e-4, 1e-4));
+                float2 uv = (p + jitter - _MaskWorldRect.xy) / rectSize;
+                float2 radius = _EdgeSoftness / rectSize;
+                float mask = SampleMask(uv) * 0.2;
+                [unroll]
+                for (int i = 0; i < 8; i++)
+                {
+                    float angle = i * (6.28318530718 / 8.0);
+                    mask += SampleMask(uv + float2(cos(angle), sin(angle)) * radius) * 0.1;
+                }
+                float clear = mask * (1.0 - _FarFogDensity * smoothstep(_FarFogStart,
+                    max(_FarFogEnd, _FarFogStart + 1e-4), distance(p, _VisionOrigin.xy))) * _VisionClearStrength;
                 float alpha = _FogColor.a * lerp(1.0 - _NoiseStrength, 1.0, noise1)
                     * lerp(1.0, _InsideDensity, clear);
                 return half4(_FogColor.rgb, alpha);

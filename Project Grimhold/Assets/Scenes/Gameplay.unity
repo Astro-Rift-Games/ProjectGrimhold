@@ -114834,6 +114834,7 @@ MonoBehaviour:
   _camera: {fileID: 519420031}
   _renderer: {fileID: 1841361996}
   _settings: {fileID: 11400000, guid: 0733926488152c549a250cd1cff248f7, type: 2}
+  _maskMaterial: {fileID: 2100000, guid: 8595a352e68d93a4288135ec6e8aa667, type: 2}
 --- !u!23 &1841361996
 MeshRenderer:
   m_ObjectHideFlags: 0

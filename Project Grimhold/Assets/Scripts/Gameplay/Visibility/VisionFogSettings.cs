@@ -8,24 +8,27 @@ namespace ProjectGrimhold.Gameplay.Visibility
     {
         [Header("Look")]
         [Tooltip("Fog tint; alpha is the maximum density.")]
-        public Color FogColor = new Color(0.05f, 0.06f, 0.08f, 0.85f);
+        public Color FogColor = new Color(0.16f, 0.17f, 0.2f, 0.93f);
         [Tooltip("Density retained inside the clear shape, relative to maximum density.")]
         [Range(0f, 1f)] public float InsideDensity = 0.06f;
         [Tooltip("Noise frequency in world space.")]
         [Min(0f)] public float NoiseScale = 0.35f;
         [Tooltip("Strength of density variation.")]
-        [Range(0f, 1f)] public float NoiseStrength = 0.45f;
+        [Range(0f, 1f)] public float NoiseStrength = 0.3f;
         [Tooltip("Noise drift in world units per second.")]
         public Vector2 WindVelocity = new Vector2(0.15f, 0.05f);
         [Tooltip("World-space pixel snapping; zero disables it. Most project sprites use 16 PPU.")]
         [Min(0f)] public float PixelsPerUnit = 16f;
 
-        [Header("Edges")]
-        [Tooltip("Radial edge softness in world units.")]
-        [Min(0f)] public float RadialSoftness = 1.5f;
-        [Tooltip("Cone edge softness in degrees.")]
-        [Range(0f, 90f)] public float AngularSoftnessDegrees = 12f;
-        [Tooltip("World units of noise-driven edge breakup.")]
+        [Header("Clear Shape")]
+        [Tooltip("World radius of the mask blur.")]
+        [Min(0f)] public float EdgeSoftness = 0.5f;
+        [Tooltip("World units a ray continues past an obstacle to reveal the blocking wall face.")]
+        [Min(0f)] public float WallRevealDepth = 0.5f;
+        [Range(0.25f, 10f)] public float ConeRayStepDegrees = 1f;
+        [Range(1f, 45f)] public float OuterRayStepDegrees = 6f;
+        [Range(0.1f, 1f)] public float MaskResolutionScale = 0.35f;
+        [Tooltip("World units of noise-driven mask sampling jitter.")]
         [Min(0f)] public float EdgeNoiseAmplitude = 0.6f;
 
         [Header("Distance")]
@@ -51,8 +54,11 @@ namespace ProjectGrimhold.Gameplay.Visibility
             NoiseScale = Mathf.Max(0f, NoiseScale);
             NoiseStrength = Mathf.Clamp01(NoiseStrength);
             PixelsPerUnit = Mathf.Max(0f, PixelsPerUnit);
-            RadialSoftness = Mathf.Max(0f, RadialSoftness);
-            AngularSoftnessDegrees = Mathf.Clamp(AngularSoftnessDegrees, 0f, 90f);
+            EdgeSoftness = Mathf.Max(0f, EdgeSoftness);
+            WallRevealDepth = Mathf.Max(0f, WallRevealDepth);
+            ConeRayStepDegrees = Mathf.Clamp(ConeRayStepDegrees, 0.25f, 10f);
+            OuterRayStepDegrees = Mathf.Clamp(OuterRayStepDegrees, 1f, 45f);
+            MaskResolutionScale = Mathf.Clamp(MaskResolutionScale, 0.1f, 1f);
             EdgeNoiseAmplitude = Mathf.Max(0f, EdgeNoiseAmplitude);
             FarFogStart = Mathf.Max(0f, FarFogStart);
             FarFogEnd = Mathf.Max(FarFogStart, FarFogEnd);
