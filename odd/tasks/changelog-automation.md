@@ -16,7 +16,7 @@ Engram mirror topic: `odd/changelog-automation/tasks`.
 - [x] T1 (S1-S5) Generator library, CLI and automated tests | route: gentle-ai-worker (two passes: functional, then readability rewrite) | evidence: `npm test` 86/86 | commit: `b87900fe`
 - [x] T2 (S6) GitHub Actions workflows + `release-notes --strict` | route: inline (workflow YAML coupled to parent design; deviation from multi-file delegation noted) | evidence: RED 1 fail then 87/87, actionlint v1.7.7 clean (shellcheck unavailable), `bash -n` publish.sh | commit: `eb61577e`
 - [x] T3 (S2, S3) Commit-message skill adaptation + usage docs | route: inline (passive docs, no runnable RED) | evidence: skill registry refreshed (20 skills) | commit: `589c049b`
-- [ ] T4 Generate initial changelog files, idempotency and history checks | route: gentle-ai-verify
+- [x] T4 Generate initial changelog files, idempotency and history checks | route: inline generate + gentle-ai-verify (independent run incl. throwaway-clone release simulation) | evidence: 696/696 commits linked once, check up to date after chore commit, simulated v0.1.0/v0.2.0 strict pass/fail | commits: `7369fd12` (fixes), `d3173efd` (generated files)
 
 ## Log
 - L1 (2026-10-14) Repo state: `New-Testing` clean, in sync with origin; no `.github/`, no tags; default branch is `main`; 70 merges, ~690 non-merge commits, ~350 Conventional.
