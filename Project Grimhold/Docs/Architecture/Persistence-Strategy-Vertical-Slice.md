@@ -9,35 +9,46 @@ simulation:
   returns a JWT and exposes the authenticated Character. Its remote `CharacterId` is adopted by
   Unity as `ProfileId`. `AccountId` remains backend-internal. The exact flow is defined in
   `RemoteIdentityAndAuthArchitecture.md`.
-- **Character aggregate**: `LocalProfileStore` uses `InMemoryLocalProfileRepository`. The aggregate
+- **Character aggregate**: `LocalProfileStore` uses `LocalProfileRepository` and `LocalProfileFileStore`
+  with a per-ProfileId JSON cache (current schema 8, supported older versions readable). The aggregate
   contains Currency, Stash, Loadout, prepared Equipment, reservations, extraction/shop/progression
   receipts and watermarks, Level, current Experience, and `CharacterAttributeState` including its
   available attribute points.
 - **Process lifetime**: `ApplicationStashContext` is `DontDestroyOnLoad`, so the aggregate survives
   scene changes and `NetworkRunner` replacement while the application remains open.
-- **Legacy local persistence**: files such as `grimhold-profile.json` and `PlayerPrefs` profile data
-  are intentionally excluded from the productive composition. They never create a fallback
-  identity and never replace a failed remote login.
-- **Remote profile data**: the backend currently persists the limited profile fields exposed by
-  `CharacterClient`, such as `customNote` and `lastSeen`; it does not yet hydrate or durably commit
-  the gameplay aggregate owned by `LocalProfileStore`.
+- **Local persistence**: the file cache preserves local-only and unsent aggregate fields; neither
+  files nor PlayerPrefs create a fallback identity or replace failed authentication/backend fetches.
+- **Remote profile data**: login fetches Character/profile, inventory and progression. Inventory and
+  progression must have equal revisions before backend hydration and local candidate persistence.
+  The backend remains authoritative for its fields; cache replay is not backend confirmation.
 - **Raid state**: Health, Raid inventory, Equipment runtime state, enemies and extraction progress
   remain temporary authoritative Fusion simulation state. Fusion does not own Stash, Loadout or
   the persistent character aggregate.
 
-Closing or crashing the application currently discards the gameplay aggregate. A later login
-recovers the same remote `CharacterId`/`ProfileId`, but it does not reconstruct that aggregate.
-`ProfileCommitted` therefore means only that an in-process transaction succeeded; it is not a
-backend durability acknowledgement.
+A later authenticated login replays the cache and hydrates backend-owned fields. Healthy pending
+extraction commits survive hydration and use the existing retry path. Active missions, local
+abilities and other unsent local state are not fully reconstructible from backend payloads.
+`ProfileCommitted` acknowledges local aggregate acceptance, not backend durability.
+
+Only the successful authenticated login flow explicitly permits confirmed corrupt-cache replacement.
+Both inventory and progression must be present, valid and revision-consistent. Repository eligibility
+requires confirmed decode failure of readable existing files, with no IO failure or unsupported
+future version; missing files alone, configuration and identity errors never qualify. Valid main and
+backup loading/repair are unchanged, including the unsupported-main protective block. A fresh
+candidate must pass identity/codec validation and the atomic file-write operation before publication.
+Write failure stops hydration/login; no temporary Ready state or upfront deletion is allowed. A
+successful reset warns that unsent local state cannot be recovered. Synchronous cache IO adds login
+latency; a successful atomic-write return is not a filesystem flush guarantee. See
+`LocalPlayerPersistenceArchitecture.md` for the recovery admission contract.
 
 ## 2. Problem to solve
 
 Stable identity and authentication are already implemented. The missing Vertical Slice boundary is
 durable gameplay persistence: the backend must hydrate and confirm the complete character aggregate
-that currently lives only in memory, so progression and secured inventory survive application
+that is currently cached locally, so progression and secured inventory survive application
 restart without introducing a second identity or treating Fusion snapshots as metagame storage.
 
-The present client-owned in-memory mutations also provide no external validation against a modified
+The present client-owned local mutations also provide no external validation against a modified
 client. The backend integration must become the authoritative durable boundary for those mutations,
 while acknowledging that full server-side Raid simulation and advanced anti-cheat remain outside
 this slice.

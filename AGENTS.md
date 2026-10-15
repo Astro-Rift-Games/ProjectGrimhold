@@ -6,6 +6,8 @@ These instructions apply to the whole `Astro-Rift-Games/ProjectGrimhold` reposit
 
 ```text
 ProjectGrimhold/
+├── .agents/
+│   └── skills/
 ├── AGENTS.md
 ├── Project Grimhold/        # Unity project
 │   ├── AGENTS.md            # Unity/Fusion rules
@@ -15,7 +17,6 @@ ProjectGrimhold/
 │   └── ProjectSettings/
 ├── backend/
 ├── docs/
-├── skills/
 └── tools/
     └── grimhold-docs-mcp/
 ```
@@ -149,13 +150,13 @@ Subagents may be used for bounded exploration, review or verification when they 
 For implementation, review, debugging or completion of an existing Project Grimhold work item, load:
 
 ```text
-skills/grimhold-task-execution/SKILL.md
+.agents/skills/grimhold-task-execution/SKILL.md
 ```
 
 To draft a commit title/description for the current diff, load:
 
 ```text
-skills/grimhold-commit-message/SKILL.md
+.agents/skills/grimhold-commit-message/SKILL.md
 ```
 
 After adding/moving/editing project skills:

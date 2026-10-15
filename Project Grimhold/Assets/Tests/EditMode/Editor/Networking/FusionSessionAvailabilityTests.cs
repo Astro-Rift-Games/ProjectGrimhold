@@ -19,9 +19,9 @@ public sealed class FusionSessionAvailabilityTests
     }
 
     [Test]
-    public void GameClosed_DoesNotWaitForHost()
+    public void GameClosed_WaitsForHost()
     {
-        Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(ShutdownReason.GameClosed), Is.False);
+        Assert.That(FusionSessionLauncher.IsSessionAvailabilityPending(ShutdownReason.GameClosed), Is.True);
     }
 
     [TestCase(ShutdownReason.Error)]
@@ -42,7 +42,7 @@ public sealed class FusionSessionAvailabilityTests
     }
 
     [Test]
-    public void FrozenClientWaitsOnlyForMissingHostSession()
+    public void FrozenClient_WaitsForMissingOrClosedHostSession()
     {
         var host = new ProfileId("host");
         var client = new ProfileId("client");
@@ -67,6 +67,40 @@ public sealed class FusionSessionAvailabilityTests
         Assert.That(
             SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
                 frozen, RaidConnectionRole.Client, ShutdownReason.GameClosed),
+            Is.True);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Client, ShutdownReason.Error),
+            Is.False);
+
+        // Host role never retries
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Host, ShutdownReason.GameClosed),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Host, ShutdownReason.GameNotFound),
+            Is.False);
+
+        // Null launch context (manual join) never retries
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                null, RaidConnectionRole.Client, ShutdownReason.GameClosed),
+            Is.False);
+
+        // Timeout budget enforcement
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Client, ShutdownReason.GameClosed, remainingSeconds: 15f),
+            Is.True);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Client, ShutdownReason.GameClosed, remainingSeconds: 0f),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRetryRaidSessionAvailability(
+                frozen, RaidConnectionRole.Client, ShutdownReason.GameClosed, remainingSeconds: -5f),
             Is.False);
     }
 }

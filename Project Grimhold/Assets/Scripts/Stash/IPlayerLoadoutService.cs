@@ -27,9 +27,13 @@ public interface IPlayerLoadoutService
     StashOperationResult TryClearPreparedEquipment(ProfileId profileId, EquipmentSlot slot);
 
     /// <summary>
-    /// Atomically assigns an item from the Stash directly to Equipment, swapping the displaced item back to the Stash.
+    /// Atomically removes one Stash unit into Equipment and returns displaced units to Loadout.
     /// </summary>
     StashOperationResult TryEquipFromStash(ProfileId profileId, LootId lootId, EquipmentSlot slot);
+
+    /// <summary>Projects the complete Stash equip without mutation, validating final Loadout capacity.</summary>
+    StashOperationResult EvaluateEquipFromStash(
+        ProfileId profileId, LootId lootId, EquipmentSlot slot, out PreparedEquipmentLoadout equipment);
 
     /// <summary>
     /// Normalizes the Loadout and prepared Weapon Equipment so a raid reservation can succeed.
@@ -56,6 +60,21 @@ public interface IPlayerLoadoutService
     /// Attempts to transfer all items from the Loadout to the Stash.
     /// </summary>
     StashOperationResult TryTransferAllToStash(ProfileId profileId);
+
+    /// <summary>
+    /// Reports what <see cref="TryTransferToLoadout"/> would return right now without changing or
+    /// publishing anything, so callers can reject an action before it reaches the backend.
+    /// </summary>
+    StashOperationResult EvaluateTransferToLoadout(ProfileId profileId, LootId lootId, int amount);
+
+    /// <summary>Dry run of <see cref="TryTransferToStash"/>.</summary>
+    StashOperationResult EvaluateTransferToStash(ProfileId profileId, LootId lootId, int amount);
+
+    /// <summary>Dry run of <see cref="TryTransferAllToLoadout"/>.</summary>
+    StashOperationResult EvaluateTransferAllToLoadout(ProfileId profileId);
+
+    /// <summary>Dry run of <see cref="TryTransferAllToStash"/>.</summary>
+    StashOperationResult EvaluateTransferAllToStash(ProfileId profileId);
 
     /// <summary>
     /// Generic method to import items into the Loadout from an external source (e.g. extraction).

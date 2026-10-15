@@ -11,8 +11,8 @@ public sealed class VitalDrainAbilityBehaviour : AbilityExecutionBehaviour
     [Header("Area and preparation")]
     [Tooltip("Provisional radius, following existing area abilities. No default line-of-sight restriction.")]
     [SerializeField, Min(0.01f)] private float _radius = 3f;
-    [Tooltip("Provisional preparation, following Seismic Strike; not final balance.")]
-    [SerializeField, Min(0.01f)] private float _preparationSeconds = 0.75f;
+    [Tooltip("Game Design baseline preparation (1 s); configurable.")]
+    [SerializeField, Min(0.01f)] private float _preparationSeconds = 1f;
 
     [Header("Drain")]
     [Tooltip("Independent flat damage per creature. Provisional existing ability baseline, not final balance.")]

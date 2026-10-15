@@ -2,7 +2,7 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// PvE Arcane Projectile: prepare using the accepted aim, then spawn an independent shared projectile once.
+/// PvE Arcane Projectile: prepare using the accepted facing, then spawn an independent shared projectile once.
 /// Payment, deadlines and interruption belong to the runtime; flight belongs to NetworkProjectile.
 /// </summary>
 [DisallowMultipleComponent]

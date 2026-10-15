@@ -105,6 +105,125 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.GetStash(), Is.Empty);
         }
 
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void Store_EquipFromStash_ChecksFinalLoadoutCapacityAtomically(bool displaced, bool existingId)
+        {
+            LocalProfileStore store = CreateStore(
+                "61616161616161616161616161616161",
+                CreateAttributes(strength: 10),
+                snapshot =>
+                {
+                    if (displaced) snapshot.PreparedEquipment = new PreparedEquipmentLoadout(RecoverySword, default);
+                    snapshot.Stash.Add(new StashItem(Sword, 2));
+                    for (int index = 0; index < LocalProfileSnapshot.MaxLoadoutSlots; index++)
+                    {
+                        snapshot.Loadout.Add(new StashItem(
+                            existingId && index == 0 ? RecoverySword : new LootId($"stash-capacity-{index}"), 1));
+                    }
+                });
+            var before = new System.Collections.Generic.List<StashItem>(store.GetLoadout());
+            int commits = 0;
+            store.ProfileCommitted += _ => commits++;
+
+            StashOperationResult result = store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword);
+
+            if (displaced && !existingId)
+            {
+                Assert.That(result, Is.Not.EqualTo(StashOperationResult.Success));
+                Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(RecoverySword));
+                Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+                Assert.That(store.GetLoadout(), Is.EqualTo(before));
+                Assert.That(commits, Is.Zero);
+                return;
+            }
+
+            Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+            Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetLoadout(), Has.Count.EqualTo(30));
+            if (existingId) Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(RecoverySword, 2)));
+            else Assert.That(store.GetLoadout(), Is.EqualTo(before));
+            Assert.That(commits, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Store_EquipFromStash_TwoHandedReturnsBothHandsToLoadoutInOneCommit()
+        {
+            LocalProfileStore store = CreateStore(
+                "62626262626262626262626262626262", CreateAttributes(strength: 10), snapshot =>
+                {
+                    snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
+                        Sword, RecoverySword, weaponSetAOffHand: TrainingShield);
+                    snapshot.Stash.Add(new StashItem(Greatsword, 2));
+                });
+            int commits = 0;
+            store.ProfileCommitted += _ => commits++;
+
+            Assert.That(store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Greatsword),
+                Is.EqualTo(StashOperationResult.Success));
+
+            Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Greatsword));
+            Assert.That(store.GetPreparedEquipment().WeaponSetAOffHand.IsValid, Is.False);
+            Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(RecoverySword));
+            Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
+            {
+                new StashItem(Sword, 1), new StashItem(TrainingShield, 1)
+            }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(commits, Is.EqualTo(1));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Store_StashEquipProjection_PreservesHydratedExcessWithoutGrowingIt(bool newDisplacedId)
+        {
+            LocalProfileStore store = CreateStore(
+                "64646464646464646464646464646464", CreateAttributes(strength: 10), snapshot =>
+                {
+                    snapshot.PreparedEquipment = new PreparedEquipmentLoadout(RecoverySword, default);
+                    snapshot.Stash.Add(new StashItem(Sword, 2));
+                    for (int index = 0; index <= LocalProfileSnapshot.MaxLoadoutSlots; index++)
+                        snapshot.Loadout.Add(new StashItem(!newDisplacedId && index == 0
+                            ? RecoverySword : new LootId($"excess-{index}"), 1));
+                });
+            int commits = 0;
+            store.ProfileCommitted += _ => commits++;
+            var before = new System.Collections.Generic.List<StashItem>(store.GetLoadout());
+
+            StashOperationResult evaluation = store.EvaluateEquipFromStash(
+                EquipmentSlot.WeaponSetAMainHand, Sword, out PreparedEquipmentLoadout projected);
+
+            Assert.That(evaluation, Is.EqualTo(newDisplacedId
+                ? StashOperationResult.InventoryFull : StashOperationResult.Success));
+            Assert.That(commits, Is.Zero);
+            Assert.That(store.GetLoadout(), Is.EqualTo(before));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+            Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(RecoverySword));
+            if (!newDisplacedId) Assert.That(projected.WeaponSetAMainHand, Is.EqualTo(Sword));
+            Assert.That(store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword), Is.EqualTo(evaluation));
+            Assert.That(store.GetLoadout(), Has.Count.EqualTo(31));
+            Assert.That(commits, Is.EqualTo(newDisplacedId ? 0 : 1));
+        }
+
+        [Test]
+        public void Store_EquipFromStash_SameIdReplacementLeavesOneUnitInLoadout()
+        {
+            LocalProfileStore store = CreateStore(
+                "63636363636363636363636363636363", CreateAttributes(strength: 10), snapshot =>
+                {
+                    snapshot.PreparedEquipment = new PreparedEquipmentLoadout(Sword, default);
+                    snapshot.Stash.Add(new StashItem(Sword, 2));
+                });
+
+            Assert.That(store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword),
+                Is.EqualTo(StashOperationResult.Success));
+            Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+        }
+
         [Test]
         public void Store_RejectsEquipWhenTheUnitOnlyExistsInStash()
         {

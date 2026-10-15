@@ -62,5 +62,5 @@ Return, in the user's language for prose and English for the message:
 
 ## References
 
-- `../../AGENTS.md` — commit language and scope policy.
-- `../../Project Grimhold/AGENTS.md` — serialized asset and generated-file checks.
+- `../../../AGENTS.md` — commit language and scope policy.
+- `../../../Project Grimhold/AGENTS.md` — serialized asset and generated-file checks.

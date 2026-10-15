@@ -32,7 +32,7 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     private IKnockbackMotor _knockbackMotor;
 
     [Networked]
-    public float Health { get; private set; }
+    public float Health { get; protected set; }
 
     /// <summary>
     /// Gets the effective maximum health for this character.

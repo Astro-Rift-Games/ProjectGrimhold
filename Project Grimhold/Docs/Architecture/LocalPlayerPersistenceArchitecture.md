@@ -4,8 +4,9 @@
 
 Project Grimhold currently keeps the character aggregate alive across scenes and
 `NetworkRunner` replacement during one application process. The backend owns character identity
-and is the target source of truth for durable metagame state. The temporary Unity composition must
-not let legacy local files block authentication or stand in for backend durability.
+and is the target source of truth for durable metagame state. The Unity file cache must not stand
+in for backend authority; cache initialization and save failures can stop profile hydration after
+authentication.
 
 ## Decision
 
@@ -15,22 +16,23 @@ and never generates or restores a productive identity through `PlayerPrefs`. A s
 injects the remote `CharacterId` before initializing profile services.
 
 `ApplicationStashServiceBootstrapper` creates one `ApplicationStashContext` before the first scene
-but defers store initialization until a valid remote identity is available. It then composes an
-`InMemoryLocalProfileRepository`. The context remains `DontDestroyOnLoad`; stash, loadout, prepared
-Equipment assignments, pending reservations, extraction receipts and progression state survive
-Town-Raid-Town transitions while the application remains open. They are discarded on application
-shutdown until the backend integration hydrates and commits this aggregate remotely.
+but defers store initialization until a valid remote identity is available. It composes a
+`LocalProfileRepository` backed by `LocalProfileFileStore`, using the per-ProfileId JSON cache.
+The context remains `DontDestroyOnLoad`; the aggregate survives scene and runner transitions.
+Login fetches backend inventory and progression with consistent revisions, hydrates an isolated
+candidate and saves it before publishing application services. The file cache preserves local-only
+and unsent fields across restarts; it is not a backend acknowledgement.
 
 `CharacterAttributeState` is part of that same character aggregate. New profiles initialize it
 from `ProgressionBalanceDefaults.InitialCharacterAttributeState`; assigned values and available
-points survive consumer, scene and runner replacement only while this application process remains
-open. They are intended for durable backend persistence when that integration exists.
+points survive consumer, scene and runner replacement. Login hydrates attributes from backend
+progression; the local aggregate is also encoded in the file cache.
 
 ```text
 IPlayerStashService / IPlayerLoadoutService
                 -> LocalProfileStore
                 -> ILocalProfileRepository
-                -> InMemoryLocalProfileRepository
+                -> LocalProfileRepository -> LocalProfileFileStore
 ```
 
 `LocalProfileStore` remains the transactional application boundary. It builds a candidate
@@ -62,15 +64,49 @@ and applying shop receipt idempotency. No other Commerce component mutates the L
 `LocalProfileStore`, and no replicated inventory shadow participates. Draft, presentation, stock
 and request-identity ownership belong to `CommerceArchitecture.md`.
 
-The productive `InMemoryLocalProfileRepository` accepts an isolated clone of that complete
-candidate after validating its readiness and profile identity. It never encodes or reconstructs
-the aggregate through `LocalProfileSaveCodec`; domain mutations are validated by
-`LocalProfileStore` and their pure rules.
+The productive `LocalProfileRepository` validates candidate identity and codec compatibility,
+then calls the file store's atomic-write operation before publishing a cloned Snapshot as Ready.
+The current save schema is 8; supported older schemas remain readable. The atomic operation's
+boolean result is the acceptance boundary, not a claim of filesystem flush durability.
 
-`LocalProfileRepository`, `LocalProfileFileStore` and `LocalProfileSaveCodec` remain isolated,
-test-covered legacy infrastructure. They are not part of the runtime composition and files such
-as `grimhold-profile.json` are ignored. They must not become a fallback when authentication or a
-backend operation fails.
+### Authenticated corrupt-cache recovery
+
+Startup and ordinary `InitializeWithProfile` calls default to no reset permission. Only the
+successful authenticated `LoginFlowController` path opts in after character/profile fetches and
+inventory/progression fetches with equal revisions. Missing payloads, revision mismatch and invalid
+hydration cannot reset the cache. Revisions need not be positive.
+
+Repository eligibility is typed, not inferred from error text: an existing readable file must fail
+decoding, every other existing file must also be readable, and neither may be a future schema.
+Missing files alone, IO failures, missing configuration and invalid identity do not qualify.
+Eligibility is cleared on every Initialize. A valid main or backup retains its existing load/repair
+behavior; an unsupported main still blocks backup fallback.
+
+Recovery builds a fresh snapshot for the initialized ProfileId, hydrates it from both backend
+payloads, validates identity and codec compatibility, and attempts one atomic write before Snapshot
+or Ready publication. Failure leaves the repository unavailable and does not admit the candidate;
+ordinary TrySave remains fail-closed. Successful replacement emits an explicit warning that unsent
+local state cannot be recovered. No deletion or backup manipulation precedes the validated write.
+Healthy cached PendingExtractionCommit and local-only fields are retained through normal hydration;
+the existing pending extraction retry is not replaced by corruption reset. Active missions, local
+abilities, receipts and other unsent local-only state cannot be reconstructed by backend hydration.
+A synchronous cache save adds login latency; save failure stops login hydration rather than admitting
+an unsaved profile. Authentication/fetch failures never authorize local fallback.
+
+### Stash capacity admission
+
+`LocalProfilePersistenceConfiguration.StashCapacity` is static configuration (shipped value 60),
+forwarded by the bootstrapper into `LocalProfileStore`. Other callers default to 60; a nonpositive
+constructor capacity throws rather than silently clamping. Capacity is not profile/save schema.
+One distinct LootId consumes one slot; quantities have no stack cap beyond integer overflow.
+The shared Store admission check gates single/all transfers to Stash, secure-loot packages and
+mission item rewards before committing their cloned candidate. Existing-ID merges remain valid
+at or above capacity; new IDs that would exceed capacity return `InventoryFull`. No rejected
+operation changes ownership, currency, progression receipts or mission claim state, or publishes
+a profile commit. Mission rewards are one atomic package; a capacity refusal stays pending.
+The existing secure-loot boundary still rejects duplicate input IDs as `InvalidInventory`.
+Hydration and codec persistence do not impose Stash capacity: accepted server excess remains
+intact and can be reduced. Extraction and unequip destinations are unchanged.
 
 ### Backend persistence integration boundary
 
@@ -82,8 +118,22 @@ the application context. Network errors, cancellation, revision conflicts and re
 outcomes; none may create a local identity or silently accept a local file as authoritative.
 
 The exact HTTP DTOs and endpoints belong to the backend contract and are not invented here.
-Until that contract is integrated, `ProfileCommitted` means only that the process-local aggregate
-accepted a transaction. It must not be interpreted as durable backend acknowledgement.
+`ProfileCommitted` means that the local aggregate accepted a transaction. It must not by itself
+be interpreted as durable backend acknowledgement.
+
+Hydration (`ApplicationStashServiceBootstrapper.HydrateSnapshot`, used at login and by
+`LocalProfileStore.ReconcileRemoteState`) validates the whole backend payload before writing
+anything, so a rejected payload leaves the snapshot untouched. Item lists are normalized to what the
+save codec accepts: unknown LootIds and non-positive amounts are skipped, duplicate LootIds are
+merged, and an amount overflow on merge or a negative currency rejects the payload. Login hydrates a
+clone and persists it through `ILocalProfileRepository.TrySave`; it never mutates
+`repository.Snapshot` in place, so the repository only holds a snapshot that passed the same save
+path as every later commit. The backend has no Loadout slot limit, so a Loadout over
+`LocalProfileSnapshot.MaxLoadoutSlots` is accepted and persisted: slot capacity is a Store rule, not
+a codec rule. Store operations that need a new Loadout slot are refused (`InventoryFull`), so the
+excess can only shrink, and `TryCreateLoadoutReservation` refuses an over-capacity Loadout with
+`InventoryFull` so the excess never enters a Raid. The Town Inventory read source still reports an
+over-capacity Loadout as unavailable; the Stash screen is where the excess is moved out.
 
 ### Progression transaction
 
@@ -119,14 +169,44 @@ Inventory and prepared Equipment are mutually exclusive ownership locations. Equ
 a usable Weapon definition. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
 confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
 rule is rechecked before preparation, reservation and rollback; armors have no attribute
-requirements during the MVP. Equip reads only Inventory, never Stash. Replacement removes the new
+requirements during the MVP. Ordinary Town Inventory Equip reads only Inventory. The Stash screen
+also supports direct Stash Equip through `EvaluateEquipFromStash` / `TryEquipFromStash`: both share
+one planner over an isolated snapshot clone. It removes exactly one Stash unit, returns displaced
+units (including same-ID replacement and both hands for a two-handed weapon) to Loadout, and checks
+final distinct-ID capacity before any commit. A full 30-ID Loadout can equip into an empty slot or
+merge displaced units into existing IDs, but cannot accept a new displaced ID. Backend-hydrated
+excess remains accepted; this operation cannot grow that excess. Evaluation publishes nothing;
+application replans against current state and commits the whole candidate once.
+
+The Stash coordinator checks the Ready gate, availability and Store rules, then calls
+`MoveToLoadout(id, 1)`, then `UpdatePreparedEquipment(projected)`, then the atomic local application.
+The coordinator copies Stash, Loadout and prepared Equipment ownership before sending and checks
+that ownership after each successful remote await. Drift reconciles once as divergence (or failed
+recovery), without sending the next endpoint or applying the Stash equip. Revision metadata alone
+is not drift. The final guard and Store revalidation/application have no intervening await; the
+Store still rejects changed attributes or reservation state.
+No local ownership or Equipment state changes during either request. Production
+`RemoteInventoryService` calls `SetRemoteRevision` after each successful response, producing two
+revision-only saves/events in addition to the single final ownership transaction. The test fake
+does not save revisions by default. These two remote mutations
+are **not** one transaction: the first may remain committed if the second fails. Failure or an
+unknown remote result reconciles once and stops without retry or compensation; a local refusal
+after remote success also reconciles and reports divergence (or failed recovery). Ordinary Loadout
+Equip/Unequip retain their existing local-first synchronization behavior.
+
+Design debt: Inventory document 16 section 4 says displaced Stash equipment returns to Stash,
+whereas Game Design document 12 section 6 says Inventory. The user explicitly approved Loadout
+(Inventory) for U5; this is an approved exception pending reconciliation of those live documents,
+not a claim that their conflict has been resolved.
+
+Ordinary Inventory replacement removes the new
 unit before returning up to two displaced hand units so capacity is evaluated against the final state
 without exposing an intermediate state. A two-handed weapon exists only in Main Hand and derives the
 blocked state of its Set's Off Hand. Direct assignment to a blocked Off Hand is rejected and never
 silently removes the two-handed weapon. Unequip rejects atomically when the returned unit would exceed Inventory
 capacity. A rejected operation moves nothing and never creates a Pickup.
-Extraction receipts and the rest of the aggregate remain available only for the current
-application process until backend persistence is connected.
+Extraction receipts and the rest of the aggregate are cached across processes; remote durability
+and replay acceptance remain backend responsibilities.
 
 Schema version 4 persists this Weapon Set contract. Schema 3 maps historical Weapon Slot 1 to Set A
 Main Hand and Weapon Slot 2 to Set B Main Hand; both Off Hands start empty. Pending reservations use
@@ -134,15 +214,13 @@ the same migration. Earlier schemas did not distinguish
 the former exclusive implementation from the temporary non-owning implementation. Decoding treats
 a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
-all-or-nothing, and new saves always write schema 4.
+all-or-nothing. This describes the schema-4 migration; new saves now write schema 8.
 
-TASK-330 keeps this migration local and does not change the backend contract. Backend hydration still
-maps legacy Weapon Slot 1 to Set A Main Hand and Weapon Slot 2 to Set B Main Hand; Off Hands hydrate
-empty. Town Equipment mutations commit against the process-local aggregate and do not wait for or
-roll back on a remote Equipment request. The existing reservation adapter sends only both Main Hands
-and armor through the legacy six-slot DTO. Consequently, Off Hand assignments and their exact remote
-reservation recovery are not durable across application restarts or devices until a separate backend
-migration introduces the four-hand contract.
+TASK-330 originally kept this migration local. The current prepared-Equipment adapter sends all
+eight slots: `weaponSlot1` / `weaponSlot2` map to Set A / B Main Hand, `offHand1` / `offHand2`
+map to their Off Hands, alongside Helmet, Armor, Gloves and Boots. The Stash flow above submits
+that projected eight-slot value before its local ownership commit. Reservation transport and
+recovery have their own contracts and are not changed by U5.
 
 This structure does not yet implement shield defence, Dual Wield attacks, accessories or Quick Slots.
 Those behaviors require their own rules without adding a competing Equipment source of truth.
@@ -186,12 +264,17 @@ Raid never grants a recovery weapon. Preparation is inert while a reservation is
 the complete local Inventory plus its eight separately owned prepared assignments into `PendingLoadoutReservation`
 before the Town queue ACK. The active Town Loadout and its assignments are then empty and cannot
 ambiguously reference units already reserved for Raid. The requirement stays enforced here as a
-domain invariant even though preparation already guaranteed it. The same reservation id is idempotent; a
-different id is rejected while pending. Pre-admission failure restores items and assignments in
+domain invariant even though preparation already guaranteed it. While a reservation is pending the
+reservation owns Inventory and Equipment, so `LocalProfileStore` rejects every Stash/Loadout transfer,
+`TryEquipFromStash`, `TryAssignPreparedEquipment` and `TryClearPreparedEquipment` with
+`StashOperationResult.ReservationPending`, without changing or publishing anything: a later rollback
+would overwrite their result and a non-empty Loadout would make `TryCommitExtraction` fail. The same
+operations also fail with `InvalidInventory` instead of throwing when the profile is unavailable.
+The same reservation id is idempotent; a different id is rejected while pending. Pre-admission failure restores items and assignments in
 one rollback. After participant, avatar and exact `Inventory + the eight Equipment slots`
-ownership are observed, confirmation consumes the reservation. Closing the application currently
-discards an unfinished reservation; backend persistence must define recovery for remotely stored
-reservations.
+ownership are observed, confirmation consumes the reservation. On restart, login hydration restores
+backend reservation data; bootstrap retries pending extraction or rolls back an orphaned reservation
+through the existing paths.
 
 ### Extraction boundary
 
@@ -208,8 +291,9 @@ durable guarantee.
 
 ## Temporary limitations and failure policy
 
-- Closing or crashing the application discards the process-local aggregate.
-- Legacy JSON and `PlayerPrefs` state are ignored and never block login.
+- The per-profile schema-8 file cache survives process exit but is not backend authority.
+- PlayerPrefs never supplies a productive identity. Unsupported or unreadable caches block hydration;
+  confirmed corruption can be replaced only through the explicit authenticated flow above.
 - A backend load failure must remain visible and must not be replaced by a generated identity or
   legacy local profile.
 - Durable progression and extraction acknowledgement require backend-confirmed, idempotent
@@ -218,7 +302,8 @@ durable guarantee.
 ## Validation strategy
 
 EditMode tests verify the process-local lifetime, profile boundaries, progression watermark
-semantics and existing aggregate transactions. Codec and filesystem tests remain isolated coverage
-for inactive legacy infrastructure. Manual validation covers login with legacy files present and a
-complete Town-Raid-Town cycle in one run. Backend integration must add restart hydration, network
-failure/retry, revision-conflict, receipt-idempotency and real Host/Client validation.
+semantics and existing aggregate transactions. Codec and fake-file repository tests cover productive
+cache behavior, including authenticated corruption recovery and rejection without writes. Manual
+validation covers restart login, cache save failures and a complete Town-Raid-Town cycle. Backend
+integration must add restart hydration, network failure/retry, revision-conflict, receipt-idempotency
+and real Host/Client validation.

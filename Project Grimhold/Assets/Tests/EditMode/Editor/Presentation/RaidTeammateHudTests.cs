@@ -61,6 +61,8 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.HealthText.text, Is.EqualTo("Compañero: 0 / 120"));
             _view.PresentDefeated(0f, hasMaximumHealth: false);
             Assert.That(_view.HealthText.text, Is.EqualTo("Compañero: 0 / —"));
+            _view.PresentDefeated(120f, hasMaximumHealth: true, isAbandoned: true);
+            Assert.That(_view.HealthText.text, Is.EqualTo("Compañero: Abandonado"));
 
             _view.PresentUnavailable();
             Assert.That(_view.HealthText.text, Is.EqualTo("Compañero: — / —"));

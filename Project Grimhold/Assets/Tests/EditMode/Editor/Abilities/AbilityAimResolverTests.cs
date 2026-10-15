@@ -6,9 +6,9 @@ namespace Tests.EditMode.Abilities
     public sealed class AbilityAimResolverTests
     {
         [Test]
-        public void TryResolve_ValidAim_ReturnsNormalizedAimIgnoringFacing()
+        public void TryResolve_ValidFacing_ReturnsNormalizedFacing()
         {
-            bool resolved = AbilityAimResolver.TryResolve(Vector2.down, new Vector2(3f, 4f), out Vector2 direction);
+            bool resolved = AbilityAimResolver.TryResolve(new Vector2(3f, 4f), out Vector2 direction);
 
             Assert.That(resolved, Is.True);
             Assert.That(direction, Is.EqualTo(new Vector2(3f, 4f).normalized));
@@ -16,37 +16,28 @@ namespace Tests.EditMode.Abilities
         }
 
         [Test]
-        public void TryResolve_ZeroAim_FallsBackToFacing()
-        {
-            bool resolved = AbilityAimResolver.TryResolve(Vector2.left, Vector2.zero, out Vector2 direction);
-
-            Assert.That(resolved, Is.True);
-            Assert.That(direction, Is.EqualTo(Vector2.left));
-        }
-
-        [Test]
-        public void TryResolve_NonFiniteAim_FallsBackToFacing()
+        public void TryResolve_NonFiniteFacing_ReturnsFalseAndZero()
         {
             bool resolved = AbilityAimResolver.TryResolve(
-                Vector2.up, new Vector2(float.NaN, float.PositiveInfinity), out Vector2 direction);
+                new Vector2(float.NaN, float.PositiveInfinity), out Vector2 direction);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(direction, Is.EqualTo(Vector2.up));
+            Assert.That(resolved, Is.False);
+            Assert.That(direction, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
-        public void TryResolve_AimBelowThreshold_FallsBackToFacing()
+        public void TryResolve_FacingBelowThreshold_ReturnsFalseAndZero()
         {
-            bool resolved = AbilityAimResolver.TryResolve(Vector2.right, new Vector2(0.001f, 0f), out Vector2 direction);
+            bool resolved = AbilityAimResolver.TryResolve(new Vector2(0.001f, 0f), out Vector2 direction);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(direction, Is.EqualTo(Vector2.right));
+            Assert.That(resolved, Is.False);
+            Assert.That(direction, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
-        public void TryResolve_NoUsableAimOrFacing_ReturnsFalseAndZero()
+        public void TryResolve_NoUsableFacing_ReturnsFalseAndZero()
         {
-            bool resolved = AbilityAimResolver.TryResolve(Vector2.zero, Vector2.zero, out Vector2 direction);
+            bool resolved = AbilityAimResolver.TryResolve(Vector2.zero, out Vector2 direction);
 
             Assert.That(resolved, Is.False);
             Assert.That(direction, Is.EqualTo(Vector2.zero));

@@ -647,18 +647,18 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => runtime.IsInitialized);
             var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
             behaviour.PreparingSeconds = 0.3f;
-            yield return SetAim(runtime, Vector2.up);
+            yield return SetFacing(runtime, Vector2.up);
             yield return PressSlot1();
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
             Assert.That(accepted.Phase, Is.EqualTo(AbilityExecutionPhase.Preparing));
             Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.up));
             Assert.That(behaviour.BeginAim, Is.EqualTo(Vector2.up));
 
-            yield return SetAim(runtime, Vector2.right);
+            yield return SetFacing(runtime, Vector2.right);
             yield return WaitUntil(() => runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var s) &&
                 s.Phase == AbilityExecutionPhase.Executing);
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var executing);
-            Assert.That(executing.AimDirection, Is.EqualTo(Vector2.up), "Later aim changes must not alter the capture.");
+            Assert.That(executing.AimDirection, Is.EqualTo(Vector2.up), "Later facing changes must not alter the capture.");
             Assert.That(behaviour.LastSimulateAim, Is.EqualTo(Vector2.up));
         }
 
@@ -670,7 +670,7 @@ namespace Tests.PlayMode.Abilities
                 new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
             yield return WaitUntil(() => runtime.IsInitialized);
             var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
-            yield return SetAim(runtime, Vector2.up);
+            yield return SetFacing(runtime, Vector2.up);
             yield return PressSlot1();
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
             Assert.That(behaviour.PlanAim, Is.EqualTo(Vector2.up),
@@ -679,17 +679,18 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
-        public IEnumerator AimCapture_WithoutUsableAimUsesCharacterFacing()
+        public IEnumerator AimCapture_FollowsTheCharacterFacingAndIgnoresTheCursorAim()
         {
             yield return StartRunner();
             var runtime = SpawnAvatar(SpawnParticipant("ability-aim-facing",
                 new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
             yield return WaitUntil(() => runtime.IsInitialized);
-            yield return SetAim(runtime, Vector2.zero, Vector2.left);
+            yield return SetFacing(runtime, Vector2.left);
+            Assert.That(runtime.GetComponent<PlayerMovementNetworkController>().AimDirection, Is.EqualTo(Vector2.right));
             yield return PressSlot1();
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var accepted);
             Assert.That(accepted.Sequence, Is.EqualTo(1));
-            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.left));
+            Assert.That(accepted.AimDirection, Is.EqualTo(Vector2.left), "The cursor pointing right is ignored.");
         }
 
         [UnityTest]
@@ -701,7 +702,7 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => runtime.IsInitialized);
             var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
             behaviour.RejectStart = true;
-            yield return SetAim(runtime, Vector2.up);
+            yield return SetFacing(runtime, Vector2.up);
             yield return PressSlot1();
             runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var snapshot);
             Assert.That(behaviour.Begins, Is.Zero);
@@ -718,7 +719,7 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => runtime.IsInitialized);
             var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
             behaviour.Complete = true;
-            yield return SetAim(runtime, Vector2.up);
+            yield return SetFacing(runtime, Vector2.up);
             yield return PressSlot1();
             yield return WaitUntil(() => behaviour.Stops == 1);
             Assert.That(behaviour.LastStopAim, Is.EqualTo(Vector2.up));
@@ -735,11 +736,11 @@ namespace Tests.PlayMode.Abilities
             var source = SpawnAvatar(SpawnParticipant("ability-aim-copy-source", prepared), true, "charge");
             yield return WaitUntil(() => source.IsInitialized);
             source.GetComponent<TestAbilityExecutionBehaviour>().PreparingSeconds = 5f;
-            yield return SetAim(source, Vector2.up);
+            yield return SetFacing(source, Vector2.up);
             yield return PressSlot1();
             source.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var original);
             Assert.That(original.AimDirection, Is.EqualTo(Vector2.up));
-            yield return SetAim(source, Vector2.right);
+            yield return SetFacing(source, Vector2.right);
 
             var target = SpawnAvatar(null, false, "charge");
             SetRestoreGuard(target);
@@ -755,7 +756,7 @@ namespace Tests.PlayMode.Abilities
             Assert.That(behaviour.Rebinds, Is.EqualTo(1));
             Assert.That(behaviour.LastRebindAim, Is.EqualTo(Vector2.up));
             target.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var copied);
-            Assert.That(copied.AimDirection, Is.EqualTo(Vector2.up), "Restore must keep the capture, not the live aim.");
+            Assert.That(copied.AimDirection, Is.EqualTo(Vector2.up), "Restore must keep the capture, not the live facing.");
         }
 
         [UnityTest]
@@ -1220,13 +1221,14 @@ namespace Tests.PlayMode.Abilities
             yield return WaitUntil(() => _driver.CompletionSequence != previous);
         }
 
-        private IEnumerator SetAim(PlayerAbilityRuntimeNetworkController runtime, Vector2 aim, Vector2? facing = null)
+        // Abilities capture the facing; the cursor aim is set opposite so every capture also proves it is ignored.
+        private IEnumerator SetFacing(PlayerAbilityRuntimeNetworkController runtime, Vector2 facing)
         {
             var movement = runtime.GetComponent<PlayerMovementNetworkController>();
             yield return InSimulation(() =>
             {
-                SetNetworked(movement, nameof(PlayerMovementNetworkController.AimDirection), aim);
-                if (facing.HasValue) SetNetworked(movement, nameof(PlayerMovementNetworkController.FacingDirection), facing.Value);
+                SetNetworked(movement, nameof(PlayerMovementNetworkController.FacingDirection), facing);
+                SetNetworked(movement, nameof(PlayerMovementNetworkController.AimDirection), -facing);
             });
         }
 

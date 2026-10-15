@@ -277,7 +277,7 @@ public sealed class LoginFlowController : MonoBehaviour
         }
 
         // Step 6: Initialize the stash with the now-valid ProfileId and hydrated data.
-        bool initialized = ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData);
+        bool initialized = ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData, allowCorruptCacheRecovery: true);
         if (!initialized)
         {
             LocalProfileProvider.ClearRemoteCharacterId();

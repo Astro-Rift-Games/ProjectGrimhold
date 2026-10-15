@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// The View component of the MVP pattern for the Stash and Loadout screen.
@@ -33,6 +34,12 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     [SerializeField] private Button _takeAllButton;
     [SerializeField] private Button _leaveAllButton;
+    [SerializeField] private Button _stashPreviousPage;
+    [SerializeField] private Button _stashNextPage;
+    [SerializeField] private TMP_Text _stashPageLabel;
+    private readonly List<RaidInventorySlotData> _stashItems = new();
+    private int _stashCapacity = LocalProfileStore.DefaultStashCapacity;
+    private int _stashPage;
 
     [Header("Equipment slots (authored in the prefab, never created at runtime)")]
     [FormerlySerializedAs("_weaponSlot1View"), SerializeField] private RaidInventorySlotView _weaponSetAMainHandView;
@@ -54,7 +61,6 @@ public sealed class LobbyStashUI : MonoBehaviour
     private RaidInventorySlotView[] _equipmentSlotViews;
     private LootId _contextLootId;
     private bool _contextIsFromStash;
-    private bool _hasReportedStashOverflow;
     private bool _hasReportedLoadoutOverflow;
     private bool _setAOffHandBlocked;
     private bool _setBOffHandBlocked;
@@ -69,7 +75,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
 
     /// <summary>Local intention to occupy one Equipment slot with an owned unit.</summary>
-    public event Action<LootId, EquipmentSlot> PreparedEquipmentAssignmentRequested;
+    public event Action<LootId, EquipmentSlot, bool> PreparedEquipmentAssignmentRequested;
 
     /// <summary>Local intention to release one Equipment slot.</summary>
     public event Action<EquipmentSlot> PreparedEquipmentClearRequested;
@@ -81,6 +87,8 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private void Awake()
     {
+        if (_stashPreviousPage != null) _stashPreviousPage.onClick.AddListener(OnPreviousStashPage);
+        if (_stashNextPage != null) _stashNextPage.onClick.AddListener(OnNextStashPage);
         if (_takeAllButton != null) _takeAllButton.onClick.AddListener(OnTakeAllClicked);
         if (_leaveAllButton != null) _leaveAllButton.onClick.AddListener(OnLeaveAllClicked);
         if (_contextMenu != null) _contextMenu.ActionRequested += OnContextActionRequested;
@@ -124,6 +132,8 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_stashPreviousPage != null) _stashPreviousPage.onClick.RemoveListener(OnPreviousStashPage);
+        if (_stashNextPage != null) _stashNextPage.onClick.RemoveListener(OnNextStashPage);
         if (_takeAllButton != null) _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
         if (_leaveAllButton != null) _leaveAllButton.onClick.RemoveListener(OnLeaveAllClicked);
         if (_contextMenu != null) _contextMenu.ActionRequested -= OnContextActionRequested;
@@ -157,13 +167,57 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
     }
 
-    public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items) =>
-        PresentPanel(
-            _stashPanel,
-            items,
-            _stashProjection,
-            RaidLootSlotInteractionMode.TransferWithContextMenu,
-            ref _hasReportedStashOverflow);
+    public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items, int capacity = LocalProfileStore.DefaultStashCapacity)
+    {
+        if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+        _stashCapacity = capacity;
+        _stashItems.Clear();
+        if (items != null) _stashItems.AddRange(items);
+        PresentStashPage();
+    }
+
+    private int StashPageCount => _stashPanel == null || _stashPanel.AuthoredSlotCount == 0 ? 1 :
+        1 + (Math.Max(_stashCapacity, _stashItems.Count) - 1) / _stashPanel.AuthoredSlotCount;
+
+    private void OnPreviousStashPage() => ChangeStashPage(-1);
+    private void OnNextStashPage() => ChangeStashPage(1);
+
+    private void ChangeStashPage(int delta)
+    {
+        _stashPage = Mathf.Clamp(_stashPage + delta, 0, StashPageCount - 1);
+        PresentStashPage();
+    }
+
+    private void DismissStashInteraction()
+    {
+        _tooltipView?.Hide();
+        _contextMenu?.Hide();
+        _contextLootId = default;
+        if (_dragPreview != null && _dragPreview.IsActive)
+        {
+            _dragPreview.Hide();
+            DragEnded?.Invoke(false);
+        }
+    }
+
+    private void PresentStashPage()
+    {
+        DismissStashInteraction();
+        if (_stashPanel == null || _stashPanel.AuthoredSlotCount == 0) return;
+        int pageSize = _stashPanel.AuthoredSlotCount;
+        _stashPage = Mathf.Clamp(_stashPage, 0, StashPageCount - 1);
+        int start = _stashPage * pageSize;
+        int count = Math.Min(pageSize, Math.Max(_stashCapacity, _stashItems.Count) - start);
+        _stashProjection.Clear();
+        for (int i = 0; i < count; i++)
+            _stashProjection.Add(start + i < _stashItems.Count ? _stashItems[start + i] : RaidInventorySlotData.Empty);
+        if (!_stashPanel.EnsureSlotCount(count)) return;
+        _stashPanel.Present(_stashProjection, null, _stashItems.Count == 0,
+            RaidLootSlotInteractionMode.TransferWithContextMenu, default);
+        if (_stashPreviousPage != null) _stashPreviousPage.interactable = _stashPage > 0;
+        if (_stashNextPage != null) _stashNextPage.interactable = _stashPage < StashPageCount - 1;
+        if (_stashPageLabel != null) _stashPageLabel.text = $"{_stashPage + 1} / {StashPageCount}";
+    }
 
     public void DisplayLoadout(IReadOnlyList<RaidInventorySlotData> items) =>
         PresentPanel(
@@ -382,7 +436,14 @@ public sealed class LobbyStashUI : MonoBehaviour
         _contextMenu.Show(_contextActions, anchor);
     }
 
-    private void OnDisable() => _tooltipView?.Hide();
+    // Reopening starts at page one; refreshing while open preserves/clamps the current page.
+    private void OnEnable()
+    {
+        _stashPage = 0;
+        PresentStashPage();
+    }
+
+    private void OnDisable() => DismissStashInteraction();
 
     private void BindPanelTooltipEvents(RaidLootPanelView panel)
     {
@@ -441,7 +502,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             if (actionId == EquipActionIds[index])
             {
-                PreparedEquipmentAssignmentRequested?.Invoke(_contextLootId, slots[index]);
+                PreparedEquipmentAssignmentRequested?.Invoke(_contextLootId, slots[index], _contextIsFromStash);
                 break;
             }
         }

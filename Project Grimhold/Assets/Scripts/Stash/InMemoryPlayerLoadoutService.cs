@@ -41,6 +41,15 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
             ? _store.TryEquipFromStash(slot, lootId)
             : StashOperationResult.InvalidInventory;
 
+    public StashOperationResult EvaluateEquipFromStash(
+        ProfileId profileId, LootId lootId, EquipmentSlot slot, out PreparedEquipmentLoadout equipment)
+    {
+        equipment = default;
+        return IsProfile(profileId)
+            ? _store.EvaluateEquipFromStash(slot, lootId, out equipment)
+            : StashOperationResult.InvalidInventory;
+    }
+
     public ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId) =>
         IsProfile(profileId)
             ? _store.TryPrepareExpeditionEquipment()
@@ -57,6 +66,18 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
 
     public StashOperationResult TryTransferAllToStash(ProfileId profileId) =>
         IsProfile(profileId) ? _store.TryTransferAllToStash() : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferToLoadout(ProfileId profileId, LootId lootId, int amount) =>
+        IsProfile(profileId) ? _store.EvaluateTransferToLoadout(lootId, amount) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferToStash(ProfileId profileId, LootId lootId, int amount) =>
+        IsProfile(profileId) ? _store.EvaluateTransferToStash(lootId, amount) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferAllToLoadout(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.EvaluateTransferAllToLoadout() : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateTransferAllToStash(ProfileId profileId) =>
+        IsProfile(profileId) ? _store.EvaluateTransferAllToStash() : StashOperationResult.InvalidInventory;
 
     public StashOperationResult TryImportItems(ProfileId profileId, IReadOnlyList<StashItem> items) =>
         IsProfile(profileId) ? _store.TryImportItems(items) : StashOperationResult.InvalidInventory;

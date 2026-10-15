@@ -401,6 +401,8 @@ The ledger is a NetworkBehaviour on the participant NetworkObject. Fusion snapsh
 `CopyStateFrom` therefore restore its accumulators together with the participant. The
 ledger has no restore-time initialization and no NetworkId reference requiring remapping.
 
-Ordinary mid-Raid reconnection is not currently implemented outside the dedicated Host
-Migration recovery path. Future reconnection support must rebind `ProfileId` to the same
-participation and ledger; the current ledger contract does not add that workflow.
+Mid-Raid reconnection is supported for retained `Raiding` participants. Reconnecting rebinds
+the same `ProfileId` to the existing participation and ledger, as detailed in
+`RaidConnectivityContinuityArchitecture.md`. A definitive disconnection (which triggers
+progression resolution for defeat/abandonment) now only occurs when a disconnected
+participant falls back due to exhaustions/no recovery decider.

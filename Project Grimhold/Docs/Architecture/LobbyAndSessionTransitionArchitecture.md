@@ -154,13 +154,21 @@ the frozen cohort's profiles. The session then enters technical
 `WaitingForPlayers`; no player-facing preparation UI exists in Gameplay.
 No initial enemies, loot containers or breakables are generated in this phase.
 
+Because the Host runner is created closed and hidden while loading Gameplay and executing
+its local bootstrap, incoming Client peers from a frozen cohort encounter `ShutdownReason.GameNotFound`
+(prior to room creation) or `ShutdownReason.GameClosed` (during scene loading and host bootstrap).
+Clients in a coordinated launch treat both reasons as pending session availability subject to a bounded
+timeout (`_clientSessionAvailabilityTimeoutSeconds`). Definitive connection failures or timeout expiration
+trigger terminal recovery to Town with loadout reservation rollback. Manual code joins and Host instances
+never poll.
+
 After the complete frozen cohort is prepared, State Authority changes the phase to
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
 bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
-Gameplay or represents failure as `InProgress`. Normal code admission is accepted
-only in `WaitingForPlayers`; Host Migration reconnect/rebind remains a separate
-validated path and must not reopen the session.
+Gameplay or represents failure as `InProgress`. 
+
+Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path.
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
 behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,

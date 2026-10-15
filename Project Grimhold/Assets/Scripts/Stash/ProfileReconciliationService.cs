@@ -6,7 +6,7 @@ using Grimhold.Backend;
 /// Service responsible for fetching authoritative state from the backend and applying it to the LocalProfileStore
 /// when a revision conflict is detected.
 /// </summary>
-public class ProfileReconciliationService : MonoBehaviour
+public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliation
 {
     private BackendConfiguration _config;
     private LocalProfilePersistenceConfiguration _localConfig;
