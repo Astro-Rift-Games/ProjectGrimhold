@@ -199,6 +199,57 @@ namespace Tests.PlayMode.Visibility
             Assert.That(target.color, Is.EqualTo(new Color(1f, 0.5f, 0.5f, 1f)), "Hidden targets restore their color.");
         }
 
+        [UnityTest]
+        public IEnumerator CastOcclusion_WallAhead_StopsAtWallFace()
+        {
+            CreateWall(new Vector2(5f, 0f), new Vector2(2f, 2f));
+            yield return EvaluateFrame();
+
+            _viewer.TryBuildQuery(out VisionQuery query);
+            Assert.That(query.CastOcclusion(Vector2.right, 20f), Is.EqualTo(4f).Within(0.05f));
+        }
+
+        [UnityTest]
+        public IEnumerator CastOcclusion_NothingAhead_ReturnsMaxDistance()
+        {
+            yield return EvaluateFrame();
+
+            _viewer.TryBuildQuery(out VisionQuery query);
+            Assert.That(query.CastOcclusion(Vector2.up, 12f), Is.EqualTo(12f));
+        }
+
+        [UnityTest]
+        public IEnumerator CastOcclusion_ViewerOwnCollider_IsIgnored()
+        {
+            GameObject viewerRoot = Create("ViewerRoot");
+            _viewer.ViewerRoot = viewerRoot.transform;
+            GameObject ownCollider = Create("ViewerOwnCollider");
+            ownCollider.layer = _obstacleLayer;
+            ownCollider.transform.SetParent(viewerRoot.transform, false);
+            ownCollider.AddComponent<BoxCollider2D>().size = new Vector2(2f, 2f);
+            CreateWall(new Vector2(5f, 0f), new Vector2(2f, 2f));
+            yield return EvaluateFrame();
+
+            _viewer.TryBuildQuery(out VisionQuery query);
+            Assert.That(query.CastOcclusion(Vector2.right, 20f), Is.EqualTo(4f).Within(0.05f));
+        }
+
+        [UnityTest]
+        public IEnumerator CastOcclusion_TriggerCollider_IsIgnored()
+        {
+            GameObject trigger = Create("Trigger");
+            trigger.layer = _obstacleLayer;
+            trigger.transform.position = new Vector2(3f, 0f);
+            BoxCollider2D collider = trigger.AddComponent<BoxCollider2D>();
+            collider.size = new Vector2(1f, 2f);
+            collider.isTrigger = true;
+            CreateWall(new Vector2(5f, 0f), new Vector2(2f, 2f));
+            yield return EvaluateFrame();
+
+            _viewer.TryBuildQuery(out VisionQuery query);
+            Assert.That(query.CastOcclusion(Vector2.right, 20f), Is.EqualTo(4f).Within(0.05f));
+        }
+
         private static IEnumerator WaitSeconds(float seconds)
         {
             float end = Time.time + seconds;

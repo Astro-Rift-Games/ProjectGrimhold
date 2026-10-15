@@ -86,6 +86,35 @@ namespace ProjectGrimhold.Gameplay.Visibility
             return true;
         }
 
+        /// <summary>
+        /// Returns the distance from the origin along normalized <paramref name="direction"/> to
+        /// the first obstacle outside the viewer root, using the same ObstacleLayer filter as
+        /// IsPointVisible and ignoring triggers. Returns <paramref name="maxDistance"/> when clear,
+        /// or zero when maxDistance is non-positive or there is no hit buffer (fail-closed).
+        /// </summary>
+        public float CastOcclusion(Vector2 direction, float maxDistance)
+        {
+            if (maxDistance <= 0f || _hitBuffer == null)
+            {
+                return 0f;
+            }
+
+            int hitCount = Physics2D.Raycast(_origin, direction, _obstacleFilter, _hitBuffer, maxDistance);
+            float nearestDistance = maxDistance;
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider2D hitCollider = _hitBuffer[i].collider;
+                if (hitCollider == null || BelongsTo(hitCollider.transform, _viewerRoot))
+                {
+                    continue;
+                }
+
+                nearestDistance = Mathf.Min(nearestDistance, _hitBuffer[i].distance);
+            }
+
+            return nearestDistance;
+        }
+
         private static bool BelongsTo(Transform candidate, Transform root)
         {
             return root != null && candidate.IsChildOf(root);
