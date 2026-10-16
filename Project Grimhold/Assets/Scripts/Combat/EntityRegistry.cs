@@ -21,6 +21,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
     private readonly Dictionary<EntityId, ITeamExtractionProgress> _teamExtractionProgresses = new();
+    private readonly Dictionary<EntityId, ITeamExtractionCoordinator> _teamExtractionCoordinators = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IMissionProgressDefeatSource> _missionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IMissionProgressInteractionSource> _missionProgressInteractionSources = new();
@@ -49,6 +50,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionProgressReceivers.Clear();
         _extractionProgressReaders.Clear();
         _teamExtractionProgresses.Clear();
+        _teamExtractionCoordinators.Clear();
         _extractionProgressDefeatSources.Clear();
         _missionProgressDefeatSources.Clear();
         _missionProgressInteractionSources.Clear();
@@ -507,6 +509,40 @@ public sealed class EntityRegistry : MonoBehaviour
         }
 
         progress = null;
+        return false;
+    }
+
+    /// <summary>Registers an authoritative team extraction coordinator capability.</summary>
+    public bool TryRegisterTeamExtractionCoordinator(EntityId id, ITeamExtractionCoordinator coordinator)
+    {
+        return TryRegisterIndependentCapability(id, coordinator, _teamExtractionCoordinators);
+    }
+
+    /// <summary>Removes only the expected team extraction coordinator capability instance.</summary>
+    public bool TryUnregisterTeamExtractionCoordinator(EntityId id, ITeamExtractionCoordinator expectedCoordinator)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedCoordinator, _teamExtractionCoordinators);
+    }
+
+    /// <summary>Attempts to resolve a team extraction coordinator capability by entity identity.</summary>
+    public bool TryGetTeamExtractionCoordinator(EntityId id, out ITeamExtractionCoordinator coordinator)
+    {
+        return _teamExtractionCoordinators.TryGetValue(id, out coordinator);
+    }
+
+    /// <summary>Attempts to resolve the runner's singleton team extraction coordinator capability.</summary>
+    public bool TryGetTeamExtractionCoordinator(out ITeamExtractionCoordinator coordinator)
+    {
+        foreach (ITeamExtractionCoordinator candidate in _teamExtractionCoordinators.Values)
+        {
+            if (candidate != null)
+            {
+                coordinator = candidate;
+                return true;
+            }
+        }
+
+        coordinator = null;
         return false;
     }
 

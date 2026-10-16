@@ -173,6 +173,7 @@ namespace Tests.EditMode.Editor.Scenario
             public bool ContainsExact(Vector2 point) => true;
             public bool ContainsWithTolerance(Vector2 point, float tolerance) => true;
             public bool TrySetAvailability(bool available) => false;
+            public bool IsOccupant(EntityId participantId) => true;
         }
 
         private sealed class TestParticipant : MonoBehaviour, IExtractionParticipant

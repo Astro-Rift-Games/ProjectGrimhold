@@ -68,20 +68,6 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// </summary>
     public event Action<PlayerExtractionController> ExtractionCompleted;
 
-    /// <summary>
-    /// Categorizes extraction continuation cancellation reasons for diagnostics.
-    /// </summary>
-    private enum CancellationReason
-    {
-        None,
-        InvalidZone,
-        ZoneUnavailable,
-        SanctuaryUnauthorized,
-        CharacterNotAlive,
-        LeftZoneTolerance,
-        ParticipantDisconnected
-    }
-
     private void Awake()
     {
         CacheDependencies();
@@ -121,190 +107,79 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
         if (State == ExtractionState.Extracted)
         {
             ApplyExtractionRestrictions();
-            return;
-        }
-
-        if (State == ExtractionState.InProgress)
-        {
-            if (!EvaluateContinuation(out CancellationReason reason))
-            {
-                CancelExtractionInternal(reason);
-                return;
-            }
-
-            if (ExtractionTimer.Expired(Runner))
-            {
-                CompleteExtractionInternal();
-            }
         }
     }
 
     /// <summary>
     /// Attempts to authoritatively begin extraction in the specified zone.
     /// Implements <see cref="IExtractionParticipant.TryBeginExtraction"/>.
+    /// In team-based extraction (US-53), individual countdown initiation is removed;
+    /// countdown is orchestrated by <c>TeamExtractionCoordinator</c>.
     /// </summary>
-    /// <param name="zoneId">The canonical ID of the target extraction zone.</param>
-    /// <returns><see langword="true"/> if extraction was initiated; otherwise, <see langword="false"/>.</returns>
     public bool TryBeginExtraction(EntityId zoneId)
     {
-        if (!HasStateAuthority || !_dependenciesValid)
-        {
-            return false;
-        }
-
-        if (State != ExtractionState.None)
-        {
-            return false;
-        }
-
-        if (zoneId.Value == 0)
-        {
-            return false;
-        }
-
-        if (!_entityRegistry.TryGetExtractionZone(zoneId, out IExtractionZone zone) || !zone.IsAvailable)
-        {
-            return false;
-        }
-
-        if (!CanUseSanctuaryZone(zoneId))
-        {
-            return false;
-        }
-
-        if (!zone.ContainsExact(ValidationPoint))
-        {
-            return false;
-        }
-
-        if (!IsParticipantConnected())
-        {
-            return false;
-        }
-
-        if (_config.RequireAliveToStart && (_character == null || !_character.IsAlive))
-        {
-            return false;
-        }
-
-        ActiveZoneIdValue = zoneId.Value;
-        ExtractionTimer = TickTimer.CreateFromSeconds(Runner, _config.CountdownDurationSeconds);
-        State = ExtractionState.InProgress;
-        Debug.Log($"[PlayerExtractionController] Started extraction on {name} in Zone ID {zoneId.Value} ({_config.CountdownDurationSeconds}s countdown).", this);
-        return true;
+        return false;
     }
 
     /// <summary>
     /// Notifies the controller that an exit event was detected for a zone.
-    /// Re-evaluates continuation policy before modifying extraction state.
-    /// Implements <see cref="IExtractionParticipant.NotifyExtractionZoneExit"/>.
+    /// In team-based extraction, spatial boundary tracking is handled by <c>TeamExtractionCoordinator</c>.
     /// </summary>
-    /// <param name="zoneId">Target zone ID associated with the exit notification.</param>
     public void NotifyExtractionZoneExit(EntityId zoneId)
     {
-        if (!HasStateAuthority || !_dependenciesValid)
+    }
+
+    /// <summary>
+    /// Initiates or synchronizes the extraction countdown for this participant as directed by <c>TeamExtractionCoordinator</c>.
+    /// </summary>
+    internal void StartExtractionCountdown(EntityId zoneId, TickTimer timer)
+    {
+        if (!HasStateAuthority)
         {
             return;
         }
 
-        if (State != ExtractionState.InProgress)
+        ActiveZoneIdValue = zoneId.Value;
+        ExtractionTimer = timer;
+        State = ExtractionState.InProgress;
+        Debug.Log($"[PlayerExtractionController] Started team extraction on {name} in Zone ID {zoneId.Value}.", this);
+    }
+
+    /// <summary>
+    /// Cancels an in-progress extraction countdown as directed by <c>TeamExtractionCoordinator</c>.
+    /// </summary>
+    internal void CancelExtraction()
+    {
+        if (!HasStateAuthority)
         {
             return;
         }
 
-        if (zoneId != ActiveZoneId)
+        if (State == ExtractionState.InProgress)
         {
-            return;
-        }
-
-        if (!_config.CancelWhenLeavingArea)
-        {
-            return;
-        }
-
-        if (!EvaluateContinuation(out CancellationReason reason))
-        {
-            CancelExtractionInternal(reason);
+            Debug.Log($"[PlayerExtractionController] Extraction CANCELLED on {name}.", this);
+            State = ExtractionState.None;
+            ActiveZoneIdValue = 0;
+            ExtractionTimer = TickTimer.None;
         }
     }
 
     /// <summary>
-    /// Evaluates continuation validity without applying state side effects.
+    /// Authoritatively completes extraction as directed by <c>TeamExtractionCoordinator</c>.
     /// </summary>
-    /// <param name="reason">Outputs the cancellation reason if invalid; otherwise <see cref="CancellationReason.None"/>.</param>
-    /// <returns><see langword="true"/> if extraction can continue; otherwise, <see langword="false"/>.</returns>
-    private bool EvaluateContinuation(out CancellationReason reason)
+    internal void CompleteExtraction()
     {
-        reason = CancellationReason.None;
-
-        if (ActiveZoneId.Value == 0)
+        if (!HasStateAuthority)
         {
-            reason = CancellationReason.InvalidZone;
-            return false;
+            return;
         }
 
-        IExtractionZone zone = null;
-        if (_entityRegistry == null ||
-            !_entityRegistry.TryGetExtractionZone(ActiveZoneId, out zone) ||
-            zone == null ||
-            !zone.IsAvailable)
-        {
-            reason = zone == null ? CancellationReason.InvalidZone : CancellationReason.ZoneUnavailable;
-            return false;
-        }
-
-        if (!CanUseSanctuaryZone(ActiveZoneId))
-        {
-            reason = CancellationReason.SanctuaryUnauthorized;
-            return false;
-        }
-
-        if (!IsParticipantConnected())
-        {
-            reason = CancellationReason.ParticipantDisconnected;
-            return false;
-        }
-
-        if (_config.CancelWhenNotAlive && (_character == null || !_character.IsAlive))
-        {
-            reason = CancellationReason.CharacterNotAlive;
-            return false;
-        }
-
-        if (_config.CancelWhenLeavingArea && !zone.ContainsWithTolerance(ValidationPoint, _config.BoundaryTolerance))
-        {
-            reason = CancellationReason.LeftZoneTolerance;
-            return false;
-        }
-
-        return true;
-    }
-
-    private bool CanUseSanctuaryZone(EntityId zoneId)
-    {
-        return _entityRegistry != null &&
-            _entityRegistry.TryGetExtractionSanctuary(zoneId, out IExtractionSanctuary sanctuary) &&
-            sanctuary != null && sanctuary.Id == zoneId && sanctuary.CanUseExtraction(Id);
-    }
-
-    private bool IsParticipantConnected()
-    {
-        if (_participantLink == null)
-        {
-            return true;
-        }
-
-        if (!_participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) || participant == null)
-        {
-            return true;
-        }
-
-        if (participant.TryGetComponent(out RaidParticipantConnectivity connectivity) && connectivity.IsDisconnected)
-        {
-            return false;
-        }
-
-        return true;
+        State = ExtractionState.Extracted;
+        ExtractionTimer = TickTimer.None;
+        ApplyExtractionRestrictions();
+        Debug.Log($"[PlayerExtractionController] Extraction COMPLETED on {name}! Player is now EXTRACTED & Invulnerable.", this);
+        _participantLink?.NotifyExtractionCompleted();
+        ExtractionCompleted?.Invoke(this);
     }
 
     /// <summary>
@@ -350,24 +225,6 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
 
         snapshot = default;
         return false;
-    }
-
-    private void CancelExtractionInternal(CancellationReason reason)
-    {
-        Debug.Log($"[PlayerExtractionController] Extraction CANCELLED on {name} (Reason: {reason}).", this);
-        State = ExtractionState.None;
-        ActiveZoneIdValue = 0;
-        ExtractionTimer = TickTimer.None;
-    }
-
-    private void CompleteExtractionInternal()
-    {
-        State = ExtractionState.Extracted;
-        ExtractionTimer = TickTimer.None;
-        ApplyExtractionRestrictions();
-        Debug.Log($"[PlayerExtractionController] Extraction COMPLETED on {name}! Player is now EXTRACTED & Invulnerable.", this);
-        _participantLink?.NotifyExtractionCompleted();
-        ExtractionCompleted?.Invoke(this);
     }
 
     private void ApplyExtractionRestrictions()
@@ -494,8 +351,7 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     private void DebugLogStatus()
     {
         bool hasProgress = TryGetProgress(out ExtractionCountdownSnapshot progress);
-        bool canContinue = EvaluateContinuation(out CancellationReason reason);
-        Debug.Log($"[PlayerExtractionController] Status for {name}: State={State}, ActiveZoneId={ActiveZoneIdValue}, CanContinue={canContinue} (Reason={reason}), Progress={(hasProgress ? $"{progress.Progress * 100f:F1}%" : "N/A")}", this);
+        Debug.Log($"[PlayerExtractionController] Status for {name}: State={State}, ActiveZoneId={ActiveZoneIdValue}, Progress={(hasProgress ? $"{progress.Progress * 100f:F1}%" : "N/A")}", this);
     }
 
     private void OnDrawGizmos()

@@ -552,29 +552,6 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         slot.RitualTimer = TickTimer.None;
         SetSlot(slotIndex, slot);
         _extractionZone.TrySetAvailability(true);
-
-        // Notify extraction participants of this team present in the zone
-        if (_registry != null && Runner != null)
-        {
-            NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-            if (spawnManager != null && spawnManager.TryGetRaidTeamRoster(out RaidTeamRoster roster))
-            {
-                if (roster.TryGetTeamMembers(slot.TeamId, out IReadOnlyList<RaidParticipantId> members))
-                {
-                    for (int m = 0; m < members.Count; m++)
-                    {
-                        if (spawnManager.TryGetRaidParticipant(members[m], out NetworkRaidParticipant participant) &&
-                            participant != null &&
-                            _registry.TryGetExtractionParticipant(new EntityId((int)participant.CurrentAvatarId.Raw), out IExtractionParticipant ep) &&
-                            ep != null &&
-                            _extractionZone.ContainsExact(ep.ValidationPoint))
-                        {
-                            ep.TryBeginExtraction(Id);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private void CancelRitual(int slotIndex, TeamSanctuarySlot slot)

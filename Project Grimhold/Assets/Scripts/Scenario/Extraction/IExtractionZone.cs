@@ -33,4 +33,9 @@ public interface IExtractionZone : IEntity
     /// <param name="available">Target availability state.</param>
     /// <returns><see langword="true"/> if availability was modified or was already set to the target value; otherwise, <see langword="false"/>.</returns>
     bool TrySetAvailability(bool available);
+
+    /// <summary>
+    /// Checks whether a given entity is currently tracked as an occupant of this zone.
+    /// </summary>
+    bool IsOccupant(EntityId participantId);
 }

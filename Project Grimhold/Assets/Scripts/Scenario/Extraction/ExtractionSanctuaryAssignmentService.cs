@@ -9,7 +9,7 @@ using UnityEngine;
 /// and performs the Host-only selection that precedes the authoritative assignment write.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
+public class ExtractionSanctuaryAssignmentService : MonoBehaviour
 {
     private readonly List<EntityId> _sanctuaryIds = new();
     private readonly HashSet<SanctuaryAssignmentFailureReason> _reportedConfigurationFailures = new();
@@ -119,7 +119,7 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
     /// <summary>
     /// Derives the unique sanctuary assigned to a team without requiring authority or mutating state.
     /// </summary>
-    public SanctuaryAssignmentResult TryGetAssignment(RaidTeamId teamId)
+    public virtual SanctuaryAssignmentResult TryGetAssignment(RaidTeamId teamId)
     {
         if (!_isInitialized)
         {

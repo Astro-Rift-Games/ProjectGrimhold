@@ -187,20 +187,12 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
             Collider2D hit = _overlapBuffer[i];
             if (hit == null ||
                 !_entityRegistry.TryGetEntityId(hit, out EntityId participantId) ||
-                !_entityRegistry.TryGetExtractionParticipant(participantId, out IExtractionParticipant participant))
+                !_entityRegistry.TryGetExtractionParticipant(participantId, out _))
             {
                 continue;
             }
 
-            if (!_detectedThisTick.Add(participantId))
-            {
-                continue;
-            }
-
-            if (ContainsExact(participant.ValidationPoint))
-            {
-                participant.TryBeginExtraction(Id);
-            }
+            _detectedThisTick.Add(participantId);
         }
 
         _occupantsToRemove.Clear();
@@ -208,11 +200,6 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
         {
             if (!_detectedThisTick.Contains(occupantId))
             {
-                if (_entityRegistry.TryGetExtractionParticipant(occupantId, out IExtractionParticipant occupant))
-                {
-                    occupant.NotifyExtractionZoneExit(Id);
-                }
-
                 _occupantsToRemove.Add(occupantId);
             }
         }
@@ -227,6 +214,16 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
             _currentOccupants.Add(participantId);
         }
     }
+
+    /// <summary>
+    /// Checks whether an extraction participant is currently inside the zone broadphase.
+    /// </summary>
+    public bool IsOccupant(EntityId participantId) => _currentOccupants.Contains(participantId);
+
+    /// <summary>
+    /// Gets the current set of occupants detected within this zone.
+    /// </summary>
+    public IReadOnlyCollection<EntityId> CurrentOccupants => _currentOccupants;
 
     private void CacheCollider()
     {
