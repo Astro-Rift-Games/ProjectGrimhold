@@ -295,6 +295,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         bool hasAuth = Runner == null || HasStateAuthority;
         if (!_compositionValid || !teamId.IsValid || !hasAuth)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] TryAssignTeam for team {teamId.Value} rejected: CompositionValid={_compositionValid}, IsValid={teamId.IsValid}, HasAuth={hasAuth}.");
             return false;
         }
 
@@ -307,6 +308,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         int emptyIndex = FindEmptySlotIndex();
         if (emptyIndex < 0)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] TryAssignTeam for team {teamId.Value} rejected: No empty slot.");
             return false;
         }
 
@@ -317,6 +319,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
             RitualTimer = TickTimer.None
         });
 
+        Debug.Log($"[{nameof(ExtractionSanctuary)} {name}] Team {teamId.Value} successfully assigned to slot {emptyIndex}!");
         return true;
     }
 
@@ -425,22 +428,26 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         bool hasAuth = Runner == null || HasStateAuthority;
         if (!hasAuth)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] Interact rejected: MissingStateAuthority.");
             return InteractionResult.Rejected(InteractionFailureReason.MissingStateAuthority);
         }
 
         if (!CanInteract(request))
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] Interact rejected: CanInteract returned false for Interactor {request.InteractorId.Value}.");
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
         if (!TryResolveTeamId(request.InteractorId, out RaidTeamId teamId))
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] Interact rejected: Unable to resolve team for Interactor {request.InteractorId.Value}.");
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
         int slotIndex = FindSlotIndex(teamId);
         if (slotIndex < 0)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] Interact rejected: Sanctuary is not assigned to team {teamId.Value}.");
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
@@ -452,6 +459,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         slot.RitualTimer = timer;
         slot.RitualState = ExtractionRitualState.InProgress;
         SetSlot(slotIndex, slot);
+        Debug.Log($"[{nameof(ExtractionSanctuary)} {name}] Ritual initiated for Team {teamId.Value}! Timer set for {_config.RitualDurationSeconds}s.");
 
         return InteractionResult.Succeeded(isConsumed: false);
     }
@@ -779,6 +787,50 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
     private void OnValidate()
     {
         CacheComposition();
+    }
+
+    [ContextMenu("Debug: Log Sanctuary Status")]
+    private void DebugLogSanctuaryStatus()
+    {
+        Debug.Log($"[{nameof(ExtractionSanctuary)} {name}] Id={Id.Value}, CompositionValid={_compositionValid}, HasStateAuth={HasStateAuthority}, SlotCapacity={GetSlotCapacity()}");
+        int capacity = GetSlotCapacity();
+        for (int i = 0; i < capacity; i++)
+        {
+            TeamSanctuarySlot slot = GetSlot(i);
+            Debug.Log($"   Slot {i}: TeamIdRaw={slot.TeamIdRaw}, RitualState={slot.RitualState}, IsAssigned={slot.IsAssigned}");
+        }
+    }
+
+    [ContextMenu("Debug: Check CanInteract With All Characters")]
+    private void DebugCheckCanInteract()
+    {
+        EntityRegistry reg = Runner != null ? Runner.GetComponent<EntityRegistry>() : FindFirstObjectByType<EntityRegistry>();
+        Debug.Log($"[{nameof(ExtractionSanctuary)} {name}] CanInteract Diagnostics: Id={Id.Value}, CompositionValid={_compositionValid}");
+        if (reg == null)
+        {
+            Debug.LogWarning($"   EntityRegistry not found.");
+            return;
+        }
+
+        for (int i = 0; i < GetSlotCapacity(); i++)
+        {
+            TeamSanctuarySlot s = GetSlot(i);
+            Debug.Log($"   Slot [{i}]: TeamIdRaw={s.TeamIdRaw}, RitualState={s.RitualState}, IsAssigned={s.IsAssigned}");
+        }
+
+        CharacterBase[] characters = FindObjectsByType<CharacterBase>(FindObjectsSortMode.None);
+        for (int i = 0; i < characters.Length; i++)
+        {
+            CharacterBase ch = characters[i];
+            if (ch != null)
+            {
+                InteractionRequest req = new InteractionRequest(ch.Id, Id, 0);
+                bool can = CanInteract(req);
+                TryResolveTeamId(ch.Id, out RaidTeamId tId);
+                int sIndex = FindSlotIndex(tId);
+                Debug.Log($"   Character {ch.Id.Value} ({ch.name}): CanInteract={can}, ResolvedTeam={tId.Value}, SlotIndex={sIndex}, Alive={ch.IsAlive}, Downed={PlayerDownedGate.IsDowned(ch)}, Connected={IsMemberConnected(ch.Id)}");
+            }
+        }
     }
 #endif
 }

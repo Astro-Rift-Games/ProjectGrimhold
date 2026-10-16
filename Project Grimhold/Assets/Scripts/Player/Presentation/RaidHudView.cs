@@ -242,8 +242,21 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Presents the confirmed remaining duration of the local extraction process.</summary>
     public void PresentExtractionCountdown(float remainingSeconds)
     {
+        PresentExtractionCountdown(remainingSeconds, 0, 0);
+    }
+
+    /// <summary>Presents the confirmed remaining duration with optional team presence.</summary>
+    public void PresentExtractionCountdown(float remainingSeconds, int presentCount, int requiredCount)
+    {
         float safeRemaining = IsFinite(remainingSeconds) ? Mathf.Max(0f, remainingSeconds) : 0f;
-        SetText(_extractionText, $"Extracción: {safeRemaining:0.0} s");
+        if (requiredCount > 1)
+        {
+            SetText(_extractionText, $"Extracción: {safeRemaining:0.0} s ({presentCount}/{requiredCount} en el área)");
+        }
+        else
+        {
+            SetText(_extractionText, $"Extracción: {safeRemaining:0.0} s");
+        }
     }
 
     /// <summary>Presents a transient cancellation confirmation for the local extraction process.</summary>
@@ -305,7 +318,20 @@ public sealed class RaidHudView : MonoBehaviour
     /// <summary>Presents the confirmed individual Sanctuary assignment.</summary>
     public void PresentSanctuaryAssigned()
     {
-        SetText(_sanctuaryText, "Santuario asignado");
+        PresentSanctuaryAssigned(0, 0);
+    }
+
+    /// <summary>Presents the confirmed Sanctuary assignment with optional team presence.</summary>
+    public void PresentSanctuaryAssigned(int presentCount, int requiredCount)
+    {
+        if (requiredCount > 1)
+        {
+            SetText(_sanctuaryText, $"Santuario asignado ({presentCount}/{requiredCount} en el área)");
+        }
+        else
+        {
+            SetText(_sanctuaryText, "Santuario asignado");
+        }
     }
 
     /// <summary>Clears only the assigned Sanctuary section.</summary>

@@ -174,21 +174,25 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
     {
         if (!_isInitialized)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: ServiceNotInitialized.");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ServiceNotInitialized);
         }
 
         if (!teamId.IsValid)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected: InvalidTeam ({teamId.Value}).");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.InvalidTeam);
         }
 
         if (_runner == null || !_runner.IsServer || !_hasSessionSeed)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: NoAuthority (RunnerNull={_runner == null}, IsServer={_runner?.IsServer}, HasSeed={_hasSessionSeed}).");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.NoAuthority);
         }
 
         if (!_runner.IsSimulationUpdating)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: OutsideSimulation.");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.OutsideSimulation);
         }
 
@@ -200,11 +204,13 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
 
         if (existing.FailureReason != SanctuaryAssignmentFailureReason.AssignmentNotFound)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: Existing assignment failure {existing.FailureReason}.");
             return existing;
         }
 
         if (!_registry.TryGetTeamExtractionProgress(out ITeamExtractionProgress teamProgress))
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: ProgressReaderUnavailable.");
             return SanctuaryAssignmentResult.Rejected(
                 teamId,
                 SanctuaryAssignmentFailureReason.ProgressReaderUnavailable);
@@ -212,6 +218,7 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
 
         if (!teamProgress.TryGetSnapshot(teamId, out ExtractionProgressSnapshot snapshot))
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: InvalidProgressSnapshot.");
             return SanctuaryAssignmentResult.Rejected(
                 teamId,
                 SanctuaryAssignmentFailureReason.InvalidProgressSnapshot);
@@ -219,11 +226,13 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
 
         if (!snapshot.IsQuotaComplete)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: QuotaIncomplete (Progress={snapshot.CurrentProgress}/{snapshot.Quota}).");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.QuotaIncomplete);
         }
 
         if (!snapshot.AssignmentRequested)
         {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: AssignmentNotRequested.");
             return SanctuaryAssignmentResult.Rejected(
                 teamId,
                 SanctuaryAssignmentFailureReason.AssignmentNotRequested);
@@ -232,6 +241,7 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
         if (_sanctuaryIds.Count == 0)
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
+            Debug.LogError($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: NoSanctuariesConfigured.");
             return SanctuaryAssignmentResult.Rejected(
                 teamId,
                 SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
@@ -261,11 +271,33 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
             selected == null || !selected.TryAssignTeam(teamId) || !selected.IsAssignedToTeam(teamId))
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.ReservationConflict);
+            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: ReservationConflict on Sanctuary {selectedId.Value}.");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ReservationConflict);
         }
 
+        Debug.Log($"[{nameof(ExtractionSanctuaryAssignmentService)}] Team {teamId.Value} successfully assigned to Sanctuary {selectedId.Value} (index {selectedIndex} of {_sanctuaryIds.Count})!");
         return SanctuaryAssignmentResult.Assigned(teamId, selectedId, false);
     }
+
+#if UNITY_EDITOR
+    [ContextMenu("Debug: Log Assignment Status")]
+    private void DebugLogAssignmentStatus()
+    {
+        Debug.Log($"[{nameof(ExtractionSanctuaryAssignmentService)}] Initialized={_isInitialized}, SanctuariesCount={_sanctuaryIds.Count}, HasSeed={_hasSessionSeed}, IsServer={_runner?.IsServer}");
+        for (int i = 0; i < _sanctuaryIds.Count; i++)
+        {
+            Debug.Log($"   Sanctuary [{i}]: EntityId={_sanctuaryIds[i].Value}");
+        }
+        for (int t = 1; t <= 4; t++)
+        {
+            if (RaidTeamId.TryCreate(t, out RaidTeamId teamId))
+            {
+                SanctuaryAssignmentResult res = TryGetAssignment(teamId);
+                Debug.Log($"   Team {t} Assignment: Success={res.Success}, SanctuaryId={res.SanctuaryId.Value}, Reason={res.FailureReason}");
+            }
+        }
+    }
+#endif
 
     // --- Legacy / compatibility helpers for individual player callers ---
 
@@ -336,7 +368,8 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
             }
         }
 
-        return false;
+        // Fallback to default Team 1 for test environments or standalone avatars without matchmaking affiliations
+        return RaidTeamId.TryCreate(1, out teamId);
     }
 
     private static bool TryGenerateSeed(out ulong seed)

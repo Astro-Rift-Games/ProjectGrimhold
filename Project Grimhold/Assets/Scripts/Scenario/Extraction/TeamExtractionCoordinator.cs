@@ -263,6 +263,70 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
         return true;
     }
 
+    /// <summary>
+    /// Attempts to query the count of required team members and how many are currently inside the sanctuary extraction zone and connected.
+    /// </summary>
+    public bool TryGetTeamPresence(RaidTeamId teamId, out int presentCount, out int requiredCount)
+    {
+        presentCount = 0;
+        requiredCount = 0;
+
+#if UNITY_EDITOR
+        if (TeamPresenceOverrideForTest != null)
+        {
+            var testPresence = TeamPresenceOverrideForTest(teamId);
+            if (testPresence.HasValue)
+            {
+                presentCount = testPresence.Value.present;
+                requiredCount = testPresence.Value.required;
+                return true;
+            }
+            return false;
+        }
+#endif
+
+        if (!teamId.IsValid || _assignmentService == null || _registry == null)
+        {
+            return false;
+        }
+
+        SanctuaryAssignmentResult assignment = _assignmentService.TryGetAssignment(teamId);
+        if (!assignment.Success || assignment.SanctuaryId.Value == 0)
+        {
+            return false;
+        }
+
+        if (!_registry.TryGetExtractionSanctuary(assignment.SanctuaryId, out IExtractionSanctuary sanctuary) ||
+            sanctuary == null ||
+            !_registry.TryGetExtractionZone(assignment.SanctuaryId, out IExtractionZone zone) ||
+            zone == null)
+        {
+            return false;
+        }
+
+        List<TeamMemberExtractionSnapshot> snapshots = new List<TeamMemberExtractionSnapshot>(4);
+        List<PlayerExtractionController> controllers = new List<PlayerExtractionController>(4);
+        if (!TryBuildMemberSnapshots(teamId, zone, snapshots, controllers))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < snapshots.Count; i++)
+        {
+            TeamMemberExtractionSnapshot member = snapshots[i];
+            if (member.IsRequiredMember)
+            {
+                requiredCount++;
+                if (member.IsInsideExact && member.IsConnected)
+                {
+                    presentCount++;
+                }
+            }
+        }
+
+        return requiredCount > 0;
+    }
+
     private void UpdateTeamExtraction(int slotIndex, TeamExtractionSlot slot)
     {
         RaidTeamId teamId = slot.TeamId;
@@ -676,5 +740,6 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
     internal TeamExtractionSlot GetSlotForTest(int index) => GetSlot(index);
     internal Func<RaidTeamId, IExtractionZone, List<TeamMemberExtractionSnapshot>, List<PlayerExtractionController>, bool> MemberSnapshotsProviderForTest { get; set; }
     internal Func<RaidTeamId, bool> TimerExpiredOverrideForTest { get; set; }
+    internal Func<RaidTeamId, (int present, int required)?> TeamPresenceOverrideForTest { get; set; }
 #endif
 }

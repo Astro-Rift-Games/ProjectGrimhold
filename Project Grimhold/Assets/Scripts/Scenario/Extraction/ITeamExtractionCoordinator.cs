@@ -24,4 +24,13 @@ public interface ITeamExtractionCoordinator : IEntity
     /// </summary>
     /// <param name="teamId">Target team identity.</param>
     bool IsTeamExtracting(RaidTeamId teamId);
+
+    /// <summary>
+    /// Attempts to query the count of required team members and how many are currently inside the sanctuary extraction zone and connected.
+    /// </summary>
+    /// <param name="teamId">Target team identity.</param>
+    /// <param name="presentCount">Number of required members currently inside the zone and connected.</param>
+    /// <param name="requiredCount">Total number of required members for this team.</param>
+    /// <returns><see langword="true"/> if team presence was resolved; otherwise, <see langword="false"/>.</returns>
+    bool TryGetTeamPresence(RaidTeamId teamId, out int presentCount, out int requiredCount);
 }

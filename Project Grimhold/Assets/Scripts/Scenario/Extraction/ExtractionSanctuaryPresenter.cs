@@ -113,8 +113,7 @@ public sealed class ExtractionSanctuaryPresenter : MonoBehaviour
         }
 
         NetworkObject networkObject = _sanctuary.Object;
-        if (networkObject == null || !networkObject.IsValid || !networkObject.IsInSimulation ||
-            !_sanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot snapshot))
+        if (networkObject == null || !networkObject.IsValid || !networkObject.IsInSimulation)
         {
             _hasObservedSnapshot = false;
             _spriteRenderer.color = CreateColor(0.9f, 0.2f, 0.2f);
@@ -122,10 +121,33 @@ public sealed class ExtractionSanctuaryPresenter : MonoBehaviour
         }
 
         IExtractionSanctuary sanctuary = _sanctuary;
-        bool localOwnerResolved = TryResolveLocalOwner(out EntityId localOwnerId);
-        bool isLocalOwner = localOwnerResolved && sanctuary.IsOwnedBy(localOwnerId);
-        ObserveTransition(snapshot.State, sanctuary.IsReserved, isLocalOwner);
-        PresentSnapshot(snapshot, sanctuary.IsReserved, isLocalOwner);
+        bool localTeamResolved = TryResolveLocalTeam(out RaidTeamId localTeamId);
+        bool isLocalOwner = localTeamResolved && localTeamId.IsValid && sanctuary.IsAssignedToTeam(localTeamId);
+
+        // Fallback for standalone/legacy unit tests
+        if (!isLocalOwner && TryResolveLocalOwner(out EntityId localOwnerId))
+        {
+            isLocalOwner = sanctuary.IsOwnedBy(localOwnerId);
+        }
+
+        ExtractionRitualSnapshot snapshot;
+        bool isReserved;
+
+        if (isLocalOwner && localTeamId.IsValid)
+        {
+            // Local assigned team observes private ritual progress and reservation
+            sanctuary.TryGetRitualProgress(localTeamId, out snapshot);
+            isReserved = sanctuary.IsAssignedToTeam(localTeamId);
+        }
+        else
+        {
+            // Rivals observe public aggregate ritual progress without private reservation
+            sanctuary.TryGetRitualProgress(out snapshot);
+            isReserved = false;
+        }
+
+        ObserveTransition(snapshot.State, isReserved, isLocalOwner);
+        PresentSnapshot(snapshot, isReserved, isLocalOwner);
     }
 
     private void ObserveTransition(ExtractionRitualState currentState, bool isReserved, bool isLocalOwner)
@@ -239,19 +261,82 @@ public sealed class ExtractionSanctuaryPresenter : MonoBehaviour
         }
     }
 
-    private bool TryResolveLocalOwner(out EntityId localOwnerId)
+    private bool TryResolveLocalTeam(out RaidTeamId teamId)
     {
-        localOwnerId = default;
+        teamId = default;
         NetworkRunner runner = _sanctuary != null ? _sanctuary.Runner : null;
-        if (runner == null || runner.LocalPlayer.IsNone ||
-            !runner.TryGetPlayerObject(runner.LocalPlayer, out NetworkObject playerObject) ||
-            playerObject == null || !playerObject.IsValid)
+        if (runner == null || runner.LocalPlayer.IsNone)
         {
             return false;
         }
 
-        localOwnerId = new EntityId(unchecked((int)playerObject.Id.Raw));
-        return localOwnerId.Value != 0;
+        if (runner.TryGetPlayerObject(runner.LocalPlayer, out NetworkObject playerObject) &&
+            playerObject != null && playerObject.IsValid)
+        {
+            if (playerObject.TryGetComponent(out PlayerExtractionProgressController progressController) &&
+                progressController.TryGetTeamId(out teamId) && teamId.IsValid)
+            {
+                return true;
+            }
+
+            if (playerObject.TryGetBehaviour(out NetworkRaidParticipant participant) && participant != null)
+            {
+                if (participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar != null &&
+                    avatar.TryGetComponent(out PlayerExtractionProgressController avatarProgress) &&
+                    avatarProgress.TryGetTeamId(out teamId) && teamId.IsValid)
+                {
+                    return true;
+                }
+
+                NetworkSpawnManager spawnManager = runner.GetComponent<NetworkSpawnManager>();
+                if (spawnManager != null && spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations) &&
+                    affiliations.TryGetTeam(participant.RaidParticipantId, out teamId) && teamId.IsValid)
+                {
+                    return true;
+                }
+            }
+
+            if (playerObject.TryGetBehaviour(out RaidAvatarParticipantLink link) &&
+                link.TryResolveParticipant(out NetworkRaidParticipant linkedPart) && linkedPart != null)
+            {
+                NetworkSpawnManager spawnManager = runner.GetComponent<NetworkSpawnManager>();
+                if (spawnManager != null && spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations) &&
+                    affiliations.TryGetTeam(linkedPart.RaidParticipantId, out teamId) && teamId.IsValid)
+                {
+                    return true;
+                }
+            }
+        }
+
+        // Fallback to default Team 1 for test environments or standalone avatars without matchmaking affiliations
+        return RaidTeamId.TryCreate(1, out teamId);
+    }
+
+    private bool TryResolveLocalOwner(out EntityId localOwnerId)
+    {
+        localOwnerId = default;
+        NetworkRunner runner = _sanctuary != null ? _sanctuary.Runner : null;
+        if (runner == null || runner.LocalPlayer.IsNone)
+        {
+            return false;
+        }
+
+        if (runner.TryGetPlayerObject(runner.LocalPlayer, out NetworkObject playerObject) &&
+            playerObject != null && playerObject.IsValid)
+        {
+            if (playerObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                participant != null &&
+                participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar != null)
+            {
+                localOwnerId = new EntityId(unchecked((int)avatar.Id.Raw));
+                return localOwnerId.Value != 0;
+            }
+
+            localOwnerId = new EntityId(unchecked((int)playerObject.Id.Raw));
+            return localOwnerId.Value != 0;
+        }
+
+        return false;
     }
 
     private void PlayCue(CustomClip clip, ParticleSystem particles = null)

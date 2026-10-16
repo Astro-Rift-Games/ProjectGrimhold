@@ -15,6 +15,7 @@ public struct TeamProgressSlot : INetworkStruct, IEquatable<TeamProgressSlot>
     public int InitialTeamSize;
 
     public bool IsEmpty => TeamIdRaw == 0;
+    public bool IsAssigned => TeamIdRaw != 0;
     public RaidTeamId TeamId => RaidTeamId.TryCreate(TeamIdRaw, out RaidTeamId id) ? id : default;
 
     public bool Equals(TeamProgressSlot other)

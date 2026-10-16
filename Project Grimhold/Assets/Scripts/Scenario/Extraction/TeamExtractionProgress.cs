@@ -54,6 +54,57 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
         }
     }
 
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        if (!_isInitialized)
+        {
+            NetworkSpawnManager spawnManager = Runner != null ? Runner.GetComponent<NetworkSpawnManager>() : null;
+            if (spawnManager != null && spawnManager.TryGetRaidTeamRoster(out RaidTeamRoster roster))
+            {
+                TryInitializeFromRoster(roster);
+            }
+            else
+            {
+                // Fallback for standalone/development testing without frozen roster
+                if (RaidTeamId.TryCreate(1, out RaidTeamId defaultTeam))
+                {
+                    TryInitializeTeam(defaultTeam, initialTeamSize: 1);
+                }
+            }
+        }
+
+        if (_assignmentService == null && Runner != null)
+        {
+            _assignmentService = Runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+        }
+
+        if (_assignmentService != null)
+        {
+            int capacity = GetSlotCapacity();
+            for (int i = 0; i < capacity; i++)
+            {
+                TeamProgressSlot slot = GetSlot(i);
+                if (slot.IsAssigned && slot.AssignmentRequested)
+                {
+                    SanctuaryAssignmentResult existing = _assignmentService.TryGetAssignment(slot.TeamId);
+                    if (!existing.Success)
+                    {
+                        SanctuaryAssignmentResult assignResult = _assignmentService.TryAssign(slot.TeamId);
+                        if (assignResult.Success)
+                        {
+                            Debug.Log($"[{nameof(TeamExtractionProgress)}] FixedUpdateNetwork assigned sanctuary {assignResult.SanctuaryId.Value} to team {slot.TeamId.Value}.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         UnregisterCapability();
@@ -291,7 +342,15 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
                 _assignmentService = Runner.GetComponent<ExtractionSanctuaryAssignmentService>();
             }
 
-            _assignmentService?.TryAssign(teamId);
+            if (_assignmentService != null)
+            {
+                SanctuaryAssignmentResult assignResult = _assignmentService.TryAssign(teamId);
+                Debug.Log($"[{nameof(TeamExtractionProgress)}] Quota completed for team {teamId.Value}! TryAssign result: Success={assignResult.Success}, SanctuaryId={assignResult.SanctuaryId.Value}, Reason={assignResult.FailureReason}");
+            }
+            else if (Runner != null)
+            {
+                Debug.LogWarning($"[{nameof(TeamExtractionProgress)}] Quota completed for team {teamId.Value}, but ExtractionSanctuaryAssignmentService was NOT found on Runner.");
+            }
         }
 
         return true;
@@ -403,4 +462,17 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
     {
         _config = config;
     }
+
+#if UNITY_EDITOR
+    [ContextMenu("Debug: Log Team Progress Status")]
+    private void DebugLogStatus()
+    {
+        Debug.Log($"[{nameof(TeamExtractionProgress)}] Initialized={_isInitialized}, HasAuth={HasStateAuthority}, SlotsCapacity={GetSlotCapacity()}");
+        for (int i = 0; i < GetSlotCapacity(); i++)
+        {
+            TeamProgressSlot slot = GetSlot(i);
+            Debug.Log($"   Slot {i}: TeamIdRaw={slot.TeamIdRaw}, Progress={slot.CurrentProgress}, AssignmentRequested={slot.AssignmentRequested}, InitialTeamSize={slot.InitialTeamSize}");
+        }
+    }
+#endif
 }

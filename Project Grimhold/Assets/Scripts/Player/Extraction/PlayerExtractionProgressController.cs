@@ -162,6 +162,11 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         return false;
     }
 
+    /// <summary>
+    /// Attempts to resolve the team identity of this extraction progress forwarder.
+    /// </summary>
+    public bool TryGetTeamId(out RaidTeamId teamId) => TryResolveTeamId(out teamId);
+
     private bool TryResolveTeamProgress(out ITeamExtractionProgress teamProgress)
     {
         if (_teamProgress != null)

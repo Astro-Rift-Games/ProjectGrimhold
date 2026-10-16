@@ -78,6 +78,11 @@ public sealed class RaidHudPresenter : MonoBehaviour
     private int _observedProgressQuota;
 
     private bool _hasSanctuaryState;
+    private int _observedSanctuaryPresentCount;
+    private int _observedSanctuaryRequiredCount;
+
+    private int _observedCountdownPresentCount;
+    private int _observedCountdownRequiredCount;
 
     /// <summary>
     /// Binds the local presentation to the current Input Authority player's sources.
@@ -382,20 +387,44 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private void RefreshExtraction()
     {
+        bool hasSanctuary = TryGetSanctuaryPresentation(
+            out ExtractionRitualSnapshot ritual,
+            out EntityId sanctuaryId,
+            out RaidTeamId teamId);
+
         ExtractionCountdownSnapshot countdown = default;
-        bool hasCountdown = IsSpawned(_extractionController) &&
-            _extractionController.TryGetProgress(out countdown);
+        bool hasCountdown = false;
+        int presentCount = 0;
+        int requiredCount = 0;
+
+        if (_entityRegistry != null && _entityRegistry.TryGetTeamExtractionCoordinator(out ITeamExtractionCoordinator coordinator) && coordinator != null)
+        {
+            if (teamId.IsValid)
+            {
+                coordinator.TryGetTeamPresence(teamId, out presentCount, out requiredCount);
+                if (coordinator.TryGetCountdownProgress(teamId, out ExtractionCountdownSnapshot teamCountdown) &&
+                    teamCountdown.State != ExtractionState.None)
+                {
+                    countdown = teamCountdown;
+                    hasCountdown = true;
+                }
+            }
+        }
+
+        if (!hasCountdown)
+        {
+            hasCountdown = IsSpawned(_extractionController) &&
+                _extractionController.TryGetProgress(out countdown);
+        }
 
         ExtractionProgressSnapshot progress = default;
         bool hasProgress = IsSpawned(_extractionProgressController) &&
             _extractionProgressController.TryGetSnapshot(out progress);
 
-        bool hasSanctuary = TryGetSanctuaryPresentation(out ExtractionRitualSnapshot ritual);
-
         RefreshQuotaSection(hasProgress, progress);
         RefreshProgressSection(hasProgress, progress);
-        RefreshSanctuarySection(hasSanctuary);
-        RefreshRitualStatusSection(hasCountdown, countdown, hasSanctuary, ritual);
+        RefreshSanctuarySectionPresence(hasSanctuary, presentCount, requiredCount);
+        RefreshRitualStatusSectionPresence(hasCountdown, countdown, hasSanctuary, ritual, presentCount, requiredCount);
     }
 
     private void RefreshQuotaSection(bool hasProgress, ExtractionProgressSnapshot progress)
@@ -462,15 +491,25 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private void RefreshSanctuarySection(bool hasSanctuary)
     {
-        if (_hasSanctuaryState == hasSanctuary)
+        RefreshSanctuarySectionPresence(hasSanctuary, 0, 0);
+    }
+
+    private void RefreshSanctuarySectionPresence(bool hasSanctuary, int presentCount, int requiredCount)
+    {
+        if (_hasSanctuaryState == hasSanctuary &&
+            _observedSanctuaryPresentCount == presentCount &&
+            _observedSanctuaryRequiredCount == requiredCount)
         {
             return;
         }
 
         _hasSanctuaryState = hasSanctuary;
+        _observedSanctuaryPresentCount = presentCount;
+        _observedSanctuaryRequiredCount = requiredCount;
+
         if (hasSanctuary)
         {
-            _view?.PresentSanctuaryAssigned();
+            _view?.PresentSanctuaryAssigned(presentCount, requiredCount);
         }
         else
         {
@@ -483,6 +522,17 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ExtractionCountdownSnapshot countdown,
         bool hasSanctuary,
         ExtractionRitualSnapshot ritual)
+    {
+        RefreshRitualStatusSectionPresence(hasCountdown, countdown, hasSanctuary, ritual, 0, 0);
+    }
+
+    private void RefreshRitualStatusSectionPresence(
+        bool hasCountdown,
+        ExtractionCountdownSnapshot countdown,
+        bool hasSanctuary,
+        ExtractionRitualSnapshot ritual,
+        int presentCount,
+        int requiredCount)
     {
         if (hasCountdown)
         {
@@ -503,7 +553,9 @@ public sealed class RaidHudPresenter : MonoBehaviour
             out float seconds);
         if (_hasRitualStatus &&
             _observedRitualStatus == status &&
-            Mathf.Approximately(_observedRitualStatusSeconds, seconds))
+            Mathf.Approximately(_observedRitualStatusSeconds, seconds) &&
+            _observedCountdownPresentCount == presentCount &&
+            _observedCountdownRequiredCount == requiredCount)
         {
             return;
         }
@@ -511,13 +563,16 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _hasRitualStatus = true;
         _observedRitualStatus = status;
         _observedRitualStatusSeconds = seconds;
+        _observedCountdownPresentCount = presentCount;
+        _observedCountdownRequiredCount = requiredCount;
+
         switch (status)
         {
             case RitualStatusKind.Extracted:
                 _view?.PresentExtractionCompleted();
                 break;
             case RitualStatusKind.Countdown:
-                _view?.PresentExtractionCountdown(seconds);
+                _view?.PresentExtractionCountdown(seconds, presentCount, requiredCount);
                 break;
             case RitualStatusKind.Cancelled:
                 _view?.PresentExtractionCancelled();
@@ -615,19 +670,54 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private bool TryGetSanctuaryPresentation(out ExtractionRitualSnapshot ritualSnapshot)
     {
+        return TryGetSanctuaryPresentation(out ritualSnapshot, out _, out _);
+    }
+
+    private bool TryGetSanctuaryPresentation(
+        out ExtractionRitualSnapshot ritualSnapshot,
+        out EntityId sanctuaryId,
+        out RaidTeamId teamId)
+    {
         ritualSnapshot = default;
+        sanctuaryId = default;
+        teamId = default;
+
         if (!IsSpawned(_extractionProgressController) ||
             _assignmentService == null ||
-            _entityRegistry == null ||
-            _extractionProgressController.Id.Value == 0)
+            _entityRegistry == null)
         {
             return false;
         }
 
-        SanctuaryAssignmentResult assignment = _assignmentService.TryGetAssignment(_extractionProgressController.Id);
-        return assignment.Success && assignment.SanctuaryId.Value != 0 &&
-            _entityRegistry.TryGetExtractionSanctuary(assignment.SanctuaryId, out IExtractionSanctuary sanctuary) &&
-            sanctuary != null && sanctuary.TryGetRitualProgress(out ritualSnapshot);
+        if (_extractionProgressController.TryGetTeamId(out teamId) && teamId.IsValid)
+        {
+            SanctuaryAssignmentResult assignment = _assignmentService.TryGetAssignment(teamId);
+            if (assignment.Success && assignment.SanctuaryId.Value != 0)
+            {
+                sanctuaryId = assignment.SanctuaryId;
+                if (_entityRegistry.TryGetExtractionSanctuary(sanctuaryId, out IExtractionSanctuary sanctuary) &&
+                    sanctuary != null)
+                {
+                    return sanctuary.TryGetRitualProgress(teamId, out ritualSnapshot);
+                }
+            }
+            return false;
+        }
+
+        // Fallback for standalone/legacy unit tests without team affiliation
+        if (_extractionProgressController.Id.Value != 0)
+        {
+            SanctuaryAssignmentResult legacyAssignment = _assignmentService.TryGetAssignment(_extractionProgressController.Id);
+            if (legacyAssignment.Success && legacyAssignment.SanctuaryId.Value != 0 &&
+                _entityRegistry.TryGetExtractionSanctuary(legacyAssignment.SanctuaryId, out IExtractionSanctuary legacySanctuary) &&
+                legacySanctuary != null && legacySanctuary.TryGetRitualProgress(out ritualSnapshot))
+            {
+                sanctuaryId = legacyAssignment.SanctuaryId;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ResetObservedState()
@@ -655,6 +745,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _hasRitualStatus = false;
         _observedRitualStatus = RitualStatusKind.Unavailable;
         _observedRitualStatusSeconds = 0f;
+        _observedCountdownPresentCount = 0;
+        _observedCountdownRequiredCount = 0;
         _hasQuotaState = false;
         _observedQuotaProgress = 0;
         _observedQuotaTarget = 0;
@@ -663,6 +755,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         _observedProgressCurrent = 0;
         _observedProgressQuota = 0;
         _hasSanctuaryState = false;
+        _observedSanctuaryPresentCount = 0;
+        _observedSanctuaryRequiredCount = 0;
     }
 
     private static float NormalizeCooldown(float durationSeconds, float remainingSeconds)

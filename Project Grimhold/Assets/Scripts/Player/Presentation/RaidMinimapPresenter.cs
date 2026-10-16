@@ -52,6 +52,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
     private NetworkObject _playerObject;
     private Transform _playerTransform;
     private PlayerExtractionController _extractionController;
+    private PlayerExtractionProgressController _extractionProgressController;
     private ExtractionSanctuaryAssignmentService _assignmentService;
     private EntityRegistry _entityRegistry;
     private IExtractionSanctuary _cachedSanctuary;
@@ -60,6 +61,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
     private bool _isBound;
     private bool _configurationValid;
     private bool _configurationDiagnosticReported;
+    private bool _sanctuaryResolvedLogged;
 
     /// <summary>
     /// Binds the minimap to one Input Authority player and one runner session.
@@ -71,13 +73,15 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
         Transform playerTransform,
         PlayerExtractionController extractionController,
         ExtractionSanctuaryAssignmentService assignmentService,
-        EntityRegistry entityRegistry)
+        EntityRegistry entityRegistry,
+        PlayerExtractionProgressController extractionProgressController = null)
     {
         Unbind();
         _runner = runner;
         _playerObject = playerObject;
         _playerTransform = playerTransform;
         _extractionController = extractionController;
+        _extractionProgressController = extractionProgressController;
         _assignmentService = assignmentService;
         _entityRegistry = entityRegistry;
         _isBound = true;
@@ -121,6 +125,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
         _playerObject = null;
         _playerTransform = null;
         _extractionController = null;
+        _extractionProgressController = null;
         _assignmentService = null;
         _entityRegistry = null;
         _isBound = false;
@@ -188,8 +193,18 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             return;
         }
 
-        if (!TryResolveOrValidateSanctuary(localPlayerId) ||
-            !_cachedSanctuary.TryGetRitualProgress(out ExtractionRitualSnapshot ritual))
+        if (!TryResolveOrValidateSanctuary(localPlayerId, out RaidTeamId localTeamId))
+        {
+            _view.HideSanctuary();
+            return;
+        }
+
+        ExtractionRitualSnapshot ritual;
+        bool hasRitual = localTeamId.IsValid
+            ? _cachedSanctuary.TryGetRitualProgress(localTeamId, out ritual)
+            : _cachedSanctuary.TryGetRitualProgress(out ritual);
+
+        if (!hasRitual)
         {
             _view.HideSanctuary();
             return;
@@ -263,24 +278,74 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             _extractionController.TryGetProgress(out snapshot);
     }
 
+    private bool TryResolveLocalTeam(out RaidTeamId teamId)
+    {
+        teamId = default;
+        if (_extractionProgressController != null &&
+            _extractionProgressController.TryGetTeamId(out teamId) && teamId.IsValid)
+        {
+            return true;
+        }
+
+        if (_playerObject != null && _playerObject.TryGetComponent(out PlayerExtractionProgressController progressController) &&
+            progressController.TryGetTeamId(out teamId) && teamId.IsValid)
+        {
+            return true;
+        }
+
+        if (_runner != null && _playerObject != null && _playerObject.TryGetBehaviour(out RaidAvatarParticipantLink link) &&
+            link.TryResolveParticipant(out NetworkRaidParticipant participant) && participant != null)
+        {
+            NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+            if (spawnManager != null && spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations) &&
+                affiliations.TryGetTeam(participant.RaidParticipantId, out teamId) && teamId.IsValid)
+            {
+                return true;
+            }
+        }
+
+        // Fallback to default Team 1 for test environments or standalone avatars without matchmaking affiliations
+        return RaidTeamId.TryCreate(1, out teamId);
+    }
+
     private bool TryResolveOrValidateSanctuary(EntityId localPlayerId)
     {
+        return TryResolveOrValidateSanctuary(localPlayerId, out _);
+    }
+
+    private bool TryResolveOrValidateSanctuary(EntityId localPlayerId, out RaidTeamId teamId)
+    {
+        teamId = default;
         if (_assignmentService == null || _entityRegistry == null)
         {
             ClearSanctuaryCache();
             return false;
         }
 
+        bool hasTeam = TryResolveLocalTeam(out teamId);
+
         if (_cachedSanctuary != null)
         {
+            bool isStillValid = false;
             if (_entityRegistry.TryGetExtractionSanctuary(
                     _cachedSanctuaryId,
                     out IExtractionSanctuary registered) &&
                 ReferenceEquals(registered, _cachedSanctuary) &&
                 registered.Id == _cachedSanctuaryId &&
-                registered.IsOwnedBy(localPlayerId) &&
                 _cachedSanctuaryTransform != null &&
                 _cachedSanctuaryTransform.gameObject != null)
+            {
+                if (hasTeam && teamId.IsValid)
+                {
+                    isStillValid = registered.IsAssignedToTeam(teamId);
+                }
+                else
+                {
+                    isStillValid = registered.IsOwnedBy(localPlayerId);
+                }
+            }
+
+            if (isStillValid)
             {
                 return true;
             }
@@ -289,15 +354,24 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             return false;
         }
 
-        SanctuaryAssignmentResult assignment = _assignmentService.TryGetAssignment(localPlayerId);
-        if (!assignment.Success || assignment.PlayerId != localPlayerId ||
-            assignment.SanctuaryId.Value == 0 ||
+        SanctuaryAssignmentResult assignment = (hasTeam && teamId.IsValid)
+            ? _assignmentService.TryGetAssignment(teamId)
+            : _assignmentService.TryGetAssignment(localPlayerId);
+
+        if (!assignment.Success || assignment.SanctuaryId.Value == 0 ||
             !_entityRegistry.TryGetExtractionSanctuary(
                 assignment.SanctuaryId,
                 out IExtractionSanctuary sanctuary) ||
-            sanctuary == null || sanctuary.Id != assignment.SanctuaryId ||
-            !sanctuary.IsOwnedBy(localPlayerId) ||
-            !(sanctuary is Component sanctuaryComponent) ||
+            sanctuary == null || sanctuary.Id != assignment.SanctuaryId)
+        {
+            return false;
+        }
+
+        bool isOwned = (hasTeam && teamId.IsValid)
+            ? sanctuary.IsAssignedToTeam(teamId)
+            : sanctuary.IsOwnedBy(localPlayerId);
+
+        if (!isOwned || !(sanctuary is Component sanctuaryComponent) ||
             sanctuaryComponent.transform == null)
         {
             return false;
@@ -306,6 +380,13 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
         _cachedSanctuary = sanctuary;
         _cachedSanctuaryId = assignment.SanctuaryId;
         _cachedSanctuaryTransform = sanctuaryComponent.transform;
+
+        if (!_sanctuaryResolvedLogged)
+        {
+            Debug.Log($"[{nameof(RaidMinimapPresenter)}] Sanctuary marker active: pointing to Sanctuary {assignment.SanctuaryId.Value} for Team {(hasTeam ? teamId.Value : 0)}.");
+            _sanctuaryResolvedLogged = true;
+        }
+
         return true;
     }
 
@@ -330,6 +411,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
         _cachedSanctuary = null;
         _cachedSanctuaryTransform = null;
         _cachedSanctuaryId = default;
+        _sanctuaryResolvedLogged = false;
     }
 
     private void ClearPresentation()

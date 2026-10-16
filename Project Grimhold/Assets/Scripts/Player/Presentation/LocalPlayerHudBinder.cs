@@ -235,7 +235,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 transform,
                 _extractionController,
                 _assignmentService,
-                _entityRegistry);
+                _entityRegistry,
+                _extractionProgressController);
         }
         if (_dungeonPressureHudPresenter != null)
         {
