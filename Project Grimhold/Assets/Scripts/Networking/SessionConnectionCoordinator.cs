@@ -50,6 +50,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField]
     private string[] _developmentAdmittedProfileIds;
 
+    [SerializeField, Min(0)]
+    [Tooltip("Groups admitted development profiles into teams of size N. 0 keeps all participants in Team 1.")]
+    private int _developmentTeamSize;
+
     [SerializeField, Min(1)]
     private int _developmentLaunchSequence = 1;
 
@@ -1744,11 +1748,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return false;
         }
 
-        RaidTeamId.TryCreate(1, out RaidTeamId currentCohortTeamId);
         var participants = new RaidLaunchParticipant[profiles.Count];
         for (int index = 0; index < profiles.Count; index++)
         {
-            participants[index] = new RaidLaunchParticipant(profiles[index], currentCohortTeamId);
+            int teamNumber = _developmentTeamSize > 0 ? (index / _developmentTeamSize) + 1 : 1;
+            RaidTeamId.TryCreate(teamNumber, out RaidTeamId teamId);
+            participants[index] = new RaidLaunchParticipant(profiles[index], teamId);
         }
 
         return RaidLaunchContext.TryCreate(

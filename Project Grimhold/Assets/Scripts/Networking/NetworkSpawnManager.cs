@@ -284,6 +284,26 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return _launchContext != null &&
             RaidInitialAffiliationSnapshot.TryCreate(_launchContext.Participants, out affiliations);
     }
+
+    /// <summary>
+    /// Projects the immutable launch cohort into its canonical team roster using the default team capacity ceiling.
+    /// </summary>
+    public bool TryGetRaidTeamRoster(out RaidTeamRoster roster)
+    {
+        roster = null;
+        return _launchContext != null &&
+            RaidTeamRoster.TryCreate(_launchContext.Participants, out roster);
+    }
+
+    /// <summary>
+    /// Projects the immutable launch cohort into its canonical team roster using the specified max teams limit.
+    /// </summary>
+    public bool TryGetRaidTeamRoster(int maxTeamsPerRaid, out RaidTeamRoster roster)
+    {
+        roster = null;
+        return _launchContext != null &&
+            RaidTeamRoster.TryCreate(_launchContext.Participants, maxTeamsPerRaid, out roster, out _);
+    }
     
     public bool ShouldInitializeMatchPhase => _startupContext.IsValid && _startupContext.ShouldInitializeMatchPhase;
     public bool IsScenePrepared => _sceneLoadState == SceneLoadProcessingState.Completed &&

@@ -2,12 +2,14 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Owns one player's authoritative, individual progress toward the extraction quota.
-/// It accepts direct contributions during Fusion simulation and exposes replicated state
-/// for sanctuary assignment and presentation systems.
+/// Forwarder controller for player extraction progress.
+/// Validates player vitality, simulation tick, and state authority, then forwards
+/// contributions to the authoritative <see cref="ITeamExtractionProgress"/> pool of the player's team.
 /// </summary>
 /// <remarks>
-/// Producers own one-shot semantics. This receiver stores no source IDs, ticks, or contribution history.
+/// Producers own one-shot semantics. This controller stores no individual progress state on the network.
+/// Intermediate state (Etapa 3): Until Etapa 4 introduces team sanctuary assignment, completing the team quota
+/// triggers individual sanctuary assignment for the player who completed it via <see cref="_assignmentService"/>.
 /// See <c>Docs/Architecture/ExtractionArchitecture.md</c>.
 /// </remarks>
 [DisallowMultipleComponent]
@@ -25,18 +27,53 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     private ICharacter _character;
     private EntityRegistry _registry;
     private ExtractionSanctuaryAssignmentService _assignmentService;
+    private ITeamExtractionProgress _teamProgress;
+    private RaidTeamId _overrideTeamId;
     private EntityId _registeredId;
     private bool _isReceiverRegistered;
     private bool _isReaderRegistered;
     private bool _dependenciesValid;
 
-    [Networked]
-    public int CurrentProgress { get; private set; }
+    public int CurrentProgress
+    {
+        get
+        {
+            if (TryGetSnapshot(out ExtractionProgressSnapshot snapshot))
+            {
+                return snapshot.CurrentProgress;
+            }
 
-    [Networked]
-    public NetworkBool AssignmentRequested { get; private set; }
+            return 0;
+        }
+    }
 
-    public int Quota => _config != null ? _config.SoloProgressQuota : 0;
+    public NetworkBool AssignmentRequested
+    {
+        get
+        {
+            if (TryGetSnapshot(out ExtractionProgressSnapshot snapshot))
+            {
+                return snapshot.AssignmentRequested;
+            }
+
+            return false;
+        }
+    }
+
+    public int Quota
+    {
+        get
+        {
+            if (TryResolveTeamId(out RaidTeamId teamId) &&
+                TryResolveTeamProgress(out ITeamExtractionProgress teamProgress) &&
+                teamProgress.TryGetProgress(teamId, out _, out int quota))
+            {
+                return quota;
+            }
+
+            return _config != null ? _config.SoloProgressQuota : 0;
+        }
+    }
 
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))
@@ -56,21 +93,17 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
             : null;
         RegisterCapabilities();
         _dependenciesValid = ValidateDependencies();
-
-        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
-        {
-            CurrentProgress = 0;
-            AssignmentRequested = false;
-        }
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         UnregisterCapabilities();
         _dependenciesValid = false;
+        _teamProgress = null;
     }
 
     /// <summary>
+    /// Validates local player eligibility and forwards progress to the team's shared quota pool.
     /// Applies progress only during the matching State Authority simulation tick.
     /// Multiple distinct contributions in the same tick are intentionally valid.
     /// </summary>
@@ -94,26 +127,27 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
             return false;
         }
 
-        int quota = Quota;
-        if (quota <= 0 || CurrentProgress >= quota)
+        if (!TryResolveTeamId(out RaidTeamId teamId))
         {
             return false;
         }
 
-        if (!ExtractionProgressRules.TryCalculateNext(
-                CurrentProgress,
-                quota,
-                contribution.Amount,
-                out int nextProgress,
-                out bool completedQuota))
+        if (!TryResolveTeamProgress(out ITeamExtractionProgress teamProgress))
+        {
+            Debug.LogError($"[{nameof(PlayerExtractionProgressController)}] Cannot apply contribution: ITeamExtractionProgress is not available.", this);
+            return false;
+        }
+
+        if (!teamProgress.TryApplyContribution(teamId, contribution.Amount, out int nextProgress, out bool completedQuota))
         {
             return false;
         }
 
-        CurrentProgress = nextProgress;
-        if (completedQuota)
+        // Intermediate state for Etapa 3 (documented in Plan-US-53 and Walkthrough):
+        // Until Etapa 4 introduces team sanctuary assignment, trigger assignment individually for the player
+        // who completed the quota (preserving current runtime behavior).
+        if (completedQuota && _assignmentService != null)
         {
-            AssignmentRequested = true;
             _assignmentService.TryAssign(Id);
         }
 
@@ -121,19 +155,78 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     }
 
     /// <summary>
-    /// Returns the current replicated progress and the local immutable quota configuration.
+    /// Obtains the current team extraction progress snapshot projected from the team pool.
     /// </summary>
     public bool TryGetSnapshot(out ExtractionProgressSnapshot snapshot)
     {
-        int quota = Quota;
-        if (!_dependenciesValid || quota <= 0 || CurrentProgress < 0 || CurrentProgress > quota)
+        if (!_dependenciesValid || !TryResolveTeamId(out RaidTeamId teamId))
         {
             snapshot = default;
             return false;
         }
 
-        snapshot = new ExtractionProgressSnapshot(CurrentProgress, quota, AssignmentRequested);
-        return true;
+        if (TryResolveTeamProgress(out ITeamExtractionProgress teamProgress))
+        {
+            return teamProgress.TryGetSnapshot(teamId, out snapshot);
+        }
+
+        snapshot = default;
+        return false;
+    }
+
+    private bool TryResolveTeamProgress(out ITeamExtractionProgress teamProgress)
+    {
+        if (_teamProgress != null)
+        {
+            teamProgress = _teamProgress;
+            return true;
+        }
+
+        if (_registry != null && _registry.TryGetTeamExtractionProgress(out _teamProgress) && _teamProgress != null)
+        {
+            teamProgress = _teamProgress;
+            return true;
+        }
+
+        if (Runner != null)
+        {
+            _teamProgress = Runner.GetComponent<ITeamExtractionProgress>();
+            if (_teamProgress != null)
+            {
+                teamProgress = _teamProgress;
+                return true;
+            }
+        }
+
+        teamProgress = null;
+        return false;
+    }
+
+    private bool TryResolveTeamId(out RaidTeamId teamId)
+    {
+        if (_overrideTeamId.IsValid)
+        {
+            teamId = _overrideTeamId;
+            return true;
+        }
+
+        if (Runner != null)
+        {
+            NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+            if (spawnManager != null &&
+                spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations) &&
+                TryGetComponent(out RaidAvatarParticipantLink link) &&
+                link.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+                participant != null &&
+                participant.RaidParticipantId.IsValid &&
+                affiliations.TryGetTeam(participant.RaidParticipantId, out teamId))
+            {
+                return true;
+            }
+        }
+
+        // Fallback to default Team 1 for test environments or unassigned standalone avatars
+        return RaidTeamId.TryCreate(1, out teamId);
     }
 
     private void CacheDependencies()
@@ -213,6 +306,16 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     private void OnDestroy()
     {
         UnregisterCapabilities();
+    }
+
+    internal void SetTeamProgressForTesting(ITeamExtractionProgress teamProgress)
+    {
+        _teamProgress = teamProgress;
+    }
+
+    internal void SetTeamIdOverrideForTesting(RaidTeamId teamId)
+    {
+        _overrideTeamId = teamId;
     }
 
 #if UNITY_EDITOR

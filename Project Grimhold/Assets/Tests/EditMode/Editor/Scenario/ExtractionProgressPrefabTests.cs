@@ -70,5 +70,19 @@ namespace Tests.EditMode.Scenario
             Assert.That(definition.SellValuePerUnit, Is.EqualTo(expectedSellValue));
             Assert.That(definition.ExtractionValuePerUnit, Is.GreaterThanOrEqualTo(0));
         }
+
+        [Test]
+        public void NetworkMatchControllerPrefab_HasBakedTeamExtractionProgress()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkMatchController.prefab");
+            NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+            TeamExtractionProgress teamProgress = prefab.GetComponent<TeamExtractionProgress>();
+
+            Assert.That(teamProgress, Is.Not.Null);
+            Assert.That(networkObject.NetworkedBehaviours, Does.Contain(teamProgress));
+
+            var serialized = new SerializedObject(teamProgress);
+            Assert.That(serialized.FindProperty("_config").objectReferenceValue, Is.Not.Null);
+        }
     }
 }

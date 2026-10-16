@@ -20,6 +20,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IExtractionParticipant> _extractionParticipants = new();
     private readonly Dictionary<EntityId, IExtractionProgressReceiver> _extractionProgressReceivers = new();
     private readonly Dictionary<EntityId, IExtractionProgressReader> _extractionProgressReaders = new();
+    private readonly Dictionary<EntityId, ITeamExtractionProgress> _teamExtractionProgresses = new();
     private readonly Dictionary<EntityId, IExtractionProgressDefeatSource> _extractionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IMissionProgressDefeatSource> _missionProgressDefeatSources = new();
     private readonly Dictionary<EntityId, IMissionProgressInteractionSource> _missionProgressInteractionSources = new();
@@ -47,6 +48,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _extractionParticipants.Clear();
         _extractionProgressReceivers.Clear();
         _extractionProgressReaders.Clear();
+        _teamExtractionProgresses.Clear();
         _extractionProgressDefeatSources.Clear();
         _missionProgressDefeatSources.Clear();
         _missionProgressInteractionSources.Clear();
@@ -474,6 +476,40 @@ public sealed class EntityRegistry : MonoBehaviour
         return _extractionProgressReaders.TryGetValue(id, out reader);
     }
 
+    /// <summary>Registers an authoritative team extraction progress capability.</summary>
+    public bool TryRegisterTeamExtractionProgress(EntityId id, ITeamExtractionProgress progress)
+    {
+        return TryRegisterIndependentCapability(id, progress, _teamExtractionProgresses);
+    }
+
+    /// <summary>Removes only the expected team extraction progress capability instance.</summary>
+    public bool TryUnregisterTeamExtractionProgress(EntityId id, ITeamExtractionProgress expectedProgress)
+    {
+        return TryUnregisterIsolatedCapability(id, expectedProgress, _teamExtractionProgresses);
+    }
+
+    /// <summary>Attempts to resolve a team extraction progress capability by entity identity.</summary>
+    public bool TryGetTeamExtractionProgress(EntityId id, out ITeamExtractionProgress progress)
+    {
+        return _teamExtractionProgresses.TryGetValue(id, out progress);
+    }
+
+    /// <summary>Attempts to resolve the runner's singleton team extraction progress capability.</summary>
+    public bool TryGetTeamExtractionProgress(out ITeamExtractionProgress progress)
+    {
+        foreach (ITeamExtractionProgress candidate in _teamExtractionProgresses.Values)
+        {
+            if (candidate != null)
+            {
+                progress = candidate;
+                return true;
+            }
+        }
+
+        progress = null;
+        return false;
+    }
+
     public bool TryRegisterExtractionProgressDefeatSource(EntityId id, IExtractionProgressDefeatSource source)
     {
         return TryRegisterIndependentCapability(id, source, _extractionProgressDefeatSources);
@@ -886,6 +922,7 @@ public sealed class EntityRegistry : MonoBehaviour
             _extractionParticipants.ContainsKey(id) ||
             _extractionProgressReceivers.ContainsKey(id) ||
             _extractionProgressReaders.ContainsKey(id) ||
+            _teamExtractionProgresses.ContainsKey(id) ||
             _extractionProgressDefeatSources.ContainsKey(id) ||
             _missionProgressDefeatSources.ContainsKey(id) ||
             _killExperienceSources.ContainsKey(id) ||
