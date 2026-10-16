@@ -342,26 +342,8 @@ public sealed class HostMigrationSnapshotRestorer : MonoBehaviour
                 }
             }
         }
-
-        foreach (var obj in _restoredSceneObjects.Values)
-        {
-            if (obj.TryGetBehaviour<ExtractionSanctuary>(out var s))
-            {
-                EntityId oldOwner = new EntityId(s.GetRestoredOwnerIdValue());
-                if (oldOwner.Value != 0)
-                {
-                    NetworkId oldNetId = new NetworkId { Raw = (uint)oldOwner.Value };
-                    if (_restoredDynamicObjects.TryGetValue(oldNetId, out NetworkObject resolvedDynamic))
-                    {
-                        s.SetRestoredOwnerId(new EntityId((int)resolvedDynamic.Id.Raw));
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Cannot resolve old EntityId {oldOwner.Value} for ExtractionSanctuary owner in dynamic objects.");
-                    }
-                }
-            }
-        }
+        // ExtractionSanctuary slots are keyed by immutable RaidTeamId,
+        // which remains valid across host migration without dynamic EntityId remapping.
     }
 
     private bool ValidateMatchController(out string errorMessage)

@@ -22,9 +22,15 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
 #endif
 
     private EntityRegistry _registry;
+    private ExtractionSanctuaryAssignmentService _assignmentService;
     private EntityId _registeredId;
     private bool _isRegistered;
     private bool _isInitialized;
+
+    internal void SetAssignmentServiceForTest(ExtractionSanctuaryAssignmentService assignmentService)
+    {
+        _assignmentService = assignmentService;
+    }
 
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))
@@ -35,6 +41,7 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
     public override void Spawned()
     {
         _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
+        _assignmentService = Runner != null ? Runner.GetComponent<ExtractionSanctuaryAssignmentService>() : null;
         RegisterCapability();
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
@@ -276,6 +283,17 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
         }
 
         SetSlot(index, slot);
+
+        if (completedQuota)
+        {
+            if (_assignmentService == null && Runner != null)
+            {
+                _assignmentService = Runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+            }
+
+            _assignmentService?.TryAssign(teamId);
+        }
+
         return true;
     }
 

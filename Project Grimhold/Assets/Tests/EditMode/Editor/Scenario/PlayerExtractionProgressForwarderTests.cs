@@ -36,7 +36,6 @@ namespace Tests.EditMode.Scenario
             SetField(_progressController, "_character", _mockCharacter);
             SetField(_progressController, "_extractionController", extractionController);
             SetField(_progressController, "_registry", _registry);
-            SetField(_progressController, "_assignmentService", assignmentService);
             SetField(_progressController, "_dependenciesValid", true);
 
             _mockTeamProgress = new MockTeamProgress(new EntityId(100));

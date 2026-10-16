@@ -26,7 +26,6 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
 
     private ICharacter _character;
     private EntityRegistry _registry;
-    private ExtractionSanctuaryAssignmentService _assignmentService;
     private ITeamExtractionProgress _teamProgress;
     private RaidTeamId _overrideTeamId;
     private EntityId _registeredId;
@@ -88,9 +87,6 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     {
         CacheDependencies();
         _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
-        _assignmentService = Runner != null
-            ? Runner.GetComponent<ExtractionSanctuaryAssignmentService>()
-            : null;
         RegisterCapabilities();
         _dependenciesValid = ValidateDependencies();
     }
@@ -141,14 +137,6 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         if (!teamProgress.TryApplyContribution(teamId, contribution.Amount, out int nextProgress, out bool completedQuota))
         {
             return false;
-        }
-
-        // Intermediate state for Etapa 3 (documented in Plan-US-53 and Walkthrough):
-        // Until Etapa 4 introduces team sanctuary assignment, trigger assignment individually for the player
-        // who completed the quota (preserving current runtime behavior).
-        if (completedQuota && _assignmentService != null)
-        {
-            _assignmentService.TryAssign(Id);
         }
 
         return true;
@@ -248,11 +236,11 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         }
 
         if (_character == null || _extractionController == null || _registry == null ||
-            _assignmentService == null || !_isReceiverRegistered || !_isReaderRegistered)
+            !_isReceiverRegistered || !_isReaderRegistered)
         {
             Debug.LogError(
                 $"{nameof(PlayerExtractionProgressController)} requires character, extraction controller, registry, " +
-                "assignment service, and valid receiver/reader registrations.",
+                "and valid receiver/reader registrations.",
                 this);
             return false;
         }

@@ -5,14 +5,13 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Runner-local coordinator that derives player assignments from replicated sanctuary owners
-/// and performs the Host-only selection that precedes the authoritative reservation write.
+/// Runner-local coordinator that derives team assignments from replicated sanctuary reservations
+/// and performs the Host-only selection that precedes the authoritative assignment write.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
 {
     private readonly List<EntityId> _sanctuaryIds = new();
-    private readonly List<EntityId> _freeSanctuaryIds = new();
     private readonly HashSet<SanctuaryAssignmentFailureReason> _reportedConfigurationFailures = new();
 
     private NetworkRunner _runner;
@@ -28,7 +27,6 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
     public void ResetForRaidClosure()
     {
         _sanctuaryIds.Clear();
-        _freeSanctuaryIds.Clear();
         _reportedConfigurationFailures.Clear();
         _sessionSeed = 0UL;
         _hasSessionSeed = false;
@@ -119,18 +117,18 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
     }
 
     /// <summary>
-    /// Derives the unique sanctuary owned by a player without requiring authority or mutating state.
+    /// Derives the unique sanctuary assigned to a team without requiring authority or mutating state.
     /// </summary>
-    public SanctuaryAssignmentResult TryGetAssignment(EntityId playerId)
+    public SanctuaryAssignmentResult TryGetAssignment(RaidTeamId teamId)
     {
         if (!_isInitialized)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.ServiceNotInitialized);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ServiceNotInitialized);
         }
 
-        if (playerId.Value == 0)
+        if (!teamId.IsValid)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.InvalidPlayer);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.InvalidTeam);
         }
 
         EntityId foundId = default;
@@ -142,11 +140,11 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
             {
                 ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent);
                 return SanctuaryAssignmentResult.Rejected(
-                    playerId,
+                    teamId,
                     SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent);
             }
 
-            if (!sanctuary.IsOwnedBy(playerId))
+            if (!sanctuary.IsAssignedToTeam(teamId))
             {
                 continue;
             }
@@ -155,7 +153,7 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
             {
                 ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.DuplicateExistingAssignment);
                 return SanctuaryAssignmentResult.Rejected(
-                    playerId,
+                    teamId,
                     SanctuaryAssignmentFailureReason.DuplicateExistingAssignment);
             }
 
@@ -163,37 +161,38 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
         }
 
         return foundId.Value != 0
-            ? SanctuaryAssignmentResult.Assigned(playerId, foundId, true)
-            : SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.AssignmentNotFound);
+            ? SanctuaryAssignmentResult.Assigned(teamId, foundId, true)
+            : SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.AssignmentNotFound);
     }
 
     /// <summary>
-    /// Selects and reserves one sanctuary during Host simulation after validating current player state.
-    /// An existing unique assignment is returned before mutable eligibility is evaluated.
+    /// Selects and assigns one sanctuary during Host simulation after validating current team progress.
+    /// An existing unique assignment is returned idempotently before selection is evaluated.
+    /// Multiple teams can share the same sanctuary per decision D-3.
     /// </summary>
-    public SanctuaryAssignmentResult TryAssign(EntityId playerId)
+    public SanctuaryAssignmentResult TryAssign(RaidTeamId teamId)
     {
         if (!_isInitialized)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.ServiceNotInitialized);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ServiceNotInitialized);
         }
 
-        if (playerId.Value == 0)
+        if (!teamId.IsValid)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.InvalidPlayer);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.InvalidTeam);
         }
 
         if (_runner == null || !_runner.IsServer || !_hasSessionSeed)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.NoAuthority);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.NoAuthority);
         }
 
         if (!_runner.IsSimulationUpdating)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.OutsideSimulation);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.OutsideSimulation);
         }
 
-        SanctuaryAssignmentResult existing = TryGetAssignment(playerId);
+        SanctuaryAssignmentResult existing = TryGetAssignment(teamId);
         if (existing.Success)
         {
             return existing;
@@ -204,48 +203,40 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
             return existing;
         }
 
-        if (!_registry.TryGetExtractionProgressReader(playerId, out IExtractionProgressReader reader))
+        if (!_registry.TryGetTeamExtractionProgress(out ITeamExtractionProgress teamProgress))
         {
             return SanctuaryAssignmentResult.Rejected(
-                playerId,
+                teamId,
                 SanctuaryAssignmentFailureReason.ProgressReaderUnavailable);
         }
 
-        if (!reader.TryGetSnapshot(out ExtractionProgressSnapshot snapshot))
+        if (!teamProgress.TryGetSnapshot(teamId, out ExtractionProgressSnapshot snapshot))
         {
             return SanctuaryAssignmentResult.Rejected(
-                playerId,
+                teamId,
                 SanctuaryAssignmentFailureReason.InvalidProgressSnapshot);
         }
 
         if (!snapshot.IsQuotaComplete)
         {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.QuotaIncomplete);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.QuotaIncomplete);
         }
 
         if (!snapshot.AssignmentRequested)
         {
             return SanctuaryAssignmentResult.Rejected(
-                playerId,
+                teamId,
                 SanctuaryAssignmentFailureReason.AssignmentNotRequested);
-        }
-
-        if (!_registry.TryGetCharacter(playerId, out ICharacter character) || character == null || !character.IsAlive ||
-            !_registry.TryGetExtractionParticipant(playerId, out IExtractionParticipant participant) ||
-            participant == null || participant.State == ExtractionState.Extracted)
-        {
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.PlayerUnavailable);
         }
 
         if (_sanctuaryIds.Count == 0)
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
             return SanctuaryAssignmentResult.Rejected(
-                playerId,
+                teamId,
                 SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
         }
 
-        _freeSanctuaryIds.Clear();
         for (int i = 0; i < _sanctuaryIds.Count; i++)
         {
             EntityId sanctuaryId = _sanctuaryIds[i];
@@ -254,36 +245,98 @@ public sealed class ExtractionSanctuaryAssignmentService : MonoBehaviour
             {
                 ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent);
                 return SanctuaryAssignmentResult.Rejected(
-                    playerId,
+                    teamId,
                     SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent);
             }
-
-            if (!sanctuary.IsReserved)
-            {
-                _freeSanctuaryIds.Add(sanctuaryId);
-            }
-        }
-
-        if (_freeSanctuaryIds.Count == 0)
-        {
-            ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.NoFreeSanctuary);
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.NoFreeSanctuary);
         }
 
         int selectedIndex = SanctuarySelectionPolicy.SelectIndex(
             _sessionSeed,
             _runner.Tick,
-            playerId,
-            _freeSanctuaryIds.Count);
-        EntityId selectedId = _freeSanctuaryIds[selectedIndex];
+            teamId,
+            _sanctuaryIds.Count);
+        EntityId selectedId = _sanctuaryIds[selectedIndex];
+
         if (!_registry.TryGetExtractionSanctuary(selectedId, out IExtractionSanctuary selected) ||
-            selected == null || !selected.TryReserve(playerId) || !selected.IsOwnedBy(playerId))
+            selected == null || !selected.TryAssignTeam(teamId) || !selected.IsAssignedToTeam(teamId))
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.ReservationConflict);
-            return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.ReservationConflict);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ReservationConflict);
         }
 
-        return SanctuaryAssignmentResult.Assigned(playerId, selectedId, false);
+        return SanctuaryAssignmentResult.Assigned(teamId, selectedId, false);
+    }
+
+    // --- Legacy / compatibility helpers for individual player callers ---
+
+    public SanctuaryAssignmentResult TryGetAssignment(EntityId playerId)
+    {
+        if (TryResolvePlayerTeam(playerId, out RaidTeamId teamId))
+        {
+            SanctuaryAssignmentResult teamResult = TryGetAssignment(teamId);
+            return teamResult.Success
+                ? SanctuaryAssignmentResult.Assigned(playerId, teamResult.SanctuaryId, teamResult.IsExistingAssignment)
+                : SanctuaryAssignmentResult.Rejected(playerId, teamResult.FailureReason);
+        }
+
+        if (RaidTeamId.TryCreate(playerId.Value, out RaidTeamId surrogate))
+        {
+            SanctuaryAssignmentResult teamResult = TryGetAssignment(surrogate);
+            if (teamResult.Success)
+            {
+                return SanctuaryAssignmentResult.Assigned(playerId, teamResult.SanctuaryId, teamResult.IsExistingAssignment);
+            }
+        }
+
+        return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.InvalidPlayer);
+    }
+
+    public SanctuaryAssignmentResult TryAssign(EntityId playerId)
+    {
+        if (TryResolvePlayerTeam(playerId, out RaidTeamId teamId))
+        {
+            SanctuaryAssignmentResult teamResult = TryAssign(teamId);
+            return teamResult.Success
+                ? SanctuaryAssignmentResult.Assigned(playerId, teamResult.SanctuaryId, teamResult.IsExistingAssignment)
+                : SanctuaryAssignmentResult.Rejected(playerId, teamResult.FailureReason);
+        }
+
+        if (RaidTeamId.TryCreate(playerId.Value, out RaidTeamId surrogate))
+        {
+            SanctuaryAssignmentResult teamResult = TryAssign(surrogate);
+            if (teamResult.Success)
+            {
+                return SanctuaryAssignmentResult.Assigned(playerId, teamResult.SanctuaryId, teamResult.IsExistingAssignment);
+            }
+        }
+
+        return SanctuaryAssignmentResult.Rejected(playerId, SanctuaryAssignmentFailureReason.InvalidPlayer);
+    }
+
+    private bool TryResolvePlayerTeam(EntityId playerId, out RaidTeamId teamId)
+    {
+        teamId = default;
+        if (_registry != null && _registry.TryGetCharacter(playerId, out ICharacter character) && character is Component c)
+        {
+            if (c.TryGetComponent(out RaidAvatarParticipantLink link) &&
+                link.TryResolveParticipant(out NetworkRaidParticipant participant) &&
+                participant != null &&
+                participant.RaidParticipantId.IsValid)
+            {
+                if (_runner != null)
+                {
+                    NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+                    if (spawnManager != null &&
+                        spawnManager.TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations) &&
+                        affiliations.TryGetTeam(participant.RaidParticipantId, out teamId))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool TryGenerateSeed(out ulong seed)

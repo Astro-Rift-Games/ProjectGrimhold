@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Fusion;
 using NUnit.Framework;
@@ -32,10 +33,27 @@ namespace Tests.EditMode.Scenario
             UnityEngine.Object.DestroyImmediate(_runnerObject);
         }
 
+        [TestCase(0UL, int.MinValue, 1, 1)]
+        [TestCase(0UL, int.MaxValue, 2, 4)]
+        [TestCase(ulong.MaxValue, -1, 3, 17)]
+        public void SelectionPolicy_IsReproducibleAndAlwaysInRange_ForTeams(
+            ulong seed,
+            int tick,
+            int teamRaw,
+            int count)
+        {
+            Assert.That(RaidTeamId.TryCreate(teamRaw, out RaidTeamId teamId), Is.True);
+            int first = SanctuarySelectionPolicy.SelectIndex(seed, tick, teamId, count);
+            int second = SanctuarySelectionPolicy.SelectIndex(seed, tick, teamId, count);
+
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(first, Is.GreaterThanOrEqualTo(0).And.LessThan(count));
+        }
+
         [TestCase(0UL, int.MinValue, int.MinValue, 1)]
         [TestCase(0UL, int.MaxValue, int.MaxValue, 4)]
         [TestCase(ulong.MaxValue, -1, 1, 17)]
-        public void SelectionPolicy_IsReproducibleAndAlwaysInRange(
+        public void SelectionPolicy_IsReproducibleAndAlwaysInRange_ForPlayers(
             ulong seed,
             int tick,
             int playerValue,
@@ -53,20 +71,21 @@ namespace Tests.EditMode.Scenario
         public void SelectionPolicy_RejectsInvalidInputs()
         {
             Assert.Throws<ArgumentException>(() =>
-                SanctuarySelectionPolicy.SelectIndex(1UL, 1, default, 1));
+                SanctuarySelectionPolicy.SelectIndex(1UL, 1, default(RaidTeamId), 1));
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId validTeam), Is.True);
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                SanctuarySelectionPolicy.SelectIndex(1UL, 1, new EntityId(1), 0));
+                SanctuarySelectionPolicy.SelectIndex(1UL, 1, validTeam, 0));
         }
 
         [Test]
         public void Result_IsImmutableAndDistinguishesExistingAssignment()
         {
-            var playerId = new EntityId(11);
+            Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId teamId), Is.True);
             var sanctuaryId = new EntityId(22);
-            SanctuaryAssignmentResult result = SanctuaryAssignmentResult.Assigned(playerId, sanctuaryId, true);
+            SanctuaryAssignmentResult result = SanctuaryAssignmentResult.Assigned(teamId, sanctuaryId, true);
 
             Assert.That(result.Success, Is.True);
-            Assert.That(result.PlayerId, Is.EqualTo(playerId));
+            Assert.That(result.TeamId, Is.EqualTo(teamId));
             Assert.That(result.SanctuaryId, Is.EqualTo(sanctuaryId));
             Assert.That(result.IsExistingAssignment, Is.True);
             Assert.That(result.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.None));
@@ -103,37 +122,58 @@ namespace Tests.EditMode.Scenario
         [Test]
         public void TryGetAssignment_ReportsAbsenceDuplicateAndRegistryInconsistency()
         {
-            var playerId = new EntityId(41);
-            var first = new Sanctuary(new EntityId(101), playerId);
-            var second = new Sanctuary(new EntityId(202), playerId);
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId teamId), Is.True);
+            var first = new Sanctuary(new EntityId(101), teamId);
+            var second = new Sanctuary(new EntityId(202), teamId);
             Register(first);
 
-            SanctuaryAssignmentResult one = _service.TryGetAssignment(playerId);
+            SanctuaryAssignmentResult one = _service.TryGetAssignment(teamId);
             Assert.That(one.Success, Is.True);
             Assert.That(one.SanctuaryId, Is.EqualTo(first.Id));
 
             Register(second);
             LogAssert.Expect(UnityEngine.LogType.Error,
                 "ExtractionSanctuaryAssignmentService configuration failure: DuplicateExistingAssignment.");
-            SanctuaryAssignmentResult duplicate = _service.TryGetAssignment(playerId);
+            SanctuaryAssignmentResult duplicate = _service.TryGetAssignment(teamId);
             Assert.That(duplicate.Success, Is.False);
             Assert.That(duplicate.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.DuplicateExistingAssignment));
 
             Assert.That(_registry.TryUnregisterExtractionSanctuary(first.Id, first), Is.True);
             LogAssert.Expect(UnityEngine.LogType.Error,
                 "ExtractionSanctuaryAssignmentService configuration failure: SanctuaryRegistryInconsistent.");
-            SanctuaryAssignmentResult inconsistent = _service.TryGetAssignment(new EntityId(99));
+            Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId otherTeam), Is.True);
+            SanctuaryAssignmentResult inconsistent = _service.TryGetAssignment(otherTeam);
             Assert.That(inconsistent.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent));
+        }
+
+        [Test]
+        public void TryGetAssignment_MultipleTeamsCanShareSameSanctuary()
+        {
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team1), Is.True);
+            Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId team2), Is.True);
+
+            var sharedSanctuary = new Sanctuary(new EntityId(500), team1);
+            sharedSanctuary.TryAssignTeam(team2);
+            Register(sharedSanctuary);
+
+            SanctuaryAssignmentResult res1 = _service.TryGetAssignment(team1);
+            SanctuaryAssignmentResult res2 = _service.TryGetAssignment(team2);
+
+            Assert.That(res1.Success, Is.True);
+            Assert.That(res1.SanctuaryId, Is.EqualTo(sharedSanctuary.Id));
+            Assert.That(res2.Success, Is.True);
+            Assert.That(res2.SanctuaryId, Is.EqualTo(sharedSanctuary.Id));
         }
 
         [Test]
         public void TryGetAssignment_AssignmentNotFoundIsNormalResult()
         {
-            SanctuaryAssignmentResult result = _service.TryGetAssignment(new EntityId(51));
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId teamId), Is.True);
+            SanctuaryAssignmentResult result = _service.TryGetAssignment(teamId);
             Assert.That(result.Success, Is.False);
             Assert.That(result.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
             Assert.That(_service.HasSessionSeed, Is.False);
-            Assert.That(_service.TryAssign(new EntityId(51)).FailureReason,
+            Assert.That(_service.TryAssign(teamId).FailureReason,
                 Is.EqualTo(SanctuaryAssignmentFailureReason.NoAuthority));
         }
 
@@ -157,7 +197,7 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
-        public void FailureReasons_ContainTheCompleteTask54Contract()
+        public void FailureReasons_ContainTheCompleteContract()
         {
             string[] expected =
             {
@@ -165,7 +205,7 @@ namespace Tests.EditMode.Scenario
                 "AssignmentNotFound", "ProgressReaderUnavailable", "InvalidProgressSnapshot",
                 "QuotaIncomplete", "AssignmentNotRequested", "PlayerUnavailable",
                 "NoSanctuariesConfigured", "NoFreeSanctuary", "SanctuaryRegistryInconsistent",
-                "DuplicateExistingAssignment", "ReservationConflict"
+                "DuplicateExistingAssignment", "ReservationConflict", "InvalidTeam"
             };
 
             Assert.That(Enum.GetNames(typeof(SanctuaryAssignmentFailureReason)), Is.EqualTo(expected));
@@ -181,8 +221,9 @@ namespace Tests.EditMode.Scenario
             ExtractionSanctuary sanctuary = root.AddComponent<ExtractionSanctuary>();
             try
             {
-                Assert.That(sanctuary.TryReserve(default), Is.False);
-                Assert.That(sanctuary.TryReserve(new EntityId(1)), Is.False);
+                Assert.That(sanctuary.TryAssignTeam(default), Is.False);
+                Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId teamId), Is.True);
+                Assert.That(sanctuary.TryAssignTeam(teamId), Is.False);
             }
             finally
             {
@@ -216,33 +257,58 @@ namespace Tests.EditMode.Scenario
 
         private sealed class Sanctuary : IExtractionSanctuary
         {
-            public Sanctuary(EntityId id, EntityId ownerId)
+            private readonly HashSet<RaidTeamId> _assignedTeams = new();
+
+            public Sanctuary(EntityId id, RaidTeamId initialTeam = default)
             {
                 Id = id;
-                OwnerId = ownerId;
+                if (initialTeam.IsValid)
+                {
+                    _assignedTeams.Add(initialTeam);
+                }
             }
 
             public EntityId Id { get; }
-            public EntityId OwnerId { get; private set; }
-            public bool IsReserved => OwnerId.Value != 0;
+            public RaidTeamId AssignedTeam => _assignedTeams.Count > 0 ? _assignedTeams.First() : default;
+            public EntityId OwnerId => AssignedTeam.IsValid ? new EntityId(AssignedTeam.Value) : default;
+            public bool IsReserved => _assignedTeams.Count > 0;
             public ExtractionRitualState RitualState => ExtractionRitualState.NotStarted;
-            public bool IsOwnedBy(EntityId playerId) => playerId.Value != 0 && OwnerId == playerId;
+            public bool IsAnyRitualCompleted => false;
+
+            public bool IsAssignedToTeam(RaidTeamId teamId) => teamId.IsValid && _assignedTeams.Contains(teamId);
+
+            public bool TryAssignTeam(RaidTeamId teamId)
+            {
+                if (!teamId.IsValid)
+                {
+                    return false;
+                }
+
+                _assignedTeams.Add(teamId);
+                return true;
+            }
+
+            public bool CanUseExtraction(RaidTeamId teamId) => false;
+
+            public bool TryGetRitualProgress(RaidTeamId teamId, out ExtractionRitualSnapshot snapshot)
+            {
+                snapshot = new ExtractionRitualSnapshot(RitualState, 10f, 10f, 0f);
+                return true;
+            }
+
+            public bool IsOwnedBy(EntityId playerId) =>
+                RaidTeamId.TryCreate(playerId.Value, out var t) && IsAssignedToTeam(t);
+
             public bool CanUseExtraction(EntityId playerId) => false;
+
             public bool TryGetRitualProgress(out ExtractionRitualSnapshot snapshot)
             {
                 snapshot = new ExtractionRitualSnapshot(RitualState, 10f, 10f, 0f);
                 return true;
             }
-            public bool TryReserve(EntityId playerId)
-            {
-                if (playerId.Value == 0 || (IsReserved && OwnerId != playerId))
-                {
-                    return false;
-                }
 
-                OwnerId = playerId;
-                return true;
-            }
+            public bool TryReserve(EntityId playerId) =>
+                RaidTeamId.TryCreate(playerId.Value, out var t) && TryAssignTeam(t);
         }
     }
 }

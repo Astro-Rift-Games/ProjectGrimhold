@@ -1,30 +1,42 @@
 /// <summary>
-/// Network sanctuary capability whose replicated owner is the authoritative reservation state.
+/// Network sanctuary capability whose replicated team slots maintain authoritative reservation and ritual state.
+/// Supports multiple teams concurrently per decision D-3.
 /// </summary>
 public interface IExtractionSanctuary : IEntity
 {
-    /// <summary>Gets the replicated owner, or the default identity while unreserved.</summary>
-    EntityId OwnerId { get; }
+    /// <summary>Returns whether this sanctuary is assigned to the specified team.</summary>
+    bool IsAssignedToTeam(RaidTeamId teamId);
 
-    /// <summary>Gets whether this sanctuary currently has a valid owner.</summary>
+    /// <summary>Assigns this sanctuary to the specified team under State Authority. Idempotent for same team.</summary>
+    bool TryAssignTeam(RaidTeamId teamId);
+
+    /// <summary>Returns whether the team is assigned to this sanctuary and has completed its ritual.</summary>
+    bool CanUseExtraction(RaidTeamId teamId);
+
+    /// <summary>Builds a side-effect-free snapshot of ritual progress for the specified team.</summary>
+    bool TryGetRitualProgress(RaidTeamId teamId, out ExtractionRitualSnapshot snapshot);
+
+    /// <summary>Gets whether any assigned team has completed their ritual at this sanctuary.</summary>
+    bool IsAnyRitualCompleted { get; }
+
+    /// <summary>Gets whether at least one team is currently assigned to this sanctuary.</summary>
     bool IsReserved { get; }
 
-    /// <summary>Gets the replicated ritual lifecycle for this Sanctuary.</summary>
+    /// <summary>Legacy helper: gets the first assigned team identity or default.</summary>
+    EntityId OwnerId { get; }
+
+    /// <summary>Legacy helper: aggregate ritual lifecycle for this sanctuary.</summary>
     ExtractionRitualState RitualState { get; }
 
-    /// <summary>Returns whether the supplied valid player identity owns this sanctuary.</summary>
+    /// <summary>Legacy helper: returns whether the player's team is assigned to this sanctuary.</summary>
     bool IsOwnedBy(EntityId playerId);
 
-    /// <summary>
-    /// Returns whether the supplied player owns this Sanctuary and has completed its ritual.
-    /// </summary>
+    /// <summary>Legacy helper: returns whether the player's team can extract.</summary>
     bool CanUseExtraction(EntityId playerId);
 
-    /// <summary>Builds a side-effect-free snapshot from confirmed ritual state.</summary>
+    /// <summary>Legacy helper: builds snapshot of ritual progress for the local team or first active.</summary>
     bool TryGetRitualProgress(out ExtractionRitualSnapshot snapshot);
 
-    /// <summary>
-    /// Reserves this sanctuary under State Authority without replacing a different owner.
-    /// </summary>
+    /// <summary>Legacy helper: reserves this sanctuary for the player's team.</summary>
     bool TryReserve(EntityId playerId);
 }

@@ -15,5 +15,6 @@ public enum SanctuaryAssignmentFailureReason
     NoFreeSanctuary,
     SanctuaryRegistryInconsistent,
     DuplicateExistingAssignment,
-    ReservationConflict
+    ReservationConflict,
+    InvalidTeam
 }

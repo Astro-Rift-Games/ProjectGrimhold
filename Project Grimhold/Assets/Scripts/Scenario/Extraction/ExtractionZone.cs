@@ -148,7 +148,7 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
 
         if (!available && _entityRegistry != null &&
             _entityRegistry.TryGetExtractionSanctuary(Id, out IExtractionSanctuary sanctuary) &&
-            sanctuary != null && sanctuary.RitualState == ExtractionRitualState.Completed)
+            sanctuary != null && sanctuary.IsAnyRitualCompleted)
         {
             return false;
         }
