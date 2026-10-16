@@ -37,9 +37,16 @@ public sealed class ExtractionConfig : ScriptableObject
     [SerializeField]
     private bool _cancelWhenNotAlive = true;
 
-    [Header("Individual Progress")]
+    [Header("Team Quota")]
     [SerializeField, Min(1)]
     private int _progressQuota = 100;
+
+    [SerializeField, Min(1)]
+    private int _duoProgressQuota = 150;
+
+    [Header("Team Capacity")]
+    [SerializeField, Range(1, RaidSessionRules.MaxTeams)]
+    private int _maxTeamsPerRaid = 4;
 
     [Header("Individual Ritual")]
     [SerializeField, Min(0.001f)]
@@ -74,10 +81,61 @@ public sealed class ExtractionConfig : ScriptableObject
     public bool CancelWhenNotAlive => _cancelWhenNotAlive;
 
     /// <summary>
-    /// Positive individual progress required before sanctuary assignment can be requested.
+    /// Positive individual/Solo progress required before sanctuary assignment can be requested.
     /// This static value is shared configuration and is not replicated.
     /// </summary>
+    public int SoloProgressQuota => _progressQuota;
+
+    /// <summary>
+    /// Positive Duo progress required before team sanctuary assignment can be requested.
+    /// This static value is shared configuration and is not replicated.
+    /// </summary>
+    public int DuoProgressQuota => _duoProgressQuota;
+
+    /// <summary>
+    /// Maximum number of distinct teams supported per Raid session (1..MaxTeams).
+    /// </summary>
+    public int MaxTeamsPerRaid => _maxTeamsPerRaid;
+
+    /// <summary>
+    /// Positive individual progress required before sanctuary assignment can be requested.
+    /// Kept for backward compatibility with existing consumers. Prefer <see cref="SoloProgressQuota"/> or <see cref="QuotaForTeamSize"/>.
+    /// </summary>
     public int ProgressQuota => _progressQuota;
+
+    /// <summary>
+    /// Returns the progress quota required for the given initial team size.
+    /// </summary>
+    /// <param name="teamSize">Initial team size: 1 (Solo) or 2 (Duo).</param>
+    /// <exception cref="System.ArgumentOutOfRangeException">Thrown when team size is not 1 or 2.</exception>
+    public int QuotaForTeamSize(int teamSize)
+    {
+        if (teamSize == 1) return _progressQuota;
+        if (teamSize == 2) return _duoProgressQuota;
+        throw new System.ArgumentOutOfRangeException(
+            nameof(teamSize),
+            $"Team size {teamSize} is invalid. Only Solo (1) and Duo (2) are supported.");
+    }
+
+    /// <summary>
+    /// Attempts to resolve the progress quota required for the given initial team size.
+    /// </summary>
+    public bool TryGetQuotaForTeamSize(int teamSize, out int quota)
+    {
+        if (teamSize == 1)
+        {
+            quota = _progressQuota;
+            return true;
+        }
+        if (teamSize == 2)
+        {
+            quota = _duoProgressQuota;
+            return true;
+        }
+
+        quota = 0;
+        return false;
+    }
 
     /// <summary>
     /// Simulation duration required for an assigned player to complete their Sanctuary ritual.
@@ -107,7 +165,19 @@ public sealed class ExtractionConfig : ScriptableObject
 
         if (_progressQuota <= 0)
         {
-            error = $"{nameof(ExtractionConfig)}: {nameof(ProgressQuota)} must be strictly greater than zero.";
+            error = $"{nameof(ExtractionConfig)}: {nameof(SoloProgressQuota)} must be strictly greater than zero.";
+            return false;
+        }
+
+        if (_duoProgressQuota <= 0)
+        {
+            error = $"{nameof(ExtractionConfig)}: {nameof(DuoProgressQuota)} must be strictly greater than zero.";
+            return false;
+        }
+
+        if (_maxTeamsPerRaid < 1 || _maxTeamsPerRaid > RaidSessionRules.MaxTeams)
+        {
+            error = $"{nameof(ExtractionConfig)}: {nameof(MaxTeamsPerRaid)} must be between 1 and {RaidSessionRules.MaxTeams}.";
             return false;
         }
 
@@ -134,6 +204,8 @@ public sealed class ExtractionConfig : ScriptableObject
         }
 
         _progressQuota = Mathf.Max(1, _progressQuota);
+        _duoProgressQuota = Mathf.Max(1, _duoProgressQuota);
+        _maxTeamsPerRaid = Mathf.Clamp(_maxTeamsPerRaid, 1, RaidSessionRules.MaxTeams);
 
         if (float.IsNaN(_ritualDurationSeconds) || float.IsInfinity(_ritualDurationSeconds) ||
             _ritualDurationSeconds <= 0f)

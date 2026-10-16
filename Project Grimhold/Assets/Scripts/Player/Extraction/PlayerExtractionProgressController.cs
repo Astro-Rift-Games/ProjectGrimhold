@@ -36,7 +36,7 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     [Networked]
     public NetworkBool AssignmentRequested { get; private set; }
 
-    public int Quota => _config != null ? _config.ProgressQuota : 0;
+    public int Quota => _config != null ? _config.SoloProgressQuota : 0;
 
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))

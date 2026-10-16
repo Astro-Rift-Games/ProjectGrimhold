@@ -18,4 +18,6 @@ MonoBehaviour:
   _requireAliveToStart: 1
   _cancelWhenNotAlive: 1
   _progressQuota: 100
+  _duoProgressQuota: 150
+  _maxTeamsPerRaid: 4
   _ritualDurationSeconds: 10

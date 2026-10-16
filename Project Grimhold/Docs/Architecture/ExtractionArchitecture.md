@@ -8,17 +8,17 @@ The authoritative extraction core owns zones, the player extraction process and 
 
 | Concern | Owner | Representation |
 | --- | --- | --- |
-| Stable balance | `ExtractionConfig` | Immutable `ScriptableObject` values |
-| Zone identity | `ExtractionZone` | `EntityId` derived from its `NetworkObject` |
-| Zone geometry | `ExtractionZone` | Serialized same-root `Collider2D` |
+| Stable balance & capacity | `ExtractionConfig` | Immutable `ScriptableObject` (`SoloProgressQuota`, `DuoProgressQuota`, `MaxTeamsPerRaid`) |
+| Team launch identity & roster | `RaidTeamRoster` | Pure C# immutable projection of frozen cohort (`RaidTeamId`, initial team sizes 1-2) |
+| Team progress & quota | `TeamExtractionProgress` | `[Networked, Capacity(RaidSessionRules.MaxTeams)]` on `NetworkMatchController` |
+| Producer forwarder | `PlayerExtractionProgressController` | Implements `IExtractionProgressReceiver/Reader`, forwards to team progress |
+| Zone identity & geometry | `ExtractionZone` | `EntityId` derived from `NetworkObject`, serialized `Collider2D` |
 | Zone availability | `ExtractionZone` | Private `[Networked] NetworkBool`, exposed as `bool` |
-| Player process | `PlayerExtractionController` | `[Networked] ExtractionState` |
-| Active zone | `PlayerExtractionController` | Networked primitive exposed as `EntityId` |
-| Countdown | `PlayerExtractionController` | `[Networked] TickTimer` |
-| Death | `ICharacter` | `IsAlive`; extraction never changes it |
-| Sanctuary reservation | `ExtractionSanctuary` | Primitive networked owner ID |
-| Ritual lifecycle | `ExtractionSanctuary` | `[Networked] ExtractionRitualState` and `TickTimer` |
-| Ritual timing | `ExtractionConfig` | Immutable `RitualDurationSeconds` |
+| Team sanctuary assignment | `ExtractionSanctuaryAssignmentService` | Runner-local deterministic assignment by `RaidTeamId` |
+| Team sanctuary ritual | `ExtractionSanctuary` | `[Networked, Capacity(RaidSessionRules.MaxTeams)]` slots `{TeamId, RitualState, RitualTimer}` |
+| Team countdown coordination | `TeamExtractionCoordinator` | `NetworkBehaviour` (order 115) on `NetworkMatchController`, slots by `RaidTeamId` |
+| Individual player outcome | `PlayerExtractionController` | Individual terminal `ExtractionState.Extracted`, restrictions, loot saver hooks |
+| Death & Downed state | `ICharacter` / `PlayerCharacter` | `IsAlive`; Downed counts as alive for extraction |
 | Pending extracted ownership | `NetworkPlayer` Raid loot states | Inventory, Equipment and Raid provenance retained until persistence ACK |
 
 `EntityRegistry` is runner-scoped and stores zone and participant capabilities independently from character, damage, interaction, collider and loot capabilities. Every peer registers its local instances. Registration grants discovery only; it never grants authority to mutate gameplay. Conflicts are rejected and unregistration removes only the expected instance.
@@ -55,9 +55,9 @@ An unavailable zone requests no starts and does not modify participants. Active 
 
 Start requires State Authority, complete prefab composition, a valid configuration, a valid participant identity and registration, `State == None`, a registered available zone, exact containment, and `IsAlive` when `RequireAliveToStart` is enabled. A second or overlapping zone cannot replace an active process.
 
-Additionally, a participant must be `Connected` to initiate or complete their individual extraction (the connectivity gate). A disconnected participant inside a zone cannot start or continue the countdown, and any active extraction process is cancelled upon disconnection.
+Additionally, a participant must be `Connected` to initiate or complete extraction (the connectivity gate). A disconnected participant cannot start or continue extraction, and any active extraction process is cancelled upon disconnection.
 
-Team composition considers any `Raiding` member (Active or Downed), regardless of connectivity, as an active member (see `RaidConnectivityContinuityArchitecture.md`). The team extraction mechanics and shared quota remain deferred.
+Team composition considers any `Raiding` member (Active or Downed), regardless of connectivity, as an active member (see `RaidConnectivityContinuityArchitecture.md`). Team extraction mechanics, shared quota, team sanctuary assignment, and team countdown coordination are coordinated authoritatively per team via `TeamExtractionProgress`, `TeamExtractionCoordinator`, `RaidTeamRoster`, and `ExtractionSanctuary` team slots.
 
 While `InProgress`, evaluation order is:
 
@@ -125,41 +125,50 @@ completes the authoritative Raid calculation; Input Authority must then durably 
 the matching progression receipt before Return is permitted. Fusion restoration resumes the
 stored phase, candidate, resolver result and ACK without recalculation.
 
-## Individual quota progress
+## Team quota progress (supersedes Individual quota progress)
 
-The MVP has individual progress only: the game supports solo expeditions and has no team progress, shared quota, team assignment or team contribution. `PlayerExtractionProgressController` on each player owns replicated `CurrentProgress` and `AssignmentRequested`; the positive quota remains immutable local configuration in `ExtractionConfig` and is not replicated. State Authority is the only writer. Contributions are accepted only during the matching authoritative simulation tick while the player is alive and not `Extracted`, use `long` arithmetic, and saturate at the configured quota. Reaching the quota changes `AssignmentRequested` once and it remains true for that player for the rest of the expedition. A new network player instance starts at zero with no pending assignment.
+The expedition supports team progress and shared quotas across participants. Initial team roster and team sizes are defined immutably at raid launch via `RaidTeamRoster` (MVP supports teams of size 1 and 2 per rule A-1).
 
-`ExtractionProgressSnapshot` is the immutable quota projection: current progress, quota, percentage, completion and pending assignment. The earlier zone countdown contract was renamed to `ExtractionCountdownSnapshot`; this public rename prevents two unrelated meanings from sharing the same type name.
+Quota balances are configured in `ExtractionConfig`:
+- `SoloProgressQuota`: 100 points.
+- `DuoProgressQuota`: 150 points.
+- `MaxTeamsPerRaid`: 4 teams (capped at `RaidSessionRules.MaxTeams` = 16).
+Quota resolution is pure and immutable per team size via `ExtractionTeamQuotaRules`.
 
-`EntityRegistry` stores `IExtractionProgressReceiver` and `IExtractionProgressDefeatSource` in independent runner-scoped maps keyed by `EntityId`. These capabilities do not participate in collider registration or `TryRegisterEntity`. Producers call the receiver directly under State Authority; there is no global coordinator, gameplay event, RPC or event bus. `SimulationTick` is authoritative metadata and context validation, never a deduplication key. Multiple legitimate contributions may share one tick. One-shot behavior belongs to each producer: fatal `DamageResult`, first-open network state, provenance consumption during extraction, or pickup reservation/consumption.
+Team progress is networked authoritatively on `NetworkMatchController` via `TeamExtractionProgress` (`[Networked, Capacity(RaidSessionRules.MaxTeams)]`), tracking `CurrentProgress` and `AssignmentRequested` indexed by `RaidTeamId`. State Authority is the only writer.
 
-## Individual sanctuary assignment
+`PlayerExtractionProgressController` on each player implements `IExtractionProgressReceiver` and `IExtractionProgressReader`. Rather than storing individual progress, it forwards contributions directly to `TeamExtractionProgress` using the participant's assigned `RaidTeamId`. Contributions are accepted only during the matching authoritative simulation tick while the player is alive and not `Extracted`, and accumulate into the team's shared pool saturating at the team's quota. Reaching quota triggers assignment request once for the team.
 
-The pre-ritual flow is `quota -> request -> assignment -> reservation`. When State Authority first completes a player's quota, `PlayerExtractionProgressController` writes the final progress, sets the historical `AssignmentRequested` flag, and invokes the runner-local `ExtractionSanctuaryAssignmentService` during the same simulation tick. Failure to assign never rolls back progress or the request and is not retried automatically on later ticks.
+`ExtractionProgressSnapshot` provides the team quota projection: current progress, quota, percentage, completion, and pending assignment.
 
-Each `ExtractionSanctuary` owns the only authoritative reservation value: one primitive networked owner ID, where zero means unreserved. `OwnerId`, `IsReserved`, and ownership checks are derived from that value. There is no replicated assignment on the player and no local player-to-sanctuary cache. Both Host and Client derive the inverse relation by scanning stable ordered sanctuary IDs and resolving current capabilities through the runner-scoped `EntityRegistry`. More than one sanctuary owned by the same player is reported as invalid state instead of returning the first match.
+## Team sanctuary assignment (supersedes Individual sanctuary assignment)
 
-The registry stores `IExtractionProgressReader` separately from the contribution-only `IExtractionProgressReceiver`, and stores `IExtractionSanctuary` independently from zones, participants, colliders, and other capabilities. Player reader/receiver registration and sanctuary registry/service registration are compensated workflows. Sanctuary cleanup runs in reverse order so the service can verify the expected registry instance before removing the identity.
+The pre-ritual flow is `team quota -> team request -> team assignment -> sanctuary reservation`. When a team completes its quota under State Authority, `TeamExtractionProgress` triggers `ExtractionSanctuaryAssignmentService` for the team's `RaidTeamId`.
 
-The assignment service is created on the `NetworkRunner` before `StartGame` and initialized for one runner and requested mode. Host initialization generates one local `ulong` seed through `System.Security.Cryptography.RandomNumberGenerator`; zero is valid and the seed is never replicated. Client instances are query-only and hold no seed. The service retains only sorted sanctuary identities and reusable candidate buffers. Host simulation validates the progress reader, character vitality, participant state, and current registrations before selecting. The pure policy mixes the seed, authoritative tick, player identity, and candidate count, then indexes the already sorted free set.
+**Divergence D-3 with Game Design Doc 06 §10/§12:**
+In Game Design doc 06 §10 and §12, each sanctuary was originally envisioned as exclusive to one team. In the technical implementation (US-53), multiple teams may be assigned to and share the same `ExtractionSanctuary` in the scene (divergence D-3, tracked as a GD follow-up).
 
-During resimulation, the same inputs and free set select the same candidate. An existing reservation is returned idempotently before mutable eligibility is reconsidered, and `ExtractionSanctuary.TryReserve` performs the only final mutation while repeating the State Authority check. Destroying the runner clears the service seed, identities, buffers, and diagnostics. Sanctuary despawn removes both registrations, so a new session starts from newly spawned owner values of zero.
+To support D-3, each `ExtractionSanctuary` maintains networked team slots (`[Networked, Capacity(RaidSessionRules.MaxTeams)]`) storing `{TeamId, RitualState, RitualTimer}` rather than a single owner ID. Multiple teams can have reservations on the same Sanctuary simultaneously and progress through rituals independently.
 
-## Authoritative individual ritual
+Host simulation deterministic assignment matches pure policy: pseudorandom mixing of seed, tick, team identity, and sanctuary candidate count.
 
-Each `ExtractionSanctuary` composes one `ExtractionZone` on the same root `NetworkObject` and therefore shares one canonical `EntityId`. The Sanctuary is the single extraction interactable: it owns reservation, ritual state, ritual timer and the interaction that starts the ritual. The co-located Zone is only the Sanctuary's physical interaction/extraction area; after the ritual completes it validates geometry, availability and occupancy for the final countdown, but it is never a second interactable or destination. The registry keeps `IExtractionSanctuary`, `IInteractable`, collider identity and `IExtractionZone` as distinct capabilities under that shared identity; no player-side assignment or second zone identity is synchronized.
+## Authoritative team ritual and shared extraction coordination (supersedes Authoritative individual ritual)
 
-`Gameplay` contains four scene NetworkObjects rather than runtime-randomized Sanctuary spawns. Their positions are authored from valid cell centers of the scene's `Floor` tilemap, and the serialized-scene test requires every tile covered by each zone collider to exist on that tilemap. This keeps the endpoints reachable when the dungeon layout or floor transform offsets differ from raw world-space quadrants.
+Each `ExtractionSanctuary` composes one `ExtractionZone` on the same root `NetworkObject`. The Sanctuary is the team interaction target for initiating the extraction ritual.
 
-Registration is compensated in the order Sanctuary capability, assignment service, then entity/interactable/collider. Sanctuary cleanup reverses that order. Zone cleanup remains independent. Both Sanctuary and Zone capability removal use the registry's expected-instance independent cleanup, so collider mappings remain while any co-located capability is registered and disappear when the last capability leaves, regardless of callback order.
+### Team Ritual Rules (`TeamRitualRules`)
+1. **Initiation**: Any living, active (not Downed), connected member of the assigned team can initiate the ritual via interaction with the assigned sanctuary (`CanInitiateRitual`).
+2. **Continuation & Cancellation**: Once started, the ritual continues counting down. It cancels only if no living, connected members of that team remain in the raid (`ShouldCancelRitual`, rule A-4 / D-5).
+3. **Completion**: Upon ritual timer expiry, the ritual transitions to `Completed`, activating the extraction zone countdown for that team.
 
-`CanInteract` is a side-effect-free query used by authoritative and predictive selection. It consumes only replicated reservation/ritual state plus the runner-local character capability, so only the living owner sees the ritual candidate. `Interact` repeats those validations under State Authority, starts one `TickTimer`, and never emits presentation effects from simulation.
+### Team Extraction Coordination (`TeamExtractionCoordinator` & `TeamExtractionRequirementRules`)
+Countdown and extraction completion are coordinated per team by `TeamExtractionCoordinator` (`NetworkBehaviour` on `NetworkMatchController`, execution order 115):
 
-Simulation order is authoritative gameplay and damage, Sanctuary ritual at order 90, Zone scan at 100, then player extraction continuation at 110. An in-progress ritual validates composition and owner identity, resolves the owner, checks vitality, and only then checks expiry. Death on the expiry tick therefore cancels. `Cancelled` and `Completed` are terminal. Completion writes `Completed` before enabling the co-located Zone and subsequent authoritative ticks idempotently reaffirm availability; while the owner remains inside, that area then starts the final countdown through the existing authoritative zone flow. The only interaction target is the Sanctuary.
-
-The Zone rejects attempts to disable itself after the co-located registered Sanctuary reaches `Completed`. Availability alone is not extraction authorization: `PlayerExtractionController` resolves the Sanctuary with the same zone ID and requires the participant to be its owner with a completed ritual both when starting and continuing.
-
-`ExtractionRitualSnapshot` derives total duration, remaining time and percentage without a parallel clock. `NotStarted` and `Cancelled` report the configured duration remaining with zero progress; `InProgress` derives values from `TickTimer`; `Completed` reports zero remaining and full progress. The HUD and world presentation consume this projection, as does the local private minimap marker.
+- **Required Members**: Evaluated via pure rules `TeamExtractionRequirementRules`. A team member is "required" for extraction if they are alive (Active or Downed) AND connected. Disconnected members create a fail-closed gate: if a living teammate is disconnected, extraction cannot proceed until they reconnect or their absence is confirmed via the absence protocol.
+- **Zone Occupancy**: All required members must be inside the sanctuary's zone (`ContainsExact` to start, `ContainsWithTolerance` to continue).
+- **Downed Extraction (Rule D-6)**: A Downed teammate inside the zone extracts together with their active teammate(s) upon countdown completion.
+- **Team Composition Signature**: Evaluated dynamically. If alive/connected membership changes during countdown (e.g. death or confirmed absence), the composition signature changes and the countdown restarts safely with the updated required roster.
+- **Completion**: When the team countdown completes, `TeamExtractionCoordinator` authoritatively transitions all present eligible team members to `ExtractionState.Extracted` via their `PlayerExtractionController`.
 
 ## Ritual presentation boundary
 

@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
@@ -29,6 +30,15 @@ namespace Tests.EditMode.Scenario
         private static readonly FieldInfo RitualDurationField =
             typeof(ExtractionConfig).GetField("_ritualDurationSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        private static readonly FieldInfo ProgressQuotaField =
+            typeof(ExtractionConfig).GetField("_progressQuota", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static readonly FieldInfo DuoProgressQuotaField =
+            typeof(ExtractionConfig).GetField("_duoProgressQuota", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static readonly FieldInfo MaxTeamsPerRaidField =
+            typeof(ExtractionConfig).GetField("_maxTeamsPerRaid", BindingFlags.Instance | BindingFlags.NonPublic);
+
         [SetUp]
         public void SetUp()
         {
@@ -40,7 +50,7 @@ namespace Tests.EditMode.Scenario
         {
             if (_config != null)
             {
-                Object.DestroyImmediate(_config);
+                UnityEngine.Object.DestroyImmediate(_config);
             }
         }
 
@@ -162,6 +172,63 @@ namespace Tests.EditMode.Scenario
             bool isValid = loadedAsset.TryValidate(out string error);
             Assert.That(isValid, Is.True, $"Loaded asset at {path} failed validation with error: {error}");
             Assert.That(error, Is.Null);
+        }
+
+        [Test]
+        public void DefaultValues_MatchExpectations()
+        {
+            Assert.That(_config.SoloProgressQuota, Is.EqualTo(100));
+            Assert.That(_config.DuoProgressQuota, Is.EqualTo(150));
+            Assert.That(_config.MaxTeamsPerRaid, Is.EqualTo(4));
+            Assert.That(_config.ProgressQuota, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void QuotaForTeamSize_SoloAndDuo_ReturnsExpectedValues()
+        {
+            Assert.That(_config.QuotaForTeamSize(1), Is.EqualTo(_config.SoloProgressQuota));
+            Assert.That(_config.QuotaForTeamSize(2), Is.EqualTo(_config.DuoProgressQuota));
+
+            Assert.That(_config.TryGetQuotaForTeamSize(1, out int soloQuota), Is.True);
+            Assert.That(soloQuota, Is.EqualTo(100));
+
+            Assert.That(_config.TryGetQuotaForTeamSize(2, out int duoQuota), Is.True);
+            Assert.That(duoQuota, Is.EqualTo(150));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => _config.QuotaForTeamSize(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => _config.QuotaForTeamSize(3));
+
+            Assert.That(_config.TryGetQuotaForTeamSize(3, out _), Is.False);
+        }
+
+        [Test]
+        public void TryValidate_RejectsInvalidTeamQuotaOrCapacity()
+        {
+            // Invalid Solo quota
+            ProgressQuotaField.SetValue(_config, 0);
+            Assert.That(_config.TryValidate(out string errorSolo), Is.False);
+            Assert.That(errorSolo, Does.Contain(nameof(_config.SoloProgressQuota)));
+
+            // Restore Solo quota, invalidate Duo quota
+            ProgressQuotaField.SetValue(_config, 100);
+            DuoProgressQuotaField.SetValue(_config, -1);
+            Assert.That(_config.TryValidate(out string errorDuo), Is.False);
+            Assert.That(errorDuo, Does.Contain(nameof(_config.DuoProgressQuota)));
+
+            // Restore Duo quota, invalidate MaxTeams
+            DuoProgressQuotaField.SetValue(_config, 150);
+            MaxTeamsPerRaidField.SetValue(_config, 0);
+            Assert.That(_config.TryValidate(out string errorZeroTeams), Is.False);
+            Assert.That(errorZeroTeams, Does.Contain(nameof(_config.MaxTeamsPerRaid)));
+
+            MaxTeamsPerRaidField.SetValue(_config, RaidSessionRules.MaxTeams + 1);
+            Assert.That(_config.TryValidate(out string errorTooManyTeams), Is.False);
+            Assert.That(errorTooManyTeams, Does.Contain(nameof(_config.MaxTeamsPerRaid)));
+
+            // Restore valid values
+            MaxTeamsPerRaidField.SetValue(_config, 4);
+            Assert.That(_config.TryValidate(out string validError), Is.True);
+            Assert.That(validError, Is.Null);
         }
     }
 }

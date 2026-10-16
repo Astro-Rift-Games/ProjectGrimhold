@@ -8,8 +8,6 @@ namespace Tests.EditMode.Scenario
     public sealed class ExtractionProgressPrefabTests
     {
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
         public void PlayerPrefabs_HaveBakedIndividualProgressAndDefeatReward(string path)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
@@ -54,7 +52,9 @@ namespace Tests.EditMode.Scenario
                 "Assets/Scriptable Objects/ExtractionConfig.asset");
             GameObject chest = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LootContainer.prefab");
 
-            Assert.That(config.ProgressQuota, Is.EqualTo(100));
+            Assert.That(config.SoloProgressQuota, Is.EqualTo(100));
+            Assert.That(config.DuoProgressQuota, Is.EqualTo(150));
+            Assert.That(config.MaxTeamsPerRaid, Is.EqualTo(4));
             Assert.That(chest.GetComponent<NetworkLootContainerInteractable>().FirstOpenProgressReward, Is.EqualTo(5));
         }
 

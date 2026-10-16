@@ -6,6 +6,7 @@ using System.Collections.Generic;
 public static class RaidSessionRules
 {
     public const int MaxParticipants = 16;
+    public const int MaxTeams = MaxParticipants;
 
     public static bool IsValidParticipantCount(int participantCount) =>
         participantCount >= 1 && participantCount <= MaxParticipants;
