@@ -117,9 +117,9 @@ public sealed class TownAbilitiesView : MonoBehaviour
         _unsubscribe.Clear();
     }
 
-    public void Open() => gameObject.SetActive(true);
+    public void Open() => UiPanelVisibility.SetVisible(gameObject, true);
 
-    public void Close() => gameObject.SetActive(false);
+    public void Close() => UiPanelVisibility.SetVisible(gameObject, false);
 
     /// <summary>
     /// Shows a single feedback line; an empty message hides it. The line shares its spot with the locked
@@ -132,6 +132,9 @@ public sealed class TownAbilitiesView : MonoBehaviour
         _feedbackText.gameObject.SetActive(hasMessage);
         _lockedNote.SetActive(!_canMutate && !hasMessage);
     }
+
+    /// <summary>Plays the optional feedback pulse on the feedback line.</summary>
+    public void PulseFeedback(UiPulseKind kind) => UiFeedbackPulse.Play(_feedbackText.gameObject, kind);
 
     /// <summary>Replaces the whole tab with an "Abilities unavailable" note.</summary>
     public void PresentUnavailable()

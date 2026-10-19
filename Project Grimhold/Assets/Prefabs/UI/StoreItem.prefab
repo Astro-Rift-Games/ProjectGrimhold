@@ -534,6 +534,7 @@ GameObject:
   - component: {fileID: 3368686187696392830}
   - component: {fileID: 4341904545182309812}
   - component: {fileID: 8193812285856933480}
+  - component: {fileID: 1565810539870781936}
   m_Layer: 8
   m_Name: Background
   m_TagString: Untagged
@@ -646,6 +647,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1565810539870781936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6405014933180698065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6508187092823474936
 GameObject:
   m_ObjectHideFlags: 0

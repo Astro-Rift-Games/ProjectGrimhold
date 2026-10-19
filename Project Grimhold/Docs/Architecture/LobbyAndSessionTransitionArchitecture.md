@@ -390,6 +390,10 @@ extraction, and other gameplay state continue to advance through Fusion simulati
 existing authority rules. No RPC, `[Networked]` property, event bus, or parallel coordinator
 is introduced by this transition flow.
 
+`SceneTransitionFader` (nested under the coordinator in `Systems.prefab`) is a presentation
+consumer of `StateChanged`: it covers the screen while connecting or returning and fades in on
+any other state. It never delays or drives a transition (see `UiFeedbackArchitecture.md`).
+
 ## Alternatives considered
 
 - Reusing one runner across topology changes was rejected because Fusion sessions require a

@@ -67,7 +67,7 @@ public sealed class RaidMenuView : MonoBehaviour
     public TMP_Text SpectatorTargetText => _spectatorTargetText;
     public Button PreviousTargetButton => _previousTargetButton;
     public Button NextTargetButton => _nextTargetButton;
-    public bool IsOpen => _menuRoot != null && _menuRoot.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(_menuRoot);
 
     private void Awake()
     {
@@ -94,10 +94,7 @@ public sealed class RaidMenuView : MonoBehaviour
             BindButtonListeners();
         }
 
-        if (_menuRoot != null && _menuRoot.activeSelf != visible)
-        {
-            _menuRoot.SetActive(visible);
-        }
+        UiPanelVisibility.SetVisible(_menuRoot, visible);
     }
 
     public void PresentAliveState(bool canAbandon = true)
@@ -361,11 +358,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     private void SetProgressionResultsVisible(bool visible)
     {
-        if (_progressionResultsRoot != null &&
-            _progressionResultsRoot.activeSelf != visible)
-        {
-            _progressionResultsRoot.SetActive(visible);
-        }
+        UiPanelVisibility.SetVisible(_progressionResultsRoot, visible);
     }
 
     private void SetProgressionFill(float fillAmount)

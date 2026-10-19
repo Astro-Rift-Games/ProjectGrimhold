@@ -109,7 +109,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     /// <summary>Local intention: the player asked to unassign the zero-based Quick Slot.</summary>
     public event Action<int> QuickSlotClearRequested;
 
-    public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(_screenRoot);
 
     /// <summary>The screen content a host may reparent into its own window.</summary>
     public RectTransform ScreenRootRect => _screenRoot != null ? _screenRoot.transform as RectTransform : null;
@@ -184,10 +184,7 @@ public sealed class RaidInventoryView : MonoBehaviour
         {
             _tooltipView?.Hide();
         }
-        if (_screenRoot != null && _screenRoot.activeSelf != visible)
-        {
-            _screenRoot.SetActive(visible);
-        }
+        UiPanelVisibility.SetVisible(_screenRoot, visible);
     }
 
     public void SetContainerPanelVisible(bool visible)
@@ -471,6 +468,10 @@ public sealed class RaidInventoryView : MonoBehaviour
     public void ShowTransferFeedback(string message)
     {
         SetTransferFeedback(message, true);
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            UiFeedbackPulse.Play(_transferFeedbackRoot, UiPulseKind.Rejection);
+        }
     }
 
     /// <summary>Shows local transfer feedback until it is explicitly replaced or cleared.</summary>

@@ -22,7 +22,7 @@ public sealed class TownAttributeAssignmentView : MonoBehaviour
     public TMP_Text AvailablePointsText => _availablePointsText;
     public Button CloseButton => _closeButton;
     public IReadOnlyList<TownAttributeAssignmentRowView> Rows => _rows;
-    public bool IsOpen => gameObject.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(gameObject);
 
     public event Action<CharacterAttribute> AssignmentRequested;
     public event Action CloseRequested;
@@ -196,8 +196,8 @@ public sealed class TownAttributeAssignmentView : MonoBehaviour
         }
     }
 
-    public void Open() => gameObject.SetActive(true);
-    public void Close() => gameObject.SetActive(false);
+    public void Open() => UiPanelVisibility.SetVisible(gameObject, true);
+    public void Close() => UiPanelVisibility.SetVisible(gameObject, false);
 
     private void OnAssignmentRequested(CharacterAttribute attribute) =>
         AssignmentRequested?.Invoke(attribute);

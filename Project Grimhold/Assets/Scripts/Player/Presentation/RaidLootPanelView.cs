@@ -121,10 +121,7 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     public void SetVisible(bool visible)
     {
-        if (_panelRoot != null && _panelRoot.activeSelf != visible)
-        {
-            _panelRoot.SetActive(visible);
-        }
+        UiPanelVisibility.SetVisible(_panelRoot, visible);
     }
 
     public void SetDragLocation(DragSlotLocation location)

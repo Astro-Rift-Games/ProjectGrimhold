@@ -11,7 +11,7 @@ public sealed class TownMerchantView : MonoBehaviour
     private GameObject _shopInstance;
     private MerchantShopUI _shopUI;
 
-    public bool IsOpen => _shopInstance != null && _shopInstance.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(_shopInstance);
     public MerchantShopUI ShopUI => _shopUI;
 
     public static TownMerchantView Create(Transform owner, GameObject merchantShopPrefab)
@@ -47,12 +47,12 @@ public sealed class TownMerchantView : MonoBehaviour
 
     public void Open()
     {
-        _shopInstance?.SetActive(true);
+        UiPanelVisibility.SetVisible(_shopInstance, true);
     }
 
     public void Close()
     {
-        _shopInstance?.SetActive(false);
+        UiPanelVisibility.SetVisible(_shopInstance, false);
     }
 
     private void OnDestroy()

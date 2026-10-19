@@ -114,6 +114,13 @@ The slot key labels are Q and E (`TownAbilitySlotKeyLabels`), matching `Gameplay
 `PlayerInputActions.inputactions`, so they cannot drift. The tab has no hotkey of its own; it is opened from the
 tab bar.
 
+## Animated open and close
+
+The window and each tab's content fade through `UiPanelTransition` (see `UiFeedbackArchitecture.md`).
+`IsOpen` and the hosted views' `IsOpen` read logical visibility, which changes immediately: closing
+releases the suppression token and stops raycasts at once, and only the deactivation waits for the
+fade. Tab content uses fade only (`_hiddenScale` 1) so the menu's scale reset is never overwritten.
+
 ## Hosted mode contract
 
 When hosted, a feature presenter does not subscribe to its own hotkeys or Escape and does not acquire an

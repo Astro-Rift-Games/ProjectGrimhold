@@ -27,9 +27,9 @@ public sealed class TownOptionsView : MonoBehaviour
         _exitButton?.onClick.RemoveListener(OnExitClicked);
     }
 
-    public void Open() => gameObject.SetActive(true);
+    public void Open() => UiPanelVisibility.SetVisible(gameObject, true);
 
-    public void Close() => gameObject.SetActive(false);
+    public void Close() => UiPanelVisibility.SetVisible(gameObject, false);
 
     /// <summary>Enables or disables both actions, for example while logout is running.</summary>
     public void SetInteractable(bool interactable)
