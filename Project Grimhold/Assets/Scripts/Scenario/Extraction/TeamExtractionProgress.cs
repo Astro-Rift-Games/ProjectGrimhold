@@ -229,6 +229,7 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
     {
         currentProgress = 0;
         quota = 0;
+        EnsureDependencies();
 
         int index = FindSlotIndex(teamId);
         if (index < 0)
@@ -252,6 +253,7 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
     public bool TryGetSnapshot(RaidTeamId teamId, out ExtractionProgressSnapshot snapshot)
     {
         snapshot = default;
+        EnsureDependencies();
 
         int index = FindSlotIndex(teamId);
         if (index < 0)
@@ -430,6 +432,24 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
         }
 #endif
         _teamSlots.Set(index, slot);
+    }
+
+    private void EnsureDependencies()
+    {
+        if (_registry == null && Runner != null)
+        {
+            _registry = Runner.GetComponent<EntityRegistry>();
+        }
+
+        if (!_isRegistered)
+        {
+            RegisterCapability();
+        }
+
+        if (_assignmentService == null && Runner != null)
+        {
+            _assignmentService = Runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+        }
     }
 
     private void RegisterCapability()

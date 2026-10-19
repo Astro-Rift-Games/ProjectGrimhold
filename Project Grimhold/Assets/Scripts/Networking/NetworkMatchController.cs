@@ -41,6 +41,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     private bool _hasObservedParticipant;
     private bool _cleanupAttempted;
+    private bool _clientAdmissionSubmitted;
 
     public override void Spawned()
     {
@@ -71,6 +72,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
         else
         {
             Debug.Log($"[NetworkMatchController] Spawned on Client. Current Phase: {Phase}.");
+            TrySubmitClientAdmissionPayload();
         }
     }
 
@@ -186,6 +188,10 @@ public sealed class NetworkMatchController : NetworkBehaviour
     {
         if (!HasStateAuthority)
         {
+            if (Phase == MatchPhase.WaitingForPlayers && !_clientAdmissionSubmitted)
+            {
+                TrySubmitClientAdmissionPayload();
+            }
             return;
         }
 
@@ -324,6 +330,49 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
     }
 
+    private void TrySubmitClientAdmissionPayload()
+    {
+        if (_clientAdmissionSubmitted || HasStateAuthority || Runner == null)
+        {
+            return;
+        }
+
+        LocalPlayerJoinContext joinContext = Runner.GetComponent<LocalPlayerJoinContext>();
+        if (joinContext == null || !joinContext.HasRaidAdmission)
+        {
+            return;
+        }
+
+        if (!RaidAdmissionDataCodec.TryEncode(joinContext.RaidAdmission, out byte[] payload))
+        {
+            Debug.LogError("[NetworkMatchController] Failed to encode local raid admission for RPC submission.");
+            return;
+        }
+
+        _clientAdmissionSubmitted = true;
+        Debug.Log($"[NetworkMatchController] Submitting raid admission RPC to StateAuthority ({payload.Length} bytes).");
+        RpcSubmitRaidAdmission(payload);
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
+    public void RpcSubmitRaidAdmission(byte[] admissionPayload, RpcInfo info = default)
+    {
+        PlayerRef sender = info.Source;
+        Debug.Log($"[NetworkMatchController] Received RpcSubmitRaidAdmission from {sender} (payload: {admissionPayload?.Length ?? 0} bytes).");
+
+        NetworkSpawnManager spawnManager = Runner != null ? Runner.GetComponent<NetworkSpawnManager>() : null;
+        if (spawnManager == null)
+        {
+            Debug.LogError("[NetworkMatchController] Spawn manager missing when handling admission RPC.");
+            return;
+        }
+
+        if (!spawnManager.TryHandleRemoteAdmissionPayload(sender, admissionPayload))
+        {
+            Debug.LogWarning($"[NetworkMatchController] Remote admission payload from {sender} was rejected. Disconnecting.");
+            Runner.Disconnect(sender);
+        }
+    }
 }
 
 /// <summary>Authoritative progress of a raid generation after admission closes.</summary>

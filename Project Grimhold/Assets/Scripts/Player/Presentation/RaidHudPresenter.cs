@@ -392,6 +392,12 @@ public sealed class RaidHudPresenter : MonoBehaviour
             out EntityId sanctuaryId,
             out RaidTeamId teamId);
 
+        if (!teamId.IsValid && _extractionProgressController != null &&
+            _extractionProgressController.TryGetTeamId(out RaidTeamId resolvedTeamId) && resolvedTeamId.IsValid)
+        {
+            teamId = resolvedTeamId;
+        }
+
         ExtractionCountdownSnapshot countdown = default;
         bool hasCountdown = false;
         int presentCount = 0;

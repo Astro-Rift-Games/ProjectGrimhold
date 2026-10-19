@@ -147,6 +147,8 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
     /// </summary>
     public bool TryGetSnapshot(out ExtractionProgressSnapshot snapshot)
     {
+        EnsureDependencies();
+
         if (!_dependenciesValid || !TryResolveTeamId(out RaidTeamId teamId))
         {
             snapshot = default;
@@ -175,20 +177,15 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
             return true;
         }
 
+        if (_registry == null && Runner != null)
+        {
+            _registry = Runner.GetComponent<EntityRegistry>();
+        }
+
         if (_registry != null && _registry.TryGetTeamExtractionProgress(out _teamProgress) && _teamProgress != null)
         {
             teamProgress = _teamProgress;
             return true;
-        }
-
-        if (Runner != null)
-        {
-            _teamProgress = Runner.GetComponent<ITeamExtractionProgress>();
-            if (_teamProgress != null)
-            {
-                teamProgress = _teamProgress;
-                return true;
-            }
         }
 
         teamProgress = null;
@@ -229,6 +226,23 @@ public sealed class PlayerExtractionProgressController : NetworkBehaviour, IExtr
         {
             _extractionController = GetComponent<PlayerExtractionController>();
         }
+    }
+
+    private void EnsureDependencies()
+    {
+        if (_dependenciesValid)
+        {
+            return;
+        }
+
+        CacheDependencies();
+        if (_registry == null && Runner != null)
+        {
+            _registry = Runner.GetComponent<EntityRegistry>();
+        }
+
+        RegisterCapabilities();
+        _dependenciesValid = ValidateDependencies();
     }
 
     private bool ValidateDependencies()

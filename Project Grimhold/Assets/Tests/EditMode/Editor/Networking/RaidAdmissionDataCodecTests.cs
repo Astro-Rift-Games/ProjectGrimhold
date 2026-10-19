@@ -264,7 +264,7 @@ public sealed class RaidAdmissionDataCodecTests
         Assert.That(token.Length, Is.GreaterThan(512));
         Assert.That(token.Length, Is.LessThanOrEqualTo(RaidLoadoutRules.MaximumTokenBytes));
         Assert.That(RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData decoded), Is.True);
-        Assert.That(decoded.ReservedLoadout, Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+        Assert.That(decoded.ReservedLoadout.Count, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
     }
 
     [Test]

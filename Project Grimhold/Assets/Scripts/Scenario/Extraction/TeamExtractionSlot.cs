@@ -15,7 +15,17 @@ public struct TeamExtractionSlot : INetworkStruct, IEquatable<TeamExtractionSlot
     public int ActiveSignatureValue;
 
     public bool IsEmpty => TeamIdRaw == 0;
-    public bool IsActive => TeamIdRaw != 0 && ActiveZoneIdValue != 0 && CountdownTimer.IsRunning;
+    public bool IsActive
+    {
+        get
+        {
+#if UNITY_EDITOR
+            return TeamIdRaw != 0 && ActiveZoneIdValue != 0;
+#else
+            return TeamIdRaw != 0 && ActiveZoneIdValue != 0 && CountdownTimer.IsRunning;
+#endif
+        }
+    }
     public RaidTeamId TeamId => RaidTeamId.TryCreate(TeamIdRaw, out RaidTeamId id) ? id : default;
     public EntityId ActiveZoneId => new EntityId(ActiveZoneIdValue);
     public TeamCompositionSignature ActiveSignature => new TeamCompositionSignature(ActiveSignatureValue);

@@ -43,11 +43,67 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// </summary>
     public new EntityId Id => Object != null ? new EntityId(unchecked((int)Object.Id.Raw)) : default;
 
-    [Networked]
-    public ExtractionState State { get; private set; }
+#if UNITY_EDITOR
+    private ExtractionState _testState;
+    private int _testActiveZoneIdValue;
+    private TickTimer _testExtractionTimer;
+#endif
 
     [Networked]
-    private int ActiveZoneIdValue { get; set; }
+    private ExtractionState NetworkedState { get; set; }
+
+    public ExtractionState State
+    {
+        get
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                return _testState;
+            }
+#endif
+            return NetworkedState;
+        }
+        private set
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                _testState = value;
+                return;
+            }
+#endif
+            NetworkedState = value;
+        }
+    }
+
+    [Networked]
+    private int NetworkedActiveZoneIdValue { get; set; }
+
+    private int ActiveZoneIdValue
+    {
+        get
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                return _testActiveZoneIdValue;
+            }
+#endif
+            return NetworkedActiveZoneIdValue;
+        }
+        set
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                _testActiveZoneIdValue = value;
+                return;
+            }
+#endif
+            NetworkedActiveZoneIdValue = value;
+        }
+    }
 
     /// <summary>
     /// Gets the canonical <see cref="EntityId"/> of the active extraction zone.
@@ -60,7 +116,32 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     public Vector2 ValidationPoint => transform.position;
 
     [Networked]
-    private TickTimer ExtractionTimer { get; set; }
+    private TickTimer NetworkedExtractionTimer { get; set; }
+
+    private TickTimer ExtractionTimer
+    {
+        get
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                return _testExtractionTimer;
+            }
+#endif
+            return NetworkedExtractionTimer;
+        }
+        set
+        {
+#if UNITY_EDITOR
+            if (Object == null || !Object.IsValid)
+            {
+                _testExtractionTimer = value;
+                return;
+            }
+#endif
+            NetworkedExtractionTimer = value;
+        }
+    }
 
     /// <summary>
     /// Invoked locally on peers when the extraction completes successfully.
@@ -134,7 +215,14 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// </summary>
     internal void StartExtractionCountdown(EntityId zoneId, TickTimer timer)
     {
-        if (!HasStateAuthority)
+        bool hasAuth = HasStateAuthority;
+#if UNITY_EDITOR
+        if (Object == null || !Object.IsValid)
+        {
+            hasAuth = true;
+        }
+#endif
+        if (!hasAuth)
         {
             return;
         }
@@ -150,7 +238,14 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// </summary>
     internal void CancelExtraction()
     {
-        if (!HasStateAuthority)
+        bool hasAuth = HasStateAuthority;
+#if UNITY_EDITOR
+        if (Object == null || !Object.IsValid)
+        {
+            hasAuth = true;
+        }
+#endif
+        if (!hasAuth)
         {
             return;
         }
@@ -169,7 +264,14 @@ public sealed class PlayerExtractionController : NetworkBehaviour, IExtractionPa
     /// </summary>
     internal void CompleteExtraction()
     {
-        if (!HasStateAuthority)
+        bool hasAuth = HasStateAuthority;
+#if UNITY_EDITOR
+        if (Object == null || !Object.IsValid)
+        {
+            hasAuth = true;
+        }
+#endif
+        if (!hasAuth)
         {
             return;
         }

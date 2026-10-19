@@ -41,7 +41,7 @@ public sealed class ExtractionZone : NetworkBehaviour, IExtractionZone
     /// Canonical entity identifier of the extraction zone.
     /// Derived from the underlying Fusion <see cref="NetworkObject"/> identifier.
     /// </summary>
-    public new EntityId Id => Object != null ? new EntityId(unchecked((int)Object.Id.Raw)) : default;
+    public new EntityId Id => Object != null && Object.IsValid ? new EntityId(unchecked((int)Object.Id.Raw)) : default;
 
     [Networked]
     private NetworkBool NetworkedIsAvailable { get; set; }

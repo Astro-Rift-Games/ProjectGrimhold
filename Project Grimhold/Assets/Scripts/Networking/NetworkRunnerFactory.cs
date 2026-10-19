@@ -43,7 +43,8 @@ public static class NetworkRunnerFactory
         RaidLaunchContext launchContext,
         PendingLoadoutReservation loadoutReservation,
         FusionSessionLauncher runnerOwner,
-        out RunnerComposition composition)
+        out RunnerComposition composition,
+        in RaidAdmissionData admissionData = default)
     {
         composition = default;
 
@@ -81,17 +82,23 @@ public static class NetworkRunnerFactory
         }
 
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
+        RaidAdmissionData resolvedAdmission = default;
         if (launchContext != null)
         {
-            RaidAdmissionData admission;
-            if (!RaidAdmissionDataCodec.TryDecode(connectionToken, out admission))
+            resolvedAdmission = admissionData;
+            if (!resolvedAdmission.IsValid)
+            {
+                RaidAdmissionDataCodec.TryDecode(connectionToken, out resolvedAdmission);
+            }
+
+            if (!resolvedAdmission.IsValid && startupContext.Mode != SessionStartupMode.HostMigrationResume)
             {
                 Debug.LogError("[NetworkRunnerFactory] Coordinated runner is missing valid admission data.");
                 Object.Destroy(runnerObject);
                 return false;
             }
 
-            joinContext.Initialize(in joinData, in admission);
+            joinContext.Initialize(in joinData, in resolvedAdmission);
         }
         else
         {
@@ -111,7 +118,8 @@ public static class NetworkRunnerFactory
             in joinData,
             copiedConnectionToken,
             launchContext,
-            runnerOwner);
+            runnerOwner,
+            in resolvedAdmission);
 
         var snapshotRestorer = runnerObject.AddComponent<HostMigrationSnapshotRestorer>();
         snapshotRestorer.Initialize(runner, startupContext, spawnManager);

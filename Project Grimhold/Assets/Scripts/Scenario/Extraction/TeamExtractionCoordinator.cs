@@ -47,9 +47,10 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
         _assignmentService = Runner != null ? Runner.GetComponent<ExtractionSanctuaryAssignmentService>() : null;
         RegisterCapability();
 
-        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
+        if (_spawnManager != null && _spawnManager.TryGetRaidTeamRoster(out RaidTeamRoster roster))
         {
-            if (_spawnManager != null && _spawnManager.TryGetRaidTeamRoster(out RaidTeamRoster roster))
+            _roster = roster;
+            if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
             {
                 TryInitializeFromRoster(roster);
             }
@@ -221,6 +222,7 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
     public bool TryGetCountdownProgress(RaidTeamId teamId, out ExtractionCountdownSnapshot snapshot)
     {
         snapshot = default;
+        EnsureDependencies();
 
         int index = FindSlotIndex(teamId);
         if (index < 0)
@@ -284,6 +286,8 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
             return false;
         }
 #endif
+
+        EnsureDependencies();
 
         if (!teamId.IsValid || _assignmentService == null || _registry == null)
         {
@@ -417,7 +421,7 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
                     }
                 }
 
-                CancelTeamCountdown(slotIndex, slot, teamId);
+                CancelTeamCountdown(slotIndex, slot, teamId, _memberControllersBuffer);
                 return;
             }
 
@@ -554,12 +558,24 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
         }
     }
 
-    private void CancelTeamCountdown(int slotIndex, TeamExtractionSlot slot, RaidTeamId teamId)
+    private void CancelTeamCountdown(
+        int slotIndex,
+        TeamExtractionSlot slot,
+        RaidTeamId teamId,
+        List<PlayerExtractionController> controllers = null)
     {
         slot.ActiveZoneIdValue = 0;
         slot.CountdownTimer = TickTimer.None;
         slot.ActiveSignatureValue = 0;
         SetSlot(slotIndex, slot);
+
+        if (controllers != null && controllers.Count > 0)
+        {
+            for (int i = 0; i < controllers.Count; i++)
+            {
+                controllers[i]?.CancelExtraction();
+            }
+        }
 
         if (_roster != null && _roster.TryGetTeamMembers(teamId, out IReadOnlyList<RaidParticipantId> members))
         {
@@ -607,6 +623,11 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
             _registry = Runner.GetComponent<EntityRegistry>();
         }
 
+        if (!_isRegistered)
+        {
+            RegisterCapability();
+        }
+
         if (_spawnManager == null && Runner != null)
         {
             _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
@@ -615,6 +636,11 @@ public sealed class TeamExtractionCoordinator : NetworkBehaviour, ITeamExtractio
         if (_assignmentService == null && Runner != null)
         {
             _assignmentService = Runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+        }
+
+        if (_roster == null && _spawnManager != null && _spawnManager.TryGetRaidTeamRoster(out RaidTeamRoster roster))
+        {
+            _roster = roster;
         }
     }
 

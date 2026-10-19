@@ -33,6 +33,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
     private FusionSessionLauncher _runnerOwner;
     private CancellationTokenSource _migrationCancellation;
     private bool _isMigrating;
+    private RaidAdmissionData _admissionData;
 
     public void Initialize(
         NetworkRunner runner,
@@ -42,7 +43,8 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         in PlayerJoinData joinData,
         byte[] connectionToken,
         RaidLaunchContext launchContext,
-        FusionSessionLauncher runnerOwner)
+        FusionSessionLauncher runnerOwner,
+        in RaidAdmissionData admissionData = default)
     {
         _associatedRunner = runner;
         _raidPlayerPrefab = raidPlayerPrefab;
@@ -52,6 +54,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
         _connectionToken = connectionToken;
         _launchContext = launchContext;
         _runnerOwner = runnerOwner;
+        _admissionData = admissionData;
     }
 
     public override void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken)
@@ -186,7 +189,8 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                     _launchContext,
                     null,
                     _runnerOwner,
-                    out replacement))
+                    out replacement,
+                    in _admissionData))
             {
                 throw new InvalidOperationException(
                     "Failed to create the replacement runner composition.");

@@ -108,8 +108,9 @@ namespace Tests.EditMode.Scenario
             Assert.That(sanctuary.GetComponentsInChildren<AudioSource>(true), Is.Empty);
             Assert.That(sanctuary.GetComponentsInChildren<ParticleSystem>(true), Is.Empty);
             Assert.That(sanctuary.GetComponentsInChildren<NetworkBehaviour>(true),
-                Has.Length.EqualTo(1));
-            Assert.That(sanctuary.GetComponent<NetworkBehaviour>(), Is.SameAs(sanctuary.GetComponent<ExtractionSanctuary>()));
+                Has.Length.EqualTo(2));
+            Assert.That(sanctuary.GetComponent<ExtractionSanctuary>(), Is.Not.Null);
+            Assert.That(sanctuary.GetComponent<ExtractionZone>(), Is.Not.Null);
 
             string[] audioCueFields =
             {

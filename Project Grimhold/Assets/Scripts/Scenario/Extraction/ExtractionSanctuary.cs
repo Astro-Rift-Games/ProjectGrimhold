@@ -211,7 +211,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasStateAuthority)
+        if (!HasStateAuthority && !_allowEditModeSimulation)
         {
             return;
         }
@@ -237,8 +237,8 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
                 continue;
             }
 
-            if (!_compositionValid || _extractionZone == null || _extractionZone.Id != Id ||
-                !slot.RitualTimer.IsRunning)
+            bool timerInvalid = !_allowEditModeSimulation && !slot.RitualTimer.IsRunning;
+            if (!_compositionValid || _extractionZone == null || (!_allowEditModeSimulation && _extractionZone.Id != Id) || timerInvalid)
             {
                 CancelRitual(i, slot);
                 continue;
@@ -251,7 +251,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
                 continue;
             }
 
-            if (slot.RitualTimer.Expired(Runner))
+            if (Runner != null && slot.RitualTimer.Expired(Runner))
             {
                 CompleteRitual(i, slot);
                 anyCompleted = true;
@@ -354,7 +354,7 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
                 if (Runner == null || !slot.RitualTimer.IsRunning)
                 {
 #if UNITY_EDITOR
-                    if (_allowEditModeSimulation && slot.RitualTimer.IsRunning)
+                    if (_allowEditModeSimulation)
                     {
                         snapshot = new ExtractionRitualSnapshot(slot.RitualState, totalSeconds, totalSeconds * 0.5f, 0.5f);
                         return true;

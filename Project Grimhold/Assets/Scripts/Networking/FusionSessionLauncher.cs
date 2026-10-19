@@ -236,6 +236,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         var profileId = LocalProfileProvider.GetOrCreateLocalProfile();
         var joinData = new PlayerJoinData(profileId);
         byte[] token;
+        RaidAdmissionData admissionData = default;
         if (launchContext != null)
         {
             if (loadoutReservation == null)
@@ -274,8 +275,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     profileContext.Store.GetLevel(),
                     profileContext.Store.GetCurrentExperience(),
                     profileContext.Store.GetLastAppliedProgressionResultSequence(),
-                    out RaidAdmissionData admissionData) ||
-                !RaidAdmissionDataCodec.TryEncode(admissionData, out token))
+                    out admissionData))
             {
                 Debug.LogError(
                     $"[AUDIT][FusionSessionLauncher] Admission token build FAILED. " +
@@ -286,7 +286,19 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     this);
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }
-            Debug.Log($"[AUDIT][FusionSessionLauncher] Admission token built successfully.", this);
+
+            var ticket = new RaidAdmissionTicket(
+                launchContext.RaidCode,
+                profileId,
+                loadoutReservation.ReservationId);
+
+            if (!RaidAdmissionTicketCodec.TryEncode(ticket, out token))
+            {
+                Debug.LogError("[FusionSessionLauncher] Failed to encode admission ticket.", this);
+                throw new ArgumentException("Could not encode admission ticket for the local profile.");
+            }
+
+            Debug.Log($"[AUDIT][FusionSessionLauncher] Admission ticket built successfully ({token.Length} bytes).", this);
         }
         else if (!PlayerJoinDataCodec.TryEncode(joinData, out token))
         {
@@ -315,7 +327,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 launchContext,
                 loadoutReservation,
                 this,
-                out var composition))
+                out var composition,
+                in admissionData))
             {
                 LastStartShutdownReason = ShutdownReason.Error;
                 Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);

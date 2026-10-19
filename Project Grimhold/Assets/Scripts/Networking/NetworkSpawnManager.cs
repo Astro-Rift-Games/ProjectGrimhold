@@ -229,6 +229,21 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
+        if (_runner != null)
+        {
+            foreach (PlayerRef player in _runner.ActivePlayers)
+            {
+                NetworkObject playerObject = _runner.GetPlayerObject(player);
+                if (playerObject != null &&
+                    playerObject.TryGetBehaviour(out NetworkRaidParticipant p) &&
+                    p.RaidParticipantId == participantId)
+                {
+                    participant = p;
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 
@@ -1989,9 +2004,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         byte[] token)
     {
         // [AUDIT] Log every connect request received by the Host
-        RaidAdmissionData auditAdmission = default;
-        bool tokenValid = _launchContext != null && TryValidateRaidAdmissionToken(token, out auditAdmission);
-        string auditProfileId = tokenValid ? auditAdmission.ProfileId.Value : "n/a";
+        RaidAdmissionTicket auditTicket = default;
+        bool tokenValid = _launchContext != null && TryValidateRaidAdmissionHandshake(token, out auditTicket);
+        string auditProfileId = tokenValid ? auditTicket.ProfileId.Value : "n/a";
         Debug.Log(
             $"[AUDIT][NetworkSpawnManager.OnConnectRequest] RemoteAddress={request.RemoteAddress}. " +
             $"IsServer={runner.IsServer}. LaunchContextPresent={_launchContext != null}. " +
@@ -2016,8 +2031,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 _launchContext == null ||
                 !TryValidateEarlyHostMigrationToken(
                     token,
-                    out RaidAdmissionData migrationAdmission) ||
-                migrationAdmission.ProfileId == _launchContext.HostProfileId)
+                    out ProfileId migrationProfileId) ||
+                migrationProfileId == _launchContext.HostProfileId)
             {
                 Debug.LogWarning(
                     "[HM-MULTI] Refusing reconnect outside the open recovery boundary or for an invalid profile.",
@@ -2049,7 +2064,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        if (_launchContext != null && !TryValidateRaidAdmissionToken(token, out _))
+        if (_launchContext != null && !TryValidateRaidAdmissionHandshake(token, out _))
         {
             Debug.LogWarning("[NetworkSpawnManager] Refusing connection request with an invalid raid admission token.");
             request.Refuse();
@@ -2117,7 +2132,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 Debug.Log($"[NetworkSpawnManager] Player {player} joined and is already spawned (restored). Skipping SpawnPlayer.");
             }
-            else
+            else if (_admissionData.ContainsKey(player))
             {
                 if (!SpawnPlayer(runner, player))
                 {
@@ -2127,6 +2142,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         runner.Disconnect(player);
                     }
                 }
+            }
+            else
+            {
+                Debug.Log($"[NetworkSpawnManager] Remote player {player} admitted via ticket. Awaiting admission RPC payload before spawn.");
             }
 
             return;
@@ -2176,10 +2195,42 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         RaidAdmissionData admission = default;
-        bool hasAdmission = _launchContext != null;
-        if (hasAdmission && !TryGetAdmissionData(runner, player, out admission))
+        bool hasFullAdmission = false;
+        if (_launchContext != null)
         {
-            return false;
+            if (player == runner.LocalPlayer)
+            {
+                LocalPlayerJoinContext localContext = runner.GetComponent<LocalPlayerJoinContext>();
+                if (localContext != null && localContext.HasRaidAdmission && IsRaidAdmissionValid(localContext.RaidAdmission))
+                {
+                    admission = localContext.RaidAdmission;
+                    hasFullAdmission = true;
+                }
+                else
+                {
+                    Debug.LogWarning("[NetworkSpawnManager] Local Host is missing valid admission data.");
+                    return false;
+                }
+            }
+            else
+            {
+                // In case full admission token was sent directly (e.g. unit tests)
+                if (RaidAdmissionDataCodec.TryDecode(token, out admission) &&
+                    IsRaidAdmissionValid(admission) &&
+                    RaidLoadoutRules.TryValidate(
+                        admission.ReservedLoadout,
+                        _lootCatalog,
+                        LocalProfileSnapshot.MaxLoadoutSlots,
+                        out _) &&
+                    PreparedAbilityLoadout.TryValidateAdmission(
+                        admission.PreparedAbilities,
+                        admission.CharacterAttributes,
+                        _abilityCatalog,
+                        out _))
+                {
+                    hasFullAdmission = true;
+                }
+            }
         }
 
         var admissionKey = new ControlledReturnKey(
@@ -2207,11 +2258,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         _admittedPlayers.Add(player);
         _admittedProfiles[profileKey] = player;
-        if (hasAdmission)
+        if (hasFullAdmission)
         {
             _admissionData[player] = admission;
         }
-        Debug.Log($"[NetworkSpawnManager] Player {player} registered as an admitted participant.");
+        Debug.Log($"[NetworkSpawnManager] Player {player} registered as an admitted participant (hasFullAdmission={hasFullAdmission}).");
         return true;
     }
 
@@ -2384,6 +2435,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     {
         byte[] token = runner.GetPlayerConnectionToken(player);
 
+        if (_launchContext != null && RaidAdmissionTicketCodec.TryDecode(token, out RaidAdmissionTicket ticket))
+        {
+            if (RaidAdmissionRules.IsAdmitted(_launchContext, ticket))
+            {
+                joinData = ticket.ToPlayerJoinData();
+                return true;
+            }
+
+            joinData = default;
+            return false;
+        }
+
         if (_launchContext != null && RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData raidAdmission))
         {
             if (IsRaidAdmissionValid(raidAdmission))
@@ -2463,6 +2526,41 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public int AdmittedRaidProfileCount => _admittedProfiles.Count;
     public int ReadyRaidProfileCount => _spawnedPlayers.Count;
 
+    private bool TryValidateRaidAdmissionHandshake(byte[] token, out RaidAdmissionTicket ticket)
+    {
+        ticket = default;
+        if (_launchContext == null)
+        {
+            return false;
+        }
+
+        if (RaidAdmissionTicketCodec.TryDecode(token, out ticket))
+        {
+            return RaidAdmissionRules.IsAdmitted(_launchContext, ticket);
+        }
+
+        if (RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData admission))
+        {
+            if (RaidAdmissionRules.IsAdmitted(_launchContext, admission) &&
+                RaidLoadoutRules.TryValidate(
+                    admission.ReservedLoadout,
+                    _lootCatalog,
+                    LocalProfileSnapshot.MaxLoadoutSlots,
+                    out _) &&
+                PreparedAbilityLoadout.TryValidateAdmission(
+                    admission.PreparedAbilities,
+                    admission.CharacterAttributes,
+                    _abilityCatalog,
+                    out _))
+            {
+                ticket = RaidAdmissionTicket.FromAdmissionData(in admission);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool TryValidateRaidAdmissionToken(byte[] token, out RaidAdmissionData admission)
     {
         return RaidAdmissionDataCodec.TryDecode(token, out admission) &&
@@ -2481,19 +2579,116 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool TryValidateEarlyHostMigrationToken(
         byte[] token,
-        out RaidAdmissionData admission)
+        out ProfileId profileId)
     {
-        return RaidAdmissionDataCodec.TryDecode(token, out admission) &&
-               admission.ProfileId.IsValid &&
-               IsRaidAdmissionValid(admission) &&
-               RaidSessionRules.ContainsProfile(
-                   _launchContext.ParticipantProfileIds,
-                   admission.ProfileId);
+        profileId = default;
+        if (RaidAdmissionTicketCodec.TryDecode(token, out RaidAdmissionTicket ticket))
+        {
+            if (ticket.ProfileId.IsValid &&
+                _launchContext != null &&
+                ticket.RaidCode == _launchContext.RaidCode &&
+                RaidSessionRules.ContainsProfile(
+                    _launchContext.ParticipantProfileIds,
+                    ticket.ProfileId))
+            {
+                profileId = ticket.ProfileId;
+                return true;
+            }
+        }
+
+        if (RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData admission))
+        {
+            if (admission.ProfileId.IsValid &&
+                IsRaidAdmissionValid(admission) &&
+                _launchContext != null &&
+                RaidSessionRules.ContainsProfile(
+                    _launchContext.ParticipantProfileIds,
+                    admission.ProfileId))
+            {
+                profileId = admission.ProfileId;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsRaidAdmissionValid(in RaidAdmissionData admission)
     {
         return RaidAdmissionRules.IsAdmitted(_launchContext, admission);
+    }
+
+    public bool TryHandleRemoteAdmissionPayload(PlayerRef player, byte[] admissionPayload)
+    {
+        if (_runner == null || !_runner.IsServer || player.IsNone)
+        {
+            return false;
+        }
+
+        if (!_admittedPlayers.Contains(player))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Received admission RPC from non-admitted player {player}.");
+            return false;
+        }
+
+        if (_spawnedPlayers.ContainsKey(player))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Player {player} already spawned; ignoring duplicate admission RPC.");
+            return true;
+        }
+
+        if (!RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData admission) ||
+            !IsRaidAdmissionValid(admission))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {player}.");
+            return false;
+        }
+
+        if (!_admittedProfiles.TryGetValue(admission.ProfileId.Value, out PlayerRef admittedPlayer) ||
+            admittedPlayer != player)
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Profile mismatch in admission RPC from {player}: expected profile registered to this player.");
+            return false;
+        }
+
+        if (!RaidLoadoutRules.TryValidate(
+                admission.ReservedLoadout,
+                _lootCatalog,
+                LocalProfileSnapshot.MaxLoadoutSlots,
+                out string loadoutError))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Loadout validation failed for {player}: {loadoutError}");
+            return false;
+        }
+
+        if (!PreparedAbilityLoadout.TryValidateAdmission(
+                admission.PreparedAbilities,
+                admission.CharacterAttributes,
+                _abilityCatalog,
+                out string abilityError))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Ability validation failed for {player}: {abilityError}");
+            return false;
+        }
+
+        _admissionData[player] = admission;
+        Debug.Log($"[NetworkSpawnManager] Remote admission data registered for player {player} (Profile: {admission.ProfileId.Value}).");
+
+        if (CanSpawnPlayer(_runner, player))
+        {
+            if (!SpawnPlayer(_runner, player))
+            {
+                Debug.LogError($"[NetworkSpawnManager] Failed to spawn remote player {player} after receiving admission RPC.");
+                RemoveAdmissionRecord(player);
+                return false;
+            }
+        }
+        else
+        {
+            Debug.Log($"[NetworkSpawnManager] Remote player {player} admitted via RPC; spawn pending scene readiness.");
+        }
+
+        return true;
     }
 
     private bool CanSpawnPlayer(NetworkRunner runner, PlayerRef player)
@@ -2518,6 +2713,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
 
         if (!_admittedPlayers.Contains(player))
+            return false;
+
+        if (_launchContext != null && !_admissionData.ContainsKey(player))
             return false;
 
         if (_spawnedPlayers.ContainsKey(player))
