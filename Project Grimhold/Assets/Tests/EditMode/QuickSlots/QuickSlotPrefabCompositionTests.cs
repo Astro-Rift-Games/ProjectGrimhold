@@ -1,4 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -7,6 +8,7 @@ using UnityEngine;
 public sealed class QuickSlotPrefabCompositionTests
 {
     private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
+    private const string InventoryPrefabPath = "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab";
 
     [Test]
     public void NetworkPlayer_BindsTheQuickSlotHudWithFourSlots()
@@ -28,6 +30,23 @@ public sealed class QuickSlotPrefabCompositionTests
 
         var binderSo = new SerializedObject(binder);
         Assert.That(binderSo.FindProperty("_quickSlotHudPresenter").objectReferenceValue, Is.SameAs(hudPresenter));
+    }
+
+    [Test]
+    public void RaidInventoryScreen_HasFourDistinctQuickSlotViews()
+    {
+        var screen = AssetDatabase.LoadAssetAtPath<GameObject>(InventoryPrefabPath);
+        Assert.That(screen, Is.Not.Null);
+        var view = screen.GetComponentInChildren<RaidInventoryView>(true);
+        var so = new SerializedObject(view);
+
+        var seen = new HashSet<Object>();
+        for (int slot = 1; slot <= QuickSlotBindings.SlotCount; slot++)
+        {
+            Object slotView = so.FindProperty($"_quickSlot{slot}View").objectReferenceValue;
+            Assert.That(slotView, Is.Not.Null, $"Quick Slot {slot} view");
+            Assert.That(seen.Add(slotView), Is.True, $"Quick Slot {slot} view must be distinct");
+        }
     }
 }
 #endif
