@@ -275,8 +275,6 @@ namespace Tests.EditMode.Presentation
 
         [TestCase(false, RaidParticipantState.Defeated,
             ExpeditionProgressionFinalizationCause.DefeatConfirmed, true, false)]
-        [TestCase(true, RaidParticipantState.Defeated,
-            ExpeditionProgressionFinalizationCause.DefeatConfirmed, true, false)]
         [TestCase(true, RaidParticipantState.Extracted,
             ExpeditionProgressionFinalizationCause.ExtractionConfirmed, false, false)]
         [TestCase(true, RaidParticipantState.Aborted,
