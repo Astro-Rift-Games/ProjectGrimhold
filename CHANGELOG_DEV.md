@@ -249,6 +249,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **shop:** enforce authoritative catalog pricing and receipt binding ([cb066c3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cb066c32b24c8ab72d47dc35b9f6c17e0647a1a5))
 - **raid:** prevent premature absence finalization when target avatar is unresolvable ([31e82ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/31e82ff65a3fca77df40474b7f7fb75f4489ef9e))
 - **changelog:** keep all real commits and merge attribution-only duplicates ([7369fd1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7369fd12e72fb7f5005ba62e273b891f308ef12c))
 - **stash:** enable Take All and Leave All button clicks ([3764314](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3764314b5d3ba0ca2a2ae031ef843bf30da0e68a))
