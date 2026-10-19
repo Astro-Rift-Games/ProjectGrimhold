@@ -336,8 +336,7 @@ test('E2E Authoritative Extraction Result & Anti-Replay Validation (US-58 / SEC-
     ]);
 
     const statuses = [resA.status, resB.status].sort();
-    assert.strictEqual(statuses[0], 201, 'Exactly one concurrent commit must succeed with 201');
-    assert.ok(statuses[1] === 200 || statuses[1] === 409, 'The other request must be 200 or 409');
+    assert.deepStrictEqual(statuses, [200, 201], `Expected [200, 201], got ${statuses}`);
 
     const finalDoc = await AuthoritativeExtractionResult.findOne({ raidId: raidId2, accountId: playerAccountId });
     assert.strictEqual(finalDoc.consumed, true);

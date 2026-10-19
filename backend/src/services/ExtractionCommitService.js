@@ -124,22 +124,31 @@ class ExtractionCommitService {
     );
 
     if (!claimedResult) {
-      const refreshedChar = await Character.findOne({ accountId });
-      if (refreshedChar) {
-        const alreadyApplied = (refreshedChar.inventory?.appliedExtractionReceipts || []).some(
+      let refreshedChar = await Character.findOne({ accountId });
+      let alreadyApplied = (refreshedChar?.inventory?.appliedExtractionReceipts || []).some(
+        r => r.raidId === raidId && r.resultSequence === resultSequence
+      );
+
+      // If concurrent request is currently persisting the character, wait briefly
+      for (let attempt = 0; attempt < 6 && !alreadyApplied; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        refreshedChar = await Character.findOne({ accountId });
+        alreadyApplied = (refreshedChar?.inventory?.appliedExtractionReceipts || []).some(
           r => r.raidId === raidId && r.resultSequence === resultSequence
         );
-        if (alreadyApplied) {
-          return {
-            alreadySecured:      true,
-            loadout:             serializeItems(refreshedChar.inventory.loadout),
-            level:               refreshedChar.level,
-            experience:          refreshedChar.experience,
-            characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
-            revision:            refreshedChar.revision || 0
-          };
-        }
       }
+
+      if (alreadyApplied) {
+        return {
+          alreadySecured:      true,
+          loadout:             serializeItems(refreshedChar.inventory.loadout),
+          level:               refreshedChar.level,
+          experience:          refreshedChar.experience,
+          characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
+          revision:            refreshedChar.revision || 0
+        };
+      }
+
       throw {
         statusCode: 409,
         errorCode:  'RESULT_ALREADY_CONSUMED',
