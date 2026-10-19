@@ -295,6 +295,13 @@ public sealed class RaidTeammateHudPresenter : MonoBehaviour
         character != null && character.Object != null && character.Object.IsValid &&
         character.Runner == _runner && character.Object.Id == _observedAvatarId;
 
+    /// <summary>The currently resolved, valid Duo teammate avatar; false while unresolved.</summary>
+    internal bool TryGetTeammateCharacter(out PlayerCharacter character)
+    {
+        character = _isBound && _hasTeammate && IsValidCharacter(_teammateCharacter) ? _teammateCharacter : null;
+        return character != null;
+    }
+
     private void InvalidateAvatar()
     {
         _observedAvatarId = default;

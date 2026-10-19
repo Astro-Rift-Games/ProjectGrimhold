@@ -31,6 +31,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidAbilityHudPresenter _abilityHudPresenter;
 
     [SerializeField]
+    private RaidDownedHudPresenter _downedHudPresenter;
+
+    [SerializeField]
     private RaidQuickSlotHudPresenter _quickSlotHudPresenter;
 
     [SerializeField]
@@ -232,6 +235,10 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _entityRegistry);
         _abilityHudPresenter.Bind(_abilityController, _manaController, _staminaController);
         BindTeammateHud();
+        if (_downedHudPresenter != null)
+        {
+            _downedHudPresenter.Bind(_playerCharacter, _teammateHudPresenter);
+        }
         if (_raidMinimapPresenter != null)
         {
             _raidMinimapPresenter.Bind(
@@ -281,6 +288,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_abilityHudPresenter != null)
         {
             _abilityHudPresenter.Unbind();
+        }
+
+        if (_downedHudPresenter != null)
+        {
+            _downedHudPresenter.Unbind();
         }
 
         if (_teammateHudPresenter != null)

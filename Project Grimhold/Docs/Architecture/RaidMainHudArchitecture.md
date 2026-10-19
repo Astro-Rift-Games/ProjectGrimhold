@@ -208,6 +208,20 @@ Positions below are authored in prefabs and guarded by EditMode layout tests; no
 - **Vitals block.** `RaidMainHud` is anchored bottom-left (24 px margin) as three icon + bar rows (Health, Mana, Stamina). Each bar is a dark track with a coloured fill anchored and pivoted at the left edge, and one centered value text (for example `85 / 130`) drawn over the fill, never inside it. There are no static name labels. Icons are 16x16 pixel sprites under `Assets/Art/UI/Hud`. The defeated indicator sits just above the frame and `RaidDuoHud` above it; none of them overlaps the bottom action bar, the Dungeon Pressure timer and phase, or the interaction prompt.
 - **Quick Slots (TASK-214).** `RaidQuickSlotHud` is a provisional bottom-right row of four 56x56 slots authored under the `LocalGameplayHud` instance in `NetworkPlayer.prefab`, so it does not alter `LocalGameplayHud.prefab` or the bottom action bar. Each `RaidQuickSlotHudSlotView` shows the bound definition's icon, the units available in the Raid Inventory summed across stacks, the key (`1`-`4`) and an unavailable overlay (no units or Downed). `RaidQuickSlotHudPresenter` is bound by `LocalPlayerHudBinder` together with a `QuickSlotController`; a shortcut press calls `PlayerConsumableNetworkController.TryRequestConsume`, the same authoritative path as the Inventory, and rejections surface through a short message. `PlayerInputReader.QuickSlotActivated` is raised only while gameplay input is not suppressed, so it never fires with the Inventory or a menu open. Final art and position wait for the US-40 UI assets (#335). Weapon sets A/B still have no HUD indicator.
 
+## Downed and revive HUD (`RaidDownedHudPresenter` / `RaidDownedHudView`, TASK-215)
+
+`RaidDownedHud` is authored under the `LocalGameplayHud` instance in `NetworkPlayer.prefab` (no new Canvas) and is bound by `LocalPlayerHudBinder` with the local `PlayerCharacter` and the `RaidTeammateHudPresenter`. It is presentation-only and adds no HUD-owned state; the only new replicated data is the outcome record of `PlayerDownedRecoveryNetworkController` (`DownedAndReviveArchitecture.md` section 7).
+
+| Element | Source |
+| --- | --- |
+| Downed state and reserve bar (drain, paused while recovering) | `IsDowned`, `DownedHealth`, `InitialDownedHealth`, `HasValidSession` |
+| Revive progress, Downed side | own `PlayerDownedRecoveryNetworkController.TryGetProgress` |
+| Revive progress, reviver side | the Duo teammate's controller (`RaidTeammateHudPresenter.TryGetTeammateCharacter`), only while its `ReviverId` is the local avatar |
+| Ally Downed and "in range" hint | teammate `IsDowned`; local distance against `ReviveRange` (no side effects, no rule duplication) |
+| Interruption and completion notices | `LastOutcomeSequence` edge, kind and reason; reviver side also requires `LastOutcomeReviverId` to be the local avatar |
+
+Pure rules live in `DownedRecoveryFeedbackRules` (clamped progress/reserve, Spanish messages) and `DownedRecoveryOutcomeTracker` (silent first sample or backwards sequence, so late join, rebind, restore and Host Migration never replay an old outcome). Bars scale a left-anchored fill on X like the vitals bars. Notices expire on the unscaled clock. Cues: a pulse of the Downed panel on entry, and optional 2D clips for entering Downed, interruption and completion played through `AudioManager`; no clip assets exist yet, so they are silent until assigned on the presenter. The hint reuses no interaction prompt: `InteractionPromptMetadata` on the avatar is shared with its corpse loot container, so the revive wording lives in this HUD instead. The slot for Self-revive and Accelerated Resolution is intentionally absent (out of scope).
+
 ## Dungeon Pressure HUD
 
 `DungeonPressureHudPresenter` is bound by `LocalPlayerHudBinder` with `Bind(NetworkRunner, NetworkSpawnManager)` and unbound with the rest of the HUD. It resolves the `DungeonPressureController` through `NetworkSpawnManager.MatchController` and revalidates it against the bound runner; there is no `FindObjectOfType` or scene scan. A missing runner, spawn manager, match controller or controller shows the unavailable timer `--:--` and clears only this section; a runner that stops running unbinds the presenter. It dirty-checks seconds and phase, adds no networked state and owns no clock. The timer and phase texts use the HUD pixel font (alagard) with the outline material so the phase colour stays readable.
@@ -280,6 +294,7 @@ World VFX and audio for abilities are not part of this HUD.
 - Progress is individual (MVP). Whether and how a team progress is shown is undecided.
 - Expedition progress is a horizontal bar; the concept image shows a ring, which would need a dedicated sprite.
 - Weapon sets A/B have no HUD indicator, and the Quick Slot row layout is provisional until it is validated in the Game view.
+- The Downed HUD layout and colours are provisional (no US-40 assets, #335), and Host/Client plus late-join behaviour are covered only by Single Runner PlayMode.
 - `RaidMenuView` still carries a static `F — Interactuar` help line, independent of `InteractionPromptText`.
 - Layout and visuals of the rework (right panel, bottom row, vitals, prompt position) are pending validation in the Game view and Play Mode.
 

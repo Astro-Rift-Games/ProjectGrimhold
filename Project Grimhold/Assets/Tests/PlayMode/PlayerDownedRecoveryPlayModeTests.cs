@@ -138,6 +138,7 @@ namespace Tests.PlayMode.Downed
 
             Assert.That(target.Downed.DownedHealth, Is.EqualTo(reserveAtStart - 10f).Within(0.001f));
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None), "Damage interrupts.");
+            Assert.That(target.Recovery.LastOutcomeReason, Is.EqualTo(DownedRecoveryInterruptReason.DownedDamaged));
             float afterInterrupt = target.Downed.DownedHealth;
             SetField(target.Downed, "_downedDrainPerSecond", 10f);
             yield return WaitFrames(30);
@@ -163,6 +164,7 @@ namespace Tests.PlayMode.Downed
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
             Assert.That(target.Recovery.IsDrainPaused, Is.False);
             Assert.That(target.Downed.DownedHealth, Is.EqualTo(0f));
+            AssertOutcome(target, RecoveryOutcomeKind.Completed, DownedRecoveryInterruptReason.None, reviver, 1);
         }
 
         [UnityTest]
@@ -183,6 +185,7 @@ namespace Tests.PlayMode.Downed
 
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
             Assert.That(target.Character.IsDowned, Is.True);
+            AssertOutcome(target, RecoveryOutcomeKind.Interrupted, DownedRecoveryInterruptReason.InteractReleased, reviver, 1);
 
             SetHeld(reviver, true);
             Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True, "Retry starts from zero.");
@@ -204,6 +207,7 @@ namespace Tests.PlayMode.Downed
             yield return WaitFrames(5);
 
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
+            AssertOutcome(target, RecoveryOutcomeKind.Interrupted, DownedRecoveryInterruptReason.OutOfRange, reviver, 1);
         }
 
         [UnityTest]
@@ -222,6 +226,8 @@ namespace Tests.PlayMode.Downed
 
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
             Assert.That(target.Character.IsDowned, Is.True);
+            Assert.That(target.Recovery.LastOutcomeKind, Is.EqualTo(RecoveryOutcomeKind.Interrupted));
+            Assert.That(target.Recovery.LastOutcomeReason, Is.EqualTo(DownedRecoveryInterruptReason.ReviverDisconnected));
         }
 
         [UnityTest]
@@ -279,6 +285,114 @@ namespace Tests.PlayMode.Downed
             Assert.That(target.Character.IsAlive, Is.False);
             Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
             Assert.That(target.Recovery.IsDrainPaused, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Progress_IsReportedWhileSessionRuns_AndAbsentOtherwise()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Avatar target = SpawnAvatar(Vector3.zero);
+            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f));
+            SetField(target.Downed, "_downedDrainPerSecond", 0f);
+            SetField(target.Recovery, "_reviveDurationSeconds", 30f);
+            yield return DownAndHoldInteract(target, reviver);
+            Assert.That(target.Recovery.TryGetProgress(out _), Is.False, "No session yet.");
+
+            Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True);
+            yield return WaitFrames(5);
+
+            Assert.That(target.Recovery.TryGetProgress(out float progress), Is.True);
+            Assert.That(progress, Is.InRange(0f, 1f));
+            SetHeld(reviver, false);
+            yield return WaitFrames(5);
+            Assert.That(target.Recovery.TryGetProgress(out _), Is.False, "Interrupt discards progress.");
+        }
+
+        [UnityTest]
+        public IEnumerator DownedHud_ShowsReserveProgressAndInterruptionNotice_ThenSilentRebind()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Avatar target = SpawnAvatar(Vector3.zero);
+            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f));
+            SetField(target.Downed, "_downedDrainPerSecond", 0f);
+            SetField(target.Recovery, "_reviveDurationSeconds", 30f);
+            RaidDownedHudPresenter presenter = target.Object.GetComponentInChildren<RaidDownedHudPresenter>(true);
+            RaidDownedHudView view = target.Object.GetComponentInChildren<RaidDownedHudView>(true);
+            Assert.That(presenter, Is.Not.Null);
+            presenter.Bind(target.Character, null);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_downedRoot"), Is.False, "Active players show no Downed HUD.");
+
+            yield return DownAndHoldInteract(target, reviver);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_downedRoot"), Is.True);
+            Assert.That(IsActive(view, "_reviveRoot"), Is.False);
+
+            Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True);
+            yield return WaitFrames(3);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_reviveRoot"), Is.True, "Progress shown during the session.");
+
+            SetHeld(reviver, false);
+            yield return WaitFrames(3);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_reviveRoot"), Is.False, "Progress returns to zero.");
+            Assert.That(IsActive(view, "_messageText"), Is.True, "Interruption notice shown.");
+
+            presenter.Bind(target.Character, null);
+            Assert.That(IsActive(view, "_messageText"), Is.False, "Rebind must not replay the old outcome.");
+        }
+
+        [UnityTest]
+        public IEnumerator DownedHud_ReviverSide_ShowsAllyRangeProgressAndNotices()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Avatar target = SpawnAvatar(Vector3.zero);
+            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f));
+            SetField(target.Downed, "_downedDrainPerSecond", 0f);
+            SetField(target.Recovery, "_reviveDurationSeconds", 0.4f);
+            RaidDownedHudPresenter presenter = reviver.Object.GetComponentInChildren<RaidDownedHudPresenter>(true);
+            RaidDownedHudView view = reviver.Object.GetComponentInChildren<RaidDownedHudView>(true);
+            presenter.TestAllyOverride = target.Character;
+            presenter.Bind(reviver.Character, null);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_allyDownedRoot"), Is.False, "No ally is Downed yet.");
+
+            yield return DownAndHoldInteract(target, reviver);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_allyDownedRoot"), Is.True, "Ally Downed and in range.");
+            Assert.That(IsActive(view, "_downedRoot"), Is.False, "The reviver is not Downed.");
+
+            Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True);
+            yield return WaitFrames(3);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_reviveRoot"), Is.True, "Reviver sees the progress.");
+
+            yield return WaitUntil(() => !target.Character.IsDowned, 120);
+            presenter.Refresh();
+            Assert.That(IsActive(view, "_reviveRoot"), Is.False);
+            Assert.That(IsActive(view, "_allyDownedRoot"), Is.False);
+            Assert.That(IsActive(view, "_messageText"), Is.True, "Completion notice reaches the reviver.");
+        }
+
+        private static bool IsActive(RaidDownedHudView view, string field)
+        {
+            object value = GetField<object>(view, field);
+            GameObject go = value is Component component ? component.gameObject : (GameObject)value;
+            return go.activeSelf;
+        }
+
+        private static void AssertOutcome(
+            Avatar target,
+            RecoveryOutcomeKind kind,
+            DownedRecoveryInterruptReason reason,
+            Avatar reviver,
+            int sequence)
+        {
+            Assert.That(target.Recovery.LastOutcomeKind, Is.EqualTo(kind));
+            Assert.That(target.Recovery.LastOutcomeReason, Is.EqualTo(reason));
+            Assert.That(target.Recovery.LastOutcomeReviverId, Is.EqualTo(reviver.Object.Id));
+            Assert.That(target.Recovery.LastOutcomeSequence, Is.EqualTo(sequence));
         }
 
         private struct Avatar

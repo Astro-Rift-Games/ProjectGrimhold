@@ -28,6 +28,8 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
     private EntityId _metadataTargetId;
     private NetworkObject _metadataNetworkObject;
     private SocialPlayerInteractable _socialPlayerInteractable;
+    private DownedReviveInteractable _reviveInteractable;
+    private string _metadataPromptText;
     private string _currentPromptText;
 
     public bool HasCandidate { get; private set; }
@@ -121,6 +123,13 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
             {
                 _currentPromptText = _socialPlayerInteractable.PromptText;
             }
+            else if (_reviveInteractable != null)
+            {
+                // The avatar's metadata describes its corpse, so a Downed target overrides it each frame.
+                _currentPromptText = _reviveInteractable.IsTargetDowned
+                    ? DownedReviveInteractable.PromptText
+                    : _metadataPromptText;
+            }
             return;
         }
 
@@ -128,9 +137,13 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
         _metadataNetworkObject = networkObject;
         InteractionPromptMetadata metadata = networkObject.GetComponent<InteractionPromptMetadata>();
         _socialPlayerInteractable = networkObject.GetComponent<SocialPlayerInteractable>();
+        _reviveInteractable = networkObject.GetComponent<DownedReviveInteractable>();
+        _metadataPromptText = metadata != null ? metadata.PromptText : null;
         _currentPromptText = _socialPlayerInteractable != null
             ? _socialPlayerInteractable.PromptText
-            : metadata != null ? metadata.PromptText : null;
+            : _reviveInteractable != null && _reviveInteractable.IsTargetDowned
+                ? DownedReviveInteractable.PromptText
+                : _metadataPromptText;
     }
 
     private void ClearPromptMetadata()
@@ -138,6 +151,8 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
         _metadataTargetId = default;
         _metadataNetworkObject = null;
         _socialPlayerInteractable = null;
+        _reviveInteractable = null;
+        _metadataPromptText = null;
         _currentPromptText = null;
     }
 

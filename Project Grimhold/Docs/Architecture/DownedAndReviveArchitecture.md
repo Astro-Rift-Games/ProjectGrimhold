@@ -190,6 +190,24 @@ One session per Downed avatar enforces the 1 reviver : 1 Downed rule structurall
   active" through the same interface family. It does not use `TrySetControlEnabled`, which is a
   single shared boolean that could conflict with other owners.
 
+* **Outcome record (Implemented, TASK-215).** Clearing a session erases `Kind`, `ReviverId` and
+  `Completion`, so clients could not tell an interruption from a completion nor its cause. The
+  recovery component therefore also keeps a presentation-only record, written by State Authority
+  immediately before the session is cleared and never read by gameplay rules:
+
+```text
+[Networked] RecoveryOutcomeKind          LastOutcomeKind       // None | Interrupted | Completed
+[Networked] DownedRecoveryInterruptReason LastOutcomeReason    // cause when Interrupted
+[Networked] NetworkId                    LastOutcomeReviverId  // lets the reviver recognise its own outcome
+[Networked] int                          LastOutcomeSequence   // monotonic; presenters edge-detect on it
+```
+
+  It is reset in `Spawned` except on a Host Migration restore, so a restored avatar keeps its
+  sequence and presenters baseline on it instead of replaying. `DownedDefeated` is recorded but
+  has no interruption message (definitive Defeat owns its overlay). `TryGetProgress` derives
+  revive progress from the replicated `Completion` timer and the configured duration, so progress
+  adds no further state. Durations, ranges and interruption rules are unchanged.
+
 Future recovery forms add a `RecoveryKind` value and a starter. They reuse sessions, drain
 pause and the exit contract unchanged.
 
@@ -256,7 +274,8 @@ ritual (see section 13).
 | Healing does not restore or revive | `PlayerCharacter.CanReceiveHealing` is `!IsDowned && base` | Implemented |
 | Weapon visuals hidden | `PlayerWeaponPresenter` | Implemented |
 | Mana-drain skills deactivate, Mana preserved | `PlayerManaNetworkController` does not reset Mana on Downed/recovery. The existing ability runtime stops active execution on Downed; periodic drain schedules and concrete abilities remain deferred. | Resource preservation implemented (TASK 199); periodic consumers deferred |
-| Downed pose / HUD | Presentation only, reads `IsDowned` | Planned (no task) |
+| Downed HUD (reserve, revive progress, interruption/completion notices, ally Downed) | `RaidDownedHudPresenter` reads replicated state only (see `RaidMainHudArchitecture.md`) | Implemented (TASK-215); not yet validated Host/Client |
+| Downed pose | Presentation only, reads `IsDowned` | Planned (no task) |
 
 Unlisted abilities are blocked by the same rule: any new action choke point must call
 `PlayerDownedGate.IsDowned`. Extraction is intentionally not gated.
@@ -469,14 +488,15 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Recovery session owner, `IsInteractHeld`, drain gate, damage observer | Implemented (TASK 452) | `5ff5208b` |
 | Revive interactable (supplemental registry slot), incompatible-action gate | Implemented (TASK 452) | `d88d5c01` |
 | End-to-end and interruption PlayMode coverage | Implemented (TASK 452) | `4bdf7d7f` |
-| Revive progress UI and feedback (GD 13 §14), revive pose | Planned | follow-up, outside TASK 452 |
+| Revive progress UI and feedback (GD 13 §14) | Implemented (TASK-215), pending Host/Client validation | `RaidDownedHudPresenter`, outcome record in section 7 |
+| Revive pose | Planned | no task |
 | Attribution fields and damage hook signatures | Implemented (initial TASK 453 slice; section 11) | This change |
 | PvP credit consolidation/freeze at Downed and extraction re-evaluation on Defeat | Pending | TASK 453 |
 | Forced definitive Defeat on absolute close (Q6 gap) | Planned | TASK 453 or a Dungeon Session task |
 | Self-revive item, consumption, handoff, Self session | Planned | no task |
 | Accelerated Resolution coordinator | Planned | no task, needs a task |
 | Mana runtime interaction | Planned | no task (no Mana runtime exists) |
-| Downed pose and HUD | Planned | no task |
+| Downed pose | Planned | no task |
 
 ## 19. TASK 450 coverage
 
