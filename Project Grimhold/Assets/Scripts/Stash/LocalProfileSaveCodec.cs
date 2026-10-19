@@ -39,6 +39,10 @@ public static class LocalProfileSaveCodec
         public string[] unlockedAbilityIds;
         public string preparedAbilitySlot1;
         public string preparedAbilitySlot2;
+        public string quickSlot1;
+        public string quickSlot2;
+        public string quickSlot3;
+        public string quickSlot4;
         public int vitality;
         public int resistance;
         public int strength;
@@ -196,6 +200,10 @@ public static class LocalProfileSaveCodec
             unlockedAbilityIds = ToAbilityIds(snapshot.UnlockedAbilities),
             preparedAbilitySlot1 = snapshot.PreparedAbilities.Slot1.Value,
             preparedAbilitySlot2 = snapshot.PreparedAbilities.Slot2.Value,
+            quickSlot1 = snapshot.QuickSlots.Get(0).Value,
+            quickSlot2 = snapshot.QuickSlots.Get(1).Value,
+            quickSlot3 = snapshot.QuickSlots.Get(2).Value,
+            quickSlot4 = snapshot.QuickSlots.Get(3).Value,
             vitality = snapshot.CharacterAttributes.Vitality,
             resistance = snapshot.CharacterAttributes.Resistance,
             strength = snapshot.CharacterAttributes.Strength,
@@ -333,6 +341,16 @@ public static class LocalProfileSaveCodec
         if (data.schemaVersion >= 7)
         {
             candidate.PreparedAbilities = preparedAbilities;
+        }
+
+        if (data.schemaVersion >= 9)
+        {
+            if (!TryReadQuickSlots(data, catalog, out QuickSlotBindings quickSlots, out error))
+            {
+                return false;
+            }
+
+            candidate.QuickSlots = quickSlots;
         }
 
         // JsonUtility assigns 0L to absent long fields. This is safe while
@@ -729,6 +747,37 @@ public static class LocalProfileSaveCodec
             result[i] = new ItemData { lootId = items[i].LootId.Value, amount = items[i].Amount };
         }
         return result;
+    }
+
+    /// <summary>
+    /// A malformed or duplicated binding rejects the profile, like the other local-only state.
+    /// A binding whose definition left the catalog or stopped being Quick Slot compatible is
+    /// content drift, not corruption, so that slot loads unassigned.
+    /// </summary>
+    private static bool TryReadQuickSlots(
+        SaveData data,
+        LootDefinitionCatalog catalog,
+        out QuickSlotBindings bindings,
+        out string error)
+    {
+        var ids = new[] { data.quickSlot1, data.quickSlot2, data.quickSlot3, data.quickSlot4 };
+        if (!QuickSlotBindings.TryCreate(ids, out bindings, out error))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < QuickSlotBindings.SlotCount; i++)
+        {
+            if (bindings.IsAssigned(i) &&
+                (catalog == null ||
+                 !catalog.TryGet(bindings.Get(i).Value, out LootDefinition definition) ||
+                 !definition.QuickSlotCompatible))
+            {
+                bindings = bindings.Without(i);
+            }
+        }
+
+        return true;
     }
 
     private static bool TryReadPreparedAbilities(

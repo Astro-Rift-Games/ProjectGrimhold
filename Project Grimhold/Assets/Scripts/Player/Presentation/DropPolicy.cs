@@ -15,6 +15,9 @@ public static class DropPolicy
             (DragSlotLocation.Stash, DragSlotLocation.Inventory) => targetEquipmentSlot == EquipmentSlot.None,
             (DragSlotLocation.Inventory, DragSlotLocation.Stash) => targetEquipmentSlot == EquipmentSlot.None,
             
+            // Quick Slots bind a definition; only Inventory content can be bound.
+            (DragSlotLocation.Inventory, DragSlotLocation.QuickSlot) => targetEquipmentSlot == EquipmentSlot.None,
+
             (DragSlotLocation.Inventory, DragSlotLocation.Equipment) => targetEquipmentSlot != EquipmentSlot.None,
             (DragSlotLocation.Equipment, DragSlotLocation.Inventory) => targetEquipmentSlot == EquipmentSlot.None,
             (DragSlotLocation.Stash, DragSlotLocation.Equipment) => targetEquipmentSlot != EquipmentSlot.None,

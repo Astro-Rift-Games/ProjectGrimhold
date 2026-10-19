@@ -8,7 +8,8 @@ public static class RaidLootOriginIndexedStateUtility
         in RaidLootOriginPackedState state,
         int catalogIndex,
         int requestedAmount,
-        out RaidLootOriginTransfer transfer)
+        out RaidLootOriginTransfer transfer,
+        RaidLootOriginSelectionOrder selectionOrder = RaidLootOriginSelectionOrder.Canonical)
     {
         transfer = null;
         if (requestedAmount <= 0 || !TryValidateState(state))
@@ -32,7 +33,7 @@ public static class RaidLootOriginIndexedStateUtility
             available.Add(new RaidLootOriginBucket(origin, compact.Amount));
         }
 
-        available.Sort((left, right) => left.Origin.CompareTo(right.Origin));
+        available.Sort((left, right) => CompareForSelection(left.Origin, right.Origin, selectionOrder));
         var selected = new List<RaidLootOriginBucket>(available.Count);
         int remaining = requestedAmount;
         for (int index = 0; index < available.Count && remaining > 0; index++)
@@ -48,8 +49,23 @@ public static class RaidLootOriginIndexedStateUtility
             return false;
         }
 
+        // The transfer contract requires canonical bucket order whatever the selection order was.
+        selected.Sort((left, right) => left.Origin.CompareTo(right.Origin));
         transfer = new RaidLootOriginTransfer(selected);
         return transfer.TryGetTotal(out int total) && total == requestedAmount;
+    }
+
+    private static int CompareForSelection(
+        RaidLootOrigin left,
+        RaidLootOrigin right,
+        RaidLootOriginSelectionOrder selectionOrder)
+    {
+        if (selectionOrder == RaidLootOriginSelectionOrder.PlayerFirst && left.IsDungeon != right.IsDungeon)
+        {
+            return left.IsDungeon ? 1 : -1;
+        }
+
+        return left.CompareTo(right);
     }
 
     public static bool CanAdd(

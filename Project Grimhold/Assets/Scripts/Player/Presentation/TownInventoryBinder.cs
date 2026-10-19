@@ -34,6 +34,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
     private TownEquipmentMutationEndpoint _equipmentEndpoint;
+    private QuickSlotController _quickSlots;
     private TownRaidPreparationDirectory _preparationDirectory;
     private ProfileId _localProfileId;
     private bool _isLifecycleBound;
@@ -101,6 +102,10 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _lootCatalog,
             CanMutateEquipment,
             SyncPreparedEquipmentAsync);
+        _quickSlots = new QuickSlotController(
+            _profileContext.Store,
+            _inventorySource,
+            CanReleaseDepletedQuickSlot);
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
@@ -167,7 +172,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _inventorySource,
             _equipmentEndpoint,
             inputReader,
-            hosted);
+            hosted,
+            _quickSlots);
         if (hosted)
         {
             _menuPresenter.RegisterTab(new TownMenuTabRegistration(
@@ -184,6 +190,14 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _menuPresenter.Bind(inputReader, uiParent);
         }
     }
+
+    /// <summary>
+    /// The Loadout is emptied while a reservation is pending, so only a profile without one may
+    /// unassign a Quick Slot whose last unit left the Loadout.
+    /// </summary>
+    private bool CanReleaseDepletedQuickSlot() =>
+        _profileContext != null && _profileContext.Store != null &&
+        _profileContext.Store.PendingReservation == null;
 
     private bool CanMutateEquipment() =>
         TownEquipmentMutationGate.CanMutate(_preparationDirectory, _localProfileId);
@@ -229,6 +243,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _abilityVendorPresenter.UnbindProfile();
         }
 
+        _quickSlots?.Dispose();
+        _quickSlots = null;
         _inventorySource?.Dispose();
         _inventorySource = null;
         _equipmentEndpoint = null;

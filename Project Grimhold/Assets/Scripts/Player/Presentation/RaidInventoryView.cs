@@ -66,6 +66,19 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private RaidInventorySlotView _bootsView;
 
+    [Header("Quick Slots (authored in the prefab, never created at runtime)")]
+    [SerializeField]
+    private RaidInventorySlotView _quickSlot1View;
+
+    [SerializeField]
+    private RaidInventorySlotView _quickSlot2View;
+
+    [SerializeField]
+    private RaidInventorySlotView _quickSlot3View;
+
+    [SerializeField]
+    private RaidInventorySlotView _quickSlot4View;
+
     [SerializeField, Min(0f)]
     private float _transferFeedbackDuration = 1.5f;
 
@@ -77,6 +90,8 @@ public sealed class RaidInventoryView : MonoBehaviour
     /// </summary>
     private RaidInventorySlotView[] _equipmentSlotViews;
     private bool _hasReportedMissingEquipmentViews;
+    private RaidInventorySlotView[] _quickSlotViews;
+    private bool _hasReportedMissingQuickSlotViews;
 
     /// <summary>Local-only intention emitted when the enabled take-all control is activated.</summary>
     public event Action TakeAllRequested;
@@ -87,6 +102,12 @@ public sealed class RaidInventoryView : MonoBehaviour
     public event Action DragUpdated;
     public event Action<bool> DragEnded;
     public event Action<DragSlotLocation, EquipmentSlot> DropReceived;
+
+    /// <summary>Local intention: a dragged definition was dropped on the zero-based Quick Slot.</summary>
+    public event Action<int> QuickSlotDropReceived;
+
+    /// <summary>Local intention: the player asked to unassign the zero-based Quick Slot.</summary>
+    public event Action<int> QuickSlotClearRequested;
 
     public bool IsOpen => _screenRoot != null && _screenRoot.activeSelf;
 
@@ -216,7 +237,33 @@ public sealed class RaidInventoryView : MonoBehaviour
                 _equipmentSlotViews[index]?.Clear();
             }
         }
+        if (EnsureQuickSlotViews())
+        {
+            for (int index = 0; index < _quickSlotViews.Length; index++)
+            {
+                _quickSlotViews[index].Clear();
+            }
+        }
         HideTransferFeedback();
+    }
+
+    /// <summary>Projects one Quick Slot binding into its authored slot view.</summary>
+    public void PresentQuickSlot(
+        int slotIndex,
+        bool assigned,
+        LootId lootId,
+        Sprite icon,
+        string displayName,
+        int amount,
+        bool canClear)
+    {
+        if (!QuickSlotBindings.IsValidSlotIndex(slotIndex) || !EnsureQuickSlotViews())
+        {
+            return;
+        }
+
+        _quickSlotViews[slotIndex].PresentQuickSlot(
+            slotIndex, assigned, lootId, icon, displayName, amount, canClear);
     }
 
     /// <summary>
@@ -310,6 +357,43 @@ public sealed class RaidInventoryView : MonoBehaviour
         }
 
         _equipmentSlotViews = views;
+        return true;
+    }
+
+    /// <summary>Binds the four serialized Quick Slot views once. Nothing is instantiated.</summary>
+    private bool EnsureQuickSlotViews()
+    {
+        if (_quickSlotViews != null)
+        {
+            return true;
+        }
+
+        var views = new[] { _quickSlot1View, _quickSlot2View, _quickSlot3View, _quickSlot4View };
+        for (int index = 0; index < views.Length; index++)
+        {
+            if (views[index] != null)
+            {
+                continue;
+            }
+
+            if (!_hasReportedMissingQuickSlotViews)
+            {
+                _hasReportedMissingQuickSlotViews = true;
+                Debug.LogError($"{nameof(RaidInventoryView)} is missing Quick Slot {index + 1} view.", this);
+            }
+
+            return false;
+        }
+
+        for (int index = 0; index < views.Length; index++)
+        {
+            int slotIndex = index;
+            views[index].SetDragLocation(DragSlotLocation.QuickSlot);
+            views[index].SelectionRequested += (_, __) => QuickSlotClearRequested?.Invoke(slotIndex);
+            views[index].DropReceived += (_, __) => QuickSlotDropReceived?.Invoke(slotIndex);
+        }
+
+        _quickSlotViews = views;
         return true;
     }
 

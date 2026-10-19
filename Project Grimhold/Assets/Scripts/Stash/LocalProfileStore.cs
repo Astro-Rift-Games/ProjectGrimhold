@@ -23,6 +23,7 @@ public sealed class LocalProfileStore
     public string LastError => _repository.LastError;
     public bool IsAvailable => Status == LocalProfilePersistenceStatus.Ready || Status == LocalProfilePersistenceStatus.RecoveredFromBackup;
     public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
+    public LootDefinitionCatalog LootCatalog => _lootCatalog;
     public const int DefaultStashCapacity = 60;
     public int StashCapacity { get; }
 
@@ -78,6 +79,56 @@ public sealed class LocalProfileStore
             return IsAvailable && snapshot != null && snapshot.ProfileId == _profileId
                 ? snapshot.PreparedAbilities
                 : default;
+        }
+    }
+
+    public QuickSlotBindings GetQuickSlots()
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot snapshot = _repository.Snapshot;
+            return IsAvailable && snapshot != null && snapshot.ProfileId == _profileId
+                ? snapshot.QuickSlots
+                : default;
+        }
+    }
+
+    /// <summary>
+    /// Commits Quick Slot bindings. Bindings only reference loot definitions, so this never
+    /// touches Stash, Loadout, Origin or amounts and, unlike equipment, is not blocked by
+    /// Ready or a pending reservation. Whether the definition is present in the Inventory the
+    /// player is looking at is checked by the caller, because the Loadout is reserved or
+    /// empty while in Raid.
+    /// </summary>
+    public StashOperationResult TrySetQuickSlots(QuickSlotBindings bindings)
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return StashOperationResult.PersistenceFailed;
+            }
+
+            for (int i = 0; i < QuickSlotBindings.SlotCount; i++)
+            {
+                if (bindings.IsAssigned(i) &&
+                    (_lootCatalog == null ||
+                     !_lootCatalog.TryGet(bindings.Get(i).Value, out LootDefinition definition) ||
+                     !definition.QuickSlotCompatible))
+                {
+                    return StashOperationResult.InvalidInventory;
+                }
+            }
+
+            if (current.QuickSlots == bindings)
+            {
+                return StashOperationResult.Success;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.QuickSlots = bindings;
+            return Commit(next);
         }
     }
 
