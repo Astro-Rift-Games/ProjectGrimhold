@@ -143,6 +143,13 @@ public sealed class MerchantShopUI : MonoBehaviour
     {
         _resultMessage = MerchantTradeFeedback.DescribeResult(result);
         RenderSummary();
+        if (_feedbackText != null)
+        {
+            bool succeeded = result == MerchantTransactionResult.Success ||
+                result == MerchantTransactionResult.AlreadyApplied;
+            UiFeedbackPulse.Play(_feedbackText.gameObject, succeeded ? UiPulseKind.Success : UiPulseKind.Rejection);
+        }
+
         OnTransactionResult?.Invoke(result);
     }
 

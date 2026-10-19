@@ -44,10 +44,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly LootEquipContextActionProvider _equipActionProvider = new();
     private readonly TownLootEquipContextActionProvider _townEquipActionProvider = new();
     private readonly EquipmentUnequipContextActionProvider _unequipActionProvider = new();
+    private readonly LootQuickSlotContextActionProvider _quickSlotActionProvider = new();
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
     private IInventoryReadSource _inventorySource;
+    private QuickSlotController _quickSlots;
     private IPreparedEquipmentReadSource _preparedEquipmentSource;
     private ITownEquipmentMutationEndpoint _townEquipmentEndpoint;
     private PlayerLootReceiver _lootReceiver;
@@ -120,7 +122,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PlayerConsumableNetworkController consumableController,
         PlayerWeaponEquipmentNetworkController equipmentController,
         NetworkRunner runner,
-        Transform localPlayerTransform)
+        Transform localPlayerTransform,
+        QuickSlotController quickSlots = null)
     {
         Unbind();
 
@@ -150,6 +153,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _contextActionProviders.Add(_dropActionProvider);
         _contextActionProviders.Add(_consumeActionProvider);
         _contextActionProviders.Add(_equipActionProvider);
+        AttachQuickSlots(quickSlots);
         _runner = runner;
         _localPlayerTransform = localPlayerTransform;
         _registry = runner.GetComponent<EntityRegistry>();
@@ -168,6 +172,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             Subscribe();
             RefreshPlayerPanel();
             RefreshEquipmentSlots();
+            RefreshQuickSlots();
             Close();
         }
     }
@@ -184,7 +189,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         IPreparedEquipmentReadSource preparedEquipmentSource,
         ITownEquipmentMutationEndpoint equipmentEndpoint,
         PlayerInputReader inputReader,
-        bool externallyHosted = false)
+        bool externallyHosted = false,
+        QuickSlotController quickSlots = null)
     {
         Unbind();
 
@@ -203,6 +209,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _townEquipActionProvider.Bind(equipmentEndpoint);
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_townEquipActionProvider);
+        AttachQuickSlots(quickSlots);
         _isRaidBinding = false;
         _isExternallyHosted = externallyHosted;
         _observedTownEquipmentCanMutate = equipmentEndpoint.CanMutate;
@@ -215,6 +222,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             Subscribe();
             RefreshPlayerPanel();
             RefreshEquipmentSlots();
+            RefreshQuickSlots();
             Close();
         }
     }
@@ -281,6 +289,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         Subscribe();
         RefreshPlayerPanel();
         RefreshEquipmentSlots();
+        RefreshQuickSlots();
         Close();
     }
 
@@ -363,6 +372,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ? _interactionController.CurrentInteractionSequence
             : 0;
         _inventorySource.Changed += OnInventorySourceChanged;
+        if (_quickSlots != null)
+        {
+            _quickSlots.Changed += OnQuickSlotsChanged;
+            _view.QuickSlotDropReceived += OnQuickSlotDropReceived;
+            _view.QuickSlotClearRequested += OnQuickSlotClearRequested;
+        }
         if (!_isExternallyHosted)
         {
             _inputReader.InventoryToggleRequested += OnInventoryToggleRequested;
@@ -426,6 +441,17 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_inventorySource != null)
         {
             _inventorySource.Changed -= OnInventorySourceChanged;
+        }
+
+        if (_quickSlots != null)
+        {
+            _quickSlots.Changed -= OnQuickSlotsChanged;
+        }
+
+        if (_view != null)
+        {
+            _view.QuickSlotDropReceived -= OnQuickSlotDropReceived;
+            _view.QuickSlotClearRequested -= OnQuickSlotClearRequested;
         }
 
         if (_view != null && _view.PlayerPanel != null)
@@ -794,6 +820,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ? _dropController != null && !_dropController.HasRequestInFlight &&
                 _equipmentController != null && !_equipmentController.HasRequestInFlight
             : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate;
+        // Quick Slot bindings never move items, so they stay available when equipment changes are not.
+        contextActionsAvailable |= _quickSlots != null && CanMutateQuickSlots();
         if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !contextActionsAvailable ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
@@ -1730,6 +1758,93 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view?.SetTakeAllInteractable(false);
     }
 
+    private void AttachQuickSlots(QuickSlotController quickSlots)
+    {
+        _quickSlots = quickSlots;
+        if (quickSlots == null)
+        {
+            return;
+        }
+
+        _quickSlotActionProvider.Bind(quickSlots, CanMutateQuickSlots);
+        _contextActionProviders.Add(_quickSlotActionProvider);
+    }
+
+    private bool CanMutateQuickSlots() => !_gameplayMutationsBlocked;
+
+    private void OnQuickSlotsChanged() => RefreshQuickSlots();
+
+    private void RefreshQuickSlots()
+    {
+        if (_view == null || _quickSlots == null)
+        {
+            return;
+        }
+
+        QuickSlotBindings bindings = _quickSlots.Bindings;
+        bool canClear = CanMutateQuickSlots();
+        for (int slot = 0; slot < QuickSlotBindings.SlotCount; slot++)
+        {
+            LootId lootId = bindings.Get(slot);
+            if (!lootId.IsValid)
+            {
+                _view.PresentQuickSlot(slot, false, default, null, null, 0, false);
+                continue;
+            }
+
+            LootDefinition definition = null;
+            if (_lootCatalog != null)
+            {
+                _lootCatalog.TryGet(lootId.Value, out definition);
+            }
+
+            _view.PresentQuickSlot(
+                slot,
+                true,
+                lootId,
+                definition != null ? definition.Icon : null,
+                definition != null ? definition.DisplayName : lootId.Value,
+                _quickSlots.GetAvailableAmount(lootId),
+                canClear);
+        }
+    }
+
+    private void OnQuickSlotDropReceived(int slotIndex)
+    {
+        if (!_activeDrag.IsValid || _quickSlots == null || !CanMutateQuickSlots() ||
+            !DropPolicy.CanAttemptDrop(_activeDrag.Source, DragSlotLocation.QuickSlot, EquipmentSlot.None))
+        {
+            return;
+        }
+
+        QuickSlotAssignmentResult result = _quickSlots.TryAssign(slotIndex, _activeDrag.LootId);
+        string message = result switch
+        {
+            QuickSlotAssignmentResult.NotCompatible => "Este objeto no se puede asignar a un Quick Slot.",
+            QuickSlotAssignmentResult.NotInInventory => "El objeto no est\u00e1 en tu Inventario.",
+            QuickSlotAssignmentResult.Success or QuickSlotAssignmentResult.Unchanged => null,
+            _ => "No se pudo asignar el Quick Slot."
+        };
+
+        if (message == null)
+        {
+            _view.HideTransferFeedback();
+            return;
+        }
+
+        _view.ShowTransferFeedback(message);
+    }
+
+    private void OnQuickSlotClearRequested(int slotIndex)
+    {
+        if (_quickSlots == null || !CanMutateQuickSlots())
+        {
+            return;
+        }
+
+        _quickSlots.TryClear(slotIndex);
+    }
+
     private void ClearBindingReferences()
     {
         _inventorySource = null;
@@ -1746,6 +1861,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _consumeActionProvider.Bind(null);
         _equipmentController = null;
         _equipActionProvider.Bind(null);
+        _quickSlots = null;
+        _quickSlotActionProvider.Clear();
         _contextActionProviders.Clear();
         _runner = null;
         _localPlayerTransform = null;

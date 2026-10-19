@@ -715,6 +715,7 @@ GameObject:
   - component: {fileID: 3286944513622618986}
   - component: {fileID: 7822188132975302100}
   - component: {fileID: 688108602754972440}
+  - component: {fileID: 5839453038755931175}
   m_Layer: 5
   m_Name: Slot19
   m_TagString: Untagged
@@ -845,6 +846,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5839453038755931175
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 445312963894249343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &519528343548467697
 GameObject:
   m_ObjectHideFlags: 0
@@ -1491,6 +1509,7 @@ GameObject:
   - component: {fileID: 2881317962589494792}
   - component: {fileID: 502946262136776508}
   - component: {fileID: 3100405671894984958}
+  - component: {fileID: 5044968700795519073}
   m_Layer: 5
   m_Name: Slot10
   m_TagString: Untagged
@@ -1621,6 +1640,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5044968700795519073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700368718194328573}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &781959326890439054
 GameObject:
   m_ObjectHideFlags: 0
@@ -1634,6 +1670,7 @@ GameObject:
   - component: {fileID: 5906835412828595471}
   - component: {fileID: 9133426036831460069}
   - component: {fileID: 8077893405990961808}
+  - component: {fileID: 2900150804363488941}
   m_Layer: 5
   m_Name: Slot04
   m_TagString: Untagged
@@ -1764,6 +1801,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2900150804363488941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 781959326890439054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &801253063116875916
 GameObject:
   m_ObjectHideFlags: 0
@@ -1777,6 +1831,7 @@ GameObject:
   - component: {fileID: 563823551392538526}
   - component: {fileID: 3000347608530039029}
   - component: {fileID: 9095143707797552629}
+  - component: {fileID: 1039701119979041671}
   m_Layer: 5
   m_Name: Slot25
   m_TagString: Untagged
@@ -1907,6 +1962,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1039701119979041671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 801253063116875916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &816733363843893085
 GameObject:
   m_ObjectHideFlags: 0
@@ -1995,6 +2067,8 @@ GameObject:
   - component: {fileID: 3418715453584995011}
   - component: {fileID: 6052742440841885524}
   - component: {fileID: 9016345155295285032}
+  - component: {fileID: 2449290031768586368}
+  - component: {fileID: 6940501678266383165}
   m_Layer: 5
   m_Name: ContainerLootPanel
   m_TagString: Untagged
@@ -2114,6 +2188,34 @@ MonoBehaviour:
   m_FlexibleWidth: 0
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
+--- !u!225 &2449290031768586368
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 816975399631744818}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &6940501678266383165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 816975399631744818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 1
+  _scaleTarget: {fileID: 0}
 --- !u!1 &833559040543230703
 GameObject:
   m_ObjectHideFlags: 0
@@ -2357,6 +2459,7 @@ GameObject:
   - component: {fileID: 3940968929925077588}
   - component: {fileID: 2187157411538164512}
   - component: {fileID: 6414294018909559971}
+  - component: {fileID: 8574904943912285629}
   m_Layer: 5
   m_Name: WeaponSetBMainHand
   m_TagString: Untagged
@@ -2486,6 +2589,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8574904943912285629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 880878791375065964}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &901941654776614673
 GameObject:
   m_ObjectHideFlags: 0
@@ -2499,6 +2619,7 @@ GameObject:
   - component: {fileID: 3247361581675018990}
   - component: {fileID: 1896493247333288411}
   - component: {fileID: 6634097955520133015}
+  - component: {fileID: 605515979607853614}
   m_Layer: 5
   m_Name: Slot15
   m_TagString: Untagged
@@ -2629,6 +2750,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &605515979607853614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 901941654776614673}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &925790798845077640
 GameObject:
   m_ObjectHideFlags: 0
@@ -2779,6 +2917,7 @@ GameObject:
   - component: {fileID: 3125006495182221914}
   - component: {fileID: 2563092434127793433}
   - component: {fileID: 8623400003193067792}
+  - component: {fileID: 606777020145950552}
   m_Layer: 5
   m_Name: Slot07
   m_TagString: Untagged
@@ -2909,6 +3048,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &606777020145950552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1143966866092157979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1223176314044865046
 GameObject:
   m_ObjectHideFlags: 0
@@ -3072,6 +3228,7 @@ GameObject:
   - component: {fileID: 3067971203542709635}
   - component: {fileID: 7360038558109683874}
   - component: {fileID: 8869779450928717286}
+  - component: {fileID: 8690018446568969949}
   m_Layer: 5
   m_Name: ContextActionButtonTemplate
   m_TagString: Untagged
@@ -3195,6 +3352,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RaidLootContextActionButton
   _button: {fileID: 7360038558109683874}
   _label: {fileID: 4869326021490433839}
+--- !u!114 &8690018446568969949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1419001424281315748}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1517786935711186485
 GameObject:
   m_ObjectHideFlags: 0
@@ -3831,6 +4005,7 @@ GameObject:
   - component: {fileID: 3138489884454073843}
   - component: {fileID: 8926774474603385094}
   - component: {fileID: 8550517146411535361}
+  - component: {fileID: 2540888469673932781}
   m_Layer: 5
   m_Name: Slot05
   m_TagString: Untagged
@@ -3961,6 +4136,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2540888469673932781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1630546139778753290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1706403203468761758
 GameObject:
   m_ObjectHideFlags: 0
@@ -4385,6 +4577,7 @@ GameObject:
   - component: {fileID: 4393640107857243522}
   - component: {fileID: 1030954151625999806}
   - component: {fileID: 4984783146162337158}
+  - component: {fileID: 8635095197471869733}
   m_Layer: 5
   m_Name: WeaponSetAMainHand
   m_TagString: Untagged
@@ -4514,6 +4707,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8635095197471869733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1972984252315729344}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1973120600342640403
 GameObject:
   m_ObjectHideFlags: 0
@@ -4527,6 +4737,7 @@ GameObject:
   - component: {fileID: 2806725307993044655}
   - component: {fileID: 3687457116435507854}
   - component: {fileID: 6935527948509773834}
+  - component: {fileID: 2881370906889135716}
   m_Layer: 5
   m_Name: Slot23
   m_TagString: Untagged
@@ -4657,6 +4868,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2881370906889135716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1973120600342640403}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1979304889800956124
 GameObject:
   m_ObjectHideFlags: 0
@@ -5019,6 +5247,7 @@ GameObject:
   - component: {fileID: 1375985749204122312}
   - component: {fileID: 4317340828190086217}
   - component: {fileID: 3934684432238881605}
+  - component: {fileID: 6468396918088945085}
   m_Layer: 5
   m_Name: Slot00
   m_TagString: Untagged
@@ -5149,6 +5378,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6468396918088945085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2098718471778477968}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2134812279147695780
 GameObject:
   m_ObjectHideFlags: 0
@@ -5511,6 +5757,7 @@ GameObject:
   - component: {fileID: 2232511208451487509}
   - component: {fileID: 1531120656505940477}
   - component: {fileID: 3655257791013576773}
+  - component: {fileID: 3775957378180601913}
   m_Layer: 5
   m_Name: Slot03
   m_TagString: Untagged
@@ -5641,6 +5888,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3775957378180601913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2370114844564412225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2401999221044474275
 GameObject:
   m_ObjectHideFlags: 0
@@ -5654,6 +5918,7 @@ GameObject:
   - component: {fileID: 4541735614037764346}
   - component: {fileID: 1719220285904120192}
   - component: {fileID: 4293538656066959576}
+  - component: {fileID: 3948257549392725636}
   m_Layer: 5
   m_Name: WeaponSetBOffHand
   m_TagString: Untagged
@@ -5783,6 +6048,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3948257549392725636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2401999221044474275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2423417529900580351
 GameObject:
   m_ObjectHideFlags: 0
@@ -6147,6 +6429,7 @@ GameObject:
   - component: {fileID: 8883759557810748675}
   - component: {fileID: 1478277976754166476}
   - component: {fileID: 7201084322663083794}
+  - component: {fileID: 2190460887725955481}
   m_Layer: 5
   m_Name: Slot09
   m_TagString: Untagged
@@ -6277,6 +6560,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2190460887725955481
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2439064564471468829}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2482391814583237909
 GameObject:
   m_ObjectHideFlags: 0
@@ -7337,6 +7637,7 @@ GameObject:
   - component: {fileID: 5647019993858460489}
   - component: {fileID: 2844413073784869480}
   - component: {fileID: 8573452503092311093}
+  - component: {fileID: 9155215835596215330}
   m_Layer: 5
   m_Name: Slot11
   m_TagString: Untagged
@@ -7467,6 +7768,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &9155215835596215330
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2750043393062521428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2833493180573631340
 GameObject:
   m_ObjectHideFlags: 0
@@ -7480,6 +7798,7 @@ GameObject:
   - component: {fileID: 1486294546582199649}
   - component: {fileID: 7928822453740958808}
   - component: {fileID: 5035357989537953889}
+  - component: {fileID: 4387490835381398361}
   m_Layer: 5
   m_Name: Slot20
   m_TagString: Untagged
@@ -7610,6 +7929,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4387490835381398361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2833493180573631340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2847008974130022338
 GameObject:
   m_ObjectHideFlags: 0
@@ -8869,6 +9205,7 @@ GameObject:
   - component: {fileID: 7708429364202562194}
   - component: {fileID: 4487462728206298850}
   - component: {fileID: 5001918081706452147}
+  - component: {fileID: 5269636253815366784}
   m_Layer: 5
   m_Name: Slot24
   m_TagString: Untagged
@@ -8999,6 +9336,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5269636253815366784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3277154334586155434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &3300743273381984107
 GameObject:
   m_ObjectHideFlags: 0
@@ -9374,6 +9728,7 @@ GameObject:
   - component: {fileID: 4477727671987431513}
   - component: {fileID: 7977432586113755063}
   - component: {fileID: 2664325375790075062}
+  - component: {fileID: 6738573940798437837}
   m_Layer: 5
   m_Name: Slot16
   m_TagString: Untagged
@@ -9504,6 +9859,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6738573940798437837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3385093257929127036}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &3404908268901227345
 GameObject:
   m_ObjectHideFlags: 0
@@ -9517,6 +9889,7 @@ GameObject:
   - component: {fileID: 5166267093915727692}
   - component: {fileID: 4116751184570467725}
   - component: {fileID: 4989554331590259270}
+  - component: {fileID: 3518051753635759720}
   m_Layer: 5
   m_Name: Slot18
   m_TagString: Untagged
@@ -9647,6 +10020,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3518051753635759720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3404908268901227345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &3652425651810165125
 GameObject:
   m_ObjectHideFlags: 0
@@ -10146,6 +10536,7 @@ GameObject:
   - component: {fileID: 7567744539174054139}
   - component: {fileID: 5979489381283839714}
   - component: {fileID: 344252975762825426}
+  - component: {fileID: 6521997884620380851}
   m_Layer: 5
   m_Name: Slot13
   m_TagString: Untagged
@@ -10276,6 +10667,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6521997884620380851
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4066153306975185839}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4066685815346348043
 GameObject:
   m_ObjectHideFlags: 0
@@ -10289,6 +10697,7 @@ GameObject:
   - component: {fileID: 7726688254686593397}
   - component: {fileID: 3308290577783555936}
   - component: {fileID: 2322608604079317475}
+  - component: {fileID: 4193773861160254411}
   m_Layer: 5
   m_Name: Helmet
   m_TagString: Untagged
@@ -10418,6 +10827,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4193773861160254411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4066685815346348043}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4154563523554613822
 GameObject:
   m_ObjectHideFlags: 0
@@ -10506,6 +10932,7 @@ GameObject:
   - component: {fileID: 8052865374723119233}
   - component: {fileID: 338631035098530877}
   - component: {fileID: 4605435707599843852}
+  - component: {fileID: 4443808214004902048}
   m_Layer: 5
   m_Name: Slot29
   m_TagString: Untagged
@@ -10636,6 +11063,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4443808214004902048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4177874515478363989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4198595891186347978
 GameObject:
   m_ObjectHideFlags: 0
@@ -11130,6 +11574,7 @@ GameObject:
   - component: {fileID: 5703200489441778691}
   - component: {fileID: 2165890862071868233}
   - component: {fileID: 7025542020648376278}
+  - component: {fileID: 7705136777169536363}
   m_Layer: 5
   m_Name: Slot14
   m_TagString: Untagged
@@ -11260,6 +11705,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7705136777169536363
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4446450242958721327}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4472141215700025468
 GameObject:
   m_ObjectHideFlags: 0
@@ -11273,6 +11735,7 @@ GameObject:
   - component: {fileID: 1419841892226121905}
   - component: {fileID: 9059906219953766511}
   - component: {fileID: 1432874441255224243}
+  - component: {fileID: 3625422121358533732}
   m_Layer: 5
   m_Name: Slot02
   m_TagString: Untagged
@@ -11403,6 +11866,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3625422121358533732
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4472141215700025468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4593202238613045818
 GameObject:
   m_ObjectHideFlags: 0
@@ -11829,6 +12309,7 @@ GameObject:
   - component: {fileID: 7904300078224568340}
   - component: {fileID: 7981139160861213065}
   - component: {fileID: 756167295077390637}
+  - component: {fileID: 3639732929891635669}
   m_Layer: 5
   m_Name: Slot08
   m_TagString: Untagged
@@ -11959,6 +12440,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3639732929891635669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4655714273386982270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4788272497965047463
 GameObject:
   m_ObjectHideFlags: 0
@@ -12199,6 +12697,7 @@ GameObject:
   - component: {fileID: 4340861708356210871}
   - component: {fileID: 145820439006605127}
   - component: {fileID: 8764124308210984052}
+  - component: {fileID: 7830612752160417116}
   m_Layer: 5
   m_Name: Gloves
   m_TagString: Untagged
@@ -12328,6 +12827,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7830612752160417116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4916739649828301444}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4994737584358181902
 GameObject:
   m_ObjectHideFlags: 0
@@ -12690,6 +13206,7 @@ GameObject:
   - component: {fileID: 1355590392796051182}
   - component: {fileID: 3408197579186517688}
   - component: {fileID: 2140031404635046759}
+  - component: {fileID: 4759206362834635995}
   m_Layer: 5
   m_Name: Slot01
   m_TagString: Untagged
@@ -12820,6 +13337,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4759206362834635995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5157655889884858325}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5163656151652308831
 GameObject:
   m_ObjectHideFlags: 0
@@ -13743,6 +14277,7 @@ GameObject:
   - component: {fileID: 797344423058224067}
   - component: {fileID: 4204788110061826689}
   - component: {fileID: 1657044846212985013}
+  - component: {fileID: 9208847446050044847}
   m_Layer: 5
   m_Name: Slot00
   m_TagString: Untagged
@@ -13873,6 +14408,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &9208847446050044847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5309256402907662076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5419213189230123994
 GameObject:
   m_ObjectHideFlags: 0
@@ -14303,6 +14855,7 @@ GameObject:
   - component: {fileID: 6698679847434284758}
   - component: {fileID: 5819012503498693431}
   - component: {fileID: 8209866327773649112}
+  - component: {fileID: 480621280554132231}
   m_Layer: 5
   m_Name: Slot03
   m_TagString: Untagged
@@ -14433,6 +14986,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &480621280554132231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5564192224431936785}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5587977470791644784
 GameObject:
   m_ObjectHideFlags: 0
@@ -15343,6 +15913,7 @@ GameObject:
   - component: {fileID: 8614159237127050507}
   - component: {fileID: 3057710986969305425}
   - component: {fileID: 2169927025195076644}
+  - component: {fileID: 2411305179926230219}
   m_Layer: 5
   m_Name: Slot02
   m_TagString: Untagged
@@ -15473,6 +16044,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2411305179926230219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5767731433475310168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5771383222468099899
 GameObject:
   m_ObjectHideFlags: 0
@@ -16442,6 +17030,7 @@ GameObject:
   - component: {fileID: 167537745828522785}
   - component: {fileID: 8477846272281376193}
   - component: {fileID: 4957942263210627235}
+  - component: {fileID: 801317517032541825}
   m_Layer: 5
   m_Name: TakeAllButton
   m_TagString: Untagged
@@ -16551,6 +17140,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &801317517032541825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6010101857960487472}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6055773974608204773
 GameObject:
   m_ObjectHideFlags: 0
@@ -16913,6 +17519,7 @@ GameObject:
   - component: {fileID: 8380118622015289153}
   - component: {fileID: 8610117610195336975}
   - component: {fileID: 834839915916688694}
+  - component: {fileID: 4403286064293737759}
   m_Layer: 5
   m_Name: Slot26
   m_TagString: Untagged
@@ -17043,6 +17650,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4403286064293737759
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6218097260935438439}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6219821994045009159
 GameObject:
   m_ObjectHideFlags: 0
@@ -17056,6 +17680,7 @@ GameObject:
   - component: {fileID: 5429882324154380919}
   - component: {fileID: 2959310878104144528}
   - component: {fileID: 1735707190045034049}
+  - component: {fileID: 1193004279358732047}
   m_Layer: 5
   m_Name: Armor
   m_TagString: Untagged
@@ -17185,6 +17810,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1193004279358732047
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6219821994045009159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6264350500381335230
 GameObject:
   m_ObjectHideFlags: 0
@@ -17410,6 +18052,7 @@ GameObject:
   - component: {fileID: 5237887936175567842}
   - component: {fileID: 5813805889377386002}
   - component: {fileID: 13109219210256967}
+  - component: {fileID: 7691900092602612154}
   m_Layer: 5
   m_Name: Slot27
   m_TagString: Untagged
@@ -17540,6 +18183,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7691900092602612154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6355685087492582268}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6386141134157388149
 GameObject:
   m_ObjectHideFlags: 0
@@ -17628,6 +18288,7 @@ GameObject:
   - component: {fileID: 3746325057168017448}
   - component: {fileID: 5089711286802952050}
   - component: {fileID: 3781747239787089404}
+  - component: {fileID: 4145274297399294522}
   m_Layer: 5
   m_Name: Slot01
   m_TagString: Untagged
@@ -17758,6 +18419,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4145274297399294522
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6495244291643445087}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6561906810507348644
 GameObject:
   m_ObjectHideFlags: 0
@@ -17846,6 +18524,7 @@ GameObject:
   - component: {fileID: 7284712777680638739}
   - component: {fileID: 7427279729251231782}
   - component: {fileID: 6032936988731007637}
+  - component: {fileID: 2637902847047843905}
   m_Layer: 5
   m_Name: Slot21
   m_TagString: Untagged
@@ -17976,6 +18655,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2637902847047843905
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6704706707445218694}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6761220823807831125
 GameObject:
   m_ObjectHideFlags: 0
@@ -18234,6 +18930,7 @@ GameObject:
   - component: {fileID: 9217178160311943776}
   - component: {fileID: 5968734295660987845}
   - component: {fileID: 7727302173867694503}
+  - component: {fileID: 7025159144435577872}
   m_Layer: 5
   m_Name: Slot22
   m_TagString: Untagged
@@ -18364,6 +19061,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7025159144435577872
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6811162289182414218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6819577215035950580
 GameObject:
   m_ObjectHideFlags: 0
@@ -18377,6 +19091,7 @@ GameObject:
   - component: {fileID: 1210645075148518919}
   - component: {fileID: 7894118993427384441}
   - component: {fileID: 2974704926938964222}
+  - component: {fileID: 4640024557533562840}
   m_Layer: 5
   m_Name: Slot17
   m_TagString: Untagged
@@ -18507,6 +19222,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4640024557533562840
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6819577215035950580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6843459091253648513
 GameObject:
   m_ObjectHideFlags: 0
@@ -18657,6 +19389,7 @@ GameObject:
   - component: {fileID: 4568991348870891580}
   - component: {fileID: 3039257367673347827}
   - component: {fileID: 6356347136193786521}
+  - component: {fileID: 1895974573018827663}
   m_Layer: 5
   m_Name: Slot28
   m_TagString: Untagged
@@ -18787,6 +19520,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1895974573018827663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6932851535549480409}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6952427506478123828
 GameObject:
   m_ObjectHideFlags: 0
@@ -19087,6 +19837,7 @@ GameObject:
   - component: {fileID: 6845755687238096013}
   - component: {fileID: 5334793147772011047}
   - component: {fileID: 892186579334879306}
+  - component: {fileID: 958397565619236338}
   m_Layer: 5
   m_Name: Boots
   m_TagString: Untagged
@@ -19216,6 +19967,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &958397565619236338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7163693437302746399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7244999584846481761
 GameObject:
   m_ObjectHideFlags: 0
@@ -19516,6 +20284,7 @@ GameObject:
   - component: {fileID: 9079244179660807764}
   - component: {fileID: 1665602011171205285}
   - component: {fileID: 6329600756984292170}
+  - component: {fileID: 5868393976313161331}
   m_Layer: 5
   m_Name: Slot04
   m_TagString: Untagged
@@ -19646,6 +20415,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5868393976313161331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7277686354053803148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7287218729131060397
 GameObject:
   m_ObjectHideFlags: 0
@@ -20843,6 +21629,7 @@ GameObject:
   - component: {fileID: 2414890307990752091}
   - component: {fileID: 871671839845222730}
   - component: {fileID: 4348714202857664517}
+  - component: {fileID: 4286383935874823612}
   m_Layer: 5
   m_Name: Slot05
   m_TagString: Untagged
@@ -20973,6 +21760,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4286383935874823612
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7531374091067839282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7641960202366925323
 GameObject:
   m_ObjectHideFlags: 0
@@ -21123,6 +21927,7 @@ GameObject:
   - component: {fileID: 3985835334565056524}
   - component: {fileID: 6344056037170543358}
   - component: {fileID: 3574594556328662976}
+  - component: {fileID: 8526868246430789724}
   m_Layer: 5
   m_Name: WeaponSetAOffHand
   m_TagString: Untagged
@@ -21252,6 +22057,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8526868246430789724
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7720404600671863457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7750394452019383044
 GameObject:
   m_ObjectHideFlags: 0
@@ -21265,6 +22087,7 @@ GameObject:
   - component: {fileID: 7172680205906427501}
   - component: {fileID: 4855532710026829109}
   - component: {fileID: 1774231115851261156}
+  - component: {fileID: 7507415331528577727}
   m_Layer: 5
   m_Name: Slot06
   m_TagString: Untagged
@@ -21395,6 +22218,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7507415331528577727
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7750394452019383044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7763066287213979629
 GameObject:
   m_ObjectHideFlags: 0
@@ -21545,6 +22385,7 @@ GameObject:
   - component: {fileID: 3775166621896808752}
   - component: {fileID: 7361489901079174269}
   - component: {fileID: 9165831705360260624}
+  - component: {fileID: 1640383408313776181}
   m_Layer: 5
   m_Name: Slot12
   m_TagString: Untagged
@@ -21675,6 +22516,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1640383408313776181
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7889269711052651215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7983517220385376317
 GameObject:
   m_ObjectHideFlags: 0

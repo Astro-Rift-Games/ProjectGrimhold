@@ -24,7 +24,7 @@ public sealed class TownPlayerMenuView : MonoBehaviour
     public event Action CloseRequested;
 
     public RectTransform ContentRoot => _contentRoot;
-    public bool IsOpen => _window != null && _window.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(_window);
 
     private void Awake()
     {
@@ -98,10 +98,7 @@ public sealed class TownPlayerMenuView : MonoBehaviour
 
     public void SetOpen(bool open)
     {
-        if (_window != null && _window.activeSelf != open)
-        {
-            _window.SetActive(open);
-        }
+        UiPanelVisibility.SetVisible(_window, open);
     }
 
     private void ClearTabs()

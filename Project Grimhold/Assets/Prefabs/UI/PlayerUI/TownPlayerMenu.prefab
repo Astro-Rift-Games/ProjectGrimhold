@@ -47,6 +47,7 @@ GameObject:
   - component: {fileID: 6517311319541292094}
   - component: {fileID: 7898095331784832381}
   - component: {fileID: 8515528487252249373}
+  - component: {fileID: 5214193255870186683}
   m_Layer: 0
   m_Name: CloseButton
   m_TagString: Untagged
@@ -156,6 +157,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5214193255870186683
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 575624610540964969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &943057827949291931
 GameObject:
   m_ObjectHideFlags: 0
@@ -383,6 +401,7 @@ GameObject:
   - component: {fileID: 7855018587841519375}
   - component: {fileID: 714008193282971161}
   - component: {fileID: 5705345851595800863}
+  - component: {fileID: 5841329995417639044}
   m_Layer: 0
   m_Name: TabButtonTemplate
   m_TagString: Untagged
@@ -492,6 +511,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5841329995417639044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226702449835001376}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1502086202466174474
 GameObject:
   m_ObjectHideFlags: 0
@@ -560,6 +596,8 @@ GameObject:
   - component: {fileID: 8053926074192115345}
   - component: {fileID: 1403554531903476079}
   - component: {fileID: 6136011093265549087}
+  - component: {fileID: 7173883330786781848}
+  - component: {fileID: 54993431161719579}
   m_Layer: 0
   m_Name: Window
   m_TagString: Untagged
@@ -625,6 +663,34 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &7173883330786781848
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2254317751416025233}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &54993431161719579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2254317751416025233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 0.96
+  _scaleTarget: {fileID: 0}
 --- !u!1 &3020950963696316575
 GameObject:
   m_ObjectHideFlags: 0

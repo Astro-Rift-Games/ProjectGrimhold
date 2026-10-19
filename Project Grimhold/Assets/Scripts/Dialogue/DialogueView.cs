@@ -25,7 +25,7 @@ public sealed class DialogueView : MonoBehaviour, IDialogueView
     [Tooltip("Optional indicator to show when the player can continue.")]
     [SerializeField] private GameObject _continueIndicator;
 
-    public bool IsVisible => _panelRoot != null && _panelRoot.activeSelf;
+    public bool IsVisible => UiPanelVisibility.IsVisible(_panelRoot);
 
     private void Awake()
     {
@@ -34,10 +34,7 @@ public sealed class DialogueView : MonoBehaviour, IDialogueView
 
     public void Show(string speakerName, Sprite portrait)
     {
-        if (_panelRoot != null)
-        {
-            _panelRoot.SetActive(true);
-        }
+        UiPanelVisibility.SetVisible(_panelRoot, true);
 
         if (_speakerNameText != null)
         {
@@ -81,9 +78,6 @@ public sealed class DialogueView : MonoBehaviour, IDialogueView
 
     public void Hide()
     {
-        if (_panelRoot != null)
-        {
-            _panelRoot.SetActive(false);
-        }
+        UiPanelVisibility.SetVisible(_panelRoot, false);
     }
 }

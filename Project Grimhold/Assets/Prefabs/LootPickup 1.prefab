@@ -188,4 +188,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
   _renderers:
   - {fileID: 3134618034655897849}
+  _occlusionOnly: 1
   _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0

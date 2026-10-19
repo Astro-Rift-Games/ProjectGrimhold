@@ -143,6 +143,40 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
             isActive);
     }
 
+    /// <summary>
+    /// Presents one Quick Slot binding. A bound definition with no available units stays visible
+    /// with a zero amount so the player sees it is currently unavailable.
+    /// </summary>
+    public void PresentQuickSlot(
+        int slotIndex,
+        bool assigned,
+        LootId lootId,
+        Sprite icon,
+        string displayName,
+        int amount,
+        bool canClear)
+    {
+        Clear();
+        string slotLabel = $"Quick Slot {slotIndex + 1}";
+        if (!assigned)
+        {
+            if (_nameText != null) _nameText.text = $"{slotLabel}\nVacío";
+            return;
+        }
+
+        _lootId = lootId;
+        _isOccupied = true;
+        if (_icon != null)
+        {
+            _icon.sprite = icon;
+            _icon.enabled = icon != null;
+        }
+
+        if (_nameText != null) _nameText.text = $"{slotLabel}\n{displayName}";
+        if (_amountText != null) _amountText.text = $"× {amount}";
+        SetInteraction(canClear ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly, false);
+    }
+
     private static string ResolveSlotLabel(EquipmentSlot slot) => slot switch
     {
         EquipmentSlot.WeaponSetAMainHand => "Set A / Main Hand",

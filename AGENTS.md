@@ -1,208 +1,112 @@
-# AGENTS.md
+# Project Grimhold — repository instructions
 
-## Scope and repository map
+## Scope and instruction levels
 
-These instructions apply to the whole `Astro-Rift-Games/ProjectGrimhold` repository.
+This file defines the shared development instructions for the entire `Astro-Rift-Games/ProjectGrimhold` repository.
 
-```text
-ProjectGrimhold/
-├── .agents/
-│   └── skills/
-├── AGENTS.md
-├── Project Grimhold/        # Unity project
-│   ├── AGENTS.md            # Unity/Fusion rules
-│   ├── Assets/
-│   ├── Docs/Architecture/
-│   ├── Packages/
-│   └── ProjectSettings/
-├── backend/
-├── docs/
-└── tools/
-    └── grimhold-docs-mcp/
-```
+These instructions must work independently of each contributor's personal agent configuration.
 
-For work under `Project Grimhold/`, read `Project Grimhold/AGENTS.md` before task-specific work. Do not assume a nested `AGENTS.md` was auto-loaded when the session started from repository root.
+- **Repository instructions (this file):** shared development standards, repository navigation, sources of truth, work-item scope, and cross-system boundaries.
+- **Unity instructions (`Project Grimhold/AGENTS.md`):** Unity/Fusion configuration, simulation, assets, performance, and testing.
 
-Project Grimhold is a multiplayer 2D top-down PvPvE extraction RPG. Favor simple, explicit, modular solutions appropriate for a four-person MVP team. Avoid speculative systems and framework-heavy architecture.
+Personal or global agent instructions may supplement these rules but must not be required to understand or work on this repository.
 
----
+Before modifying files under `Project Grimhold/`, read the nested Unity instructions if they are not already loaded.
 
-## Existing HacknPlan work items
+Project Grimhold is a multiplayer 2D top-down PvPvE extraction RPG built by a four-person MVP team.
 
-When the user names an existing User Story, TASK or subtask:
+## Shared Development Standards
 
-1. Read it first through HacknPlan MCP and read its parent when relevant.
-2. Treat it as the scope/acceptance contract.
-3. Do not redesign, recreate, split or update it unless explicitly requested.
-4. Classify discovered missing work as current-task, follow-up, or blocker.
-5. Do not make the current task responsible for unrelated future systems.
-6. If HacknPlan is read-only, do not claim remote mutations were performed.
+- Follow existing architecture and coding conventions; inspect relevant implementation and contracts before changing them.
+- Prefer simple, maintainable solutions. Keep changes within the requested scope; avoid unrelated refactors, speculative abstractions and unnecessary dependencies.
+- Preserve contributors' uncommitted work. Do not overwrite, revert or clean up unrelated changes; ask when they conflict with the task.
+- Commits, pushes, publishing and destructive operations require explicit authorization for that action and target. Permission to edit is not permission to deliver or discard work.
+- Run relevant tests and available build, lint or structural checks. Use failing tests before behavior fixes when practical; documentation-only work needs proportionate Markdown/reference checks.
+- Review the full task diff against acceptance criteria, including unintended generated or serialized changes. Report observed results, failed/skipped/unavailable checks, remaining manual checks and out-of-scope follow-ups honestly.
 
-HacknPlan defines requested scope. It does not override current implementation, approved architecture, or authoritative Game Design for responsibilities owned by those sources.
+## Repository map
 
-For an existing named HacknPlan TASK/User Story, HacknPlan is the work-tracking
-source of truth. Do not create odd/tasks, SDD task records, local task mirrors,
-or other duplicate tracking artifacts unless explicitly requested.
-
----
+| Path | Responsibility |
+| --- | --- |
+| `Project Grimhold/Assets/Scripts/` | Unity gameplay, networking, application services and backend clients |
+| `Project Grimhold/Assets/Tests/` | Unity EditMode and PlayMode tests |
+| `Project Grimhold/Docs/Architecture/` | Technical contracts and system-specific architecture |
+| `Project Grimhold/Packages/`, `Project Grimhold/ProjectSettings/` | Unity dependencies and project configuration |
+| `backend/` | Node.js, Express and Mongoose service; see [backend README](backend/README.md) and [package scripts](backend/package.json) |
+| `docs/` | Supporting audits and plans, not a replacement for architecture or live Game Design |
+| `tools/grimhold-docs-mcp/` | Read-only live documentation access; see [server README](tools/grimhold-docs-mcp/README.md) |
+| `.agents/skills/` | Project-specific task execution and commit-message guidance |
 
 ## Sources of truth
 
-Resolve authority by responsibility.
+Resolve authority by responsibility, not by treating every document as interchangeable.
 
-### Current technical state
+| Question | Authoritative source |
+| --- | --- |
+| What exists now? | Code, assets and configuration in the target branch |
+| What technical contract must be preserved? | Relevant approved sections of `Project Grimhold/Docs/Architecture/`; check status and distinguish current decisions from historical plans and future extensions |
+| What gameplay behavior is intended? | Current live Game Design in Google Drive, normally accessed through `grimhold-docs` |
+| What does a named TASK/User Story require? | Existing HacknPlan item and relevant parent |
+| What was previously discussed? | Engram, prior chats, exports and plans are supplemental only |
 
-1. Current code, prefabs, scenes, assets and configuration in the target branch; exact Unity, Photon Fusion and package versions in `New-Testing`.
-2. Relevant approved technical documents, primarily `Project Grimhold/Docs/Architecture/`.
-3. Repository `AGENTS.md` instructions.
-4. Current live Game Design when gameplay intent is relevant.
-5. Engram, uploaded copies, plans, walkthroughs and prior conversations only as supplemental context.
+Implementation proves current behavior, not intended behavior or approval. If sources conflict, identify which responsibility each owns, report the discrepancy and ask before changing approved architecture or Game Design. Do not silently turn stale documentation or current implementation into a new contract.
 
-Current implementation proves what exists; it does not automatically prove intended behavior.
+For gameplay-dependent work, use `search_documents` to discover each owning live document, `get_document_outline` as needed, then section-scoped `get_document` reads. Do not hardcode document IDs or substitute cached copies while `grimhold-docs` is available. See tool fallbacks below when access is unavailable.
 
-### Gameplay intent
+## Cross-system contracts
 
-Authoritative gameplay rules live in Google Drive and are accessed through
-`grimhold-docs`.
+Read the owning documents before changing a boundary; paths below are relative to `Project Grimhold/Docs/Architecture/`.
 
-When gameplay behavior matters:
+| Boundary | References |
+| --- | --- |
+| Shared domain identifiers, capabilities and public gameplay contracts | `Project_Grimhold_Contratos_Base_v1.md` |
+| Backend identity/authentication and Unity integration | `RemoteIdentityAndAuthArchitecture.md` |
+| Character aggregate, local cache, durable persistence and backend synchronization | `LocalPlayerPersistenceArchitecture.md` |
+| Town-to-Raid preparation and session transitions | `TownRaidQueueArchitecture.md`, `LobbyAndSessionTransitionArchitecture.md` |
+| Runner lifecycle, participant/avatar ownership and Raid cleanup | `SessionLifecycleAndSpawning.md`, `RaidParticipantArchitecture.md`, `RaidGenerationLifecycleArchitecture.md` |
 
-- use `search_documents` to identify the owning document or documents;
-- use `get_document_outline` when needed to locate the relevant section;
-- use `get_document` to read only the relevant section whenever possible;
-- for cross-system changes, search for and read every document that owns affected behavior;
-- do not substitute memory, cached summaries, uploaded/exported copies or prior
-  conversations while `grimhold-docs` is available;
-- do not invent unresolved Game Design.
+Keep backend identity/persistence, application-local state and runner-scoped replicated state distinct. Unity accesses the backend through its HTTP clients, not direct MongoDB access. Do not treat a local cache or a Fusion `PlayerRef` as durable character identity. Preserve each document's ownership and acceptance boundaries instead of adding parallel stores or coordinators.
 
-Do not depend on hardcoded document IDs, titles or document-number routing.
+## Existing work items and planning
 
-If `grimhold-docs` is unavailable, report that before making a definitive
-Game Design-dependent decision.
+When the user names an existing HacknPlan TASK, User Story or subtask:
 
-### Conflicts
+1. Read it first through HacknPlan MCP, including the parent when relevant; use the fallback below if MCP is unavailable.
+2. Use it as the scope/acceptance contract; do not recreate, split, redesign or update it without an explicit request.
+3. Classify missing work as current-task, follow-up or blocker. Foundational tasks resolve only what their dependents need now.
 
-When sources disagree:
+HacknPlan is the tracking source of truth for a named existing item. Do not create duplicate `odd/tasks`, SDD records or local task mirrors unless explicitly requested. A sufficiently defined item does not need another proposal/specification. If specification/design is unresolved, use Gentle AI SDD when available or a concise ordinary proposal; either requires resolution of open decisions before affected implementation.
 
-1. identify the conflict;
-2. identify which source owns each responsibility;
-3. distinguish current implementation from intended behavior;
-4. report the conflict before creating another contract;
-5. apply the smallest change that restores one source of truth;
-6. ask before changing approved architecture or Game Design.
+For architectural or cross-system changes, provide a focused plan covering the result, affected contracts/files, exclusions and validation. File count alone does not require a plan.
 
----
+## Project workflow and tools
 
-## Tool routing
+- Confirm the repository, target branch and working tree before edits. Stay on a specified branch; do not create worktrees unless explicitly requested.
+- Inspect relevant architecture and identify ownership, authority, persistence and dependency boundaries before implementation.
+- Verify version-sensitive APIs against the target branch's configuration, then Context7 or official documentation. `New-Testing` is the existing version baseline; compare it when relevant, but do not substitute its state for the branch being edited.
+- Unity Editor, serialized-state and runtime checks belong to the nested Unity instructions; Unity MCP does not replace source inspection.
+- Ask before changing approved architecture, Game Design or dependencies. Dependency proposals must establish the existing project's gap and impact before adoption.
+- When replacing a contract, check consumers, migrate them minimally and remove the obsolete path only when safe. Update the owning architecture for an authorized contract change; do not rewrite Game Design just to match implementation.
 
-| Need | Route |
-|---|---|
-| Existing TASK/US | HacknPlan first |
-| Code relationships / blast radius | CodeGraph first → source verification |
-| Current implementation | Repository source |
-| Technical contract | Relevant Architecture |
-| Gameplay behavior | grimhold-docs |
-| Prefab/scene/Inspector/serialized state | Unity MCP + source |
-| Input Actions / ScriptableObject Editor state | Unity MCP when needed |
-| Unity compile/Console/Test Runner/Play Mode | Unity MCP |
-| Version-sensitive Unity/Fusion API | Verify repo version → Context7/official docs |
-| Previous findings | Engram, supplemental only |
+### Tool availability and fallbacks
 
-Do not use Unity MCP as a substitute for CodeGraph/source inspection.
-Do not use CodeGraph as final behavioral authority.
-Do not let Engram or prior chats override current repository/Architecture/live Game Design.
+Use the preferred tools when available; their absence changes the access method, not source authority or approval requirements.
 
----
+| Tool | Preferred workflow | Safe alternative when unavailable |
+| --- | --- | --- |
+| HacknPlan MCP | Read the named item and relevant parent before work | Read them through the web UI if accessible, or ask for their current descriptions, acceptance criteria and relevant parent context. Block scope-dependent changes until sufficient evidence is supplied; do not recreate or update the item as a workaround. |
+| `grimhold-docs` | Discover and read the owning live Game Design sections | Read the current source directly in Google Drive if accessible, or ask the owner for the relevant current sections and confirmation of their authority. Unverified exports remain supplemental; block design-dependent changes if authoritative intent is unresolved. |
+| CodeGraph | Map relationships/blast radius, then verify in source | Use targeted text/symbol searches and inspect definitions, callers and tests directly. |
+| Gentle AI | Use applicable project skills and SDD for unresolved design | Read available `SKILL.md` files directly and use ordinary planning, editing and verification tools. If a skill is missing, follow these repository instructions and report the gap. No Gentle AI installation or personal agent configuration is required. |
+| Unity MCP | Inspect Editor/runtime state and execute Unity checks as specified by the nested instructions | Use the Unity Editor and Test Runner directly. If unavailable too, report the unverified state and block changes whose correctness depends on that missing evidence. |
 
-## Repository workflow
+Report unavailable tools and the alternative actually used. Missing tools never authorize inventing requirements or Inspector state, bypassing approved contracts, changing Game Design without approval, or claiming remote updates or checks that were not performed.
 
-Before modifying anything:
+## Project skills
 
-1. Confirm repository, target branch and working tree.
-2. If a branch was specified, work only from that branch.
-3. Inspect current implementation; use CodeGraph first when relationships matter.
-4. Read relevant Architecture.
-5. Read live Game Design only when behavior depends on it.
-6. Inspect serialized/Editor/runtime state only when the task depends on it.
-7. Identify ownership, authority, persistence and dependency boundaries.
-8. Keep the change limited to the work item.
+Read the relevant repository skill when available rather than duplicating its procedure:
 
-For exact Unity, Photon Fusion or package versions, verify repository files in `New-Testing`; do not infer versions from memory or historical docs.
+- Existing work-item implementation, review, debugging or completion: [grimhold-task-execution](.agents/skills/grimhold-task-execution/SKILL.md).
+- Drafting a commit title/description: [grimhold-commit-message](.agents/skills/grimhold-commit-message/SKILL.md).
 
-Do not create worktrees unless explicitly requested. Do not make unrelated refactors.
-
----
-
-## Planning, SDD and delegation
-
-A sufficiently defined HacknPlan TASK is already a work contract. Do not automatically generate another proposal/spec/task breakdown.
-
-For architectural, cross-system or multi-file work, produce a focused implementation plan covering result, affected contracts, expected files/assets, exclusions and validation.
-
-Use Gentle AI SDD only when the work is not sufficiently specified, needs proposal/spec/design before implementation, or the user explicitly requests SDD.
-
-Subagents may be used for bounded exploration, review or verification when they materially reduce context pollution or parallelize independent work. Do not spawn them for trivial tasks. Give each delegated agent exact scope, required skills/sources, read/write boundaries and expected output. The parent agent reconciles all results.
-
----
-
-## Project skill
-
-For implementation, review, debugging or completion of an existing Project Grimhold work item, load:
-
-```text
-.agents/skills/grimhold-task-execution/SKILL.md
-```
-
-To draft a commit title/description for the current diff, load:
-
-```text
-.agents/skills/grimhold-commit-message/SKILL.md
-```
-
-After adding/moving/editing project skills:
-
-```text
-gentle-ai skill-registry refresh --force
-```
-
-Do not duplicate the skill body here.
-
----
-
-## Scope and change policy
-
-A task should produce one concrete, verifiable result.
-
-Do not implement adjacent future work opportunistically. Foundational tasks close only the decisions required by dependents.
-
-Ask before:
-
-- changing approved architecture;
-- changing Game Design;
-- adding/removing/updating dependencies;
-- materially expanding scope;
-- choosing between incompatible product behaviors not resolved by authoritative sources.
-
-Keep diffs focused. Do not rename/reformat unrelated files, change public APIs without checking consumers, delete code without checking references, leave placeholder/commented-out obsolete code, or introduce speculative abstractions.
-
-When replacing behavior: identify current contract/consumers, define target contract, migrate minimally, then remove obsolete paths when safe.
-
-Commit subjects/descriptions should be in English.
-
----
-
-## Validation and reporting
-
-After changes:
-
-1. review the full diff;
-2. run relevant validation actually available;
-3. check unintended generated/scene/prefab/asset changes;
-4. compare against every acceptance criterion;
-5. report only checks actually executed;
-6. list remaining manual Unity/multiplayer checks;
-7. report blockers/conflicts/follow-up work outside the current task.
-
-Never claim tests, Play Mode, visuals, scenes, prefabs or multiplayer flows were validated unless actually run and observed.
-
-A task is complete only when requirements inside its actual scope are resolved or an explicit blocker is reported.
+After adding, moving or editing project skills, run `gentle-ai skill-registry refresh --force` when available; otherwise verify the skill paths/references directly and report that registry refresh was not run.

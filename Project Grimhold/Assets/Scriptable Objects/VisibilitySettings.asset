@@ -12,8 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d857c17e49c0e941a0865fa698f0c6b, type: 3}
   m_Name: VisibilitySettings
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.VisibilitySettings
-  ViewRadius: 15
+  NearRadius: 2
+  ConeAngleDegrees: 90
   ObstacleLayer:
     serializedVersion: 2
     m_Bits: 64
-  BorderRays: 32
+  GraceSeconds: 0.3
+  FadeInSeconds: 0.15
+  FadeOutSeconds: 0.4

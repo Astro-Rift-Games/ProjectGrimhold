@@ -201,6 +201,7 @@ GameObject:
   - component: {fileID: 696015970033975451}
   - component: {fileID: 6199564738303888518}
   - component: {fileID: 2897592239265449551}
+  - component: {fileID: 7614136501651334080}
   m_Layer: 5
   m_Name: Create Button
   m_TagString: Untagged
@@ -310,6 +311,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7614136501651334080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1192397913832082082}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1298345469462631238
 GameObject:
   m_ObjectHideFlags: 0
@@ -1069,6 +1087,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4699289234651290564}
   - component: {fileID: 6873150830011454415}
+  - component: {fileID: 2993265455103798914}
+  - component: {fileID: 4132578515681722093}
   m_Layer: 5
   m_Name: CharacterCreationPanel
   m_TagString: Untagged
@@ -1113,6 +1133,34 @@ MonoBehaviour:
   _characterNameInput: {fileID: 2473850882310785691}
   _createButton: {fileID: 2897592239265449551}
   _statusText: {fileID: 4750785472193441533}
+--- !u!225 &2993265455103798914
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7380399239631901898}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &4132578515681722093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7380399239631901898}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 0.96
+  _scaleTarget: {fileID: 0}
 --- !u!1 &7779703442598582051
 GameObject:
   m_ObjectHideFlags: 0

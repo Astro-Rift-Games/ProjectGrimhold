@@ -92,6 +92,15 @@ from the summary, and its ACK never authorizes Return by itself. The button is o
 reflection of snapshot, ACK, extraction and role conditions; `RequestReturn` remains the
 authoritative boundary and a rejected request does not consume future local attempts.
 
+Results also show the loot the participant gained or lost. Neither the Client inventory nor the
+corpse is a stable source for it: the inventory is cleared by the extraction ACK or the corpse
+conversion, and the corpse can be looted afterwards. State Authority therefore publishes a
+presentation-only summary on the participant (`ResultsLootKind`, `ResultsLootTotalValue` and a
+`NetworkDictionary<catalogIndex, amount>` bounded by `PlayerExtractionLootSaver.MaximumSnapshotEntries`)
+once per participation, before the clear. `ResultsLootKind` is `Extracted` or `Lost`; the summary
+never drives gameplay, persistence or Return. `RaidResultsLootWire` encodes and decodes it and
+`RaidMenuView` renders it without reading the inventory.
+
 Once State Authority accepts an explicit request it publishes `IsReturnAuthorized`.
 Presentation observes that state and delegates to `SessionConnectionCoordinator`, which alone
 owns the Raid-to-Town runner transition.
@@ -114,7 +123,9 @@ reassigning PlayerObject and avatar input authority. A defeated participant has 
 avatar, so its restored body remains without player control.
 
 `CopyStateFrom` restores the ledger accumulators/freeze/producer marker, extraction phase and
-candidate, and resolver baseline/history with the participant. None is reinitialized or requires a
+candidate, the Results loot summary, and resolver baseline/history with the participant. The summary
+is written once, so a restored participant never rewrites it; real multi-process restoration of it
+has not been validated yet. None is reinitialized or requires a
 NetworkId remap.
 
 The participant's networked character-attribute snapshot, initialization marker and co-located runtime

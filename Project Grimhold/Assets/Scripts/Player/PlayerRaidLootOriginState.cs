@@ -57,12 +57,14 @@ public sealed class PlayerRaidLootOriginState : NetworkBehaviour
     public bool TryResolveInventoryTransfer(
         int catalogIndex,
         int amount,
-        out RaidLootOriginTransfer transfer) =>
+        out RaidLootOriginTransfer transfer,
+        RaidLootOriginSelectionOrder selectionOrder = RaidLootOriginSelectionOrder.Canonical) =>
         RaidLootOriginIndexedStateUtility.TryResolveTransfer(
             InventoryOrigins,
             catalogIndex,
             amount,
-            out transfer);
+            out transfer,
+            selectionOrder);
 
     public bool CanReceiveInventory(int catalogIndex, RaidLootOriginTransfer transfer) =>
         HasStateAuthority && RaidLootOriginIndexedStateUtility.CanAdd(

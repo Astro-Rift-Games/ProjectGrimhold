@@ -214,7 +214,7 @@ the same migration. Earlier schemas did not distinguish
 the former exclusive implementation from the temporary non-owning implementation. Decoding treats
 a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
-all-or-nothing. This describes the schema-4 migration; new saves now write schema 8.
+all-or-nothing. This describes the schema-4 migration; new saves now write schema 9.
 
 TASK-330 originally kept this migration local. The current prepared-Equipment adapter sends all
 eight slots: `weaponSlot1` / `weaponSlot2` map to Set A / B Main Hand, `offHand1` / `offHand2`
@@ -222,8 +222,23 @@ map to their Off Hands, alongside Helmet, Armor, Gloves and Boots. The Stash flo
 that projected eight-slot value before its local ownership commit. Reservation transport and
 recovery have their own contracts and are not changed by U5.
 
-This structure does not yet implement shield defence, Dual Wield attacks, accessories or Quick Slots.
+This structure does not yet implement shield defence, Dual Wield attacks or accessories.
 Those behaviors require their own rules without adding a competing Equipment source of truth.
+
+Quick Slots (TASK-214) are a local-only part of the same profile aggregate. Schema version 9 adds
+`quickSlot1`..`quickSlot4`: each is a `LootId` or empty, never a stack, Origin or quantity. Older
+schemas load with all four slots empty. `LocalProfileStore.TrySetQuickSlots` validates that every
+bound definition is Quick Slot compatible in the loot catalog, commits through the usual
+candidate/repository transaction and publishes `ProfileCommitted`. It does not check Ready, a
+pending reservation or item ownership, because bindings do not move items; the caller checks that the
+definition is present in the Inventory the player is looking at (the Town Loadout or the Raid
+Inventory). A duplicated or malformed binding rejects the profile like other local-only state, while
+a definition that left the catalog or stopped being compatible loads as an unassigned slot.
+Bindings are not sent to the backend and backend hydration preserves them. A slot is unassigned
+only by `QuickSlotController` when its available units are observed dropping from positive to zero
+while releasing is allowed (Raid, `QuickSlotReleaseGate`: avatar alive and not Downed, no extraction
+in progress, match in progress and the participant `Raiding` with no finalization cause; Town: no
+pending reservation), so reservation, extraction, defeat and voluntary abandon never erase bindings.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.

@@ -56,6 +56,43 @@ public sealed class ExtractedLootExperienceProducer : MonoBehaviour
         return candidate.IsValid;
     }
 
+    /// <summary>Builds the Results grid for an extraction: only XP-eligible quantities.</summary>
+    public bool TryPrepareExtractedResultsSummary(
+        RaidParticipantId extractorId,
+        PlayerExpeditionLootSnapshot lootSnapshot,
+        RaidInitialAffiliationSnapshot affiliations,
+        out RaidResultsLootSummary summary,
+        out string error)
+    {
+        summary = null;
+        return RaidLootEligibilityResolver.TryResolve(
+                   extractorId,
+                   lootSnapshot,
+                   affiliations,
+                   out RaidLootEligibilitySnapshot eligibility,
+                   out error) &&
+               RaidResultsLootSummaryBuilder.TryBuildExtracted(
+                   eligibility,
+                   _valueCatalog,
+                   out summary,
+                   out error);
+    }
+
+    /// <summary>Builds the Lost-loot summary for Defeat or voluntary Abandon: everything carried.</summary>
+    public bool TryPrepareLostResultsSummary(
+        PlayerExpeditionLootSnapshot lootSnapshot,
+        out RaidResultsLootSummary summary,
+        out string error)
+    {
+        summary = null;
+        error = "Expedition loot snapshot is required.";
+        return lootSnapshot != null &&
+               RaidResultsLootSummaryBuilder.TryBuildLost(
+                   lootSnapshot.Combined,
+                   out summary,
+                   out error);
+    }
+
     public ExtractedLootExperienceRegistrationStatus TryApplyConfirmed(
         NetworkRaidParticipant participant,
         in ExtractedLootExperienceCandidate candidate,

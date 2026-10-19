@@ -3,85 +3,171 @@ using UnityEngine;
 namespace ProjectGrimhold.Gameplay.Visibility
 {
     /// <summary>
-    /// Componente compañero que otorga visibilidad LOS a cualquier entidad del juego sin acoplar
-    /// la lógica de gameplay. Maneja su propio registro con el sistema de visibilidad.
+    /// Companion component that makes any entity respect local vision without coupling
+    /// gameplay logic. It owns its registration with the scene visibility system and
+    /// fades its renderers with the opacity the system computes.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class EntityVisibilityPresenter : MonoBehaviour, IVisibilityTarget
     {
-        [Tooltip("Renderers que serán ocultados/mostrados cuando cambie la visibilidad de esta entidad.")]
+        [Tooltip("Renderers hidden or shown when this entity's visibility changes. Sprites fade through their color alpha; other renderers switch with forceRenderingOff.")]
         [SerializeField] private Renderer[] _renderers;
-        
-        [Tooltip("Offset relativo al transform.position para evaluar la visibilidad. Útil para entidades altas donde el pivot está en la base.")]
+
+        [Tooltip("Static objects (chests, loot, sanctuaries, traps) are hidden only by obstacles, never by the viewer's facing.")]
+        [SerializeField] private bool _occlusionOnly;
+
+        [Tooltip("Offset from transform.position used to evaluate visibility. Useful for tall entities whose pivot is at the base.")]
         [SerializeField] private Vector2 _visibilityOffset;
 
         [Tooltip("Collider whose footprint is sampled for large entities such as Sanctuaries.")]
         [SerializeField] private Collider2D _visibilityCollider;
 
-        [Tooltip("Show this entity when any sampled point inside the collider enters local LOS.")]
+        [Tooltip("Show this entity when any sampled point inside the collider is seen by the local viewer.")]
         [SerializeField] private bool _useColliderBounds;
 
         private EntityVisibilitySystem _system;
+        private SpriteRenderer[] _spriteRenderers;
+        private Color[] _baseColors;
+        private Color[] _writtenColors;
+        private bool[] _hasWrittenColor;
+        private float _appliedAlpha = 1f;
 
         public Vector2 VisibilityPoint => (Vector2)transform.position + _visibilityOffset;
 
-        /// <inheritdoc />
-        public bool IsVisible(LosPolygonHandle losHandle)
-        {
-            if (losHandle == null)
-            {
-                return false;
-            }
+        public Transform VisibilityRoot => transform;
 
+        /// <inheritdoc />
+        public bool IsVisible(in VisionQuery query)
+        {
+            bool requiresCone = !_occlusionOnly;
             if (!_useColliderBounds || _visibilityCollider == null)
             {
-                return losHandle.IsInsideLos(VisibilityPoint);
+                return query.IsPointVisible(VisibilityPoint, transform, requiresCone);
             }
 
             Bounds bounds = _visibilityCollider.bounds;
             Vector2 center = bounds.center;
-            if (losHandle.IsInsideLos(center))
+            if (query.IsPointVisible(center, transform, requiresCone))
             {
                 return true;
             }
 
             // Sample inset corners so a meaningful portion of an authored
-            // footprint can enter LOS without testing outside its collider.
+            // footprint can be seen without testing outside its collider.
             Vector2 extents = bounds.extents * 0.9f;
-            return losHandle.IsInsideLos(center + new Vector2(-extents.x, -extents.y)) ||
-                   losHandle.IsInsideLos(center + new Vector2(-extents.x, extents.y)) ||
-                   losHandle.IsInsideLos(center + new Vector2(extents.x, -extents.y)) ||
-                   losHandle.IsInsideLos(center + new Vector2(extents.x, extents.y));
+            return query.IsPointVisible(center + new Vector2(-extents.x, -extents.y), transform, requiresCone) ||
+                   query.IsPointVisible(center + new Vector2(-extents.x, extents.y), transform, requiresCone) ||
+                   query.IsPointVisible(center + new Vector2(extents.x, -extents.y), transform, requiresCone) ||
+                   query.IsPointVisible(center + new Vector2(extents.x, extents.y), transform, requiresCone);
+        }
+
+        /// <inheritdoc />
+        public void ApplyVisibility(float alpha)
+        {
+            if (_renderers == null)
+            {
+                return;
+            }
+
+            CacheSpriteRenderers();
+            _appliedAlpha = Mathf.Clamp01(alpha);
+            bool isRendered = _appliedAlpha > 0f;
+            bool isPartial = isRendered && _appliedAlpha < 1f;
+
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                if (_renderers[i] == null)
+                {
+                    continue;
+                }
+
+                _renderers[i].forceRenderingOff = !isRendered;
+                ApplySpriteAlpha(i, isPartial);
+            }
+        }
+
+        /// <summary>
+        /// Multiplies the sprite's own alpha while partially visible. Colors written by other
+        /// presenters (damage flash, sanctuary states, armor tints) are adopted as the new base,
+        /// and the base color is restored exactly once fully visible or hidden.
+        /// </summary>
+        private void ApplySpriteAlpha(int index, bool isPartial)
+        {
+            SpriteRenderer sprite = _spriteRenderers[index];
+            if (sprite == null)
+            {
+                return;
+            }
+
+            Color current = sprite.color;
+            if (!_hasWrittenColor[index] || current != _writtenColors[index])
+            {
+                _baseColors[index] = current;
+            }
+
+            if (!isPartial)
+            {
+                if (_hasWrittenColor[index])
+                {
+                    sprite.color = _baseColors[index];
+                    _hasWrittenColor[index] = false;
+                }
+
+                return;
+            }
+
+            Color faded = _baseColors[index];
+            faded.a *= _appliedAlpha;
+            sprite.color = faded;
+            _writtenColors[index] = faded;
+            _hasWrittenColor[index] = true;
+        }
+
+        private void CacheSpriteRenderers()
+        {
+            if (_spriteRenderers != null && _spriteRenderers.Length == _renderers.Length)
+            {
+                return;
+            }
+
+            int count = _renderers.Length;
+            _spriteRenderers = new SpriteRenderer[count];
+            _baseColors = new Color[count];
+            _writtenColors = new Color[count];
+            _hasWrittenColor = new bool[count];
+            for (int i = 0; i < count; i++)
+            {
+                _spriteRenderers[i] = _renderers[i] as SpriteRenderer;
+            }
         }
 
         private void OnEnable()
         {
             if (_system == null)
             {
-                // Obtenemos el sistema solo una vez en inicialización. 
-                // Se usa FindObjectsInactive.Exclude porque el sistema debe estar activo para evaluar.
+                // Resolve the scene system once; it must be active to evaluate.
                 _system = FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
             }
 
-        if (_system != null)
-        {
-            _system.Register(this);
-        }
-    }
-
-    private void LateUpdate()
-    {
-        // Networked scene objects can enable before the scene-level visibility
-        // system is created. Retry registration until that dependency exists.
-        if (_system == null)
-        {
-            _system = FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
             if (_system != null)
             {
                 _system.Register(this);
             }
         }
-    }
+
+        private void LateUpdate()
+        {
+            // Networked scene objects can enable before the scene-level visibility
+            // system is created. Retry registration until that dependency exists.
+            if (_system == null)
+            {
+                _system = FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
+                if (_system != null)
+                {
+                    _system.Register(this);
+                }
+            }
+        }
 
         private void OnDisable()
         {
@@ -91,20 +177,21 @@ namespace ProjectGrimhold.Gameplay.Visibility
             }
         }
 
-        public void SetVisible(bool isVisible)
+#if UNITY_EDITOR
+        private const float StateGizmoRadius = 0.25f;
+
+        private void OnDrawGizmos()
         {
-            if (_renderers == null) return;
-            
-            for (int i = 0; i < _renderers.Length; i++)
+            if (!Application.isPlaying || _system == null)
             {
-                if (_renderers[i] != null)
-                {
-                    _renderers[i].enabled = isVisible;
-                }
+                return;
             }
+
+            // Green: fully visible (including grace). Yellow: fading. Red: hidden.
+            Gizmos.color = _appliedAlpha >= 1f ? Color.green : _appliedAlpha > 0f ? Color.yellow : Color.red;
+            Gizmos.DrawWireSphere(VisibilityPoint, StateGizmoRadius);
         }
 
-#if UNITY_EDITOR
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = Color.magenta;

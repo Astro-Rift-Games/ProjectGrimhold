@@ -55,8 +55,7 @@ namespace Tests.EditMode.Stash
         [TestCase("io-backup")]
         public void UnsupportedOrUnreadableCache_FailsClosed(string fault)
         {
-            string future = HealthyJson().Replace("\"schemaVersion\": 8", "\"schemaVersion\": 9");
-            Assert.That(future, Does.Contain("\"schemaVersion\": 9"));
+            string future = WithSchemaVersion(HealthyJson(), LocalProfileSnapshot.CurrentSchemaVersion + 1);
             _files.Main = fault == "future-main" ? future : "not-json";
             _files.Backup = fault == "future-backup" ? future : "not-json";
             _files.ReadError = fault == "io-main" ? "main" : fault == "io-backup" ? "backup" : null;
@@ -176,7 +175,7 @@ namespace Tests.EditMode.Stash
             ExpectInitializeFailure(_profile, _catalog);
             Assert.That(_repository.CanRecoverCorruptCache, Is.True);
             if (fault == "io") _files.ReadError = "main";
-            if (fault == "future") _files.Main = HealthyJson().Replace("\"schemaVersion\": 8", "\"schemaVersion\": 9");
+            if (fault == "future") _files.Main = WithSchemaVersion(HealthyJson(), LocalProfileSnapshot.CurrentSchemaVersion + 1);
             if (fault == "missing")
             {
                 _files.Main = null;
@@ -205,7 +204,7 @@ namespace Tests.EditMode.Stash
         [Test]
         public void SupportedOlderSchema_LoadsNormallyWithoutRecoveryEligibility()
         {
-            _files.Main = HealthyJson().Replace("\"schemaVersion\": 8", "\"schemaVersion\": 7");
+            _files.Main = WithSchemaVersion(HealthyJson(), LocalProfileSnapshot.CurrentSchemaVersion - 1);
             Assert.That(_repository.Initialize(_profile, _catalog), Is.True);
             Assert.That(_repository.CanRecoverCorruptCache, Is.False);
             Assert.That(_repository.Snapshot.Currency, Is.EqualTo(3));
@@ -246,8 +245,14 @@ namespace Tests.EditMode.Stash
 
         private string HealthyJson()
         {
-            Assert.That(LocalProfileSnapshot.CurrentSchemaVersion, Is.EqualTo(8));
             return LocalProfileSaveCodec.Encode(new LocalProfileSnapshot { ProfileId = _profile, Currency = 3 });
+        }
+
+        private static string WithSchemaVersion(string json, int version)
+        {
+            string replaced = Regex.Replace(json, "\"schemaVersion\": \\d+", $"\"schemaVersion\": {version}");
+            Assert.That(replaced, Is.Not.EqualTo(json));
+            return replaced;
         }
 
         private void AssertRejectedWithoutWrites(bool permission, InventoryData? inventory, ProgressionData? progression)

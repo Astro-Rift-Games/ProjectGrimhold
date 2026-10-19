@@ -105,7 +105,7 @@ namespace Tests.PlayMode.Presentation
             yield return null;
 
             Assert.That(menuPresenter.IsOpen, Is.True);
-            Assert.That(menuView.TitleText.text, Is.EqualTo("Has sido Derrotado"));
+            Assert.That(menuView.TitleText.text, Is.EqualTo("DERROTA"));
             Assert.That(menuView.ResumeButton.gameObject.activeSelf, Is.False);
             Assert.That(ReadSuppressionCount(_inputReader), Is.GreaterThan(0));
 
@@ -114,6 +114,80 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(menuPresenter.IsOpen, Is.False);
             Assert.That(ReadSuppressionCount(_inputReader), Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator RaidMenu_ResultsLootAndLevelUp_ArePresentedFromTheSerializedPrefab()
+        {
+            yield return StartRunnerAndSpawnPlayer();
+
+            RaidMenuView menuView = _playerObject.GetComponentInChildren<RaidMenuView>(true);
+            LootDefinitionCatalog catalog = _playerObject.GetComponent<PlayerLootReceiver>().LootCatalog;
+            Assert.That(catalog.TryGetByIndex(0, out LootDefinition first), Is.True);
+            Assert.That(catalog.TryGetByIndex(1, out LootDefinition second), Is.True);
+
+            Assert.That(
+                RaidResultsLootSummaryBuilder.TryBuildLost(
+                    new[] { new LootEntry(first.LootId, 2), new LootEntry(second.LootId, 1) },
+                    out RaidResultsLootSummary lost,
+                    out string error),
+                Is.True,
+                error);
+
+            menuView.PresentResultsLoot(lost, catalog);
+            Transform grid = FindChild(menuView.transform, "LootGrid");
+            Assert.That(CountActiveChildren(grid), Is.EqualTo(2));
+            Assert.That(
+                FindChild(menuView.transform, "LootHeaderText").GetComponent<TMPro.TMP_Text>().text,
+                Is.EqualTo("BOTÍN PERDIDO"));
+            Assert.That(FindChild(menuView.transform, "LootValueText").gameObject.activeSelf, Is.False);
+
+            Assert.That(
+                RaidResultsLootSummaryBuilder.TryBuildLost(
+                    new LootEntry[0], out RaidResultsLootSummary empty, out error),
+                Is.True,
+                error);
+            menuView.PresentResultsLoot(empty, catalog);
+            Assert.That(CountActiveChildren(grid), Is.Zero);
+            Assert.That(FindChild(menuView.transform, "LootEmptyText").gameObject.activeSelf, Is.True);
+
+            menuView.ClearResultsLoot();
+            Assert.That(FindChild(menuView.transform, "ResultLootPanel").gameObject.activeSelf, Is.False);
+
+            menuView.PresentLevelUp(5, animate: true);
+            Transform banner = FindChild(menuView.transform, "LevelUpBanner");
+            Assert.That(banner.gameObject.activeSelf, Is.True);
+            Assert.That(banner.GetComponentInChildren<TMPro.TMP_Text>().text, Is.EqualTo("¡NIVEL 5!"));
+            menuView.HideLevelUp();
+            Assert.That(banner.gameObject.activeSelf, Is.False);
+        }
+
+        private static Transform FindChild(Transform root, string name)
+        {
+            foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name == name)
+                {
+                    return child;
+                }
+            }
+
+            Assert.Fail($"'{name}' was not found under the raid menu view.");
+            return null;
+        }
+
+        private static int CountActiveChildren(Transform parent)
+        {
+            int count = 0;
+            foreach (Transform child in parent)
+            {
+                if (child.gameObject.activeSelf)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private IEnumerator StartRunnerAndSpawnPlayer()

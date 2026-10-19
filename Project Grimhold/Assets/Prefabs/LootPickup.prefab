@@ -147,7 +147,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
   _renderers:
   - {fileID: 3134618034655897849}
+  _occlusionOnly: 1
   _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0
 --- !u!114 &700000000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -158,7 +161,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkTransform
   _stateAuthorityChangeErrorCorrectionDelta: 0
   SyncScale: 0

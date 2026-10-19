@@ -211,6 +211,8 @@ GameObject:
   m_Component:
   - component: {fileID: 7749523019844564869}
   - component: {fileID: 4938861417260816762}
+  - component: {fileID: 514835169883028750}
+  - component: {fileID: 7603264575834035179}
   m_Layer: 0
   m_Name: TownOptions
   m_TagString: Untagged
@@ -252,6 +254,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TownOptionsView
   _logoutButton: {fileID: 1191684404961107680}
   _exitButton: {fileID: 6837148119616669280}
+--- !u!225 &514835169883028750
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1895108178248673078}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &7603264575834035179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1895108178248673078}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 1
+  _scaleTarget: {fileID: 0}
 --- !u!1 &3356618285889350186
 GameObject:
   m_ObjectHideFlags: 0
@@ -264,6 +294,7 @@ GameObject:
   - component: {fileID: 5427898297662514500}
   - component: {fileID: 7028069399990971935}
   - component: {fileID: 6837148119616669280}
+  - component: {fileID: 4757956639335306494}
   m_Layer: 0
   m_Name: ExitButton
   m_TagString: Untagged
@@ -373,6 +404,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4757956639335306494
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3356618285889350186}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6226464436033107310
 GameObject:
   m_ObjectHideFlags: 0
@@ -522,6 +570,7 @@ GameObject:
   - component: {fileID: 4373760324041356603}
   - component: {fileID: 4618665145821602394}
   - component: {fileID: 1191684404961107680}
+  - component: {fileID: 19095763623195494}
   m_Layer: 0
   m_Name: LogoutButton
   m_TagString: Untagged
@@ -631,3 +680,20 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &19095763623195494
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7483159180268423856}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22

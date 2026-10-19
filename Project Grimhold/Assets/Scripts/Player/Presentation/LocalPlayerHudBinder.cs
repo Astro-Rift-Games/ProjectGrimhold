@@ -31,6 +31,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private RaidAbilityHudPresenter _abilityHudPresenter;
 
     [SerializeField]
+    private RaidDownedHudPresenter _downedHudPresenter;
+
+    [SerializeField]
+    private RaidQuickSlotHudPresenter _quickSlotHudPresenter;
+
+    [SerializeField]
     private RaidMinimapPresenter _raidMinimapPresenter;
 
     [SerializeField]
@@ -99,6 +105,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private ExtractionSanctuaryAssignmentService _assignmentService;
     private EntityRegistry _entityRegistry;
     private RaidAvatarParticipantLink _participantLink;
+    private QuickSlotController _quickSlots;
+    private bool _missingQuickSlotDependenciesReported;
 
     private void Awake()
     {
@@ -227,6 +235,10 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _entityRegistry);
         _abilityHudPresenter.Bind(_abilityController, _manaController, _staminaController);
         BindTeammateHud();
+        if (_downedHudPresenter != null)
+        {
+            _downedHudPresenter.Bind(_playerCharacter, _teammateHudPresenter);
+        }
         if (_raidMinimapPresenter != null)
         {
             _raidMinimapPresenter.Bind(
@@ -279,6 +291,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _abilityHudPresenter.Unbind();
         }
 
+        if (_downedHudPresenter != null)
+        {
+            _downedHudPresenter.Unbind();
+        }
+
         if (_teammateHudPresenter != null)
         {
             _teammateHudPresenter.Unbind();
@@ -315,11 +332,14 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _inventoryPresenter.Unbind();
         }
 
+        DisposeQuickSlots();
+
         if (_menuPresenter != null)
         {
             _menuPresenter.Unbind();
         }
         _isBound = false;
+        _missingQuickSlotDependenciesReported = false;
         _missingJoinContextReported = false;
         ClearRunnerReferences();
         SetHudActive(false);
@@ -338,6 +358,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         }
 
         _inventoryPresenter.Unbind();
+        DisposeQuickSlots();
         if (_menuPresenter != null)
         {
             _menuPresenter.Unbind();
@@ -345,6 +366,12 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
         if (inputReader != null)
         {
+            _quickSlots = CreateQuickSlots();
+            if (_quickSlots != null && _quickSlotHudPresenter != null)
+            {
+                _quickSlotHudPresenter.Bind(_quickSlots, _consumableController, inputReader, _playerCharacter);
+            }
+
             _inventoryPresenter.Bind(
                 _lootReceiver,
                 inputReader,
@@ -354,7 +381,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _consumableController,
                 _weaponEquipmentController,
                 Runner,
-                transform);
+                transform,
+                _quickSlots);
 
             if (_menuPresenter != null)
             {
@@ -365,6 +393,72 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                     Runner);
             }
         }
+    }
+
+    private QuickSlotController CreateQuickSlots()
+    {
+        ProfileId profileId = _joinContext != null ? _joinContext.JoinData.ProfileId : default;
+        ApplicationStashContext profileContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (_quickSlotHudPresenter == null || profileContext == null || !profileContext.IsAvailable ||
+            !profileId.IsValid || profileContext.ProfileId != profileId)
+        {
+            if (!_missingQuickSlotDependenciesReported)
+            {
+                _missingQuickSlotDependenciesReported = true;
+                Debug.LogError(
+                    $"{nameof(LocalPlayerHudBinder)} could not bind Quick Slots: the HUD presenter or the matching local profile is missing.",
+                    this);
+            }
+
+            return null;
+        }
+
+        return new QuickSlotController(profileContext.Store, _lootReceiver, CanReleaseDepletedQuickSlot);
+    }
+
+    /// <summary>
+    /// A Quick Slot may unassign itself only while the participant is actively raiding, so the
+    /// inventory emptying through extraction, defeat or voluntary abandon never erases bindings.
+    /// </summary>
+    private bool CanReleaseDepletedQuickSlot()
+    {
+        if (_playerCharacter == null || _extractionController == null || _boundRunner == null)
+        {
+            return false;
+        }
+
+        RaidParticipantState participantState = RaidParticipantState.Raiding;
+        ExpeditionProgressionFinalizationCause finalizationCause = ExpeditionProgressionFinalizationCause.None;
+        if (_participantLink != null)
+        {
+            if (!_participantLink.TryResolveParticipant(out NetworkRaidParticipant participant))
+            {
+                return false;
+            }
+
+            participantState = participant.State;
+            finalizationCause = participant.FinalizationCause;
+        }
+
+        NetworkMatchController match = _boundRunner.GetComponent<NetworkMatchController>();
+        return QuickSlotReleaseGate.CanRelease(
+            _playerCharacter.IsAlive,
+            _playerCharacter.IsDowned,
+            _extractionController.State == ExtractionState.None,
+            match != null && match.Phase == NetworkMatchController.MatchPhase.InProgress,
+            participantState,
+            finalizationCause);
+    }
+
+    private void DisposeQuickSlots()
+    {
+        if (_quickSlotHudPresenter != null)
+        {
+            _quickSlotHudPresenter.Unbind();
+        }
+
+        _quickSlots?.Dispose();
+        _quickSlots = null;
     }
 
     private void TryCacheJoinContext()

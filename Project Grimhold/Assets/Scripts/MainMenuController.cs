@@ -165,17 +165,17 @@ public sealed class MainMenuController : MonoBehaviour
         if (result.IsSuccess)
         {
             _loginPanel.SetStatus("Success.");
-            _loginPanel.gameObject.SetActive(false);
+            UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
             createRoomButton.interactable = true;
             CreateRoom();
         }
         else if (result.Status == LoginFlowStatus.NeedsCharacterCreation)
         {
-            _loginPanel.gameObject.SetActive(false);
+            UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
 
             if (_characterCreationPanel != null)
             {
-                _characterCreationPanel.gameObject.SetActive(true);
+                UiPanelVisibility.SetVisible(_characterCreationPanel.gameObject, true);
                 _characterCreationPanel.SetStatus("Account created. Please choose a character name.");
                 _characterCreationPanel.SetInteractable(true);
             }
@@ -204,7 +204,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (result.IsSuccess)
         {
             _characterCreationPanel.SetStatus("Success.");
-            _characterCreationPanel.gameObject.SetActive(false);
+            UiPanelVisibility.SetVisible(_characterCreationPanel.gameObject, false);
             createRoomButton.interactable = true;
             CreateRoom();
         }
@@ -261,7 +261,7 @@ public sealed class MainMenuController : MonoBehaviour
             if (result != SessionTransitionResult.Succeeded)
             {
                 _statusText.text = $"Failed to enter Town: {result}.";
-                menuPanel.SetActive(true);
+                UiPanelVisibility.SetVisible(menuPanel, true);
                 SetUIInteractable(true);
             }
         }
@@ -269,7 +269,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             Debug.LogError($"Error entering Town: {ex.Message}");
             _statusText.text = $"Failed to enter Town: {ex.Message}";
-            menuPanel.SetActive(true);
+            UiPanelVisibility.SetVisible(menuPanel, true);
             SetUIInteractable(true);
         }
     }
@@ -283,19 +283,19 @@ public sealed class MainMenuController : MonoBehaviour
             return;
         }
 
-        menuPanel.SetActive(false);
+        UiPanelVisibility.SetVisible(menuPanel, false);
         _loginPanel.ClearFields();
         _loginPanel.SetStatus(string.Empty);
         _loginPanel.SetInteractable(true);
-        _loginPanel.gameObject.SetActive(true);
+        UiPanelVisibility.SetVisible(_loginPanel.gameObject, true);
     }
 
     private void OnLoginBackButtonClicked()
     {
         _loginPanel.ClearFields();
         _loginPanel.SetStatus(string.Empty);
-        _loginPanel.gameObject.SetActive(false);
-        menuPanel.SetActive(true);
+        UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
+        UiPanelVisibility.SetVisible(menuPanel, true);
         createRoomButton.interactable = true;
     }
 

@@ -288,6 +288,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
                         this);
                     return false;
                 }
+
+                PublishResultsLootSummary(ownershipSnapshot, affiliations);
             }
             else
             {
@@ -317,6 +319,28 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         LocalSaveStatus = ExtractionLootSaveStatus.Pending;
         _localCommitAttempted = false;
         return true;
+    }
+
+    /// <summary>
+    /// Presentation only: a failure is reported but never blocks the extraction transaction.
+    /// </summary>
+    private void PublishResultsLootSummary(
+        PlayerExpeditionLootSnapshot ownershipSnapshot,
+        RaidInitialAffiliationSnapshot affiliations)
+    {
+        if (!_experienceProducer.TryPrepareExtractedResultsSummary(
+                _participant.RaidParticipantId,
+                ownershipSnapshot,
+                affiliations,
+                out RaidResultsLootSummary summary,
+                out string summaryError) ||
+            !_participant.TryStoreResultsLoot(summary, _lootReceiver.LootCatalog))
+        {
+            Debug.LogError(
+                $"{nameof(PlayerExtractionLootSaver)}: The Results loot summary could not be published. " +
+                $"{summaryError ?? "Participant rejected the summary."}",
+                this);
+        }
     }
 
     private void SendPendingTransaction()

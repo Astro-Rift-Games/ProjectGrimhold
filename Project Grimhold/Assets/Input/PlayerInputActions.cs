@@ -181,6 +181,42 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": ""Press(behavior=0)"",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""QuickSlot1"",
+                    ""type"": ""Button"",
+                    ""id"": ""5c276494-c9ea-4fea-bf96-8ae1a1ccfba0"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""QuickSlot2"",
+                    ""type"": ""Button"",
+                    ""id"": ""5e864a6b-3c0e-4737-9a60-60ba6da0353d"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""QuickSlot3"",
+                    ""type"": ""Button"",
+                    ""id"": ""0a5c316d-33ce-4889-86d4-dccce7d9014b"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""QuickSlot4"",
+                    ""type"": ""Button"",
+                    ""id"": ""3111ac06-8e4e-45e6-a79d-3019687acd98"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Press(behavior=0)"",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -286,7 +322,7 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""535c7f97-7f28-442b-b98d-028b0f0e60b9"",
-                    ""path"": ""<Keyboard>/1"",
+                    ""path"": ""<Mouse>/scroll/up"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -297,7 +333,7 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""e3bb2f83-a555-4f91-bf28-bbc12b1ca158"",
-                    ""path"": ""<Keyboard>/2"",
+                    ""path"": ""<Mouse>/scroll/down"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -335,6 +371,50 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""AbilitySlot2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""95baa464-a631-4e31-8929-931c51169437"",
+                    ""path"": ""<Keyboard>/1"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""QuickSlot1"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""2e7216d8-b768-4f1f-ac53-4850261788e0"",
+                    ""path"": ""<Keyboard>/2"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""QuickSlot2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""87d75e26-4141-4984-8d44-36813fb7a864"",
+                    ""path"": ""<Keyboard>/3"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""QuickSlot3"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""124bd217-a588-4b6a-8b61-276b093094a4"",
+                    ""path"": ""<Keyboard>/4"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""QuickSlot4"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -423,6 +503,10 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         m_Gameplay_Sprint = m_Gameplay.FindAction("Sprint", throwIfNotFound: true);
         m_Gameplay_AbilitySlot1 = m_Gameplay.FindAction("AbilitySlot1", throwIfNotFound: true);
         m_Gameplay_AbilitySlot2 = m_Gameplay.FindAction("AbilitySlot2", throwIfNotFound: true);
+        m_Gameplay_QuickSlot1 = m_Gameplay.FindAction("QuickSlot1", throwIfNotFound: true);
+        m_Gameplay_QuickSlot2 = m_Gameplay.FindAction("QuickSlot2", throwIfNotFound: true);
+        m_Gameplay_QuickSlot3 = m_Gameplay.FindAction("QuickSlot3", throwIfNotFound: true);
+        m_Gameplay_QuickSlot4 = m_Gameplay.FindAction("QuickSlot4", throwIfNotFound: true);
         // LocalUI
         m_LocalUI = asset.FindActionMap("LocalUI", throwIfNotFound: true);
         m_LocalUI_ToggleInventory = m_LocalUI.FindAction("ToggleInventory", throwIfNotFound: true);
@@ -519,6 +603,10 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Gameplay_Sprint;
     private readonly InputAction m_Gameplay_AbilitySlot1;
     private readonly InputAction m_Gameplay_AbilitySlot2;
+    private readonly InputAction m_Gameplay_QuickSlot1;
+    private readonly InputAction m_Gameplay_QuickSlot2;
+    private readonly InputAction m_Gameplay_QuickSlot3;
+    private readonly InputAction m_Gameplay_QuickSlot4;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -570,6 +658,22 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/AbilitySlot2".
         /// </summary>
         public InputAction @AbilitySlot2 => m_Wrapper.m_Gameplay_AbilitySlot2;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/QuickSlot1".
+        /// </summary>
+        public InputAction @QuickSlot1 => m_Wrapper.m_Gameplay_QuickSlot1;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/QuickSlot2".
+        /// </summary>
+        public InputAction @QuickSlot2 => m_Wrapper.m_Gameplay_QuickSlot2;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/QuickSlot3".
+        /// </summary>
+        public InputAction @QuickSlot3 => m_Wrapper.m_Gameplay_QuickSlot3;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/QuickSlot4".
+        /// </summary>
+        public InputAction @QuickSlot4 => m_Wrapper.m_Gameplay_QuickSlot4;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -626,6 +730,18 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @AbilitySlot2.started += instance.OnAbilitySlot2;
             @AbilitySlot2.performed += instance.OnAbilitySlot2;
             @AbilitySlot2.canceled += instance.OnAbilitySlot2;
+            @QuickSlot1.started += instance.OnQuickSlot1;
+            @QuickSlot1.performed += instance.OnQuickSlot1;
+            @QuickSlot1.canceled += instance.OnQuickSlot1;
+            @QuickSlot2.started += instance.OnQuickSlot2;
+            @QuickSlot2.performed += instance.OnQuickSlot2;
+            @QuickSlot2.canceled += instance.OnQuickSlot2;
+            @QuickSlot3.started += instance.OnQuickSlot3;
+            @QuickSlot3.performed += instance.OnQuickSlot3;
+            @QuickSlot3.canceled += instance.OnQuickSlot3;
+            @QuickSlot4.started += instance.OnQuickSlot4;
+            @QuickSlot4.performed += instance.OnQuickSlot4;
+            @QuickSlot4.canceled += instance.OnQuickSlot4;
         }
 
         /// <summary>
@@ -667,6 +783,18 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
             @AbilitySlot2.started -= instance.OnAbilitySlot2;
             @AbilitySlot2.performed -= instance.OnAbilitySlot2;
             @AbilitySlot2.canceled -= instance.OnAbilitySlot2;
+            @QuickSlot1.started -= instance.OnQuickSlot1;
+            @QuickSlot1.performed -= instance.OnQuickSlot1;
+            @QuickSlot1.canceled -= instance.OnQuickSlot1;
+            @QuickSlot2.started -= instance.OnQuickSlot2;
+            @QuickSlot2.performed -= instance.OnQuickSlot2;
+            @QuickSlot2.canceled -= instance.OnQuickSlot2;
+            @QuickSlot3.started -= instance.OnQuickSlot3;
+            @QuickSlot3.performed -= instance.OnQuickSlot3;
+            @QuickSlot3.canceled -= instance.OnQuickSlot3;
+            @QuickSlot4.started -= instance.OnQuickSlot4;
+            @QuickSlot4.performed -= instance.OnQuickSlot4;
+            @QuickSlot4.canceled -= instance.OnQuickSlot4;
         }
 
         /// <summary>
@@ -895,6 +1023,34 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnAbilitySlot2(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "QuickSlot1" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnQuickSlot1(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "QuickSlot2" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnQuickSlot2(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "QuickSlot3" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnQuickSlot3(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "QuickSlot4" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnQuickSlot4(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "LocalUI" which allows adding and removing callbacks.

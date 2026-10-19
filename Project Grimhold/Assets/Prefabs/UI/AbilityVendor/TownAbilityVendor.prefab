@@ -424,6 +424,8 @@ GameObject:
   - component: {fileID: 2931702013024642166}
   - component: {fileID: 7844105534066315805}
   - component: {fileID: 3545852251640423826}
+  - component: {fileID: 1568764092872119940}
+  - component: {fileID: 771381392236362675}
   m_Layer: 0
   m_Name: TownAbilityVendor
   m_TagString: Untagged
@@ -534,6 +536,34 @@ MonoBehaviour:
   _noticeText: {fileID: 8419768397276368586}
   _closeButton: {fileID: 1934387905814863559}
   _emptyNote: {fileID: 9195098242087070717}
+--- !u!225 &1568764092872119940
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3448644990508104125}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &771381392236362675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3448644990508104125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 1
+  _scaleTarget: {fileID: 0}
 --- !u!1 &4576045225722998580
 GameObject:
   m_ObjectHideFlags: 0
@@ -1080,6 +1110,7 @@ GameObject:
   - component: {fileID: 8561011460981889882}
   - component: {fileID: 6332339171365115935}
   - component: {fileID: 1934387905814863559}
+  - component: {fileID: 1290575358699224277}
   m_Layer: 0
   m_Name: CloseButton
   m_TagString: Untagged
@@ -1188,6 +1219,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1290575358699224277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8613820845223131642}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &9195098242087070717
 GameObject:
   m_ObjectHideFlags: 0

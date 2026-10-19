@@ -23,6 +23,12 @@ public sealed class DownedReviveInteractable : NetworkBehaviour, IInteractable
     private EntityId _registeredId;
     private bool _isRegistered;
 
+    /// <summary>Prompt wording while the avatar is Downed; the shared avatar metadata describes its corpse.</summary>
+    public const string PromptText = "Mantener para reanimar";
+
+    /// <summary>True while this avatar is Downed, i.e. while the revive wording applies to it.</summary>
+    public bool IsTargetDowned => _character != null && _character.IsDowned;
+
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))
         : default;

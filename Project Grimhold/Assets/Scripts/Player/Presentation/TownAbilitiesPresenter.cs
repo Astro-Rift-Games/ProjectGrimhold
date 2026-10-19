@@ -207,7 +207,7 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
                 break;
         }
 
-        ShowFeedback(TownAbilityText.Rejection(result));
+        ShowResultFeedback(result);
     }
 
     private void OnClearRequested(UniversalAbilitySlot slot)
@@ -223,7 +223,16 @@ public sealed class TownAbilitiesPresenter : MonoBehaviour
             Refresh();
         }
 
+        ShowResultFeedback(result);
+    }
+
+    private void ShowResultFeedback(TownAbilityMutationResult result)
+    {
         ShowFeedback(TownAbilityText.Rejection(result));
+        if (!result.IsSuccess && _view != null)
+        {
+            _view.PulseFeedback(UiPulseKind.Rejection);
+        }
     }
 
     // Rule rejections are expected player feedback; only persistence/profile problems are worth a log.
