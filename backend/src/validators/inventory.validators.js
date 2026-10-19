@@ -70,6 +70,8 @@ const commitExtractionValidator = [
   handleValidationErrors
 ];
 
+const { MAX_TRANSACTION_AMOUNT } = require('../config/shopCatalog');
+
 // Validates the body for shop sale operations.
 const shopSellValidator = [
   body('transactionId')
@@ -81,8 +83,9 @@ const shopSellValidator = [
     .trim()
     .notEmpty().withMessage('must not be empty'),
   body('amount')
-    .isInt({ min: 1 }).withMessage('must be a positive integer'),
+    .isInt({ min: 1, max: MAX_TRANSACTION_AMOUNT }).withMessage(`must be an integer between 1 and ${MAX_TRANSACTION_AMOUNT}`),
   body('declaredSellValue')
+    .optional()
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   body('expectedRevision')
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
@@ -100,8 +103,9 @@ const shopBuyValidator = [
     .trim()
     .notEmpty().withMessage('must not be empty'),
   body('amount')
-    .isInt({ min: 1 }).withMessage('must be a positive integer'),
+    .isInt({ min: 1, max: MAX_TRANSACTION_AMOUNT }).withMessage(`must be an integer between 1 and ${MAX_TRANSACTION_AMOUNT}`),
   body('declaredPrice')
+    .optional()
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   body('expectedRevision')
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),

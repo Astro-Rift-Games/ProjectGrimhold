@@ -188,6 +188,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
     {
         Seed(currency: 100, (Coins, 2));
         _files.FailWrites = true;
+        UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error, new System.Text.RegularExpressions.Regex(@"\[LocalProfileStore\] Commit failed\."));
 
         AssertRejectedWithoutChange(StashOperationResult.PersistenceFailed, Buy(Potion, 1, 30), Sell(Coins, 2, 10));
     }

@@ -88,7 +88,6 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                     transactionId,
                     line.LootId.Value, 
                     line.Amount, 
-                    line.Total, 
                     _store.RemoteRevision);
 
                 if (success)
@@ -113,7 +112,6 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                     transactionId,
                     line.LootId.Value, 
                     line.Amount, 
-                    line.Total, 
                     _store.RemoteRevision);
 
                 if (success)

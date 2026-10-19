@@ -82,9 +82,9 @@ test('E2E Concurrency & Idempotency (US-45)', async (t) => {
     const statuses = [res1.status, res2.status].sort();
     assert.deepStrictEqual(statuses, [200, 409], 'Duplicate shop transaction should be rejected or conflict');
     
-    // Currency should only decrease by 50 once
+    // Currency should only decrease by authoritative cost (20) once
     const char = await Character.findOne({ accountId });
-    assert.strictEqual(char.inventory.currency, 450);
+    assert.strictEqual(char.inventory.currency, 480);
   });
 
   await t.test('Duplicate Extraction Commits', async () => {

@@ -7,6 +7,11 @@ const {
   normalizeLootId,
   normalizePreparedEquipment
 } = require('./InventoryLootIdNormalizer');
+const {
+  MAX_TRANSACTION_AMOUNT,
+  getBuyOffer,
+  getSellOffer
+} = require('../config/shopCatalog');
 
 /**
  * Serializes an item array from Mongoose documents to plain DTOs.
@@ -487,11 +492,11 @@ class InventoryService {
   }
 
   /**
-   * Processes a shop sale. Removes items from the loadout and adds currency.
+  /**
+   * Processes a shop sale. Removes items from the loadout and adds authoritative currency.
    * 
-   * INVARIANT: Currency balance is never negative.
-   * `declaredSellValue` is validated as >= 0 at the route level, ensuring
-   * that sales can only grow (or maintain) the currency balance.
+   * INVARIANT: Currency balance is calculated strictly from the server's authoritative
+   * catalog (shopCatalog.js), ignoring any client declared value.
    */
   static async shopSell(accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
@@ -500,18 +505,41 @@ class InventoryService {
     }
 
     normalizeCharacterInventory(character);
-    
-    // 1. Idempotency check: if already applied, return immediately.
-    // This MUST run before the revision check so network retries don't fail.
-    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
-      return {
-        alreadySecured: true,
-        revision: character.revision,
-        currency: character.inventory.currency || 0,
-        stash: serializeItems(character.inventory.stash),
-        loadout: serializeItems(character.inventory.loadout),
-        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+
+    if (!Number.isInteger(amount) || amount < 1 || amount > MAX_TRANSACTION_AMOUNT) {
+      throw {
+        statusCode: 400,
+        errorCode: 'INVALID_QUANTITY',
+        message: `Amount must be an integer between 1 and ${MAX_TRANSACTION_AMOUNT}.`
       };
+    }
+
+    lootId = normalizeLootId(lootId);
+    
+    // 1. Idempotency check with strict payload binding:
+    // If already applied with identical intent, return immediately.
+    // If transactionId was reused with a different intent, reject as conflict.
+    if (character.appliedShopReceipts) {
+      const existingReceipt = character.appliedShopReceipts.find(r => r.transactionId === transactionId);
+      if (existingReceipt) {
+        if (existingReceipt.type !== 'sell' ||
+            (existingReceipt.lootId && existingReceipt.lootId !== lootId) ||
+            (existingReceipt.amount && existingReceipt.amount !== amount)) {
+          throw {
+            statusCode: 409,
+            errorCode: 'TRANSACTION_ID_REUSED',
+            message: 'Transaction ID was previously applied with a different operation or parameters.'
+          };
+        }
+        return {
+          alreadySecured: true,
+          revision: character.revision,
+          currency: character.inventory.currency || 0,
+          stash: serializeItems(character.inventory.stash),
+          loadout: serializeItems(character.inventory.loadout),
+          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+        };
+      }
     }
 
     // 2. Validate revision for new mutations
@@ -519,7 +547,25 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
 
-    lootId = normalizeLootId(lootId);
+    // 3. Resolve authoritative sell offer from catalog
+    const sellOffer = getSellOffer(lootId);
+    if (!sellOffer) {
+      throw {
+        statusCode: 404,
+        errorCode: 'ITEM_NOT_SELLABLE',
+        message: `Item '${lootId}' cannot be sold to the shop.`
+      };
+    }
+
+    const unitSellValue = sellOffer.sellValue;
+    const authoritativeRevenue = unitSellValue * amount;
+    if (!Number.isSafeInteger(authoritativeRevenue)) {
+      throw {
+        statusCode: 400,
+        errorCode: 'INTEGER_OVERFLOW',
+        message: 'Calculated transaction value causes integer overflow.'
+      };
+    }
 
     const loadout = character.inventory.loadout;
     const loadoutIndex = loadout.findIndex(i => i.lootId === lootId);
@@ -542,15 +588,15 @@ class InventoryService {
       { accountId, revision: expectedRevision },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': declaredSellValue },
+        $inc: { revision: 1, 'inventory.currency': authoritativeRevenue },
         $push: {
           appliedShopReceipts: {
-            $each: [{ transactionId, type: 'sell', timestamp: new Date() }],
+            $each: [{ transactionId, type: 'sell', lootId, amount, totalAmount: authoritativeRevenue, timestamp: new Date() }],
             $slice: -64
           }
         }
       },
-      { new: true }
+      { new: true, returnDocument: 'after' }
     );
 
     if (!updated) {
@@ -569,10 +615,10 @@ class InventoryService {
   /**
    * Processes a shop purchase. Removes currency and adds items to the loadout.
    * 
-   * INVARIANT: Currency balance is never negative.
-   * Enforced locally (currentCurrency < declaredPrice) and atomically by the
-   * MongoDB query filter ('inventory.currency': { $gte: declaredPrice }).
-   * `declaredPrice` is validated as >= 0 at the route level.
+   * INVARIANT: Currency balance is calculated strictly from the server's authoritative
+   * catalog (shopCatalog.js), ignoring any client declared price.
+   * Enforced locally and atomically by the MongoDB query filter
+   * ('inventory.currency': { $gte: authoritativeCost }).
    */
   static async shopBuy(accountId, lootId, amount, declaredPrice, expectedRevision, transactionId) {
     const character = await Character.findOne({ accountId });
@@ -581,32 +627,74 @@ class InventoryService {
     }
 
     normalizeCharacterInventory(character);
-    
-    // 1. Idempotency check: if already applied, return immediately.
-    if (character.appliedShopReceipts && character.appliedShopReceipts.some(r => r.transactionId === transactionId)) {
-      return {
-        alreadySecured: true,
-        revision: character.revision,
-        currency: character.inventory.currency || 0,
-        stash: serializeItems(character.inventory.stash),
-        loadout: serializeItems(character.inventory.loadout),
-        preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+
+    if (!Number.isInteger(amount) || amount < 1 || amount > MAX_TRANSACTION_AMOUNT) {
+      throw {
+        statusCode: 400,
+        errorCode: 'INVALID_QUANTITY',
+        message: `Amount must be an integer between 1 and ${MAX_TRANSACTION_AMOUNT}.`
       };
+    }
+
+    lootId = normalizeLootId(lootId);
+    
+    // 1. Idempotency check with strict payload binding:
+    // If already applied with identical intent, return immediately.
+    // If transactionId was reused with a different intent, reject as conflict.
+    if (character.appliedShopReceipts) {
+      const existingReceipt = character.appliedShopReceipts.find(r => r.transactionId === transactionId);
+      if (existingReceipt) {
+        if (existingReceipt.type !== 'buy' ||
+            (existingReceipt.lootId && existingReceipt.lootId !== lootId) ||
+            (existingReceipt.amount && existingReceipt.amount !== amount)) {
+          throw {
+            statusCode: 409,
+            errorCode: 'TRANSACTION_ID_REUSED',
+            message: 'Transaction ID was previously applied with a different operation or parameters.'
+          };
+        }
+        return {
+          alreadySecured: true,
+          revision: character.revision,
+          currency: character.inventory.currency || 0,
+          stash: serializeItems(character.inventory.stash),
+          loadout: serializeItems(character.inventory.loadout),
+          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+        };
+      }
     }
 
     // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
-    
-    lootId = normalizeLootId(lootId);
+
+    // 3. Resolve authoritative buy offer from catalog
+    const buyOffer = getBuyOffer(lootId);
+    if (!buyOffer) {
+      throw {
+        statusCode: 404,
+        errorCode: 'ITEM_NOT_OFFERED',
+        message: `Item '${lootId}' is not offered in the shop.`
+      };
+    }
+
+    const unitPrice = buyOffer.buyPrice;
+    const authoritativeCost = unitPrice * amount;
+    if (!Number.isSafeInteger(authoritativeCost)) {
+      throw {
+        statusCode: 400,
+        errorCode: 'INTEGER_OVERFLOW',
+        message: 'Calculated transaction cost causes integer overflow.'
+      };
+    }
     
     const currentCurrency = character.inventory.currency || 0;
-    if (currentCurrency < declaredPrice) {
+    if (currentCurrency < authoritativeCost) {
       throw {
-        statusCode: 409, // Using 409 for domain errors like INSUFFICIENT_FUNDS to keep retry policies simple
+        statusCode: 409,
         errorCode: 'INSUFFICIENT_FUNDS',
-        message: `Not enough currency to purchase '${lootId}'.`
+        message: `Not enough currency to purchase '${lootId}'. Required: ${authoritativeCost}, available: ${currentCurrency}.`
       };
     }
 
@@ -620,18 +708,18 @@ class InventoryService {
     }
 
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: expectedRevision, 'inventory.currency': { $gte: declaredPrice } },
+      { accountId, revision: expectedRevision, 'inventory.currency': { $gte: authoritativeCost } },
       {
         $set: { 'inventory.loadout': loadout },
-        $inc: { revision: 1, 'inventory.currency': -declaredPrice },
+        $inc: { revision: 1, 'inventory.currency': -authoritativeCost },
         $push: {
           appliedShopReceipts: {
-            $each: [{ transactionId, type: 'buy', timestamp: new Date() }],
+            $each: [{ transactionId, type: 'buy', lootId, amount, totalAmount: authoritativeCost, timestamp: new Date() }],
             $slice: -64
           }
         }
       },
-      { new: true }
+      { new: true, returnDocument: 'after' }
     );
 
     if (!updated) {

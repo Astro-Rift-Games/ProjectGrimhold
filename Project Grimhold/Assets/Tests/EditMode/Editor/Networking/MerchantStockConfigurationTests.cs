@@ -5,7 +5,7 @@ using Assert = NUnit.Framework.Assert;
 
 public class MerchantStockConfigurationTests
 {
-    private const string MerchantPrefabPath = "Assets/Prefabs/Merchant.prefab";
+    private const string MerchantPrefabPath = "Assets/Prefabs/TownMerchantNPC.prefab";
 
     [Test]
     public void MerchantStock_EveryItemHasValidDefinitionAndPositiveBuyValue()

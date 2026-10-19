@@ -8,7 +8,16 @@ persistence boundary. `LocalPlayerPersistenceArchitecture.md` owns the character
 its transactions; this document only defines what Commerce submits to it.
 
 Intended gameplay behavior lives in the live Game Design ("UI - Auditoría Funcional de Interfaces
-MVP", section UI.1.4 Comercio). Backend endpoints, DTOs and server-side validation are out of scope.
+MVP", section UI.1.4 Comercio).
+
+### Backend Authoritative Contract (US-57 / SEC-57.1)
+
+The backend is the sole authority for economic mutations:
+- `POST /character/me/inventory/shop/buy` and `POST /character/me/inventory/shop/sell` accept pure transaction intentions (`transactionId`, `lootId`, `amount`, `expectedRevision`).
+- Client-declared prices (`declaredPrice`, `declaredSellValue`) are strictly untrusted and ignored for authoritative economic balance calculations.
+- Authoritative buy and sell values are resolved on the server via `shopCatalog.js` (derived from `GD-14` / `LootDefinitionCatalog`).
+- The backend validates positive integer quantities (`1 <= amount <= MAX_TRANSACTION_AMOUNT`), checks funds/items atomically against MongoDB, and binds receipts strictly to `{ transactionId, type, lootId, amount, totalAmount }` to prevent replay and fraud.
+- Unity client preview (`MerchantTradePreview`) remains purely advisory; persistent confirmation reconciles local state from the backend's authoritative response.
 
 ## Decision
 

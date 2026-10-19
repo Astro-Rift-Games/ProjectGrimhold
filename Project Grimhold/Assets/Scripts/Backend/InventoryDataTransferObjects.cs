@@ -111,7 +111,6 @@ namespace Grimhold.Backend
         public string transactionId;
         public string lootId;
         public int    amount;
-        public long   declaredSellValue;
         public int    expectedRevision;
     }
 
@@ -121,7 +120,6 @@ namespace Grimhold.Backend
         public string transactionId;
         public string lootId;
         public int    amount;
-        public long   declaredPrice;
         public int    expectedRevision;
     }
 

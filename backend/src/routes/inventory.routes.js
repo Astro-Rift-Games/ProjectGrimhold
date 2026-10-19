@@ -58,8 +58,8 @@ router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req
 });
 
 // POST /character/me/inventory/shop/sell
-// Sells an item from the loadout, awarding currency.
-// Body: { transactionId, lootId, amount, declaredSellValue, expectedRevision }
+// Sells an item from the loadout, awarding authoritative currency from shop catalog.
+// Body: { transactionId, lootId, amount, expectedRevision, declaredSellValue? }
 router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next) => {
   try {
     const { transactionId, lootId, amount, declaredSellValue, expectedRevision } = req.body;
@@ -71,8 +71,8 @@ router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next)
 });
 
 // POST /character/me/inventory/shop/buy
-// Buys an item into the loadout, deducting currency.
-// Body: { transactionId, lootId, amount, declaredPrice, expectedRevision }
+// Buys an item into the loadout, deducting authoritative currency from shop catalog.
+// Body: { transactionId, lootId, amount, expectedRevision, declaredPrice? }
 router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) => {
   try {
     const { transactionId, lootId, amount, declaredPrice, expectedRevision } = req.body;

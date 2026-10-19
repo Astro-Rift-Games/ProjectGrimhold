@@ -56,6 +56,9 @@ const characterAttributeStateSchema = new mongoose.Schema({
 const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
   type:          { type: String, enum: ['buy', 'sell'], required: true },
+  lootId:        { type: String },
+  amount:        { type: Number },
+  totalAmount:   { type: Number },
   timestamp:     { type: Date, default: Date.now }
 }, { _id: false });
 
