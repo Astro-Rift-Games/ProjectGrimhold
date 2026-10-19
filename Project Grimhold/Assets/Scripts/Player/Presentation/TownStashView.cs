@@ -9,21 +9,21 @@ using UnityEngine;
 [RequireComponent(typeof(Canvas))]
 public sealed class TownStashView : MonoBehaviour
 {
-    public bool IsOpen => gameObject.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(gameObject);
 
     public void Open()
     {
-        if (!gameObject.activeSelf)
+        if (!IsOpen)
         {
-            gameObject.SetActive(true);
+            UiPanelVisibility.SetVisible(gameObject, true);
         }
     }
 
     public void Close()
     {
-        if (gameObject.activeSelf)
+        if (IsOpen)
         {
-            gameObject.SetActive(false);
+            UiPanelVisibility.SetVisible(gameObject, false);
         }
     }
 }

@@ -43,7 +43,7 @@ public sealed class MissionBoardUI : MonoBehaviour
     {
         get
         {
-            if (_visualRoot != null) return _visualRoot.activeSelf;
+            if (_visualRoot != null) return UiPanelVisibility.IsVisible(_visualRoot);
             if (_canvas != null) return _canvas.enabled;
             return gameObject.activeSelf;
         }
@@ -57,7 +57,7 @@ public sealed class MissionBoardUI : MonoBehaviour
             return;
         }
 
-        if (_visualRoot != null) _visualRoot.SetActive(true);
+        if (_visualRoot != null) UiPanelVisibility.SetVisible(_visualRoot, true);
         if (_canvas != null) _canvas.enabled = true;
 
         RefreshState();
@@ -67,7 +67,7 @@ public sealed class MissionBoardUI : MonoBehaviour
     {
         if (_visualRoot != null)
         {
-            _visualRoot.SetActive(false);
+            UiPanelVisibility.SetVisible(_visualRoot, false);
         }
         else if (_canvas != null)
         {

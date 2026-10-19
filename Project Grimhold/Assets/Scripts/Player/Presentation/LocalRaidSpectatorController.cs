@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Fusion;
+using ProjectGrimhold.Gameplay.Visibility;
 using UnityEngine;
 
 /// <summary>
-/// Owns one peer's local spectator target selection and camera binding.
+/// Owns one peer's local spectator target selection, camera binding and spectated vision.
 /// It observes replicated participant state without changing gameplay authority,
 /// PlayerObject mappings, or network simulation.
 /// </summary>
@@ -19,6 +20,8 @@ public sealed class LocalRaidSpectatorController
     private Transform _currentTransform;
     private string _currentProfileId;
     private bool _fallbackReported;
+    private EntityVisibilitySystem _visibilitySystem;
+    private LocalVisionSource _spectatedVision;
 
     public bool IsActive { get; private set; }
     public bool HasTarget => _currentTransform != null;
@@ -126,6 +129,7 @@ public sealed class LocalRaidSpectatorController
             LocalCameraController.Instance.ClearTarget(_currentTransform);
         }
 
+        SetSpectatedVision(null);
         if (IsActive)
         {
             Debug.Log("[RAID-SPECTATOR] Spectator cleanup.", _localParticipant);
@@ -272,6 +276,7 @@ public sealed class LocalRaidSpectatorController
             _currentParticipant = null;
             _currentTransform = null;
             _currentProfileId = null;
+            SetSpectatedVision(null);
             if (!string.IsNullOrEmpty(previousProfileId))
             {
                 Debug.Log("[RAID-SPECTATOR] No valid targets remain.", _localParticipant);
@@ -288,11 +293,46 @@ public sealed class LocalRaidSpectatorController
             LocalCameraController.Instance.SetTarget(_currentTransform);
         }
 
+        SetSpectatedVision(_currentTransform.GetComponent<LocalVisionSource>());
+
         Debug.Log(
             $"[RAID-SPECTATOR] Selected target ProfileId={_currentProfileId}.",
             _localParticipant);
         return previousTransform != _currentTransform ||
             !string.Equals(previousProfileId, _currentProfileId, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Shows the world through the spectated avatar's vision, or clears it so the
+    /// visibility system falls back to the local viewer (or hides everything).
+    /// </summary>
+    private void SetSpectatedVision(LocalVisionSource vision)
+    {
+        if (_visibilitySystem == null)
+        {
+            if (vision == null)
+            {
+                _spectatedVision = null;
+                return;
+            }
+
+            _visibilitySystem = UnityEngine.Object.FindAnyObjectByType<EntityVisibilitySystem>(FindObjectsInactive.Exclude);
+            if (_visibilitySystem == null)
+            {
+                return;
+            }
+        }
+
+        if (_spectatedVision != null)
+        {
+            _visibilitySystem.ClearSpectatedViewer(_spectatedVision);
+        }
+
+        _spectatedVision = vision;
+        if (vision != null)
+        {
+            _visibilitySystem.SetSpectatedViewer(vision);
+        }
     }
 
     private readonly struct SpectatorTarget

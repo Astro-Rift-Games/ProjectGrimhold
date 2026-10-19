@@ -65,6 +65,10 @@ public sealed class LootDefinition : ScriptableObject
     [Tooltip("Optional held shield presentation sprites for each visual direction.")]
     private DirectionalShieldSpriteSet _defenseSprites;
 
+    [SerializeField]
+    [Tooltip("Whether this definition can be assigned to a Quick Slot. Requires a ConsumableDefinition.")]
+    private bool _quickSlotCompatible;
+
     public string Id => _id;
     public LootId LootId => new LootId(_id);
     public string DisplayName => _displayName;
@@ -83,6 +87,7 @@ public sealed class LootDefinition : ScriptableObject
     public ArmorDefinition ArmorDefinition => _armorDefinition;
     public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
     public DirectionalShieldSpriteSet DefenseSprites => _defenseSprites;
+    public bool QuickSlotCompatible => _quickSlotCompatible;
 
     private void OnValidate()
     {
@@ -164,6 +169,12 @@ public sealed class LootDefinition : ScriptableObject
         if (_consumableDefinition != null && !_consumableDefinition.TryValidate(out string consumableError))
         {
             error = $"Loot definition '{_id}' has an invalid ConsumableDefinition: {consumableError}";
+            return false;
+        }
+
+        if (_quickSlotCompatible && _consumableDefinition == null)
+        {
+            error = $"Loot definition '{_id}' is Quick Slot compatible but has no ConsumableDefinition.";
             return false;
         }
 

@@ -56,6 +56,25 @@ public sealed class PlayerDownedRecoveryNetworkController :
     [Networked]
     public NetworkId RevivingTargetId { get; private set; }
 
+    /// <summary>How the last session ended; presentation record read by both participants.</summary>
+    [Networked]
+    public RecoveryOutcomeKind LastOutcomeKind { get; private set; }
+
+    [Networked]
+    public DownedRecoveryInterruptReason LastOutcomeReason { get; private set; }
+
+    /// <summary>Reviver of the last session, so the reviver can recognise an outcome as its own.</summary>
+    [Networked]
+    public NetworkId LastOutcomeReviverId { get; private set; }
+
+    /// <summary>Monotonic counter, bumped once per outcome; presenters edge-detect on it.</summary>
+    [Networked]
+    public int LastOutcomeSequence { get; private set; }
+
+    public float ReviveDurationSeconds => _reviveDurationSeconds;
+
+    public float ReviveRange => _reviveRange;
+
     /// <summary>Test seam: overrides the initial-team check, which needs a Raid launch context.</summary>
     internal bool? TestTeamOverride { get; set; }
 
@@ -86,7 +105,28 @@ public sealed class PlayerDownedRecoveryNetworkController :
             SessionCycle = 0;
             Completion = TickTimer.None;
             RevivingTargetId = default;
+            LastOutcomeKind = RecoveryOutcomeKind.None;
+            LastOutcomeReason = DownedRecoveryInterruptReason.None;
+            LastOutcomeReviverId = default;
+            LastOutcomeSequence = 0;
         }
+    }
+
+    /// <summary>
+    /// Presentation read: revive progress in [0, 1] while a valid session runs. Derived from the
+    /// replicated <see cref="Completion"/> timer, so it adds no state.
+    /// </summary>
+    public bool TryGetProgress(out float progress)
+    {
+        progress = 0f;
+        if (!HasValidSession || Runner == null)
+        {
+            return false;
+        }
+
+        float remaining = Completion.RemainingTime(Runner) ?? _reviveDurationSeconds;
+        progress = DownedRecoveryFeedbackRules.ProgressFraction(remaining, _reviveDurationSeconds);
+        return true;
     }
 
     /// <summary>
@@ -182,6 +222,7 @@ public sealed class PlayerDownedRecoveryNetworkController :
             return;
         }
 
+        RecordOutcome(RecoveryOutcomeKind.Interrupted, reason);
         ClearSession();
     }
 
@@ -194,12 +235,15 @@ public sealed class PlayerDownedRecoveryNetworkController :
 
         if (!TryBuildSnapshot(out DownedRecoveryInterruptionSnapshot snapshot, out PlayerCharacter reviver))
         {
+            RecordOutcome(RecoveryOutcomeKind.Interrupted, DownedRecoveryInterruptReason.DownedDefeated);
             ClearSession();
             return;
         }
 
-        if (DownedRecoveryRules.EvaluateInterruption(snapshot) != DownedRecoveryInterruptReason.None)
+        DownedRecoveryInterruptReason interruption = DownedRecoveryRules.EvaluateInterruption(snapshot);
+        if (interruption != DownedRecoveryInterruptReason.None)
         {
+            RecordOutcome(RecoveryOutcomeKind.Interrupted, interruption);
             ClearSession();
             return;
         }
@@ -211,7 +255,11 @@ public sealed class PlayerDownedRecoveryNetworkController :
         }
 
         // Success and cleanup share this tick, so a second completion is impossible.
-        _playerCharacter.TryRestoreFromDowned(RestoredHealth);
+        if (_playerCharacter.TryRestoreFromDowned(RestoredHealth))
+        {
+            RecordOutcome(RecoveryOutcomeKind.Completed, DownedRecoveryInterruptReason.None);
+        }
+
         ClearSession();
     }
 
@@ -286,6 +334,14 @@ public sealed class PlayerDownedRecoveryNetworkController :
         }
 
         return true;
+    }
+
+    private void RecordOutcome(RecoveryOutcomeKind kind, DownedRecoveryInterruptReason reason)
+    {
+        LastOutcomeKind = kind;
+        LastOutcomeReason = reason;
+        LastOutcomeReviverId = ReviverId;
+        LastOutcomeSequence++;
     }
 
     private void ClearSession()

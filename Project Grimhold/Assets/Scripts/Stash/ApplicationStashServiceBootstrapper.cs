@@ -241,6 +241,7 @@ public static class ApplicationStashServiceBootstrapper
     /// - ActiveMissions
     /// - UnlockedAbilities
     /// - PreparedAbilities (unless revalidation fails due to attribute changes)
+    /// - QuickSlots
     /// - Shop receipts
     /// - PendingExtractionCommit
     /// - Off Hand weapon assignments

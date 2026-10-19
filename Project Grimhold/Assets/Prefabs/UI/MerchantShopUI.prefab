@@ -472,6 +472,7 @@ GameObject:
   - component: {fileID: 8339894379653115729}
   - component: {fileID: 8506194579398795725}
   - component: {fileID: 7944857309112540575}
+  - component: {fileID: 963421289482293632}
   m_Layer: 8
   m_Name: CloseButton
   m_TagString: Untagged
@@ -580,6 +581,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &963421289482293632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 878377064741756323}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1018564078265211971
 GameObject:
   m_ObjectHideFlags: 0
@@ -1314,6 +1332,7 @@ GameObject:
   - component: {fileID: 7594717289378465922}
   - component: {fileID: 1732195930768985144}
   - component: {fileID: 4154487137347884132}
+  - component: {fileID: 6154092635257666226}
   m_Layer: 8
   m_Name: Decrease
   m_TagString: Untagged
@@ -1423,6 +1442,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6154092635257666226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1637442559479663423}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1648517513413615085
 GameObject:
   m_ObjectHideFlags: 0
@@ -2389,6 +2425,7 @@ GameObject:
   - component: {fileID: 3552726131515017763}
   - component: {fileID: 437708963357120780}
   - component: {fileID: 4896233416419812314}
+  - component: {fileID: 5869294675086337803}
   m_Layer: 8
   m_Name: RemoveButton
   m_TagString: Untagged
@@ -2498,6 +2535,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5869294675086337803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1961237596792150362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2084317858530340709
 GameObject:
   m_ObjectHideFlags: 0
@@ -2918,6 +2972,8 @@ GameObject:
   - component: {fileID: 182352071136669443}
   - component: {fileID: 3915099310445999246}
   - component: {fileID: 3433850354817964414}
+  - component: {fileID: 1747564312309500352}
+  - component: {fileID: 8368176515268545020}
   m_Layer: 8
   m_Name: MerchantShopUI
   m_TagString: Untagged
@@ -3063,6 +3119,34 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!225 &1747564312309500352
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2538062899881950617}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &8368176515268545020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2538062899881950617}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 1
+  _scaleTarget: {fileID: 0}
 --- !u!1 &2554467337440464638
 GameObject:
   m_ObjectHideFlags: 0
@@ -3811,6 +3895,7 @@ GameObject:
   - component: {fileID: 6138823333908038605}
   - component: {fileID: 2135456199208092272}
   - component: {fileID: 6536784171395684570}
+  - component: {fileID: 842399118402727549}
   m_Layer: 8
   m_Name: ClearButton
   m_TagString: Untagged
@@ -3920,6 +4005,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &842399118402727549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4818708504441060029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4827570651627130549
 GameObject:
   m_ObjectHideFlags: 0
@@ -4136,6 +4238,7 @@ GameObject:
   - component: {fileID: 7034728997925146142}
   - component: {fileID: 1692386343995913481}
   - component: {fileID: 3088883004314015425}
+  - component: {fileID: 2418510826018976156}
   m_Layer: 8
   m_Name: Increase
   m_TagString: Untagged
@@ -4245,6 +4348,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2418510826018976156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5060102254241337578}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5180575447826669226
 GameObject:
   m_ObjectHideFlags: 0
@@ -5156,6 +5276,7 @@ GameObject:
   - component: {fileID: 7646590112998657963}
   - component: {fileID: 1081121554470616045}
   - component: {fileID: 9120261856613651576}
+  - component: {fileID: 2780436631054074600}
   m_Layer: 8
   m_Name: ApplyButton
   m_TagString: Untagged
@@ -5265,6 +5386,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2780436631054074600
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6109066711978232706}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6258454928813249788
 GameObject:
   m_ObjectHideFlags: 0
@@ -7232,6 +7370,7 @@ GameObject:
   - component: {fileID: 4298941213743382064}
   - component: {fileID: 4114556000615735951}
   - component: {fileID: 7858644695456931470}
+  - component: {fileID: 634664701027348646}
   m_Layer: 8
   m_Name: ConfirmButton
   m_TagString: Untagged
@@ -7341,6 +7480,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &634664701027348646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7952091462413504739}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &8026266407206628568
 GameObject:
   m_ObjectHideFlags: 0

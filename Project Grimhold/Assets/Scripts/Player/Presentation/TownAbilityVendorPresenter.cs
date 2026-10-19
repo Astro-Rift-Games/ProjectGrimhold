@@ -246,6 +246,7 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
                 entry.State == AbilityVendorOfferState.AlreadyUnlocked
                     ? AbilityPurchaseResult.AlreadyUnlocked
                     : AbilityPurchaseResult.InsufficientCurrency));
+            _view.PulseFeedback(UiPulseKind.Rejection);
             Refresh();
             return;
         }
@@ -264,6 +265,7 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
         }
 
         _view.ShowFeedback(AbilityVendorFeedback.Describe(result));
+        _view.PulseFeedback(result == AbilityPurchaseResult.Success ? UiPulseKind.Success : UiPulseKind.Rejection);
         Refresh();
     }
 

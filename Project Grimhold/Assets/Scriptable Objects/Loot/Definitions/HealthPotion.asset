@@ -24,3 +24,4 @@ MonoBehaviour:
   _buyValuePerUnit: 20
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 11400000, guid: 4904523b8bebe1c4b895bf5a426ded6a, type: 2}
+  _quickSlotCompatible: 1

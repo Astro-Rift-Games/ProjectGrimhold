@@ -39,7 +39,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public event Action ReconnectRequested;
     public event Action DiscardReconnectRequested;
 
-    public bool IsPanelOpen => _panelRoot != null && _panelRoot.activeSelf;
+    public bool IsPanelOpen => UiPanelVisibility.IsVisible(_panelRoot);
     public Button ReconnectButton => _reconnectButton;
     public Button DiscardReconnectButton => _discardReconnectButton;
 
@@ -171,10 +171,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             _promptRoot.SetActive(false);
         }
 
-        if (_panelRoot != null)
-        {
-            _panelRoot.SetActive(true);
-        }
+        UiPanelVisibility.SetVisible(_panelRoot, true);
 
         _rejectionNotice = null;
         ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
@@ -210,10 +207,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void Close()
     {
-        if (_panelRoot != null)
-        {
-            _panelRoot.SetActive(false);
-        }
+        UiPanelVisibility.SetVisible(_panelRoot, false);
     }
 
     public void SetBusy(bool busy, string status = null)

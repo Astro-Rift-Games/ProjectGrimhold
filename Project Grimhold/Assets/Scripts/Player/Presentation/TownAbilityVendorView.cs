@@ -27,7 +27,7 @@ public sealed class TownAbilityVendorView : MonoBehaviour
     private bool _initialized;
     private bool _isConfigured;
 
-    public bool IsOpen => gameObject.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(gameObject);
     public IReadOnlyList<TownAbilityVendorRowView> Rows => _rows;
     public TMP_Text GoldText => _goldText;
     public TMP_Text FeedbackText => _feedbackText;
@@ -86,9 +86,9 @@ public sealed class TownAbilityVendorView : MonoBehaviour
         _rows.Clear();
     }
 
-    public void Open() => gameObject.SetActive(true);
+    public void Open() => UiPanelVisibility.SetVisible(gameObject, true);
 
-    public void Close() => gameObject.SetActive(false);
+    public void Close() => UiPanelVisibility.SetVisible(gameObject, false);
 
     /// <summary>Shows one row per entry in the given order and the confirmed gold.</summary>
     public void Present(IReadOnlyList<AbilityVendorEntry> entries, long currency)
@@ -127,6 +127,15 @@ public sealed class TownAbilityVendorView : MonoBehaviour
         if (_isConfigured)
         {
             _feedbackText.text = message ?? string.Empty;
+        }
+    }
+
+    /// <summary>Plays the optional feedback pulse for a confirmed purchase result.</summary>
+    public void PulseFeedback(UiPulseKind kind)
+    {
+        if (_isConfigured)
+        {
+            UiFeedbackPulse.Play(_feedbackText.gameObject, kind);
         }
     }
 

@@ -50,6 +50,9 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     [Networked]
     public int DefeatedCycle { get; private set; }
 
+    /// <summary>Full Downed reserve granted on entry; presentation uses it to normalize the bar.</summary>
+    public float InitialDownedHealth => _initialDownedHealth;
+
     /// <summary>Multiplier applied to voluntary movement speed while Downed.</summary>
     public float DownedMovementSpeedMultiplier => _downedMovementSpeedMultiplier;
 

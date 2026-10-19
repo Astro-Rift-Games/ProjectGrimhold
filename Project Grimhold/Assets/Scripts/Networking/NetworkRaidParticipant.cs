@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
@@ -42,6 +43,17 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
     [Networked]
     public long ExtractedLootCandidateExperience { get; private set; }
+
+    // Presentation-only snapshot of the loot shown on this participant's Results screen.
+    // State Authority writes it once, before the inventory is cleared; it never drives gameplay.
+    [Networked]
+    public RaidResultsLootKind ResultsLootKind { get; private set; }
+
+    [Networked]
+    public long ResultsLootTotalValue { get; private set; }
+
+    [Networked, Capacity(PlayerExtractionLootSaver.MaximumSnapshotEntries)]
+    private NetworkDictionary<int, int> ResultsLootAmounts => default;
 
     [Networked]
     public ExpeditionProgressionFinalizationCause FinalizationCause { get; private set; }
@@ -294,6 +306,9 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.None;
         ExtractedLootCandidateEligibleValue = 0;
         ExtractedLootCandidateExperience = 0;
+        ResultsLootKind = RaidResultsLootKind.None;
+        ResultsLootTotalValue = 0;
+        ResultsLootAmounts.Clear();
         FinalizationCause = ExpeditionProgressionFinalizationCause.None;
         IsReturnAuthorized = false;
         IsCharacterAttributeStateInitialized = true;
@@ -495,6 +510,80 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         ExtractionExperiencePhase =
             ExtractionExperienceTransactionPhase.AwaitingPersistenceAck;
         return true;
+    }
+
+    /// <summary>
+    /// Publishes the Results loot summary once per participation. Later calls are ignored so
+    /// retries and repeated transactions cannot rewrite what the player was shown.
+    /// </summary>
+    internal bool TryStoreResultsLoot(RaidResultsLootSummary summary, LootDefinitionCatalog catalog)
+    {
+        if (!HasStateAuthority || catalog == null || ResultsLootKind != RaidResultsLootKind.None ||
+            !RaidResultsLootWire.TryEncode(
+                summary,
+                catalog.TryGetIndex,
+                PlayerExtractionLootSaver.MaximumSnapshotEntries,
+                PlayerLootReceiver.MaxCatalogEntries,
+                out int[] indices,
+                out int[] amounts,
+                out _))
+        {
+            return false;
+        }
+
+        ResultsLootAmounts.Clear();
+        for (int index = 0; index < indices.Length; index++)
+        {
+            ResultsLootAmounts.Set(indices[index], amounts[index]);
+        }
+
+        ResultsLootTotalValue = summary.TotalValue;
+        ResultsLootKind = summary.Kind;
+        return true;
+    }
+
+    /// <summary>Reads the published Results loot summary, if State Authority has written it.</summary>
+    public bool TryGetResultsLoot(LootDefinitionCatalog catalog, out RaidResultsLootSummary summary)
+    {
+        summary = null;
+        if (catalog == null || Object == null || !Object.IsValid ||
+            ResultsLootKind == RaidResultsLootKind.None)
+        {
+            return false;
+        }
+
+        var indices = new List<int>(ResultsLootAmounts.Count);
+        foreach (KeyValuePair<int, int> pair in ResultsLootAmounts)
+        {
+            indices.Add(pair.Key);
+        }
+
+        indices.Sort();
+        var amounts = new List<int>(indices.Count);
+        for (int index = 0; index < indices.Count; index++)
+        {
+            amounts.Add(ResultsLootAmounts[indices[index]]);
+        }
+
+        bool TryGetLootId(int catalogIndex, out LootId lootId)
+        {
+            lootId = default;
+            if (!catalog.TryGetByIndex(catalogIndex, out LootDefinition definition))
+            {
+                return false;
+            }
+
+            lootId = definition.LootId;
+            return true;
+        }
+
+        return RaidResultsLootWire.TryDecode(
+            ResultsLootKind,
+            ResultsLootTotalValue,
+            indices,
+            amounts,
+            TryGetLootId,
+            out summary);
     }
 
     internal bool TryGetExtractedLootCandidate(out ExtractedLootExperienceCandidate candidate)

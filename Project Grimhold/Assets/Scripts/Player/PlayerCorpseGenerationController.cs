@@ -142,6 +142,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 return false;
             }
 
+            PublishLostResultsSummary(ownershipSnapshot);
             _lootContainer.SetAvailability(true);
             State = GenerationState.Completed;
             return true;
@@ -152,6 +153,35 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             FailAndCompensate(contentLoaded, snapshot, originSnapshot, simulationTick, "Unexpected inventory conversion exception.");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Records what the player lost for the Results screen while the exact snapshot is still
+    /// known. Presentation only: a failure is reported but never undoes the conversion.
+    /// </summary>
+    private void PublishLostResultsSummary(PlayerExpeditionLootSnapshot ownershipSnapshot)
+    {
+        // Without a Raid participant there is no Results screen to describe.
+        if (!TryGetComponent(out RaidAvatarParticipantLink participantLink) ||
+            !participantLink.TryResolveParticipant(out NetworkRaidParticipant participant))
+        {
+            return;
+        }
+
+        string error = $"Missing {nameof(ExtractedLootExperienceProducer)}.";
+        if (TryGetComponent(out ExtractedLootExperienceProducer producer) &&
+            producer.TryPrepareLostResultsSummary(
+                ownershipSnapshot,
+                out RaidResultsLootSummary summary,
+                out error) &&
+            participant.TryStoreResultsLoot(summary, _lootReceiver.LootCatalog))
+        {
+            return;
+        }
+
+        Debug.LogError(
+            $"{nameof(PlayerCorpseGenerationController)}: The Results lost-loot summary could not be published. {error}",
+            this);
     }
 
     private void FailAndCompensate(

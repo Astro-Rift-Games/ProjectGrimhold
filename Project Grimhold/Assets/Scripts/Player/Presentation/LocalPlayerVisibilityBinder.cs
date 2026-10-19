@@ -3,17 +3,16 @@ using ProjectGrimhold.Gameplay.Visibility;
 using UnityEngine;
 
 /// <summary>
-/// Owns the local-only line-of-sight presentation stack for a raid avatar.
+/// Owns the local-only vision for a raid avatar.
 ///
-/// This Fusion presentation adapter enables the visibility mesh and mask camera
-/// only for the current avatar with Input Authority. It owns no networked state
-/// and does not participate in simulation or prediction.
+/// This Fusion presentation adapter registers the avatar's <see cref="LocalVisionSource"/> as the
+/// scene viewer only for the current avatar with Input Authority. It owns
+/// no networked state and does not participate in simulation or prediction.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
 {
-    [SerializeField] private GameObject _visibilityRoot;
-    [SerializeField] private VisibilityMeshBuilder _meshBuilder;
+    [SerializeField] private LocalVisionSource _visionSource;
 
     private RaidAvatarParticipantLink _participantLink;
     private EntityVisibilitySystem _visibilitySystem;
@@ -22,7 +21,7 @@ public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
     private void Awake()
     {
         _participantLink = GetComponent<RaidAvatarParticipantLink>();
-        SetVisibilityActive(false);
+        SetVisionActive(false);
     }
 
     public override void Spawned()
@@ -37,17 +36,17 @@ public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        SetVisibilityActive(false);
+        SetVisionActive(false);
     }
 
     private void OnDestroy()
     {
-        SetVisibilityActive(false);
+        SetVisionActive(false);
     }
 
     private void RefreshLocalOwnership()
     {
-        SetVisibilityActive(HasInputAuthority && IsCurrentRaidAvatar());
+        SetVisionActive(HasInputAuthority && IsCurrentRaidAvatar());
     }
 
     private bool IsCurrentRaidAvatar()
@@ -61,25 +60,20 @@ public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
             participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar == Object;
     }
 
-    private void SetVisibilityActive(bool active)
+    private void SetVisionActive(bool active)
     {
-        if (_visibilityRoot != null && _visibilityRoot.activeSelf != active)
-        {
-            _visibilityRoot.SetActive(active);
-        }
-
         if (active)
         {
-            TryRegisterLocalMeshBuilder();
+            TryRegisterLocalViewer();
             return;
         }
 
-        UnregisterLocalMeshBuilder();
+        UnregisterLocalViewer();
     }
 
-    private void TryRegisterLocalMeshBuilder()
+    private void TryRegisterLocalViewer()
     {
-        if (_isRegistered || _meshBuilder == null)
+        if (_isRegistered || _visionSource == null)
         {
             return;
         }
@@ -90,11 +84,11 @@ public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
             return;
         }
 
-        _visibilitySystem.RegisterLocalMeshBuilder(_meshBuilder);
+        _visibilitySystem.RegisterLocalViewer(_visionSource);
         _isRegistered = true;
     }
 
-    private void UnregisterLocalMeshBuilder()
+    private void UnregisterLocalViewer()
     {
         if (!_isRegistered)
         {
@@ -103,26 +97,19 @@ public sealed class LocalPlayerVisibilityBinder : NetworkBehaviour
 
         if (_visibilitySystem != null)
         {
-            _visibilitySystem.UnregisterLocalMeshBuilder(_meshBuilder);
+            _visibilitySystem.UnregisterLocalViewer(_visionSource);
         }
 
         _visibilitySystem = null;
         _isRegistered = false;
     }
 
-
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        if (_visibilityRoot == null)
+        if (_visionSource == null)
         {
-            Transform visibilityTransform = transform.Find("VisibilityMesh");
-            _visibilityRoot = visibilityTransform != null ? visibilityTransform.gameObject : null;
-        }
-
-        if (_meshBuilder == null && _visibilityRoot != null)
-        {
-            _meshBuilder = _visibilityRoot.GetComponent<VisibilityMeshBuilder>();
+            _visionSource = GetComponent<LocalVisionSource>();
         }
     }
 #endif

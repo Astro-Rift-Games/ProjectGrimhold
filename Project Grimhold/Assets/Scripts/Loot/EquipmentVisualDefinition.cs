@@ -53,7 +53,9 @@ public class EquipmentVisualDefinition
         {
             for (int i = 0; i < _spriteMappings.Count; i++)
             {
-                if (ReferenceEquals(_spriteMappings[i].BaseSprite, baseSprite))
+                // Unity equality compares the native sprite: the animated renderer may hold a different
+                // managed wrapper for the same asset (e.g. after Play Mode without a domain reload).
+                if (_spriteMappings[i].BaseSprite == baseSprite)
                 {
                     return _spriteMappings[i].EquipmentSprite;
                 }

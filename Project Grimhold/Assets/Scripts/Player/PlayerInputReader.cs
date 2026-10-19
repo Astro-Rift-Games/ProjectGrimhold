@@ -29,6 +29,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private InputAction _toggleAttributesAction;
     private InputAction _abilitySlot1Action;
     private InputAction _abilitySlot2Action;
+    private InputAction[] _quickSlotActions;
 
     private Vector2 _moveDirection;
     private Vector2 _aimWorldPosition;
@@ -74,6 +75,13 @@ public sealed class PlayerInputReader : MonoBehaviour
     /// </summary>
     public event Action InteractPressedLocally;
 
+    /// <summary>
+    /// Raised with the zero-based slot index when a Quick Slot shortcut is pressed while
+    /// gameplay input is not suppressed (so never with the inventory or a menu open).
+    /// This intention is local only and is never included in <see cref="PlayerNetworkInput"/>.
+    /// </summary>
+    public event Action<int> QuickSlotActivated;
+
     private void Awake()
     {
         CacheDependencies();
@@ -86,6 +94,11 @@ public sealed class PlayerInputReader : MonoBehaviour
         _toggleAttributesAction = _inputActions.asset.FindAction("LocalUI/ToggleAttributes", true);
         _abilitySlot1Action = _inputActions.asset.FindAction("Gameplay/AbilitySlot1", true);
         _abilitySlot2Action = _inputActions.asset.FindAction("Gameplay/AbilitySlot2", true);
+        _quickSlotActions = new InputAction[QuickSlotBindings.SlotCount];
+        for (int i = 0; i < _quickSlotActions.Length; i++)
+        {
+            _quickSlotActions[i] = _inputActions.asset.FindAction($"Gameplay/QuickSlot{i + 1}", true);
+        }
     }
 
     private void OnEnable()
@@ -120,6 +133,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         ReadAbility(_abilitySlot2Action, PlayerInputButton.AbilitySlot2, ref _abilitySlot2RequiresRelease);
         ReadSprint();
         ReadWeaponSelection();
+        ReadQuickSlots();
     }
 
     private void OnDisable()
@@ -440,6 +454,22 @@ public sealed class PlayerInputReader : MonoBehaviour
         if (_weaponSetBAction.WasPressedThisFrame())
         {
             _pendingButtons.Set(PlayerInputButton.WeaponSetB, true);
+        }
+    }
+
+    private void ReadQuickSlots()
+    {
+        if (IsGameplayInputSuppressed)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _quickSlotActions.Length; i++)
+        {
+            if (_quickSlotActions[i].WasPressedThisFrame())
+            {
+                QuickSlotActivated?.Invoke(i);
+            }
         }
     }
 

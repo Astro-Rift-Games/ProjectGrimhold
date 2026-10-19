@@ -172,7 +172,7 @@ Normal code admission is accepted only in `WaitingForPlayers`. However, during `
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
 behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,
-`PlayerInputReader`, `VisibilityObstacleCache` and `EntityVisibilitySystem`) that
+`PlayerInputReader` and `EntityVisibilitySystem`) that
 do not advance raid simulation during the waiting phase. Dynamic initial content
 is owned by `NetworkSpawnManager` and is now enabled only by the Starting
 bootstrap. No preplaced trap, hazard, extraction, sanctuary, timer or AI behaviour
@@ -389,6 +389,10 @@ lifecycle only, and `StateChanged` is local presentation feedback. Movement, com
 extraction, and other gameplay state continue to advance through Fusion simulation and their
 existing authority rules. No RPC, `[Networked]` property, event bus, or parallel coordinator
 is introduced by this transition flow.
+
+`SceneTransitionFader` (nested under the coordinator in `Systems.prefab`) is a presentation
+consumer of `StateChanged`: it covers the screen while connecting or returning and fades in on
+any other state. It never delays or drives a transition (see `UiFeedbackArchitecture.md`).
 
 ## Alternatives considered
 

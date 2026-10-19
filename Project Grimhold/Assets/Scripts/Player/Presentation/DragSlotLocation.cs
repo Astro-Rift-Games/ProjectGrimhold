@@ -5,5 +5,6 @@ public enum DragSlotLocation : byte
     Inventory = 1,
     Container = 2,
     Stash = 3,
-    Equipment = 4
+    Equipment = 4,
+    QuickSlot = 5
 }

@@ -831,12 +831,22 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
     public bool TryResolveRaidLootOriginTransfer(
         in LootTransferRequest request,
+        out RaidLootOriginTransfer transfer) =>
+        TryResolveRaidLootOriginTransfer(request, RaidLootOriginSelectionOrder.Canonical, out transfer);
+
+    public bool TryResolveRaidLootOriginTransfer(
+        in LootTransferRequest request,
+        RaidLootOriginSelectionOrder selectionOrder,
         out RaidLootOriginTransfer transfer)
     {
         transfer = null;
         return _raidOriginState != null && request.SourceId == Id && _lootCatalog != null &&
             _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
-            _raidOriginState.TryResolveInventoryTransfer(catalogIndex, request.RequestedAmount, out transfer);
+            _raidOriginState.TryResolveInventoryTransfer(
+                catalogIndex,
+                request.RequestedAmount,
+                out transfer,
+                selectionOrder);
     }
 
     public LootTransferFailureReason ValidateRaidLootOriginReceive(

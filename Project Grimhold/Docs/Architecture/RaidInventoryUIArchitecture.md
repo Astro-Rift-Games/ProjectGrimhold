@@ -307,3 +307,7 @@ Single Runner coverage does not prove that two peers observed the same
 replicated snapshot. Host/Client checks remain manual for real client
 interaction, remote refresh, competing clients, disconnect cleanup, session
 restart and the defeated body's final visual transition.
+
+## Quick Slots (TASK-214)
+
+The shared personal-inventory screen carries four authored Quick Slot views (`QuickSlot1..4` under `EquipmentPanel` in `RaidInventoryUI.prefab`, assigned to `RaidInventoryView`). They bind a definition, never a stack: dropping an Inventory slot on one (`DragSlotLocation.QuickSlot`, only from `Inventory`) or choosing "Asignar a Quick Slot N" from the context menu (`LootQuickSlotContextActionProvider`, only for Quick Slot compatible definitions) calls `QuickSlotController.TryAssign`, which moves an existing binding of the same definition to the new slot. A right click on an occupied slot unassigns it. A bound definition with no available units stays visible with a zero amount. Both Raid and Town bind a `QuickSlotController` for the inventory they show, and assignment is available in Town even while Ready, because it changes no equipment or items; it is blocked only for a defeated participant (`SetGameplayMutationsBlocked`). The slot layout is provisional until the UI assets of #335 land.

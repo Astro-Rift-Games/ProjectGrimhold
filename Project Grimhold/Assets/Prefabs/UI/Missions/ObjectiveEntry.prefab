@@ -274,6 +274,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8320493442941190931}
   - component: {fileID: 3948215934749264468}
+  - component: {fileID: 7097192211158955798}
   m_Layer: 5
   m_Name: Toggle
   m_TagString: Untagged
@@ -349,6 +350,23 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
+--- !u!114 &7097192211158955798
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7372603756303792830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7937683145586685070
 GameObject:
   m_ObjectHideFlags: 0

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class LocalProfileSnapshot
 {
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
     public const int MaxLoadoutSlots = 30;
     public const int MaxAppliedExtractionReceipts = 256;
     public const int MaxAppliedShopTransactionReceipts = 256;
@@ -34,6 +34,7 @@ public sealed class LocalProfileSnapshot
     public List<MissionInstanceState> ActiveMissions { get; } = new();
     public List<AbilityId> UnlockedAbilities { get; } = new();
     public PreparedAbilityLoadout PreparedAbilities { get; set; }
+    public QuickSlotBindings QuickSlots { get; set; }
     public int RemoteRevision { get; set; }
 
     public LocalProfileSnapshot Clone()
@@ -53,6 +54,7 @@ public sealed class LocalProfileSnapshot
             PendingExtractionCommit = PendingExtractionCommit,
             ShopIdempotencyWatermark = ShopIdempotencyWatermark,
             PreparedAbilities = PreparedAbilities,
+            QuickSlots = QuickSlots,
             RemoteRevision = RemoteRevision
         };
 

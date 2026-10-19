@@ -621,6 +621,7 @@ GameObject:
   - component: {fileID: 8402752744152168865}
   - component: {fileID: 7076745376070601830}
   - component: {fileID: 6251837957436135679}
+  - component: {fileID: 4372509322580368179}
   m_Layer: 5
   m_Name: Register Button
   m_TagString: Untagged
@@ -700,6 +701,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4372509322580368179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2025643257687556535}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2132439409891709509
 GameObject:
   m_ObjectHideFlags: 0
@@ -1802,6 +1820,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2058515277851704453}
   - component: {fileID: 8349767379534301450}
+  - component: {fileID: 6046748381752838096}
+  - component: {fileID: 2402864226944640187}
   m_Layer: 5
   m_Name: LoginPanel
   m_TagString: Untagged
@@ -1847,6 +1867,34 @@ MonoBehaviour:
   _registerButton: {fileID: 6251837957436135679}
   _backButton: {fileID: 7988644391861725757}
   _statusText: {fileID: 759321168733576584}
+--- !u!225 &6046748381752838096
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7026820982332826687}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &2402864226944640187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7026820982332826687}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d253aa6594fec848bed47908b6ccfc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiPanelTransition
+  _showDuration: 0.18
+  _hideDuration: 0.12
+  _hiddenScale: 0.96
+  _scaleTarget: {fileID: 0}
 --- !u!1 &7789283991066203258
 GameObject:
   m_ObjectHideFlags: 0
@@ -1858,6 +1906,7 @@ GameObject:
   - component: {fileID: 4865545908413259621}
   - component: {fileID: 5324871951695859859}
   - component: {fileID: 7988644391861725757}
+  - component: {fileID: 7835791349547245921}
   m_Layer: 5
   m_Name: Back Button
   m_TagString: Untagged
@@ -1937,6 +1986,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7835791349547245921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7789283991066203258}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &7940866877618886894
 GameObject:
   m_ObjectHideFlags: 0
@@ -2266,6 +2332,7 @@ GameObject:
   - component: {fileID: 8213307465107767500}
   - component: {fileID: 7040163215249101012}
   - component: {fileID: 41917966759373079}
+  - component: {fileID: 795034641471930728}
   m_Layer: 5
   m_Name: Login Button
   m_TagString: Untagged
@@ -2375,6 +2442,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &795034641471930728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8192952118930520692}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &8338764240710051942
 GameObject:
   m_ObjectHideFlags: 0

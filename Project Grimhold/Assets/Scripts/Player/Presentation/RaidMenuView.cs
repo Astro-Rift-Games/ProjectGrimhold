@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,11 +37,42 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField] private TMP_Text _progressionLevelStatusText;
     [SerializeField] private Image _progressionExperienceFill;
 
+    [Header("Results Headline")]
+    [SerializeField] private string _extractedTitle = "EXTRACCIÓN EXITOSA";
+    [SerializeField] private string _defeatedTitle = "DERROTA";
+    [SerializeField] private string _abandonedTitle = "INCURSIÓN ABANDONADA";
+    [SerializeField, Min(1f), Tooltip("Scales the title font while a terminal Result is shown.")]
+    private float _resultTitleFontScale = 1.6f;
+
+    [Header("Results Loot")]
+    [SerializeField] private GameObject _resultLootRoot;
+    [SerializeField] private TMP_Text _resultLootHeaderText;
+    [SerializeField] private RectTransform _resultLootGridRoot;
+    [SerializeField, Tooltip("Inactive template cloned for every loot entry.")]
+    private RaidResultLootSlotView _resultLootSlotTemplate;
+    [SerializeField] private TMP_Text _resultLootValueText;
+    [SerializeField] private TMP_Text _resultLootEmptyText;
+    [SerializeField] private string _extractedLootHeader = "BOTÍN OBTENIDO";
+    [SerializeField] private string _lostLootHeader = "BOTÍN PERDIDO";
+    [SerializeField] private string _extractedLootEmpty = "No obtuviste objetos en esta expedición.";
+    [SerializeField] private string _lostLootEmpty = "No llevabas objetos.";
+    [SerializeField, Tooltip("{0} is the total Value.")]
+    private string _lootValueFormat = "Valor total: {0}";
+
+    [Header("Level Up")]
+    [SerializeField] private GameObject _levelUpBannerRoot;
+    [SerializeField] private TMP_Text _levelUpBannerText;
+    [SerializeField, Tooltip("{0} is the resulting level.")]
+    private string _levelUpFormat = "¡NIVEL {0}!";
+
     [Header("Spectator")]
     [SerializeField] private GameObject _spectatorBarRoot;
     [SerializeField] private TMP_Text _spectatorTargetText;
     [SerializeField] private Button _previousTargetButton;
     [SerializeField] private Button _nextTargetButton;
+
+    private readonly List<RaidResultLootSlotView> _resultLootSlots = new();
+    private float _baseTitleFontSize;
 
     public event Action ResumeRequested;
     public event Action AbandonRequested;
@@ -67,10 +99,11 @@ public sealed class RaidMenuView : MonoBehaviour
     public TMP_Text SpectatorTargetText => _spectatorTargetText;
     public Button PreviousTargetButton => _previousTargetButton;
     public Button NextTargetButton => _nextTargetButton;
-    public bool IsOpen => _menuRoot != null && _menuRoot.activeSelf;
+    public bool IsOpen => UiPanelVisibility.IsVisible(_menuRoot);
 
     private void Awake()
     {
+        _baseTitleFontSize = _titleText != null ? _titleText.fontSize : 0f;
         CacheButtonLabels();
         BindButtonListeners();
         SetProgressionResultsVisible(false);
@@ -94,15 +127,76 @@ public sealed class RaidMenuView : MonoBehaviour
             BindButtonListeners();
         }
 
-        if (_menuRoot != null && _menuRoot.activeSelf != visible)
+        UiPanelVisibility.SetVisible(_menuRoot, visible);
+    }
+
+    /// <summary>Returns the editable headline shown for a terminal Results outcome.</summary>
+    public string GetOutcomeTitle(RaidResultsOutcome outcome) => outcome switch
+    {
+        RaidResultsOutcome.Extracted => _extractedTitle,
+        RaidResultsOutcome.Defeated => _defeatedTitle,
+        RaidResultsOutcome.Abandoned => _abandonedTitle,
+        _ => "Resultados"
+    };
+
+    /// <summary>Shows the loot captured for this Results screen; it never reads the inventory.</summary>
+    public void PresentResultsLoot(RaidResultsLootSummary summary, LootDefinitionCatalog catalog)
+    {
+        if (summary == null || summary.Kind == RaidResultsLootKind.None || catalog == null)
         {
-            _menuRoot.SetActive(visible);
+            ClearResultsLoot();
+            return;
         }
+
+        bool isReward = summary.Kind == RaidResultsLootKind.Extracted;
+        SetText(_resultLootHeaderText, isReward ? _extractedLootHeader : _lostLootHeader);
+        SetText(_resultLootValueText, string.Format(_lootValueFormat, summary.TotalValue));
+        if (_resultLootValueText != null)
+        {
+            // Design shows a total Value for extracted loot only; lost loot is just listed.
+            _resultLootValueText.gameObject.SetActive(isReward);
+        }
+
+        SetText(_resultLootEmptyText, isReward ? _extractedLootEmpty : _lostLootEmpty);
+        if (_resultLootEmptyText != null)
+        {
+            _resultLootEmptyText.gameObject.SetActive(summary.Entries.Count == 0);
+        }
+
+        PresentResultsLootSlots(summary, catalog, isReward);
+        UiPanelVisibility.SetVisible(_resultLootRoot, true);
+    }
+
+    public void ClearResultsLoot()
+    {
+        for (int index = 0; index < _resultLootSlots.Count; index++)
+        {
+            _resultLootSlots[index].gameObject.SetActive(false);
+        }
+
+        UiPanelVisibility.SetVisible(_resultLootRoot, false);
+    }
+
+    /// <summary>Plays the level-up banner, distinct from the plain experience bar update.</summary>
+    public void PresentLevelUp(int resultingLevel, bool animate)
+    {
+        SetText(_levelUpBannerText, string.Format(_levelUpFormat, resultingLevel));
+        UiPanelVisibility.SetVisible(_levelUpBannerRoot, true);
+        if (animate && _levelUpBannerRoot != null)
+        {
+            UiFeedbackPulse.Play(_levelUpBannerRoot, UiPulseKind.Success);
+        }
+    }
+
+    public void HideLevelUp()
+    {
+        UiPanelVisibility.SetVisible(_levelUpBannerRoot, false);
     }
 
     public void PresentAliveState(bool canAbandon = true)
     {
         SetProgressionResultsVisible(false);
+        SetTitleEmphasis(false);
         SetText(_titleText, "Menú de Incursión");
         SetText(_statusText, "La simulación continúa en tiempo real.");
         SetText(_controlsText, DefaultControlsText);
@@ -117,7 +211,8 @@ public sealed class RaidMenuView : MonoBehaviour
     public void PresentDefeatedState(bool canReturn, bool isSpectating)
     {
         SetProgressionResultsVisible(false);
-        SetText(_titleText, "Has sido Derrotado");
+        SetTitleEmphasis(true);
+        SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Defeated));
         SetText(
             _statusText,
             canReturn
@@ -134,7 +229,8 @@ public sealed class RaidMenuView : MonoBehaviour
     public void PresentExtractedState(bool isCommitConfirmed)
     {
         SetProgressionResultsVisible(false);
-        SetText(_titleText, "Extracción completada");
+        SetTitleEmphasis(true);
+        SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Extracted));
         SetText(
             _statusText,
             isCommitConfirmed
@@ -149,7 +245,8 @@ public sealed class RaidMenuView : MonoBehaviour
     public void PresentExtractedState(ExtractionLootSaveStatus saveStatus)
     {
         SetProgressionResultsVisible(false);
-        SetText(_titleText, "Extracción completada");
+        SetTitleEmphasis(true);
+        SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Extracted));
         string status = saveStatus switch
         {
             ExtractionLootSaveStatus.Committed => "El botín fue asegurado. Ya puedes volver al pueblo.",
@@ -172,6 +269,7 @@ public sealed class RaidMenuView : MonoBehaviour
     public void PresentAbandonConfirmation()
     {
         SetProgressionResultsVisible(false);
+        SetTitleEmphasis(false);
         SetText(_titleText, "Abandonar incursión");
         SetText(
             _statusText,
@@ -190,6 +288,7 @@ public sealed class RaidMenuView : MonoBehaviour
         bool isSpectating,
         bool canRetryPersistence)
     {
+        SetTitleEmphasis(true);
         SetText(_titleText, title);
         SetText(_statusText, persistenceFeedback);
         SetText(_controlsText, "Procesando resultados");
@@ -213,6 +312,7 @@ public sealed class RaidMenuView : MonoBehaviour
         bool isSpectating,
         bool canRetryPersistence)
     {
+        SetTitleEmphasis(true);
         SetText(_titleText, title);
         SetText(
             _statusText,
@@ -316,6 +416,7 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_controlsText, string.Empty);
         SetMenuVisible(false);
         SetCancelRaidVisible(false);
+        SetTitleEmphasis(false);
         SetProgressionResultsVisible(false);
         SetSpectatorBarVisible(false);
     }
@@ -361,10 +462,69 @@ public sealed class RaidMenuView : MonoBehaviour
 
     private void SetProgressionResultsVisible(bool visible)
     {
-        if (_progressionResultsRoot != null &&
-            _progressionResultsRoot.activeSelf != visible)
+        UiPanelVisibility.SetVisible(_progressionResultsRoot, visible);
+        if (!visible)
         {
-            _progressionResultsRoot.SetActive(visible);
+            ClearResultsLoot();
+            HideLevelUp();
+        }
+    }
+
+    private void SetTitleEmphasis(bool emphasized)
+    {
+        if (_titleText == null || _baseTitleFontSize <= 0f)
+        {
+            return;
+        }
+
+        // Auto-size keeps long headlines such as "INCURSIÓN ABANDONADA" on one line inside the
+        // title rect instead of wrapping over the controls below it.
+        _titleText.enableAutoSizing = emphasized;
+        _titleText.fontSizeMin = _baseTitleFontSize;
+        _titleText.fontSizeMax = _baseTitleFontSize * _resultTitleFontScale;
+        _titleText.fontSize = emphasized
+            ? _titleText.fontSizeMax
+            : _baseTitleFontSize;
+    }
+
+    private void PresentResultsLootSlots(
+        RaidResultsLootSummary summary,
+        LootDefinitionCatalog catalog,
+        bool isReward)
+    {
+        if (_resultLootSlotTemplate == null || _resultLootGridRoot == null)
+        {
+            Debug.LogError(
+                $"{nameof(RaidMenuView)} has no Results loot slot template or grid root.",
+                this);
+            return;
+        }
+
+        for (int index = 0; index < summary.Entries.Count; index++)
+        {
+            if (index == _resultLootSlots.Count)
+            {
+                _resultLootSlots.Add(
+                    Instantiate(_resultLootSlotTemplate, _resultLootGridRoot));
+            }
+
+            RaidResultsLootEntry entry = summary.Entries[index];
+            RaidResultLootSlotView slot = _resultLootSlots[index];
+            slot.gameObject.SetActive(true);
+            if (catalog.TryGetIndex(entry.LootId, out int catalogIndex) &&
+                catalog.TryGetByIndex(catalogIndex, out LootDefinition definition))
+            {
+                slot.Present(definition.Icon, definition.DisplayName, entry.Amount, isReward);
+            }
+            else
+            {
+                slot.Present(null, entry.LootId.Value, entry.Amount, isReward);
+            }
+        }
+
+        for (int index = summary.Entries.Count; index < _resultLootSlots.Count; index++)
+        {
+            _resultLootSlots[index].gameObject.SetActive(false);
         }
     }
 

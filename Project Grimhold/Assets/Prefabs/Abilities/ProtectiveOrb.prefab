@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 2030361802057789999}
   - component: {fileID: 2993688396697356280}
   - component: {fileID: 4277181859709283123}
+  - component: {fileID: 3418618432914273685}
   m_Layer: 7
   m_Name: ProtectiveOrb
   m_TagString: Untagged
@@ -80,7 +81,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f0acb680ac284eaba3f0c8542d5c4d0b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProtectiveOrbCollider
 --- !u!212 &4277181859709283123
 SpriteRenderer:
@@ -142,3 +143,20 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!114 &3418618432914273685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 399625403349114808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1034b07a347ea6f49b3e51df4b7f18d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter
+  _renderers:
+  - {fileID: 4277181859709283123}
+  _visibilityOffset: {x: 0, y: 0}
+  _visibilityCollider: {fileID: 0}
+  _useColliderBounds: 0

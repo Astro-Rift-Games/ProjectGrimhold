@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 9144237705209329916}
   - component: {fileID: 7233084779398857161}
   - component: {fileID: 834754829896850731}
+  - component: {fileID: 7007298647388600444}
   m_Layer: 5
   m_Name: Boots
   m_TagString: Untagged
@@ -142,6 +143,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7007298647388600444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741077606182586586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &1374592687004266965
 GameObject:
   m_ObjectHideFlags: 0
@@ -292,6 +310,7 @@ GameObject:
   - component: {fileID: 7431879905316015618}
   - component: {fileID: 8764254834038707190}
   - component: {fileID: 6032955567498136209}
+  - component: {fileID: 1624349185436935161}
   m_Layer: 5
   m_Name: WeaponSetAMainHand
   m_TagString: Untagged
@@ -421,6 +440,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1624349185436935161
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491273500457699653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2083290349279452317
 GameObject:
   m_ObjectHideFlags: 0
@@ -818,6 +854,7 @@ GameObject:
   - component: {fileID: 2320916133563747243}
   - component: {fileID: 3655568343545036853}
   - component: {fileID: 6649793643472684354}
+  - component: {fileID: 7226398820628710393}
   m_Layer: 5
   m_Name: Helmet
   m_TagString: Untagged
@@ -947,6 +984,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7226398820628710393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2156634405022412342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2629186104302972418
 GameObject:
   m_ObjectHideFlags: 0
@@ -1172,6 +1226,7 @@ GameObject:
   - component: {fileID: 2629186104302972425}
   - component: {fileID: 2629186104302972426}
   - component: {fileID: 2629186104302972427}
+  - component: {fileID: 9114287451495128142}
   m_Layer: 5
   m_Name: WeaponSetBOffHand
   m_TagString: Untagged
@@ -1301,6 +1356,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &9114287451495128142
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2629186104302972430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2629186104302972436
 GameObject:
   m_ObjectHideFlags: 0
@@ -1526,6 +1598,7 @@ GameObject:
   - component: {fileID: 2629186104302972447}
   - component: {fileID: 2629186104302972440}
   - component: {fileID: 2629186104302972441}
+  - component: {fileID: 8346834769142387703}
   m_Layer: 5
   m_Name: WeaponSetAOffHand
   m_TagString: Untagged
@@ -1655,6 +1728,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8346834769142387703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2629186104302972444}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &2770712035810745493
 GameObject:
   m_ObjectHideFlags: 0
@@ -2062,6 +2152,7 @@ GameObject:
   - component: {fileID: 554379466164747387}
   - component: {fileID: 6333295524587962573}
   - component: {fileID: 8272002060950997167}
+  - component: {fileID: 401329125437326294}
   m_Layer: 5
   m_Name: Gloves
   m_TagString: Untagged
@@ -2191,6 +2282,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &401329125437326294
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3826472673784126281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4040474305011691823
 GameObject:
   m_ObjectHideFlags: 0
@@ -2486,6 +2594,7 @@ GameObject:
   - component: {fileID: 8545530262139388481}
   - component: {fileID: 2345554119443263728}
   - component: {fileID: 1994735030494417642}
+  - component: {fileID: 5472817814787160940}
   m_Layer: 5
   m_Name: Armor
   m_TagString: Untagged
@@ -2615,6 +2724,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5472817814787160940
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5640413952900497639}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &5797423097777159228
 GameObject:
   m_ObjectHideFlags: 0
@@ -2992,6 +3118,7 @@ GameObject:
   - component: {fileID: 5117757574727208583}
   - component: {fileID: 3949811432692307582}
   - component: {fileID: 5682501657903112745}
+  - component: {fileID: 673354722336521425}
   m_Layer: 5
   m_Name: WeaponSetBMainHand
   m_TagString: Untagged
@@ -3121,6 +3248,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &673354722336521425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7935706513397300365}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &8491131289820341154
 GameObject:
   m_ObjectHideFlags: 0

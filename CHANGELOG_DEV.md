@@ -6,6 +6,18 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **downed:** add Downed and revive feedback HUD for both participants ([41e791a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/41e791a17136a3dc16a3aeec2531c69b44bad8fb))
+- **results:** complete the Results screen with headline, loot and level-up feedback ([1786080](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1786080bfd03f78be6040eedd4bddc72ecf7bef3))
+- **inventory:** wire the Quick Slots into the Inventory screen ([5bd9be7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5bd9be7b0233e6a4e261f9e8daec04a5e602f772))
+- **ui:** add animated feedback for controls, panels and scene fades ([ad8d424](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ad8d42445e1e6ec3732871f37488c0d2e5391be4))
+- **inventory:** add the four player Quick Slots ([aa7458c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aa7458c17e00ebee304f8786377e1824950e8a73))
+- **visibility:** adopt the mid gray mist look for the vision fog ([da24754](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/da24754621a19fa35556bafa04d7f393cae7243d))
+- **visibility:** clear the vision fog only where walls do not block sight ([8699f2f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8699f2fba04a51632a911aededd44e5d9d65a3a2))
+- **visibility:** lay out the vision fog ray fan ([cb3bfc6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cb3bfc69d9429087a57dedb80e28c0939a17eb84))
+- **visibility:** cast vision occlusion along a direction ([1cf0f5c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1cf0f5c3f308ad338498a37bbb239bb0cc1473ba))
+- **visibility:** wire the vision fog into the Gameplay scene ([9c21b98](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c21b985439ebd2ade09f168aaca44c1d5341075))
+- **visibility:** add the vision fog shader, settings and presenter ([8a34e73](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8a34e73a8ce79a09d080dcf87d96cd91738b03f4))
+- **visibility:** add vision fog rules and expose the active vision query ([0a6500e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0a6500e13cb146ff346b63503e42d978a8efa41e))
 - **extraction:** finalize shared team extraction and fix client sync ([45c2d06](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/45c2d064e6941cb739364089b6427bf37b036d88))
 - **presentation:** implement team-based extraction HUD, minimap, and cues ([a659c02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a659c02827872f33ab22ea9de045e33e6c9a9188))
 - **extraction:** implement team extraction coordinator and joint countdown ([523fd02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/523fd02af68913595eb125df567177b98f3231f2))
@@ -249,6 +261,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **tilemap:** pack the provisional tileset into a padded sprite atlas ([7b35062](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7b35062c3bc36719b808ffd280a498260058b3f9))
+- **visibility:** smooth the vision fog edge and keep it off walls ([e89b35e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e89b35ea28d32d5db8c6727bcd7dacfa568f0f45))
+- **shop:** enforce authoritative catalog pricing and receipt binding ([cb066c3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cb066c32b24c8ab72d47dc35b9f6c17e0647a1a5))
 - **raid:** prevent premature absence finalization when target avatar is unresolvable ([31e82ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/31e82ff65a3fca77df40474b7f7fb75f4489ef9e))
 - **changelog:** keep all real commits and merge attribution-only duplicates ([7369fd1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7369fd12e72fb7f5005ba62e273b891f308ef12c))
 - **stash:** enable Take All and Leave All button clicks ([3764314](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3764314b5d3ba0ca2a2ae031ef843bf30da0e68a))
@@ -304,6 +319,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **results:** drop stale return-gate case left by the ACK parameter removal ([8e68921](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8e68921766bd453156fc3bfe48731b8d9bc8a60d))
 - **abilities:** cover acquisition-to-Raid transport of prepared abilities ([99ee352](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99ee3527e9b8dcaa2a6934f46b193ecf15224087))
 - **revive:** cover assisted recovery flow and movement interruptions ([4bdf7d7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4bdf7d7fabe69edaf5594c04eddcffb4b29ff4a2))
 - **downed:** cover downed lifecycle in play mode ([2af5a35](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2af5a355f6c28cd958ed7b9ad066bd5364a58580))
@@ -312,6 +328,13 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Documentation
 
+- **agents:** clarify instruction scope and portable workflows ([e782ae0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e782ae03491c39e6051d1e9d7454852e297855e2))
+- **odd:** link the vision fog to HacknPlan task 558 ([37d9094](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/37d90949f060a3dd532decb9faf55990056b7ca8))
+- **odd:** track the vision fog look tasks ([e8bda50](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e8bda50086b942c264085027897f1647064ca36a))
+- **odd:** track the occlusion-aware vision fog tasks ([0b7f677](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0b7f677c9c4a11ca5345da4ee9a359bcf839c2ad))
+- **visibility:** document the occlusion-aware vision fog ([3fd4b6d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3fd4b6dc5263b7d99f7a54335756aabbb3233cd7))
+- **odd:** track the vision fog prototype tasks ([aa38db1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aa38db187069f94cce7e88c5440f6f0272a1463f))
+- **visibility:** document the vision fog and its improvement backlog ([c0a9fb5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c0a9fb5162f509c78d617895ad76c1f557c3cfe3))
 - **changelog:** record changelog automation task evidence ([a90915a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a90915acaf67d6f2c3fc56cc3a8393a45710f8e0))
 - **changelog:** document player notes and teach commit skill to add them ([589c049](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/589c049bac133819303fe5dfc46a92ab7c44b598))
 - **raid:** define architectural contract for connectivity and continuity ([3bdc0ee](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3bdc0ee93176dcc500bb2fee0ba624130ac8e74c))
@@ -382,6 +405,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Other Changes
 
+- Fix equipment sprite resolution ([716f716](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/716f716676eadf315bc16f73713b487ffef8b9ad))
+- Tune vision fog settings ([99191a4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99191a48b9405c46dfd07e5671bdb97e5eee5099))
+- Replace fog of war with local vision system ([5f36c90](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5f36c90383a17bd8cd9fb31c7d15717316af6dc1))
 - Move project skills into .agents ([0d08605](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0d0860556b076717421bfe7bd9b4fa5e1c896ea5), [e2afbfc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e2afbfc303fc0fd198cb52484ff1d16cd258f6e4))
 - Handle closed coordinated sessions as transient ([a2b6b5d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2b6b5dbd85004267fdc96f504397cae9418dfd3))
 - Add Catacombs base tileset and tile palette ([17974c3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/17974c3195c5736c45520c1353311f677f6d0b25))

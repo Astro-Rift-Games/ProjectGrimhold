@@ -1041,6 +1041,7 @@ GameObject:
   - component: {fileID: 392500331940915788}
   - component: {fileID: 7248122537295861635}
   - component: {fileID: 3667766603835869073}
+  - component: {fileID: 3859836220288350029}
   m_Layer: 5
   m_Name: AcceptButton
   m_TagString: Untagged
@@ -1150,6 +1151,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3859836220288350029
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3973796250026328387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &4000000000000000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -1349,6 +1367,10 @@ MonoBehaviour:
   _IsControlEnabled:
     RawValue: 0
   _FacingDirection: {x: 0, y: 0}
+  _AimDirection: {x: 0, y: 0}
+  _IsAimStance:
+    RawValue: 0
+  _AimStanceStartTick: 0
   _IsMoving:
     RawValue: 0
 --- !u!114 &1101445917034815865
@@ -2608,6 +2630,7 @@ GameObject:
   - component: {fileID: 7976908537418867499}
   - component: {fileID: 3074585353451966735}
   - component: {fileID: 2539921085028801330}
+  - component: {fileID: 7159239194658166668}
   m_Layer: 5
   m_Name: RejectButton
   m_TagString: Untagged
@@ -2717,6 +2740,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7159239194658166668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6602107031131880684}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &6680904100297813075
 GameObject:
   m_ObjectHideFlags: 0
@@ -3125,6 +3165,7 @@ MonoBehaviour:
   _equipmentSource: {fileID: 0}
   _shieldDefense: {fileID: 0}
   _referenceMovementSpeed: 4
+  _freeAimArcHalfWidthDegrees: 45
 --- !u!95 &7244625612161386911
 Animator:
   serializedVersion: 7
@@ -3775,6 +3816,7 @@ GameObject:
   - component: {fileID: 9100000000000000013}
   - component: {fileID: 9100000000000000015}
   - component: {fileID: 7583254307549088648}
+  - component: {fileID: 8188009435713123605}
   m_Layer: 5
   m_Name: Quit Party Button
   m_TagString: Untagged
@@ -3884,6 +3926,23 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8188009435713123605
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000000000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80db04afcd80a304fb47c97703b7f0ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UiButtonFeedback
+  _target: {fileID: 0}
+  _selectable: {fileID: 0}
+  _hoverScale: 1.05
+  _pressedScale: 0.95
+  _sharpness: 22
 --- !u!1 &9128356099498606891
 GameObject:
   m_ObjectHideFlags: 0

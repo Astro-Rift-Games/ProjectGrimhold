@@ -190,8 +190,10 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
             return ConsumableResult.Rejected(ConsumableFailureReason.InsufficientAmount);
         }
 
+        // Units carried from Town are spent before units picked up in the Dungeon.
         if (!_lootReceiver.TryResolveRaidLootOriginTransfer(
                 extractionRequest,
+                RaidLootOriginSelectionOrder.PlayerFirst,
                 out RaidLootOriginTransfer originTransfer))
         {
             throw new InvalidOperationException("Validated consumable provenance could not be resolved.");

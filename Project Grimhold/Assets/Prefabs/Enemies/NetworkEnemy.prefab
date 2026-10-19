@@ -4914,7 +4914,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: 0}
@@ -5010,7 +5010,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -605295079
-  m_SortingLayer: 2
+  m_SortingLayer: 3
   m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: -3709458599502585956, guid: 7435da832bbf59141b731e9174407b51, type: 3}
@@ -5264,6 +5264,7 @@ MonoBehaviour:
   _damageHitboxes:
   - {fileID: 9000000000000000003}
   _Health: 0
+  _PopulationOrigin: 0
   _movementController: {fileID: 4047341824300862929}
   _combatController: {fileID: 3988879926097982634}
   _lootContainer: {fileID: 7201000000000000010}
@@ -5738,6 +5739,7 @@ MonoBehaviour:
   _renderers:
   - {fileID: 1066720069559603162}
   - {fileID: 4522316450052852347}
+  - {fileID: 1700867630524570978}
   _visibilityOffset: {x: 0, y: 1}
   _visibilityCollider: {fileID: 0}
   _useColliderBounds: 0
@@ -5831,6 +5833,19 @@ MonoBehaviour:
   _targetId: 
   _zoneId: 
   _defeatProgressAmount: 1
+--- !u!114 &987654321012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 431f074a18be4793a761ccb743377ae9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LootContainerRandomContentConfig
+  _table: {fileID: 11400000, guid: 030d210da55b4a74a692dd0c9de23ee5, type: 2}
 --- !u!114 &704239012396382804
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6031,17 +6046,3 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 2.1135025}
   m_EdgeRadius: 0
-
---- !u!114 &987654321012345678
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4369124737019072436}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 431f074a18be4793a761ccb743377ae9, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::LootContainerRandomContentConfig
-  _table: {fileID: 11400000, guid: 030d210da55b4a74a692dd0c9de23ee5, type: 2}

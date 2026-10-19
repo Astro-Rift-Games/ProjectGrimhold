@@ -289,7 +289,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(FindChild(prefab.transform, "CombatVisuals"), Is.Null);
         Assert.That(FindChild(prefab.transform, "DamageHitbox"), Is.Null);
         Assert.That(FindChild(prefab.transform, "CorpseLootInteraction"), Is.Null);
-        Assert.That(FindChild(prefab.transform, "VisibilityMesh"), Is.Null);
+        Assert.That(prefab.GetComponentInChildren<LocalVisionSource>(true), Is.Null);
 
         NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(prefab.GetComponent<TownRaidPreparationPresenter>()));
@@ -834,9 +834,33 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(avatarPrefab.GetComponent<PlayerExpeditionExperienceLedger>(), Is.Null, prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(participantLink), prefabPath);
         Assert.That(networkObject.NetworkedBehaviours, Does.Contain(visibilityBinder), prefabPath);
-        Transform visibilityMesh = FindChild(avatarPrefab.transform, "VisibilityMesh");
-        Assert.That(visibilityMesh, Is.Not.Null, prefabPath);
-        Assert.That(visibilityMesh.gameObject.activeSelf, Is.False, prefabPath);
+        Assert.That(FindChild(avatarPrefab.transform, "VisibilityMesh"), Is.Null, prefabPath);
+        LocalVisionSource visionSource = avatarPrefab.GetComponent<LocalVisionSource>();
+        Assert.That(visionSource, Is.Not.Null, prefabPath);
+        Assert.That(SerializedReference(visibilityBinder, "_visionSource"), Is.SameAs(visionSource), prefabPath);
+        Assert.That(SerializedReference(visionSource, "_settings"), Is.Not.Null, prefabPath);
+        Assert.That(
+            SerializedReference(visionSource, "_movement"),
+            Is.SameAs(avatarPrefab.GetComponent<PlayerMovementNetworkController>()),
+            prefabPath);
+        AssertVisibilityCoversEveryRenderer(avatarPrefab, prefabPath);
+    }
+
+    private static void AssertVisibilityCoversEveryRenderer(GameObject prefab, string prefabPath)
+    {
+        var presenter = prefab.GetComponent<ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter>();
+        Assert.That(presenter, Is.Not.Null, prefabPath);
+        SerializedProperty renderers = new SerializedObject(presenter).FindProperty("_renderers");
+        var listed = new HashSet<UnityEngine.Object>();
+        for (int index = 0; index < renderers.arraySize; index++)
+        {
+            listed.Add(renderers.GetArrayElementAtIndex(index).objectReferenceValue);
+        }
+
+        foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+        {
+            Assert.That(listed.Contains(renderer), Is.True, $"{prefabPath}: {renderer.name} is not hidden by vision.");
+        }
     }
 
     private static void AssertLootPanelContract(
