@@ -33,7 +33,9 @@ const pendingReservationSchema = new mongoose.Schema({
 // profileId is intentionally omitted — it is implicit in the document owner.
 const extractionReceiptSchema = new mongoose.Schema({
   raidId:         { type: String, required: true },
-  resultSequence: { type: Number, required: true }
+  resultSequence: { type: Number, required: true },
+  resultId:       { type: String },
+  timestamp:      { type: Date, default: Date.now }
 }, { _id: false });
 
 const progressionReceiptSchema = new mongoose.Schema({

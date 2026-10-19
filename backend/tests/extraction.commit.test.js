@@ -49,10 +49,12 @@ function makeCharacter(overrides = {}) {
 test('ExtractionCommitService.commit', async (t) => {
   const originalFindOne = Character.findOne;
   const originalAuthFindOne = AuthoritativeExtractionResult.findOne;
+  const originalAuthFindOneAndUpdate = AuthoritativeExtractionResult.findOneAndUpdate;
   const originalFindOneAndUpdate = Character.findOneAndUpdate;
   t.afterEach(() => { 
     Character.findOne = originalFindOne; 
     AuthoritativeExtractionResult.findOne = originalAuthFindOne;
+    AuthoritativeExtractionResult.findOneAndUpdate = originalAuthFindOneAndUpdate;
     Character.findOneAndUpdate = originalFindOneAndUpdate;
   });
   t.beforeEach(() => {
@@ -60,6 +62,12 @@ test('ExtractionCommitService.commit', async (t) => {
     AuthoritativeExtractionResult.findOne = async () => ({
       items: [],
       experienceGranted: 0,
+      consumed: false
+    });
+    AuthoritativeExtractionResult.findOneAndUpdate = async (query, update, options) => ({
+      items: [],
+      experienceGranted: 0,
+      consumed: true
     });
     
     Character.findOneAndUpdate = async (query, update, options) => {

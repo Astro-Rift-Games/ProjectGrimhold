@@ -234,10 +234,13 @@ namespace Grimhold.Backend
     public struct PublishExtractionResultRequest
     {
         public string raidId;
+        public string resultId;
         public int resultSequence;
+        public string targetCharacterId;
         public InventoryItemData[] items;
         public PreparedEquipmentData preparedEquipment;
         public long experienceGranted;
+        public string issuedAt;
         public string hostSignature;
     }
 

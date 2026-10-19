@@ -337,33 +337,44 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
         }
 
-        string messageToSign = $"{receipt.RaidId}:{receipt.ResultSequence}";
-        string hostSignature = "";
-
-        using (var hmac = new System.Security.Cryptography.HMACSHA256(System.Text.Encoding.UTF8.GetBytes(_backendConfig.WebhookSecret)))
+        string targetId = receipt.ProfileId.IsValid ? receipt.ProfileId.Value : "";
+        string resultId = $"{receipt.RaidId}:{targetId}:{receipt.ResultSequence}";
+        string issuedAt = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        var itemsDTO = MapToDTO(items);
+        var eqDTO = new PreparedEquipmentData
         {
-            byte[] hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(messageToSign));
-            hostSignature = System.BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-        }
+            weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
+            weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
+            helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
+            armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
+            gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
+            boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
+            offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
+            offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
+        };
+
+        string canonicalMessage = RaidResultCanonicalizer.BuildCanonicalResultString(
+            receipt.RaidId,
+            resultId,
+            targetId,
+            itemsDTO,
+            eqDTO,
+            experienceGranted,
+            issuedAt);
+
+        string hostSignature = RaidResultCanonicalizer.ComputeHmacSha256(canonicalMessage, _backendConfig?.WebhookSecret);
 
         var request = new PublishExtractionResultRequest
         {
-            raidId         = receipt.RaidId,
-            resultSequence = receipt.ResultSequence,
-            items          = MapToDTO(items),
-            preparedEquipment = new PreparedEquipmentData
-            {
-                weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
-                weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
-                helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
-                armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
-                gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-                boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
-                offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
-                offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
-            },
+            raidId            = receipt.RaidId,
+            resultId          = resultId,
+            resultSequence    = receipt.ResultSequence,
+            targetCharacterId = targetId,
+            items             = itemsDTO,
+            preparedEquipment = eqDTO,
             experienceGranted = experienceGranted,
-            hostSignature = hostSignature
+            issuedAt          = issuedAt,
+            hostSignature     = hostSignature
         };
 
         return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>

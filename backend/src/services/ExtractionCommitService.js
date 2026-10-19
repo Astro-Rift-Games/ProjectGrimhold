@@ -55,7 +55,7 @@ class ExtractionCommitService {
     }
 
     // ------------------------------------------------------------------
-    // 2. Pre-fetch character to compute state and check memory idempotency
+    // 2. Pre-fetch character and enforce single consumption
     // ------------------------------------------------------------------
     let character = await Character.findOne({ accountId });
     if (!character) {
@@ -71,11 +71,11 @@ class ExtractionCommitService {
     }
 
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
-    const lootAlreadyApplied = extractionReceipts.some(
+    const exactReceiptMatch = extractionReceipts.some(
       r => r.raidId === raidId && r.resultSequence === resultSequence
     );
 
-    if (lootAlreadyApplied) {
+    if (exactReceiptMatch) {
       return {
         alreadySecured:      true,
         loadout:             serializeItems(character.inventory.loadout),
@@ -83,6 +83,25 @@ class ExtractionCommitService {
         experience:          character.experience,
         characterAttributes: serializeAttributes(character.characterAttributes),
         revision:            character.revision || 0
+      };
+    }
+
+    // If result was already marked consumed in database
+    if (authResult.consumed) {
+      throw {
+        statusCode: 409,
+        errorCode:  'RESULT_ALREADY_CONSUMED',
+        message:    'This authoritative extraction result has already been consumed and cannot be claimed again.',
+      };
+    }
+
+    // If character already recorded an extraction from this raid with another sequence
+    const raidAlreadyApplied = extractionReceipts.some(r => r.raidId === raidId);
+    if (raidAlreadyApplied) {
+      throw {
+        statusCode: 409,
+        errorCode:  'RESULT_ALREADY_CONSUMED',
+        message:    'An extraction for this raid has already been committed and cannot be claimed with a different sequence.',
       };
     }
 
@@ -95,7 +114,41 @@ class ExtractionCommitService {
     }
 
     // ------------------------------------------------------------------
-    // 3. Compute new states in memory
+    // 3. Atomically claim authoritative result (distributed lock)
+    // ------------------------------------------------------------------
+    const authQuery = authResult._id ? { _id: authResult._id } : { raidId, accountId };
+    const claimedResult = await AuthoritativeExtractionResult.findOneAndUpdate(
+      { ...authQuery, consumed: { $ne: true } },
+      { $set: { consumed: true, consumedAt: new Date() } },
+      { new: true }
+    );
+
+    if (!claimedResult) {
+      const refreshedChar = await Character.findOne({ accountId });
+      if (refreshedChar) {
+        const alreadyApplied = (refreshedChar.inventory?.appliedExtractionReceipts || []).some(
+          r => r.raidId === raidId && r.resultSequence === resultSequence
+        );
+        if (alreadyApplied) {
+          return {
+            alreadySecured:      true,
+            loadout:             serializeItems(refreshedChar.inventory.loadout),
+            level:               refreshedChar.level,
+            experience:          refreshedChar.experience,
+            characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
+            revision:            refreshedChar.revision || 0
+          };
+        }
+      }
+      throw {
+        statusCode: 409,
+        errorCode:  'RESULT_ALREADY_CONSUMED',
+        message:    'This authoritative extraction result has already been consumed.',
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Compute new states in memory
     // ------------------------------------------------------------------
     
     // Loot
@@ -129,16 +182,13 @@ class ExtractionCommitService {
     };
 
     // Prepared Equipment
-    // If the authoritative result explicitely gives us the equipped items, we use it.
-    // Otherwise, we fallback to restoring what was reserved before the raid.
-    // Client payloads are no longer trusted.
     const newPreparedEquipment = sanitizePreparedEquipment(
       authResult.preparedEquipment || 
       character.inventory.pendingReservation?.preparedEquipment
     );
 
     // ------------------------------------------------------------------
-    // 4. Atomic Database Update
+    // 5. Atomic Database Update on Character
     // ------------------------------------------------------------------
     
     const updateDoc = {
@@ -155,7 +205,12 @@ class ExtractionCommitService {
       $inc: { revision: 1 },
       $push: {
         'inventory.appliedExtractionReceipts': {
-          $each: [{ raidId, resultSequence, timestamp: new Date() }],
+          $each: [{
+            raidId,
+            resultSequence,
+            resultId: authResult.resultId || `${raidId}:${resultSequence}`,
+            timestamp: new Date()
+          }],
           $slice: -MAX_EXTRACTION_RECEIPTS
         },
         'appliedProgressionReceipts': {
@@ -169,7 +224,6 @@ class ExtractionCommitService {
       {
         accountId: accountId,
         revision: character.revision,
-        // Atomic Lock: Only update if this exact receipt hasn't been applied yet
         'inventory.appliedExtractionReceipts': { 
           $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
         }
@@ -178,12 +232,14 @@ class ExtractionCommitService {
       { new: true }
     );
 
-    // If updatedCharacter is null, it means either the character was deleted,
-    // the atomic lock prevented the update, or the revision changed.
     if (!updatedCharacter) {
-      // Re-fetch to return the newly secured state
+      // Re-fetch to return the newly secured state or release claim on conflict
       let refreshedChar = await Character.findOne({ accountId });
       if (!refreshedChar) {
+        await AuthoritativeExtractionResult.findOneAndUpdate(
+          authQuery,
+          { $set: { consumed: false, consumedAt: null } }
+        );
         throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'Character not found after commit.' };
       }
 
@@ -202,7 +258,12 @@ class ExtractionCommitService {
         };
       }
 
-      // Revision must have changed concurrently. Leave retry to the client.
+      // Roll back lock on revision conflict so client can retry cleanly
+      await AuthoritativeExtractionResult.findOneAndUpdate(
+        authQuery,
+        { $set: { consumed: false, consumedAt: null } }
+      );
+
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during extraction commit.' };
     }
 

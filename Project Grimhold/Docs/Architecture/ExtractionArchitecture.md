@@ -253,3 +253,32 @@ assignment source. Ritual state comes from `IExtractionSanctuary.TryGetRitualPro
 to assigned, in-progress, cancelled and enabled visual states. Interior markers use a fixed,
 unrotated icon; exterior markers use a separate edge arrow. All visual state is rebuilt from
 current confirmed state after enable, rebind, replacement or a new session.
+
+## Authoritative Extraction Result and Producer Boundary (US-58 / SEC-58)
+
+### Producer Authorization and Residual Host Simulation Risk (#400)
+1. **Producer Contract**: Only an authorized producer can publish an `AuthoritativeExtractionResult` to the backend (`POST /character/raid/extraction-result`). The payload must be signed using HMAC-SHA256 with the cluster secret (`WEBHOOK_SECRET`).
+2. **Dedicated Server Target Architecture**: The production architecture requires a Dedicated Server (or trusted backend worker) to hold `WEBHOOK_SECRET`, completely isolated from player-controlled machines. Shipping secrets or simulation authority on a player client cannot provide tamper resistance against a malicious host.
+3. **Listen Server MVP Boundary**: In the current peer-to-peer / Listen Server MVP prior to Dedicated Server (#400), the Photon Fusion State Authority (Host) acts as the producer.
+4. **Boundary Separation**: Backend cryptographic guarantees protect against transit tampering, payload fabrication by non-host clients, loot/XP modification, recipient impersonation, and multi-sequence replay attacks. However, signing payloads does **not** make the Host cheat-proof: a malicious Host controlling the local physics and combat simulation can fabricate gameplay outcomes. Full producer trustworthiness remains technically bound to the deployment of Dedicated Servers (#400).
+
+### Canonical Result Contract
+The HMAC-SHA256 signature is evaluated over a deterministic canonical pipe-delimited string (`RaidResultCanonicalizer` in Unity, `raidResultCanonicalizer.js` in Backend):
+```text
+raidId|resultId|targetIdentifier|sortedItems|sortedEquipment|experienceGranted|issuedAt
+```
+- **`targetIdentifier`**: `targetAccountId` or `targetCharacterId` (binding extraction outcome strictly to the admitted participant).
+- **`sortedItems`**: Deterministically normalized and sorted alphabetically by lowercase `lootId` (`lootId:amount`, comma-separated).
+- **`sortedEquipment`**: Fixed alphabetical sequence of all 8 equipment slots (`armor`, `boots`, `gloves`, `helmet`, `offHand1`, `offHand2`, `weaponSlot1`, `weaponSlot2`) formatted as `slot=lootId` (semicolon-separated).
+- **`experienceGranted`**: Non-negative integer.
+- **`issuedAt`**: ISO 8601 UTC timestamp string.
+
+Any alteration of items, amounts, equipment slots, XP, recipient identity, or raid session invalidates the signature and results in HTTP `401 INVALID_HOST_SIGNATURE`.
+
+### Immutability, Single Consumption, and Anti-Replay Invariants
+1. **Atomic Consumption Lock**: An `AuthoritativeExtractionResult` can only be consumed once. `ExtractionCommitService` acquires an atomic conditional lock (`findOneAndUpdate({ _id, consumed: { $ne: true } }, { $set: { consumed: true } })`).
+2. **Conflict Prevention**: Republishing a different payload for an existing `resultId` is rejected with `409 RESULT_CONFLICT`.
+3. **Republication Lock**: Attempting to republish an extraction result that has already been consumed is rejected with `409 RESULT_ALREADY_CONSUMED`.
+4. **Multi-Sequence Replay Defense**: If a player empties their loadout into their stash and attempts to re-commit the same raid using a fabricated incremented sequence (`resultSequence: 2`), the backend detects that the raid extraction was already recorded/consumed and rejects the commit with `409 RESULT_ALREADY_CONSUMED`, preventing duplicate XP, level-ups, or loot replication.
+5. **Idempotent Retry**: Legitimate retries with the exact same `(raidId, resultSequence)` (e.g. dropped network ACK) are recognized via `appliedExtractionReceipts` and return `200 OK` with `alreadySecured: true` without mutating character state.
+
