@@ -18,6 +18,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 - **visibility:** wire the vision fog into the Gameplay scene ([9c21b98](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c21b985439ebd2ade09f168aaca44c1d5341075))
 - **visibility:** add the vision fog shader, settings and presenter ([8a34e73](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8a34e73a8ce79a09d080dcf87d96cd91738b03f4))
 - **visibility:** add vision fog rules and expose the active vision query ([0a6500e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0a6500e13cb146ff346b63503e42d978a8efa41e))
+- **extraction:** authenticate raid results and enforce single consumption ([5ec3ccf](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5ec3ccfce71078f0c7e448c20f5dce95d67206c2))
 - **extraction:** finalize shared team extraction and fix client sync ([45c2d06](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/45c2d064e6941cb739364089b6427bf37b036d88))
 - **presentation:** implement team-based extraction HUD, minimap, and cues ([a659c02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a659c02827872f33ab22ea9de045e33e6c9a9188))
 - **extraction:** implement team extraction coordinator and joint countdown ([523fd02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/523fd02af68913595eb125df567177b98f3231f2))
@@ -405,6 +406,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Other Changes
 
+- hotfix ([251013e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/251013edf8d3332357d667b4d184b00acfc7fca5), [9d0c66f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9d0c66f7e3c6f6fa577e3eb1d2b77797ad82c37d))
 - Fix equipment sprite resolution ([716f716](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/716f716676eadf315bc16f73713b487ffef8b9ad))
 - Tune vision fog settings ([99191a4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99191a48b9405c46dfd07e5671bdb97e5eee5099))
 - Replace fog of war with local vision system ([5f36c90](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5f36c90383a17bd8cd9fb31c7d15717316af6dc1))
@@ -718,7 +720,6 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 - Update Project_Grimhold_Contratos_Base_v1.md ([acfd92d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/acfd92d7f10b3ace04f0ef11cc6088cd87ba156a))
 - Add base contracts architecture specification ([3da5fb5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3da5fb53db1756a80d3895dab94ef96e92897e4e))
 - Hotfix 2 ([8bf0f16](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8bf0f161fd66cc9d5676533d3c56f1017ac66189))
-- hotfix ([9d0c66f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9d0c66f7e3c6f6fa577e3eb1d2b77797ad82c37d))
 - Refactor network spawn system to support multiple spawn groups ([98126e9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/98126e9e1469fb2c59b9699a8cefa09c5bb87bd7))
 - Improve lobby flow and session initialization ([c46f6e5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c46f6e5cb8710adb6e6ce214fc90d3aa743caf2a))
 - Basic Lobby UI ([64e5031](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64e5031562fc891a37d65d96fada1ade5438d306))
