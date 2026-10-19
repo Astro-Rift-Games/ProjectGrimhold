@@ -406,6 +406,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Other Changes
 
+- Expand Catacombs tileset layout ([c458783](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c458783027acdb743b5c0301d2e1c762a0ef974a))
 - hotfix ([251013e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/251013edf8d3332357d667b4d184b00acfc7fca5), [9d0c66f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9d0c66f7e3c6f6fa577e3eb1d2b77797ad82c37d))
 - Fix equipment sprite resolution ([716f716](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/716f716676eadf315bc16f73713b487ffef8b9ad))
 - Tune vision fog settings ([99191a4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99191a48b9405c46dfd07e5671bdb97e5eee5099))
