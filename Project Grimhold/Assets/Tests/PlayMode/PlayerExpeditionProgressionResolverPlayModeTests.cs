@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using Fusion;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Assert = NUnit.Framework.Assert;
@@ -365,6 +366,49 @@ namespace Tests.PlayMode.Progression
             Assert.That(result.IsMaxLevel, Is.True);
             Assert.That(result.NextLevelExperienceRequirement, Is.Zero);
             Assert.That(result.EligibleExtractedLootValue, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator ResultsLoot_IsPublishedOnceAndReadBackFromReplicatedState()
+        {
+            yield return StartRunner();
+
+            NetworkRaidParticipant participant =
+                SpawnParticipant(1, 1, 0).GetComponent<NetworkRaidParticipant>();
+            LootDefinitionCatalog catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+            Assert.That(catalog, Is.Not.Null);
+            Assert.That(catalog.TryGetByIndex(0, out LootDefinition first), Is.True);
+            Assert.That(catalog.TryGetByIndex(1, out LootDefinition second), Is.True);
+
+            Assert.That(participant.ResultsLootKind, Is.EqualTo(RaidResultsLootKind.None));
+            Assert.That(participant.TryGetResultsLoot(catalog, out _), Is.False);
+
+            Assert.That(
+                RaidResultsLootSummaryBuilder.TryBuildLost(
+                    new[] { new LootEntry(first.LootId, 3), new LootEntry(second.LootId, 1) },
+                    out RaidResultsLootSummary summary,
+                    out string error),
+                Is.True,
+                error);
+            Assert.That(participant.TryStoreResultsLoot(summary, catalog), Is.True);
+
+            Assert.That(participant.TryGetResultsLoot(catalog, out RaidResultsLootSummary stored), Is.True);
+            Assert.That(stored.Kind, Is.EqualTo(RaidResultsLootKind.Lost));
+            Assert.That(stored.TotalValue, Is.Zero);
+            Assert.That(stored.Entries.Count, Is.EqualTo(2));
+            Assert.That(stored.Entries[0], Is.EqualTo(new RaidResultsLootEntry(first.LootId, 3)));
+            Assert.That(stored.Entries[1], Is.EqualTo(new RaidResultsLootEntry(second.LootId, 1)));
+
+            Assert.That(
+                RaidResultsLootSummaryBuilder.TryBuildLost(
+                    new[] { new LootEntry(first.LootId, 9) }, out RaidResultsLootSummary other, out error),
+                Is.True,
+                error);
+            Assert.That(participant.TryStoreResultsLoot(other, catalog), Is.False);
+            Assert.That(participant.TryGetResultsLoot(catalog, out stored), Is.True);
+            Assert.That(stored.Entries.Count, Is.EqualTo(2));
+            Assert.That(stored.Entries[0].Amount, Is.EqualTo(3));
         }
 
         private IEnumerator StartRunner()

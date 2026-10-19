@@ -116,6 +116,13 @@ stores that candidate durably for the matching `ResultSequence`; it is not provi
 until confirmed extraction lets the ledger resolve it. Preparation failure retains ownership and
 retries without starting persistence.
 
+In the same preparation step State Authority publishes the Results loot summary on the participant
+(`ResultsLootKind.Extracted`). Its grid contains only the quantities classified as eligible by the
+same Raid origin resolution that feeds the Experience candidate: Dungeon origin plus players of another
+initial team. Loot that left Town with the player, or came from a teammate, is omitted, and the
+displayed total Value matches the eligible Value of the candidate. Publication is write-once and
+presentation-only: a failure is reported but never blocks or retries the extraction transaction.
+
 The authoritative phases are `AwaitingExperiencePreparation -> AwaitingPersistenceAck ->
 ExtractedLootPending -> ProgressionPending -> Complete`. A valid ACK exact-clears ownership and
 enters `ExtractedLootPending`. Ledger success, the same sequence already resolved, or a valid zero

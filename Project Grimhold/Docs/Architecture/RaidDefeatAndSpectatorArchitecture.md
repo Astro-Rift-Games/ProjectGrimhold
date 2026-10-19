@@ -48,6 +48,20 @@ issued later when observable conditions become valid. Only after State Authority
 `IsReturnAuthorized` does presentation delegate the transition to
 `SessionConnectionCoordinator`.
 
+## Results headline and lost loot
+
+Results headline the terminal outcome before any statistic: extraction, defeat or confirmed
+voluntary abandonment (`RaidResultsOutcomeResolver`). The three headlines are serialized on
+`RaidMenuView`, so they are editable without code changes.
+
+Defeat and voluntary abandonment both go through `PlayerCorpseGenerationController`. Immediately
+before the exact clear, State Authority publishes a `ResultsLootKind.Lost` summary of everything the
+participant carried, Town-origin items and both weapon sets included, because that is what moves to
+the corpse. The summary is a snapshot taken once: later looting of the corpse never changes what
+the player is shown. A level gained by the committed progression result triggers a distinct banner
+exactly once per captured snapshot; the one-shot latch lives in `RaidMenuPresenter` and is reset by
+`Unbind`.
+
 ## Player departure
 
 `OnPlayerLeft` cannot assume Fusion still exposes `GetPlayerObject(player)`. State Authority

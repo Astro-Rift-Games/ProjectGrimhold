@@ -33,11 +33,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _returnStarted;
     private bool _hostClosureAcknowledged;
     private bool _hasProgressionResultSnapshot;
+    private bool _levelUpCelebrated;
+    private LootDefinitionCatalog _lootCatalog;
     private ExpeditionProgressionResult _progressionResultSnapshot;
     private float _nextNoTargetRefreshAt;
     private RaidParticipantState _observedParticipantState;
     private bool _observedExtractionFinalizationComplete;
     private ExtractionLootSaveStatus _observedSaveStatus;
+    private RaidResultsLootKind _observedResultsLootKind;
     private NetworkMatchController.MatchPhase _observedMatchPhase;
 
     public bool IsOpen => _isBound && _view != null && _view.IsOpen;
@@ -60,6 +63,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _inventoryPresenter = inventoryPresenter;
         _runner = runner;
         _extractionLootSaver = character.GetComponent<PlayerExtractionLootSaver>();
+        _lootCatalog = character.GetComponent<PlayerLootReceiver>()?.LootCatalog;
         RaidAvatarParticipantLink participantLink = character.GetComponent<RaidAvatarParticipantLink>();
         if (participantLink != null && !participantLink.TryResolveParticipant(out _participant))
         {
@@ -97,6 +101,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedSaveStatus = _extractionLootSaver != null
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
+        _observedResultsLootKind = _participant != null
+            ? _participant.ResultsLootKind
+            : RaidResultsLootKind.None;
         _observedMatchPhase = GetMatchPhase();
 
         if (isActiveAndEnabled)
@@ -127,11 +134,14 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _returnStarted = false;
         _hostClosureAcknowledged = false;
         _hasProgressionResultSnapshot = false;
+        _levelUpCelebrated = false;
+        _lootCatalog = null;
         _progressionResultSnapshot = default;
         _nextNoTargetRefreshAt = 0f;
         _observedParticipantState = RaidParticipantState.Raiding;
         _observedExtractionFinalizationComplete = false;
         _observedSaveStatus = ExtractionLootSaveStatus.None;
+        _observedResultsLootKind = RaidResultsLootKind.None;
         _observedMatchPhase = NetworkMatchController.MatchPhase.WaitingForPlayers;
         _view?.Clear();
     }
@@ -472,6 +482,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
                     canSpectate,
                     isSpectating,
                     canRetryPersistence);
+                PresentResultsExtras();
             }
             else
             {
@@ -494,6 +505,35 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
             !_awaitingAbandonConfirmation && !IsLocalDefeated();
         _view.SetCancelRaidVisible(canCancelRaid);
+    }
+
+    /// <summary>
+    /// Adds the loot grid and the level-up celebration to a presented Results snapshot.
+    /// Both come from data captured once; the view refreshes many times, so the celebration
+    /// animates only the first time it is shown for this snapshot.
+    /// </summary>
+    private void PresentResultsExtras()
+    {
+        if (_participant != null && _lootCatalog != null &&
+            _participant.TryGetResultsLoot(_lootCatalog, out RaidResultsLootSummary loot))
+        {
+            _view.PresentResultsLoot(loot, _lootCatalog);
+        }
+        else
+        {
+            _view.ClearResultsLoot();
+        }
+
+        if (_progressionResultSnapshot.LevelsGained <= 0)
+        {
+            return;
+        }
+
+        bool animate = ResultsLevelUpFeedbackPolicy.ShouldCelebrate(
+            _progressionResultSnapshot.LevelsGained,
+            _levelUpCelebrated);
+        _levelUpCelebrated = true;
+        _view.PresentLevelUp(_progressionResultSnapshot.ResultingLevel, animate);
     }
 
     private void OnCancelRaidRequested()
@@ -546,6 +586,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             ? _extractionLootSaver.LocalSaveStatus
             : ExtractionLootSaveStatus.None;
         NetworkMatchController.MatchPhase matchPhase = GetMatchPhase();
+        RaidResultsLootKind resultsLootKind = _participant.ResultsLootKind;
         bool hadProgressionResultSnapshot = _hasProgressionResultSnapshot;
         bool hasProgressionResultSnapshot =
             HasPersistentResultScreen() && TryCaptureProgressionResult();
@@ -554,6 +595,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         bool resultChanged = state != _observedParticipantState ||
                              finalizationComplete != _observedExtractionFinalizationComplete ||
                              saveStatus != _observedSaveStatus ||
+                             resultsLootKind != _observedResultsLootKind ||
                              ShouldRefreshForMatchPhase(
                                  _observedMatchPhase,
                                  matchPhase,
@@ -561,6 +603,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _observedParticipantState = state;
         _observedExtractionFinalizationComplete = finalizationComplete;
         _observedSaveStatus = saveStatus;
+        _observedResultsLootKind = resultsLootKind;
         _observedMatchPhase = matchPhase;
 
         if (state == RaidParticipantState.Defeated && !_wasDefeatedObserved)
@@ -806,19 +849,10 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private string GetTerminalResultTitle()
     {
-        if (_participant == null)
-        {
-            return "Resultados";
-        }
-
-        return _participant.State switch
-        {
-            RaidParticipantState.Extracted => "Extracción completada",
-            RaidParticipantState.Defeated => "Has sido Derrotado",
-            RaidParticipantState.Aborted when IsVoluntaryAbandonResult() =>
-                "Incursión abandonada",
-            _ => "Resultados"
-        };
+        RaidResultsOutcome outcome = _participant == null
+            ? RaidResultsOutcome.None
+            : RaidResultsOutcomeResolver.Resolve(_participant.State, _participant.FinalizationCause);
+        return _view.GetOutcomeTitle(outcome);
     }
 
     private string GetPersistenceFeedback(out bool canRetryPersistence)

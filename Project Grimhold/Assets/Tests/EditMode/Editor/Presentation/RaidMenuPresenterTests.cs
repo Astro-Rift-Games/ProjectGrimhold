@@ -143,7 +143,7 @@ namespace Tests.EditMode.Presentation
         {
             _view.PresentDefeatedState(canReturn: true, isSpectating: false);
 
-            Assert.That(_view.TitleText.text, Is.EqualTo("Has sido Derrotado"));
+            Assert.That(_view.TitleText.text, Is.EqualTo("DERROTA"));
             Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.True);
             Assert.That(_view.ResumeButtonText.text, Is.EqualTo("Observar"));
             Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.True);
@@ -165,7 +165,7 @@ namespace Tests.EditMode.Presentation
         {
             _view.PresentExtractedState(false);
 
-            Assert.That(_view.TitleText.text, Is.EqualTo("Extracción completada"));
+            Assert.That(_view.TitleText.text, Is.EqualTo("EXTRACCIÓN EXITOSA"));
             Assert.That(_view.StatusText.text, Does.Contain("Guardado pendiente"));
             Assert.That(_view.ResumeButton.gameObject.activeSelf, Is.False);
             Assert.That(_view.AbandonButton.interactable, Is.False);
@@ -177,7 +177,7 @@ namespace Tests.EditMode.Presentation
         {
             _view.PresentExtractedState(true);
 
-            Assert.That(_view.TitleText.text, Is.EqualTo("Extracción completada"));
+            Assert.That(_view.TitleText.text, Is.EqualTo("EXTRACCIÓN EXITOSA"));
             Assert.That(_view.StatusText.text, Does.Contain("botín fue asegurado"));
             Assert.That(_view.AbandonButton.interactable, Is.True);
             Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
@@ -569,7 +569,7 @@ namespace Tests.EditMode.Presentation
 
             Assert.That(_presenter.IsOpen, Is.True);
             Assert.That(_view.IsOpen, Is.True);
-            Assert.That(_view.TitleText.text, Is.EqualTo("Has sido Derrotado"));
+            Assert.That(_view.TitleText.text, Is.EqualTo("DERROTA"));
             Assert.That(ReadSuppressionCount(_inputReader), Is.GreaterThan(0));
         }
 
