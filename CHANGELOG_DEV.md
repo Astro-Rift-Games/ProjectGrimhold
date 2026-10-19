@@ -6,6 +6,12 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **extraction:** finalize shared team extraction and fix client sync ([45c2d06](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/45c2d064e6941cb739364089b6427bf37b036d88))
+- **presentation:** implement team-based extraction HUD, minimap, and cues ([a659c02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a659c02827872f33ab22ea9de045e33e6c9a9188))
+- **extraction:** implement team extraction coordinator and joint countdown ([523fd02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/523fd02af68913595eb125df567177b98f3231f2))
+- **extraction:** implement team-based extraction sanctuary assignment and ritual ([ce0aae5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce0aae5431015ce87b6a75fa1954bb894f005669))
+- **extraction:** network team extraction progress pool and forwarder ([e6c1c28](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e6c1c28f4a67355aa8ecbd91f59cbee042569e05))
+- **extraction:** add pure domain contracts and team quota rules for shared extraction ([0b44e38](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0b44e38417e0ad57f9ffb8fad50ed4ae223e2403))
 - **changelog:** add Git-based player and developer changelog generator ([b87900f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b87900fe221a7bb7b28541b0b4167b9cbff909c0))
 - **stash:** sort display and bulk transfers by category and name ([d3673b7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d3673b763fe75331d277f2edf08828b4b3cf4e2d))
 - **stash:** enforce configurable capacity and paginate Stash slots ([444fc4e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/444fc4e93ccb395bb2beb4ecb69d70a6285b5e09))
@@ -243,6 +249,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **raid:** prevent premature absence finalization when target avatar is unresolvable ([31e82ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/31e82ff65a3fca77df40474b7f7fb75f4489ef9e))
 - **changelog:** keep all real commits and merge attribution-only duplicates ([7369fd1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7369fd12e72fb7f5005ba62e273b891f308ef12c))
 - **stash:** enable Take All and Leave All button clicks ([3764314](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3764314b5d3ba0ca2a2ae031ef843bf30da0e68a))
 - **stash:** recover corrupt local cache during authenticated login ([fcfb309](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fcfb309bef5c45f9b43bd9752b6cb945a1c8f2cc))
