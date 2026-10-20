@@ -9,7 +9,8 @@
     "test": "node --test tests/*.test.js",
     "test:concurrency": "node --test tests/concurrency/*.test.js",
     "test:integration": "node --test tests/integration/*.test.js",
-    "seed": "node scripts/seed-test-accounts.js"
+    "seed": "node scripts/seed-test-accounts.js",
+    "security:scan": "node ../tools/security/scan-secrets.js"
   },
   "keywords": [],
   "author": "",
