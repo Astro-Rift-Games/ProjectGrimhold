@@ -1,15 +1,16 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine.TestTools;
 
 [Category("TASK143")]
 public sealed class LocalProfilePersistenceEditModeTests
 {
-    private const string MainPath = ".\\grimhold-profile.json";
-    private const string TemporaryPath = ".\\grimhold-profile.json.tmp";
-    private const string BackupPath = ".\\grimhold-profile.json.bak";
+    private static string MainPath(ProfileId profile) => Path.Combine(".", $"grimhold-profile-{profile.Value}.json");
+    private static string BackupPath(ProfileId profile) => MainPath(profile) + ".bak";
     private LootDefinitionCatalog _catalog;
 
     [SetUp]
@@ -200,6 +201,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         var items = new[] { new StashItem(new LootId("coins"), 5) };
 
         files.FailWrites = true;
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] Commit failed. Available=True; Status=Ready; Error=Simulated disk failure.");
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.PersistenceFailed));
         Assert.That(store.GetLoadout(), Is.Empty);
         CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
@@ -316,6 +319,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         int eventCount = 0;
         store.ProfileCommitted += _ => eventCount++;
 
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: Prepared equipment validation dependencies are unavailable.");
         Assert.That(
             store.TryCreateLoadoutReservation("reservation-empty", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.InvalidInventory));
@@ -451,6 +456,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
         // The domain invariant still rejects the reservation.
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: At least one prepared Main Hand weapon is required.");
         Assert.That(
             store.TryCreateLoadoutReservation("no-weapon", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.InvalidInventory));
@@ -618,8 +625,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         var snapshot = repository.Snapshot.Clone();
         snapshot.Stash.Add(new StashItem(new LootId("bone"), 4));
         Assert.That(repository.TrySave(snapshot, out _), Is.True);
-        files.Files[BackupPath] = files.Files[MainPath];
-        files.Files[MainPath] = "{ malformed";
+        files.Files[BackupPath(profile)] = files.Files[MainPath(profile)];
+        files.Files[MainPath(profile)] = "{ malformed";
 
         var recovered = new LocalProfileRepository(files, ".");
         Assert.That(recovered.Initialize(profile, _catalog), Is.True);
@@ -655,7 +662,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             out LocalProfileSnapshot migrated,
             out _,
             out string error), Is.True, error);
-        Assert.That(migrated.SchemaVersion, Is.EqualTo(2));
+        Assert.That(migrated.SchemaVersion, Is.EqualTo(LocalProfileSnapshot.CurrentSchemaVersion));
         Assert.That(migrated.Level, Is.EqualTo(1));
         Assert.That(migrated.CurrentExperience, Is.Zero);
         Assert.That(migrated.LastAppliedProgressionResultSequence, Is.Zero);
@@ -694,8 +701,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         Assert.That(repository.TrySave(repository.Snapshot.Clone(), out _), Is.True);
-        files.Files[BackupPath] = files.Files[MainPath];
-        files.Files[MainPath] = files.Files[MainPath].Replace("\"level\": 1", "\"level\": 0");
+        files.Files[BackupPath(profile)] = files.Files[MainPath(profile)];
+        files.Files[MainPath(profile)] = files.Files[MainPath(profile)].Replace("\"level\": 1", "\"level\": 0");
 
         var recovered = new LocalProfileRepository(files, ".");
         Assert.That(recovered.Initialize(profile, _catalog), Is.True, recovered.LastError);
@@ -911,16 +918,19 @@ public sealed class ExtractionProgressionReceiptTests
             new System.Collections.Generic.List<StashItem>(),
             default,
             consolidatedExperience: 100,
-            resultingLevel: 1,
-            resultingExperience: 100);
+            resultingLevel: 2,
+            resultingExperience: 0);
 
         Assert.That(result, Is.EqualTo(StashOperationResult.Success));
 
         string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
-        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, _catalog, out _, out var status, out string error);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, _catalog,
+            out LocalProfileSnapshot restored, out var status, out string error);
 
         Assert.That(decoded, Is.True, $"Codec round-trip failed after extraction: {error}");
         Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+        Assert.That(restored.Level, Is.EqualTo(2));
+        Assert.That(restored.CurrentExperience, Is.Zero);
     }
 }
 #endif

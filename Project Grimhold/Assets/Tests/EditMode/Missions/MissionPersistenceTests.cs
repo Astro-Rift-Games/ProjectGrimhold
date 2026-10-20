@@ -153,29 +153,47 @@ public class MissionPersistenceTests
         var repository = new InMemoryLocalProfileRepository();
         var profileId = new ProfileId("test_profile_xp_codec");
         var catalog = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
-        repository.Initialize(profileId, catalog);
-        
-        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
-        snapshot.Level = 1;
-        snapshot.CurrentExperience = 0;
-        snapshot.LastAppliedProgressionResultSequence = 10;
-        var initialReceipt = new ProgressionReceipt("raid_1", profileId, 10, 0, 1);
-        snapshot.LastProgressionReceipt = initialReceipt;
-        snapshot.AppliedProgressionReceipts.Add(initialReceipt);
-        
-        snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_test_01"), MissionState.PendienteDeReclamar));
-        repository.TrySave(snapshot, out _);
-        
-        var store = new LocalProfileStore(repository, profileId);
+        var rewardDefinition = ScriptableObject.CreateInstance<LootDefinition>();
+        try
+        {
+            const string rewardId = "item_test";
+            typeof(LootDefinition).GetField("_id",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(rewardDefinition, rewardId);
+            typeof(LootDefinitionCatalog).GetField("_definitions",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(catalog, new List<LootDefinition> { rewardDefinition });
+            Assert.That(repository.Initialize(profileId, catalog), Is.True);
 
-        var result = store.TryClaimMission(_testMission);
-        Assert.AreEqual(StashOperationResult.Success, result);
+            var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+            snapshot.Level = 1;
+            snapshot.CurrentExperience = 0;
+            snapshot.LastAppliedProgressionResultSequence = 10;
+            var initialReceipt = new ProgressionReceipt("raid_1", profileId, 10, 0, 1);
+            snapshot.LastProgressionReceipt = initialReceipt;
+            snapshot.AppliedProgressionReceipts.Add(initialReceipt);
 
-        string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
-        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, catalog, out _, out var status, out string error);
-        
-        Assert.IsTrue(decoded, $"Decode failed after claiming mission with XP: {error}");
-        Assert.AreEqual(LocalProfilePersistenceStatus.Ready, status);
+            snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_test_01"), MissionState.PendienteDeReclamar));
+            Assert.That(repository.TrySave(snapshot, out string saveError), Is.True, saveError);
+
+            var store = new LocalProfileStore(repository, profileId);
+            Assert.That(store.TryClaimMission(_testMission), Is.EqualTo(StashOperationResult.Success));
+
+            string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
+            bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, catalog,
+                out LocalProfileSnapshot restored, out var status, out string error);
+
+            Assert.That(decoded, Is.True, $"Decode failed after claiming mission with XP: {error}");
+            Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+            Assert.That(restored.CurrentExperience, Is.EqualTo(50));
+            Assert.That(restored.Stash.Any(entry => entry.LootId.Value == rewardId && entry.Amount == 2), Is.True);
+            Assert.That(restored.LastAppliedProgressionResultSequence, Is.EqualTo(11));
+        }
+        finally
+        {
+            Object.DestroyImmediate(rewardDefinition);
+            Object.DestroyImmediate(catalog);
+        }
     }
 
     [Test]

@@ -4,9 +4,10 @@ using NUnit.Framework;
 public sealed class PlayerExtractionLootSaverTests
 {
     [Test]
-    public void SnapshotCapacity_CoversInventoryAndAllSixEquipmentSlots()
+    public void SnapshotCapacity_CoversInventoryAndEveryEquipmentSlot()
     {
-        Assert.That(PlayerExtractionLootSaver.MaximumSnapshotEntries, Is.EqualTo(22));
+        Assert.That(PlayerExtractionLootSaver.MaximumSnapshotEntries,
+            Is.EqualTo(PlayerLootReceiver.MaxDistinctLootTypes + EquipmentSlotRules.SlotCount));
     }
 
     [Test]

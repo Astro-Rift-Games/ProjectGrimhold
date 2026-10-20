@@ -1,8 +1,9 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine.TestTools;
 
-[Category("BACK-06")]
+[Category("BACK06")]
 public class HydrateSnapshotTests
 {
     private LootDefinitionCatalog _lootCatalog;
@@ -52,6 +53,8 @@ public class HydrateSnapshotTests
             preparedEquipment = new Grimhold.Backend.PreparedEquipmentData()
         };
 
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[ApplicationStashServiceBootstrapper] Hydration failed: invalid character attributes.");
         bool result = ApplicationStashServiceBootstrapper.HydrateSnapshot(
             _profileId,
             snapshot,
@@ -71,6 +74,8 @@ public class HydrateSnapshotTests
     [Test]
     public void HydrateSnapshot_ReturnsTrue_AndSetsRemoteRevision_OnSuccess()
     {
+        const string lootId = "coins";
+        Assert.That(_lootCatalog.TryGet(lootId, out _), Is.True);
         var snapshot = new LocalProfileSnapshot { ProfileId = _profileId };
         var progressionData = new Grimhold.Backend.ProgressionData
         {
@@ -95,7 +100,7 @@ public class HydrateSnapshotTests
             loadout = new Grimhold.Backend.InventoryItemData[0],
             stash = new Grimhold.Backend.InventoryItemData[] 
             {
-                new Grimhold.Backend.InventoryItemData { lootId = "success-item", amount = 10 }
+                new Grimhold.Backend.InventoryItemData { lootId = lootId, amount = 10 }
             },
             preparedEquipment = new Grimhold.Backend.PreparedEquipmentData()
         };
@@ -113,7 +118,7 @@ public class HydrateSnapshotTests
         Assert.That(snapshot.CharacterAttributes.Vitality, Is.EqualTo(5));
         Assert.That(snapshot.RemoteRevision, Is.EqualTo(10));
         Assert.That(snapshot.Stash.Count, Is.EqualTo(1));
-        Assert.That(snapshot.Stash[0].LootId.Value, Is.EqualTo("success-item"));
+        Assert.That(snapshot.Stash[0].LootId.Value, Is.EqualTo(lootId));
         Assert.That(snapshot.Stash[0].Amount, Is.EqualTo(10));
     }
 }

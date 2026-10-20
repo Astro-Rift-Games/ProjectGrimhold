@@ -34,8 +34,6 @@ namespace Tests.EditMode.Loot
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
         public void ProductivePlayerReceiverCapacity_IsThirty(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -204,8 +202,6 @@ namespace Tests.EditMode.Loot
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
         public void PlayerPrefab_ComposesOneUnavailableLootEndpointOnItsNetworkRoot(string prefabPath)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);

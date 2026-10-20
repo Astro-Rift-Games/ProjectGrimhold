@@ -219,8 +219,10 @@ public class MerchantShopUIBoundaryTests
     public void Prefab_FooterSeparatesTheSummaryRowFromFeedbackAndActions()
     {
         MerchantShopUI ui = LoadMerchantShop();
-        Transform summaryRow = GetField<Component>(ui, "_purchaseTotalText").transform.parent;
-        Assert.That(summaryRow.GetComponent<HorizontalLayoutGroup>(), Is.Not.Null);
+        HorizontalLayoutGroup summaryLayout = GetField<Component>(ui, "_purchaseTotalText")
+            .GetComponentInParent<HorizontalLayoutGroup>(true);
+        Assert.That(summaryLayout, Is.Not.Null);
+        Transform summaryRow = summaryLayout.transform;
 
         foreach (string fieldName in new[] { "_currencyText", "_saleTotalText", "_balanceText", "_capacityText" })
         {
