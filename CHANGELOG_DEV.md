@@ -6,6 +6,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **security:** sanitize env placeholders and add secret scanner for us-61 ([6bc1ff4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6bc1ff4a9672dc4e1098ea6981ccba3a27823caf))
+- **security:** enforce session revocation and harden production backend ([21e11ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21e11ff073817b04d91880ebca5ad305b746b626))
+- **security:** authenticate town identity and authoritative raid admission ([19b1208](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19b1208a4cc5597e75ff6da221d32d4933e09022))
 - **downed:** add Downed and revive feedback HUD for both participants ([41e791a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/41e791a17136a3dc16a3aeec2531c69b44bad8fb))
 - **results:** complete the Results screen with headline, loot and level-up feedback ([1786080](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1786080bfd03f78be6040eedd4bddc72ecf7bef3))
 - **inventory:** wire the Quick Slots into the Inventory screen ([5bd9be7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5bd9be7b0233e6a4e261f9e8daec04a5e602f772))
@@ -262,6 +265,11 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **security:** harden secret scanning and remediate dependencies ([a14c5dd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a14c5dde8281eaadb8d11781fa7b5a3dae8ec156))
+- **security:** resolve qs to 6.16.1 and complete audit for us-62 ([4fd496d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4fd496df822c730fe48b419d735698a6d94a84a8))
+- **networking:** chunk raid admission payload and enable rollback ([bb7b1ce](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bb7b1ce2c247acc49cf470912fe50c5b42c3b237))
+- **security:** enforce fail-closed verification for town and raid admission ([3c8ef69](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3c8ef69aec0c98eff26eae0865bc05acbf9de7a0))
+- **security:** publish and validate remote raid results for us-58 ([dc7111d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/dc7111d5b1906afd1f92647990fcf89d874b1ea4))
 - **tilemap:** pack the provisional tileset into a padded sprite atlas ([7b35062](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7b35062c3bc36719b808ffd280a498260058b3f9))
 - **visibility:** smooth the vision fog edge and keep it off walls ([e89b35e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e89b35ea28d32d5db8c6727bcd7dacfa568f0f45))
 - **shop:** enforce authoritative catalog pricing and receipt binding ([cb066c3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cb066c32b24c8ab72d47dc35b9f6c17e0647a1a5))
