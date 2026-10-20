@@ -127,4 +127,41 @@ test('E2E Town Identity and Raid Admission Integration (US-59 / SEC-59.1)', asyn
     assert.strictEqual(badRes.status, 422);
     assert.strictEqual(badRes.body.error, 'NO_ACTIVE_RESERVATION');
   });
+
+  await t.test('8. Recovery Weapon Guarantee & Rollback on Reservation', async () => {
+    // Clear previous reservation without rollback (simulating death/consumption)
+    const clearRes = await request(app)
+      .delete('/character/me/inventory/reservation')
+      .set('Authorization', `Bearer ${token}`);
+    assert.strictEqual(clearRes.status, 200);
+
+    // Save a new reservation when no weapon is equipped -> should grant arming_sword in weaponSlot1
+    const recoveryResId = 'res_recovery_999';
+    const resRes = await request(app)
+      .post('/character/me/inventory/reservation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reservationId: recoveryResId });
+    assert.strictEqual(resRes.status, 201);
+    assert.strictEqual(resRes.body.pendingReservation.preparedEquipment.weaponSlot1, 'arming_sword');
+
+    // Issue raid admission ticket -> snapshot must have weaponSlot1: 'arming_sword'
+    const issueRes = await request(app)
+      .post('/character/me/raid/admission-ticket')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ raidCode: testRaidCode, reservationId: recoveryResId });
+    assert.strictEqual(issueRes.status, 200);
+    assert.strictEqual(issueRes.body.snapshot.preparedEquipment.weaponSlot1, 'arming_sword');
+
+    // Rollback reservation -> restores weaponSlot1: 'arming_sword' to character
+    const rollbackRes = await request(app)
+      .delete('/character/me/inventory/reservation?rollback=true')
+      .set('Authorization', `Bearer ${token}`);
+    assert.strictEqual(rollbackRes.status, 200);
+
+    const invRes = await request(app)
+      .get('/character/me/inventory')
+      .set('Authorization', `Bearer ${token}`);
+    assert.strictEqual(invRes.status, 200);
+    assert.strictEqual(invRes.body.preparedEquipment.weaponSlot1, 'arming_sword');
+  });
 });

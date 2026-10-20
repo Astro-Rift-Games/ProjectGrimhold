@@ -1,4 +1,5 @@
 using Fusion;
+using Grimhold.Backend;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -237,6 +238,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         var joinData = new PlayerJoinData(profileId);
         byte[] token;
         RaidAdmissionData admissionData = default;
+        AuthoritativeRaidAdmissionTicket authoritativeAdmissionTicket = default;
         if (launchContext != null)
         {
             if (loadoutReservation == null)
@@ -287,6 +289,48 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }
 
+            ApplicationAuthContext authContext = ApplicationAuthContext.Instance;
+            if (authContext != null && authContext.IsAuthenticated &&
+                authContext.BackendConfig != null && !string.IsNullOrEmpty(authContext.Token))
+            {
+                if (profileContext.TryGetComponent(out RemoteInventoryService remoteInventoryService))
+                {
+                    await remoteInventoryService.SavePendingReservationAsync(loadoutReservation);
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var (ticketOk, ticketData, ticketError) = await CharacterClient.GetAuthoritativeRaidAdmissionTicketAsync(
+                    authContext.BackendConfig,
+                    authContext.Token,
+                    launchContext.RaidCode.Value,
+                    loadoutReservation.ReservationId);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!ticketOk && ticketError.error == BackendErrorUtility.Unauthorized)
+                {
+                    authContext.HandleUnauthorizedSession();
+                }
+                else if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket) &&
+                         AuthoritativeRaidAdmissionTicketCodec.TryDecode(ticketData.ticket, out AuthoritativeRaidAdmissionTicket decodedAuthTicket) &&
+                         decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities))
+                {
+                    authoritativeAdmissionTicket = decodedAuthTicket;
+                    admissionData = canonicalAdmissionData;
+                    if (authContext.RaidAdmissionVerifier != null)
+                    {
+                        _ = authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(
+                            authoritativeAdmissionTicket.RawTicket,
+                            launchContext.RaidCode);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        $"[FusionSessionLauncher] Could not obtain authoritative raid admission ticket ({ticketError.error ?? "DECODE_FAILED"}). Proceeding with local admission snapshot.",
+                        this);
+                }
+            }
+
             var ticket = new RaidAdmissionTicket(
                 launchContext.RaidCode,
                 profileId,
@@ -328,7 +372,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 loadoutReservation,
                 this,
                 out var composition,
-                in admissionData))
+                in admissionData,
+                in authoritativeAdmissionTicket))
             {
                 LastStartShutdownReason = ShutdownReason.Error;
                 Debug.LogError("[FusionSessionLauncher] Failed to create runner composition via factory.", this);
@@ -478,7 +523,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
 
             if (launchContext != null &&
-                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, cancellationToken))
+                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, authoritativeAdmissionTicket, cancellationToken))
             {
                 Debug.LogError("[FusionSessionLauncher] Local raid admission did not complete with the exact reserved loadout.", this);
                 await ShutdownAndDestroyRunnerAsync();
@@ -508,6 +553,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     private async Task<bool> WaitForLocalRaidAdmissionAsync(
         PendingLoadoutReservation reservation,
+        AuthoritativeRaidAdmissionTicket authoritativeTicket,
         CancellationToken cancellationToken)
     {
         if (_runner == null || reservation == null)
@@ -533,8 +579,11 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     equipment,
                     out PlayerExpeditionLootSnapshot ownership,
                     out _) &&
-                MatchesLoadout(reservation.Items, ownership.Inventory) &&
-                MatchesPreparedEquipment(reservation.PreparedEquipment, equipment))
+                ((MatchesLoadout(reservation.Items, ownership.Inventory) &&
+                  MatchesPreparedEquipment(reservation.PreparedEquipment, equipment)) ||
+                 (authoritativeTicket.IsValid &&
+                  MatchesLootEntries(authoritativeTicket.ReservedItems, ownership.Inventory) &&
+                  MatchesPreparedEquipment(authoritativeTicket.PreparedEquipment, equipment))))
             {
                 return true;
             }
@@ -577,6 +626,37 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     private static bool MatchesLoadout(
         System.Collections.Generic.IReadOnlyList<StashItem> expected,
+        System.Collections.Generic.IReadOnlyList<LootEntry> actual)
+    {
+        if (expected == null || actual == null || expected.Count != actual.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < expected.Count; index++)
+        {
+            bool found = false;
+            for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
+            {
+                if (expected[index].LootId == actual[actualIndex].LootId &&
+                    expected[index].Amount == actual[actualIndex].Amount)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool MatchesLootEntries(
+        System.Collections.Generic.IReadOnlyList<LootEntry> expected,
         System.Collections.Generic.IReadOnlyList<LootEntry> actual)
     {
         if (expected == null || actual == null || expected.Count != actual.Count)

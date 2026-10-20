@@ -1,5 +1,7 @@
 using Fusion;
 using System;
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 /// <summary>
@@ -42,6 +44,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
     private bool _hasObservedParticipant;
     private bool _cleanupAttempted;
     private bool _clientAdmissionSubmitted;
+    private readonly Dictionary<PlayerRef, RaidAdmissionPayloadAssembler> _pendingAdmissionAssemblies = new();
 
     public override void Spawned()
     {
@@ -238,6 +241,11 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
         if (ExpectedAdmissionDeadline.Expired(Runner))
         {
+            Debug.LogWarning(
+                $"[NetworkMatchController] Expected admission deadline ({ExpectedAdmissionTimeoutSeconds}s) expired. " +
+                $"ReadyProfiles={spawnManager?.ReadyRaidProfileCount ?? 0}/{ExpectedAdmissionCount}. " +
+                $"PendingAdmissionAssemblies={_pendingAdmissionAssemblies.Count}.",
+                this);
             Phase = MatchPhase.Starting;
             Runner.SessionInfo.IsOpen = false;
             Runner.SessionInfo.IsVisible = false;
@@ -338,27 +346,74 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         LocalPlayerJoinContext joinContext = Runner.GetComponent<LocalPlayerJoinContext>();
-        if (joinContext == null || !joinContext.HasRaidAdmission)
+        if (joinContext == null || (!joinContext.HasRaidAdmission && !joinContext.HasAuthoritativeAdmissionTicket))
         {
             return;
         }
 
-        if (!RaidAdmissionDataCodec.TryEncode(joinContext.RaidAdmission, out byte[] payload))
+        byte[] payload;
+        if (joinContext.HasAuthoritativeAdmissionTicket)
+        {
+            payload = Encoding.UTF8.GetBytes(joinContext.AuthoritativeAdmissionTicket.RawTicket);
+        }
+        else if (!RaidAdmissionDataCodec.TryEncode(joinContext.RaidAdmission, out payload))
         {
             Debug.LogError("[NetworkMatchController] Failed to encode local raid admission for RPC submission.");
             return;
         }
 
+        // Fusion rejects RPC payloads above 512 bytes; the signed ticket grows with the loadout.
+        if (!RaidAdmissionPayloadChunking.TrySplit(payload, out byte[][] chunks))
+        {
+            Debug.LogError($"[NetworkMatchController] Raid admission payload ({payload?.Length ?? 0} bytes) cannot be chunked for RPC submission.");
+            return;
+        }
+
         _clientAdmissionSubmitted = true;
-        Debug.Log($"[NetworkMatchController] Submitting raid admission RPC to StateAuthority ({payload.Length} bytes).");
-        RpcSubmitRaidAdmission(payload);
+        Debug.Log(
+            $"[NetworkMatchController] Submitting raid admission to StateAuthority " +
+            $"({payload.Length} bytes in {chunks.Length} chunk(s), authoritative={joinContext.HasAuthoritativeAdmissionTicket}).");
+        for (int index = 0; index < chunks.Length; index++)
+        {
+            RpcSubmitRaidAdmissionChunk(index, chunks.Length, chunks[index]);
+        }
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
-    public void RpcSubmitRaidAdmission(byte[] admissionPayload, RpcInfo info = default)
+    public void RpcSubmitRaidAdmissionChunk(int chunkIndex, int chunkCount, byte[] chunk, RpcInfo info = default)
     {
         PlayerRef sender = info.Source;
-        Debug.Log($"[NetworkMatchController] Received RpcSubmitRaidAdmission from {sender} (payload: {admissionPayload?.Length ?? 0} bytes).");
+        if (!_pendingAdmissionAssemblies.TryGetValue(sender, out RaidAdmissionPayloadAssembler assembler))
+        {
+            assembler = new RaidAdmissionPayloadAssembler();
+            _pendingAdmissionAssemblies[sender] = assembler;
+        }
+
+        RaidAdmissionPayloadAssemblyResult result =
+            assembler.Accept(chunkIndex, chunkCount, chunk, out byte[] admissionPayload);
+        Debug.Log(
+            $"[NetworkMatchController] Received admission chunk {chunkIndex + 1}/{chunkCount} from {sender} " +
+            $"({chunk?.Length ?? 0} bytes). Result={result}.");
+
+        if (result == RaidAdmissionPayloadAssemblyResult.Incomplete)
+        {
+            return;
+        }
+
+        _pendingAdmissionAssemblies.Remove(sender);
+        if (result == RaidAdmissionPayloadAssemblyResult.Rejected)
+        {
+            Debug.LogWarning($"[NetworkMatchController] Malformed admission chunk stream from {sender}. Disconnecting.");
+            Runner.Disconnect(sender);
+            return;
+        }
+
+        HandleRemoteAdmissionPayload(sender, admissionPayload);
+    }
+
+    private void HandleRemoteAdmissionPayload(PlayerRef sender, byte[] admissionPayload)
+    {
+        Debug.Log($"[NetworkMatchController] Reassembled raid admission from {sender} (payload: {admissionPayload?.Length ?? 0} bytes).");
 
         NetworkSpawnManager spawnManager = Runner != null ? Runner.GetComponent<NetworkSpawnManager>() : null;
         if (spawnManager == null)

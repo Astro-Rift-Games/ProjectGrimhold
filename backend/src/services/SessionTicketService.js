@@ -171,7 +171,7 @@ class SessionTicketService {
       preparedAbilities,
       items: (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
       preparedEquipment: {
-        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || '',
+        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || (!reservation.preparedEquipment?.weaponSlot2 ? 'arming_sword' : ''),
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
         offHand1:    reservation.preparedEquipment?.offHand1 || '',
         helmet:      reservation.preparedEquipment?.helmet || '',

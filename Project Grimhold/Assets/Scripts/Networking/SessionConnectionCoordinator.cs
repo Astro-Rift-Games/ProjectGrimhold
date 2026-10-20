@@ -1682,7 +1682,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
             if (remoteInventoryService != null)
             {
-                _ = remoteInventoryService.ClearPendingReservationAsync();
+                _ = remoteInventoryService.RollbackPendingReservationAsync();
             }
         }
 

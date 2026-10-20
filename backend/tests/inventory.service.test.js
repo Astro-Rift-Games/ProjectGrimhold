@@ -353,4 +353,40 @@ test('InventoryService', async (t) => {
     assert.strictEqual(result.preparedEquipment.weaponSlot1, 'arming_sword');
     assert.deepStrictEqual(mockChar.inventory.loadout, []);
   });
+
+  await t.test('savePendingReservation() - equips recovery weapon arming_sword when no main hand weapon is prepared', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.stash = [makeItem('arming_sword', 1)];
+    mockChar.inventory.loadout = [];
+    mockChar.inventory.preparedEquipment = {
+      weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: ''
+    };
+    setupMocks(mockChar);
+
+    const result = await InventoryService.savePendingReservation('acc123', 'res-recovery-01');
+    assert.strictEqual(result.pendingReservation.reservationId, 'res-recovery-01');
+    assert.strictEqual(result.pendingReservation.preparedEquipment.weaponSlot1, 'arming_sword');
+    assert.deepStrictEqual(mockChar.inventory.stash, []);
+  });
+
+  await t.test('clearPendingReservation() with rollback=true - restores items and preparedEquipment to character', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.loadout = [];
+    mockChar.inventory.preparedEquipment = {
+      weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: ''
+    };
+    mockChar.inventory.pendingReservation = {
+      reservationId: 'res-rollback-01',
+      items: [makeItem('health_potion', 2)],
+      preparedEquipment: {
+        weaponSlot1: 'arming_sword', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: ''
+      }
+    };
+    setupMocks(mockChar);
+
+    const result = await InventoryService.clearPendingReservation('acc123', { rollback: true });
+    assert.strictEqual(result.pendingReservation, null);
+    assert.deepStrictEqual(mockChar.inventory.loadout, [{ lootId: 'health_potion', amount: 2 }]);
+    assert.strictEqual(mockChar.inventory.preparedEquipment.weaponSlot1, 'arming_sword');
+  });
 });
