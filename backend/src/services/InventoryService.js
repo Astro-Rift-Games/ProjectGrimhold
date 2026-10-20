@@ -351,7 +351,11 @@ class InventoryService {
     const pendingReservation = {
       reservationId,
       items,
-      preparedEquipment
+      preparedEquipment,
+      preparedAbilities: character.preparedAbilities ? {
+        slot1: character.preparedAbilities.slot1 || '',
+        slot2: character.preparedAbilities.slot2 || ''
+      } : { slot1: '', slot2: '' }
     };
 
     const updated = await Character.findOneAndUpdate(

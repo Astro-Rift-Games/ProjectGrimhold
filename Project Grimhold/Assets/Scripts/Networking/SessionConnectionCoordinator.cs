@@ -1001,11 +1001,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 _currentRaidCode.IsValid && _currentProfileId.IsValid &&
                 !string.IsNullOrEmpty(_currentRaidGenerationId) && !string.IsNullOrEmpty(_currentSessionName))
             {
+                string reservationId = _activeTicket.HasValue && _activeTicket.Value.LoadoutReservation != null
+                    ? _activeTicket.Value.LoadoutReservation.ReservationId
+                    : string.Empty;
                 var clientTicket = new RaidReconnectTicket(
                     _currentRaidCode,
                     _currentProfileId,
                     _currentRaidGenerationId,
-                    _currentSessionName);
+                    _currentSessionName,
+                    reservationId);
                 RaidReconnectTicketStore.Save(clientTicket);
             }
 

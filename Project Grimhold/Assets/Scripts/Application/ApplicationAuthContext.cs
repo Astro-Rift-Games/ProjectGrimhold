@@ -10,6 +10,7 @@ public class ApplicationAuthContext : MonoBehaviour
     public string CharacterId { get; private set; }
     public string CharacterName { get; private set; }
     public CharacterProfileValues Profile { get; private set; }
+    public TownSessionTicket ActiveTownTicket { get; private set; }
 
     private void Awake()
     {
@@ -30,7 +31,13 @@ public class ApplicationAuthContext : MonoBehaviour
         CharacterId = characterData.characterId;
         CharacterName = characterData.name;
         Profile = profileData.profile;
+        ActiveTownTicket = default;
         IsAuthenticated = true;
+    }
+
+    public void SetTownSessionTicket(in TownSessionTicket ticket)
+    {
+        ActiveTownTicket = ticket;
     }
 
     public void UpdateProfile(CharacterProfileValues updatedProfile)
@@ -44,6 +51,7 @@ public class ApplicationAuthContext : MonoBehaviour
         CharacterId = null;
         CharacterName = null;
         Profile = default;
+        ActiveTownTicket = default;
         IsAuthenticated = false;
     }
 }

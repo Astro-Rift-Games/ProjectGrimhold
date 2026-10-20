@@ -16,6 +16,9 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
     public NetworkString<_32> DisplayName { get; private set; }
 
     [Networked]
+    public NetworkString<_512> SessionTicket { get; private set; }
+
+    [Networked]
     public NetworkBool HasPendingPartyContinuation { get; private set; }
 
     public override void Spawned()
@@ -37,6 +40,15 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
             ? ApplicationAuthContext.Instance.CharacterName
             : null;
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? context.JoinData.ProfileId.Value : displayName.Trim();
+
+        string ticket = ApplicationAuthContext.Instance != null && ApplicationAuthContext.Instance.ActiveTownTicket.IsValid
+            ? ApplicationAuthContext.Instance.ActiveTownTicket.RawTicket
+            : null;
+        if (!string.IsNullOrWhiteSpace(ticket))
+        {
+            SessionTicket = ticket;
+        }
+
         RefreshContinuationState();
     }
 

@@ -274,6 +274,18 @@ public sealed class LoginFlowController : MonoBehaviour
         if (_authContext != null)
         {
             _authContext.Initialize(token, charData, profileData);
+
+            var (ticketOk, ticketData, _) = await CharacterClient.GetTownSessionTicketAsync(_config, token);
+            if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket))
+            {
+                var ticket = new TownSessionTicket(
+                    ticketData.ticket,
+                    new ProfileId(ticketData.characterId),
+                    ticketData.characterName,
+                    ticketData.sessionName,
+                    ticketData.expiresAt);
+                _authContext.SetTownSessionTicket(ticket);
+            }
         }
 
         // Step 6: Initialize the stash with the now-valid ProfileId and hydrated data.

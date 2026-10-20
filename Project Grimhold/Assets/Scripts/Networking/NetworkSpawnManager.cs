@@ -142,6 +142,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private TaskCompletionSource<bool> _hostMigrationRosterChanged;
     private HostMigrationRecoveryWindowState _hostMigrationRecoveryState;
     private bool _hostMigrationSnapshotHadRaidingParticipant;
+    private IRaidAdmissionVerifier _admissionVerifier;
+
+    public void SetAdmissionVerifierForTesting(IRaidAdmissionVerifier verifier)
+    {
+        _admissionVerifier = verifier;
+    }
 
     internal HostMigrationRecoveryWindowState HostMigrationRecoveryState =>
         _hostMigrationRecoveryState;
@@ -2582,6 +2588,20 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         out ProfileId profileId)
     {
         profileId = default;
+        if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(token, out AuthoritativeRaidAdmissionTicket authTicket))
+        {
+            if (authTicket.ProfileId.IsValid &&
+                _launchContext != null &&
+                authTicket.RaidCode == _launchContext.RaidCode &&
+                RaidSessionRules.ContainsProfile(
+                    _launchContext.ParticipantProfileIds,
+                    authTicket.ProfileId))
+            {
+                profileId = authTicket.ProfileId;
+                return true;
+            }
+        }
+
         if (RaidAdmissionTicketCodec.TryDecode(token, out RaidAdmissionTicket ticket))
         {
             if (ticket.ProfileId.IsValid &&
@@ -2637,14 +2657,69 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return true;
         }
 
-        if (!RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData admission) ||
-            !IsRaidAdmissionValid(admission))
+        RaidAdmissionData resolvedAdmission = default;
+        bool admissionResolved = false;
+
+        // 1. Authoritative ticket verification (SEC-59.3)
+        if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(admissionPayload, out AuthoritativeRaidAdmissionTicket authTicket))
         {
-            Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {player}.");
+            if (!RaidAdmissionRules.IsAdmitted(_launchContext, authTicket))
+            {
+                Debug.LogWarning($"[SECURITY] Authoritative ticket failed cohort admission check for player {player}.");
+                return false;
+            }
+
+            IRaidAdmissionVerifier verifier = _admissionVerifier;
+            if (verifier != null)
+            {
+                var verifyTask = verifier.VerifyRaidAdmissionTicketAsync(authTicket.RawTicket, _launchContext.RaidCode);
+                if (verifyTask.IsCompleted)
+                {
+                    var (valid, verifiedTicket, error) = verifyTask.Result;
+                    if (!valid)
+                    {
+                        Debug.LogWarning($"[SECURITY] Authoritative ticket rejected by verifier for player {player}: {error}");
+                        return false;
+                    }
+                    authTicket = verifiedTicket;
+                }
+            }
+
+            // Hydrate state exclusively from backend verified snapshot
+            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission))
+            {
+                Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {player}.");
+                return false;
+            }
+
+            admissionResolved = true;
+        }
+        else if (RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData clientDeclaredAdmission))
+        {
+            // If authoritative verifier is active, reject unauthenticated client-declared payloads
+            if (_admissionVerifier != null)
+            {
+                Debug.LogWarning($"[SECURITY] Client-declared admission payload without authoritative ticket rejected for player {player}.");
+                return false;
+            }
+
+            if (!IsRaidAdmissionValid(clientDeclaredAdmission))
+            {
+                Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {player}.");
+                return false;
+            }
+
+            resolvedAdmission = clientDeclaredAdmission;
+            admissionResolved = true;
+        }
+
+        if (!admissionResolved || !resolvedAdmission.IsValid)
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {player}.");
             return false;
         }
 
-        if (!_admittedProfiles.TryGetValue(admission.ProfileId.Value, out PlayerRef admittedPlayer) ||
+        if (!_admittedProfiles.TryGetValue(resolvedAdmission.ProfileId.Value, out PlayerRef admittedPlayer) ||
             admittedPlayer != player)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Profile mismatch in admission RPC from {player}: expected profile registered to this player.");
@@ -2652,7 +2727,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         if (!RaidLoadoutRules.TryValidate(
-                admission.ReservedLoadout,
+                resolvedAdmission.ReservedLoadout,
                 _lootCatalog,
                 LocalProfileSnapshot.MaxLoadoutSlots,
                 out string loadoutError))
@@ -2662,8 +2737,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         if (!PreparedAbilityLoadout.TryValidateAdmission(
-                admission.PreparedAbilities,
-                admission.CharacterAttributes,
+                resolvedAdmission.PreparedAbilities,
+                resolvedAdmission.CharacterAttributes,
                 _abilityCatalog,
                 out string abilityError))
         {
@@ -2671,8 +2746,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        _admissionData[player] = admission;
-        Debug.Log($"[NetworkSpawnManager] Remote admission data registered for player {player} (Profile: {admission.ProfileId.Value}).");
+        _admissionData[player] = resolvedAdmission;
+        Debug.Log($"[NetworkSpawnManager] Remote admission data registered for player {player} (Profile: {resolvedAdmission.ProfileId.Value}).");
 
         if (CanSpawnPlayer(_runner, player))
         {
@@ -4527,6 +4602,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             participant.RaidGenerationId.ToString() != payload.RaidGenerationId)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Reconnect arrival rejected for {payload.ProfileId.Value}.");
+            return false;
+        }
+
+        // SEC-59.4: Hardening reconnect proof against participant reservation
+        string participantReservation = participant.LoadoutReservationId.ToString();
+        if (!string.IsNullOrEmpty(participantReservation) &&
+            !string.IsNullOrEmpty(payload.ReservationId) &&
+            !string.Equals(participantReservation, payload.ReservationId, StringComparison.Ordinal))
+        {
+            Debug.LogWarning($"[SECURITY] Reconnect arrival rejected for {payload.ProfileId.Value}: ReservationId proof mismatch (expected '{participantReservation}', got '{payload.ReservationId}').");
             return false;
         }
 
