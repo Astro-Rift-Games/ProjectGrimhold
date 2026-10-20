@@ -106,6 +106,10 @@ public sealed class LoginFlowController : MonoBehaviour
             {
                 return LoginFlowResult.Failure(LoginFlowStatus.NetworkError, "Cannot reach the server. Check your connection.");
             }
+            if (loginError.error == BackendErrorUtility.TooManyRequests)
+            {
+                return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, !string.IsNullOrEmpty(loginError.message) ? loginError.message : "Too many requests. Please wait a moment and try again.");
+            }
             return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Invalid username or password.");
         }
 
@@ -125,7 +129,11 @@ public sealed class LoginFlowController : MonoBehaviour
             }
 
             string message = "Failed to register account.";
-            if (registerError.error == "USERNAME_TAKEN")
+            if (registerError.error == BackendErrorUtility.TooManyRequests)
+            {
+                message = !string.IsNullOrEmpty(registerError.message) ? registerError.message : "Too many requests. Please wait a moment and try again.";
+            }
+            else if (registerError.error == "USERNAME_TAKEN")
             {
                 message = "Username is already taken.";
             }
@@ -273,7 +281,7 @@ public sealed class LoginFlowController : MonoBehaviour
 
         if (_authContext != null)
         {
-            _authContext.Initialize(token, charData, profileData);
+            _authContext.Initialize(token, charData, profileData, _config);
 
             var (ticketOk, ticketData, _) = await CharacterClient.GetTownSessionTicketAsync(_config, token);
             if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket))

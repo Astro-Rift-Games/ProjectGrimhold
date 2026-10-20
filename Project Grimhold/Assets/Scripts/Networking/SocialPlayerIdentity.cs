@@ -21,35 +21,37 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
     [Networked]
     public NetworkBool HasPendingPartyContinuation { get; private set; }
 
+    private string _lastPrewarmedTicket;
+
     public override void Spawned()
     {
-        if (!HasStateAuthority)
+        if (HasStateAuthority)
         {
-            return;
+            LocalPlayerJoinContext context = Runner.GetComponent<LocalPlayerJoinContext>();
+            if (context == null || !context.JoinData.ProfileId.IsValid)
+            {
+                Debug.LogError($"{nameof(SocialPlayerIdentity)} requires a valid local profile.", this);
+                return;
+            }
+
+            ProfileId = context.JoinData.ProfileId.Value;
+            string displayName = ApplicationAuthContext.Instance != null
+                ? ApplicationAuthContext.Instance.CharacterName
+                : null;
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? context.JoinData.ProfileId.Value : displayName.Trim();
+
+            string ticket = ApplicationAuthContext.Instance != null && ApplicationAuthContext.Instance.ActiveTownTicket.IsValid
+                ? ApplicationAuthContext.Instance.ActiveTownTicket.RawTicket
+                : null;
+            if (!string.IsNullOrWhiteSpace(ticket))
+            {
+                SessionTicket = ticket;
+            }
+
+            RefreshContinuationState();
         }
 
-        LocalPlayerJoinContext context = Runner.GetComponent<LocalPlayerJoinContext>();
-        if (context == null || !context.JoinData.ProfileId.IsValid)
-        {
-            Debug.LogError($"{nameof(SocialPlayerIdentity)} requires a valid local profile.", this);
-            return;
-        }
-
-        ProfileId = context.JoinData.ProfileId.Value;
-        string displayName = ApplicationAuthContext.Instance != null
-            ? ApplicationAuthContext.Instance.CharacterName
-            : null;
-        DisplayName = string.IsNullOrWhiteSpace(displayName) ? context.JoinData.ProfileId.Value : displayName.Trim();
-
-        string ticket = ApplicationAuthContext.Instance != null && ApplicationAuthContext.Instance.ActiveTownTicket.IsValid
-            ? ApplicationAuthContext.Instance.ActiveTownTicket.RawTicket
-            : null;
-        if (!string.IsNullOrWhiteSpace(ticket))
-        {
-            SessionTicket = ticket;
-        }
-
-        RefreshContinuationState();
+        PrewarmTicketVerificationIfNeeded();
     }
 
     public override void FixedUpdateNetwork()
@@ -57,6 +59,28 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
         if (HasStateAuthority)
         {
             RefreshContinuationState();
+        }
+    }
+
+    public override void Render()
+    {
+        PrewarmTicketVerificationIfNeeded();
+    }
+
+    private void PrewarmTicketVerificationIfNeeded()
+    {
+        string rawTicket = SessionTicket.ToString();
+        if (string.IsNullOrWhiteSpace(rawTicket) ||
+            string.Equals(_lastPrewarmedTicket, rawTicket, System.StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastPrewarmedTicket = rawTicket;
+        ITownSessionTicketVerifier verifier = ApplicationAuthContext.Instance?.TownTicketVerifier;
+        if (verifier != null)
+        {
+            _ = verifier.VerifyTownTicketAsync(rawTicket);
         }
     }
 

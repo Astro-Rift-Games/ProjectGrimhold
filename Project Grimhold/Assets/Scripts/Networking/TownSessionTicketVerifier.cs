@@ -7,6 +7,8 @@ public sealed class BackendTownSessionTicketVerifier : ITownSessionTicketVerifie
 {
     private readonly BackendConfiguration _config;
     private readonly string _bearerToken;
+    private readonly Dictionary<string, Task<(bool valid, ProfileId profileId, string characterName, string error)>> _verificationCache =
+        new Dictionary<string, Task<(bool, ProfileId, string, string)>>(StringComparer.Ordinal);
 
     public BackendTownSessionTicketVerifier(BackendConfiguration config, string bearerToken)
     {
@@ -14,13 +16,39 @@ public sealed class BackendTownSessionTicketVerifier : ITownSessionTicketVerifie
         _bearerToken = bearerToken;
     }
 
-    public async Task<(bool valid, ProfileId profileId, string characterName, string error)> VerifyTownTicketAsync(string rawTicket)
+    public Task<(bool valid, ProfileId profileId, string characterName, string error)> VerifyTownTicketAsync(string rawTicket)
     {
         if (string.IsNullOrWhiteSpace(rawTicket))
         {
-            return (false, default, string.Empty, "EMPTY_TICKET");
+            return Task.FromResult((false, default(ProfileId), string.Empty, "EMPTY_TICKET"));
         }
 
+        if (_verificationCache.TryGetValue(rawTicket, out var existingTask))
+        {
+            if (!existingTask.IsCompleted)
+            {
+                return existingTask;
+            }
+
+            if (!existingTask.IsFaulted && !existingTask.IsCanceled)
+            {
+                var cachedResult = existingTask.Result;
+                if (cachedResult.valid || !BackendErrorUtility.IsTransportFailure(cachedResult.error))
+                {
+                    return existingTask;
+                }
+            }
+
+            _verificationCache.Remove(rawTicket);
+        }
+
+        var verificationTask = VerifyTownTicketInternalAsync(rawTicket);
+        _verificationCache[rawTicket] = verificationTask;
+        return verificationTask;
+    }
+
+    private async Task<(bool valid, ProfileId profileId, string characterName, string error)> VerifyTownTicketInternalAsync(string rawTicket)
+    {
         var (success, data, error) = await CharacterClient.VerifyTownSessionTicketAsync(_config, _bearerToken, rawTicket);
         if (!success || !data.valid)
         {

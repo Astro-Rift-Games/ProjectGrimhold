@@ -214,4 +214,116 @@ public class RaidAdmissionSecurityTests
         Assert.IsFalse(valid, "Ticket for wrong raid code must be rejected by verifier.");
         Assert.AreEqual("RAID_CODE_MISMATCH", error);
     }
+
+    [Test]
+    public void TryEvaluateRemoteAdmissionTicket_WithPendingVerifierTask_DefersAndFailsClosedSynchronously()
+    {
+        CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState attributes);
+        var equipment = new PreparedEquipmentLoadout(weaponSetAMainHand: new LootId("iron_sword"), weaponSetBMainHand: default);
+
+        string ticketString = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(
+            _clientProfileId,
+            _raidCode,
+            _reservationId,
+            level: 1,
+            experience: 0,
+            attributes: attributes,
+            abilities: default,
+            items: new[] { new LootEntry(new LootId("iron_sword"), 1) },
+            equipment: equipment);
+
+        byte[] payload = Encoding.UTF8.GetBytes(ticketString);
+        var pendingVerifier = new PendingRaidAdmissionVerifier();
+
+        bool resolved = NetworkSpawnManager.TryEvaluateRemoteAdmissionTicket(
+            payload,
+            _launchContext,
+            pendingVerifier,
+            "PlayerRef 2",
+            out RaidAdmissionData admissionData,
+            out var pendingTask);
+
+        Assert.IsFalse(resolved, "Synchronous evaluation must fail-closed while async verification task is incomplete.");
+        Assert.IsFalse(admissionData.IsValid);
+        Assert.IsNotNull(pendingTask, "Pending verification task must be returned for async completion handling.");
+        Assert.IsFalse(pendingTask.IsCompleted);
+    }
+
+    [Test]
+    public void TryEvaluateRemoteAdmissionTicket_WhenVerifierActive_RejectsUnauthenticatedClientDeclaredPayload()
+    {
+        CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState attributes);
+        var equipment = new PreparedEquipmentLoadout(weaponSetAMainHand: new LootId("iron_sword"), weaponSetBMainHand: default);
+        string validGuidReservationId = Guid.NewGuid().ToString("N");
+
+        string ticketString = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(
+            _clientProfileId,
+            _raidCode,
+            validGuidReservationId,
+            level: 1,
+            experience: 0,
+            attributes: attributes,
+            abilities: default,
+            items: new[] { new LootEntry(new LootId("iron_sword"), 1) },
+            equipment: equipment);
+
+        Assert.IsTrue(AuthoritativeRaidAdmissionTicketCodec.TryDecode(ticketString, out AuthoritativeRaidAdmissionTicket ticket));
+        Assert.IsTrue(ticket.TryToRaidAdmissionData(out RaidAdmissionData clientDeclared));
+        Assert.IsTrue(RaidAdmissionDataCodec.TryEncode(clientDeclared, out byte[] payload));
+
+        var verifier = new LocalDeterministicRaidAdmissionVerifier();
+        bool resolved = NetworkSpawnManager.TryEvaluateRemoteAdmissionTicket(
+            payload,
+            _launchContext,
+            verifier,
+            "PlayerRef 2",
+            out RaidAdmissionData admissionData,
+            out var pendingTask);
+
+        Assert.IsFalse(resolved, "Unauthenticated client-declared RaidAdmissionData must be rejected when a verifier is active.");
+        Assert.IsFalse(admissionData.IsValid);
+        Assert.IsNull(pendingTask);
+    }
+
+    [Test]
+    public void TryEvaluateRemoteAdmissionTicket_WithExpiredAuthoritativeTicket_IsRejected()
+    {
+        CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState attributes);
+        var equipment = new PreparedEquipmentLoadout(weaponSetAMainHand: new LootId("iron_sword"), weaponSetBMainHand: default);
+
+        string expiredTicketString = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(
+            _clientProfileId,
+            _raidCode,
+            _reservationId,
+            level: 1,
+            experience: 0,
+            attributes: attributes,
+            abilities: default,
+            items: new[] { new LootEntry(new LootId("iron_sword"), 1) },
+            equipment: equipment,
+            ttlSeconds: -60);
+
+        byte[] payload = Encoding.UTF8.GetBytes(expiredTicketString);
+
+        bool resolved = NetworkSpawnManager.TryEvaluateRemoteAdmissionTicket(
+            payload,
+            _launchContext,
+            verifier: null,
+            "PlayerRef 2",
+            out RaidAdmissionData admissionData,
+            out _);
+
+        Assert.IsFalse(resolved, "Expired AuthoritativeRaidAdmissionTicket must be rejected.");
+        Assert.IsFalse(admissionData.IsValid);
+    }
+
+    private sealed class PendingRaidAdmissionVerifier : IRaidAdmissionVerifier
+    {
+        private readonly System.Threading.Tasks.TaskCompletionSource<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> _tcs =
+            new System.Threading.Tasks.TaskCompletionSource<(bool, AuthoritativeRaidAdmissionTicket, string)>();
+
+        public System.Threading.Tasks.Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> VerifyRaidAdmissionTicketAsync(
+            string rawTicket,
+            RaidCode expectedRaidCode) => _tcs.Task;
+    }
 }

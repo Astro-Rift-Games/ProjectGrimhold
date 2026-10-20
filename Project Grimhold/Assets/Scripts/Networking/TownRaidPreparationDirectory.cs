@@ -239,7 +239,8 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
 
     private bool TryResolveSender(PlayerRef player, out ProfileId profile)
     {
-        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, player, TicketVerifier, out profile);
+        ITownSessionTicketVerifier verifier = TicketVerifier ?? ApplicationAuthContext.Instance?.TownTicketVerifier;
+        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, player, verifier, out profile);
     }
 
     private bool CanSendRequest => Runner != null && Object != null && Object.IsValid && _indexReady && SessionConnectionCoordinator.Instance?.State == SessionConnectionState.Town;

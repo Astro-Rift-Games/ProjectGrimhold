@@ -7,6 +7,8 @@ public sealed class BackendRaidAdmissionVerifier : IRaidAdmissionVerifier
 {
     private readonly BackendConfiguration _config;
     private readonly string _bearerToken;
+    private readonly Dictionary<string, Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)>> _verificationCache =
+        new Dictionary<string, Task<(bool, AuthoritativeRaidAdmissionTicket, string)>>(StringComparer.Ordinal);
 
     public BackendRaidAdmissionVerifier(BackendConfiguration config, string bearerToken)
     {
@@ -14,15 +16,44 @@ public sealed class BackendRaidAdmissionVerifier : IRaidAdmissionVerifier
         _bearerToken = bearerToken;
     }
 
-    public async Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> VerifyRaidAdmissionTicketAsync(
+    public Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> VerifyRaidAdmissionTicketAsync(
         string rawTicket,
         RaidCode expectedRaidCode)
     {
         if (string.IsNullOrWhiteSpace(rawTicket))
         {
-            return (false, default, "EMPTY_TICKET");
+            return Task.FromResult((false, default(AuthoritativeRaidAdmissionTicket), "EMPTY_TICKET"));
         }
 
+        string cacheKey = $"{expectedRaidCode.Value}:{rawTicket}";
+        if (_verificationCache.TryGetValue(cacheKey, out var existingTask))
+        {
+            if (!existingTask.IsCompleted)
+            {
+                return existingTask;
+            }
+
+            if (!existingTask.IsFaulted && !existingTask.IsCanceled)
+            {
+                var cachedResult = existingTask.Result;
+                if (cachedResult.valid || !BackendErrorUtility.IsTransportFailure(cachedResult.error))
+                {
+                    return existingTask;
+                }
+            }
+
+            _verificationCache.Remove(cacheKey);
+        }
+
+        var verificationTask = VerifyRaidAdmissionTicketInternalAsync(rawTicket, expectedRaidCode);
+        _verificationCache[cacheKey] = verificationTask;
+        return verificationTask;
+    }
+
+    private async Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> VerifyRaidAdmissionTicketInternalAsync(
+        string rawTicket,
+        RaidCode expectedRaidCode)
+    {
         var (success, data, error) = await CharacterClient.VerifyAuthoritativeRaidAdmissionTicketAsync(
             _config,
             _bearerToken,

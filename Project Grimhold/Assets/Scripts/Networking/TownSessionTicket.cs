@@ -17,6 +17,9 @@ public readonly struct TownSessionTicket : IEquatable<TownSessionTicket>
         ProfileId.IsValid &&
         !string.IsNullOrWhiteSpace(CharacterName);
 
+    public bool IsExpired(long currentUnixSeconds) =>
+        ExpiresAt > 0 && currentUnixSeconds > ExpiresAt;
+
     public TownSessionTicket(
         string rawTicket,
         ProfileId profileId,

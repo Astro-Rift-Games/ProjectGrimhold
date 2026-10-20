@@ -89,17 +89,26 @@ public static class TownSenderIdentityValidator
         if (verifier != null)
         {
             var task = verifier.VerifyTownTicketAsync(rawTicket);
-            if (task.IsCompleted)
+            if (!task.IsCompleted)
             {
-                var result = task.Result;
-                if (!result.valid || result.profileId.Value != declaredProfile)
-                {
-                    Debug.LogWarning($"[SECURITY] Town sender resolution rejected: Verifier rejected ticket for {playerIdentifierForLogging}: {result.error}");
-                    return false;
-                }
-                profileId = result.profileId;
-                return true;
+                Debug.LogWarning($"[SECURITY] Town sender resolution rejected (pending verification): Verifier task for {playerIdentifierForLogging} is not yet completed.");
+                return false;
             }
+
+            if (task.IsFaulted || task.IsCanceled)
+            {
+                Debug.LogWarning($"[SECURITY] Town sender resolution rejected: Verifier task faulted or was canceled for {playerIdentifierForLogging}.");
+                return false;
+            }
+
+            var result = task.Result;
+            if (!result.valid || result.profileId.Value != declaredProfile)
+            {
+                Debug.LogWarning($"[SECURITY] Town sender resolution rejected: Verifier rejected ticket for {playerIdentifierForLogging}: {result.error}");
+                return false;
+            }
+            profileId = result.profileId;
+            return true;
         }
 
         profileId = ticket.ProfileId;

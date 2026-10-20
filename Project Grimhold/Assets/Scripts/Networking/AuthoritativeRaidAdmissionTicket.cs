@@ -27,6 +27,9 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
         RaidCode.IsValid &&
         !string.IsNullOrWhiteSpace(ReservationId);
 
+    public bool IsExpired(long currentUnixSeconds) =>
+        ExpiresAt > 0 && currentUnixSeconds > ExpiresAt;
+
     public AuthoritativeRaidAdmissionTicket(
         string rawTicket,
         ProfileId profileId,
@@ -83,7 +86,7 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
     {
     }
 
-    public bool TryToRaidAdmissionData(out RaidAdmissionData data)
+    public bool TryToRaidAdmissionData(out RaidAdmissionData data, PreparedAbilityLoadout fallbackAbilities = default)
     {
         data = default;
         if (!IsValid)
@@ -121,6 +124,11 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
             }
         }
 
+        PreparedAbilityLoadout effectiveAbilities =
+            (PreparedAbilities.Slot1.IsValid || PreparedAbilities.Slot2.IsValid)
+                ? PreparedAbilities
+                : fallbackAbilities;
+
         data = new RaidAdmissionData(
             RaidCode,
             ProfileId,
@@ -134,7 +142,7 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
             PreparedEquipment.HasWeaponSetAMainHand
                 ? WeaponSetSlot.SetA
                 : WeaponSetSlot.SetB,
-            PreparedAbilities);
+            effectiveAbilities);
         return data.IsValid;
     }
 

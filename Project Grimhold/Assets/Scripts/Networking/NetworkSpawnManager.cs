@@ -2540,6 +2540,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
+        if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(token, out AuthoritativeRaidAdmissionTicket authTicket))
+        {
+            if (RaidAdmissionRules.IsAdmitted(_launchContext, authTicket) &&
+                !authTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
+            {
+                ticket = new RaidAdmissionTicket(authTicket.RaidCode, authTicket.ProfileId, authTicket.ReservationId);
+                return true;
+            }
+
+            return false;
+        }
+
         if (RaidAdmissionTicketCodec.TryDecode(token, out ticket))
         {
             return RaidAdmissionRules.IsAdmitted(_launchContext, ticket);
@@ -2583,6 +2595,21 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                    out _);
     }
 
+    internal static bool IsAuthoritativeHostMigrationTicketValid(
+        in AuthoritativeRaidAdmissionTicket authTicket,
+        RaidLaunchContext launchContext,
+        long currentUnixTimeSeconds)
+    {
+        return authTicket.IsValid &&
+               authTicket.ProfileId.IsValid &&
+               !authTicket.IsExpired(currentUnixTimeSeconds) &&
+               launchContext != null &&
+               authTicket.RaidCode == launchContext.RaidCode &&
+               RaidSessionRules.ContainsProfile(
+                   launchContext.ParticipantProfileIds,
+                   authTicket.ProfileId);
+    }
+
     private bool TryValidateEarlyHostMigrationToken(
         byte[] token,
         out ProfileId profileId)
@@ -2590,16 +2617,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         profileId = default;
         if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(token, out AuthoritativeRaidAdmissionTicket authTicket))
         {
-            if (authTicket.ProfileId.IsValid &&
-                _launchContext != null &&
-                authTicket.RaidCode == _launchContext.RaidCode &&
-                RaidSessionRules.ContainsProfile(
-                    _launchContext.ParticipantProfileIds,
-                    authTicket.ProfileId))
+            if (IsAuthoritativeHostMigrationTicketValid(
+                    in authTicket,
+                    _launchContext,
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
             {
                 profileId = authTicket.ProfileId;
                 return true;
             }
+
+            return false;
         }
 
         if (RaidAdmissionTicketCodec.TryDecode(token, out RaidAdmissionTicket ticket))
@@ -2657,63 +2684,152 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return true;
         }
 
-        RaidAdmissionData resolvedAdmission = default;
-        bool admissionResolved = false;
+        IRaidAdmissionVerifier activeVerifier = _admissionVerifier ?? ApplicationAuthContext.Instance?.RaidAdmissionVerifier;
+        if (!TryEvaluateRemoteAdmissionTicket(
+                admissionPayload,
+                _launchContext,
+                activeVerifier,
+                player.ToString(),
+                out RaidAdmissionData resolvedAdmission,
+                out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask))
+        {
+            if (pendingVerificationTask != null)
+            {
+                _ = CompleteRemoteAdmissionVerificationAsync(player, pendingVerificationTask);
+                return true;
+            }
+
+            return false;
+        }
+
+        return TryFinalizeRemoteAdmission(player, resolvedAdmission);
+    }
+
+    internal static bool TryEvaluateRemoteAdmissionTicket(
+        byte[] admissionPayload,
+        RaidLaunchContext launchContext,
+        IRaidAdmissionVerifier verifier,
+        string playerIdentifierForLogging,
+        out RaidAdmissionData resolvedAdmission,
+        out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask)
+    {
+        resolvedAdmission = default;
+        pendingVerificationTask = null;
 
         // 1. Authoritative ticket verification (SEC-59.3)
         if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(admissionPayload, out AuthoritativeRaidAdmissionTicket authTicket))
         {
-            if (!RaidAdmissionRules.IsAdmitted(_launchContext, authTicket))
+            if (!RaidAdmissionRules.IsAdmitted(launchContext, authTicket))
             {
-                Debug.LogWarning($"[SECURITY] Authoritative ticket failed cohort admission check for player {player}.");
+                Debug.LogWarning($"[SECURITY] Authoritative ticket failed cohort admission check for player {playerIdentifierForLogging}.");
                 return false;
             }
 
-            IRaidAdmissionVerifier verifier = _admissionVerifier;
+            if (authTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
+            {
+                Debug.LogWarning($"[SECURITY] Authoritative ticket has expired for player {playerIdentifierForLogging}.");
+                return false;
+            }
+
             if (verifier != null)
             {
-                var verifyTask = verifier.VerifyRaidAdmissionTicketAsync(authTicket.RawTicket, _launchContext.RaidCode);
-                if (verifyTask.IsCompleted)
+                var verifyTask = verifier.VerifyRaidAdmissionTicketAsync(authTicket.RawTicket, launchContext.RaidCode);
+                if (!verifyTask.IsCompleted)
                 {
-                    var (valid, verifiedTicket, error) = verifyTask.Result;
-                    if (!valid)
-                    {
-                        Debug.LogWarning($"[SECURITY] Authoritative ticket rejected by verifier for player {player}: {error}");
-                        return false;
-                    }
-                    authTicket = verifiedTicket;
+                    Debug.Log($"[SECURITY] Authoritative ticket verification in progress for player {playerIdentifierForLogging}; deferring admission until verifier completes.");
+                    pendingVerificationTask = verifyTask;
+                    return false;
                 }
+
+                if (verifyTask.IsFaulted || verifyTask.IsCanceled)
+                {
+                    Debug.LogWarning($"[SECURITY] Authoritative ticket verifier task faulted/canceled for player {playerIdentifierForLogging}.");
+                    return false;
+                }
+
+                var (valid, verifiedTicket, error) = verifyTask.Result;
+                if (!valid)
+                {
+                    Debug.LogWarning($"[SECURITY] Authoritative ticket rejected by verifier for player {playerIdentifierForLogging}: {error}");
+                    return false;
+                }
+                authTicket = verifiedTicket;
             }
 
             // Hydrate state exclusively from backend verified snapshot
-            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission))
+            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission) || !resolvedAdmission.IsValid)
             {
-                Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {player}.");
+                Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {playerIdentifierForLogging}.");
                 return false;
             }
 
-            admissionResolved = true;
+            return true;
         }
-        else if (RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData clientDeclaredAdmission))
+
+        if (RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData clientDeclaredAdmission))
         {
             // If authoritative verifier is active, reject unauthenticated client-declared payloads
-            if (_admissionVerifier != null)
+            if (verifier != null)
             {
-                Debug.LogWarning($"[SECURITY] Client-declared admission payload without authoritative ticket rejected for player {player}.");
+                Debug.LogWarning($"[SECURITY] Client-declared admission payload without authoritative ticket rejected for player {playerIdentifierForLogging}.");
                 return false;
             }
 
-            if (!IsRaidAdmissionValid(clientDeclaredAdmission))
+            if (!RaidAdmissionRules.IsAdmitted(launchContext, clientDeclaredAdmission) || !clientDeclaredAdmission.IsValid)
             {
-                Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {player}.");
+                Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {playerIdentifierForLogging}.");
                 return false;
             }
 
             resolvedAdmission = clientDeclaredAdmission;
-            admissionResolved = true;
+            return true;
         }
 
-        if (!admissionResolved || !resolvedAdmission.IsValid)
+        Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {playerIdentifierForLogging}.");
+        return false;
+    }
+
+    private async Task CompleteRemoteAdmissionVerificationAsync(
+        PlayerRef player,
+        Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> verifyTask)
+    {
+        try
+        {
+            var (valid, verifiedTicket, error) = await verifyTask;
+            if (this == null || _runner == null || !_runner.IsRunning || !_runner.IsServer || player.IsNone)
+            {
+                return;
+            }
+
+            if (!_admittedPlayers.Contains(player) || _spawnedPlayers.ContainsKey(player))
+            {
+                return;
+            }
+
+            RaidAdmissionData resolvedAdmission = default;
+            if (!valid ||
+                !RaidAdmissionRules.IsAdmitted(_launchContext, verifiedTicket) ||
+                verifiedTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()) ||
+                !verifiedTicket.TryToRaidAdmissionData(out resolvedAdmission) ||
+                !TryFinalizeRemoteAdmission(player, resolvedAdmission))
+            {
+                Debug.LogWarning($"[SECURITY] Deferred authoritative ticket verification failed for player {player}: {error ?? "ADMISSION_FINALIZATION_FAILED"}. Disconnecting.");
+                _runner.Disconnect(player);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex, this);
+            if (this != null && _runner != null && _runner.IsRunning && _runner.IsServer && !player.IsNone)
+            {
+                _runner.Disconnect(player);
+            }
+        }
+    }
+
+    private bool TryFinalizeRemoteAdmission(PlayerRef player, in RaidAdmissionData resolvedAdmission)
+    {
+        if (!resolvedAdmission.IsValid)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {player}.");
             return false;
@@ -4587,6 +4703,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _playerSpawnAreas,
             out failure);
     }
+    internal static bool IsReconnectReservationProofValid(string participantReservationId, string payloadReservationId)
+    {
+        if (string.IsNullOrEmpty(participantReservationId))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrEmpty(payloadReservationId) &&
+               string.Equals(participantReservationId, payloadReservationId, StringComparison.Ordinal);
+    }
+
     private bool TryValidateReconnectToken(byte[] token, out RaidReconnectPayload payload)
     {
         return RaidReconnectPayloadCodec.TryDecode(token, out payload) && payload.IsValid;
@@ -4607,9 +4734,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         // SEC-59.4: Hardening reconnect proof against participant reservation
         string participantReservation = participant.LoadoutReservationId.ToString();
-        if (!string.IsNullOrEmpty(participantReservation) &&
-            !string.IsNullOrEmpty(payload.ReservationId) &&
-            !string.Equals(participantReservation, payload.ReservationId, StringComparison.Ordinal))
+        if (!IsReconnectReservationProofValid(participantReservation, payload.ReservationId))
         {
             Debug.LogWarning($"[SECURITY] Reconnect arrival rejected for {payload.ProfileId.Value}: ReservationId proof mismatch (expected '{participantReservation}', got '{payload.ReservationId}').");
             return false;

@@ -1,4 +1,5 @@
 using Fusion;
+using Grimhold.Backend;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -52,6 +53,9 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            await EnsureValidTownSessionTicketAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!HubRunnerFactory.TryCreate(in joinData, _socialPlayerPrefab, out var composition))
             {
                 Debug.LogError("[HubSessionLauncher] Failed to create runner composition via factory.", this);
@@ -113,6 +117,42 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         finally
         {
             _isStarting = false;
+        }
+    }
+
+    private static async Task EnsureValidTownSessionTicketAsync()
+    {
+        ApplicationAuthContext authContext = ApplicationAuthContext.Instance;
+        if (authContext == null || !authContext.IsAuthenticated ||
+            authContext.BackendConfig == null || string.IsNullOrEmpty(authContext.Token))
+        {
+            return;
+        }
+
+        long nowUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        if (authContext.ActiveTownTicket.IsValid && !authContext.ActiveTownTicket.IsExpired(nowUnixSeconds + 30))
+        {
+            return;
+        }
+
+        var (ticketOk, ticketData, ticketError) = await CharacterClient.GetTownSessionTicketAsync(
+            authContext.BackendConfig,
+            authContext.Token);
+        if (!ticketOk && ticketError.error == BackendErrorUtility.Unauthorized)
+        {
+            authContext.HandleUnauthorizedSession();
+            return;
+        }
+
+        if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket))
+        {
+            var refreshedTicket = new TownSessionTicket(
+                ticketData.ticket,
+                new ProfileId(ticketData.characterId),
+                ticketData.characterName,
+                ticketData.sessionName,
+                ticketData.expiresAt);
+            authContext.SetTownSessionTicket(refreshedTicket);
         }
     }
 

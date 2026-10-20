@@ -143,4 +143,30 @@ public class TownIdentitySecurityTests
         Assert.IsTrue(resolved, "Authentic ticket approved by verifier must resolve successfully.");
         Assert.AreEqual(_victimProfileId, resolvedProfile);
     }
+
+    [Test]
+    public void Verifier_WithPendingUncompletedTask_FailsClosedAndRejectsSender()
+    {
+        string validTicket = TownSessionTicketCodec.CreateTestTicket(_victimProfileId, "VictimName");
+        var pendingVerifier = new PendingTownSessionTicketVerifier();
+
+        bool resolved = TownSenderIdentityValidator.TryValidateSenderIdentity(
+            _victimProfileId.Value,
+            validTicket,
+            pendingVerifier,
+            playerIdentifierForLogging: "PlayerRef 2",
+            out ProfileId resolvedProfile);
+
+        Assert.IsFalse(resolved, "Sender must be rejected fail-closed while async ticket verification is still pending.");
+        Assert.AreEqual(default(ProfileId), resolvedProfile);
+    }
+
+    private sealed class PendingTownSessionTicketVerifier : ITownSessionTicketVerifier
+    {
+        private readonly System.Threading.Tasks.TaskCompletionSource<(bool valid, ProfileId profileId, string characterName, string error)> _tcs =
+            new System.Threading.Tasks.TaskCompletionSource<(bool, ProfileId, string, string)>();
+
+        public System.Threading.Tasks.Task<(bool valid, ProfileId profileId, string characterName, string error)> VerifyTownTicketAsync(string rawTicket) =>
+            _tcs.Task;
+    }
 }

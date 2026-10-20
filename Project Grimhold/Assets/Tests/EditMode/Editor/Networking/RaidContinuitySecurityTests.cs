@@ -103,4 +103,57 @@ public class RaidContinuitySecurityTests
         Assert.AreEqual(_raidCode, authTicket.RaidCode);
         Assert.AreEqual(_legitimateReservationId, authTicket.ReservationId);
     }
+
+    [Test]
+    public void ReconnectReservationProof_WhenParticipantHasReservationAndPayloadReservationIsEmpty_IsRejected()
+    {
+        Assert.IsFalse(
+            NetworkSpawnManager.IsReconnectReservationProofValid(_legitimateReservationId, string.Empty),
+            "An empty payload ReservationId must not bypass an active participant reservation proof.");
+        Assert.IsFalse(
+            NetworkSpawnManager.IsReconnectReservationProofValid(_legitimateReservationId, null),
+            "A null payload ReservationId must not bypass an active participant reservation proof.");
+        Assert.IsFalse(
+            NetworkSpawnManager.IsReconnectReservationProofValid(_legitimateReservationId, _impostorReservationId),
+            "A mismatched payload ReservationId must be rejected.");
+        Assert.IsTrue(
+            NetworkSpawnManager.IsReconnectReservationProofValid(_legitimateReservationId, _legitimateReservationId),
+            "Matching ReservationId proof must be accepted.");
+    }
+
+    [Test]
+    public void HostMigration_Token_ExpiredAuthoritativeAdmissionTicket_IsRejected()
+    {
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            _raidCode,
+            _victimProfile,
+            new[] { new RaidLaunchParticipant(_victimProfile, teamId) },
+            _victimProfile,
+            1,
+            out RaidLaunchContext launchContext);
+
+        CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState attributes);
+        var equipment = new PreparedEquipmentLoadout(weaponSetAMainHand: new LootId("iron_sword"), weaponSetBMainHand: default);
+
+        string expiredTicketString = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(
+            _victimProfile,
+            _raidCode,
+            _legitimateReservationId,
+            level: 1,
+            experience: 0,
+            attributes: attributes,
+            abilities: default,
+            items: new[] { new LootEntry(new LootId("iron_sword"), 1) },
+            equipment: equipment,
+            ttlSeconds: -120);
+
+        bool decoded = AuthoritativeRaidAdmissionTicketCodec.TryDecode(expiredTicketString, out AuthoritativeRaidAdmissionTicket expiredTicket);
+        Assert.IsTrue(decoded);
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        Assert.IsFalse(
+            NetworkSpawnManager.IsAuthoritativeHostMigrationTicketValid(in expiredTicket, launchContext, now),
+            "Expired AuthoritativeRaidAdmissionTicket must be rejected during Host Migration token validation.");
+    }
 }

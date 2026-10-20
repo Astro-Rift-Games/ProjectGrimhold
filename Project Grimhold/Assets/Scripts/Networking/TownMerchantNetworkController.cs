@@ -159,7 +159,8 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
     private bool TryResolveRequester(RpcInfo info, out PlayerRef requester, out ProfileId profileId)
     {
         requester = info.Source.IsNone ? Runner.LocalPlayer : info.Source;
-        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, requester, TicketVerifier, out profileId);
+        ITownSessionTicketVerifier verifier = TicketVerifier ?? ApplicationAuthContext.Instance?.TownTicketVerifier;
+        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, requester, verifier, out profileId);
     }
 
     // --- IMerchantAuthorityState ---
