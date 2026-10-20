@@ -1,12 +1,14 @@
 // src/services/AuthService.js
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Account = require('../models/Account');
+const RevokedToken = require('../models/RevokedToken');
 const config = require('../config/env');
 
 class AuthService {
   /**
-   * Authenticates a user and returns a JWT token.
+   * Authenticates a user and returns a JWT token with unique jti.
    * @throws 401 error if credentials are invalid.
    */
   static async register(username, password) {
@@ -23,7 +25,8 @@ class AuthService {
     const account = new Account({ username, passwordHash });
     await account.save();
 
-    const token = jwt.sign({ sub: account._id }, config.jwtSecret, {
+    const jti = crypto.randomUUID();
+    const token = jwt.sign({ sub: account._id, jti }, config.jwtSecret, {
       expiresIn: config.jwtExpiresIn + 's'
     });
 
@@ -49,8 +52,9 @@ class AuthService {
       };
     }
 
-    // Generate JWT. 'sub' contains the account ID.
-    const token = jwt.sign({ sub: account._id }, config.jwtSecret, {
+    // Generate JWT. 'sub' contains the account ID, 'jti' uniquely identifies this session.
+    const jti = crypto.randomUUID();
+    const token = jwt.sign({ sub: account._id, jti }, config.jwtSecret, {
       expiresIn: config.jwtExpiresIn + 's'
     });
 
@@ -58,13 +62,45 @@ class AuthService {
   }
 
   /**
-   * Logs out the user. Currently a no-op because JWTs are stateless.
-   * Future work: Implement token revocation (blacklist) here.
+   * Revokes the specified session token persistently.
+   * Other sessions of the same account remain unaffected.
    */
   static async logout(accountId, token) {
-    // No-op for MVP. The token will expire naturally based on jwtExpiresIn.
-    // To implement server-side logout, we would store the revoked token in a Redis
-    // blacklist or a MongoDB collection and check it in the authenticate middleware.
+    if (!token) {
+      return false;
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    let expiresAt;
+    let jti = null;
+
+    try {
+      const decoded = jwt.decode(token);
+      if (decoded && decoded.exp) {
+        expiresAt = new Date(decoded.exp * 1000);
+        jti = decoded.jti || null;
+      }
+    } catch (_err) {
+      // ignore decode error, will use fallback expiry
+    }
+
+    if (!expiresAt || isNaN(expiresAt.getTime())) {
+      expiresAt = new Date(Date.now() + (parseInt(config.jwtExpiresIn, 10) || 3600) * 1000);
+    }
+
+    await RevokedToken.findOneAndUpdate(
+      { tokenHash },
+      {
+        tokenHash,
+        jti,
+        accountId,
+        expiresAt,
+        revokedAt: new Date(),
+        reason: 'logout'
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+
     return true;
   }
 }

@@ -2,7 +2,7 @@
 using NUnit.Framework;
 using UnityEditor;
 
-[Category("BACK-06")]
+[Category("BACK06")]
 public class HydrateSnapshotTests
 {
     private LootDefinitionCatalog _lootCatalog;

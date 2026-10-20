@@ -2,7 +2,7 @@
 using Grimhold.Backend;
 using NUnit.Framework;
 
-[Category("BACK-06")]
+[Category("BACK06")]
 public class BackendErrorUtilityTests
 {
     [Test]
@@ -45,6 +45,8 @@ public class BackendErrorUtilityTests
     {
         Assert.That(BackendErrorUtility.IsTransportFailure("REVISION_CONFLICT"), Is.False);
         Assert.That(BackendErrorUtility.IsTransportFailure("UNAUTHORIZED"), Is.False);
+        Assert.That(BackendErrorUtility.IsTransportFailure(BackendErrorUtility.Unauthorized), Is.False);
+        Assert.That(BackendErrorUtility.IsTransportFailure(BackendErrorUtility.TooManyRequests), Is.False);
         Assert.That(BackendErrorUtility.IsTransportFailure(null), Is.False);
     }
 }

@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Grimhold.Backend;
 using NUnit.Framework;
 
-[Category("BACK-06")]
+[Category("BACK06")]
 public class RemoteOperationPolicyTests
 {
     [Test]

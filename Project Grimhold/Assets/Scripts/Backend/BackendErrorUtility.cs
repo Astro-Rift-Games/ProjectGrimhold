@@ -7,6 +7,8 @@ namespace Grimhold.Backend
         public const string NetworkError = "NETWORK_ERROR";
         public const string Timeout = "TIMEOUT";
         public const string RequestCancelled = "REQUEST_CANCELLED";
+        public const string TooManyRequests = "TOO_MANY_REQUESTS";
+        public const string Unauthorized = "UNAUTHORIZED";
 
         public static string ClassifyConnectionError(string requestError)
         {

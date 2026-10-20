@@ -8,13 +8,18 @@ const progressionRoutes = require('./routes/progression.routes');
 const raidRoutes = require('./routes/raid.routes');
 const errorHandler = require('./middleware/errorHandler');
 
+const env = require('./config/env');
+
 const app = express();
+
+if (env.trustProxy) {
+  app.set('trust proxy', env.trustProxy);
+}
 
 // Middleware to parse JSON bodies
 app.use(express.json());
 
 // Global request logging for debugging (disabled in production)
-const env = require('./config/env');
 app.use((req, res, next) => {
   if (env.nodeEnv !== 'production') {
     console.log(`[Express] Received ${req.method} request to: ${req.originalUrl}`);
