@@ -87,4 +87,48 @@ describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () =
     assert.notEqual(result.status, 0, 'Process must exit with non-zero code on weak WEBHOOK_SECRET in production');
     assert.match(result.stderr, /WEBHOOK_SECRET must be set to a secure value/);
   });
+
+  test('env.js rejects synthetic PLACEHOLDER values from .env.example in production startup (US-61 / SEC-61.1)', () => {
+    const { spawnSync } = require('node:child_process');
+    const path = require('node:path');
+    const envPath = path.resolve(__dirname, '../src/config/env.js');
+
+    const jwtPlaceholderResult = spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(envPath)})`],
+      {
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          MONGODB_URI: 'mongodb://localhost:27017/grimhold',
+          JWT_SECRET: 'PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG',
+          WEBHOOK_SECRET: 'a-very-long-and-high-entropy-production-webhook-secret-2026'
+        },
+        encoding: 'utf8'
+      }
+    );
+
+    assert.notEqual(jwtPlaceholderResult.status, 0, 'Must reject PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG in production');
+    assert.match(jwtPlaceholderResult.stderr, /JWT_SECRET must be at least 32 characters/);
+
+    const mongoPlaceholderResult = spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(envPath)})`],
+      {
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          MONGODB_URI: 'mongodb+srv://PLACEHOLDER_USER:PLACEHOLDER_PASSWORD@PLACEHOLDER_CLUSTER.mongodb.net/grimhold_dev',
+          JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
+          WEBHOOK_SECRET: 'a-very-long-and-high-entropy-production-webhook-secret-2026'
+        },
+        encoding: 'utf8'
+      }
+    );
+
+    assert.notEqual(mongoPlaceholderResult.status, 0, 'Must reject MONGODB_URI placeholder in production');
+    assert.match(mongoPlaceholderResult.stderr, /MONGODB_URI contains an unresolved placeholder/);
+  });
 });

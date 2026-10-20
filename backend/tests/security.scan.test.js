@@ -1,6 +1,5 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('path');
 const { scanContent, redact } = require('../../tools/security/scan-secrets');
 
 describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
@@ -23,9 +22,10 @@ describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
     assert.ok(findings[0].redactedValue.includes('***'));
   });
 
-  test('scanContent detects AWS access keys and GitHub tokens', () => {
+  test('scanContent detects AWS access keys, GitHub tokens, and Google OAuth secrets', () => {
     const awsSample = 'AWS_KEY=AKIAIOSFODNN7EXAMPLE';
     const ghSample = 'GITHUB_PAT=ghp_123456789012345678901234567890123456';
+    const googleSample = '{"client_secret": "GOCSPX-RealSecretValue1234567890"}';
 
     const awsFindings = scanContent(awsSample, 'config.js');
     assert.equal(awsFindings.length, 1);
@@ -34,6 +34,11 @@ describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
     const ghFindings = scanContent(ghSample, 'token.js');
     assert.equal(ghFindings.length, 1);
     assert.equal(ghFindings[0].type, 'GITHUB_TOKEN');
+
+    const googleFindings = scanContent(googleSample, 'credentials.json');
+    assert.equal(googleFindings.length, 1);
+    assert.equal(googleFindings[0].type, 'GOOGLE_OAUTH_SECRET');
+    assert.equal(googleFindings[0].redactedValue.includes('RealSecretValue'), false);
   });
 
   test('scanContent detects real MongoDB credentials in URIs', () => {
@@ -44,12 +49,26 @@ describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
     assert.ok(!findings[0].redactedValue.includes('SecretPass123!'), 'Password must never appear in findings');
   });
 
-  test('scanContent ignores documented synthetic placeholders', () => {
+  test('scanContent detects non-placeholder JWT_SECRET, WEBHOOK_SECRET, and Unity WebhookSecret', () => {
+    const envSample = 'JWT_SECRET=prod_super_secret_hmac_key_998877665544332211\nWEBHOOK_SECRET=prod_webhook_secret_key_998877665544332211';
+    const envFindings = scanContent(envSample, 'backend/.env.example');
+    assert.equal(envFindings.length, 2);
+    assert.equal(envFindings[0].type, 'ENV_SECRET_ASSIGNMENT');
+    assert.equal(envFindings[1].type, 'ENV_SECRET_ASSIGNMENT');
+
+    const unityAssetSample = '  WebhookSecret: prod_unity_shared_webhook_secret_2026';
+    const unityFindings = scanContent(unityAssetSample, 'Project Grimhold/Assets/Resources/BackendConfiguration.asset');
+    assert.equal(unityFindings.length, 1);
+    assert.equal(unityFindings[0].type, 'UNITY_WEBHOOK_SECRET');
+  });
+
+  test('scanContent ignores documented synthetic placeholders and local dev defaults', () => {
     const syntheticExample = [
       'MONGODB_URI=mongodb://localhost:27017/grimhold_dev',
       'MONGODB_URI=mongodb+srv://PLACEHOLDER_USER:PLACEHOLDER_PASSWORD@PLACEHOLDER_CLUSTER.mongodb.net/grimhold_dev',
       'WEBHOOK_SECRET=dev-webhook-secret-do-not-use-in-prod',
-      'JWT_SECRET=PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG'
+      'JWT_SECRET=PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG',
+      '  WebhookSecret: dev_webhook_secret_123'
     ].join('\n');
 
     const findings = scanContent(syntheticExample, 'backend/.env.example');

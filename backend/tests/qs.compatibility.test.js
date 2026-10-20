@@ -46,4 +46,16 @@ describe('Query String Parser (qs 6.16.1) Compatibility & Security Tests (US-62 
     assert.equal(parsed.participantId, '507f1f77bcf86cd799439099');
     assert.deepEqual(parsed.tags, ['pve', 'ranked']);
   });
+
+  test('lockfiles resolve patched versions of qs, proxy-addr, follow-redirects, brace-expansion, and MCP server (SEC-62.1 & SEC-62.3)', () => {
+    const backendLock = require('../package-lock.json').packages;
+    assert.equal(backendLock['node_modules/qs'].version, '6.16.1');
+    assert.equal(backendLock['node_modules/proxy-addr'].version, '2.0.8');
+    assert.equal(backendLock['node_modules/follow-redirects'].version, '1.16.1');
+    assert.equal(backendLock['node_modules/brace-expansion'].version, '5.0.12');
+
+    const mcpLock = require('../../tools/grimhold-docs-mcp/package-lock.json').packages;
+    assert.equal(mcpLock['node_modules/@modelcontextprotocol/server'].version, '2.3.1');
+    assert.equal(mcpLock['node_modules/uuid'], undefined, 'Vulnerable transitive uuid < 11.1.1 must be eliminated');
+  });
 });
