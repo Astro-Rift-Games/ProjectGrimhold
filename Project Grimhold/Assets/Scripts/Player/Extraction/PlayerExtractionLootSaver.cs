@@ -55,6 +55,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private int _pendingGlovesIdx = -1;
     private int _pendingBootsIdx = -1;
     private bool _localCommitAttempted;
+    private int _authorityResultPublishedSequence;
+    private bool _authorityPublishInFlight;
 
     [Networked]
     private TickTimer RetryTimer { get; set; }
@@ -350,6 +352,114 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
+        if (_authorityResultPublishedSequence != _pendingResultSequence &&
+            ShouldPublishAuthoritativeResultBeforeRpc(out RemoteInventoryService remoteInventoryService))
+        {
+            if (!_authorityPublishInFlight)
+            {
+                _ = PublishPendingTransactionOnAuthorityAsync(remoteInventoryService);
+            }
+            return;
+        }
+
+        DispatchCommitExtractionRpc();
+    }
+
+    private bool ShouldPublishAuthoritativeResultBeforeRpc(out RemoteInventoryService remoteInventoryService)
+    {
+        remoteInventoryService = null;
+        if (!HasStateAuthority ||
+            ApplicationAuthContext.Instance == null ||
+            !ApplicationAuthContext.Instance.IsAuthenticated)
+        {
+            return false;
+        }
+
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        if (context == null)
+        {
+            return false;
+        }
+
+        remoteInventoryService = context.GetComponent<RemoteInventoryService>();
+        return remoteInventoryService != null;
+    }
+
+    private async Task PublishPendingTransactionOnAuthorityAsync(RemoteInventoryService remoteInventoryService)
+    {
+        if (!HasValidPendingPayload() || !TryResolvePendingParticipant() || _lootReceiver?.LootCatalog == null)
+        {
+            return;
+        }
+
+        int resultSequence = _pendingResultSequence;
+        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
+        var items = new List<StashItem>(_pendingCatalogIndices.Length);
+        for (int i = 0; i < _pendingCatalogIndices.Length; i++)
+        {
+            if (!catalog.TryGetByIndex(_pendingCatalogIndices[i], out LootDefinition definition))
+            {
+                return;
+            }
+
+            items.Add(new StashItem(definition.LootId, _pendingAmounts[i]));
+        }
+
+        ProfileId targetProfileId = new ProfileId(_participant.ProfileId.Value);
+        ExtractionReceipt receipt = new ExtractionReceipt(
+            _participant.RaidGenerationId.ToString(),
+            targetProfileId,
+            resultSequence);
+
+        LootId GetEqLootId(int idx) => idx >= 0 && catalog.TryGetByIndex(idx, out LootDefinition def) ? def.LootId : default;
+        PreparedEquipmentLoadout preparedEquipment = new PreparedEquipmentLoadout(
+            GetEqLootId(_pendingWeaponSlot1Idx),
+            GetEqLootId(_pendingWeaponSlot2Idx),
+            GetEqLootId(_pendingHelmetIdx),
+            GetEqLootId(_pendingArmorIdx),
+            GetEqLootId(_pendingGlovesIdx),
+            GetEqLootId(_pendingBootsIdx));
+
+        long experienceGranted = _pendingExperienceCandidate.HasValue
+            ? _pendingExperienceCandidate.Value.AwardedExperience
+            : 0L;
+
+        _authorityPublishInFlight = true;
+        try
+        {
+            var (pubSuccess, pubError) = await remoteInventoryService.PublishExtractionResultAsync(
+                receipt,
+                items,
+                preparedEquipment,
+                experienceGranted);
+
+            if (!pubSuccess)
+            {
+                Debug.LogError(
+                    $"{nameof(PlayerExtractionLootSaver)}: Failed to publish authoritative extraction result for profile '{targetProfileId.Value}'. " +
+                    $"Error={pubError.error}: {pubError.message}.");
+            }
+            else
+            {
+                _authorityResultPublishedSequence = resultSequence;
+            }
+        }
+        finally
+        {
+            _authorityPublishInFlight = false;
+        }
+
+        if (this == null || Object == null || !HasStateAuthority ||
+            _pendingResultSequence != resultSequence || !HasValidPendingPayload())
+        {
+            return;
+        }
+
+        DispatchCommitExtractionRpc();
+    }
+
+    private void DispatchCommitExtractionRpc()
+    {
         RPC_CommitExtractionOnInputAuthority(
             _pendingResultSequence,
             _pendingCatalogIndices,
@@ -540,7 +650,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             return;
         }
 
-        if (HasStateAuthority)
+        if (HasStateAuthority && _authorityResultPublishedSequence != receipt.ResultSequence)
         {
             var (pubSuccess, pubError) = await remoteInventoryService.PublishExtractionResultAsync(
                 receipt, items, preparedEquipment, consolidatedExperience);
@@ -550,6 +660,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
                 Debug.LogError(
                     $"{nameof(PlayerExtractionLootSaver)}: Failed to publish authoritative extraction result. " +
                     $"Error={pubError.error}: {pubError.message}. The commit will likely fail.");
+            }
+            else
+            {
+                _authorityResultPublishedSequence = receipt.ResultSequence;
             }
         }
 
@@ -774,6 +888,8 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         _pendingAmounts = null;
         _pendingResultSequence = 0;
         _pendingExperienceCandidate = null;
+        _authorityResultPublishedSequence = 0;
+        _authorityPublishInFlight = false;
         RetryTimer = TickTimer.None;
     }
 
