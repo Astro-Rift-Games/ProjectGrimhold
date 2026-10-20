@@ -25,9 +25,11 @@ namespace Tests.PlayMode.Extraction
         private const string ContainerGuid = "2c19a78647c64b84a765ff0280706b7d";
         private const string PickupGuid = "5d26f13a358d7894b9419465e4ba1869";
         private const string SanctuaryPrefabPath = "Assets/Prefabs/ExtractionSanctuary.prefab";
+        private const int GameplaySceneBuildIndex = 1;
 
         private NetworkRunner _runner;
         private ExtractionProgressSimulationDriver _driver;
+        private Scene _ownedGameplayScene;
         private bool _previousIgnoreFailingMessages;
         private readonly List<ExtractionConfig> _ritualTestConfigs = new();
 
@@ -73,11 +75,12 @@ namespace Tests.PlayMode.Extraction
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            SceneManager.sceneLoaded -= CaptureOwnedGameplayScene;
             LogAssert.ignoreFailingMessages = _previousIgnoreFailingMessages;
             if (_runner != null && _runner.IsRunning)
             {
-                _runner.Shutdown();
-                while (_runner != null && _runner.IsRunning)
+                var shutdown = _runner.Shutdown();
+                while (!shutdown.IsCompleted)
                 {
                     yield return null;
                 }
@@ -88,12 +91,34 @@ namespace Tests.PlayMode.Extraction
                 UnityEngine.Object.DestroyImmediate(_runner.gameObject);
             }
 
+            // The test body can fail before its normal Fusion unload. Shutdown alone
+            // does not unload additive scenes in single-peer mode.
+            if (_ownedGameplayScene.IsValid() && _ownedGameplayScene.isLoaded)
+            {
+                AsyncOperation unload = SceneManager.UnloadSceneAsync(_ownedGameplayScene);
+                while (unload != null && !unload.isDone)
+                {
+                    yield return null;
+                }
+            }
+
             for (int i = 0; i < _ritualTestConfigs.Count; i++)
             {
                 UnityEngine.Object.DestroyImmediate(_ritualTestConfigs[i]);
             }
 
             _ritualTestConfigs.Clear();
+            Assert.That(_ownedGameplayScene.isLoaded, Is.False,
+                "The fixture must release its Gameplay scene even when the test body fails.");
+            _ownedGameplayScene = default;
+        }
+
+        private void CaptureOwnedGameplayScene(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.buildIndex == GameplaySceneBuildIndex && mode == LoadSceneMode.Additive)
+            {
+                _ownedGameplayScene = scene;
+            }
         }
 
         [UnityTest]
@@ -241,7 +266,8 @@ namespace Tests.PlayMode.Extraction
         [UnityTest]
         public IEnumerator GameplayScene_FusionSpawnsFourDistinctSanctuaryIdentities()
         {
-            SceneRef gameplayScene = SceneRef.FromIndex(1);
+            SceneRef gameplayScene = SceneRef.FromIndex(GameplaySceneBuildIndex);
+            SceneManager.sceneLoaded += CaptureOwnedGameplayScene;
             NetworkSceneAsyncOp load = _runner.LoadScene(gameplayScene, LoadSceneMode.Additive);
             while (!load.IsDone)
             {
