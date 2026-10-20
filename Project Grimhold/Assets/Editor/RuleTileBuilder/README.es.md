@@ -6,7 +6,7 @@ Crea un RuleTile seleccionando sprites y asignándolos a funciones visuales. No 
 
 Abre **Tools > Grimhold > Rule Tile Builder** en Unity. La interfaz conserva sus nombres en inglés; esta guía indica el nombre exacto de cada control y explica qué hace.
 
-**Ayuda al pasar el cursor:** mantén el puntero sobre botones, pestañas, plantillas, tarjetas, pinceles o campos para ver un tooltip en inglés, igual que en el Inspector nativo. También hay ayudas sobre las celdas de la matriz y las opciones nativas de variantes, animación y collider. Los botones **Clear** explican qué vacían antes de utilizarlos. Esta guía permanece en español.
+**Ayuda al pasar el cursor:** mantén el puntero sobre botones, pestañas, plantillas, posiciones del escenario, pinceles o campos para ver un tooltip en inglés, igual que en el Inspector nativo. También hay ayudas sobre las celdas de la matriz avanzada y las opciones nativas de variantes, animación y collider. Los botones **Clear** explican qué vacían antes de utilizarlos. Esta guía permanece en español.
 
 > **Borrador primero, asset después.** La herramienta no modifica el RuleTile original hasta que guardas. Tampoco corta imágenes, crea arte ni cambia escenas, importadores o colisiones existentes.
 
@@ -43,7 +43,7 @@ En **2 Template**, elige según las piezas que realmente tengas:
 
 | Plantilla | Qué permite | Cuándo empezar por ella |
 | --- | --- | --- |
-| **Continuous floor** | Una superficie continua; una tarjeta, con variantes opcionales. | Suelos que no necesitan cambiar de dibujo en los límites. |
+| **Continuous floor** | Una superficie continua; una pieza, con variantes opcionales. | Suelos que no necesitan cambiar de dibujo en los límites. |
 | **Orthogonal connections (16)** | Conexiones arriba, abajo, izquierda y derecha. Incluye bordes, extremos y uniones. | Tilesets sin distinción de esquinas interiores diagonales. |
 | **Full contour & inner corners (47)** | También distingue diagonales cuando ambos lados adyacentes conectan. | Contornos con esquinas interiores, exteriores y sus combinaciones. |
 
@@ -53,28 +53,34 @@ En **2 Template**, elige según las piezas que realmente tengas:
 
 ## 3. Asignar sprites a funciones visuales
 
-En **3 Assign pieces**, las tarjetas se agrupan por centro, bordes/uniones, esquinas exteriores, esquinas interiores, extremos, pasillos y piezas aisladas, según la plantilla.
-
-Cada tarjeta muestra un pequeño esquema de la superficie:
-
-- **Centro azul:** la celda que estás dibujando.
-- **Vecino azul:** debe continuar la misma superficie.
-- **Vecino oscuro con un punto:** debe ser vacío u otra superficie.
-- **Vecino tenue:** puede contener cualquiera de las dos cosas.
-
-No configuras este esquema: **la plantilla ya lo ha preparado**. Úsalo para reconocer qué sprite corresponde a esa forma.
+En **3 Assign pieces** eliges dónde aparecería el dibujo dentro de un escenario ilustrativo. No necesitas interpretar matrices: pulsa, por ejemplo, el borde superior de una habitación para elegir **Top edge**.
 
 Para asignar una pieza:
 
 1. Selecciona su sprite en la biblioteca izquierda.
-2. Busca la tarjeta con la forma correspondiente.
-3. Pulsa **Assign selected**, o arrastra el sprite a la miniatura de esa tarjeta.
+2. En **Example**, elige una habitación, pasillo o unión y haz clic en la posición donde debe aparecer ese dibujo.
+3. Revisa el nombre y la función de la pieza seleccionada y pulsa **Assign selected**. También puedes arrastrar sprites desde la biblioteca o Project directamente sobre una celda sólida para asignarlos.
 
-Si seleccionas varios sprites para una tarjeta nueva, se crea una salida **Random**: Unity elige variantes según la posición. En una regla que ya existe se conserva su configuración de salida; puedes cambiarla desde **Details**.
+Si seleccionas varios sprites para una regla nueva, se crea una salida **Random**: Unity elige variantes según la posición. En una regla que ya existe se conserva su configuración Single, Random o Animation; puedes cambiarla desde **Details**. El escenario ilustrativo muestra el primer sprite para identificar el arte, no simula variantes ni animaciones.
 
-- **Clear**, en una tarjeta, elimina su regla y vuelve al respaldo para esas conexiones.
+- **Clear**, en la pieza seleccionada, elimina su regla y vuelve al respaldo para todas las posiciones equivalentes.
 - **Details** abre su configuración avanzada.
 - **Clear**, en la biblioteca izquierda, vacía la biblioteca y la selección; no elimina reglas ya asignadas ni sprites del proyecto.
+
+### Reconocer las posiciones
+
+| Señal | Significado |
+| --- | --- |
+| Punto naranja | Pieza pendiente: muestra el respaldo, o una celda plana si todavía no lo elegiste. |
+| Contorno cian | Todas las posiciones que usan la misma regla seleccionada. Cambian juntas al asignar, reemplazar o borrar. |
+| Contorno blanco interior | Posición exacta que elegiste. |
+| Números en los estudios de patios | Posiciones destacadas para combinaciones especiales; cualquier celda sólida se puede seleccionar. |
+
+**Example** incluye habitación rectangular, pasillos horizontales/verticales, extremos, pieza aislada, uniones en cruz/T, habitación en L y habitaciones con huecos. **Courtyards & recesses** aporta estudios de terreno para las combinaciones restantes: entre todos los ejemplos puedes acceder a las 16 o 47 piezas.
+
+Pulsa **Next unassigned piece** para ir directamente a una función pendiente, sin recorrer listas de matrices. **Tile size** amplía o reduce el dibujo con filtrado puntual, sin modificar importadores. El escenario tiene su propio desplazamiento para mantener accesibles los controles de asignación. Despliega **Fallback & collider** cuando necesites editar el respaldo o collider desde este paso.
+
+**Asignar no es probar:** este escenario sirve para ubicar el arte. No representa la evaluación de prioridad, transformaciones, Random o Animation del RuleTile. **4 Paint & test** sigue siendo el Tilemap real de Unity y se refresca al cambiar las asignaciones. Comprueba allí el resultado final, especialmente después de editar Advanced.
 
 La herramienta no reconoce automáticamente la función de un sprite, no completa geometría ausente y no gira ni refleja el arte salvo que lo habilites expresamente en Advanced.
 
@@ -119,7 +125,7 @@ Las rutas de esta sección son relativas a la raíz del proyecto Unity.
 2. Añade `Assets/Art/Tilesets/Catacombs/Catacombs-FloorVariantsTileset.png` a la biblioteca. Ya está cortado.
 3. Selecciona `Catacombs-FloorVariantsTileset_4` y úsalo como respaldo. Mantén **Default collider = None** para reproducir el ejemplo.
 4. En **Template**, elige **Continuous floor**.
-5. Selecciona los sprites `Catacombs-FloorVariantsTileset_0` y `_1` con Ctrl/Cmd-clic. Asígnalos a la tarjeta **Continuous floor**.
+5. Selecciona los sprites `Catacombs-FloorVariantsTileset_0` y `_1` con Ctrl/Cmd-clic. Haz clic en cualquier celda de **Room** y pulsa **Assign selected** para la pieza **Continuous floor**.
 6. Prueba **Rectangle** y **Hole** en la grilla. Verás variaciones de suelo, no paredes ni bordes decorativos automáticos.
 7. Genera un asset con un nombre nuevo, por ejemplo `MiSueloCatacombs.asset`.
 
@@ -166,9 +172,9 @@ La herramienta admite el RuleTile estándar de grilla cuadrada con vecindad 3×3
 | --- | --- |
 | La textura no muestra piezas | Comprueba que ya esté importada y cortada como sprites. El Builder no la corta. |
 | No puedo generar | Revisa los errores en Save, especialmente el respaldo y los sprites de reglas activas. |
-| Aparecen celdas naranjas | Esa combinación usa respaldo. Asigna la tarjeta correspondiente o confirma que aceptas ese resultado. |
+| Aparecen celdas naranjas | Esa combinación usa respaldo. Asigna la pieza correspondiente desde un ejemplo o confirma que aceptas ese resultado. |
 | Un sprite nunca aparece | Revisa si una regla anterior cubre sus conexiones; consulta las advertencias de prioridad. |
-| Una esquina está mal | Comprueba el esquema de la tarjeta y la pieza elegida. Para esquinas interiores diagonales necesitas la plantilla completa y arte compatible. |
+| Una esquina está mal | Selecciona esa posición en el ejemplo y comprueba la pieza elegida. Para esquinas interiores diagonales necesitas la plantilla completa y arte compatible. |
 | Hay animación aunque esperaba otra regla | Unity busca animaciones independientemente de la prioridad del sprite visual. Revisa las reglas Animation. |
 | El guardado informa de cambios externos | No sobrescribas a ciegas. Revisa el original y decide si vas a descartar y reconstruir el borrador desde Reload. |
 
@@ -179,3 +185,5 @@ En la implementación del 19 de octubre de 2026 se observaron compilación corre
 Siguen siendo comprobaciones manuales: reinicio real del Editor, recorrido completo por ratón en Tile Palette, interacción con los diálogos y aprobación visual/de usabilidad. Los tests y la recarga del asset no sustituyen esas verificaciones.
 
 Tras añadir los tooltips se aprobaron **104 tests EditMode**: los 43 existentes y 61 casos de ayuda contextual y conservación de etiquetas. La aparición visual de los tooltips al mantener el cursor sigue siendo una comprobación manual.
+
+Con la asignación sobre escenarios se aprobaron **119 tests EditMode** (0 omitidos): cobertura de las 16/47 funciones, correspondencia de cada celda con un Tilemap nativo, asignación/reemplazo/borrado, variantes, navegación de pendientes, persistencia y Undo/Redo. Se ejercitaron clic y drop mediante eventos reales de EditorWindow con Catacombs, en ventanas de 860×660 y 1220×1000, sin cambios en el importador, la escena o la selección. Se inspeccionaron capturas nativas de los ejemplos; esto no sustituye una evaluación de usabilidad por una persona principiante.

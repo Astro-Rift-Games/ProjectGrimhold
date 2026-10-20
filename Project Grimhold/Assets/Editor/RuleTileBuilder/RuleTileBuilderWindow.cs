@@ -12,7 +12,6 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
     {
         private static readonly string[] Steps = { "1  Sprites", "2  Template", "3  Assign pieces", "4  Paint & test", "5  Save" };
         private static readonly string[] Templates = { "Continuous floor", "Orthogonal connections (16)", "Full contour & inner corners (47)" };
-        private static readonly string[] PieceGroups = { "Center", "Edges and junctions", "Outer corners", "Inner corners", "Ends", "Corridors", "Isolated" };
         private static readonly Dictionary<string, string> Tooltips = new()
         {
             ["1  Sprites"] = "Add sprites or already sliced textures and choose a fallback. This does not change tileset import settings.",
@@ -30,7 +29,7 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
             ["Clear library"] = "Clear only this window's sprite library and selection. This does not delete project sprites or previously assigned rules.",
             ["Drop sprites / sliced textures here"] = "Drop sprites or already sliced textures here to add their pieces to the library without reimporting them.",
             ["Search"] = "Filter library thumbnails by name. This does not remove hidden pieces or change any rules.",
-            ["Sprite selection"] = "Click to select this piece; Ctrl/Cmd-click selects multiple variants. Assign the selection to a card or rule afterwards.",
+            ["Sprite selection"] = "Click to select this piece; Ctrl/Cmd-click selects multiple variants. Drag the selection onto a solid scenario cell or use Assign selected.",
             ["Fallback sprite"] = "The required sprite shown when no visual rule matches. Choose neutral artwork for connections that have not been assigned yet.",
             ["Default collider"] = "The default collider and initial collider for new rules: None, Sprite shape or Grid cell. Existing scene collision is not modified.",
             ["Use selected sprite as fallback"] = "Use the first sprite selected in the library as the draft's fallback. This does not assign it to every rule.",
@@ -38,9 +37,14 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
             ["Orthogonal connections (16)"] = "Prepare 16 shapes checking above, below, left and right. These patterns do not distinguish diagonal inner corners.",
             ["Full contour & inner corners (47)"] = "Prepare 47 shapes including inner and outer corners. No artwork is invented: missing pieces use the fallback after warning confirmation.",
             ["Piece shape"] = "The center is the painted cell: blue neighbors connect to the same surface, dark neighbors are empty or different, and faint neighbors accept either. Assign matching artwork.",
-            ["Assign selected"] = "Assign selected sprites to this role. Multiple pieces on a new card create Random variants; an existing rule keeps its output configuration.",
-            ["Details"] = "Open this card's native rule in Advanced to edit sprites, variants, animation, collider or connection conditions.",
-            ["Clear piece"] = "Remove this card's rule from the draft; its connections return to the fallback. This does not delete the project sprite.",
+            ["Assign selected"] = "Assign selected sprites to the highlighted piece and every equivalent position. Multiple pieces on a new rule create Random variants; an existing rule keeps its output configuration.",
+            ["Details"] = "Open the selected piece's native rule in Advanced to edit sprites, variants, animation, collider or connection conditions.",
+            ["Clear piece"] = "Remove this piece's rule from the draft; all equivalent positions return to the fallback. This does not delete the project sprite.",
+            ["Assignment example"] = "Choose an illustrative terrain example. Click a solid position to inspect its piece; this does not paint or simulate a native Tilemap.",
+            ["Next unassigned piece"] = "Locate a pending piece in an example, including rare combined corners. This only changes the selection and does not assign artwork.",
+            ["Assignment zoom"] = "Set the pixel size of illustrative tiles. Artwork uses point filtering without changing source texture import settings.",
+            ["Assignment defaults"] = "Show or hide the fallback sprite and default collider controls. Collapsing this section leaves more room for assignment examples; it does not change their values.",
+            ["Assignment cell"] = "Click to select this piece, then use Assign selected. Drop sprites here to assign immediately. Every cyan outlined position shares this rule; orange dots mark fallback positions.",
             ["Rectangle"] = "Replace only the preview grid with a rectangular room to check interior cells and boundaries.",
             ["L"] = "Replace only the preview grid with an L-shaped room to check inner and outer corners.",
             ["Hole"] = "Replace only the preview grid with a room containing a central hole to check inward-facing edges and corners.",
@@ -89,6 +93,17 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
         [SerializeField] private string _assetName = "NewRuleTile";
         [SerializeField] private string _search = "";
         [SerializeField] private bool _advanced;
+        [SerializeField] private int _assignmentScenario;
+        [SerializeField] private string _assignmentSlotKey;
+        [SerializeField] private Vector3Int _assignmentCell;
+        [SerializeField] private int _assignmentZoom = 32;
+        [SerializeField] private bool _assignmentDefaults;
+        private readonly Dictionary<Texture2D, Texture2D> _assignmentTextures = new();
+        private readonly Dictionary<Vector3Int, Rect> _assignmentRects = new();
+        private Vector2 _windowScreenOrigin;
+        private Vector2 _windowMousePosition;
+        private Vector2 _assignmentScroll;
+        private Rect _assignmentViewport;
         private RuleTileBuilderPreview _preview;
         private RuleTileEditor _nativeEditor;
         private RuleTileValidationReport _report;
@@ -99,6 +114,54 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
 
         public RuleTile Draft => _draft;
         public RuleTile Source => _source;
+        public RuleTileTemplateSlot SelectedAssignmentSlot => RuleTileBuilderTemplates.GetSlots(_template).FirstOrDefault(s => s.Key == _assignmentSlotKey);
+
+        public bool SelectAssignmentCell(int scenarioIndex, Vector3Int cell)
+        {
+            if (!_guided) return false;
+            var scenarios = RuleTileBuilderAssignmentScenarios.GetScenarios(_template);
+            if (scenarioIndex < 0 || scenarioIndex >= scenarios.Count) return false;
+            var slot = scenarios[scenarioIndex].GetSlot(_template, cell);
+            if (slot == null) return false;
+            _assignmentScenario = scenarioIndex;
+            _assignmentCell = cell;
+            _assignmentSlotKey = slot.Key;
+            Repaint();
+            return true;
+        }
+
+        public void AssignSelectedPiece(Sprite[] sprites)
+        {
+            var slot = SelectedAssignmentSlot;
+            if (!_guided || slot == null) throw new InvalidOperationException("Select a solid position in an assignment example first.");
+            ApplySlot(slot, sprites);
+        }
+
+        public bool NextUnassignedPiece()
+        {
+            var slots = RuleTileBuilderTemplates.GetSlots(_template);
+            int previous = slots.ToList().FindIndex(s => s.Key == _assignmentSlotKey);
+            for (int offset = 1; offset <= slots.Count; offset++)
+            {
+                var slot = slots[(previous + offset) % slots.Count];
+                if (RuleTileBuilderTemplates.FindRule(_draft, slot) != null) continue;
+                var scenarios = RuleTileBuilderAssignmentScenarios.GetScenarios(_template);
+                for (int index = 0; index < scenarios.Count; index++)
+                {
+                    // Prefer the explicit featured position over an incidental occurrence.
+                    var positions = scenarios[index].FeaturedCells.Concat(scenarios[index].Cells);
+                    foreach (var cell in positions)
+                        if (scenarios[index].GetSlot(_template, cell).Key == slot.Key)
+                        {
+                            bool selected = SelectAssignmentCell(index, cell);
+                            _assignmentScroll = new Vector2(Mathf.Max(0, cell.x * _assignmentZoom - 160),
+                                Mathf.Max(0, (scenarios[index].Height - 1 - cell.y) * _assignmentZoom - 100));
+                            return selected;
+                        }
+                }
+            }
+            return false;
+        }
 
         [MenuItem("Tools/Grimhold/Rule Tile Builder")]
         public static void Open() => GetWindow<RuleTileBuilderWindow>("Rule Tile Builder");
@@ -137,6 +200,8 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
 
         private void DisposeEditors()
         {
+            foreach (var texture in _assignmentTextures.Values) if (texture) DestroyImmediate(texture);
+            _assignmentTextures.Clear();
             _preview?.Dispose();
             _preview = null;
             if (_nativeEditor) DestroyImmediate(_nativeEditor);
@@ -207,6 +272,9 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
             _savedDraft = EditorJsonUtility.ToJson(_draft);
             _guided = RuleTileBuilderTemplates.TryRecognize(_draft, out _template);
             _advanced = !_guided;
+            _assignmentSlotKey = null;
+            _assignmentScenario = 0;
+            _assignmentScroll = Vector2.zero;
             AddSources(new Object[] { _draft.m_DefaultSprite });
             foreach (var rule in _draft.m_TilingRules) AddSources(rule.m_Sprites.Cast<Object>().ToArray());
             RebuildEditors();
@@ -283,6 +351,8 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
 
         private void OnGUI()
         {
+            _windowScreenOrigin = GUIUtility.GUIToScreenPoint(Vector2.zero);
+            _windowMousePosition = Event.current.mousePosition;
             EditorGUILayout.LabelField("Rule Tile Builder", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Pick pieces, paint a room, then save. Your original asset is untouched until Save.", EditorStyles.wordWrappedLabel);
             DrawAssetToolbar();
@@ -342,6 +412,9 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
                     _savedDraft = null;
                     _guided = true;
                     _template = RuleTileTemplateKind.Floor;
+                    _assignmentSlotKey = null;
+                    _assignmentScenario = 0;
+                    _assignmentScroll = Vector2.zero;
                     _assetName = "NewRuleTile";
                     _message = null;
                     // Reinitialize without duplicating subscriptions.
@@ -382,6 +455,13 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
                         RuleTileBuilderSpriteCatalog.DrawSprite(new Rect(rect.x + 5, rect.y + 3, 63, 63), sprite);
                         GUI.Label(new Rect(rect.x, rect.y + 66, rect.width, 24), new GUIContent(sprite.name, sprite.name + " · " + sprite.rect), EditorStyles.wordWrappedMiniLabel);
                         Tooltip(rect, "Sprite selection", sprite.name + " · " + sprite.rect);
+                        if (Event.current.type == EventType.MouseDrag && Event.current.button == 0 && rect.Contains(Event.current.mousePosition) && _selectedSprites.Contains(sprite))
+                        {
+                            DragAndDrop.PrepareStartDrag();
+                            DragAndDrop.objectReferences = _selectedSprites.Where(s => s).Cast<Object>().ToArray();
+                            DragAndDrop.StartDrag("RuleTile sprites");
+                            Event.current.Use();
+                        }
                         if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
                         {
                             if (!Event.current.control && !Event.current.command) _selectedSprites.Clear();
@@ -434,7 +514,7 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
             EditorGUILayout.LabelField("Choose how the surface connects", EditorStyles.boldLabel);
             var descriptions = new[]
             {
-                "One surface everywhere. Add several sprites to its card for random variation. Does not need edge or corner art.",
+                "One surface everywhere. Assign several sprites for random variation. Does not need edge or corner art.",
                 "Looks above, below, left and right. Supports edges, ends and junctions, but cannot distinguish interior diagonal corners.",
                 "Also looks diagonally when both adjacent sides connect. Supports outer corners, inner corners and combinations. Missing pieces are optional and fall back visibly."
             };
@@ -451,6 +531,9 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
                             _draft.m_TilingRules.Clear();
                             _template = (RuleTileTemplateKind)i;
                             _guided = true;
+                            _assignmentSlotKey = null;
+                            _assignmentScenario = 0;
+                            _assignmentScroll = Vector2.zero;
                             Changed();
                         }
                     }
@@ -464,45 +547,139 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
 
         private void DrawAssignments()
         {
-            DrawDefaults();
+            _assignmentDefaults = EditorGUILayout.Foldout(_assignmentDefaults, Help("Fallback & collider", "Assignment defaults"), true);
+            if (_assignmentDefaults) DrawDefaults();
             if (!_guided)
             {
                 EditorGUILayout.HelpBox("This asset has custom rules. They are preserved in Advanced. To rebuild connections from a template, choose one in step 2 and confirm replacing the draft rules.", MessageType.Info);
                 return;
             }
-            EditorGUILayout.LabelField(Templates[(int)_template], EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Each card shows the shape it handles: filled neighbors connect, outlined neighbors are empty/other, faint cells can be either. Assign the sprite that depicts that exact shape. Multiple selected sprites become variants for a new card. No artwork is rotated automatically.", MessageType.Info);
-            string group = null;
-            foreach (var slot in RuleTileBuilderTemplates.GetSlots(_template).OrderBy(s => Array.IndexOf(PieceGroups, s.Group)))
+            EditorGUILayout.LabelField("Assignment examples · " + Templates[(int)_template], EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("1 Select sprites on the left.  2 Click where they belong in an example.  3 Use Assign selected, or drop sprites directly onto a solid cell. These are illustrations, not a simulated RuleTile result. Use step 4 for the real Unity Tilemap.", MessageType.Info);
+            var scenarios = RuleTileBuilderAssignmentScenarios.GetScenarios(_template);
+            _assignmentScenario = Mathf.Clamp(_assignmentScenario, 0, scenarios.Count - 1);
+            int next = EditorGUILayout.Popup(Help("Example", "Assignment example"), _assignmentScenario, scenarios.Select(s => s.Name).ToArray());
+            if (next != _assignmentScenario) { _assignmentScenario = next; _assignmentScroll = Vector2.zero; GUIUtility.ExitGUI(); }
+            var example = scenarios[_assignmentScenario];
+            if (SelectedAssignmentSlot == null) SelectAssignmentCell(_assignmentScenario, example.Cells[0]);
+            using (new EditorGUILayout.HorizontalScope())
             {
-                if (slot.Group != group) { group = slot.Group; EditorGUILayout.LabelField(group, EditorStyles.boldLabel); }
-                var rule = RuleTileBuilderTemplates.FindRule(_draft, slot);
-                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+                int assigned = RuleTileBuilderTemplates.GetSlots(_template).Count(s => RuleTileBuilderTemplates.FindRule(_draft, s) != null);
+                GUILayout.Label(assigned + " / " + RuleTileBuilderTemplates.GetSlots(_template).Count + " pieces assigned");
+                if (GUILayout.Button(Help("Next unassigned piece"))) { NextUnassignedPiece(); GUIUtility.ExitGUI(); }
+                _assignmentZoom = EditorGUILayout.IntSlider(Help("Tile size", "Assignment zoom"), _assignmentZoom, 24, 56, GUILayout.MaxWidth(260));
+            }
+            DrawSelectedAssignment();
+            EditorGUILayout.LabelField(example.Description, EditorStyles.wordWrappedLabel);
+            EditorGUILayout.LabelField("Orange dot: pending / fallback   ·   Cyan outline: same piece   ·   White outline: selected position", EditorStyles.wordWrappedMiniLabel);
+            float width = example.Width * _assignmentZoom;
+            float height = example.Height * _assignmentZoom;
+            var viewport = GUILayoutUtility.GetRect(200, Mathf.Clamp(position.height - 420, 180, 500), GUILayout.ExpandWidth(true));
+            _assignmentViewport = new Rect(GUIUtility.GUIToScreenPoint(viewport.position) - _windowScreenOrigin, viewport.size);
+            _assignmentScroll = GUI.BeginScrollView(viewport, _assignmentScroll, new Rect(0, 0, width, height));
+            DrawAssignmentCanvas(new Rect(0, 0, width, height), example);
+            GUI.EndScrollView();
+            // Reserve the hover line on every event, including Layout, to keep IMGUI control counts stable.
+            EditorGUILayout.LabelField("Every solid position is selectable. Empty space is not an assignment target.", EditorStyles.wordWrappedMiniLabel);
+        }
+
+        private void DrawSelectedAssignment()
+        {
+            var slot = SelectedAssignmentSlot;
+            if (slot == null) return;
+            var rule = RuleTileBuilderTemplates.FindRule(_draft, slot);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField(RuleTileBuilderAssignmentScenarios.GetPieceName(slot), EditorStyles.boldLabel);
+                EditorGUILayout.LabelField(RuleTileBuilderAssignmentScenarios.GetDescription(slot), EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField(rule == null ? "Pending · using fallback" : rule.m_Sprites.Length + " sprite(s) · " + rule.m_Output + " · first sprite shown in illustration", EditorStyles.wordWrappedMiniLabel);
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    var shape = GUILayoutUtility.GetRect(65, 65, GUILayout.Width(65));
-                    DrawShape(shape, slot);
-                    var image = GUILayoutUtility.GetRect(64, 64, GUILayout.Width(64));
-                    if (rule != null && rule.m_Sprites != null && rule.m_Sprites.Length > 0) RuleTileBuilderSpriteCatalog.DrawSprite(image, rule.m_Sprites[0]);
-                    else GUI.Label(image, "Fallback", EditorStyles.centeredGreyMiniLabel);
-                    Tooltip(image, "Assign selected", slot.Label);
-                    HandleDrop(image, objects => { var sprites = RuleTileBuilderSpriteCatalog.Resolve(objects); if (sprites.Length > 0) ApplySlot(slot, sprites); });
-                    using (new EditorGUILayout.VerticalScope())
+                    var sprites = rule?.m_Sprites ?? new[] { _draft.m_DefaultSprite };
+                    foreach (var sprite in sprites.Take(6))
                     {
-                        EditorGUILayout.LabelField(slot.Label, EditorStyles.wordWrappedLabel);
-                        EditorGUILayout.LabelField(rule == null ? "Optional · not assigned" : rule.m_Sprites.Length + " sprite(s) · " + rule.m_Output, EditorStyles.miniLabel);
-                        using (new EditorGUILayout.HorizontalScope())
-                        {
-                            using (new EditorGUI.DisabledScope(_selectedSprites.Count == 0))
-                                if (GUILayout.Button(Help("Assign selected"))) ApplySlot(slot, _selectedSprites.Where(s => s).ToArray());
-                            using (new EditorGUI.DisabledScope(rule == null))
-                            {
-                                if (GUILayout.Button(Help("Details"))) { _selectedRule = _draft.m_TilingRules.IndexOf(rule); _advanced = true; }
-                                if (GUILayout.Button(Help("Clear", "Clear piece"))) ApplySlot(slot, Array.Empty<Sprite>());
-                            }
-                        }
+                        var rect = GUILayoutUtility.GetRect(40, 40, GUILayout.Width(40));
+                        DrawAssignmentSprite(rect, sprite);
+                        GUI.Label(rect, new GUIContent("", sprite ? sprite.name : "No fallback sprite"), GUIStyle.none);
+                    }
+                    if (sprites.Length > 6) GUILayout.Label("+" + (sprites.Length - 6));
+                    GUILayout.FlexibleSpace();
+                    using (new EditorGUI.DisabledScope(_selectedSprites.Count == 0))
+                        if (GUILayout.Button(Help("Assign selected"), GUILayout.Height(30))) { AssignSelectedPiece(_selectedSprites.Where(s => s).ToArray()); GUIUtility.ExitGUI(); }
+                    using (new EditorGUI.DisabledScope(rule == null))
+                    {
+                        if (GUILayout.Button(Help("Details"), GUILayout.Height(30))) { _selectedRule = _draft.m_TilingRules.IndexOf(rule); _advanced = true; GUIUtility.ExitGUI(); }
+                        if (GUILayout.Button(Help("Clear", "Clear piece"), GUILayout.Height(30))) { AssignSelectedPiece(Array.Empty<Sprite>()); GUIUtility.ExitGUI(); }
                     }
                 }
             }
+        }
+
+        private void DrawAssignmentCanvas(Rect canvas, RuleTileAssignmentScenario example)
+        {
+            EditorGUI.DrawRect(canvas, new Color(.10f, .12f, .14f));
+            _assignmentRects.Clear();
+            foreach (var cell in example.Cells)
+            {
+                var rect = new Rect(canvas.x + cell.x * _assignmentZoom, canvas.y + (example.Height - 1 - cell.y) * _assignmentZoom, _assignmentZoom, _assignmentZoom);
+                _assignmentRects[cell] = new Rect(GUIUtility.GUIToScreenPoint(rect.position) - _windowScreenOrigin, rect.size);
+                var slot = example.GetSlot(_template, cell);
+                var rule = RuleTileBuilderTemplates.FindRule(_draft, slot);
+                EditorGUI.DrawRect(rect, new Color(.25f, .32f, .35f));
+                DrawAssignmentSprite(rect, RuleTileBuilderAssignmentScenarios.GetSprite(_draft, slot));
+                if (rule == null) EditorGUI.DrawRect(new Rect(rect.x + 3, rect.y + 3, 5, 5), new Color(1, .60f, .16f));
+                if (slot.Key == _assignmentSlotKey) DrawAssignmentOutline(rect, new Color(.1f, .85f, 1), 2);
+                if (cell == _assignmentCell && slot.Key == _assignmentSlotKey) DrawAssignmentOutline(new Rect(rect.x + 3, rect.y + 3, rect.width - 6, rect.height - 6), Color.white, 2);
+                int featured = -1;
+                for (int index = 0; index < example.FeaturedCells.Count; index++)
+                    if (example.FeaturedCells[index] == cell) { featured = index; break; }
+                if (featured >= 0) GUI.Label(rect, (featured + 1).ToString(), EditorStyles.whiteBoldLabel);
+                Tooltip(rect, "Assignment cell", RuleTileBuilderAssignmentScenarios.GetPieceName(slot));
+                if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && _assignmentViewport.Contains(_windowMousePosition) && rect.Contains(Event.current.mousePosition))
+                {
+                    SelectAssignmentCell(_assignmentScenario, cell);
+                    Event.current.Use();
+                    GUIUtility.ExitGUI();
+                }
+                if (!_assignmentViewport.Contains(_windowMousePosition)) continue;
+                HandleDrop(rect, objects =>
+                {
+                    var sprites = RuleTileBuilderSpriteCatalog.Resolve(objects);
+                    if (sprites.Length == 0) return;
+                    SelectAssignmentCell(_assignmentScenario, cell);
+                    AssignSelectedPiece(sprites);
+                    GUIUtility.ExitGUI();
+                });
+            }
+        }
+
+        private static void DrawAssignmentOutline(Rect rect, Color color, float thickness)
+        {
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, thickness), color);
+            EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - thickness, rect.width, thickness), color);
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, thickness, rect.height), color);
+            EditorGUI.DrawRect(new Rect(rect.xMax - thickness, rect.y, thickness, rect.height), color);
+        }
+
+        private void DrawAssignmentSprite(Rect rect, Sprite sprite)
+        {
+            if (!sprite) return;
+            var source = sprite.texture;
+            if (!_assignmentTextures.TryGetValue(source, out var texture) || !texture)
+            {
+                // GPU copying works with non-readable imported sprites; Instantiate requires Read/Write.
+                texture = new Texture2D(source.width, source.height, source.graphicsFormat, UnityEngine.Experimental.Rendering.TextureCreationFlags.None);
+                texture.hideFlags = HideFlags.HideAndDontSave;
+                texture.name = "RuleTile assignment point preview";
+                texture.filterMode = FilterMode.Point;
+                Graphics.CopyTexture(source, 0, 0, texture, 0, 0);
+                _assignmentTextures[source] = texture;
+            }
+            var bounds = sprite.rect;
+            float scale = Mathf.Min(rect.width / bounds.width, rect.height / bounds.height);
+            var size = bounds.size * scale;
+            GUI.DrawTextureWithTexCoords(new Rect(rect.center - size * .5f, size), texture,
+                new Rect(bounds.x / texture.width, bounds.y / texture.height, bounds.width / texture.width, bounds.height / texture.height), true);
         }
 
         private static void DrawShape(Rect rect, RuleTileTemplateSlot slot)
@@ -590,7 +767,7 @@ namespace ProjectGrimhold.EditorTools.RuleTiles
             using (new EditorGUI.DisabledScope(_report.HasErrors))
                 if (GUILayout.Button(Help(_source ? "Save changes to original asset" : "Generate native RuleTile…"), GUILayout.Height(34))) TrySave();
             if (_source && GUILayout.Button(Help("Select saved asset in Project"))) { Selection.activeObject = _source; EditorGUIUtility.PingObject(_source); }
-            EditorGUILayout.HelpBox("Drag the saved RuleTile into Unity's Tile Palette. The standard Inspector remains available. To complete missing pieces later, reopen this asset, assign more cards, and Save: its GUID stays the same.", MessageType.None);
+            EditorGUILayout.HelpBox("Drag the saved RuleTile into Unity's Tile Palette. The standard Inspector remains available. To complete missing pieces later, reopen this asset, assign more pieces, and Save: its GUID stays the same.", MessageType.None);
         }
 
         private void DrawAdvanced()
