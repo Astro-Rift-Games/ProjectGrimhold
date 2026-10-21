@@ -133,6 +133,24 @@ namespace Grimhold.Backend
             return ProcessResponse<ClearPendingReservationResult>(request);
         }
 
+        /// <summary>
+        /// Rolls back the pending reservation on the backend, restoring reserved items and equipment to active loadout/preparedEquipment.
+        /// </summary>
+        public static async Task<(bool success, ClearPendingReservationResult data, BackendError error)>
+            RollbackPendingReservationAsync(BackendConfiguration config, string token)
+        {
+            var url = $"{config.BaseUrl}/character/me/inventory/reservation?rollback=true";
+            using var request = UnityWebRequest.Delete(url);
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.timeout = config.TimeoutSeconds;
+
+            var operation = request.SendWebRequest();
+            while (!operation.isDone) await Task.Yield();
+
+            return ProcessResponse<ClearPendingReservationResult>(request);
+        }
+
         // ------------------------------------------------------------------
         // Extraction loot commit
         // ------------------------------------------------------------------

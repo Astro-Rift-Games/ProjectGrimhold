@@ -18,4 +18,13 @@ public static class RaidAdmissionRules
                    launchContext.ParticipantProfileIds,
                    ticket.ProfileId);
     }
+
+    public static bool IsAdmitted(RaidLaunchContext launchContext, in AuthoritativeRaidAdmissionTicket ticket)
+    {
+        return launchContext != null && ticket.IsValid && ticket.RaidCode.IsValid &&
+               ticket.RaidCode == launchContext.RaidCode &&
+               RaidSessionRules.ContainsProfile(
+                   launchContext.ParticipantProfileIds,
+                   ticket.ProfileId);
+    }
 }

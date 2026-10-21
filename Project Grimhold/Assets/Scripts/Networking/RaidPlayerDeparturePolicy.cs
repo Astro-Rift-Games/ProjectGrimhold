@@ -44,7 +44,7 @@ public static class RaidPlayerDeparturePolicy
 
         if (state == RaidParticipantState.Raiding)
         {
-            if (hasEligibleDecider && configValid)
+            if (configValid)
             {
                 return PlayerDepartureAction.RetainDisconnected;
             }

@@ -1001,11 +1001,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 _currentRaidCode.IsValid && _currentProfileId.IsValid &&
                 !string.IsNullOrEmpty(_currentRaidGenerationId) && !string.IsNullOrEmpty(_currentSessionName))
             {
+                string reservationId = _activeTicket.HasValue && _activeTicket.Value.LoadoutReservation != null
+                    ? _activeTicket.Value.LoadoutReservation.ReservationId
+                    : string.Empty;
                 var clientTicket = new RaidReconnectTicket(
                     _currentRaidCode,
                     _currentProfileId,
                     _currentRaidGenerationId,
-                    _currentSessionName);
+                    _currentSessionName,
+                    reservationId);
                 RaidReconnectTicketStore.Save(clientTicket);
             }
 
@@ -1149,7 +1153,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 ShutdownReason reason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
                 Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reconnect to raid failed. LastStartShutdownReason={reason}.", this);
 
-                DiscardActiveReconnectTicket();
+                if (IsTerminalReconnectShutdownReason(reason))
+                {
+                    DiscardActiveReconnectTicket();
+                }
 
                 return await RecoverTownAfterFailedReconnectAsync();
             }
@@ -1203,6 +1210,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         CompleteTownEntry(SessionTransitionResult.ConnectionFailed);
         return SessionTransitionResult.ConnectionFailed;
     }
+
+    public static bool IsTerminalReconnectShutdownReason(ShutdownReason reason) =>
+        reason == ShutdownReason.GameNotFound ||
+        reason == ShutdownReason.GameClosed ||
+        reason == ShutdownReason.ConnectionRefused;
 
     public void DiscardActiveReconnectTicket()
     {
@@ -1678,7 +1690,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
             if (remoteInventoryService != null)
             {
-                _ = remoteInventoryService.ClearPendingReservationAsync();
+                _ = remoteInventoryService.RollbackPendingReservationAsync();
             }
         }
 

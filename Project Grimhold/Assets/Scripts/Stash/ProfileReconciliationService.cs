@@ -59,8 +59,15 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
             progResult = progressionTask.Result;
         }
 
-        var (invOk, invData, _) = invResult;
-        var (progOk, progData, _) = progResult;
+        var (invOk, invData, invErr) = invResult;
+        var (progOk, progData, progErr) = progResult;
+
+        if ((!invOk && invErr.error == BackendErrorUtility.Unauthorized) ||
+            (!progOk && progErr.error == BackendErrorUtility.Unauthorized))
+        {
+            ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            return false;
+        }
 
         if (!invOk || !progOk)
         {

@@ -88,6 +88,7 @@ public static class ProgressionBalanceDefaults
                 defeatedBasisPoints: 2_000,
                 abandonedBasisPoints: 0,
                 definitivelyDisconnectedBasisPoints: 0,
+                defeatedWhileDisconnectedBasisPoints: 0,
                 out ExpeditionExperienceRetentionPolicy policy))
         {
             throw new InvalidOperationException("Initial expedition experience retention policy is invalid.");

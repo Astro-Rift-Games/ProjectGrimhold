@@ -106,3 +106,14 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ss]ceneDependencyCache*
 # Local AI runtime state
 .atl/
+
+
+# Environment and Secret files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+token.json
+client_secret*.json

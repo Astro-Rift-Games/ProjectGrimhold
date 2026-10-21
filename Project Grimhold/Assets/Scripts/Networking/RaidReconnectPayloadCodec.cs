@@ -31,6 +31,19 @@ public static class RaidReconnectPayloadCodec
                 return false;
             }
 
+            if (!string.IsNullOrEmpty(payload.ReservationId))
+            {
+                writer.Write((byte)1);
+                if (!TryWriteText(writer, payload.ReservationId))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                writer.Write((byte)0);
+            }
+
             writer.Flush();
             if (stream.Length > RaidLoadoutRules.MaximumTokenBytes)
             {
@@ -73,12 +86,17 @@ public static class RaidReconnectPayloadCodec
                 return false;
             }
 
-            if (stream.Position != stream.Length)
+            string reservationId = null;
+            if (stream.Position < stream.Length)
             {
-                return false;
+                byte hasRes = reader.ReadByte();
+                if (hasRes == 1)
+                {
+                    TryReadText(reader, out reservationId);
+                }
             }
 
-            payload = new RaidReconnectPayload(raidCode, new ProfileId(profileId), generationId);
+            payload = new RaidReconnectPayload(raidCode, new ProfileId(profileId), generationId, reservationId);
             return payload.IsValid;
         }
         catch (ArgumentException)

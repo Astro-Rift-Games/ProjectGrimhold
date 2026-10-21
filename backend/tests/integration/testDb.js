@@ -7,6 +7,8 @@ let mongoServer;
  * Start the in-memory MongoDB server and connect Mongoose to it.
  */
 async function connect() {
+  process.env.ENABLE_DEV_DEBUG_ROUTES = 'true';
+  process.env.ENABLE_LEGACY_EXTRACTION = 'true';
   mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
   await mongoose.connect(uri);

@@ -12,6 +12,7 @@ public static class RaidReconnectTicketStore
     private const string KeyProfileId = PrefsPrefix + "ProfileId";
     private const string KeyGenerationId = PrefsPrefix + "GenerationId";
     private const string KeySessionName = PrefsPrefix + "SessionName";
+    private const string KeyReservationId = PrefsPrefix + "ReservationId";
     private const string KeyCreatedAtUtcTicks = PrefsPrefix + "CreatedAtUtcTicks";
 
     private static readonly TimeSpan MaxTicketLifetime = TimeSpan.FromHours(1);
@@ -27,6 +28,7 @@ public static class RaidReconnectTicketStore
         PlayerPrefs.SetString(KeyProfileId, ticket.ProfileId.Value);
         PlayerPrefs.SetString(KeyGenerationId, ticket.RaidGenerationId);
         PlayerPrefs.SetString(KeySessionName, ticket.SessionName);
+        PlayerPrefs.SetString(KeyReservationId, ticket.ReservationId ?? string.Empty);
         PlayerPrefs.SetString(KeyCreatedAtUtcTicks, ticket.CreatedAtUtc.Ticks.ToString());
         PlayerPrefs.Save();
     }
@@ -43,6 +45,7 @@ public static class RaidReconnectTicketStore
         string rawProfileId = PlayerPrefs.GetString(KeyProfileId, string.Empty);
         string generationId = PlayerPrefs.GetString(KeyGenerationId, string.Empty);
         string sessionName = PlayerPrefs.GetString(KeySessionName, string.Empty);
+        string reservationId = PlayerPrefs.GetString(KeyReservationId, string.Empty);
         string rawTicks = PlayerPrefs.GetString(KeyCreatedAtUtcTicks, string.Empty);
 
         if (!RaidCode.TryParse(rawRaidCode, out RaidCode raidCode) ||
@@ -72,7 +75,7 @@ public static class RaidReconnectTicketStore
             return false;
         }
 
-        ticket = new RaidReconnectTicket(raidCode, profileId, generationId, sessionName, createdAt);
+        ticket = new RaidReconnectTicket(raidCode, profileId, generationId, sessionName, reservationId, createdAt);
         return ticket.IsValid;
     }
 
@@ -82,6 +85,7 @@ public static class RaidReconnectTicketStore
         PlayerPrefs.DeleteKey(KeyProfileId);
         PlayerPrefs.DeleteKey(KeyGenerationId);
         PlayerPrefs.DeleteKey(KeySessionName);
+        PlayerPrefs.DeleteKey(KeyReservationId);
         PlayerPrefs.DeleteKey(KeyCreatedAtUtcTicks);
         PlayerPrefs.Save();
     }

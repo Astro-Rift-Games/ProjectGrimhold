@@ -8,8 +8,34 @@ namespace Tests.EditMode.Networking
     [TestFixture]
     public sealed class RaidExtractionConnectivityTests
     {
+        private const string TeamCoordinatorPath =
+            "Assets/Scripts/Scenario/Extraction/TeamExtractionCoordinator.cs";
         private const string SpawnManagerPath =
             "Assets/Scripts/Networking/NetworkSpawnManager.cs";
+
+        [Test]
+        public void CancellationReason_ContainsRequiredMemberDisconnected()
+        {
+            bool hasDisconnectedReason = Enum.IsDefined(
+                typeof(TeamExtractionCancelReason),
+                "RequiredMemberDisconnected");
+            Assert.That(hasDisconnectedReason, Is.True, "TeamExtractionCancelReason must define RequiredMemberDisconnected.");
+        }
+
+        [Test]
+        public void TeamExtractionCoordinator_ChecksParticipantConnectivity()
+        {
+            string source = File.ReadAllText(TeamCoordinatorPath);
+            int populateIndex = source.IndexOf("private bool TryBuildMemberSnapshots", StringComparison.Ordinal);
+            Assert.That(populateIndex, Is.GreaterThanOrEqualTo(0));
+
+            int nextMethodIndex = source.IndexOf("private void StartTeamCountdown", populateIndex, StringComparison.Ordinal);
+            Assert.That(nextMethodIndex, Is.GreaterThan(populateIndex));
+
+            string methodBody = source.Substring(populateIndex, nextMethodIndex - populateIndex);
+            Assert.That(methodBody, Does.Contain("RaidParticipantConnectivity"));
+            Assert.That(methodBody, Does.Contain("!connectivity.IsDisconnected"));
+        }
 
         [Test]
         public void CancellationReason_ReportsRequiredMemberDisconnected()
@@ -80,6 +106,25 @@ namespace Tests.EditMode.Networking
                 isRitualCompleted: true, start.Signature, members);
             Assert.That(reconnected.ShouldContinue, Is.True);
             Assert.That(reconnected.CancelReason, Is.EqualTo(TeamExtractionCancelReason.None));
+        }
+
+        [Test]
+        public void EvaluateContinuation_CancelsOnSingleParticipantDisconnected()
+        {
+            RaidParticipantId.TryCreate(1, out RaidParticipantId p1);
+            var members = new[]
+            {
+                new TeamMemberExtractionSnapshot(p1, RaidParticipantState.Raiding, isConnected: false, isInsideExact: true, isInsideTolerant: true)
+            };
+            var signature = TeamExtractionRequirementRules.ComputeSignature(members);
+
+            TeamExtractionEvaluationResult result = TeamExtractionRequirementRules.EvaluateContinuation(
+                isRitualCompleted: true,
+                activeSignature: signature,
+                members: members);
+
+            Assert.That(result.ShouldContinue, Is.False);
+            Assert.That(result.CancelReason, Is.EqualTo(TeamExtractionCancelReason.RequiredMemberDisconnected));
         }
 
         [Test]

@@ -235,14 +235,12 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
         return false;
     }
 
+    public ITownSessionTicketVerifier TicketVerifier { get; set; }
+
     private bool TryResolveSender(PlayerRef player, out ProfileId profile)
     {
-        profile = default;
-        NetworkObject playerObject = Runner != null && !player.IsNone ? Runner.GetPlayerObject(player) : null;
-        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) || identity.Object.InputAuthority != player ||
-            string.IsNullOrWhiteSpace(identity.ProfileId.ToString())) return false;
-        profile = new ProfileId(identity.ProfileId.ToString());
-        return true;
+        ITownSessionTicketVerifier verifier = TicketVerifier ?? ApplicationAuthContext.Instance?.TownTicketVerifier;
+        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, player, verifier, out profile);
     }
 
     private bool CanSendRequest => Runner != null && Object != null && Object.IsValid && _indexReady && SessionConnectionCoordinator.Instance?.State == SessionConnectionState.Town;

@@ -94,6 +94,10 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 {
                     _store.SetRemoteRevision(data.revision);
                 }
+                else if (error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
 
                 return (success, error);
             },
@@ -117,6 +121,10 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 if (success)
                 {
                     _store.SetRemoteRevision(data.revision);
+                }
+                else if (error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
                 }
 
                 return (success, error);

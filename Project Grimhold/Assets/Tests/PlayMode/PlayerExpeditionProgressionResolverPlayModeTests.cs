@@ -63,16 +63,18 @@ namespace Tests.PlayMode.Progression
                 ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
                 ExpeditionProgressionFinalizationCause.DefeatConfirmed,
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
-                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed
+                ExpeditionProgressionFinalizationCause.DefinitiveDisconnectConfirmed,
+                ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
             };
             ExpeditionExperienceResolutionOutcome[] outcomes =
             {
                 ExpeditionExperienceResolutionOutcome.Extracted,
                 ExpeditionExperienceResolutionOutcome.Defeated,
                 ExpeditionExperienceResolutionOutcome.Abandoned,
-                ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected
+                ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected,
+                ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected
             };
-            long[] consolidated = { 100, 20, 0, 0 };
+            long[] consolidated = { 100, 20, 0, 0, 0 };
 
             for (int index = 0; index < causes.Length; index++)
             {
@@ -90,6 +92,8 @@ namespace Tests.PlayMode.Progression
                     ExpeditionProgressionFinalizationCause.ExtractionConfirmed =>
                         RaidParticipantState.Extracted,
                     ExpeditionProgressionFinalizationCause.DefeatConfirmed =>
+                        RaidParticipantState.Defeated,
+                    ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed =>
                         RaidParticipantState.Defeated,
                     _ => RaidParticipantState.Aborted
                 };

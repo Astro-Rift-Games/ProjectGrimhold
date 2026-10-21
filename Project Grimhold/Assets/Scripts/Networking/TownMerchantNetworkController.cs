@@ -154,19 +154,13 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
     /// Resolves the RPC sender and its persistent profile from the sender's replicated
     /// <see cref="SocialPlayerIdentity"/>; a PlayerRef is never used as profile identity.
     /// </summary>
+    public ITownSessionTicketVerifier TicketVerifier { get; set; }
+
     private bool TryResolveRequester(RpcInfo info, out PlayerRef requester, out ProfileId profileId)
     {
-        profileId = default;
         requester = info.Source.IsNone ? Runner.LocalPlayer : info.Source;
-        NetworkObject playerObject = _requestValidator != null && !requester.IsNone ? Runner.GetPlayerObject(requester) : null;
-        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) ||
-            identity.Object.InputAuthority != requester || string.IsNullOrWhiteSpace(identity.ProfileId.ToString()))
-        {
-            return false;
-        }
-
-        profileId = new ProfileId(identity.ProfileId.ToString());
-        return true;
+        ITownSessionTicketVerifier verifier = TicketVerifier ?? ApplicationAuthContext.Instance?.TownTicketVerifier;
+        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, requester, verifier, out profileId);
     }
 
     // --- IMerchantAuthorityState ---

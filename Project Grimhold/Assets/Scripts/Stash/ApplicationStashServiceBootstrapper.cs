@@ -131,7 +131,7 @@ public static class ApplicationStashServiceBootstrapper
             var authToken = ApplicationAuthContext.Instance?.Token;
             if (!string.IsNullOrEmpty(authToken) && _configuration != null)
             {
-                var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
+                var backendConfig = ApplicationAuthContext.Instance?.BackendConfig ?? Resources.Load<BackendConfiguration>("BackendConfiguration");
                 if (backendConfig != null)
                 {
                     _ = RetryPendingExtractionAsync(store, backendConfig, authToken);
@@ -148,9 +148,7 @@ public static class ApplicationStashServiceBootstrapper
             var authToken = ApplicationAuthContext.Instance?.Token;
             if (!string.IsNullOrEmpty(authToken) && _configuration != null)
             {
-                // In a real app we'd probably get the backend config properly, but let's just 
-                // load it directly since it's a ScriptableObject
-                var backendConfig = Resources.Load<BackendConfiguration>("BackendConfiguration");
+                var backendConfig = ApplicationAuthContext.Instance?.BackendConfig ?? Resources.Load<BackendConfiguration>("BackendConfiguration");
                 if (backendConfig != null)
                 {
                     _ = ClearReservationAndUpdateRevisionAsync(backendConfig, authToken, store);
@@ -305,7 +303,7 @@ public static class ApplicationStashServiceBootstrapper
 
             if (!TryNormalizeItems(data.stash, catalog, "stash", out stash) ||
                 !TryNormalizeItems(data.loadout, catalog, "loadout", out loadout) ||
-                (data.pendingReservation.reservationId != null &&
+                (!string.IsNullOrEmpty(data.pendingReservation.reservationId) &&
                  !TryNormalizeItems(data.pendingReservation.items, catalog, "reservation", out reservationItems)))
             {
                 return false;
@@ -340,7 +338,7 @@ public static class ApplicationStashServiceBootstrapper
                 );
             }
 
-            if (data.pendingReservation.reservationId != null)
+            if (!string.IsNullOrEmpty(data.pendingReservation.reservationId))
             {
                 var res = data.pendingReservation;
                 var resEq = res.preparedEquipment;
@@ -356,6 +354,10 @@ public static class ApplicationStashServiceBootstrapper
                 );
 
                 snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, reservationItems, preparedResEq);
+            }
+            else if (snapshot.PendingExtractionCommit == null)
+            {
+                snapshot.PendingReservation = null;
             }
 
             if (data.lastAppliedExtractionReceipt.resultSequence > 0)
@@ -529,7 +531,7 @@ public static class ApplicationStashServiceBootstrapper
     private static async System.Threading.Tasks.Task ClearReservationAndUpdateRevisionAsync(
         BackendConfiguration backendConfig, string authToken, LocalProfileStore store)
     {
-        var (success, result, _) = await InventoryClient.ClearPendingReservationAsync(backendConfig, authToken);
+        var (success, result, _) = await InventoryClient.RollbackPendingReservationAsync(backendConfig, authToken);
         if (success && result.revision > store.RemoteRevision)
         {
             store.SetRemoteRevision(result.revision);

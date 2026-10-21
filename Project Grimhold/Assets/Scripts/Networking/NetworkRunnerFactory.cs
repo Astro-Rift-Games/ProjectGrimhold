@@ -44,7 +44,8 @@ public static class NetworkRunnerFactory
         PendingLoadoutReservation loadoutReservation,
         FusionSessionLauncher runnerOwner,
         out RunnerComposition composition,
-        in RaidAdmissionData admissionData = default)
+        in RaidAdmissionData admissionData = default,
+        in AuthoritativeRaidAdmissionTicket authoritativeAdmissionTicket = default)
     {
         composition = default;
 
@@ -98,7 +99,7 @@ public static class NetworkRunnerFactory
                 return false;
             }
 
-            joinContext.Initialize(in joinData, in resolvedAdmission);
+            joinContext.Initialize(in joinData, in resolvedAdmission, in authoritativeAdmissionTicket);
         }
         else
         {

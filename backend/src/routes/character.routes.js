@@ -1,4 +1,4 @@
-﻿// src/routes/character.routes.js
+// src/routes/character.routes.js
 const express = require('express');
 const router = express.Router();
 const CharacterService = require('../services/CharacterService');
@@ -55,6 +55,63 @@ router.patch('/me/profile', updateProfileValidator, async (req, res, next) => {
       characterId: character._id.toString(),
       profile: character.profile
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const SessionTicketService = require('../services/SessionTicketService');
+
+// POST /character/me/session-ticket/town
+// Issues a verified Town Session Ticket for the authenticated account's character.
+router.post('/me/session-ticket/town', async (req, res, next) => {
+  try {
+    const result = await SessionTicketService.issueTownTicket(req.accountId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/verify-session-ticket
+// Verifies a Town Session Ticket.
+router.post('/verify-session-ticket', async (req, res, next) => {
+  try {
+    const { ticket } = req.body;
+    const result = SessionTicketService.verifyTownTicket(ticket);
+    if (!result.valid) {
+      return res.status(401).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/raid/admission-ticket
+// Issues an Authoritative Raid Admission Ticket for the active reservation.
+// Body: { raidCode: string, reservationId: string }
+router.post('/me/raid/admission-ticket', async (req, res, next) => {
+  try {
+    const { raidCode, reservationId } = req.body;
+    const result = await SessionTicketService.issueRaidAdmissionTicket(req.accountId, raidCode, reservationId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/raid/verify-admission
+// Verifies an Authoritative Raid Admission Ticket against expected raidCode.
+// Body: { ticket: string, raidCode: string }
+router.post('/raid/verify-admission', async (req, res, next) => {
+  try {
+    const { ticket, raidCode } = req.body;
+    const result = SessionTicketService.verifyRaidAdmissionTicket(ticket, raidCode);
+    if (!result.valid) {
+      return res.status(401).json(result);
+    }
+    res.json(result);
   } catch (err) {
     next(err);
   }

@@ -9,6 +9,7 @@ namespace Tests.EditMode.Progression
         [TestCase(ExpeditionExperienceResolutionOutcome.Defeated, 2_000, 20)]
         [TestCase(ExpeditionExperienceResolutionOutcome.Abandoned, 0, 0)]
         [TestCase(ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected, 0, 0)]
+        [TestCase(ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected, 0, 0)]
         public void InitialPolicy_ResolvesEveryDefinitiveOutcome(
             ExpeditionExperienceResolutionOutcome outcome,
             int expectedBasisPoints,
@@ -27,6 +28,23 @@ namespace Tests.EditMode.Progression
                 snapshot,
                 expectedBasisPoints,
                 expectedConsolidatedExperience);
+        }
+
+        [Test]
+        public void DefeatedWhileDisconnected_AwardsZeroRetentionAndExperience()
+        {
+            var snapshot = new ExpeditionExperienceSnapshot(500, 300, 200, 100);
+            ExpeditionExperienceResolution resolution = Resolve(
+                snapshot,
+                ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected,
+                ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy);
+
+            AssertResolution(
+                resolution,
+                ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected,
+                snapshot,
+                expectedBasisPoints: 0,
+                expectedConsolidatedExperience: 0);
         }
 
         [Test]
@@ -183,18 +201,19 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
-        public void OutcomeEnum_ContainsOnlyFourDefinitiveResults()
+        public void OutcomeEnum_ContainsOnlyDefinitiveResults()
         {
             Array values = Enum.GetValues(typeof(ExpeditionExperienceResolutionOutcome));
 
-            Assert.That(values.Length, Is.EqualTo(4));
+            Assert.That(values.Length, Is.EqualTo(5));
             CollectionAssert.AreEquivalent(
                 new[]
                 {
                     ExpeditionExperienceResolutionOutcome.Extracted,
                     ExpeditionExperienceResolutionOutcome.Defeated,
                     ExpeditionExperienceResolutionOutcome.Abandoned,
-                    ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected
+                    ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected,
+                    ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected
                 },
                 values);
         }

@@ -267,4 +267,37 @@ test('RaidResultService.publishHostResult (US-58 / SEC-58.2)', async (t) => {
     assert.equal(res.status, 'published');
     assert.equal(res.alreadyPublished, true);
   });
+
+  await t.test('Rejects with 404 CHARACTER_NOT_FOUND when targetCharacterId does not exist instead of falling back to callerAccountId', async () => {
+    const Character = require('../src/models/Character');
+    const origFindById = Character.findById;
+    Character.findById = async () => null;
+    try {
+      const missingCharId = '507f1f77bcf86cd799439099';
+      const payload = {
+        raidId,
+        resultId: `${raidId}:${missingCharId}:1`,
+        resultSequence: 1,
+        targetCharacterId: missingCharId,
+        items: [{ lootId: 'gold', amount: 10 }],
+        experienceGranted: 10,
+        issuedAt
+      };
+      payload.hostSignature = signPayload({
+        ...payload,
+        targetAccountId: missingCharId
+      });
+
+      await assert.rejects(
+        () => RaidResultService.publishHostResult(accountId, payload),
+        err => {
+          assert.equal(err.statusCode, 404);
+          assert.equal(err.errorCode, 'CHARACTER_NOT_FOUND');
+          return true;
+        }
+      );
+    } finally {
+      Character.findById = origFindById;
+    }
+  });
 });

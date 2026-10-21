@@ -12,6 +12,8 @@ public sealed class LocalPlayerJoinContext : MonoBehaviour
     public PlayerJoinData JoinData { get; private set; }
     public RaidAdmissionData RaidAdmission { get; private set; }
     public bool HasRaidAdmission { get; private set; }
+    public AuthoritativeRaidAdmissionTicket AuthoritativeAdmissionTicket { get; private set; }
+    public bool HasAuthoritativeAdmissionTicket => AuthoritativeAdmissionTicket.IsValid;
 
     /// <summary>
     /// Inicializa el contexto local con los datos provistos.
@@ -21,12 +23,17 @@ public sealed class LocalPlayerJoinContext : MonoBehaviour
         JoinData = joinData;
         RaidAdmission = default;
         HasRaidAdmission = false;
+        AuthoritativeAdmissionTicket = default;
     }
 
-    public void Initialize(in PlayerJoinData joinData, in RaidAdmissionData raidAdmission)
+    public void Initialize(
+        in PlayerJoinData joinData,
+        in RaidAdmissionData raidAdmission,
+        in AuthoritativeRaidAdmissionTicket authoritativeAdmissionTicket = default)
     {
         JoinData = joinData;
         RaidAdmission = raidAdmission;
         HasRaidAdmission = raidAdmission.IsValid;
+        AuthoritativeAdmissionTicket = authoritativeAdmissionTicket;
     }
 }

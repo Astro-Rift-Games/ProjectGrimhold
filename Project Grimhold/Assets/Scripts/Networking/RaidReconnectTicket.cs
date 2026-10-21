@@ -3,7 +3,7 @@ using System;
 /// <summary>
 /// Process-local, in-memory ticket representing an eligible raid reconnection opportunity.
 /// Discarded on successful reconnection, explicit refusal, or application quit.
-/// Contains strictly identity values without loadout or progression baselines.
+/// Contains strictly identity and reservation continuity values without loadout or progression baselines.
 /// </summary>
 public readonly struct RaidReconnectTicket : IEquatable<RaidReconnectTicket>
 {
@@ -11,6 +11,7 @@ public readonly struct RaidReconnectTicket : IEquatable<RaidReconnectTicket>
     public ProfileId ProfileId { get; }
     public string RaidGenerationId { get; }
     public string SessionName { get; }
+    public string ReservationId { get; }
     public DateTime CreatedAtUtc { get; }
 
     public bool IsValid =>
@@ -23,8 +24,9 @@ public readonly struct RaidReconnectTicket : IEquatable<RaidReconnectTicket>
         RaidCode raidCode,
         ProfileId profileId,
         string raidGenerationId,
-        string sessionName)
-        : this(raidCode, profileId, raidGenerationId, sessionName, DateTime.UtcNow)
+        string sessionName,
+        string reservationId = null)
+        : this(raidCode, profileId, raidGenerationId, sessionName, reservationId, DateTime.UtcNow)
     {
     }
 
@@ -33,18 +35,20 @@ public readonly struct RaidReconnectTicket : IEquatable<RaidReconnectTicket>
         ProfileId profileId,
         string raidGenerationId,
         string sessionName,
+        string reservationId,
         DateTime createdAtUtc)
     {
         RaidCode = raidCode;
         ProfileId = profileId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
         SessionName = sessionName ?? string.Empty;
+        ReservationId = reservationId ?? string.Empty;
         CreatedAtUtc = createdAtUtc;
     }
 
     public RaidReconnectPayload ToPayload()
     {
-        return new RaidReconnectPayload(RaidCode, ProfileId, RaidGenerationId);
+        return new RaidReconnectPayload(RaidCode, ProfileId, RaidGenerationId, ReservationId);
     }
 
     public bool Equals(RaidReconnectTicket other)
@@ -52,7 +56,8 @@ public readonly struct RaidReconnectTicket : IEquatable<RaidReconnectTicket>
         return RaidCode == other.RaidCode &&
                ProfileId == other.ProfileId &&
                string.Equals(RaidGenerationId, other.RaidGenerationId, StringComparison.Ordinal) &&
-               string.Equals(SessionName, other.SessionName, StringComparison.Ordinal);
+               string.Equals(SessionName, other.SessionName, StringComparison.Ordinal) &&
+               string.Equals(ReservationId, other.ReservationId, StringComparison.Ordinal);
     }
 
     public override bool Equals(object obj)

@@ -106,6 +106,24 @@ direct development route uses the same manifest, reservation, codec and admissio
 path as the Town queue. The coded token carries `RaidCode`; the previous
 `RaidId`/`AccessSecret` token format remains only for legacy frozen manifests.
 
+### Authoritative Identity and Raid Admission (US-59)
+
+To prevent peer identity spoofing in Town and client-declared attribute/inventory fabrication during Raid admission:
+
+1. **Town Identity Protection (SEC-59.2):**
+   - RPC senders in Town (`TownPartyDirectory`, `TownMerchantNetworkController`, `TownRaidPreparationDirectory`) do not blindly trust declared `SocialPlayerIdentity.ProfileId`.
+   - `TownSenderIdentityValidator` validates the sender's authenticated `TownSessionTicket` (`SessionTicketCodec`), checking cryptographic claims, profile ownership, expiration, and session scope (`Lobby-Town`).
+   - Forged, mismatched, or absent tickets result in immediate rejection before any mutation occurs.
+
+2. **Authoritative Raid Admission (SEC-59.3):**
+   - Participants entering a Raid submit an `AuthoritativeRaidAdmissionTicket` issued by the backend (`POST /character/me/raid/admission-ticket`), binding the active `pendingReservation`.
+   - The State Authority / Host validates the ticket via `IRaidAdmissionVerifier` (`BackendRaidAdmissionVerifier` or deterministic test verifier).
+   - Character attributes, level, XP, prepared abilities, items, and equipment are hydrated **exclusively from the backend verified snapshot**, rejecting or overwriting client-fabricated values.
+
+3. **Reconnection and Host Migration Continuity Proof (SEC-59.4):**
+   - Reconnection requests (`RaidReconnectPayload`) must supply the matching `ReservationId` proof corresponding to the retained participant's reservation.
+   - Host Migration resumes preserved snapshots without fresh spawns, preventing avatar hijacking and double reservation consumption.
+
 ## Coded Raid preparation and technical waiting
 
 Create and Join remain in the Town Shared runner. Explicit Create admits only the creator into a new,

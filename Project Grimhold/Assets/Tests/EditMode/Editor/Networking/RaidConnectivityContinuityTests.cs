@@ -61,8 +61,10 @@ public sealed class RaidConnectivityContinuityTests
     [TestCase(RaidParticipantState.Aborted, false, true, true, PlayerDepartureAction.FinalizeAborted)]
     [TestCase(RaidParticipantState.Raiding, false, true, true, PlayerDepartureAction.RetainDisconnected)]
     [TestCase(RaidParticipantState.Raiding, true, true, true, PlayerDepartureAction.RetainDisconnected)]
-    [TestCase(RaidParticipantState.Raiding, false, false, true, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
+    [TestCase(RaidParticipantState.Raiding, false, false, true, PlayerDepartureAction.RetainDisconnected)]
+    [TestCase(RaidParticipantState.Raiding, true, false, true, PlayerDepartureAction.RetainDisconnected)]
     [TestCase(RaidParticipantState.Raiding, false, true, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
+    [TestCase(RaidParticipantState.Raiding, false, false, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
     public void DeparturePolicy_EvaluatesCorrectAction(
         RaidParticipantState state,
         bool avatarIsDowned,

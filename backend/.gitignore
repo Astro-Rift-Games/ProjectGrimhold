@@ -1,4 +1,19 @@
 node_modules/
-.env
 dist/
 *.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Certificates and keys
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Credentials & OAuth tokens
+credentials.json
+token.json
+client_secret*.json

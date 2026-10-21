@@ -19,13 +19,19 @@ const preparedEquipmentSchema = new mongoose.Schema({
   offHand2:    { type: String, default: '' }
 }, { _id: false });
 
+const preparedAbilitiesSchema = new mongoose.Schema({
+  slot1: { type: String, default: '' },
+  slot2: { type: String, default: '' }
+}, { _id: false });
+
 // Embedded schema for the pending raid reservation snapshot.
 // Captures the loadout items and equipment committed at the moment the player
 // queued for a raid. Used to restore state after a disconnection.
 const pendingReservationSchema = new mongoose.Schema({
-  reservationId:    { type: String, required: true },
-  items:            { type: [itemSchema], default: [] },
-  preparedEquipment: { type: preparedEquipmentSchema, default: () => ({}) }
+  reservationId:     { type: String, required: true },
+  items:             { type: [itemSchema], default: [] },
+  preparedEquipment: { type: preparedEquipmentSchema, default: () => ({}) },
+  preparedAbilities: { type: preparedAbilitiesSchema, default: () => ({}) }
 }, { _id: false });
 
 // Embedded schema for a single applied extraction receipt.
@@ -85,6 +91,7 @@ const characterSchema = new mongoose.Schema({
   lastProgressionReceipt:               { type: progressionReceiptSchema, default: null },
   appliedProgressionReceipts:           { type: [progressionReceiptSchema], default: [] },
   characterAttributes:                  { type: characterAttributeStateSchema, default: () => ({}) },
+  preparedAbilities:                    { type: preparedAbilitiesSchema,       default: () => ({}) },
   inventory: {
     currency:           { type: Number, default: 0 },
     stash:              { type: [itemSchema],             default: [] },

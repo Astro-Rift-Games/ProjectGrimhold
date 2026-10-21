@@ -328,7 +328,7 @@ class InventoryService {
    * The reservation captures the loadout state so it can be restored after a disconnection.
    * @throws 404 if no character found.
    */
-  static async savePendingReservation(accountId, reservationId) {
+  static async savePendingReservation(accountId, reservationId, preparedAbilities = null) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -336,28 +336,89 @@ class InventoryService {
 
     normalizeCharacterInventory(character);
 
-    // Idempotency: if already reserved with the same reservationId, return without mutating
+    // Idempotency: if already reserved with the same reservationId, ensure recovery weapon invariant and return
     if (character.inventory.pendingReservation && character.inventory.pendingReservation.reservationId === reservationId) {
+      const existingEq = character.inventory.pendingReservation.preparedEquipment || {};
+      if (!existingEq.weaponSlot1 && !existingEq.weaponSlot2) {
+        existingEq.weaponSlot1 = 'arming_sword';
+        character.inventory.pendingReservation.preparedEquipment = existingEq;
+        if (typeof Character.updateOne === 'function') {
+          await Character.updateOne(
+            { _id: character._id },
+            { $set: { 'inventory.pendingReservation.preparedEquipment.weaponSlot1': 'arming_sword' } }
+          );
+        }
+      }
       return {
         pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
         revision: character.revision || 0
       };
     }
 
+    // If an unconsumed reservation from an aborted/cancelled launch is still pending while active loadout/equipment are empty,
+    // recover its items and equipment before creating the new reservation so items are not lost.
+    const currentEq = character.inventory.preparedEquipment || {};
+    const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
+    if (
+      character.inventory.pendingReservation &&
+      (!character.inventory.loadout || character.inventory.loadout.length === 0) &&
+      !hasActiveEquipment
+    ) {
+      character.inventory.loadout = serializeItems(character.inventory.pendingReservation.items);
+      character.inventory.preparedEquipment = serializePreparedEquipment(character.inventory.pendingReservation.preparedEquipment);
+    }
+
+    // Mirror LocalProfileStore.TryPrepareExpeditionEquipment / TryPrepareRecoveryWeapon:
+    // Guarantee at least one Main Hand weapon ('arming_sword') before creating the reservation,
+    // reusing an owned unit from loadout or stash before granting the recovery weapon.
+    if (!character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
+      const recoveryWeaponId = 'arming_sword';
+      const loadoutIndex = character.inventory.loadout.findIndex(i => i.lootId === recoveryWeaponId && i.amount >= 1);
+      if (loadoutIndex !== -1) {
+        if (character.inventory.loadout[loadoutIndex].amount === 1) {
+          character.inventory.loadout.splice(loadoutIndex, 1);
+        } else {
+          character.inventory.loadout[loadoutIndex].amount -= 1;
+        }
+      } else {
+        const stashIndex = character.inventory.stash.findIndex(i => i.lootId === recoveryWeaponId && i.amount >= 1);
+        if (stashIndex !== -1) {
+          if (character.inventory.stash[stashIndex].amount === 1) {
+            character.inventory.stash.splice(stashIndex, 1);
+          } else {
+            character.inventory.stash[stashIndex].amount -= 1;
+          }
+        }
+      }
+      character.inventory.preparedEquipment.weaponSlot1 = recoveryWeaponId;
+    }
+
     // Derive the reservation from the current persisted loadout and preparedEquipment
     const items = serializeItems(character.inventory.loadout);
     const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment);
 
+    const resolvedAbilities = preparedAbilities && typeof preparedAbilities === 'object'
+      ? {
+          slot1: typeof preparedAbilities.slot1 === 'string' ? preparedAbilities.slot1 : '',
+          slot2: typeof preparedAbilities.slot2 === 'string' ? preparedAbilities.slot2 : ''
+        }
+      : (character.preparedAbilities ? {
+          slot1: character.preparedAbilities.slot1 || '',
+          slot2: character.preparedAbilities.slot2 || ''
+        } : { slot1: '', slot2: '' });
+
     const pendingReservation = {
       reservationId,
       items,
-      preparedEquipment
+      preparedEquipment,
+      preparedAbilities: resolvedAbilities
     };
 
     const updated = await Character.findOneAndUpdate(
       { accountId, revision: character.revision },
       {
         $set: {
+          'inventory.stash': character.inventory.stash,
           'inventory.pendingReservation': pendingReservation,
           'inventory.loadout': [],
           'inventory.preparedEquipment': {}
@@ -378,19 +439,32 @@ class InventoryService {
   }
 
   /**
-   * Clears the pending reservation after a raid completes (success or voluntary exit).
+   * Clears the pending reservation after a raid completes (success or voluntary exit),
+   * or restores reserved items and equipment back to active loadout/preparedEquipment when rolled back.
    * @throws 404 if no character found.
    */
-  static async clearPendingReservation(accountId) {
+  static async clearPendingReservation(accountId, { rollback = false } = {}) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }
 
+    normalizeCharacterInventory(character);
+
+    const setFields = { 'inventory.pendingReservation': null };
+    if (rollback && character.inventory.pendingReservation) {
+      const currentEq = character.inventory.preparedEquipment || {};
+      const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
+      if ((!character.inventory.loadout || character.inventory.loadout.length === 0) && !hasActiveEquipment) {
+        setFields['inventory.loadout'] = serializeItems(character.inventory.pendingReservation.items);
+        setFields['inventory.preparedEquipment'] = serializePreparedEquipment(character.inventory.pendingReservation.preparedEquipment);
+      }
+    }
+
     const updated = await Character.findOneAndUpdate(
       { accountId, revision: character.revision },
       {
-        $set: { 'inventory.pendingReservation': null },
+        $set: setFields,
         $inc: { revision: 1 }
       },
       { new: true }

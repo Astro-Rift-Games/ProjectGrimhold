@@ -57,6 +57,7 @@ public static class ExpeditionExperienceResolutionRules
         ExpeditionExperienceResolutionOutcome.Defeated => true,
         ExpeditionExperienceResolutionOutcome.Abandoned => true,
         ExpeditionExperienceResolutionOutcome.DefinitivelyDisconnected => true,
+        ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected => true,
         _ => false
     };
 }

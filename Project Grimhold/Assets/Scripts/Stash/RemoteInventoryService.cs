@@ -56,12 +56,16 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             };
 
             var (success, result, error) = await ProgressionClient.CommitProgressionAsync(_backendConfig, AuthToken, request);
-            
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
+
             if (success && _store != null)
             {
                 _store.SetRemoteRevision(result.revision);
             }
-            
+
             return (success, result.characterAttributes, error);
         }
         finally
@@ -86,6 +90,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
         {
             int expectedRevision = _store?.RemoteRevision ?? 0;
             var (success, result, error) = await InventoryClient.MoveToLoadoutAsync(_backendConfig, AuthToken, lootId.Value, amount, expectedRevision);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
             if (success && _store != null)
             {
                 _store.SetRemoteRevision(result.revision);
@@ -114,6 +122,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
         {
             int expectedRevision = _store?.RemoteRevision ?? 0;
             var (success, result, error) = await InventoryClient.MoveToStashAsync(_backendConfig, AuthToken, lootId.Value, amount, expectedRevision);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
             if (success && _store != null)
             {
                 _store.SetRemoteRevision(result.revision);
@@ -154,6 +166,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             };
 
             var (success, result, error) = await InventoryClient.UpdatePreparedEquipmentAsync(_backendConfig, AuthToken, request, expectedRevision);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
             if (success && _store != null)
             {
                 _store.SetRemoteRevision(result.revision);
@@ -188,6 +204,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
                 };
 
                 var (success, result, error) = await InventoryClient.SavePendingReservationAsync(_backendConfig, AuthToken, request);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
                 if (success && _store != null)
                 {
                     _store.SetRemoteRevision(result.revision);
@@ -218,6 +238,44 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             try
             {
                 var (success, result, error) = await InventoryClient.ClearPendingReservationAsync(_backendConfig, AuthToken);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
+                if (success && _store != null)
+                {
+                    _store.SetRemoteRevision(result.revision);
+                }
+                return (success, error);
+            }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Rolls back the active raid reservation on the backend, restoring reserved items and equipment.
+    /// </summary>
+    public Task<(bool success, BackendError error)> RollbackPendingReservationAsync()
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] RollbackPendingReservationAsync: Not authenticated.");
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
+        }
+
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
+        {
+            await _mutationLock.WaitAsync();
+            try
+            {
+                var (success, result, error) = await InventoryClient.RollbackPendingReservationAsync(_backendConfig, AuthToken);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
                 if (success && _store != null)
                 {
                     _store.SetRemoteRevision(result.revision);
@@ -253,6 +311,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
         };
 
         var (success, result, error) = await InventoryClient.CommitExtractionAsync(_backendConfig, AuthToken, request);
+        if (!success && error.error == BackendErrorUtility.Unauthorized)
+        {
+            ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+        }
 
         if (success && result.alreadySecured)
         {
@@ -305,6 +367,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
                 };
 
                 var (success, result, error) = await InventoryClient.CommitExtractionUnifiedAsync(_backendConfig, AuthToken, request);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
 
                 if (success && _store != null)
                 {
@@ -380,6 +446,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
         return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
         {
             var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
             return (success, error);
         });
     }

@@ -5,17 +5,20 @@ public sealed class ExpeditionExperienceRetentionPolicy
     public int DefeatedBasisPoints { get; }
     public int AbandonedBasisPoints { get; }
     public int DefinitivelyDisconnectedBasisPoints { get; }
+    public int DefeatedWhileDisconnectedBasisPoints { get; }
 
     private ExpeditionExperienceRetentionPolicy(
         int extractedBasisPoints,
         int defeatedBasisPoints,
         int abandonedBasisPoints,
-        int definitivelyDisconnectedBasisPoints)
+        int definitivelyDisconnectedBasisPoints,
+        int defeatedWhileDisconnectedBasisPoints)
     {
         ExtractedBasisPoints = extractedBasisPoints;
         DefeatedBasisPoints = defeatedBasisPoints;
         AbandonedBasisPoints = abandonedBasisPoints;
         DefinitivelyDisconnectedBasisPoints = definitivelyDisconnectedBasisPoints;
+        DefeatedWhileDisconnectedBasisPoints = defeatedWhileDisconnectedBasisPoints;
     }
 
     public static bool TryCreate(
@@ -25,11 +28,29 @@ public sealed class ExpeditionExperienceRetentionPolicy
         int definitivelyDisconnectedBasisPoints,
         out ExpeditionExperienceRetentionPolicy policy)
     {
+        return TryCreate(
+            extractedBasisPoints,
+            defeatedBasisPoints,
+            abandonedBasisPoints,
+            definitivelyDisconnectedBasisPoints,
+            defeatedWhileDisconnectedBasisPoints: 0,
+            out policy);
+    }
+
+    public static bool TryCreate(
+        int extractedBasisPoints,
+        int defeatedBasisPoints,
+        int abandonedBasisPoints,
+        int definitivelyDisconnectedBasisPoints,
+        int defeatedWhileDisconnectedBasisPoints,
+        out ExpeditionExperienceRetentionPolicy policy)
+    {
         policy = null;
         if (!IsValidPercentage(extractedBasisPoints) ||
             !IsValidPercentage(defeatedBasisPoints) ||
             !IsValidPercentage(abandonedBasisPoints) ||
-            !IsValidPercentage(definitivelyDisconnectedBasisPoints))
+            !IsValidPercentage(definitivelyDisconnectedBasisPoints) ||
+            !IsValidPercentage(defeatedWhileDisconnectedBasisPoints))
         {
             return false;
         }
@@ -38,7 +59,8 @@ public sealed class ExpeditionExperienceRetentionPolicy
             extractedBasisPoints,
             defeatedBasisPoints,
             abandonedBasisPoints,
-            definitivelyDisconnectedBasisPoints);
+            definitivelyDisconnectedBasisPoints,
+            defeatedWhileDisconnectedBasisPoints);
         return true;
     }
 
@@ -47,6 +69,7 @@ public sealed class ExpeditionExperienceRetentionPolicy
         ExpeditionExperienceResolutionOutcome.Extracted => ExtractedBasisPoints,
         ExpeditionExperienceResolutionOutcome.Defeated => DefeatedBasisPoints,
         ExpeditionExperienceResolutionOutcome.Abandoned => AbandonedBasisPoints,
+        ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected => DefeatedWhileDisconnectedBasisPoints,
         _ => DefinitivelyDisconnectedBasisPoints
     };
 

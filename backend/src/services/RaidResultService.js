@@ -61,19 +61,8 @@ class RaidResultService {
     } = payload;
 
     let recipientAccountId = targetAccountId || bodyAccountId;
-    let characterId = targetCharacterId;
-    if (!recipientAccountId && targetCharacterId) {
-      const Character = require('../models/Character');
-      const charDoc = await Character.findById(targetCharacterId);
-      if (charDoc) {
-        recipientAccountId = charDoc.accountId.toString();
-      }
-    }
-    if (!recipientAccountId) {
-      recipientAccountId = callerAccountId;
-    }
-
-    const targetIdentifier = targetAccountId || bodyAccountId || targetCharacterId || recipientAccountId;
+    const characterId = targetCharacterId;
+    const targetIdentifier = targetAccountId || bodyAccountId || targetCharacterId || callerAccountId;
     const effectiveResultId = resultId || (resultSequence !== undefined ? `${raidId}:${targetIdentifier}:${resultSequence}` : `${raidId}:${targetIdentifier}`);
 
     if (!raidId || !effectiveResultId || !hostSignature) {
@@ -114,6 +103,38 @@ class RaidResultService {
         errorCode: 'INVALID_HOST_SIGNATURE',
         message: 'The host signature is invalid or the payload has been tampered with.',
       };
+    }
+
+    if (issuedAt !== undefined && issuedAt !== null && issuedAt !== '') {
+      const parsedIssuedAt = new Date(issuedAt);
+      if (Number.isNaN(parsedIssuedAt.getTime())) {
+        throw {
+          statusCode: 400,
+          errorCode: 'INVALID_RESULT_PAYLOAD',
+          message: 'Invalid issuedAt timestamp.',
+        };
+      }
+    }
+
+    if (!recipientAccountId && targetCharacterId) {
+      const Character = require('../models/Character');
+      let charDoc = null;
+      try {
+        charDoc = await Character.findById(targetCharacterId);
+      } catch {
+        charDoc = null;
+      }
+      if (!charDoc) {
+        throw {
+          statusCode: 404,
+          errorCode: 'CHARACTER_NOT_FOUND',
+          message: 'Target character for extraction result was not found.',
+        };
+      }
+      recipientAccountId = charDoc.accountId.toString();
+    }
+    if (!recipientAccountId) {
+      recipientAccountId = callerAccountId;
     }
 
     // Check for existing result (immutability and conflict prevention)

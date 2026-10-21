@@ -1,32 +1,39 @@
-﻿// src/middleware/errorHandler.js
+// src/middleware/errorHandler.js
 
 // Centralized error handling middleware.
 // Ensures all errors sent to the client follow a standard JSON structure.
-// Express requires the signature (err, req, res, next) for error handlers.
+// Sanitizes unexpected 500 errors to prevent leaking raw DB errors, internals or stack traces.
 function errorHandler(err, req, res, next) {
   // If headers were already sent, we must delegate to the default Express handler
   if (res.headersSent) {
     return next(err);
   }
 
-  const statusCode = err.statusCode || 500;
-  
-  // Format standard response
+  const statusCode = typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
+    ? err.statusCode
+    : 500;
+
+  // Log 500s or unexpected server errors internally, and respond with a sanitized payload
+  if (statusCode >= 500) {
+    console.error('[Error] Unhandled Exception (HTTP 500):', err);
+    return res.status(statusCode).json({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'An unexpected error occurred.'
+    });
+  }
+
+  // Format domain response (4xx)
   const response = {
-    error: err.errorCode || 'INTERNAL_SERVER_ERROR',
-    message: err.message || 'An unexpected error occurred.',
+    error: err.errorCode || 'BAD_REQUEST',
+    message: err.message || 'Invalid request.',
   };
 
   if (err.details) {
     response.details = err.details;
   }
 
-  // Log 500s or unknown errors for debugging, but hide sensitive stack traces from client
-  if (statusCode === 500) {
-    console.error('[Error] Unhandled Exception:', err);
-  }
-
-  res.status(statusCode).json(response);
+  return res.status(statusCode).json(response);
 }
 
 module.exports = errorHandler;
+

@@ -103,12 +103,12 @@ router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async
 
 // POST /character/me/inventory/reservation
 // Persists a raid reservation snapshot to survive disconnection.
-// Body: { reservationId: string }
+// Body: { reservationId: string, preparedAbilities?: { slot1?: string, slot2?: string } }
 router.post('/me/inventory/reservation', pendingReservationValidator, async (req, res, next) => {
   try {
-    const { reservationId } = req.body;
+    const { reservationId, preparedAbilities } = req.body;
     const result = await InventoryService.savePendingReservation(
-      req.accountId, reservationId
+      req.accountId, reservationId, preparedAbilities
     );
     res.status(201).json(result);
   } catch (err) {
@@ -117,10 +117,11 @@ router.post('/me/inventory/reservation', pendingReservationValidator, async (req
 });
 
 // DELETE /character/me/inventory/reservation
-// Clears the pending reservation once a raid completes or the player exits voluntarily.
+// Clears the pending reservation once a raid completes or restores items/equipment when rolled back (?rollback=true).
 router.delete('/me/inventory/reservation', async (req, res, next) => {
   try {
-    const result = await InventoryService.clearPendingReservation(req.accountId);
+    const rollback = req.query.rollback === 'true' || req.body?.rollback === true;
+    const result = await InventoryService.clearPendingReservation(req.accountId, { rollback });
     res.json(result);
   } catch (err) {
     next(err);
@@ -133,8 +134,8 @@ router.delete('/me/inventory/reservation', async (req, res, next) => {
 // Body: { raidId: string, resultSequence: number, items: [{ lootId, amount }] }
 router.post('/me/inventory/extraction', commitExtractionValidator, async (req, res, next) => {
   try {
-    if (env.nodeEnv === 'production') {
-      return res.status(404).json({ message: 'Legacy extraction endpoint is disabled in production.' });
+    if (env.nodeEnv === 'production' || !env.enableLegacyExtraction) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Legacy extraction endpoint is disabled or not found.' });
     }
     const { raidId, resultSequence, items } = req.body;
     const result = await InventoryService.commitExtraction(
@@ -175,8 +176,8 @@ const AuthoritativeExtractionResult = require('../models/AuthoritativeExtraction
 
 router.post('/debug/mock-fusion-result', async (req, res, next) => {
   try {
-    if (env.nodeEnv === 'production') {
-      return res.status(404).json({ message: 'Mock endpoint is disabled in production. This endpoint is necessary in dev/staging because there is no dedicated Fusion server yet.' });
+    if (env.nodeEnv === 'production' || !env.enableDebugRoutes) {
+      return res.status(404).json({ error: 'NOT_FOUND', message: 'Mock endpoint is disabled or not found.' });
     }
     const { raidId, items, experienceGranted, preparedEquipment } = req.body;
     
