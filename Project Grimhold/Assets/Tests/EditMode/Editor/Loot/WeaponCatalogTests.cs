@@ -109,8 +109,13 @@ namespace Tests.EditMode.Loot
                 Assert.That(definition.Rarity, Is.EqualTo(LootRarity.Common), id);
                 Assert.That(AssetDatabase.GetAssetPath(definition.Icon), Does.StartWith(WeaponArtRoot), id);
                 Assert.That(AssetDatabase.GetAssetPath(definition.WorldSprite), Does.StartWith(WeaponArtRoot), id);
-                Assert.That(definition.Icon.name, Does.EndWith("_0"), id);
-                Assert.That(definition.WorldSprite.name, Does.EndWith("_0"), id);
+                string spritePath = AssetDatabase.GetAssetPath(definition.Icon);
+                var importer = AssetImporter.GetAtPath(spritePath) as TextureImporter;
+                Assert.That(importer, Is.Not.Null, id);
+                Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single), id);
+                Assert.That(definition.Icon,
+                    Is.SameAs(AssetDatabase.LoadAssetAtPath<Sprite>(spritePath)), id);
+                Assert.That(definition.WorldSprite, Is.SameAs(definition.Icon), id);
             }
 
             foreach (string legacyId in LegacyIds)
