@@ -18,8 +18,12 @@ namespace Tests.PlayMode.Extraction
         private static readonly ProfileId TestProfileId =
             new("33333333333333333333333333333333");
         private static readonly RaidParticipantId TestParticipantId = CreateTestParticipantId();
+        private static readonly ProfileId FirstTeamProfile = new("11111111111111111111111111111111");
+        private static readonly ProfileId SecondTeamProfile = new("22222222222222222222222222222222");
 
-        private const string PlayerGuid = "982f360e5acbdd344a8a75bbc0af94ec";
+        private const string PlayerGuid = "fea3a7b256f965a4eb9b965832939741";
+        private const string MatchControllerGuid = "b91f8c7e96a4d784a92c3bd1a88dfec8";
+        private const string ParticipantGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string EnemyMeleeGuid = "5deca87613df0fa409d98702aec643d4";
         private const string EnemyRangedGuid = "6f7ab2fe6d6193a4ea17a843ff58f94b";
         private const string ContainerGuid = "2c19a78647c64b84a765ff0280706b7d";
@@ -29,6 +33,7 @@ namespace Tests.PlayMode.Extraction
 
         private NetworkRunner _runner;
         private ExtractionProgressSimulationDriver _driver;
+        private RaidLaunchContext _launch;
         private Scene _ownedGameplayScene;
         private bool _previousIgnoreFailingMessages;
         private readonly List<ExtractionConfig> _ritualTestConfigs = new();
@@ -38,6 +43,7 @@ namespace Tests.PlayMode.Extraction
 
         private static readonly FieldInfo RitualDurationField =
             typeof(ExtractionConfig).GetField("_ritualDurationSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
+
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -70,6 +76,101 @@ namespace Tests.PlayMode.Extraction
 
             Assert.That(startTask.IsFaulted, Is.False, startTask.Exception?.ToString());
             Assert.That(startTask.Result.Ok, Is.True, startTask.Result.ShutdownReason.ToString());
+        }
+
+        /// <summary>
+        /// Composes the authoritative team pool hosted by <see cref="NetworkMatchController"/>. Only
+        /// progress tests compose it: the manager would also react to the Gameplay scene load.
+        /// </summary>
+        private IEnumerator ComposeTeamProgress(RaidLaunchContext launch = null)
+        {
+            _launch = launch;
+            Assert.That(_runner.gameObject.AddComponent<NetworkSpawnManager>().InitializeForRunner(_runner,
+                default, default, Array.Empty<NetworkPrefabRef>(), SessionStartupContext.FreshSession, launch), Is.True);
+            TeamExtractionProgress teamProgress =
+                Spawn(MatchControllerGuid, Vector3.zero).GetComponent<TeamExtractionProgress>();
+
+            // Without a launch roster the pool initializes the fallback solo team on its first tick.
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId firstTeam), Is.True);
+            yield return Execute(_ => { });
+            Assert.That(teamProgress.IsAssignedToTeam(firstTeam), Is.True);
+            Assert.That(_runner.GetComponent<EntityRegistry>().TryGetTeamExtractionProgress(
+                out ITeamExtractionProgress registered), Is.True);
+            Assert.That(registered, Is.SameAs(teamProgress));
+        }
+
+        /// <summary>Freezes two solo teams: <see cref="FirstTeamProfile"/> in Team 1 and <see cref="SecondTeamProfile"/> in Team 2.</summary>
+        private static RaidLaunchContext CreateTwoTeamLaunch()
+        {
+            Assert.That(RaidCode.TryParse("123456", out RaidCode code), Is.True);
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId firstTeam), Is.True);
+            Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId secondTeam), Is.True);
+            var roster = new[]
+            {
+                new RaidLaunchParticipant(FirstTeamProfile, firstTeam),
+                new RaidLaunchParticipant(SecondTeamProfile, secondTeam)
+            };
+            Assert.That(RaidLaunchContext.TryCreate(
+                code, FirstTeamProfile, roster, FirstTeamProfile, 1, out RaidLaunchContext launch), Is.True);
+            return launch;
+        }
+
+        /// <summary>Spawns the avatar of a frozen launch participant so team resolution reads its affiliation.</summary>
+        private NetworkObject SpawnAffiliatedPlayer(ProfileId profileId, Vector3 position)
+        {
+            Assert.That(_launch, Is.Not.Null, "Compose the launch roster before spawning affiliated players.");
+            var profiles = new ProfileId[_launch.Participants.Count];
+            for (int i = 0; i < profiles.Length; i++)
+            {
+                profiles[i] = _launch.Participants[i].ProfileId;
+            }
+
+            Assert.That(RaidParticipantIdAssignment.TryResolve(
+                profiles, profileId, out RaidParticipantId participantId), Is.True);
+            NetworkObject participantObject = _runner.Spawn(
+                Load(ParticipantGuid),
+                position,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<NetworkRaidParticipant>().Initialize(
+                        profileId.Value,
+                        participantId,
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel,
+                        0,
+                        "us13-generation"));
+            // Ritual continuation counts the team's Raiding members through the manager's tracked roster.
+            _runner.GetComponent<NetworkSpawnManager>().Test_RegisterParticipant(
+                PlayerRef.FromEncoded(participantId.Value), participantObject);
+            NetworkObject avatar = _runner.Spawn(
+                Load(PlayerGuid),
+                position,
+                Quaternion.identity,
+                inputAuthority: null,
+                onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
+            Assert.That(participantObject.GetComponent<NetworkRaidParticipant>().TrySetCurrentAvatar(avatar), Is.True);
+            return avatar;
+        }
+
+        /// <summary>
+        /// A fatal hit leaves an avatar Downed and still alive; damage that depletes its reserve is
+        /// the definitive Defeat (GD 06 and DownedAndReviveArchitecture T1/T4).
+        /// </summary>
+        private IEnumerator DefeatDefinitively(NetworkObject avatar, Func<NetworkRunner, DamageResult> hit)
+        {
+            PlayerCharacter character = avatar.GetComponent<PlayerCharacter>();
+            DamageResult downed = default;
+            yield return Execute(runner => downed = hit(runner));
+            Assert.That(downed.IsApplied, Is.True);
+            Assert.That(PlayerDownedGate.IsDowned(character), Is.True, "A fatal hit must leave the avatar Downed.");
+            Assert.That(character.IsAlive, Is.True);
+
+            DamageResult defeated = default;
+            yield return Execute(runner => defeated = hit(runner));
+            Assert.That(defeated.IsApplied && defeated.IsFatal, Is.True);
+            Assert.That(character.IsAlive, Is.False);
         }
 
         [UnityTearDown]
@@ -122,8 +223,10 @@ namespace Tests.PlayMode.Extraction
         }
 
         [UnityTest]
-        public IEnumerator IndividualProgress_AllowsSameTickContributionsSaturatesAndResetsOnNewInstance()
+        public IEnumerator TeamProgress_AllowsSameTickContributionsSaturatesAndPersistsAcrossAvatars()
         {
+            yield return ComposeTeamProgress();
+            SpawnSanctuary(Vector3.left * 4f);
             NetworkObject player = Spawn(PlayerGuid, Vector3.zero);
             PlayerExtractionProgressController progress = player.GetComponent<PlayerExtractionProgressController>();
 
@@ -138,57 +241,54 @@ namespace Tests.PlayMode.Extraction
             Assert.That(progress.CurrentProgress, Is.EqualTo(15));
             Assert.That((bool)progress.AssignmentRequested, Is.False);
 
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "ExtractionSanctuaryAssignmentService configuration failure: NoSanctuariesConfigured.");
+            // Expedition progress is owned by the team (GD 06), so another avatar of the same team
+            // observes the shared pool instead of starting from zero.
+            NetworkObject teammate = Spawn(PlayerGuid, Vector3.right * 2f);
+            PlayerExtractionProgressController teammateProgress =
+                teammate.GetComponent<PlayerExtractionProgressController>();
+            Assert.That(teammateProgress.CurrentProgress, Is.EqualTo(15));
+
+            PlayerCharacter teammateCharacter = teammate.GetComponent<PlayerCharacter>();
+            yield return DefeatDefinitively(teammate, runner => teammateCharacter.ApplyDamage(new DamageRequest(
+                new EntityId(900),
+                teammateCharacter.Id,
+                1000f,
+                DamageType.TrueDamage,
+                Vector2.down,
+                teammate.transform.position,
+                runner.Tick)));
+            bool acceptedAfterDefeat = true;
+            yield return Execute(runner => acceptedAfterDefeat = teammateProgress.TryApplyContribution(
+                new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat,
+                    new EntityId(901),
+                    10,
+                    runner.Tick)));
+            Assert.That(acceptedAfterDefeat, Is.False);
+            Assert.That(progress.CurrentProgress, Is.EqualTo(15));
+
             yield return Execute(runner => progress.TryApplyContribution(new ExtractionProgressContribution(
                 ExtractionProgressSourceType.LootFirstAcquisition, new EntityId(503), long.MaxValue, runner.Tick)));
-            Assert.That(progress.CurrentProgress, Is.EqualTo(100));
+            Assert.That(progress.CurrentProgress, Is.EqualTo(progress.Quota));
+            Assert.That(progress.Quota, Is.EqualTo(100));
             Assert.That((bool)progress.AssignmentRequested, Is.True);
-
-            _runner.Despawn(player);
-            NetworkObject replacement = Spawn(PlayerGuid, Vector3.right * 2f);
-            PlayerExtractionProgressController replacementProgress =
-                replacement.GetComponent<PlayerExtractionProgressController>();
-            Assert.That(replacementProgress.CurrentProgress, Is.Zero);
-            Assert.That((bool)replacementProgress.AssignmentRequested, Is.False);
-
-            DamageResult defeatResult = default;
-            bool acceptedAfterDefeat = true;
-            yield return Execute(runner =>
-            {
-                PlayerCharacter replacementCharacter = replacement.GetComponent<PlayerCharacter>();
-                defeatResult = replacementCharacter.ApplyDamage(new DamageRequest(
-                    new EntityId(900),
-                    replacementCharacter.Id,
-                    1000f,
-                    DamageType.TrueDamage,
-                    Vector2.down,
-                    replacement.transform.position,
-                    runner.Tick));
-                acceptedAfterDefeat = replacementProgress.TryApplyContribution(
-                    new ExtractionProgressContribution(
-                        ExtractionProgressSourceType.Defeat,
-                        new EntityId(901),
-                        10,
-                        runner.Tick));
-            });
-
-            Assert.That(defeatResult.IsApplied && defeatResult.IsFatal, Is.True);
-            Assert.That(acceptedAfterDefeat, Is.False);
-            Assert.That(replacementProgress.CurrentProgress, Is.Zero);
         }
 
         [UnityTest]
         public IEnumerator QuotaCompletion_AssignsDistinctSanctuariesAndRepeatedRequestIsIdempotent()
         {
+            yield return ComposeTeamProgress(CreateTwoTeamLaunch());
             NetworkObject firstSanctuary = SpawnSanctuary(Vector3.left * 4f);
             NetworkObject secondSanctuary = SpawnSanctuary(Vector3.right * 4f);
-            NetworkObject firstPlayer = Spawn(PlayerGuid, Vector3.zero);
-            NetworkObject secondPlayer = Spawn(PlayerGuid, Vector3.up * 2f);
+            NetworkObject firstPlayer = SpawnAffiliatedPlayer(FirstTeamProfile, Vector3.zero);
+            NetworkObject secondPlayer = SpawnAffiliatedPlayer(SecondTeamProfile, Vector3.up * 2f);
             PlayerExtractionProgressController firstProgress =
                 firstPlayer.GetComponent<PlayerExtractionProgressController>();
             PlayerExtractionProgressController secondProgress =
                 secondPlayer.GetComponent<PlayerExtractionProgressController>();
+            Assert.That(firstProgress.TryGetTeamId(out RaidTeamId firstTeam), Is.True);
+            Assert.That(secondProgress.TryGetTeamId(out RaidTeamId secondTeam), Is.True);
+            Assert.That(firstTeam, Is.Not.EqualTo(secondTeam));
             ExtractionSanctuaryAssignmentService service =
                 _runner.GetComponent<ExtractionSanctuaryAssignmentService>();
 
@@ -206,8 +306,8 @@ namespace Tests.PlayMode.Extraction
                     runner.Tick)), Is.True);
             });
 
-            SanctuaryAssignmentResult first = service.TryGetAssignment(firstProgress.Id);
-            SanctuaryAssignmentResult second = service.TryGetAssignment(secondProgress.Id);
+            SanctuaryAssignmentResult first = service.TryGetAssignment(firstTeam);
+            SanctuaryAssignmentResult second = service.TryGetAssignment(secondTeam);
             Assert.That(first.Success, Is.True);
             Assert.That(second.Success, Is.True);
             Assert.That(first.SanctuaryId, Is.Not.EqualTo(second.SanctuaryId));
@@ -226,7 +326,7 @@ namespace Tests.PlayMode.Extraction
                     Vector2.zero,
                     character.transform.position,
                     runner.Tick));
-                repeated = service.TryAssign(firstProgress.Id);
+                repeated = service.TryAssign(firstTeam);
             });
 
             Assert.That(repeated.Success, Is.True);
@@ -237,6 +337,7 @@ namespace Tests.PlayMode.Extraction
         [UnityTest]
         public IEnumerator QuotaCompletion_WithoutSanctuariesPreservesProgressWithoutPartialAssignment()
         {
+            yield return ComposeTeamProgress();
             NetworkObject player = Spawn(PlayerGuid, Vector3.zero);
             PlayerExtractionProgressController progress = player.GetComponent<PlayerExtractionProgressController>();
             ExtractionSanctuaryAssignmentService service =
@@ -261,6 +362,7 @@ namespace Tests.PlayMode.Extraction
             Assert.That(result.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.NoSanctuariesConfigured));
             Assert.That(service.TryGetAssignment(progress.Id).FailureReason,
                 Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
+
         }
 
         [UnityTest]
@@ -310,6 +412,7 @@ namespace Tests.PlayMode.Extraction
         [UnityTest]
         public IEnumerator FatalDamage_AwardsConfiguredMeleeRangedAndPlayerRewardsOnlyOnce()
         {
+            yield return ComposeTeamProgress();
             NetworkObject attacker = Spawn(PlayerGuid, Vector3.zero);
             NetworkObject melee = Spawn(EnemyMeleeGuid, Vector3.right * 2f);
             NetworkObject ranged = Spawn(EnemyRangedGuid, Vector3.right * 4f);
@@ -331,14 +434,23 @@ namespace Tests.PlayMode.Extraction
             yield return Execute(runner => resolver.Resolve(FatalRequest(attacker, melee, runner.Tick)));
             Assert.That(progress.CurrentProgress, Is.EqualTo(25));
 
+            // An enemy player grants PvP progress only at definitive Defeat, never while Downed (GD 06).
             NetworkObject victim = Spawn(PlayerGuid, Vector3.left * 3f);
+            DamageResult downed = default;
+            yield return Execute(runner => downed = resolver.Resolve(FatalRequest(attacker, victim, runner.Tick)));
+            Assert.That(downed.IsApplied, Is.True);
+            Assert.That(PlayerDownedGate.IsDowned(victim.GetComponent<PlayerCharacter>()), Is.True);
+            Assert.That(progress.CurrentProgress, Is.EqualTo(25));
+
             yield return Execute(runner => resolver.Resolve(FatalRequest(attacker, victim, runner.Tick)));
+            Assert.That(victim.GetComponent<PlayerCharacter>().IsAlive, Is.False);
             Assert.That(progress.CurrentProgress, Is.EqualTo(55));
         }
 
         [UnityTest]
         public IEnumerator Containers_ResolveFirstOpenAndMixedProvenanceWithoutDuplication()
         {
+            yield return ComposeTeamProgress();
             NetworkObject player = Spawn(PlayerGuid, Vector3.zero);
             PlayerExtractionProgressController progress = player.GetComponent<PlayerExtractionProgressController>();
             PlayerLootReceiver inventory = player.GetComponent<PlayerLootReceiver>();
@@ -422,29 +534,36 @@ namespace Tests.PlayMode.Extraction
         [UnityTest]
         public IEnumerator Pickups_AwardNaturalUnitsAndNeverAwardCreditedDrops()
         {
+            yield return ComposeTeamProgress();
             NetworkObject player = Spawn(PlayerGuid, Vector3.zero);
             PlayerCharacter character = player.GetComponent<PlayerCharacter>();
             PlayerExtractionProgressController progress = player.GetComponent<PlayerExtractionProgressController>();
             NetworkObject natural = SpawnPickup(new LootEntry(new LootId("bone"), 2), 2, Vector3.right);
             NetworkLootPickup naturalPickup = natural.GetComponent<NetworkLootPickup>();
+            // The catalog owns the per-unit value; every eligible natural unit contributes it once.
+            int valuePerUnit = naturalPickup.LootDefinition.ExtractionValuePerUnit;
+            Assert.That(valuePerUnit, Is.Positive);
+            int naturalProgress = 2 * valuePerUnit;
 
             yield return Execute(runner => naturalPickup.Interact(
                 new InteractionRequest(character.Id, naturalPickup.Id, runner.Tick)));
-            Assert.That(progress.CurrentProgress, Is.EqualTo(20));
+            Assert.That(progress.CurrentProgress, Is.EqualTo(naturalProgress));
 
             NetworkObject credited = SpawnPickup(new LootEntry(new LootId("bone"), 2), 0, Vector3.left);
             NetworkLootPickup creditedPickup = credited.GetComponent<NetworkLootPickup>();
             yield return Execute(runner => creditedPickup.Interact(
                 new InteractionRequest(character.Id, creditedPickup.Id, runner.Tick)));
-            Assert.That(progress.CurrentProgress, Is.EqualTo(20));
+            Assert.That(progress.CurrentProgress, Is.EqualTo(naturalProgress));
         }
 
         [UnityTest]
         public IEnumerator Ritual_OwnerIsPredictiveCandidateAndCompletionPermanentlyEnablesOwnZone()
         {
+            // The rival belongs to another team, which cannot appropriate the owner's Sanctuary (GD 06).
+            yield return ComposeTeamProgress(CreateTwoTeamLaunch());
             NetworkObject sanctuaryObject = SpawnRitualSanctuary(Vector3.zero, 0.05f);
-            NetworkObject ownerObject = Spawn(PlayerGuid, Vector3.zero);
-            NetworkObject rivalObject = Spawn(PlayerGuid, Vector3.right);
+            NetworkObject ownerObject = SpawnAffiliatedPlayer(FirstTeamProfile, Vector3.zero);
+            NetworkObject rivalObject = SpawnAffiliatedPlayer(SecondTeamProfile, Vector3.right);
             ExtractionSanctuary sanctuary = sanctuaryObject.GetComponent<ExtractionSanctuary>();
             ExtractionZone zone = sanctuaryObject.GetComponent<ExtractionZone>();
             PlayerExtractionProgressController ownerProgress =
@@ -518,8 +637,9 @@ namespace Tests.PlayMode.Extraction
         [UnityTest]
         public IEnumerator Ritual_DefeatedOwnerCancelsTerminallyAndCannotRestart()
         {
+            yield return ComposeTeamProgress(CreateTwoTeamLaunch());
             NetworkObject sanctuaryObject = SpawnRitualSanctuary(Vector3.zero, 1f);
-            NetworkObject ownerObject = Spawn(PlayerGuid, Vector3.zero);
+            NetworkObject ownerObject = SpawnAffiliatedPlayer(FirstTeamProfile, Vector3.zero);
             ExtractionSanctuary sanctuary = sanctuaryObject.GetComponent<ExtractionSanctuary>();
             PlayerCharacter owner = ownerObject.GetComponent<PlayerCharacter>();
             PlayerExtractionProgressController progress =
@@ -534,14 +654,25 @@ namespace Tests.PlayMode.Extraction
             yield return Execute(runner => sanctuary.Interact(
                 new InteractionRequest(owner.Id, sanctuary.Id, runner.Tick)));
 
-            yield return Execute(runner => owner.ApplyDamage(new DamageRequest(
-                new EntityId(8202),
-                owner.Id,
-                1000f,
-                DamageType.TrueDamage,
-                Vector2.zero,
-                owner.transform.position,
-                runner.Tick)));
+            // A Downed initiator does not cancel the ritual; the definitive Defeat of every team
+            // member does (GD 06). This team has a single member.
+            yield return DefeatDefinitively(ownerObject, runner =>
+            {
+                DamageResult hit = owner.ApplyDamage(new DamageRequest(
+                    new EntityId(8202),
+                    owner.Id,
+                    1000f,
+                    DamageType.TrueDamage,
+                    Vector2.zero,
+                    owner.transform.position,
+                    runner.Tick));
+                if (PlayerDownedGate.IsDowned(owner))
+                {
+                    Assert.That(sanctuary.RitualState, Is.EqualTo(ExtractionRitualState.InProgress));
+                }
+
+                return hit;
+            });
 
             int frames = 60;
             while (sanctuary.RitualState == ExtractionRitualState.InProgress && frames-- > 0)
