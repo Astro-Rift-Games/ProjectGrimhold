@@ -265,6 +265,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **raid:** preserve reconnect tickets and unify disconnect continuity ([22719f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/22719f50528b159d2236fa303836a96fedd766f0))
 - **security:** harden secret scanning and remediate dependencies ([a14c5dd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a14c5dde8281eaadb8d11781fa7b5a3dae8ec156))
 - **security:** resolve qs to 6.16.1 and complete audit for us-62 ([4fd496d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4fd496df822c730fe48b419d735698a6d94a84a8))
 - **networking:** chunk raid admission payload and enable rollback ([bb7b1ce](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bb7b1ce2c247acc49cf470912fe50c5b42c3b237))
