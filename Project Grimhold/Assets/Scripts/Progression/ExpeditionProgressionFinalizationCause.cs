@@ -5,5 +5,6 @@ public enum ExpeditionProgressionFinalizationCause : byte
     ExtractionConfirmed = 1,
     DefeatConfirmed = 2,
     VoluntaryAbandonConfirmed = 3,
-    DefinitiveDisconnectConfirmed = 4
+    DefinitiveDisconnectConfirmed = 4,
+    DefeatWhileDisconnectedConfirmed = 5
 }

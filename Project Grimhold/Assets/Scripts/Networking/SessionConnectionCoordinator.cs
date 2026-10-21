@@ -1153,7 +1153,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 ShutdownReason reason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
                 Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reconnect to raid failed. LastStartShutdownReason={reason}.", this);
 
-                DiscardActiveReconnectTicket();
+                if (IsTerminalReconnectShutdownReason(reason))
+                {
+                    DiscardActiveReconnectTicket();
+                }
 
                 return await RecoverTownAfterFailedReconnectAsync();
             }
@@ -1207,6 +1210,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         CompleteTownEntry(SessionTransitionResult.ConnectionFailed);
         return SessionTransitionResult.ConnectionFailed;
     }
+
+    public static bool IsTerminalReconnectShutdownReason(ShutdownReason reason) =>
+        reason == ShutdownReason.GameNotFound ||
+        reason == ShutdownReason.GameClosed ||
+        reason == ShutdownReason.ConnectionRefused;
 
     public void DiscardActiveReconnectTicket()
     {

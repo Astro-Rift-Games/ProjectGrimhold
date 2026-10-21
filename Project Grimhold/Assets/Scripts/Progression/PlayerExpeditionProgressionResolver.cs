@@ -292,6 +292,10 @@ public sealed class PlayerExpeditionProgressionResolver : NetworkBehaviour
                 when _participant.State == RaidParticipantState.Defeated:
                 outcome = ExpeditionExperienceResolutionOutcome.Defeated;
                 return true;
+            case ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+                when _participant.State == RaidParticipantState.Defeated:
+                outcome = ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected;
+                return true;
             case ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed
                 when _participant.State == RaidParticipantState.Aborted &&
                      _participant.FinalizationCause == cause:

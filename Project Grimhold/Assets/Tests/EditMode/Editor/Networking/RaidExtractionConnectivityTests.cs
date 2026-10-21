@@ -1,58 +1,59 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.IO;
-using System.Reflection;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Tests.EditMode.Networking
 {
     [TestFixture]
     public sealed class RaidExtractionConnectivityTests
     {
-        private const string ExtractionControllerPath =
-            "Assets/Scripts/Player/Extraction/PlayerExtractionController.cs";
+        private const string TeamCoordinatorPath =
+            "Assets/Scripts/Scenario/Extraction/TeamExtractionCoordinator.cs";
         private const string SpawnManagerPath =
             "Assets/Scripts/Networking/NetworkSpawnManager.cs";
 
         [Test]
-        public void CancellationReason_ContainsParticipantDisconnected()
+        public void CancellationReason_ContainsRequiredMemberDisconnected()
         {
-            Type controllerType = typeof(PlayerExtractionController);
-            Type cancellationReasonType = controllerType.GetNestedType("CancellationReason", BindingFlags.NonPublic);
-            Assert.That(cancellationReasonType, Is.Not.Null, "CancellationReason enum must be defined inside PlayerExtractionController.");
-
-            bool hasDisconnectedReason = Enum.IsDefined(cancellationReasonType, "ParticipantDisconnected");
-            Assert.That(hasDisconnectedReason, Is.True, "CancellationReason must define ParticipantDisconnected.");
+            bool hasDisconnectedReason = Enum.IsDefined(
+                typeof(TeamExtractionCancelReason),
+                "RequiredMemberDisconnected");
+            Assert.That(hasDisconnectedReason, Is.True, "TeamExtractionCancelReason must define RequiredMemberDisconnected.");
         }
 
         [Test]
-        public void TryBeginExtraction_ChecksParticipantConnectivity()
+        public void TeamExtractionCoordinator_ChecksParticipantConnectivity()
         {
-            string source = File.ReadAllText(ExtractionControllerPath);
-            int beginIndex = source.IndexOf("public bool TryBeginExtraction", StringComparison.Ordinal);
-            Assert.That(beginIndex, Is.GreaterThanOrEqualTo(0));
+            string source = File.ReadAllText(TeamCoordinatorPath);
+            int populateIndex = source.IndexOf("private bool TryBuildMemberSnapshots", StringComparison.Ordinal);
+            Assert.That(populateIndex, Is.GreaterThanOrEqualTo(0));
 
-            int nextMethodIndex = source.IndexOf("public void NotifyExtractionZoneExit", beginIndex, StringComparison.Ordinal);
-            Assert.That(nextMethodIndex, Is.GreaterThan(beginIndex));
+            int nextMethodIndex = source.IndexOf("private void StartTeamCountdown", populateIndex, StringComparison.Ordinal);
+            Assert.That(nextMethodIndex, Is.GreaterThan(populateIndex));
 
-            string methodBody = source.Substring(beginIndex, nextMethodIndex - beginIndex);
-            Assert.That(methodBody, Does.Contain("IsParticipantConnected()"));
+            string methodBody = source.Substring(populateIndex, nextMethodIndex - populateIndex);
+            Assert.That(methodBody, Does.Contain("RaidParticipantConnectivity"));
+            Assert.That(methodBody, Does.Contain("!connectivity.IsDisconnected"));
         }
 
         [Test]
         public void EvaluateContinuation_CancelsOnParticipantDisconnected()
         {
-            string source = File.ReadAllText(ExtractionControllerPath);
-            int evalIndex = source.IndexOf("private bool EvaluateContinuation", StringComparison.Ordinal);
-            Assert.That(evalIndex, Is.GreaterThanOrEqualTo(0));
+            RaidParticipantId.TryCreate(1, out RaidParticipantId p1);
+            var members = new[]
+            {
+                new TeamMemberExtractionSnapshot(p1, RaidParticipantState.Raiding, isConnected: false, isInsideExact: true, isInsideTolerant: true)
+            };
+            var signature = TeamExtractionRequirementRules.ComputeSignature(members);
 
-            int nextMethodIndex = source.IndexOf("private bool CanUseSanctuaryZone", evalIndex, StringComparison.Ordinal);
-            Assert.That(nextMethodIndex, Is.GreaterThan(evalIndex));
+            TeamExtractionEvaluationResult result = TeamExtractionRequirementRules.EvaluateContinuation(
+                isRitualCompleted: true,
+                activeSignature: signature,
+                members: members);
 
-            string methodBody = source.Substring(evalIndex, nextMethodIndex - evalIndex);
-            Assert.That(methodBody, Does.Contain("IsParticipantConnected()"));
-            Assert.That(methodBody, Does.Contain("CancellationReason.ParticipantDisconnected"));
+            Assert.That(result.ShouldContinue, Is.False);
+            Assert.That(result.CancelReason, Is.EqualTo(TeamExtractionCancelReason.RequiredMemberDisconnected));
         }
 
         [Test]

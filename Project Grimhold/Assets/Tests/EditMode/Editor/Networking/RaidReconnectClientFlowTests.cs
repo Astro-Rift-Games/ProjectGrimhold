@@ -317,6 +317,21 @@ public sealed class RaidReconnectClientFlowTests
         }
     }
 
+    [Test]
+    public void SessionConnectionCoordinator_IsTerminalReconnectShutdownReason_DistinguishesTerminalFromTransient()
+    {
+        // Terminal reasons: the session/raid was definitively closed, ended, or refused
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.GameNotFound), Is.True);
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.GameClosed), Is.True);
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.ConnectionRefused), Is.True);
+
+        // Transient reasons: timeouts, network hiccups, generic errors without terminal proof
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.ConnectionTimeout), Is.False);
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.Error), Is.False);
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.Ok), Is.False);
+        Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.OperationTimeout), Is.False);
+    }
+
     private static void SetPrivateField(object target, string fieldName, object value)
     {
         FieldInfo field = target.GetType().GetField(

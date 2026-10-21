@@ -335,8 +335,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
         if (State == RaidParticipantState.Defeated)
         {
-            _progressionResolver.TryFinalize(
-                ExpeditionProgressionFinalizationCause.DefeatConfirmed);
+            var cause = FinalizationCause == ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+                ? ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+                : ExpeditionProgressionFinalizationCause.DefeatConfirmed;
+            _progressionResolver.TryFinalize(cause);
             return;
         }
 
@@ -405,9 +407,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         State = RaidParticipantState.Defeated;
         CurrentAvatarId = default;
         ResultSequence++;
-        FinalizationCause = ExpeditionProgressionFinalizationCause.None;
-        _progressionResolver?.TryFinalize(
-            ExpeditionProgressionFinalizationCause.DefeatConfirmed);
+        bool isDisconnectedDefeat =
+            TryGetBehaviour(out RaidParticipantConnectivity connectivity) &&
+            (connectivity.IsDisconnected || connectivity.IsAbsenceConfirmed);
+        FinalizationCause = isDisconnectedDefeat
+            ? ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+            : ExpeditionProgressionFinalizationCause.DefeatConfirmed;
+        _progressionResolver?.TryFinalize(FinalizationCause);
         return true;
     }
 
