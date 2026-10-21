@@ -144,9 +144,12 @@ namespace Tests.PlayMode.Presentation
         [Test]
         public void RpcAcceptance_InputOnlyPeerRequiresRemoteSend()
         {
+            // In Fusion 2.1.1 the default SendMessageResult is Sent (0), the value RpcBuilder returns for a
+            // queued message, so a local-only invocation must carry an explicit not-sent result.
             var localOnly = new RpcInvokeInfo
             {
-                LocalInvokeResult = RpcLocalInvokeResult.Invoked
+                LocalInvokeResult = RpcLocalInvokeResult.Invoked,
+                SendMessageResult = RpcSendMessageResult.NoActiveConnections
             };
             var remoteSent = new RpcInvokeInfo
             {
