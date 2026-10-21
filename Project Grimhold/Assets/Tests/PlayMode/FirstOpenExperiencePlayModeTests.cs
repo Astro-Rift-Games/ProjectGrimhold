@@ -248,6 +248,7 @@ namespace Tests.PlayMode.Progression
             _runner = runnerObject.AddComponent<NetworkRunner>();
             PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
             _driver = runnerObject.AddComponent<ExtractionProgressSimulationDriver>();
             var start = _runner.StartGame(new StartGameArgs
             {

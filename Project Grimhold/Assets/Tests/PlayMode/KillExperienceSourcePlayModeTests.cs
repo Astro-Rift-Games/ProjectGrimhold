@@ -493,6 +493,10 @@ namespace Tests.PlayMode.Progression
             _runner = runnerObject.AddComponent<NetworkRunner>();
             PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
+            // Kill and assist sources resolve participants from the runner's tracked roster.
+            Assert.That(runnerObject.AddComponent<NetworkSpawnManager>().InitializeForRunner(_runner,
+                default, default, Array.Empty<NetworkPrefabRef>(), SessionStartupContext.FreshSession, null), Is.True);
             _damageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             _experienceDriver = runnerObject.AddComponent<ExpeditionExperienceSimulationDriver>();
 

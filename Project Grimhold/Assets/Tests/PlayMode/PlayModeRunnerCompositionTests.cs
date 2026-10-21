@@ -65,6 +65,56 @@ namespace Tests.PlayMode
                 if (secondOwner != null) Object.DestroyImmediate(secondOwner);
             }
         }
+
+        [Test]
+        public void TeamProgressWithoutRegistry_RejectsComposition()
+        {
+            var owner = new GameObject("TeamProgressWithoutRegistryFixture");
+            try
+            {
+                NetworkRunner runner = owner.AddComponent<NetworkRunner>();
+
+                Assert.Throws<AssertionException>(() => PlayModeRunnerComposition.AddTeamExtractionProgress(runner));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        public void TeamProgress_IsTheRunnerSingletonAndAccumulatesPerTeam()
+        {
+            var owner = new GameObject("TeamProgressFixture");
+            try
+            {
+                NetworkRunner runner = owner.AddComponent<NetworkRunner>();
+                EntityRegistry registry = owner.AddComponent<EntityRegistry>();
+                PlayModeTeamExtractionProgress progress = PlayModeRunnerComposition.AddTeamExtractionProgress(runner);
+
+                Assert.That(registry.TryGetTeamExtractionProgress(out ITeamExtractionProgress resolved), Is.True);
+                Assert.That(resolved, Is.SameAs(progress));
+                Assert.Throws<AssertionException>(() => PlayModeRunnerComposition.AddTeamExtractionProgress(runner));
+
+                Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId firstTeam), Is.True);
+                Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId secondTeam), Is.True);
+                Assert.That(progress.TryApplyContribution(firstTeam, 3, out int firstProgress, out bool completed), Is.True);
+                Assert.That(firstProgress, Is.EqualTo(3));
+                Assert.That(completed, Is.False);
+                Assert.That(progress.TryApplyContribution(firstTeam, 0, out _, out _), Is.False);
+                Assert.That(progress.TryApplyContribution(default, 1, out _, out _), Is.False);
+
+                Assert.That(progress.TryGetSnapshot(firstTeam, out ExtractionProgressSnapshot snapshot), Is.True);
+                Assert.That(snapshot.CurrentProgress, Is.EqualTo(3));
+                Assert.That(progress.TryGetProgress(secondTeam, out int secondProgress, out _), Is.True);
+                Assert.That(secondProgress, Is.Zero);
+                Assert.That(progress.AppliedContributionCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
     }
 }
 #endif
