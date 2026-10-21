@@ -635,6 +635,7 @@ namespace Tests.PlayMode.Loot
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             _enemyDamageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
             LocalPlayerJoinContext joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
             _localProfile = PlayModeLocalProfile.Create();
             _localProfile.BindTo(joinContext);
