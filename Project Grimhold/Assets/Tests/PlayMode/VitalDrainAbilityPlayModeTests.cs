@@ -32,8 +32,8 @@ namespace Tests.PlayMode.Abilities
         public IEnumerator NoEnemyOrOnlyPlayer_RejectsWithoutManaSequenceOrCooldown()
         {
             yield return Begin();
-            ExpectAvatarValidationError();
-            _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"), Vector3.right);
+            NetworkObject spawnedAvatar = _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"), Vector3.right);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawnedAvatar);
             Physics2D.SyncTransforms();
             float mana = Mana();
             yield return InSimulation(() => Assert.That(_avatar.SandboxCast(UniversalAbilitySlot.Slot1),
@@ -130,6 +130,7 @@ namespace Tests.PlayMode.Abilities
         {
             var owner = new GameObject("VitalDrainTestRunner");
             _runner = owner.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             owner.AddComponent<EntityRegistry>();
             _driver = owner.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             var start = _runner.StartGame(new StartGameArgs
@@ -148,7 +149,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-drain", id, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("life_drain"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -169,6 +169,7 @@ namespace Tests.PlayMode.Abilities
                     SetField(behaviour, "_preparationSeconds", 1.5f);
                     SetField(runtime, "_executionBehaviours", new AbilityExecutionBehaviour[] { behaviour });
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             yield return WaitUntil(() => _avatar.IsInitialized && _avatar.GetComponent<PlayerManaNetworkController>().IsInitialized);
@@ -206,9 +207,6 @@ namespace Tests.PlayMode.Abilities
         private static void SetField(object target, string name, object value, Type declaringType = null) =>
             (declaringType ?? target.GetType()).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
 
-        private static void ExpectAvatarValidationError() => LogAssert.Expect(LogType.Error,
-            "PlayerExtractionProgressController requires character, extraction controller, " +
-            "registry, assignment service, and valid receiver/reader registrations.");
 
         [Test]
         public void MissingAreaFinder_ProducesInvalidPlanBeforeAnyEffect()

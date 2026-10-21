@@ -369,6 +369,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("ImmobilizeEffectTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             var start = _runner.StartGame(new StartGameArgs

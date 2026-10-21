@@ -271,6 +271,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("SeismicStrikeTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<SeismicInputDriver>();
@@ -293,7 +294,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-seismic", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("seismic_strike"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -313,6 +313,7 @@ namespace Tests.PlayMode.Abilities
                     SetField(behaviour, "_preparationSeconds", preparationSeconds);
                     SetField(runtime, "_executionBehaviours", new AbilityExecutionBehaviour[] { behaviour });
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             yield return WaitUntil(() => _avatar.IsInitialized);
@@ -333,16 +334,12 @@ namespace Tests.PlayMode.Abilities
 
         private PlayerCharacter SpawnPlayerAvatar(Vector3 position)
         {
-            ExpectAvatarValidationError();
             var spawned = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), position, Quaternion.identity, inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawned);
             Physics2D.SyncTransforms();
             return spawned.GetComponent<PlayerCharacter>();
         }
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         private static Vector2 Knockback(Component enemy) => (Vector2)typeof(EnemyMovementAIController)
             .GetProperty("KnockbackVelocity", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)

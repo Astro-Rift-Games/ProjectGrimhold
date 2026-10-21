@@ -134,6 +134,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("AbilityCompositionTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<CompositionInputDriver>();
@@ -156,7 +157,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-composition", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId(slot1), slot2 != null ? new AbilityId(slot2) : default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -166,6 +166,7 @@ namespace Tests.PlayMode.Abilities
                     typeof(PlayerStaminaNetworkController).GetField("_regenerationPerSecond",
                         BindingFlags.Instance | BindingFlags.NonPublic).SetValue(stamina, 0f);
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             _movement = avatar.GetComponent<PlayerMovementNetworkController>();
@@ -191,10 +192,6 @@ namespace Tests.PlayMode.Abilities
             (T)behaviourType.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(_avatar.GetComponent(behaviourType));
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         private NetworkObject LoadPrefab(string guid)
         {

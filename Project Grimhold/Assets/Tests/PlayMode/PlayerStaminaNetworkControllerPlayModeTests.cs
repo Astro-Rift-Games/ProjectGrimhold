@@ -140,6 +140,7 @@ namespace Tests.PlayMode.Player
         {
             var runnerObject = new GameObject("PlayerStaminaTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerStaminaSimulationDriver>();
 
@@ -180,7 +181,6 @@ namespace Tests.PlayMode.Player
                         0,
                         "stamina-test"));
 
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject avatar = _runner.Spawn(
                 LoadPrefab(PlayerPrefabGuid),
                 Vector3.zero,
@@ -188,6 +188,7 @@ namespace Tests.PlayMode.Player
                 _runner.LocalPlayer,
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participant));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             return avatar.GetComponent<PlayerStaminaNetworkController>();
         }
 
@@ -201,13 +202,6 @@ namespace Tests.PlayMode.Player
             return avatar.GetComponent<PlayerStaminaNetworkController>();
         }
 
-        private static void ExpectBasePrefabExtractionProgressValidationError()
-        {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
-        }
 
         private NetworkObject LoadPrefab(string prefabGuid)
         {

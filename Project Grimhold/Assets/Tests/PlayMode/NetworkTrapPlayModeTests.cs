@@ -132,8 +132,8 @@ namespace Tests.PlayMode.Abilities
         public IEnumerator PlayerAndCaster_NeverTrigger()
         {
             yield return Begin();
-            ExpectAvatarValidationError();
             var player = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), TrapPosition, Quaternion.identity, inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, player);
             Physics2D.SyncTransforms();
             var playerId = player.GetComponent<PlayerCharacter>().Id;
             var byForeignCaster = SpawnTrap(TrapPosition, OtherCaster, TrapLifetimeSeconds, out var foreignTriggered);
@@ -225,6 +225,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("NetworkTrapTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             var start = _runner.StartGame(new StartGameArgs
             {
@@ -278,10 +279,6 @@ namespace Tests.PlayMode.Abilities
             }
         }
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         private NetworkObject LoadPrefab(string guid)
         {

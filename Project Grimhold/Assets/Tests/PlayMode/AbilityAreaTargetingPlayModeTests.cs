@@ -152,6 +152,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("AbilityAreaTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<AreaInputDriver>();
@@ -174,7 +175,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-area", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("charge"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -191,6 +191,7 @@ namespace Tests.PlayMode.Abilities
                     SetField(runtime, "_executionBehaviours", new AbilityExecutionBehaviour[] { behaviour });
                     _behaviour = behaviour;
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             yield return WaitUntil(() => _avatar.IsInitialized);
@@ -211,15 +212,11 @@ namespace Tests.PlayMode.Abilities
 
         private void SpawnPlayerAvatar(Vector3 position)
         {
-            ExpectAvatarValidationError();
-            _runner.Spawn(LoadPrefab(PlayerPrefabGuid), position, Quaternion.identity, inputAuthority: null);
+            NetworkObject spawnedAvatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), position, Quaternion.identity, inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawnedAvatar);
             Physics2D.SyncTransforms();
         }
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         // Networked objects overwrite plain transform writes on the next Render; teleport inside simulation.
         private IEnumerator Teleport(Component target, Vector3 position)

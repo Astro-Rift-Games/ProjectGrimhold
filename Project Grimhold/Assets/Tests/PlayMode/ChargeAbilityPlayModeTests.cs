@@ -155,8 +155,8 @@ namespace Tests.PlayMode.Abilities
         {
             yield return Begin(distance: 4f, speed: 12f);
             // Another player avatar on the target layer is not a valid enemy.
-            ExpectAvatarValidationError();
-            _runner.Spawn(LoadPrefab(PlayerPrefabGuid), new Vector3(2f, 0f, 0f), Quaternion.identity, inputAuthority: null);
+            NetworkObject spawnedAvatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), new Vector3(2f, 0f, 0f), Quaternion.identity, inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawnedAvatar);
             Physics2D.SyncTransforms();
             yield return SetAim(Vector2.right);
 
@@ -222,6 +222,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("ChargeTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<ChargeInputDriver>();
@@ -244,7 +245,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-charge", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("charge"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -265,6 +265,7 @@ namespace Tests.PlayMode.Abilities
                     SetField(behaviour, "_targetLayerMask", (LayerMask)LayerMask.GetMask("Character"));
                     SetField(runtime, "_executionBehaviours", new AbilityExecutionBehaviour[] { behaviour });
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             _movement = avatar.GetComponent<PlayerMovementNetworkController>();
@@ -301,10 +302,6 @@ namespace Tests.PlayMode.Abilities
             .GetProperty("KnockbackVelocity", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .GetValue(enemy.GetComponent<EnemyMovementAIController>());
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         private NetworkObject LoadPrefab(string guid)
         {

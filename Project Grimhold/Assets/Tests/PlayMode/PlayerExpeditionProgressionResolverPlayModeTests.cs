@@ -415,6 +415,7 @@ namespace Tests.PlayMode.Progression
         {
             var runnerObject = new GameObject("ExpeditionProgressionResolverTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             _driver = runnerObject.AddComponent<ExpeditionExperienceSimulationDriver>();
 
             var start = _runner.StartGame(new StartGameArgs

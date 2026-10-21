@@ -219,14 +219,12 @@ namespace Tests.PlayMode.Presentation
             NetworkPrefabId playerId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
 
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _playerObject = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
                 Quaternion.identity,
                 _runner.LocalPlayer);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _playerObject);
 
             yield return null;
             Assert.That(_playerObject, Is.Not.Null);

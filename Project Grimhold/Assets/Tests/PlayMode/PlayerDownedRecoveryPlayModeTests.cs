@@ -17,8 +17,6 @@ namespace Tests.PlayMode.Downed
     public sealed class PlayerDownedRecoveryPlayModeTests
     {
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
-        private const string MissingExtractionProgressDependenciesMessage =
-            "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.";
 
         private NetworkRunner _runner;
         private NetworkObject _playerPrefab;
@@ -407,8 +405,8 @@ namespace Tests.PlayMode.Downed
 
         private Avatar SpawnAvatar(Vector3 position)
         {
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, position, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
             var avatar = new Avatar
             {
                 Object = playerObject,
@@ -502,6 +500,7 @@ namespace Tests.PlayMode.Downed
         {
             var runnerObject = new GameObject("PlayerDownedRecoveryTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             var startTask = _runner.StartGame(new StartGameArgs

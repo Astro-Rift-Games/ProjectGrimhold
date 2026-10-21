@@ -18,8 +18,6 @@ namespace Tests.PlayMode.Combat
         private const string BasePrefabGuid = "fea3a7b256f965a4eb9b965832939741";
         private const string MatchPrefabGuid = "b91f8c7e96a4d784a92c3bd1a88dfec8";
         private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
-        private const string MissingExtractionProgressDependenciesMessage =
-            "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.";
 
         private static readonly PropertyInfo PreviousButtonsProperty = GetProperty("PreviousButtons");
         private static readonly PropertyInfo AttackCooldownProperty = GetProperty("AttackCooldown");
@@ -62,7 +60,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator NeutralAssignmentAndCooldownFlow_UsesAuthoritativeStrategyPresence()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject playerObject = SpawnPlayerWithParticipant();
             PlayerCombatNetworkController controller =
                 playerObject.GetComponent<PlayerCombatNetworkController>();
@@ -235,9 +232,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator FreshPlayer_InitializesNeutralAndEquipmentAssignsAuthoritativeAttackPresence()
         {
             yield return StartGameplayRunner();
-            // The productive prefab contains extraction progress; this combat fixture deliberately
-            // has no sanctuary assignment service. Expect its actual dependency diagnostic once.
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
@@ -316,7 +310,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator ContextualAttackFacing_IsConsumedByCombatInTheSameTick()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject playerObject = SpawnPlayerWithParticipant();
             PlayerCombatNetworkController combatController =
                 playerObject.GetComponent<PlayerCombatNetworkController>();
@@ -344,7 +337,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator RangedWindup_AdvancesWithoutInputOrActiveStrategyAndKeepsAcceptedPayload()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.6f, 0.05f, out RecordingProjectileSpawner spawner);
@@ -397,7 +389,6 @@ namespace Tests.PlayMode.Combat
             yield return StartGameplayRunner();
             for (int cancellation = 0; cancellation < 3; cancellation++)
             {
-                LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
                 NetworkObject player = SpawnPlayerWithParticipant(Vector3.right * cancellation * 3f, cancellation + 1);
                 var combat = player.GetComponent<PlayerCombatNetworkController>();
                 RangedAttack ranged = ConfigureScheduledAttack(player, 0.45f, 1.5f, out RecordingProjectileSpawner spawner);
@@ -447,7 +438,6 @@ namespace Tests.PlayMode.Combat
             Assert.That(_runner.GetComponent<NetworkSpawnManager>().MatchController, Is.SameAs(match));
             yield return SetPhase(phaseDriver, match, NetworkMatchController.MatchPhase.InProgress);
 
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.8f, 1.5f, out RecordingProjectileSpawner spawner);
@@ -489,7 +479,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator RangedWindup_DefenseAfterAcceptanceKeepsPayloadAndBlocksNewAcceptance()
         {
             yield return StartRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
@@ -592,7 +581,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator RangedWindup_FailedSpawnConsumesAttemptAndCannotReplay()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.2f, 1f, out RecordingProjectileSpawner spawner);
@@ -649,7 +637,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator MeleeSwing_ResolvesDamageOnReleaseTickWithReleaseOriginAndAcceptanceCooldown()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             MeleeAttack melee = ConfigureMeleeAttack(player, 0.6f, 1.5f, out RecordingMeleeTargets meleeRecorder);
@@ -690,7 +677,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator MeleeSwing_ZeroDelayResolvesOnTheAcceptanceTick()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             MeleeAttack melee = ConfigureMeleeAttack(player, 0f, 1f, out RecordingMeleeTargets meleeRecorder);
@@ -709,7 +695,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator MeleeSwing_PendingSwingBlocksNewAcceptanceEvenWithoutCooldown()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             MeleeAttack melee = ConfigureMeleeAttack(player, 0.9f, 0f, out RecordingMeleeTargets meleeRecorder);
@@ -734,7 +719,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator MeleeSwing_DisableCancelsWithoutDamageOrCooldownRefund()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             MeleeAttack melee = ConfigureMeleeAttack(player, 0.8f, 1.5f, out RecordingMeleeTargets meleeRecorder);
@@ -761,7 +745,6 @@ namespace Tests.PlayMode.Combat
         public IEnumerator MeleeSwing_WeaponChangeCancelsThePendingSwing()
         {
             yield return StartGameplayRunner();
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
@@ -911,6 +894,7 @@ namespace Tests.PlayMode.Combat
             Assert.That(AssetDatabase.GetAssetPath(playerPrefab), Is.EqualTo("Assets/Prefabs/NetworkPlayer.prefab"));
             NetworkObject player = _runner.Spawn(playerPrefab, position, Quaternion.identity, _runner.LocalPlayer,
                 onBeforeSpawned: (_, instance) => instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participant));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, player);
             var link = player.GetComponent<RaidAvatarParticipantLink>();
             Assert.That(link.TryResolveParticipant(out NetworkRaidParticipant resolved), Is.True);
             Assert.That(resolved.Object, Is.SameAs(participant));
@@ -998,6 +982,7 @@ namespace Tests.PlayMode.Combat
         {
             var runnerObject = new GameObject("PlayerCombatNetworkControllerTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _inputDriver = runnerObject.AddComponent<PlayerCombatInputDriver>();
             _strategyDriver = runnerObject.AddComponent<PlayerCombatStrategySimulationDriver>();

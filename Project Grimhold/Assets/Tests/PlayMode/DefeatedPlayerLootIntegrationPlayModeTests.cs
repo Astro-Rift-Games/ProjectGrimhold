@@ -362,12 +362,12 @@ namespace Tests.PlayMode.Loot
             Assert.That(capacityField, Is.Not.Null);
             capacityField.SetValue(receiver, 1);
 
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject grantDriverTarget = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(10f, 0f, 0f),
                 Quaternion.identity,
                 inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, grantDriverTarget);
             _defeatDriver.Target = grantDriverTarget.GetComponent<PlayerCharacter>();
             _defeatDriver.Receiver = receiver;
             _defeatDriver.SetEntries(new[] { new LootEntry(CoinsLootId, 1) });
@@ -653,18 +653,18 @@ namespace Tests.PlayMode.Loot
             NetworkPrefabId playerId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             _playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
 
-            ExpectBasePrefabExtractionProgressValidationError();
             _defeatedPlayerObject = _runner.Spawn(
                 _playerPrefab,
                 Vector3.zero,
                 Quaternion.identity,
                 inputAuthority: null);
-            ExpectBasePrefabExtractionProgressValidationError();
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _defeatedPlayerObject);
             _looterObject = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(1f, 0f, 0f),
                 Quaternion.identity,
                 _runner.LocalPlayer);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _looterObject);
             Assert.That(_defeatedPlayerObject, Is.Not.Null);
             Assert.That(_looterObject, Is.Not.Null);
             yield return null;
@@ -722,12 +722,12 @@ namespace Tests.PlayMode.Loot
         private IEnumerator GrantLooterLoot(LootEntry entry)
         {
             PlayerLootReceiver receiver = _looterObject.GetComponent<PlayerLootReceiver>();
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject grantDriverTarget = _runner.Spawn(
                 _playerPrefab,
                 new Vector3(10f, 0f, 0f),
                 Quaternion.identity,
                 inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, grantDriverTarget);
             _defeatDriver.Target = grantDriverTarget.GetComponent<PlayerCharacter>();
             _defeatDriver.Receiver = receiver;
             _defeatDriver.SetEntries(new[] { entry });
@@ -1049,12 +1049,6 @@ namespace Tests.PlayMode.Loot
             return (int)field.GetValue(reader);
         }
 
-        private static void ExpectBasePrefabExtractionProgressValidationError()
-        {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
-        }
     }
 }
 #endif
