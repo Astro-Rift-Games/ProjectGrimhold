@@ -1,6 +1,6 @@
 /// <summary>
 /// Network sanctuary capability whose replicated team slots maintain authoritative reservation and ritual state.
-/// Supports multiple teams concurrently per decision D-3.
+/// A Sanctuary is reserved exclusively for one owning team (GD 06 section 10).
 /// </summary>
 public interface IExtractionSanctuary : IEntity
 {

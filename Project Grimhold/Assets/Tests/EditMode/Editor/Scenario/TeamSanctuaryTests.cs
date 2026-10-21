@@ -66,17 +66,19 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
-        public void TryAssignTeam_MultipleTeamsCanShareSanctuary()
+        public void TryAssignTeam_ReservesTheSanctuaryExclusivelyForItsOwningTeam()
         {
             Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team1), Is.True);
             Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId team2), Is.True);
 
             Assert.That(_sanctuary.TryAssignTeam(team1), Is.True);
-            Assert.That(_sanctuary.TryAssignTeam(team2), Is.True);
+            Assert.That(_sanctuary.TryAssignTeam(team2), Is.False,
+                "A Sanctuary is reserved for its owning team (GD 06 section 10).");
 
             Assert.That(_sanctuary.IsAssignedToTeam(team1), Is.True);
-            Assert.That(_sanctuary.IsAssignedToTeam(team2), Is.True);
+            Assert.That(_sanctuary.IsAssignedToTeam(team2), Is.False);
             Assert.That(_sanctuary.IsReserved, Is.True);
+            Assert.That(_sanctuary.TryAssignTeam(team1), Is.True, "The owner's reservation stays idempotent.");
         }
 
         [Test]
@@ -126,8 +128,8 @@ namespace Tests.EditMode.Scenario
         {
             Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team1), Is.True);
             Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId team2), Is.True);
-            _sanctuary.TryAssignTeam(team1);
-            _sanctuary.TryAssignTeam(team2);
+            Assert.That(_sanctuary.TryAssignTeam(team1), Is.True);
+            Assert.That(_sanctuary.TryAssignTeam(team2), Is.False);
 
             var characterObj = new GameObject("Player1");
             MockPlayerCharacter mockChar = characterObj.AddComponent<MockPlayerCharacter>();
@@ -148,8 +150,11 @@ namespace Tests.EditMode.Scenario
                 Assert.That(_sanctuary.TryGetRitualProgress(team1, out ExtractionRitualSnapshot snap1), Is.True);
                 Assert.That(snap1.State, Is.EqualTo(ExtractionRitualState.InProgress));
 
-                Assert.That(_sanctuary.TryGetRitualProgress(team2, out ExtractionRitualSnapshot snap2), Is.True);
-                Assert.That(snap2.State, Is.EqualTo(ExtractionRitualState.NotStarted));
+                Assert.That(_sanctuary.TryGetRitualProgress(team2, out _), Is.False,
+                    "A team without the reservation has no ritual on this Sanctuary.");
+
+                _sanctuary.OverrideTeamIdForTest = team2;
+                Assert.That(_sanctuary.CanInteract(request), Is.False);
             }
             finally
             {

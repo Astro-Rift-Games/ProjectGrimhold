@@ -147,22 +147,27 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
-        public void TryGetAssignment_MultipleTeamsCanShareSameSanctuary()
+        public void TryGetAssignment_ResolvesEachTeamToItsExclusiveSanctuary()
         {
             Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team1), Is.True);
             Assert.That(RaidTeamId.TryCreate(2, out RaidTeamId team2), Is.True);
+            Assert.That(RaidTeamId.TryCreate(3, out RaidTeamId team3), Is.True);
 
-            var sharedSanctuary = new Sanctuary(new EntityId(500), team1);
-            sharedSanctuary.TryAssignTeam(team2);
-            Register(sharedSanctuary);
+            var firstSanctuary = new Sanctuary(new EntityId(500), team1);
+            var secondSanctuary = new Sanctuary(new EntityId(600), team2);
+            Assert.That(firstSanctuary.TryAssignTeam(team2), Is.False);
+            Register(firstSanctuary);
+            Register(secondSanctuary);
 
             SanctuaryAssignmentResult res1 = _service.TryGetAssignment(team1);
             SanctuaryAssignmentResult res2 = _service.TryGetAssignment(team2);
+            SanctuaryAssignmentResult res3 = _service.TryGetAssignment(team3);
 
             Assert.That(res1.Success, Is.True);
-            Assert.That(res1.SanctuaryId, Is.EqualTo(sharedSanctuary.Id));
+            Assert.That(res1.SanctuaryId, Is.EqualTo(firstSanctuary.Id));
             Assert.That(res2.Success, Is.True);
-            Assert.That(res2.SanctuaryId, Is.EqualTo(sharedSanctuary.Id));
+            Assert.That(res2.SanctuaryId, Is.EqualTo(secondSanctuary.Id));
+            Assert.That(res3.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
         }
 
         [Test]
@@ -279,7 +284,7 @@ namespace Tests.EditMode.Scenario
 
             public bool TryAssignTeam(RaidTeamId teamId)
             {
-                if (!teamId.IsValid)
+                if (!teamId.IsValid || (IsReserved && !_assignedTeams.Contains(teamId)))
                 {
                     return false;
                 }

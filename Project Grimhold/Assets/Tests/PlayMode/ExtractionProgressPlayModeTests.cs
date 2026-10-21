@@ -44,6 +44,8 @@ namespace Tests.PlayMode.Extraction
         private static readonly FieldInfo RitualDurationField =
             typeof(ExtractionConfig).GetField("_ritualDurationSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        private static readonly FieldInfo SessionSeedField =
+            typeof(ExtractionSanctuaryAssignmentService).GetField("_sessionSeed", BindingFlags.Instance | BindingFlags.NonPublic);
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -152,6 +154,32 @@ namespace Tests.PlayMode.Extraction
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
             Assert.That(participantObject.GetComponent<NetworkRaidParticipant>().TrySetCurrentAvatar(avatar), Is.True);
             return avatar;
+        }
+
+        /// <summary>
+        /// Any seed is a legitimate session. This one makes the selection policy pick the same
+        /// candidate index for both teams, so Sanctuary exclusivity is exercised on every run
+        /// instead of only when the random session seed happens to collide.
+        /// </summary>
+        private static void ForceCollidingSessionSeed(
+            ExtractionSanctuaryAssignmentService service,
+            int tick,
+            RaidTeamId firstTeam,
+            RaidTeamId secondTeam,
+            int sanctuaryCount)
+        {
+            Assert.That(SessionSeedField, Is.Not.Null);
+            for (ulong seed = 1; seed <= 1024; seed++)
+            {
+                if (SanctuarySelectionPolicy.SelectIndex(seed, tick, firstTeam, sanctuaryCount) ==
+                    SanctuarySelectionPolicy.SelectIndex(seed, tick, secondTeam, sanctuaryCount))
+                {
+                    SessionSeedField.SetValue(service, seed);
+                    return;
+                }
+            }
+
+            Assert.Fail("No colliding session seed was found for the selection policy.");
         }
 
         /// <summary>
@@ -294,6 +322,7 @@ namespace Tests.PlayMode.Extraction
 
             yield return Execute(runner =>
             {
+                ForceCollidingSessionSeed(service, runner.Tick, firstTeam, secondTeam, 2);
                 Assert.That(firstProgress.TryApplyContribution(new ExtractionProgressContribution(
                     ExtractionProgressSourceType.Defeat,
                     new EntityId(7001),
@@ -310,7 +339,8 @@ namespace Tests.PlayMode.Extraction
             SanctuaryAssignmentResult second = service.TryGetAssignment(secondTeam);
             Assert.That(first.Success, Is.True);
             Assert.That(second.Success, Is.True);
-            Assert.That(first.SanctuaryId, Is.Not.EqualTo(second.SanctuaryId));
+            Assert.That(first.SanctuaryId, Is.Not.EqualTo(second.SanctuaryId),
+                "A Sanctuary is reserved for its owning team; selection must choose among free ones (GD 06 section 10).");
             Assert.That(new[] { firstSanctuary.GetComponent<ExtractionSanctuary>().Id,
                 secondSanctuary.GetComponent<ExtractionSanctuary>().Id }, Does.Contain(first.SanctuaryId));
 
@@ -363,6 +393,48 @@ namespace Tests.PlayMode.Extraction
             Assert.That(service.TryGetAssignment(progress.Id).FailureReason,
                 Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
 
+            // The pending request is retried every tick; the configuration failure is reported once.
+            yield return AssertAssignmentRetriesAreSilent(5);
+        }
+
+        [UnityTest]
+        public IEnumerator QuotaCompletion_WithMoreTeamsThanSanctuariesRejectsTheLaterTeamWithoutSharing()
+        {
+            yield return ComposeTeamProgress(CreateTwoTeamLaunch());
+            NetworkObject sanctuary = SpawnSanctuary(Vector3.left * 4f);
+            PlayerExtractionProgressController firstProgress = SpawnAffiliatedPlayer(FirstTeamProfile, Vector3.zero)
+                .GetComponent<PlayerExtractionProgressController>();
+            PlayerExtractionProgressController secondProgress = SpawnAffiliatedPlayer(SecondTeamProfile, Vector3.up * 2f)
+                .GetComponent<PlayerExtractionProgressController>();
+            Assert.That(firstProgress.TryGetTeamId(out RaidTeamId firstTeam), Is.True);
+            Assert.That(secondProgress.TryGetTeamId(out RaidTeamId secondTeam), Is.True);
+            ExtractionSanctuaryAssignmentService service =
+                _runner.GetComponent<ExtractionSanctuaryAssignmentService>();
+            SanctuaryAssignmentResult rejected = default;
+
+            LogAssert.Expect(UnityEngine.LogType.Error,
+                "ExtractionSanctuaryAssignmentService configuration failure: NoFreeSanctuary.");
+            yield return Execute(runner =>
+            {
+                Assert.That(firstProgress.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat, new EntityId(7201), long.MaxValue, runner.Tick)), Is.True);
+                Assert.That(secondProgress.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.Defeat, new EntityId(7202), long.MaxValue, runner.Tick)), Is.True);
+                rejected = service.TryAssign(secondTeam);
+            });
+
+            SanctuaryAssignmentResult owner = service.TryGetAssignment(firstTeam);
+            Assert.That(owner.Success, Is.True);
+            Assert.That(owner.SanctuaryId, Is.EqualTo(sanctuary.GetComponent<ExtractionSanctuary>().Id));
+            Assert.That(rejected.Success, Is.False);
+            Assert.That(rejected.FailureReason, Is.EqualTo(SanctuaryAssignmentFailureReason.NoFreeSanctuary));
+            Assert.That(service.TryGetAssignment(secondTeam).FailureReason,
+                Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
+            Assert.That((bool)secondProgress.AssignmentRequested, Is.True, "The later team keeps its pending request.");
+
+            yield return AssertAssignmentRetriesAreSilent(5);
+            Assert.That(service.TryGetAssignment(secondTeam).FailureReason,
+                Is.EqualTo(SanctuaryAssignmentFailureReason.AssignmentNotFound));
         }
 
         [UnityTest]
@@ -724,6 +796,39 @@ namespace Tests.PlayMode.Extraction
         {
             yield return VerifyCleanupOrder(sanctuaryFirst: true, Vector3.left * 3f);
             yield return VerifyCleanupOrder(sanctuaryFirst: false, Vector3.right * 3f);
+        }
+
+        /// <summary>
+        /// Advances simulation ticks while the team pool retries a pending assignment and fails if the
+        /// assignment service or a Sanctuary logs a warning or error for any of those attempts.
+        /// </summary>
+        private IEnumerator AssertAssignmentRetriesAreSilent(int ticks)
+        {
+            var repeated = new List<string>();
+            void Capture(string condition, string stackTrace, UnityEngine.LogType type)
+            {
+                if ((type == UnityEngine.LogType.Error || type == UnityEngine.LogType.Warning) &&
+                    (condition.Contains(nameof(ExtractionSanctuaryAssignmentService)) ||
+                     condition.Contains(nameof(ExtractionSanctuary))))
+                {
+                    repeated.Add(condition);
+                }
+            }
+
+            Application.logMessageReceived += Capture;
+            try
+            {
+                for (int i = 0; i < ticks; i++)
+                {
+                    yield return Execute(_ => { });
+                }
+            }
+            finally
+            {
+                Application.logMessageReceived -= Capture;
+            }
+
+            Assert.That(repeated, Is.Empty, "Retried assignment attempts must not log again.");
         }
 
         private IEnumerator Execute(Action<NetworkRunner> action)
