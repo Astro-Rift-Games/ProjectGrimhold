@@ -30,6 +30,7 @@ namespace Tests.PlayMode.Presentation
         private NetworkRaidParticipant _localParticipant;
         private NetworkRaidParticipant _proxyParticipant;
         private LocalPlayerJoinContext _joinContext;
+        private PlayModeLocalProfile _localProfile;
         private PrimaryAttackStatusSimulationDriver _cooldownDriver;
         private PlayerCorpseGenerationSimulationDriver _defeatDriver;
 
@@ -54,6 +55,9 @@ namespace Tests.PlayMode.Presentation
             {
                 Object.DestroyImmediate(_inputReaderObject);
             }
+
+            _localProfile?.Dispose();
+            _localProfile = null;
         }
 
         [Test]
@@ -261,6 +265,8 @@ namespace Tests.PlayMode.Presentation
         public IEnumerator VitalityDefinesFreshHealthHealingLimitAndHudMaximum()
         {
             yield return StartRunner();
+            _localProfile = PlayModeLocalProfile.Create();
+            _localProfile.BindTo(_joinContext);
 
             Assert.That(
                 CharacterAttributeState.TryCreate(
