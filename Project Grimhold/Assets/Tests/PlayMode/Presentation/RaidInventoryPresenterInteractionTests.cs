@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.InputSystem.UI;
 using Assert = NUnit.Framework.Assert;
 
 namespace Tests.PlayMode.Presentation
@@ -42,7 +43,7 @@ namespace Tests.PlayMode.Presentation
             GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             Assert.That(playerPrefab, Is.Not.Null);
 
-            _playerInstance = UnityEngine.Object.Instantiate(playerPrefab);
+            _playerInstance = InstantiateWithoutUiInputModules(playerPrefab);
             _playerInstance.SetActive(false);
 
             _inputReaderHolder = new GameObject("PlayerInputReaderHolder");
@@ -78,6 +79,29 @@ namespace Tests.PlayMode.Presentation
 
             InputSystem.RemoveDevice(_keyboard);
             _inputTestFixtureType.GetMethod("TearDown").Invoke(_inputTestFixture, null);
+        }
+
+        // InputTestFixture keeps action states resolved before its Setup, so enabling the shared
+        // DefaultInputActions here could bind controls of devices outside the isolated test system.
+        private static GameObject InstantiateWithoutUiInputModules(GameObject prefab)
+        {
+            GameObject staging = new GameObject("InactivePlayerStaging");
+            staging.SetActive(false);
+            try
+            {
+                GameObject instance = UnityEngine.Object.Instantiate(prefab, staging.transform);
+                foreach (InputSystemUIInputModule module in instance.GetComponentsInChildren<InputSystemUIInputModule>(true))
+                {
+                    module.enabled = false;
+                }
+
+                instance.transform.SetParent(null, false);
+                return instance;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(staging);
+            }
         }
 
         [TestCase(2)]
