@@ -32,6 +32,7 @@ namespace Tests.PlayMode.Loot
         private NetworkObject _playerPrefab;
         private NetworkObject _defeatedPlayerObject;
         private NetworkObject _looterObject;
+        private PlayModeLocalProfile _localProfile;
 
         [UnityTearDown]
         public IEnumerator TearDown()
@@ -54,6 +55,9 @@ namespace Tests.PlayMode.Loot
             {
                 UnityEngine.Object.DestroyImmediate(_inputReaderObject);
             }
+
+            _localProfile?.Dispose();
+            _localProfile = null;
         }
 
         [UnityTest]
@@ -631,7 +635,10 @@ namespace Tests.PlayMode.Loot
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             _enemyDamageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
-            runnerObject.AddComponent<LocalPlayerJoinContext>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
+            LocalPlayerJoinContext joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
+            _localProfile = PlayModeLocalProfile.Create();
+            _localProfile.BindTo(joinContext);
 
             _inputReaderObject = new GameObject("DefeatedPlayerLootInputReader");
             _inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
