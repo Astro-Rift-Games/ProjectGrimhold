@@ -6,6 +6,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **combat:** add per-hand dual wield and execution windows ([acf33ed](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/acf33edce336d1b85684296ff931b8dea4655ee6))
 - **player:** implement TASK-220 feedback and timed actions ([90b01f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/90b01f5f9370483a8358166d8ba97164efda9a7e))
 - **minimap:** render faithful saved dungeon tiles with stable tracking ([684ba42](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/684ba421b3a70ed369135b5dbaa286eb351b5682))
 - **dungeon-pressure:** configure volume profile and scene vignette ([88b8425](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88b84251f8e436dce161ab5850edf133d60004f2))
