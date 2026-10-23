@@ -118,6 +118,9 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         _reader.AttributesToggleRequested += OnAttributesToggleRequested;
         _reader.InventoryCloseRequested += OnCloseRequested;
         _reader.MenuToggleRequested += OnMenuToggleRequested;
+        // The social prefab keeps this canvas inactive for remote avatars. Only a
+        // successfully bound local menu owns activation of its presentation parent.
+        uiParent.gameObject.SetActive(true);
     }
 
     /// <summary>Stops listening, closes the menu and releases input suppression.</summary>

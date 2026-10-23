@@ -78,6 +78,35 @@ namespace Tests.PlayMode.Presentation
                 "Both tabs are hosted under the same window content root.");
         }
 
+        [TestCase(TownMenuTabIds.Inventory)]
+        [TestCase(TownMenuTabIds.Attributes)]
+        [TestCase(TownMenuTabIds.Options)]
+        public void LocalBinding_WithSerializedInactiveCanvas_OpensVisibleTabs(string tabId)
+        {
+            GameObject socialPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/SocialPlayer.prefab");
+            Transform serializedCanvas = socialPrefab.transform.Find("TownInventoryCanvas");
+            Assert.That(serializedCanvas, Is.Not.Null);
+            Assert.That(serializedCanvas.gameObject.activeSelf, Is.False,
+                "Remote avatars must not start with their Town UI enabled.");
+            _uiParent.SetActive(serializedCanvas.gameObject.activeSelf);
+            BindWithBothTabs();
+            RegisterOptionsTab();
+
+            if (tabId == TownMenuTabIds.Inventory) PressInventory();
+            else if (tabId == TownMenuTabIds.Attributes) PressAttributes();
+            else InvokeReader("OnCloseInventoryPerformed");
+
+            Assert.That(_presenter.IsOpen, Is.True);
+            Assert.That(_presenter.SelectedTabId, Is.EqualTo(tabId));
+            TownPlayerMenuView view = _uiParent.GetComponentInChildren<TownPlayerMenuView>(true);
+            Assert.That(view.gameObject.activeInHierarchy, Is.True,
+                "The locally bound menu must not remain beneath an inactive canvas.");
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
+            InvokeReader("OnCloseInventoryPerformed");
+            Assert.That(_presenter.IsOpen, Is.False);
+            Assert.That(_reader.IsGameplayInputSuppressed, Is.False);
+        }
+
         [Test]
         public void HostedContent_IsStretchedAndItsScaleIsNormalized()
         {
