@@ -29,13 +29,13 @@ namespace Tests.EditMode.Equipment
             Assert.That(EquipmentSlotRules.IsCompatible(LootCategory.Weapon, slot), Is.EqualTo(expected));
         }
 
-        [TestCase(EquipmentSlot.WeaponSetAMainHand, false)]
-        [TestCase(EquipmentSlot.WeaponSetBMainHand, false)]
+        [TestCase(EquipmentSlot.WeaponSetAMainHand, true)]
+        [TestCase(EquipmentSlot.WeaponSetBMainHand, true)]
         [TestCase(EquipmentSlot.WeaponSetAOffHand, true)]
         [TestCase(EquipmentSlot.WeaponSetBOffHand, true)]
         [TestCase(EquipmentSlot.Helmet, false)]
         [TestCase(EquipmentSlot.None, false)]
-        public void ShieldCategory_IsCompatibleOnlyWithOffHandSlots(EquipmentSlot slot, bool expected)
+        public void ShieldCategory_IsCompatibleWithEitherHand(EquipmentSlot slot, bool expected)
         {
             Assert.That(EquipmentSlotRules.IsCompatible(LootCategory.Shield, slot), Is.EqualTo(expected));
         }

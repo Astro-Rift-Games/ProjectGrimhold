@@ -1,5 +1,6 @@
 #if UNITY_INCLUDE_TESTS
 using Fusion;
+using System.Reflection;
 using UnityEngine;
 
 /// <summary>
@@ -13,7 +14,8 @@ public sealed class PlayerCombatStrategySimulationDriver : SimulationBehaviour
         SetStrategy,
         ClearStrategy,
         SetEnabled,
-        DefeatCharacter
+        DefeatCharacter,
+        SeedHandPresentation
     }
 
     private RequestedOperation _operation;
@@ -21,6 +23,7 @@ public sealed class PlayerCombatStrategySimulationDriver : SimulationBehaviour
     private MonoBehaviour _attackSource;
     private PlayerCharacter _character;
     private bool _enabled;
+    private int _weaponIdentity;
 
     public int CompletionSequence { get; private set; }
     public bool LastResult { get; private set; }
@@ -54,6 +57,13 @@ public sealed class PlayerCombatStrategySimulationDriver : SimulationBehaviour
         _operation = RequestedOperation.DefeatCharacter;
     }
 
+    public void RequestCoalescedHandPresentation(PlayerCombatNetworkController target, int weaponIdentity)
+    {
+        _target = target;
+        _weaponIdentity = weaponIdentity;
+        _operation = RequestedOperation.SeedHandPresentation;
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (_operation == RequestedOperation.None ||
@@ -76,6 +86,22 @@ public sealed class PlayerCombatStrategySimulationDriver : SimulationBehaviour
                 break;
             case RequestedOperation.SetEnabled:
                 LastResult = _target.TrySetAttackEnabled(_enabled);
+                break;
+            case RequestedOperation.SeedHandPresentation:
+                var hands = (NetworkArray<WeaponHandAttackState>)typeof(PlayerCombatNetworkController)
+                    .GetProperty("HandAttacks", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_target);
+                // Two old Set B snapshots coalesce with two newer Set A snapshots.
+                int[] sequences = { 4, 2, 3, 1 };
+                for (int index = 0; index < 4; index++)
+                    hands.Set(index, new WeaponHandAttackState
+                    {
+                        Sequence = sequences[index], StartTick = Runner.Tick - 1, ReleaseTick = Runner.Tick + 50,
+                        CancellationTick = -1, WeaponCatalogIndexPlusOne = _weaponIdentity,
+                        TypeValue = (int)AttackType.Melee, Direction = Vector2.down
+                    });
+                typeof(PlayerCombatNetworkController).GetProperty("AttackSequence", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(_target, 4);
+                LastResult = true;
                 break;
             case RequestedOperation.DefeatCharacter:
                 var damage = new DamageRequest(

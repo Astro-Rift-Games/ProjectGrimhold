@@ -50,12 +50,30 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private bool _resumePendingPresentation;
     private IProjectileSpawner _releaseSpawner;
 
+    [Networked, Capacity(4)] private NetworkArray<WeaponHandAttackState> HandAttacks => default;
+    [Networked] private int WeaponExecutionEndTick { get; set; }
+    private readonly int[] _observedHandSequences = new int[4];
+    private readonly bool[] _resumeHandPresentation = new bool[4];
+    private PlayerStaminaNetworkController _stamina;
+
+    public bool IsExecutingWeaponAttack => Object != null && Object.IsValid && Runner != null &&
+        Runner.Tick < WeaponExecutionEndTick;
+
     [Networked] private RangedAttackRelease PendingRangedRelease { get; set; }
     [Networked] private MeleeAttackRelease PendingMeleeRelease { get; set; }
     [Networked] private int LastAttackReleaseTick { get; set; }
     [Networked] private int LastAttackCancellationTick { get; set; }
-    public bool HasPendingAttackRelease => Object != null && Object.IsValid &&
-        (PendingRangedRelease.Pending || PendingMeleeRelease.Pending);
+    public bool HasPendingAttackRelease
+    {
+        get
+        {
+            if (Object == null || !Object.IsValid) return false;
+            if (PendingRangedRelease.Pending || PendingMeleeRelease.Pending) return true;
+            for (int i = 0; i < 4; i++)
+                if (HandAttacks[i].HasPendingRelease) return true;
+            return false;
+        }
+    }
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
     [Networked]
@@ -137,9 +155,16 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _lastObservedSequence = AttackSequence;
         _resumePendingPresentation = PendingRangedRelease.Pending || PendingMeleeRelease.Pending;
         _pendingFeedbackEvents.Clear();
+        for (int i = 0; i < 4; i++)
+        {
+            _observedHandSequences[i] = HandAttacks[i].Sequence;
+            _resumeHandPresentation[i] = HandAttacks[i].HasPendingRelease;
+        }
 
         if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
         {
+            for (int i = 0; i < 4; i++) HandAttacks.Set(i, default);
+            WeaponExecutionEndTick = 0;
             HasActiveAttack = _activeAttack != null;
             AttackCooldown = TickTimer.None;
             AttackCooldownDurationSeconds = 0f;
@@ -178,15 +203,32 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         // Pending work is authority-only, forward-only, and independent of input/current equipment.
         if (HasStateAuthority && Runner.IsForward)
         {
-            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
+            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive ||
+                PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character))
+            {
                 CancelPendingRelease();
+                AdvanceHandReleases(true);
+                WeaponExecutionEndTick = 0;
+            }
             else
+            {
                 AdvancePendingRelease();
+                AdvanceHandReleases(false);
+            }
         }
 
         // Input absence must not stall an already accepted release.
         if (!GetInput(out PlayerNetworkInput input))
         {
+            return;
+        }
+
+        if (_equipmentController != null && _equipmentController.ActiveWeaponSetSlot != WeaponSetSlot.None)
+        {
+            NetworkButtons previous = PreviousButtons;
+            PreviousButtons = input.Buttons;
+            if (HasStateAuthority && Runner.IsForward && gameplayPhaseActive)
+                ProcessHandInput(input.Buttons, previous);
             return;
         }
 
@@ -252,6 +294,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
+        RenderHandAttacks();
         // Use the projectile timeframe even on an Input-Authority client (player movement is predicted,
         // projectiles are not). Do not present an acceptance ahead of that render timeline.
         AttackPerformedEvent performedEvent = GetLastAttackEvent();
@@ -291,6 +334,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     /// </summary>
     public bool TryGetPrimaryAttackStatus(out PrimaryAttackStatus status)
     {
+        if (_equipmentController != null && _equipmentController.ActiveWeaponSetSlot != WeaponSetSlot.None)
+            return TryGetAttackStatus(_equipmentController.GetActiveHandSlot(false), out status);
         status = default;
         if (Runner == null || !Runner.IsRunning || !_dependenciesValid ||
             _character == null || !HasActiveAttack)
@@ -538,6 +583,18 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     public bool TryGetAttackPresentationSeconds(in AttackPerformedEvent attack, out float seconds)
     {
         seconds = 0f;
+        if (EquipmentSlotRules.IsHandSlot(attack.SourceSlot))
+        {
+            if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
+                _character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+                PlayerConsumptionGate.IsConsuming(_character)) return false;
+            int index = HandIndex(attack.SourceSlot);
+            WeaponHandAttackState state = HandAttacks[index];
+            if (attack.Sequence != _observedHandSequences[index]) return false;
+            seconds = GetAttackElapsedSeconds(attack);
+            return seconds >= 0f && (state.Sequence != attack.Sequence || state.CancellationTick < 0 ||
+                AttackRenderTime < (double)state.CancellationTick * Runner.DeltaTime);
+        }
         if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
             attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
             return false;
@@ -566,6 +623,205 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         return AttackCooldown.ExpiredOrNotRunning(Runner)
             ? AttackFailureReason.None
             : AttackFailureReason.CooldownActive;
+    }
+
+    private static int HandIndex(EquipmentSlot slot) => slot switch
+    {
+        EquipmentSlot.WeaponSetAMainHand => 0, EquipmentSlot.WeaponSetAOffHand => 1,
+        EquipmentSlot.WeaponSetBMainHand => 2, EquipmentSlot.WeaponSetBOffHand => 3,
+        _ => -1
+    };
+
+    private static EquipmentSlot HandSlot(int index) => index switch
+    {
+        0 => EquipmentSlot.WeaponSetAMainHand, 1 => EquipmentSlot.WeaponSetAOffHand,
+        2 => EquipmentSlot.WeaponSetBMainHand, _ => EquipmentSlot.WeaponSetBOffHand
+    };
+
+    public bool TryGetAttackStatus(EquipmentSlot slot, out PrimaryAttackStatus status)
+    {
+        status = default;
+        int index = HandIndex(slot);
+        if (index < 0 || Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
+            !_dependenciesValid || _equipmentController == null ||
+            _equipmentController.GetWeaponCatalogIndexPlusOne(slot) == 0) return false;
+        WeaponHandAttackState state = HandAttacks[index];
+        bool available = IsAttackEnabled && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
+            !PlayerConsumptionGate.IsConsuming(_character) &&
+            EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
+            !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease;
+        if (available && _equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) &&
+            loot.WeaponDefinition.StaminaCost > 0f)
+            available = _stamina != null && _stamina.CanSpend(loot.WeaponDefinition.StaminaCost);
+        status = new PrimaryAttackStatus(available, state.Timing.IntervalSeconds,
+            Mathf.Max(0f, (state.Timing.IntervalEndTick - Runner.Tick) * Runner.DeltaTime));
+        return true;
+    }
+
+    private void ProcessHandInput(NetworkButtons buttons, NetworkButtons previous)
+    {
+        if (_shieldDefenseController != null && _shieldDefenseController.CanDefend(buttons)) return;
+        // Stable Main-first arbitration. Never accept two starts in one tick, including a zero-length window.
+        if (TryStartHand(_equipmentController.GetActiveHandSlot(false), PlayerInputButton.PrimaryAttack, buttons, previous)) return;
+        TryStartHand(_equipmentController.GetActiveHandSlot(true), PlayerInputButton.SecondaryAction, buttons, previous);
+    }
+
+    private bool TryStartHand(EquipmentSlot slot, PlayerInputButton button, NetworkButtons buttons, NetworkButtons previous)
+    {
+        int index = HandIndex(slot);
+        if (index < 0 || !buttons.IsSet(button) ||
+            !_equipmentController.TryPrepareAttack(slot, out IAttack attack, out WeaponDefinition weapon)) return false;
+        bool pressed = buttons.WasPressed(previous, button);
+        if (attack.InputMode == AttackInputMode.Press && !pressed) return false;
+        if (!TryGetAttackStatus(slot, out PrimaryAttackStatus status) || !status.IsAvailable)
+        {
+            // Consumption disables control; it is not a weapon cooldown rejection.
+            if (pressed && !PlayerConsumptionGate.IsConsuming(_character))
+                RecordCombatFeedback(CombatFeedbackKind.AttackRejected, default, default, 0f,
+                    Runner.Tick, AttackFailureReason.CooldownActive);
+            return false;
+        }
+        // A paid weapon cannot bypass an absent/uninitialized Stamina owner.
+        if (weapon.StaminaCost > 0f && (_stamina == null || !_stamina.CanSpend(weapon.StaminaCost))) return false;
+        if (!PlayerAimMath.TryResolveAttackDirection(attack is RangedAttack, _movementController.FacingDirection,
+            _movementController.AimDirection, out Vector2 direction)) return false;
+        WeaponHandAttackState state = HandAttacks[index];
+        if (!state.Timing.TryStart(Runner.Tick, Runner.DeltaTime, attack.CooldownSeconds,
+            weapon.ExecutionWindowSeconds, out int windowEnd)) return false;
+        AttackRequest request = new(_character.Id, GetAttackOriginPosition(), direction, Runner.Tick);
+        state.ReleaseTick = -1;
+        state.Aimed = false;
+        int identity = _equipmentController.GetWeaponCatalogIndexPlusOne(slot);
+        if (attack is MeleeAttack melee)
+        {
+            if (!melee.TryAcceptRelease(request, identity, Runner.DeltaTime, out state.Melee)) return false;
+            state.ReleaseTick = state.Melee.ReleaseTick;
+        }
+        else if (attack is RangedAttack ranged)
+        {
+            float? aimed = !EquipmentSlotRules.IsOffHandSlot(slot) &&
+                TryResolveAimedReleaseSeconds(Runner.Tick, out float seconds) ? seconds : null;
+            if (_releaseSpawner == null || !ranged.TryAcceptRelease(request, Runner.DeltaTime,
+                out state.Ranged, aimed, GetBasicAttackDamageMultiplier())) return false;
+            state.ReleaseTick = state.Ranged.ReleaseTick;
+            state.Aimed = aimed.HasValue;
+        }
+        else return false;
+        // Acceptance above has no external effects. Commit payment once before publishing any release.
+        if (weapon.StaminaCost > 0f && !_stamina.TrySpend(weapon.StaminaCost)) return false;
+        PlayerReviveGate.InterruptIfReviving(_character);
+        WeaponExecutionEndTick = windowEnd;
+        state.Sequence = ++AttackSequence;
+        state.StartTick = Runner.Tick;
+        state.CancellationTick = -1;
+        state.WeaponCatalogIndexPlusOne = identity;
+        state.TypeValue = (int)attack.Type;
+        state.Origin = request.Origin;
+        state.Direction = direction;
+        HandAttacks.Set(index, state);
+        // Compatibility readback for existing Main-hand consumers, never the source of equipped-hand timers.
+        if (!EquipmentSlotRules.IsOffHandSlot(slot))
+        {
+            AttackCooldown = attack.CooldownSeconds > 0f ? TickTimer.CreateFromSeconds(Runner, attack.CooldownSeconds) : TickTimer.None;
+            AttackCooldownDurationSeconds = attack.CooldownSeconds;
+        }
+        AdvanceHandReleases(false);
+        return true;
+    }
+
+    private void AdvanceHandReleases(bool cancel)
+    {
+        if (Runner == null) return;
+        for (int index = 0; index < 4; index++)
+        {
+            WeaponHandAttackState state = HandAttacks[index];
+            if (!state.HasPendingRelease) continue;
+            if (cancel)
+            {
+                state.Melee.Cancel();
+                state.Ranged.Cancel();
+                state.CancellationTick = Runner.Tick;
+                HandAttacks.Set(index, state);
+                continue;
+            }
+            EquipmentSlot slot = HandSlot(index);
+            if (state.Melee.Pending)
+            {
+                int identity = _equipmentController != null &&
+                    EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot
+                    ? _equipmentController.GetWeaponCatalogIndexPlusOne(slot) : 0;
+                if (state.Melee.CancelIfWeaponChanged(identity))
+                {
+                    state.CancellationTick = Runner.Tick;
+                    HandAttacks.Set(index, state);
+                }
+                else if (Runner.Tick >= state.Melee.ReleaseTick)
+                {
+                    MeleeAttackRelease release = state.Melee;
+                    bool valid = state.Melee.TryConsume(Runner.Tick, identity, out Vector2 direction);
+                    state.CancellationTick = Runner.Tick;
+                    HandAttacks.Set(index, state); // Consume BEFORE irreversible damage, also on failure/exception.
+                    if (valid && _equipmentController.TryPrepareAttack(slot, out IAttack strategy, out _) && strategy is MeleeAttack melee)
+                    {
+                        AttackRequest request = new(_character.Id, GetAttackOriginPosition(), direction, Runner.Tick);
+                        AttackExecutionParameters parameters = release.ExecutionParameters;
+                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier()).WasExecuted)
+                        {
+                            state.CancellationTick = -1;
+                            HandAttacks.Set(index, state);
+                        }
+                    }
+                }
+            }
+            if (state.Ranged.Pending && Runner.Tick >= state.Ranged.ReleaseTick)
+            {
+                bool valid = state.Ranged.TryConsume(Runner.Tick, _character.Id, GetAttackOriginPosition(), out ProjectileSpawnRequest request);
+                state.CancellationTick = Runner.Tick;
+                HandAttacks.Set(index, state);
+                if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+                {
+                    state.CancellationTick = -1;
+                    HandAttacks.Set(index, state);
+                }
+            }
+        }
+    }
+
+    private void RenderHandAttacks()
+    {
+        // Snapshots from different sets can arrive together. Dispatch by acceptance sequence, not slot,
+        // so every consumer finishes on the newest timeline for its hand. Four slots need no allocations.
+        for (int delivered = 0; delivered < 4; delivered++)
+        {
+            int next = -1;
+            int nextSequence = int.MaxValue;
+            for (int index = 0; index < 4; index++)
+            {
+                WeaponHandAttackState candidate = HandAttacks[index];
+                if (candidate.Sequence == 0 ||
+                    (candidate.Sequence == _observedHandSequences[index] && !_resumeHandPresentation[index])) continue;
+                AttackPerformedEvent notification = candidate.ToEvent(_character.Id, HandSlot(index), Runner.DeltaTime);
+                if (GetAttackElapsedSeconds(notification) < 0f) continue;
+                if (next < 0 || candidate.Sequence < nextSequence)
+                {
+                    next = index;
+                    nextSequence = candidate.Sequence;
+                }
+            }
+            if (next < 0) break;
+            WeaponHandAttackState state = HandAttacks[next];
+            AttackPerformedEvent attack = state.ToEvent(_character.Id, HandSlot(next), Runner.DeltaTime);
+            bool resume = _resumeHandPresentation[next] && state.Sequence == _observedHandSequences[next];
+            _observedHandSequences[next] = state.Sequence;
+            _resumeHandPresentation[next] = false;
+            if (!TryGetAttackPresentationSeconds(attack, out _)) continue;
+            if (resume) AttackPresentationResumed?.Invoke(attack);
+            else AttackPerformed?.Invoke(attack);
+        }
+        // Equipment attacks use their independent snapshots, not the legacy single-strategy event.
+        for (int index = 0; index < 4; index++)
+            if (HandAttacks[index].Sequence > 0 && HandAttacks[index].Sequence == AttackSequence)
+                _lastObservedSequence = AttackSequence;
     }
 
     private void RecordCombatFeedback(
@@ -618,7 +874,12 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
 
         IsAttackEnabled = enabled;
-        if (!enabled) CancelPendingRelease();
+        if (!enabled)
+        {
+            CancelPendingRelease();
+            AdvanceHandReleases(true);
+            WeaponExecutionEndTick = 0;
+        }
         return true;
     }
 
@@ -683,6 +944,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _activeAttack = _activeAttackSource as IAttack;
         _equipmentController ??= GetComponent<PlayerWeaponEquipmentNetworkController>();
         _releaseSpawner ??= GetComponent<IProjectileSpawner>();
+        _stamina ??= GetComponent<PlayerStaminaNetworkController>();
 
         if (_attackOrigin == null)
         {

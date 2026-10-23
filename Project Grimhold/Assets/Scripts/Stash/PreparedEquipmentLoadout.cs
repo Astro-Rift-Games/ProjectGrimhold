@@ -89,9 +89,9 @@ public readonly struct PreparedEquipmentLoadout
             return false;
         }
 
-        if (requireWeapon && !loadout.HasAnyMainHand)
+        if (requireWeapon && !HasUsableWeapon(loadout, catalog))
         {
-            error = "At least one prepared Main Hand weapon is required.";
+            error = "At least one prepared weapon is required.";
             return false;
         }
 
@@ -114,6 +114,13 @@ public readonly struct PreparedEquipmentLoadout
         }
 
         return true;
+    }
+
+    public static bool HasUsableWeapon(in PreparedEquipmentLoadout loadout, LootDefinitionCatalog catalog)
+    {
+        foreach (EquipmentSlot slot in EquipmentSlotRules.HandSlots)
+            if (IsUsableWeaponDefinition(loadout.Get(slot), catalog)) return true;
+        return false;
     }
 
     public static bool IsUsableEquipmentDefinition(

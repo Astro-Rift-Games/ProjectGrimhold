@@ -62,7 +62,7 @@ namespace Tests.EditMode.Equipment
         }
 
         [Test]
-        public void Loadout_AcceptsShieldOnlyInOffHandWithoutWeaponRequirements()
+        public void Loadout_AcceptsShieldInEitherHandWithoutWeaponRequirements()
         {
             var loadout = new PreparedEquipmentLoadout(
                 Sword,
@@ -86,7 +86,7 @@ namespace Tests.EditMode.Equipment
                     TrainingShield,
                     EquipmentSlot.WeaponSetAMainHand,
                     _catalog),
-                Is.False);
+                Is.True);
         }
 
         [Test]

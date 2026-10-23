@@ -22,6 +22,58 @@ Its direction is the one the attack committed: `FacingDirection` for melee, `Aim
 
 This document describes the design, components, network authority, data contracts, and simulation mechanics of the Player Combat System in Project Grimhold.
 
+## Equipped-hand attacks (TASK-222)
+
+Equipment resolves each active set hand independently: `PrimaryAttack` uses Main Hand and
+`SecondaryAction` uses Off Hand. Weapons attack; shields defend from their own hand's input.
+Two-handed weapons still attack on Primary and retain Secondary aim stance. A set must contain
+at least one eligible weapon, in either hand; a shield alone does not make a set offensive.
+
+`PlayerCombatNetworkController.HandAttacks` snapshots four `WeaponHandAttackState` values,
+one per hand slot in Set A/B. Each holds an independent `WeaponAttackTiming` interval,
+accepted release payload and confirmed presentation identity/timeline. Inactive sets continue
+absolute tick deadlines. `WeaponExecutionEndTick` is a separate offensive exclusion deadline:
+set switching and new offensive starts are rejected during it, not throughout cooldown.
+A single tick accepts at most one attack, with Main-first arbitration. Defense retains priority
+and suppresses new attacks. Rejected Press input is consumed, never queued for later execution.
+
+`WeaponDefinition.ExecutionWindowSeconds` is finite, nonnegative and configurable, with a
+provisional 0.20-second Balance default. It is independent of Attack Interval and release delay.
+The other hand may start after the window even while the first hand has a pending release;
+a hand with its own pending release cannot replace it. Both weapon inputs retain Press/Hold
+semantics and consume their own full Stamina cost once at valid acceptance. The previous basic
+attack path did not debit Stamina; TASK-222 adds this missing rule. Failed preflights never spend
+Stamina or publish intervals, windows, sequences or releases.
+
+State Authority accepts and releases only on forward ticks. Melee snapshots its accepted
+statistics and direction; the source slot/weapon must still be active when damage resolves.
+Using the other hand does not invalidate that source. Ranged snapshots remain independent of
+later selection. All pending flags are consumed before external damage or projectile spawning.
+Death, Downed, consumption, disabled combat and phase exit cancel pending work, without resetting intervals.
+Consumption blocks both equipped-hand starts and their presentation. `HasPendingAttackRelease` includes
+all four hand snapshots as well as legacy releases, so timed consumables cannot interrupt accepted work.
+
+`TryGetAttackStatus(EquipmentSlot, ...)` presents a hand's interval; the existing primary query
+is a Main-hand wrapper. The single-strategy API/timer remains only as the compatibility route
+for avatars and fixtures without an active Equipment set, not a shared equipped-hand cooldown.
+`AttackPerformedEvent.SourceSlot` identifies the originating hand. Presentation observes each
+slot sequence independently, dispatches coalesced snapshots in acceptance-sequence order, resumes
+pending timelines without start audio, and does not let
+Off-hand events replace Main-hand Animator/VFX timelines.
+
+Off-hand weapons reuse the existing grip/renderer. `OneHandPoseSampler` samples existing
+one-handed directional clips on an owned inert rig and transfers only the sampled hand pose;
+it does not mutate animation assets or seek the live Main-hand Animator. The sampled rig is
+created lazily and disposed with the presenter. Main shields reuse the existing defensive pose
+and directional sprites. FreeAim rotates a Wand around its own hand's grip; melee retains its
+committed direction. `SecondHandPresentation` continues owning generated two-handed support-hand
+motion; TASK-222 does not reinterpret it as gameplay state or change two-handed art.
+
+Host Migration copies hand snapshots, interval/window deadlines and release flags with the avatar.
+Fresh-spawn initialization is skipped on restore. Equipment reconstructs local executors without
+resetting those deadlines or overwriting accepted payloads. Real Host/Client visuals and multi-process
+migration remain separate validation requirements; value-copy tests alone do not prove them.
+
 ## Architectural Overview
 
 The combat system is built on a modular, strategy-based architecture designed to support deterministic and authoritative multiplayer combat using **Photon Fusion 2.1** in Host/Client mode. It separates:
@@ -76,7 +128,7 @@ Serves as the network boundary for the current basic weapon attack flow:
 * Owns the current basic weapon attack flow; it is not the runtime contract or owner for character abilities.
 * Extends `NetworkBehaviour` and processes combat input during Fusion simulation ticks.
 * Only State Authority validates and executes attacks. Irreversible player execution/spawning runs on forward ticks, not resimulation.
-* Owns one networked `RangedAttackRelease` value (deadline and committed projectile payload) and one networked `MeleeAttackRelease` value (deadline, committed direction and committed weapon identity). Both advance before reading input, independently of the active strategy.
+* Owns per-slot `RangedAttackRelease` and `MeleeAttackRelease` snapshots (plus legacy snapshots for the neutral Equipment compatibility route). Both advance before reading input, independently of the active strategy.
 * Listens to player input commands (e.g., `PrimaryAttack` button and `AimWorldPosition`).
 * Synchronizes `AttackSequence` using a `[Networked]` state variable to ensure clients replicate visual presentation smoothly.
 * Handles combat cooldowns authoritatively via network tick timers (`TickTimer`).
@@ -98,7 +150,7 @@ does not overwrite those networked snapshots.
 
 `PlayerWeaponEquipmentNetworkController` is the single authoritative source of the Raid avatar's
 Equipment. It owns two Weapon Sets (`Main Hand + Off Hand`) plus `Helmet`, `Armor`, `Gloves`
-and `Boots`, and one active Set selection that may only reference a Set with an occupied Main Hand. Each
+and `Boots`, and one active Set selection that requires an eligible weapon in at least one hand. Each
 slot replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty).
 Every Equip intention names its exact `EquipmentSlot`. One-handed weapons may occupy either hand;
 two-handed weapons may occupy only Main Hand and derive the blocked state of the matching Off Hand.
@@ -114,7 +166,7 @@ Slot compatibility lives in `EquipmentSlotRules`, not in Loot. `LootCategory` on
 unit (`Weapon`, `Shield`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which slot may receive it is an
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
-Only the Main Hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
+Each offensive hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
 with the participant's effective `CharacterAttributeState`. Equipment adapts the current legacy
 `WeaponOffensiveScaling` to resolved runtime contributions, calculates effective damage through the
 single canonical `WeaponDamageCalculator`, and builds a
@@ -159,9 +211,8 @@ inside the normal `PlayerNetworkInput.Buttons` snapshot. State Authority derives
 an RPC. Missing input clears the state.
 
 Equipment remains the only source of truth for shield availability. `Shield` is an equippable Loot
-category compatible exclusively with the Off Hand slots. A valid shield is not a weapon, has no
-`WeaponDefinition`, never resolves an `IAttack`, and has no attribute-requirement check. Only the
-active Weapon Set's Off Hand can sustain defense. The state also requires a living character and an
+category compatible with either hand slot, never with a two-handed weapon in the same set. A valid shield in either hand is not a weapon, has no
+`WeaponDefinition`, never resolves an `IAttack`, and has no attribute-requirement check. Only the active Weapon Set can sustain defense; its shield uses the input of its actual hand. The state also requires a living character and an
 active gameplay phase, so releasing input, changing Set, removing or displacing the shield, defeat,
 phase exit, or loss of input cancels defense on the next authoritative tick. Host Migration keeps a
 restored state only when those reconstructed conditions remain compatible.
@@ -1120,12 +1171,12 @@ for in-flight replication; local persistence stores `LootId` strings.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
 * **Equipment Instances Remain Template-Based**: armor statistics and maximum-resource modifiers are applied through the equipped `LootId` definitions, and inventory tooltips expose those same definition-owned values. Unique per-instance armor modifiers remain unavailable until instance identity is transported end to end.
 * **No Unique Equipment Instances Yet**: current inventory, Equipment, world and persistence paths identify items by `LootId` plus quantity. `WeaponInstanceModifiers` defines the canonical scaling payload but is not transported or stored yet, so multiple runtime variants of one template do not exist.
-* **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. Only a valid Main Hand weapon is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
+* **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. A valid weapon in either hand is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
 * **Free-aim visual tip versus projectile spawn**: the spawn point is a per-weapon distance along the aim, while the posed weapon is a rigid, hand-anchored visual that cannot match a fixed distance at every aim. The gap is measured per weapon and bounded by `FreeAimSpawnConsistencyTests` with a per-weapon tolerance, measured in the fully drawn aim-driven state. Unaimed shots, fired before the stance is drawn or with the stance released, are posed differently from aimed ones and are not covered by that tolerance.
 * **Game Design conflict (pending a Game Design update)**: "09 - Diseño de Equipamiento" maps the Off Hand to the secondary attack input, but for two-handed ranged weapons `SecondaryAction` now means "aim". Game Design is not edited by this contract.
 * **Gamepad aim is out of scope**: no right-stick aim input action exists, so `AimDirection` comes only from the cursor.
 * **Unused pure math**: `RangedWeaponAimPoseMath` and `RangedWeaponAimPose` remain with their tests but are not used by the presenter.
-* **Off Hand attacks are deferred**: primary attack still resolves only the active Set's Main Hand. Sustained shield defense is implemented, while Dual Wield attacks remain a separate feature.
+* **Dual Wield**: TASK-222 adds independent equipped-hand intervals and release snapshots; see the equipped-hand contract above. No new dual-wield art is authored.
 * **Armor Presentation**: `PlayerArmorPresenter` handles the visualization of equipped armor (`Helmet`, `Armor`, `Gloves`, `Boots`) by reading the slot presence from `PlayerWeaponEquipmentNetworkController`. It dynamically overlays and tints copies of the base modular sprites to provide visual feedback during testing. Proxy players synchronize this presentation entirely through the replicated `EquipmentRevision` and slot definitions, without additional networked state.
 
 ---

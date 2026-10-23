@@ -144,7 +144,14 @@ initializes them only when `!IsRestoreSpawn`, so a restored avatar keeps its aim
 
 ### Accepted ranged release restoration
 
-`PlayerCombatNetworkController` copies its `RangedAttackRelease` network value with the avatar:
+`PlayerCombatNetworkController` also copies TASK-222's four `WeaponHandAttackState` values and
+`WeaponExecutionEndTick` with the avatar. Every hand retains its independent absolute interval,
+source slot, release payload and presentation sequence. Restoring or selecting Equipment cannot
+restart these clocks. A due melee release uses its original hand identity and accepted statistics;
+an opposite-hand attack cannot substitute its executor parameters. The legacy single-strategy
+snapshot remains for avatars without an active Equipment set.
+
+`PlayerCombatNetworkController` copies each `RangedAttackRelease` network value with the avatar:
 pending flag, absolute release tick (already carrying the aimed release delay when the stance was fully drawn), locked direction and committed projectile prefab/mask/offset,
 speed/lifetime, damage/type, range and knockback. Cooldown, original weapon catalog identity,
 acceptance/release/cancellation ticks and sequence are networked too. The restore-spawn guard

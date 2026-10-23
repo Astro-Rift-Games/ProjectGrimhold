@@ -49,7 +49,7 @@ public static class EquipmentSlotRules
         category switch
         {
             LootCategory.Weapon => IsHandSlot(slot),
-            LootCategory.Shield => IsOffHandSlot(slot),
+            LootCategory.Shield => IsHandSlot(slot),
             _ => slot != EquipmentSlot.None && ResolveFixedSlot(category) == slot
         };
 

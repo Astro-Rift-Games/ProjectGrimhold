@@ -58,7 +58,9 @@ public sealed class PlayerShieldDefenseNetworkController : NetworkBehaviour
 
     /// <summary>Checks the current secondary-action intent against authoritative gameplay state.</summary>
     public bool CanDefend(NetworkButtons buttons) =>
-        buttons.IsSet(PlayerInputButton.SecondaryAction) && CanSustainDefense();
+        CanSustainDefense() &&
+        ((buttons.IsSet(PlayerInputButton.PrimaryAttack) && _equipmentController.TryGetActiveShieldDefinition(false, out _)) ||
+         (buttons.IsSet(PlayerInputButton.SecondaryAction) && _equipmentController.TryGetActiveShieldDefinition(true, out _)));
 
     /// <summary>Applies the active shield's directional mitigation without changing the damage contract.</summary>
     public bool TryMitigateDamage(

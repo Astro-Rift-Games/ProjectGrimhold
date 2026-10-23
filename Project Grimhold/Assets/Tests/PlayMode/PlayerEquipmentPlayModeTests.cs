@@ -52,6 +52,7 @@ namespace Tests.PlayMode.Equipment
         private LootDefinition _boots;
         private LootDefinition _trinket;
         private LootDefinitionCatalog _catalog;
+        private readonly List<Object> _ownedDefinitions = new();
 
         [UnityTearDown]
         public IEnumerator TearDown()
@@ -73,6 +74,183 @@ namespace Tests.PlayMode.Equipment
 
             _runner = null;
             EquipmentTestContent.Cleanup();
+            foreach (Object asset in _ownedDefinitions) Object.DestroyImmediate(asset);
+            _ownedDefinitions.Clear();
+        }
+
+        [UnityTest]
+        public IEnumerator Consuming_RejectsBothHandInputsWithoutSpendingOrStartingIntervals()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            var consumables = _combat.GetComponent<PlayerConsumableNetworkController>();
+            Assert.That(consumables, Is.Not.Null);
+            typeof(PlayerConsumableNetworkController).GetProperty("ConsumptionTimer", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(consumables, TickTimer.CreateFromSeconds(_runner, 30f));
+            Assert.That(consumables.IsConsuming, Is.True);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            var feedback = new List<CombatPresentationEvent>();
+            _combat.CombatFeedbackResolved += feedback.Add;
+            int attacks = 0;
+            _combat.AttackPerformed += _ => attacks++;
+            float stamina = _stamina.CurrentStamina;
+            input.PrimaryHeld = input.SecondaryHeld = true;
+            int until = _runner.Tick + 5;
+            yield return WaitUntil(() => _runner.Tick >= until, "Input was not sampled.");
+            Assert.That(attacks, Is.Zero);
+            Assert.That(feedback.Exists(item => item.Kind == CombatFeedbackKind.AttackRejected &&
+                item.AttackFailureReason == AttackFailureReason.CooldownActive), Is.False,
+                "Consumption must not publish false cooldown feedback when no interval started.");
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(stamina));
+            Assert.That(_combat.IsExecutingWeaponAttack, Is.False);
+            Assert.That(_combat.HasPendingAttackRelease, Is.False);
+            foreach (EquipmentSlot slot in new[] { EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetAOffHand })
+            {
+                Assert.That(_combat.TryGetAttackStatus(slot, out PrimaryAttackStatus status), Is.True);
+                Assert.That(status.IsAvailable, Is.False);
+                Assert.That(status.CooldownDurationSeconds, Is.Zero);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DualWield_WindowExpiresBeforeRelease_AndBothHandsKeepPendingPayloads()
+        {
+            yield return StartRaidPlayer();
+            LootDefinition sword = Object.Instantiate(_meleeWeapon);
+            WeaponDefinition weapon = Object.Instantiate(_meleeWeapon.WeaponDefinition);
+            _ownedDefinitions.Add(sword);
+            _ownedDefinitions.Add(weapon);
+            EquipmentTestContent.SetField(weapon, "_attackReleaseSeconds", 0.8f);
+            EquipmentTestContent.SetField(weapon, "_executionWindowSeconds", 0.1f);
+            EquipmentTestContent.SetField(sword, "_weaponDefinition", weapon);
+            _catalog = EquipmentTestContent.CreateCatalog(sword, _rangedWeapon, _greatsword,
+                _helmet, _armor, _gloves, _boots, _trinket, _shield);
+            EquipmentTestContent.SetField(_equipment, "_lootCatalog", _catalog);
+            EquipmentTestContent.SetField(_receiver, "_lootCatalog", _catalog);
+            yield return EquipThroughAuthority(sword, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => _combat.IsExecutingWeaponAttack, "Main did not start.");
+            input.PrimaryHeld = false;
+            yield return WaitUntil(() => !_combat.IsExecutingWeaponAttack, "Window did not expire.");
+            input.SecondaryHeld = true;
+            var property = typeof(PlayerCombatNetworkController).GetProperty("HandAttacks", BindingFlags.Instance | BindingFlags.NonPublic);
+            yield return WaitUntil(() => ((NetworkArray<WeaponHandAttackState>)property.GetValue(_combat))[1].Sequence > 0,
+                "The first pending release incorrectly blocked the other hand.");
+            var hands = (NetworkArray<WeaponHandAttackState>)property.GetValue(_combat);
+            Assert.That((bool)hands[0].Melee.Pending, Is.True);
+            Assert.That(_combat.HasPendingAttackRelease, Is.True, "Consumables must see equipped-hand pending releases.");
+            Assert.That(hands[0].Melee.WeaponCatalogIndexPlusOne, Is.Not.EqualTo(hands[1].WeaponCatalogIndexPlusOne));
+            Assert.That(hands[0].Melee.ReleaseTick, Is.GreaterThan((int)_runner.Tick));
+            Assert.That(hands[1].Sequence, Is.GreaterThan(hands[0].Sequence));
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponSetSwitch_IsBlockedOnlyDuringWindow_AndDoesNotResetInterval()
+        {
+            yield return StartRaidPlayer();
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetBMainHand, EquipmentOperationResult.Succeeded);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => _combat.IsExecutingWeaponAttack, "Attack did not start its window.");
+            input.PrimaryHeld = false;
+            input.SetBHeld = true;
+            int until = _runner.Tick + 2;
+            yield return WaitUntil(() => _runner.Tick >= until, "Input was not sampled.");
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetA));
+            input.SetBHeld = false;
+            yield return WaitUntil(() => !_combat.IsExecutingWeaponAttack, "Window did not expire.");
+            input.SetBHeld = true;
+            yield return WaitUntil(() => _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetB, "Cooldown incorrectly blocked switching.");
+            Assert.That(_combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAMainHand, out PrimaryAttackStatus inactive), Is.True);
+            Assert.That(inactive.CooldownRemainingSeconds, Is.GreaterThan(0f));
+            input.SetBHeld = false;
+            input.SetAHeld = true;
+            yield return WaitUntil(() => _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetA, "Could not return to Set A.");
+            Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus restored), Is.True);
+            Assert.That(restored.CooldownRemainingSeconds, Is.LessThanOrEqualTo(inactive.CooldownRemainingSeconds));
+        }
+
+        [UnityTest]
+        public IEnumerator InsufficientStamina_RejectsBothHandsWithoutCooldownOrAttack()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            Assert.That((bool)typeof(PlayerStaminaNetworkController).GetMethod("ForceDepleteForRecovery", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_stamina, null), Is.True);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            int attacks = 0;
+            _combat.AttackPerformed += _ => attacks++;
+            input.PrimaryHeld = input.SecondaryHeld = true;
+            int until = _runner.Tick + 5;
+            yield return WaitUntil(() => _runner.Tick >= until, "Input was not sampled.");
+            Assert.That(attacks, Is.Zero);
+            Assert.That(_stamina.CurrentStamina, Is.Zero);
+            Assert.That(_combat.IsExecutingWeaponAttack, Is.False);
+            Assert.That(_combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAMainHand, out PrimaryAttackStatus main), Is.True);
+            Assert.That(_combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAOffHand, out PrimaryAttackStatus off), Is.True);
+            Assert.That(main.CooldownDurationSeconds, Is.Zero);
+            Assert.That(off.CooldownDurationSeconds, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator DualWield_RejectsWindowWithoutCost_ThenUsesIndependentOffHandInterval()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            var events = new List<AttackPerformedEvent>();
+            _combat.AttackPerformed += events.Add;
+            float initialStamina = _stamina.CurrentStamina;
+            input.PrimaryHeld = true;
+            input.SecondaryHeld = true;
+            yield return WaitUntil(() => events.Count > 0, "Neither hand attacked.");
+            Assert.That(events[0].IsOffHand, Is.False, "Main wins simultaneous offensive intent.");
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(initialStamina - _meleeWeapon.WeaponDefinition.StaminaCost).Within(0.01f));
+            Assert.That(_combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAOffHand, out PrimaryAttackStatus blocked), Is.True);
+            Assert.That(blocked.IsAvailable, Is.False);
+            Assert.That(blocked.CooldownRemainingSeconds, Is.Zero);
+            input.PrimaryHeld = false;
+            input.SecondaryHeld = false;
+            yield return WaitUntil(() => !_combat.IsExecutingWeaponAttack, "Execution Window never ended.");
+            input.SecondaryHeld = true;
+            yield return WaitUntil(() => events.Count >= 2, "Off Hand did not attack after the window.");
+            Assert.That(events[1].IsOffHand, Is.True);
+            Assert.That(events[1].WeaponCatalogIndexPlusOne, Is.Not.EqualTo(events[0].WeaponCatalogIndexPlusOne));
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(initialStamina - _meleeWeapon.WeaponDefinition.StaminaCost - _rangedWeapon.WeaponDefinition.StaminaCost).Within(0.01f));
+            Assert.That(_combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAMainHand, out PrimaryAttackStatus main), Is.True);
+            Assert.That(main.CooldownRemainingSeconds, Is.GreaterThan(0f));
+        }
+
+        [UnityTest]
+        public IEnumerator MainShield_UsesPrimaryInput_AndOffWeaponUsesSecondaryInput()
+        {
+            yield return StartRaidPlayer();
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_shield, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            var shield = _character.GetComponent<PlayerShieldDefenseNetworkController>();
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => shield.IsDefending, "Main Hand shield ignored primary input.");
+            input.PrimaryHeld = false;
+            yield return WaitUntil(() => !shield.IsDefending, "Shield did not lower.");
+            bool offAttacked = false;
+            _combat.AttackPerformed += attack => offAttacked |= attack.IsOffHand;
+            input.SecondaryHeld = true;
+            yield return WaitUntil(() => offAttacked, "Off weapon did not use secondary input.");
         }
 
         [UnityTest]
@@ -675,7 +853,7 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
-        public IEnumerator RebuildingForTheRemainingWeapon_PreservesAnExistingCooldown()
+        public IEnumerator RebuildingForTheRemainingWeapon_DoesNotShareIntervalsAcrossSets()
         {
             yield return StartRaidPlayer();
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
@@ -694,9 +872,9 @@ namespace Tests.PlayMode.Equipment
 
             Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(WeaponSetSlot.SetB));
             Assert.That(_combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus after), Is.True);
-            Assert.That(after.IsAvailable, Is.False);
-            Assert.That(after.CooldownDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(after.CooldownRemainingSeconds, Is.GreaterThan(0f));
+            Assert.That(after.IsAvailable, Is.True);
+            Assert.That(after.CooldownDurationSeconds, Is.Zero);
+            Assert.That(after.CooldownRemainingSeconds, Is.Zero);
         }
 
         [UnityTest]
@@ -1157,11 +1335,18 @@ namespace Tests.PlayMode.Equipment
         private sealed class SecondaryActionInputDriver : NetworkRunnerCallbacksAdapter
         {
             public bool SecondaryHeld { get; set; }
+            public bool PrimaryHeld { get; set; }
+            public bool SetBHeld { get; set; }
+            public bool SetAHeld { get; set; }
 
             public override void OnInput(NetworkRunner runner, NetworkInput input)
             {
                 PlayerNetworkInput playerInput = default;
                 playerInput.Buttons.Set(PlayerInputButton.SecondaryAction, SecondaryHeld);
+                playerInput.Buttons.Set(PlayerInputButton.PrimaryAttack, PrimaryHeld);
+                playerInput.Buttons.Set(PlayerInputButton.WeaponSetB, SetBHeld);
+                playerInput.Buttons.Set(PlayerInputButton.WeaponSetA, SetAHeld);
+                playerInput.AimWorldPosition = new Vector2(10, 10);
                 input.Set(playerInput);
             }
         }

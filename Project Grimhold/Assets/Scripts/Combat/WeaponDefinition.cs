@@ -11,6 +11,8 @@ public sealed class WeaponDefinition : ScriptableObject
     [Header("Weapon Statistics")]
     [SerializeField, Min(0f)] private float _baseDamage;
     [SerializeField, Min(0f)] private float _attackIntervalSeconds;
+    [SerializeField, Min(0f), Tooltip("Offensive exclusion only; independent of attack interval and release delay. Temporary Balance default.")]
+    private float _executionWindowSeconds = 0.2f;
     [SerializeField, Min(0f), Tooltip("Gameplay wind-up from acceptance to the attack release (projectile spawn or melee hit). Independent of Animator and VFX.")]
     [FormerlySerializedAs("_rangedReleaseSeconds")]
     private float _attackReleaseSeconds;
@@ -62,6 +64,7 @@ public sealed class WeaponDefinition : ScriptableObject
 
     public float BaseDamage => _baseDamage;
     public float AttackIntervalSeconds => _attackIntervalSeconds;
+    public float ExecutionWindowSeconds => _executionWindowSeconds;
     public float AttackReleaseSeconds => _attackReleaseSeconds;
     public float AimStanceDrawSeconds => _aimStanceDrawSeconds;
     public float AimedReleaseSeconds => _aimedReleaseSeconds;
@@ -105,6 +108,12 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!IsFinite(_attackIntervalSeconds) || _attackIntervalSeconds < 0f)
         {
             error = $"Weapon definition '{name}' has invalid attack interval '{_attackIntervalSeconds}'.";
+            return false;
+        }
+
+        if (!IsFinite(_executionWindowSeconds) || _executionWindowSeconds < 0f)
+        {
+            error = $"Weapon definition '{name}' has invalid execution window.";
             return false;
         }
 

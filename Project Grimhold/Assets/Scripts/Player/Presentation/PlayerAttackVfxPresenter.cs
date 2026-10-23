@@ -129,8 +129,15 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _vfxRenderer.sortingOrder = pose.SortingOrder;
     }
 
+    internal bool TryGetWeaponTint(DamageType type, out Color tint)
+    {
+        tint = Color.white;
+        return _tintPalette != null && _tintPalette.TryGetTint(type, out tint);
+    }
+
     private void OnAttackPerformed(AttackPerformedEvent attack)
     {
+        if (attack.IsOffHand) return; // The other hand has an independent sampled renderer and timeline.
         Clear();
         if (!_character.IsAlive || PlayerDownedGate.IsDowned(_character) || !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
             attack.WeaponCatalogIndexPlusOne, out LootDefinition loot))

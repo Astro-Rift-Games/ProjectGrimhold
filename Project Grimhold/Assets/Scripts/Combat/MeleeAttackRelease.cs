@@ -12,6 +12,12 @@ public struct MeleeAttackRelease : INetworkStruct
     public int ReleaseTick;
     public Vector2 Direction;
     public int WeaponCatalogIndexPlusOne;
+    public float Damage;
+    public DamageType DamageType;
+    public float Range;
+    public float KnockbackForce;
+
+    public AttackExecutionParameters ExecutionParameters => new(Damage, DamageType, 0f, Range, KnockbackForce);
 
     public bool TryAccept(in AttackRequest request, in AttackExecutionParameters parameters,
         int weaponCatalogIndexPlusOne, float deltaTime)
@@ -28,7 +34,11 @@ public struct MeleeAttackRelease : INetworkStruct
             Pending = true,
             ReleaseTick = deadline,
             Direction = direction,
-            WeaponCatalogIndexPlusOne = weaponCatalogIndexPlusOne
+            WeaponCatalogIndexPlusOne = weaponCatalogIndexPlusOne,
+            Damage = parameters.Damage,
+            DamageType = parameters.DamageType,
+            Range = parameters.Range,
+            KnockbackForce = parameters.KnockbackForce
         };
         return true;
     }

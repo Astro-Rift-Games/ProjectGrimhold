@@ -34,6 +34,17 @@ public sealed class PrimaryAttackStatusSimulationDriver : SimulationBehaviour
             : TickTimer.None;
         AttackCooldownProperty.SetValue(Target, timer);
         AttackCooldownDurationProperty.SetValue(Target, RequestedCooldownSeconds);
+        var equipment = Target.GetComponent<PlayerWeaponEquipmentNetworkController>();
+        if (equipment != null && equipment.ActiveWeaponSetSlot != WeaponSetSlot.None)
+        {
+            var hands = (NetworkArray<WeaponHandAttackState>)typeof(PlayerCombatNetworkController)
+                .GetProperty("HandAttacks", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Target);
+            int index = equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetA ? 0 : 2;
+            WeaponHandAttackState state = hands[index];
+            state.Timing = default;
+            state.Timing.TryStart(Runner.Tick, Runner.DeltaTime, RequestedCooldownSeconds, 0f, out _);
+            hands.Set(index, state);
+        }
     }
 }
 #endif

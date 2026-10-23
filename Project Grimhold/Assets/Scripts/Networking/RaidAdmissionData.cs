@@ -177,7 +177,7 @@ public readonly struct RaidAdmissionData
             level,
             currentExperience,
             lastAppliedProgressionResultSequence,
-            reservation.PreparedEquipment.HasWeaponSetAMainHand
+            (reservation.PreparedEquipment.HasWeaponSetAMainHand || reservation.PreparedEquipment.WeaponSetAOffHand.IsValid)
                 ? WeaponSetSlot.SetA
                 : WeaponSetSlot.SetB,
             preparedAbilities);
@@ -245,10 +245,10 @@ public readonly struct RaidAdmissionData
     {
         return ActiveWeaponSet switch
         {
-            WeaponSetSlot.SetA => WeaponSetAMainHandEntryIndexPlusOne > 0,
-            WeaponSetSlot.SetB => WeaponSetBMainHandEntryIndexPlusOne > 0,
+            WeaponSetSlot.SetA => WeaponSetAMainHandEntryIndexPlusOne > 0 || WeaponSetAOffHandEntryIndexPlusOne > 0,
+            WeaponSetSlot.SetB => WeaponSetBMainHandEntryIndexPlusOne > 0 || WeaponSetBOffHandEntryIndexPlusOne > 0,
             WeaponSetSlot.None => WeaponSetAMainHandEntryIndexPlusOne == 0 &&
-                                  WeaponSetBMainHandEntryIndexPlusOne == 0,
+                                  WeaponSetBMainHandEntryIndexPlusOne == 0 && WeaponSetAOffHandEntryIndexPlusOne == 0 && WeaponSetBOffHandEntryIndexPlusOne == 0,
             _ => false
         };
     }
@@ -259,8 +259,12 @@ public readonly struct RaidAdmissionData
     {
         int setAMainIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetAMainHand);
         int setBMainIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetBMainHand);
-        bool hasSetA = indices != null && indices.Count > setAMainIndex && indices[setAMainIndex] > 0;
-        bool hasSetB = indices != null && indices.Count > setBMainIndex && indices[setBMainIndex] > 0;
+        int setAOffIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetAOffHand);
+        int setBOffIndex = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetBOffHand);
+        bool hasSetA = indices != null && ((indices.Count > setAMainIndex && indices[setAMainIndex] > 0) ||
+            (indices.Count > setAOffIndex && indices[setAOffIndex] > 0));
+        bool hasSetB = indices != null && ((indices.Count > setBMainIndex && indices[setBMainIndex] > 0) ||
+            (indices.Count > setBOffIndex && indices[setBOffIndex] > 0));
         if (requested == WeaponSetSlot.SetA && hasSetA || requested == WeaponSetSlot.SetB && hasSetB)
         {
             return requested;
@@ -386,7 +390,7 @@ public static class RaidLoadoutRules
                 return false;
             }
 
-            if (reference > 0 && EquipmentSlotRules.IsMainHandSlot(slots[index]))
+            if (reference > 0 && EquipmentSlotRules.IsHandSlot(slots[index]))
             {
                 hasWeapon = true;
             }
