@@ -6,6 +6,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **dungeon-pressure:** configure ambient assets in Gameplay scene ([4ffae04](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4ffae04004270e93ff95697e8ad95dc3f42a2fda))
+- **dungeon-pressure:** add ambient lighting and phase presentation ([19ca233](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19ca2337d8bb0e678ba7c041aa24746b6c98b7b4))
+- **camera:** add continuous baseline trauma to camera shake ([aeb7a7b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aeb7a7b2252500d690525e9acad2e2400f18a5fd))
 - **dungeon-pressure:** defeat remaining raiders upon collapse expiry ([24d88d8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/24d88d867cd446299d99b945570dcf3fe9c6dea0))
 - **security:** sanitize env placeholders and add secret scanner for us-61 ([6bc1ff4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6bc1ff4a9672dc4e1098ea6981ccba3a27823caf))
 - **security:** enforce session revocation and harden production backend ([21e11ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21e11ff073817b04d91880ebca5ad305b746b626))
