@@ -6,6 +6,8 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **dungeon-pressure:** configure volume profile and scene vignette ([88b8425](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88b84251f8e436dce161ab5850edf133d60004f2))
+- **dungeon-pressure:** add urp volume vignette to ambient system ([fbff950](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fbff95087fb022002381ad06fff77ebdfca3a02f))
 - **release:** automate weekly integration and version publication ([605c88c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/605c88cebb5ba060a2ad19e6c14483ddb501c534))
 - **dungeon-pressure:** configure ambient assets in Gameplay scene ([4ffae04](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4ffae04004270e93ff95697e8ad95dc3f42a2fda))
 - **dungeon-pressure:** add ambient lighting and phase presentation ([19ca233](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19ca2337d8bb0e678ba7c041aa24746b6c98b7b4))
