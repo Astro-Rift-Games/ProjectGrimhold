@@ -6,6 +6,8 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **player:** implement TASK-220 feedback and timed actions ([90b01f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/90b01f5f9370483a8358166d8ba97164efda9a7e))
+- **minimap:** render faithful saved dungeon tiles with stable tracking ([684ba42](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/684ba421b3a70ed369135b5dbaa286eb351b5682))
 - **dungeon-pressure:** configure volume profile and scene vignette ([88b8425](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88b84251f8e436dce161ab5850edf133d60004f2))
 - **dungeon-pressure:** add urp volume vignette to ambient system ([fbff950](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fbff95087fb022002381ad06fff77ebdfca3a02f))
 - **release:** automate weekly integration and version publication ([605c88c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/605c88cebb5ba060a2ad19e6c14483ddb501c534))
@@ -272,6 +274,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **town:** restore visibility of local player menus ([a98475c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a98475c14e03ab4ab40346bbe0d9c4c631c41709))
 - **extraction:** reserve each Sanctuary exclusively for one team ([48ed361](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/48ed3616ba136d1d99c48fa8c457cbc7c90bfca7))
 - **raid:** preserve reconnect tickets and unify disconnect continuity ([22719f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/22719f50528b159d2236fa303836a96fedd766f0))
 - **security:** harden secret scanning and remediate dependencies ([a14c5dd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a14c5dde8281eaadb8d11781fa7b5a3dae8ec156))
