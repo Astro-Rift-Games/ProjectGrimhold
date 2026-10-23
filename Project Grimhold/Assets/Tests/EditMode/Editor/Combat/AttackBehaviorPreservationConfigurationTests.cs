@@ -10,7 +10,6 @@ namespace Tests.EditMode.Combat
         [TestCase("Assets/Prefabs/Enemies/Slimes/RedSlime.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
         public void LegacyMeleeConsumers_PreserveEffectiveParameters(string prefabPath)
         {
             GameObject prefab = LoadPrefab(prefabPath);
@@ -25,7 +24,6 @@ namespace Tests.EditMode.Combat
         }
 
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
         public void LegacyRangedConsumers_PreserveEffectiveParameters(string prefabPath)
         {
             GameObject prefab = LoadPrefab(prefabPath);

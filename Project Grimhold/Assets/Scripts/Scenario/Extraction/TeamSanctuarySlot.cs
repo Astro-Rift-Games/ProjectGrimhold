@@ -3,7 +3,7 @@ using Fusion;
 
 /// <summary>
 /// Replicated network struct representing a single team's ritual and reservation state on an extraction sanctuary.
-/// Allows multiple teams to share a sanctuary concurrently per decision D-3.
+/// At most one slot is assigned at a time, because a Sanctuary is reserved for its owning team.
 /// </summary>
 [System.Serializable]
 public struct TeamSanctuarySlot : INetworkStruct, IEquatable<TeamSanctuarySlot>

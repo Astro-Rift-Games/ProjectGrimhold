@@ -246,7 +246,9 @@ namespace Tests.PlayMode.Progression
         {
             var runnerObject = new GameObject("FirstOpenExperienceTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
             _driver = runnerObject.AddComponent<ExtractionProgressSimulationDriver>();
             var start = _runner.StartGame(new StartGameArgs
             {
@@ -283,7 +285,6 @@ namespace Tests.PlayMode.Progression
             NetworkRaidParticipant participant =
                 participantObject.GetComponent<NetworkRaidParticipant>();
 
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject avatar = _runner.Spawn(
                 LoadPrefab(PlayerPrefabGuid),
                 position,
@@ -291,6 +292,7 @@ namespace Tests.PlayMode.Progression
                 inputAuthority: null,
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             return (participant, avatar);
         }
@@ -303,12 +305,13 @@ namespace Tests.PlayMode.Progression
 
         private NetworkObject SpawnAvatarWithoutParticipant(Vector3 position)
         {
-            ExpectBasePrefabExtractionProgressValidationError();
-            return _runner.Spawn(
+            NetworkObject spawnedAvatar = _runner.Spawn(
                 LoadPrefab(PlayerPrefabGuid),
                 position,
                 Quaternion.identity,
                 inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawnedAvatar);
+            return spawnedAvatar;
         }
 
         private NetworkObject SpawnContainer(IReadOnlyList<LootEntry> content, Vector3 position)
@@ -383,12 +386,6 @@ namespace Tests.PlayMode.Progression
             Assert.That(ledger.FirstOpenChestCount, Is.EqualTo(exploration > 0 ? 1 : 0));
         }
 
-        private static void ExpectBasePrefabExtractionProgressValidationError()
-        {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
-        }
     }
 }
 #endif

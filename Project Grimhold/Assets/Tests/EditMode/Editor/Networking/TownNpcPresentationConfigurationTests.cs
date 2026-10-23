@@ -57,7 +57,7 @@ public sealed class TownNpcPresentationConfigurationTests
         },
         new NpcCase
         {
-            Prefab = "Merchant", ClipPrefix = "MerchantNpc", AssetFolder = "Merchant",
+            Prefab = "TownMerchantNPC", ClipPrefix = "MerchantNpc", AssetFolder = "Merchant",
             Set = "Merchant-Set", Sequence = "TownMerchantNpcDialogue",
             Interactable = typeof(TownMerchantNpcInteractable),
             Layers = new[] { "Head/HeadwearVisual", "Body/TorsoVisual", "Legs/BootsVisual" },

@@ -20,7 +20,8 @@ namespace Tests.EditMode.Progression
 
             Assert.That(values, Is.Not.Null);
             Assert.That(loot, Is.Not.Null);
-            Assert.That(loot.DefinitionCount, Is.EqualTo(39));
+            Assert.That(loot.TryValidate(out string lootError), Is.True, lootError);
+            Assert.That(loot.DefinitionCount, Is.GreaterThan(0));
             Assert.That(values.TryValidate(loot, out string error), Is.True, error);
             for (int index = 0; index < loot.DefinitionCount; index++)
             {

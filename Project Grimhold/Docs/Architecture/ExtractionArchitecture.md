@@ -152,12 +152,14 @@ Team progress is networked authoritatively on `NetworkMatchController` via `Team
 
 The pre-ritual flow is `team quota -> team request -> team assignment -> sanctuary reservation`. When a team completes its quota under State Authority, `TeamExtractionProgress` triggers `ExtractionSanctuaryAssignmentService` for the team's `RaidTeamId`.
 
-**Divergence D-3 with Game Design Doc 06 §10/§12:**
-In Game Design doc 06 §10 and §12, each sanctuary was originally envisioned as exclusive to one team. In the technical implementation (US-53), multiple teams may be assigned to and share the same `ExtractionSanctuary` in the scene (divergence D-3, tracked as a GD follow-up).
+**Exclusive reservation (Game Design 06 sections 10 and 12):**
+A Sanctuary is reserved for exactly one owning team. Other teams may approach and fight in its area, but cannot activate, capture, deactivate or extract through it. This resolves the former divergence D-3 (US-53), under which several teams could share one Sanctuary, in favor of Game Design.
 
-To support D-3, each `ExtractionSanctuary` maintains networked team slots (`[Networked, Capacity(RaidSessionRules.MaxTeams)]`) storing `{TeamId, RitualState, RitualTimer}` rather than a single owner ID. Multiple teams can have reservations on the same Sanctuary simultaneously and progress through rituals independently.
+Each `ExtractionSanctuary` keeps its networked team slots (`[Networked, Capacity(RaidSessionRules.MaxTeams)]`) storing `{TeamId, RitualState, RitualTimer}`, so the replicated layout is unchanged, but `TryAssignTeam` accepts a team only while no other team holds a slot. The owner's repeated reservation remains idempotent. All reservation paths, including the legacy `TryReserve`, go through `TryAssignTeam`.
 
-Host simulation deterministic assignment matches pure policy: pseudorandom mixing of seed, tick, team identity, and sanctuary candidate count.
+Host simulation selects only among registered Sanctuaries that are not reserved (`IsReserved == false`), in ascending identity order, with the pure policy: pseudorandom mixing of seed, tick, team identity and free candidate count. When every Sanctuary is reserved, assignment fails closed with `NoFreeSanctuary`; the team keeps its pending request and `TeamExtractionProgress` retries it on later ticks. Game Design does not yet define the outcome when a raid has more teams than Sanctuaries; Level Design must provide at least one Sanctuary per team until it does.
+
+A pending request is retried every simulation tick, so the assignment service reports `NoSanctuariesConfigured`, `NoFreeSanctuary`, `ReservationConflict`, `SanctuaryRegistryInconsistent` and `DuplicateExistingAssignment` once per Raid generation (until `ResetForRaidClosure`) as a configuration failure, and retried attempts log nothing.
 
 ## Authoritative team ritual and shared extraction coordination (supersedes Authoritative individual ritual)
 

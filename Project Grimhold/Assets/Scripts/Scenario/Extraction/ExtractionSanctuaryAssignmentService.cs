@@ -12,6 +12,7 @@ using UnityEngine;
 public class ExtractionSanctuaryAssignmentService : MonoBehaviour
 {
     private readonly List<EntityId> _sanctuaryIds = new();
+    private readonly List<EntityId> _freeSanctuaryIds = new();
     private readonly HashSet<SanctuaryAssignmentFailureReason> _reportedConfigurationFailures = new();
 
     private NetworkRunner _runner;
@@ -168,7 +169,8 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
     /// <summary>
     /// Selects and assigns one sanctuary during Host simulation after validating current team progress.
     /// An existing unique assignment is returned idempotently before selection is evaluated.
-    /// Multiple teams can share the same sanctuary per decision D-3.
+    /// Selection considers only Sanctuaries not reserved by another team, because a Sanctuary is
+    /// reserved exclusively for its owning team (GD 06 section 10).
     /// </summary>
     public SanctuaryAssignmentResult TryAssign(RaidTeamId teamId)
     {
@@ -202,9 +204,9 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
             return existing;
         }
 
+        // TryGetAssignment already reported this configuration failure once; retries stay silent.
         if (existing.FailureReason != SanctuaryAssignmentFailureReason.AssignmentNotFound)
         {
-            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: Existing assignment failure {existing.FailureReason}.");
             return existing;
         }
 
@@ -238,15 +240,17 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
                 SanctuaryAssignmentFailureReason.AssignmentNotRequested);
         }
 
+        // A pending request is retried every simulation tick, so the rejections below report
+        // their configuration failure once instead of logging on each attempt.
         if (_sanctuaryIds.Count == 0)
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
-            Debug.LogError($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: NoSanctuariesConfigured.");
             return SanctuaryAssignmentResult.Rejected(
                 teamId,
                 SanctuaryAssignmentFailureReason.NoSanctuariesConfigured);
         }
 
+        _freeSanctuaryIds.Clear();
         for (int i = 0; i < _sanctuaryIds.Count; i++)
         {
             EntityId sanctuaryId = _sanctuaryIds[i];
@@ -258,24 +262,34 @@ public class ExtractionSanctuaryAssignmentService : MonoBehaviour
                     teamId,
                     SanctuaryAssignmentFailureReason.SanctuaryRegistryInconsistent);
             }
+
+            if (!sanctuary.IsReserved)
+            {
+                _freeSanctuaryIds.Add(sanctuaryId);
+            }
+        }
+
+        if (_freeSanctuaryIds.Count == 0)
+        {
+            ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.NoFreeSanctuary);
+            return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.NoFreeSanctuary);
         }
 
         int selectedIndex = SanctuarySelectionPolicy.SelectIndex(
             _sessionSeed,
             _runner.Tick,
             teamId,
-            _sanctuaryIds.Count);
-        EntityId selectedId = _sanctuaryIds[selectedIndex];
+            _freeSanctuaryIds.Count);
+        EntityId selectedId = _freeSanctuaryIds[selectedIndex];
 
         if (!_registry.TryGetExtractionSanctuary(selectedId, out IExtractionSanctuary selected) ||
             selected == null || !selected.TryAssignTeam(teamId) || !selected.IsAssignedToTeam(teamId))
         {
             ReportConfigurationFailureOnce(SanctuaryAssignmentFailureReason.ReservationConflict);
-            Debug.LogWarning($"[{nameof(ExtractionSanctuaryAssignmentService)}] TryAssign rejected for team {teamId.Value}: ReservationConflict on Sanctuary {selectedId.Value}.");
             return SanctuaryAssignmentResult.Rejected(teamId, SanctuaryAssignmentFailureReason.ReservationConflict);
         }
 
-        Debug.Log($"[{nameof(ExtractionSanctuaryAssignmentService)}] Team {teamId.Value} successfully assigned to Sanctuary {selectedId.Value} (index {selectedIndex} of {_sanctuaryIds.Count})!");
+        Debug.Log($"[{nameof(ExtractionSanctuaryAssignmentService)}] Team {teamId.Value} successfully assigned to Sanctuary {selectedId.Value} (index {selectedIndex} of {_freeSanctuaryIds.Count} free)!");
         return SanctuaryAssignmentResult.Assigned(teamId, selectedId, false);
     }
 

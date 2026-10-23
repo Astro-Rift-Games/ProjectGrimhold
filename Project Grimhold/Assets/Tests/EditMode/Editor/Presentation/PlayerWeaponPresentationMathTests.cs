@@ -12,8 +12,6 @@ namespace Tests.EditMode.Presentation
         private const float Tolerance = 0.0001f;
         private const float ReflectionTolerance = 0.00001f;
         private const string BasePlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
-        private const string MeleePlayerPrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
-        private const string RangedPlayerPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string ControllerPath = "Assets/Animations/Player/Character.controller";
         private const string TrainingSwordPath =
             "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
@@ -202,29 +200,16 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void PlayerVariants_ReuseAnimatorOwnedHeldVisualHierarchy()
+        public void ProductivePlayer_UsesOneAnimatorOwnedHeldVisualHierarchy()
         {
             GameObject basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BasePlayerPrefabPath);
-            GameObject meleePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MeleePlayerPrefabPath);
-            GameObject rangedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RangedPlayerPrefabPath);
 
             Assert.That(basePrefab, Is.Not.Null);
-            Assert.That(meleePrefab, Is.Not.Null);
-            Assert.That(rangedPrefab, Is.Not.Null);
 
             PlayerWeaponPresenter basePresenter =
                 basePrefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
-            PlayerWeaponPresenter meleePresenter =
-                meleePrefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
-            PlayerWeaponPresenter rangedPresenter =
-                rangedPrefab.GetComponentInChildren<PlayerWeaponPresenter>(true);
             Assert.That(basePresenter, Is.Not.Null);
-            Assert.That(meleePrefab.GetComponentsInChildren<PlayerWeaponPresenter>(true), Has.Length.EqualTo(1));
-            Assert.That(rangedPrefab.GetComponentsInChildren<PlayerWeaponPresenter>(true), Has.Length.EqualTo(1));
-            Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(meleePresenter), Is.SameAs(basePresenter));
-            Assert.That(PrefabUtility.GetCorrespondingObjectFromSource(rangedPresenter), Is.SameAs(basePresenter));
-            AssertNoPresenterOverrides(meleePrefab);
-            AssertNoPresenterOverrides(rangedPrefab);
+            Assert.That(basePrefab.GetComponentsInChildren<PlayerWeaponPresenter>(true), Has.Length.EqualTo(1));
 
             SerializedObject serializedPresenter = new SerializedObject(basePresenter);
             Transform mainGrip = Reference<Transform>(serializedPresenter, "_mainHandGrip");
@@ -415,18 +400,6 @@ namespace Tests.EditMode.Presentation
                 controller.parameters.SingleOrDefault(candidate => candidate.name == name);
             Assert.That(parameter, Is.Not.Null, name);
             Assert.That(parameter.type, Is.EqualTo(type), name);
-        }
-
-        private static void AssertNoPresenterOverrides(GameObject variantPrefab)
-        {
-            PropertyModification[] modifications = PrefabUtility.GetPropertyModifications(variantPrefab);
-            foreach (PropertyModification modification in modifications)
-            {
-                if (modification.target is PlayerWeaponPresenter)
-                {
-                    Assert.Fail($"{variantPrefab.name} overrides '{modification.propertyPath}'.");
-                }
-            }
         }
 
         private static void AssertVector(Vector2 actual, Vector2 expected, float tolerance = Tolerance)

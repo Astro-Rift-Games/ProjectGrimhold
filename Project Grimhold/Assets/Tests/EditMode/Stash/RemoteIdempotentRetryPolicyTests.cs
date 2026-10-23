@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Grimhold.Backend;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 [Category("BACK06")]
 public class RemoteIdempotentRetryPolicyTests
@@ -69,6 +70,8 @@ public class RemoteIdempotentRetryPolicyTests
     public async Task ExecuteWithRetry_ExhaustsRetries_ReturnsFailure()
     {
         int attempts = 0;
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[RemoteIdempotentRetryPolicy] Max retries reached for error TIMEOUT. Aborting.");
         var (success, result, error) = await RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(
             () => { 
                 attempts++; 

@@ -223,6 +223,7 @@ namespace Tests.PlayMode.Abilities
             Assert.That(type, Is.Not.Null, "TASK202 requires ArcaneProjectileAbilityBehaviour.");
             var runnerObject = new GameObject("ArcaneProjectileTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<ArcaneInputDriver>();
@@ -244,7 +245,6 @@ namespace Tests.PlayMode.Abilities
                     ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             NetworkObject avatar = _runner.Spawn(LoadPrefab(PlayerGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -270,6 +270,7 @@ namespace Tests.PlayMode.Abilities
                     SetField(_behaviour, "_preparationMovementSpeedMultiplier", 0.4f);
                     SetField(_runtime, "_executionBehaviours", new AbilityExecutionBehaviour[] { _behaviour });
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             yield return WaitUntil(() => _runtime.IsInitialized && _runtime.GetComponent<PlayerManaNetworkController>().IsInitialized);
         }
@@ -286,8 +287,8 @@ namespace Tests.PlayMode.Abilities
 
         private PlayerCharacter SpawnOtherPlayer(Vector3 position)
         {
-            ExpectAvatarValidationError();
             NetworkObject avatar = _runner.Spawn(LoadPrefab(PlayerGuid), position, Quaternion.identity, inputAuthority: null);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Physics2D.SyncTransforms();
             return avatar.GetComponent<PlayerCharacter>();
         }
@@ -348,9 +349,6 @@ namespace Tests.PlayMode.Abilities
 
         private float Mana() => _runtime.GetComponent<PlayerManaNetworkController>().CurrentMana;
 
-        private static void ExpectAvatarValidationError() => LogAssert.Expect(LogType.Error,
-            "PlayerExtractionProgressController requires character, extraction controller, " +
-            "registry, assignment service, and valid receiver/reader registrations.");
 
         private static void SetField(object target, string name, object value, Type declaringType = null)
         {

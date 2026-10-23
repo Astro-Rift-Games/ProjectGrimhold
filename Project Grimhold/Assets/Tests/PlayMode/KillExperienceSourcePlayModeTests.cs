@@ -491,7 +491,12 @@ namespace Tests.PlayMode.Progression
         {
             var runnerObject = new GameObject("KillExperienceSourceTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
+            // Kill and assist sources resolve participants from the runner's tracked roster.
+            Assert.That(runnerObject.AddComponent<NetworkSpawnManager>().InitializeForRunner(_runner,
+                default, default, Array.Empty<NetworkPrefabRef>(), SessionStartupContext.FreshSession, null), Is.True);
             _damageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             _experienceDriver = runnerObject.AddComponent<ExpeditionExperienceSimulationDriver>();
 
@@ -539,7 +544,6 @@ namespace Tests.PlayMode.Progression
 
             _runner.GetComponent<NetworkSpawnManager>().Test_RegisterParticipant(fakePlayer, participantObject);
 
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject avatar = _runner.Spawn(
                 LoadPrefab(PlayerPrefabGuid),
                 position,
@@ -547,6 +551,7 @@ namespace Tests.PlayMode.Progression
                 inputAuthority: null,
                 onBeforeSpawned: (_, instance) =>
                     instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             return (participant, avatar);
         }
@@ -571,8 +576,7 @@ namespace Tests.PlayMode.Progression
             NetworkObject participantObject,
             Vector3 position)
         {
-            ExpectBasePrefabExtractionProgressValidationError();
-            return _runner.Spawn(
+            NetworkObject spawnedAvatar = _runner.Spawn(
                 LoadPrefab(PlayerPrefabGuid),
                 position,
                 Quaternion.identity,
@@ -582,6 +586,8 @@ namespace Tests.PlayMode.Progression
                     : (_, instance) =>
                         instance.GetComponent<RaidAvatarParticipantLink>()
                             .Initialize(participantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, spawnedAvatar);
+            return spawnedAvatar;
         }
 
         private IEnumerator ResolveDamage(
@@ -651,12 +657,6 @@ namespace Tests.PlayMode.Progression
             Assert.That(ledger.PvpAssistCount, Is.Zero);
         }
 
-        private static void ExpectBasePrefabExtractionProgressValidationError()
-        {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
-        }
     }
 }
 #endif

@@ -287,6 +287,7 @@ namespace Tests.PlayMode.Loot
         {
             var runnerObject = new GameObject("LootContainerPreSpawnTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _damageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             _interactionDriver = runnerObject.AddComponent<BreakableDamageSimulationDriver>();

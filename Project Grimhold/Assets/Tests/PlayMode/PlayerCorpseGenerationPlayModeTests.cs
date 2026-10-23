@@ -28,8 +28,8 @@ namespace Tests.PlayMode.Loot
         public IEnumerator EmptyInventory_MakesTheCoLocatedContainerAvailableWithoutSpawningAnotherObject()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
             NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
@@ -59,8 +59,8 @@ namespace Tests.PlayMode.Loot
         public IEnumerator MultipleStacks_AreLoadedThenThePlayerInventoryIsClearedOnce()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
             NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
@@ -112,8 +112,8 @@ namespace Tests.PlayMode.Loot
         public IEnumerator ClearFailure_RollsBackTheUnavailableContainerAndPreservesInventory()
         {
             yield return StartRunnerAndLoadPlayer();
-            ExpectBasePrefabExtractionProgressValidationError();
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
             PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
             PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
             NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
@@ -140,6 +140,7 @@ namespace Tests.PlayMode.Loot
         {
             var runnerObject = new GameObject("PlayerCorpseLootTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             var startTask = _runner.StartGame(new StartGameArgs
@@ -208,12 +209,6 @@ namespace Tests.PlayMode.Loot
             }
         }
 
-        private static void ExpectBasePrefabExtractionProgressValidationError()
-        {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
-        }
     }
 }
 #endif

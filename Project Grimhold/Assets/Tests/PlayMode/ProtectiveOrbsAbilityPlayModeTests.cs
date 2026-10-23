@@ -1067,6 +1067,7 @@ namespace Tests.PlayMode.Abilities
             RequiredType(OrbTypeName);
             var runnerObject = new GameObject("ProtectiveOrbsTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<OrbInputDriver>();
@@ -1106,9 +1107,6 @@ namespace Tests.PlayMode.Abilities
                     ExperienceCurve.InitialLevel, 0, "orb-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("protective_orbs"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
             NetworkObject avatar = _runner.Spawn(LoadPrefab(PlayerGuid), position, Quaternion.identity,
                 inputAuthority ? _runner.LocalPlayer : PlayerRef.None, onBeforeSpawned: (_, instance) =>
                 {
@@ -1136,6 +1134,7 @@ namespace Tests.PlayMode.Abilities
                         SetField(effect, "_damageResolverSource", source);
                     }
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             return avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
         }

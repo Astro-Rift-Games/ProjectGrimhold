@@ -17,8 +17,6 @@ namespace Tests.PlayMode.Downed
     public sealed class PlayerDownedActionGatesPlayModeTests
     {
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
-        private const string MissingExtractionProgressDependenciesMessage =
-            "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.";
 
         private NetworkRunner _runner;
         private GateInputDriver _input;
@@ -203,6 +201,7 @@ namespace Tests.PlayMode.Downed
         {
             var runnerObject = new GameObject("PlayerDownedActionGatesRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _input = runnerObject.AddComponent<GateInputDriver>();
             _runner.AddCallbacks(_input);
@@ -223,8 +222,8 @@ namespace Tests.PlayMode.Downed
             Assert.That(start.Result.Ok, Is.True, start.Result.ShutdownReason.ToString());
             NetworkPrefabId prefabId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             NetworkObject prefab = _runner.Config.PrefabTable.Load(prefabId, true);
-            LogAssert.Expect(UnityEngine.LogType.Error, MissingExtractionProgressDependenciesMessage);
             _playerObject = _runner.Spawn(prefab, Vector3.zero, Quaternion.identity, _runner.LocalPlayer);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _playerObject);
             _downed = _playerObject.GetComponent<PlayerDownedStateNetworkController>();
             Assert.That(_downed, Is.Not.Null);
             Assert.That(_downed.HasStateAuthority, Is.True);

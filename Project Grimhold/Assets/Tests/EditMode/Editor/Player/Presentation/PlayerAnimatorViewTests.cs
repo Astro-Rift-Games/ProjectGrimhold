@@ -253,10 +253,12 @@ public sealed class PlayerAnimatorViewTests
                 Assert.That(positionBindings, Is.Not.Empty, path);
                 Assert.That(positionBindings.Any(binding =>
                     binding.path == "RightHandPivot/RightHand/MainHandGrip"), Is.True, path);
-                // A weapon-driven rig rests WeaponPose in the drawn left hand, as MainHandGrip tracks the right.
+                // Locomotion aligns both grips with their authored hands; WeaponPose may also be keyed.
                 Assert.That(
                     positionBindings.All(binding =>
-                        binding.path == "RightHandPivot/RightHand/MainHandGrip" || binding.path == "WeaponPose"),
+                        binding.path == "RightHandPivot/RightHand/MainHandGrip" ||
+                        binding.path == "LeftHandPivot/LeftHand/OffHandGrip" ||
+                        binding.path == "WeaponPose"),
                     Is.True,
                     $"{path} must keep the weapon grip aligned with the authored hand pose.");
             }

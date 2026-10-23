@@ -310,8 +310,6 @@ namespace Tests.EditMode.Combat
         }
 
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerMelee.prefab")]
-        [TestCase("Assets/Prefabs/NetworkPlayerRanged.prefab")]
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab")]
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]

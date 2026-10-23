@@ -303,10 +303,8 @@ namespace Tests.PlayMode.Loot
             out PlayerDownedStateNetworkController downed,
             out NetworkLootContainer container)
         {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
             player = playerObject.GetComponent<PlayerCharacter>();
             downed = playerObject.GetComponent<PlayerDownedStateNetworkController>();
             container = playerObject.GetComponent<NetworkLootContainer>();
@@ -355,6 +353,7 @@ namespace Tests.PlayMode.Loot
         {
             var runnerObject = new GameObject("PlayerDownedTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             var startTask = _runner.StartGame(new StartGameArgs

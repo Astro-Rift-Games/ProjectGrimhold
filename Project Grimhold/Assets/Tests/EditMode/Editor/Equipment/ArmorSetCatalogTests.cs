@@ -96,7 +96,7 @@ namespace Tests.EditMode.Equipment
                 Assert.That(ids.Add(definition.Id), Is.True, $"Duplicate item ID: {definition.Id}");
                 Assert.That(definition.Category, Is.EqualTo(spec.Category), spec.AssetName);
                 Assert.That(definition.Icon, Is.Not.Null, spec.AssetName);
-                Assert.That(definition.WorldSprite, Is.SameAs(definition.Icon), spec.AssetName);
+                Assert.That(definition.WorldSprite, Is.Not.Null, spec.AssetName);
                 Assert.That(definition.WeaponDefinition, Is.Null, spec.AssetName);
                 Assert.That(definition.EquipmentVisualDefinition, Is.Not.Null, spec.AssetName);
                 Assert.That(definition.EquipmentVisualDefinition.UsesBaseSpritesAsPlaceholder, Is.False,
@@ -104,8 +104,15 @@ namespace Tests.EditMode.Equipment
                 Assert.That(EquipmentSlotRules.ResolveFixedSlot(definition.Category), Is.EqualTo(spec.Slot),
                     spec.AssetName);
 
-                Sprite expectedIcon = LoadEquipmentSprite(spec, "Idle", "S", spec.IconPart, 0);
+                Sprite expectedIcon = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    $"Assets/Art/UI/Equipment/{spec.AssetName}.png");
+                Assert.That(expectedIcon, Is.Not.Null, $"{spec.AssetName} inventory icon");
                 Assert.That(definition.Icon, Is.SameAs(expectedIcon), $"{spec.AssetName} icon");
+                Assert.That(definition.WorldSprite,
+                    Is.SameAs(LoadEquipmentSprite(spec, "Idle", "S", spec.IconPart, 0)),
+                    $"{spec.AssetName} world sprite");
+                Assert.That(definition.Icon, Is.Not.SameAs(definition.WorldSprite),
+                    $"{spec.AssetName} keeps inventory art separate from equipped art");
 
                 piecesPerSet.TryGetValue(spec.SetName, out int setCount);
                 piecesPerSet[spec.SetName] = setCount + 1;
@@ -131,7 +138,9 @@ namespace Tests.EditMode.Equipment
             SerializedProperty entries = serializedCatalog.FindProperty("_definitions");
 
             Assert.That(entries, Is.Not.Null);
-            Assert.That(entries.arraySize, Is.EqualTo(34));
+            Assert.That(catalog.TryValidate(out string error), Is.True, error);
+            Assert.That(entries.arraySize, Is.GreaterThanOrEqualTo(10 + Definitions.Length),
+                "The legacy prefix and every approved armor definition must remain addressable.");
 
             AssertCatalogEntry(entries, 10, "ArcaneMageHat", "a1b2c3d400014e7f9a0b0c0d0e0f1001");
             AssertCatalogEntry(entries, 11, "ArcaneMageGarb", "a1b2c3d400024e7f9a0b0c0d0e0f1002");

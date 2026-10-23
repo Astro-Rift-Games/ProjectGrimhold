@@ -190,6 +190,7 @@ namespace Tests.PlayMode.Loot
         {
             var runnerObject = new GameObject("BreakableTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _damageDriver = runnerObject.AddComponent<BreakableDamageSimulationDriver>();
             var sceneManager = runnerObject.AddComponent<NetworkSceneManagerDefault>();

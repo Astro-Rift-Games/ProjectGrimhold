@@ -5,7 +5,8 @@ using UnityEngine;
 
 /// <summary>
 /// Authoritative reservation and ritual endpoint for an extraction point.
-/// Supports concurrent team reservations and rituals per decision D-3 and rules A-4 / D-5.
+/// Reserves the Sanctuary exclusively for one owning team (GD 06 section 10) and runs its ritual
+/// under rules A-4 / D-5.
 /// The co-located ExtractionZone shares this NetworkObject identity while retaining its
 /// independent registry capability and geometry responsibility.
 /// </summary>
@@ -303,6 +304,13 @@ public sealed class ExtractionSanctuary : NetworkBehaviour, IExtractionSanctuary
         if (existingIndex >= 0)
         {
             return true;
+        }
+
+        // A Sanctuary is reserved exclusively for its owning team (GD 06 section 10).
+        if (IsReserved)
+        {
+            Debug.LogWarning($"[{nameof(ExtractionSanctuary)} {name}] TryAssignTeam for team {teamId.Value} rejected: reserved by another team.");
+            return false;
         }
 
         int emptyIndex = FindEmptySlotIndex();

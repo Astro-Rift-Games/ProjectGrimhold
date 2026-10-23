@@ -2,6 +2,7 @@
 using System;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine.TestTools;
 
 namespace Tests.EditMode.Equipment
 {
@@ -432,6 +433,8 @@ namespace Tests.EditMode.Equipment
             Assert.That(
                 store.TryPrepareExpeditionEquipment(),
                 Is.EqualTo(ExpeditionPreparationResult.AttributeRequirementsNotMet));
+            LogAssert.Expect(UnityEngine.LogType.Error,
+                "[LocalProfileStore] TryCreateLoadoutReservation failed. Attribute requirements not met: Character attributes do not satisfy prepared weapon 'long_sword'.");
             Assert.That(
                 store.TryCreateLoadoutReservation("unmet-requirements", out PendingLoadoutReservation reservation),
                 Is.EqualTo(StashOperationResult.AttributeRequirementsNotMet));
@@ -614,7 +617,7 @@ namespace Tests.EditMode.Equipment
                 Is.EqualTo(StashOperationResult.Success));
 
             Assert.That(
-                store.TryCreateLoadoutReservation("reservation-armor", out PendingLoadoutReservation reservation),
+                store.TryCreateLoadoutReservation("61616161616161616161616161616161", out PendingLoadoutReservation reservation),
                 Is.EqualTo(StashOperationResult.Success));
 
             Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));

@@ -18,8 +18,6 @@ namespace Tests.EditMode.Progression
             AssertReward("Assets/Prefabs/LootContainer.prefab", 5);
 
             AssertReward("Assets/Prefabs/NetworkPlayer.prefab", 0);
-            AssertReward("Assets/Prefabs/NetworkPlayerMelee.prefab", 0);
-            AssertReward("Assets/Prefabs/NetworkPlayerRanged.prefab", 0);
 
             AssertReward("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 0);
             AssertReward("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab", 0);

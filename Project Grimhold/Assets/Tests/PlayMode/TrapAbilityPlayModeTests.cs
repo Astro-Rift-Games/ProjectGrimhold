@@ -280,6 +280,7 @@ namespace Tests.PlayMode.Abilities
             _rejections.Clear();
             var runnerObject = new GameObject("TrapAbilityTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _input = runnerObject.AddComponent<TrapInputDriver>();
@@ -303,7 +304,6 @@ namespace Tests.PlayMode.Abilities
                     "ability-trap", participantId, attributes, ExperienceCurve.InitialLevel, 0, "ability-test",
                     preparedAbilities: new PreparedAbilityLoadout(new AbilityId("trap"), default)))
                 .GetComponent<NetworkRaidParticipant>();
-            ExpectAvatarValidationError();
             var avatar = _runner.Spawn(LoadPrefab(PlayerPrefabGuid), Vector3.zero, Quaternion.identity,
                 _runner.LocalPlayer, onBeforeSpawned: (_, instance) =>
                 {
@@ -311,6 +311,7 @@ namespace Tests.PlayMode.Abilities
                     // Only the stamina regeneration tuning is neutralized so cost assertions stay exact.
                     SetField(instance.GetComponent<PlayerStaminaNetworkController>(), "_regenerationPerSecond", 0f);
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             _avatar = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             _movement = avatar.GetComponent<PlayerMovementNetworkController>();
@@ -351,10 +352,6 @@ namespace Tests.PlayMode.Abilities
             Physics2D.SyncTransforms();
         }
 
-        private static void ExpectAvatarValidationError() =>
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
 
         private NetworkObject LoadPrefab(string guid)
         {

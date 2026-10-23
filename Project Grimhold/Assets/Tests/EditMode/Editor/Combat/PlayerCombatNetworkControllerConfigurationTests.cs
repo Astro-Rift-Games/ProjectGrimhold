@@ -11,8 +11,6 @@ namespace Tests.EditMode.Combat
     public sealed class PlayerCombatNetworkControllerConfigurationTests
     {
         private const string BasePrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
-        private const string MeleePrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
-        private const string RangedPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string ControllerSourcePath =
             "Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs";
 
@@ -43,26 +41,6 @@ namespace Tests.EditMode.Combat
                 prefab.GetComponent<PlayerShieldDefenseNetworkController>();
             Assert.That(shieldDefense, Is.Not.Null);
             AssertShieldDefenseReferences(shieldDefense, prefab);
-        }
-
-        [TestCase(MeleePrefabPath, typeof(MeleeAttack))]
-        [TestCase(RangedPrefabPath, typeof(RangedAttack))]
-        public void PlayerVariant_PreservesItsSerializedAttackStrategy(
-            string prefabPath,
-            System.Type expectedAttackType)
-        {
-            GameObject prefab = LoadPrefab(prefabPath);
-            PlayerCombatNetworkController controller =
-                prefab.GetComponent<PlayerCombatNetworkController>();
-
-            Assert.That(controller, Is.Not.Null, prefabPath);
-            AssertStructuralReferences(controller, prefabPath);
-            AssertNoMissingScripts(prefab, prefabPath);
-
-            Object attackSource = ReadAttackSource(controller);
-            Assert.That(attackSource, Is.Not.Null, prefabPath);
-            Assert.That(attackSource.GetType(), Is.EqualTo(expectedAttackType), prefabPath);
-            Assert.That(attackSource, Is.SameAs(prefab.GetComponent(expectedAttackType)), prefabPath);
         }
 
         [Test]

@@ -1116,6 +1116,7 @@ namespace Tests.PlayMode.Abilities
         {
             var runnerObject = new GameObject("AbilityRuntimeTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
+            PlayModeRunnerComposition.AddLocalInputContext(_runner);
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _inputDriver = runnerObject.AddComponent<AbilityInputDriver>();
@@ -1146,9 +1147,6 @@ namespace Tests.PlayMode.Abilities
         private PlayerAbilityRuntimeNetworkController SpawnAvatar(NetworkRaidParticipant participant, bool publishAvatar,
             params string[] behaviourIds)
         {
-            LogAssert.Expect(UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, " +
-                "registry, assignment service, and valid receiver/reader registrations.");
             var avatar = _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"),
                 Vector3.zero, Quaternion.identity, _runner.LocalPlayer,
                 onBeforeSpawned: (_, instance) =>
@@ -1173,6 +1171,7 @@ namespace Tests.PlayMode.Abilities
                         SetField(runtime, "_executionBehaviours", behaviours);
                     }
                 });
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             if (publishAvatar) Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
             var runtime = avatar.GetComponent<PlayerAbilityRuntimeNetworkController>();
             Assert.That(runtime, Is.Not.Null);

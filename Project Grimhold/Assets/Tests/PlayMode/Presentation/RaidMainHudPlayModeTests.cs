@@ -30,6 +30,7 @@ namespace Tests.PlayMode.Presentation
         private NetworkRaidParticipant _localParticipant;
         private NetworkRaidParticipant _proxyParticipant;
         private LocalPlayerJoinContext _joinContext;
+        private PlayModeLocalProfile _localProfile;
         private PrimaryAttackStatusSimulationDriver _cooldownDriver;
         private PlayerCorpseGenerationSimulationDriver _defeatDriver;
 
@@ -54,6 +55,9 @@ namespace Tests.PlayMode.Presentation
             {
                 Object.DestroyImmediate(_inputReaderObject);
             }
+
+            _localProfile?.Dispose();
+            _localProfile = null;
         }
 
         [Test]
@@ -261,6 +265,8 @@ namespace Tests.PlayMode.Presentation
         public IEnumerator VitalityDefinesFreshHealthHealingLimitAndHudMaximum()
         {
             yield return StartRunner();
+            _localProfile = PlayModeLocalProfile.Create();
+            _localProfile.BindTo(_joinContext);
 
             Assert.That(
                 CharacterAttributeState.TryCreate(
@@ -291,9 +297,6 @@ namespace Tests.PlayMode.Presentation
                         "vitality-raid"));
             _localParticipant = participantObject.GetComponent<NetworkRaidParticipant>();
 
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
@@ -301,6 +304,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(participantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _localPlayer);
             Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
             _runner.SetPlayerObject(_runner.LocalPlayer, participantObject);
 
@@ -359,9 +363,6 @@ namespace Tests.PlayMode.Presentation
                         ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
@@ -369,6 +370,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(localParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _localPlayer);
             Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
             _runner.SetPlayerObject(_runner.LocalPlayer, localParticipantObject);
 
@@ -382,9 +384,6 @@ namespace Tests.PlayMode.Presentation
                         ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _proxyPlayer = _runner.Spawn(
                 playerPrefab,
                 new Vector3(3f, 0f, 0f),
@@ -392,6 +391,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(proxyParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _proxyPlayer);
             Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
 
             RaidMenuPresenter menuPresenter =
@@ -461,6 +461,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(localParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _localPlayer);
             Assert.That(_localParticipant.TrySetCurrentAvatar(_localPlayer), Is.True);
             _runner.SetPlayerObject(_runner.LocalPlayer, localParticipantObject);
 
@@ -509,6 +510,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(proxyParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _proxyPlayer);
             Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
             yield return WaitUntil(
                 () => teammateView.HealthText.text == "Compañero: 100 / 100",
@@ -522,6 +524,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (_, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(proxyParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, replacementAvatar);
             _proxyParticipant.SetRestoredCurrentAvatar(replacementAvatar.Id);
             _proxyPlayer = replacementAvatar;
 
@@ -574,9 +577,6 @@ namespace Tests.PlayMode.Presentation
                         ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
@@ -584,6 +584,7 @@ namespace Tests.PlayMode.Presentation
                 _runner.LocalPlayer,
                 (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(localParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _localPlayer);
 
             RaidHudView localViewBeforeAvatarAssignment =
                 _localPlayer.GetComponentInChildren<RaidHudView>(true);
@@ -607,9 +608,6 @@ namespace Tests.PlayMode.Presentation
                         ProgressionBalanceDefaults.InitialCharacterAttributeState,
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             _proxyPlayer = _runner.Spawn(
                 playerPrefab,
                 new Vector3(3f, 0f, 0f),
@@ -617,6 +615,7 @@ namespace Tests.PlayMode.Presentation
                 inputAuthority: null,
                 (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
                     .Initialize(proxyParticipantObject));
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, _proxyPlayer);
             Assert.That(_proxyParticipant.TrySetCurrentAvatar(_proxyPlayer), Is.True);
 
             yield return WaitUntil(
@@ -885,9 +884,6 @@ namespace Tests.PlayMode.Presentation
 
         private static void ExpectIncompletePlayerFixtureLogs()
         {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerExtractionProgressController requires character, extraction controller, registry, assignment service, and valid receiver/reader registrations.");
             LogAssert.Expect(
                 UnityEngine.LogType.Error,
                 "PlayerWeaponEquipmentNetworkController has missing weapon dependencies.");

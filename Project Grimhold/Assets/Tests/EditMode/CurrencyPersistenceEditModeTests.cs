@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 public sealed class CurrencyPersistenceEditModeTests
@@ -143,6 +144,8 @@ public sealed class CurrencyPersistenceEditModeTests
         
         Assert.That(store.GetCurrency(), Is.EqualTo(0L));
         files.FailWrites = true;
+        LogAssert.Expect(LogType.Error,
+            "[LocalProfileStore] Commit failed. Available=True; Status=Ready; Error=Simulated disk failure.");
         Assert.That(store.TryCreditCurrency(100), Is.EqualTo(StashOperationResult.PersistenceFailed));
         Assert.That(store.GetCurrency(), Is.EqualTo(0L));
     }
@@ -156,6 +159,8 @@ public sealed class CurrencyPersistenceEditModeTests
         
         store.TryCreditCurrency(200);
         files.FailWrites = true;
+        LogAssert.Expect(LogType.Error,
+            "[LocalProfileStore] Commit failed. Available=True; Status=Ready; Error=Simulated disk failure.");
         Assert.That(store.TryDebitCurrency(50), Is.EqualTo(StashOperationResult.PersistenceFailed));
         Assert.That(store.GetCurrency(), Is.EqualTo(200L));
     }
