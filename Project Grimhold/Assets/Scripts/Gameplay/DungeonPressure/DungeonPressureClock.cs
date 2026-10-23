@@ -12,12 +12,37 @@ public static class DungeonPressureClock
         int criticalPressureThresholdSecs,
         float deltaTime)
     {
+        int dummyCollapseTicks = 0;
+        Step(
+            ref remainingTicks,
+            ref dummyCollapseTicks,
+            ref state,
+            ref phase,
+            isRaidInProgress,
+            isRaidClosingOrFinished,
+            reinforcementsThresholdSecs,
+            criticalPressureThresholdSecs,
+            0,
+            deltaTime);
+    }
+
+    public static void Step(
+        ref int remainingTicks,
+        ref int collapseRemainingTicks,
+        ref DungeonPressureState state, 
+        ref DungeonPressurePhase phase, 
+        bool isRaidInProgress, 
+        bool isRaidClosingOrFinished, 
+        int reinforcementsThresholdSecs,
+        int criticalPressureThresholdSecs,
+        int collapseDurationSecs,
+        float deltaTime)
+    {
         if (state == DungeonPressureState.NotStarted)
         {
             if (isRaidInProgress)
             {
                 state = DungeonPressureState.Running;
-                // Debug logs should be handled by the caller.
             }
             return;
         }
@@ -30,29 +55,55 @@ public static class DungeonPressureClock
                 return;
             }
 
-            if (phase == DungeonPressurePhase.Collapse)
+            if (phase != DungeonPressurePhase.Collapse)
+            {
+                remainingTicks--;
+
+                if (remainingTicks <= 0)
+                {
+                    remainingTicks = 0;
+                    phase = DungeonPressurePhase.Collapse;
+                    if (collapseRemainingTicks <= 0 && collapseDurationSecs > 0)
+                    {
+                        collapseRemainingTicks = Mathf.CeilToInt(collapseDurationSecs / deltaTime);
+                    }
+                }
+                else
+                {
+                    int remainingSecs = Mathf.CeilToInt(remainingTicks * deltaTime);
+                    
+                    DungeonPressurePhase newPhase = DungeonPhaseResolver.Resolve(
+                        remainingSecs, 
+                        reinforcementsThresholdSecs, 
+                        criticalPressureThresholdSecs);
+
+                    if (newPhase > phase)
+                    {
+                        phase = newPhase;
+                    }
+
+                    if (phase == DungeonPressurePhase.Collapse && collapseRemainingTicks <= 0 && collapseDurationSecs > 0)
+                    {
+                        collapseRemainingTicks = Mathf.CeilToInt(collapseDurationSecs / deltaTime);
+                    }
+                }
+            }
+            else
             {
                 remainingTicks = 0;
-                return;
-            }
-
-            remainingTicks--;
-
-            if (remainingTicks <= 0)
-            {
-                remainingTicks = 0;
-            }
-
-            int remainingSecs = Mathf.CeilToInt(remainingTicks * deltaTime);
-            
-            DungeonPressurePhase newPhase = DungeonPhaseResolver.Resolve(
-                remainingSecs, 
-                reinforcementsThresholdSecs, 
-                criticalPressureThresholdSecs);
-
-            if (newPhase > phase)
-            {
-                phase = newPhase;
+                if (collapseRemainingTicks > 0)
+                {
+                    collapseRemainingTicks--;
+                    if (collapseRemainingTicks <= 0)
+                    {
+                        collapseRemainingTicks = 0;
+                        state = DungeonPressureState.Stopped;
+                    }
+                }
+                else if (collapseDurationSecs > 0)
+                {
+                    state = DungeonPressureState.Stopped;
+                }
             }
         }
     }

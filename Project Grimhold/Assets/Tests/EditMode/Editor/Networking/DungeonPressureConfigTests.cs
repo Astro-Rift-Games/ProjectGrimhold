@@ -4,12 +4,13 @@ using System.Reflection;
 
 public class DungeonPressureConfigTests
 {
-    private void SetConfigValues(DungeonPressureConfig config, int total, int reinforcements, int critical, int maxGlobal = 40)
+    private void SetConfigValues(DungeonPressureConfig config, int total, int reinforcements, int critical, int maxGlobal = 40, int collapse = 120)
     {
         var type = typeof(DungeonPressureConfig);
         type.GetField("_totalDurationSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, total);
         type.GetField("_reinforcementsThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, reinforcements);
         type.GetField("_criticalPressureThresholdSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, critical);
+        type.GetField("_collapseDurationSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, collapse);
         type.GetField("_maxGlobalEnemies", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, maxGlobal);
     }
 
@@ -21,7 +22,7 @@ public class DungeonPressureConfigTests
     private DungeonPressureConfig CreateValidConfig()
     {
         var config = ScriptableObject.CreateInstance<DungeonPressureConfig>();
-        SetConfigValues(config, 600, 300, 120, 40);
+        SetConfigValues(config, 600, 300, 120, 40, 120);
         
         SetPolicyValue(config, "_normalPolicy", new Spawning.ReinforcementPolicy { PopulationBudget = 0 });
         
@@ -38,6 +39,16 @@ public class DungeonPressureConfigTests
         var config = CreateValidConfig();
         bool isValid = config.Validate(out string error);
         Assert.IsTrue(isValid, error);
+    }
+
+    [Test]
+    public void Validate_CollapseDurationZero_ReturnsFalse()
+    {
+        var config = CreateValidConfig();
+        typeof(DungeonPressureConfig).GetField("_collapseDurationSeconds", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(config, 0);
+
+        Assert.IsFalse(config.Validate(out string error));
+        StringAssert.Contains("CollapseDurationSeconds must be greater than 0", error);
     }
 
     [Test]

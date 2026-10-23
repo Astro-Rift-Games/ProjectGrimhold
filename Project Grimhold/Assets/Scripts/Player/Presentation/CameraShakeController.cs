@@ -20,6 +20,7 @@ public sealed class CameraShakeController : MonoBehaviour
     public static CameraShakeController Instance { get; private set; }
 
     private float _trauma;
+    private float _sustainedTrauma;
     private float _traumaDecayPerSecond;
     private float _decayExponent;
     private float _maxOffset;
@@ -32,6 +33,16 @@ public sealed class CameraShakeController : MonoBehaviour
     /// Updated every frame. Read by <see cref="LocalCameraController"/>.
     /// </summary>
     public Vector3 ShakeOffset { get; private set; }
+
+    /// <summary>
+    /// Current sustained trauma floor clamped to [0, 1].
+    /// </summary>
+    public float SustainedTrauma => _sustainedTrauma;
+
+    /// <summary>
+    /// Effective trauma level (maximum between instantaneous decaying trauma and sustained baseline).
+    /// </summary>
+    public float EffectiveTrauma => Mathf.Max(_trauma, _sustainedTrauma);
 
     private void Awake()
     {
@@ -57,8 +68,14 @@ public sealed class CameraShakeController : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        Instance = this;
+    }
+
     private void OnDisable()
     {
+        _sustainedTrauma = 0f;
         ResetState();
     }
 
@@ -68,6 +85,7 @@ public sealed class CameraShakeController : MonoBehaviour
     /// </summary>
     public void Configure(CameraShakeConfig config)
     {
+        Instance = this;
         if (config == null)
         {
             Debug.LogError($"{nameof(CameraShakeController)}: config is null.", this);
@@ -88,6 +106,16 @@ public sealed class CameraShakeController : MonoBehaviour
     /// Duration in seconds over which trauma decays to zero from <paramref name="intensity"/>.
     /// Values ≤ 0 are treated as instant (single-frame) shake.
     /// </param>
+    /// <summary>
+    /// Sets a continuous baseline trauma level (clamped to [0, 1]).
+    /// While active, the effective trauma will not decay below this level.
+    /// Pass 0 to allow trauma to decay to zero normally.
+    /// </summary>
+    public void SetContinuousShake(float intensity)
+    {
+        _sustainedTrauma = Mathf.Clamp01(intensity);
+    }
+
     public void RequestShake(float intensity, float duration)
     {
         if (intensity <= 0f)
@@ -120,7 +148,7 @@ public sealed class CameraShakeController : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_trauma <= 0f)
+        if (_trauma <= 0f && _sustainedTrauma <= 0f)
         {
             ShakeOffset = Vector3.zero;
             return;
@@ -129,7 +157,8 @@ public sealed class CameraShakeController : MonoBehaviour
         // Advance Perlin noise time independently from trauma level.
         _noiseTime += Time.deltaTime * 24f;
 
-        float shake = Mathf.Pow(_trauma, _decayExponent);
+        float effectiveTrauma = Mathf.Max(_trauma, _sustainedTrauma);
+        float shake = Mathf.Pow(effectiveTrauma, _decayExponent);
 
         float offsetX = (Mathf.PerlinNoise(_noiseOffsetX + _noiseTime, 0f) * 2f - 1f) * _maxOffset * shake;
         float offsetY = (Mathf.PerlinNoise(_noiseOffsetY, _noiseTime) * 2f - 1f) * _maxOffset * shake;
@@ -143,7 +172,7 @@ public sealed class CameraShakeController : MonoBehaviour
 
         _trauma = Mathf.Max(0f, _trauma - decay);
 
-        if (_trauma <= 0f)
+        if (_trauma <= 0f && _sustainedTrauma <= 0f)
         {
             ResetState();
         }

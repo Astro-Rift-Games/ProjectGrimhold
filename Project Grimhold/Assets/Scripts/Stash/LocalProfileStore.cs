@@ -17,6 +17,7 @@ public sealed class LocalProfileStore
     private readonly AbilityDefinitionCatalog _abilityCatalog;
 
     public event Action<ProfileId> ProfileCommitted;
+    public event Action<ProfileId, ExperienceApplicationResult> ProgressionCommitted;
 
     public ProfileId ProfileId => _profileId;
     public LocalProfilePersistenceStatus Status => _repository.Status;
@@ -1261,8 +1262,26 @@ public sealed class LocalProfileStore
     /// </summary>
     public ExpeditionPreparationResult TryPrepareExpeditionEquipment()
     {
+        lock (_sync)
+        {
+            ExpeditionPreparationResult result = InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation preparation);
+            return result != ExpeditionPreparationResult.Success || preparation.WeaponSource == RecoveryWeaponPreparation.Source.Prepared
+                ? result
+                : TryPrepareRecoveryWeapon(_repository.Snapshot);
+        }
+    }
+
+    /// <summary>Read-only classification; opening or cancelling consent never changes ownership.</summary>
+    public ExpeditionPreparationResult InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation preparation)
+    {
+        lock (_sync) return InspectRecoveryWeaponPreparationCore(out preparation);
+    }
+
+    private ExpeditionPreparationResult InspectRecoveryWeaponPreparationCore(out RecoveryWeaponPreparation preparation)
+    {
+        preparation = null;
         LocalProfileSnapshot current = _repository.Snapshot;
-        if (!IsAvailable || current == null || _lootCatalog == null)
+        if (!IsAvailable || current == null || current.ProfileId != _profileId || _lootCatalog == null)
         {
             return ExpeditionPreparationResult.ProfileUnavailable;
         }
@@ -1270,6 +1289,7 @@ public sealed class LocalProfileStore
         // A reservation already owns the prepared equipment; re-preparing would double-grant.
         if (current.PendingReservation != null)
         {
+            preparation = new RecoveryWeaponPreparation(this, current, RecoveryWeaponPreparation.Source.Prepared);
             return ExpeditionPreparationResult.Success;
         }
 
@@ -1298,10 +1318,44 @@ public sealed class LocalProfileStore
         // Admission carries the active Set explicitly, so either valid Main Hand is sufficient.
         if (PreparedEquipmentLoadout.HasUsableWeapon(prepared, _lootCatalog))
         {
+            preparation = new RecoveryWeaponPreparation(this, current, RecoveryWeaponPreparation.Source.Prepared);
             return ExpeditionPreparationResult.Success;
         }
 
-        return TryPrepareRecoveryWeapon(current);
+        if (!PreparedEquipmentLoadout.IsUsableWeaponDefinition(_recoveryWeaponLootId, _lootCatalog))
+            return ExpeditionPreparationResult.RecoveryWeaponUnavailable;
+        var recovery = new PreparedEquipmentLoadout(_recoveryWeaponLootId, default);
+        if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(recovery, current.CharacterAttributes, _lootCatalog, out _))
+            return ExpeditionPreparationResult.AttributeRequirementsNotMet;
+        RecoveryWeaponPreparation.Source source = FindAmount(current.Loadout, _recoveryWeaponLootId) > 0
+            ? RecoveryWeaponPreparation.Source.Loadout
+            : FindAmount(current.Stash, _recoveryWeaponLootId) > 0
+                ? RecoveryWeaponPreparation.Source.Stash
+                : RecoveryWeaponPreparation.Source.NewGrant;
+        preparation = new RecoveryWeaponPreparation(this, current, source);
+        return ExpeditionPreparationResult.Success;
+    }
+
+    public bool IsRecoveryWeaponPreparationCurrent(RecoveryWeaponPreparation preparation)
+    {
+        lock (_sync)
+            return preparation != null && preparation.Matches(this, _repository.Snapshot) && IsAvailable;
+    }
+
+    /// <summary>Commits the inspected profile revision through the existing recovery ownership helper.</summary>
+    public ExpeditionPreparationResult TryPrepareExpeditionEquipment(RecoveryWeaponPreparation preparation)
+    {
+        lock (_sync)
+        {
+            if (!IsRecoveryWeaponPreparationCurrent(preparation))
+                return ExpeditionPreparationResult.ProfileUnavailable;
+            ExpeditionPreparationResult result = InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation current);
+            if (result != ExpeditionPreparationResult.Success || current.WeaponSource != preparation.WeaponSource)
+                return result == ExpeditionPreparationResult.Success ? ExpeditionPreparationResult.InvalidPreparedWeapon : result;
+            return current.WeaponSource == RecoveryWeaponPreparation.Source.Prepared
+                ? ExpeditionPreparationResult.Success
+                : TryPrepareRecoveryWeapon(_repository.Snapshot);
+        }
     }
 
     /// <summary>
@@ -1518,7 +1572,9 @@ public sealed class LocalProfileStore
             consolidatedExperience,
             resultingLevel);
 
-        return Commit(next);
+        var progression = new ExperienceApplicationResult(current.Level, current.CurrentExperience,
+            next.Level, next.CurrentExperience, Math.Max(0, next.Level - current.Level));
+        return Commit(next, progression);
     }
     public void ClearPendingExtractionCommit()
     {
@@ -1576,7 +1632,7 @@ public sealed class LocalProfileStore
             out revalidated,
             out error);
 
-    private StashOperationResult Commit(LocalProfileSnapshot next)
+    private StashOperationResult Commit(LocalProfileSnapshot next, ExperienceApplicationResult? progression = null)
     {
         lock (_sync)
         {
@@ -1589,6 +1645,7 @@ public sealed class LocalProfileStore
                     $"Status={Status}; Error={error ?? _repository.LastError ?? "none"}.");
                 return StashOperationResult.PersistenceFailed;
             }
+            if (progression.HasValue) ProgressionCommitted?.Invoke(_profileId, progression.Value);
             ProfileCommitted?.Invoke(_profileId);
             return StashOperationResult.Success;
         }

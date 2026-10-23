@@ -63,6 +63,17 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     [Networked] private MeleeAttackRelease PendingMeleeRelease { get; set; }
     [Networked] private int LastAttackReleaseTick { get; set; }
     [Networked] private int LastAttackCancellationTick { get; set; }
+    public bool HasPendingAttackRelease
+    {
+        get
+        {
+            if (Object == null || !Object.IsValid) return false;
+            if (PendingRangedRelease.Pending || PendingMeleeRelease.Pending) return true;
+            for (int i = 0; i < 4; i++)
+                if (HandAttacks[i].HasPendingRelease) return true;
+            return false;
+        }
+    }
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
     [Networked]
@@ -192,7 +203,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         // Pending work is authority-only, forward-only, and independent of input/current equipment.
         if (HasStateAuthority && Runner.IsForward)
         {
-            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive ||
+                PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character))
             {
                 CancelPendingRelease();
                 AdvanceHandReleases(true);
@@ -574,7 +586,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (EquipmentSlotRules.IsHandSlot(attack.SourceSlot))
         {
             if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
-                _character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character)) return false;
+                _character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+                PlayerConsumptionGate.IsConsuming(_character)) return false;
             int index = HandIndex(attack.SourceSlot);
             WeaponHandAttackState state = HandAttacks[index];
             if (attack.Sequence != _observedHandSequences[index]) return false;
@@ -583,7 +596,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 AttackRenderTime < (double)state.CancellationTick * Runner.DeltaTime);
         }
         if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
-            attack.Sequence != _lastObservedSequence || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+            attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
             return false;
         seconds = GetAttackElapsedSeconds(attack);
         // A newer received snapshot may still be ahead of the remote render clock. It must not
@@ -600,7 +613,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.MissingConfiguration;
         }
 
-        if (!IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+        if (!IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
         {
             return AttackFailureReason.ControlDisabled;
         }
@@ -634,6 +647,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             _equipmentController.GetWeaponCatalogIndexPlusOne(slot) == 0) return false;
         WeaponHandAttackState state = HandAttacks[index];
         bool available = IsAttackEnabled && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
+            !PlayerConsumptionGate.IsConsuming(_character) &&
             EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
             !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease;
         if (available && _equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) &&
@@ -661,8 +675,10 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (attack.InputMode == AttackInputMode.Press && !pressed) return false;
         if (!TryGetAttackStatus(slot, out PrimaryAttackStatus status) || !status.IsAvailable)
         {
-            if (pressed) RecordCombatFeedback(CombatFeedbackKind.AttackRejected, default, default, 0f,
-                Runner.Tick, AttackFailureReason.CooldownActive);
+            // Consumption disables control; it is not a weapon cooldown rejection.
+            if (pressed && !PlayerConsumptionGate.IsConsuming(_character))
+                RecordCombatFeedback(CombatFeedbackKind.AttackRejected, default, default, 0f,
+                    Runner.Tick, AttackFailureReason.CooldownActive);
             return false;
         }
         // A paid weapon cannot bypass an absent/uninitialized Stamina owner.

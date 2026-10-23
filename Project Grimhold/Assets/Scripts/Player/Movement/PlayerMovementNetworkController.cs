@@ -33,6 +33,10 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private PlayerShieldDefenseNetworkController _shieldDefenseController;
 
     private bool _dependenciesValid;
+    private PlayerImmobilizationNetworkEffect _immobilizationEffect;
+
+    [Networked] public int SprintRejectedSequence { get; private set; }
+    [Networked] private NetworkBool SprintRejectionReported { get; set; }
 
     private const float ValidMovementSqrThreshold = 0.000001f;
 
@@ -167,12 +171,23 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             : Vector2.zero;
 
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
-        bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive;
+        bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive &&
+            !PlayerConsumptionGate.IsConsuming(_characterBase) &&
+            (_immobilizationEffect == null || !_immobilizationEffect.IsActive);
 
         // Downed is networked state, so reading it here stays resimulation-safe.
         bool isDowned = _downedState != null && _downedState.IsDowned;
         bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned);
         bool isSprinting = shouldSprint && CanSprint(Runner.DeltaTime);
+        if (HasStateAuthority && Runner.IsForward)
+        {
+            if (!shouldSprint) SprintRejectionReported = false;
+            else if (!isSprinting && !SprintRejectionReported)
+            {
+                SprintRejectedSequence++;
+                SprintRejectionReported = true;
+            }
+        }
         float effectiveSpeed = ResolveVoluntarySpeed(
             _moveSpeed,
             isSprinting,
@@ -226,6 +241,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isAlive,
             isDowned,
             HasActiveShield());
+        aimStanceAccepted &= !PlayerConsumptionGate.IsConsuming(_characterBase);
         AimStanceStartTick = AimStanceDraw.NextStartTick(AimStanceStartTick, aimStanceAccepted, (int)Runner.Tick);
         IsAimStance = aimStanceAccepted;
 
@@ -425,6 +441,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     private void CacheDependencies()
     {
+        _immobilizationEffect = GetComponent<PlayerImmobilizationNetworkEffect>();
         if (_movementMotor == null)
         {
             _movementMotor =

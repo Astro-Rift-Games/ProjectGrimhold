@@ -235,15 +235,26 @@ only the private Sanctuary marker and never disables the remaining HUD.
 
 `RaidMinimapView` is composed on the existing `LocalGameplayHud` Canvas, as the first child of the `RaidRightPanel` column. Its north-up
 `RaidMinimapGraphic` renders the immutable `MinimapLayout` generated from the serialized `Floor`,
-`Walls` and `Obstacles` Tilemaps in `Dungeon_Graybox.prefab`. The editor generator stores the
-combined bounds, cell size, world pivot, occupancy and a hash of those permitted sources, so a
-graybox edit regenerates a faithful layout without a hand-drawn PNG. The layout contains no runtime
-entities, and no minimap camera or RenderTexture exists. The viewport is masked with `RectMask2D`;
+`Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its authored overrides. The editor generator retains cell
+bounds, size, world pivot and occupancy, and resolves the original sprites into geometry, UVs,
+Tilemap/cell tint and transformed positions in renderer layer/cell order. It samples the original
+textures (including their Point filtering), not schematic colours or a copied/baked PNG. Sprite
+overhang expands the render rectangle without moving the world pivot. Contiguous texture runs
+are split below uGUI's vertex limit; only continuation batches get transient masked child graphics,
+never one object per tile. The layout contains no runtime entities, and no minimap camera or
+RenderTexture exists. The viewport is masked with `RectMask2D`;
 the local marker remains centered while the generated geometry translates beneath it. Its encoded
 world pivot is the sole map-pivot source used by the presenter.
-The layout pivot is local to `Dungeon_Graybox.prefab`; `RaidMinimapPresenter` adds the serialized
-world origin of its static Gameplay instance before projection. This is presentation configuration,
-not replicated state, and avoids a scene lookup during tracking.
+The layout pivot and geometry are generated in the saved scene world coordinate frame, so
+`RaidMinimapPresenter` never adds a second scene offset. The legacy serialized origin field is
+retained only to preserve prefab overrides and is not used. The Editor reads an isolated preview
+scene and closes it without saving/applying changes; runtime tracking does not discover the scene.
+
+`RaidMinimapView` rounds only the background's actual screen pivot to whole physical pixels,
+including the inherited viewport position, Canvas scaling and render camera. This keeps the
+Point-filtered source art at a stable sampling phase during movement without changing source
+texture import settings or enabling pixel-perfect rendering for the entire HUD. Translation
+is quantized by at most half a physical pixel per axis; the local player stays centered.
 
 `MinimapProjection` is pure math. `_uiUnitsPerWorldUnit` means local RectTransform units per
 world unit at the Canvas reference resolution, not physical monitor pixels. The map offset is
@@ -262,6 +273,20 @@ assignment source. Ritual state comes from `IExtractionSanctuary.TryGetRitualPro
 to assigned, in-progress, cancelled and enabled visual states. Interior markers use a fixed,
 unrotated icon; exterior markers use a separate edge arrow. All visual state is rebuilt from
 current confirmed state after enable, rebind, replacement or a new session.
+
+Only the local player and its privately assigned Sanctuary are marked. Quota completion permits
+assignment; the assigned Sanctuary is shown before its ritual completes, so the player can find
+it. An absent/foreign/invalid assignment or an extracted player hides both Sanctuary visuals.
+No marker is baked into the background, and no loot, enemy or remote-player markers are added.
+
+Saving changes to Gameplay, changing its source prefab, or importing, moving or deleting tile-art dependencies
+(Tile assets, sprites, textures and import settings) schedules a coalesced Editor refresh. The
+hash includes the generation version, direct source/dependency bytes and importer metadata, and resolved visual buffers. It does not hash the scene transitive dependency graph, which may include this generated asset through HUD references. Unchanged
+generation does not dirty/write the asset; saving is restricted to that generated asset rather
+than all dirty project assets. The generated asset is excluded from its own invalidation inputs.
+`MinimapLayoutBuildPreprocessor` regenerates/checks freshness before a build and throws
+`BuildFailedException` if source validation/generation fails. This is an authored, saved-scene
+workflow: Gameplay Tilemap overrides are authoritative, while unsaved edits and runtime Tilemap changes are not generation sources.
 
 ## Authoritative Extraction Result and Producer Boundary (US-58 / SEC-58)
 

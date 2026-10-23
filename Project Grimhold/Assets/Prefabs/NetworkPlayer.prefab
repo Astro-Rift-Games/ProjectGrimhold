@@ -8297,6 +8297,7 @@ GameObject:
   - component: {fileID: 9200000000000000494}
   - component: {fileID: 264148837938436613}
   - component: {fileID: 1708991934926830681}
+  - component: {fileID: 4987159183995520997}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -8409,6 +8410,7 @@ MonoBehaviour:
   _movementMotor: {fileID: 7201000000000000004}
   _staminaController: {fileID: 7201000000000000006}
   _shieldDefenseController: {fileID: 8400000000000000005}
+  _SprintRejectedSequence: 0
   _knockbackFriction: 10
   _defaultFacingDirection: {x: 0, y: -1}
   _IsControlEnabled:
@@ -8744,6 +8746,7 @@ MonoBehaviour:
   - {fileID: 4242006676801392986}
   - {fileID: 5774937839556620212}
   - {fileID: 7776138370272337216}
+  - {fileID: 4987159183995520997}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -8840,6 +8843,10 @@ MonoBehaviour:
   _lootDropController: {fileID: 8800000000000000004}
   _consumableController: {fileID: 8421478658459878521}
   _weaponEquipmentController: {fileID: 8300000000000000005}
+  _movementController: {fileID: 7201000000000000005}
+  _empowerEffect: {fileID: 5774937839556620212}
+  _purificationEffect: {fileID: 7776138370272337216}
+  _immobilizationEffect: {fileID: 4987159183995520997}
   _cameraShakeBinder: {fileID: 8194402055814673831}
   _cameraShakeConfig: {fileID: 11400000, guid: f3e9d561a193c804b9e740145f971f66, type: 2}
 --- !u!114 &8800000000000000003
@@ -9525,6 +9532,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   _immobilizeSeconds: 3
+  _playerImmobilizeSeconds: 3
   _periodicDamage: 2
   _tickIntervalSeconds: 1
   _damageType: 0
@@ -9624,6 +9632,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PurificationNetworkEffect
   _character: {fileID: 729366679366126330}
+  _immobilizationEffect: {fileID: 4987159183995520997}
 --- !u!114 &1267196868118603551
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9741,6 +9750,20 @@ MonoBehaviour:
   _visibilityOffset: {x: 0, y: 0}
   _visibilityCollider: {fileID: 0}
   _useColliderBounds: 0
+--- !u!114 &4987159183995520997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44c681c1fd3843028d66db2f6f2b23bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerImmobilizationNetworkEffect
+  _character: {fileID: 729366679366126330}
+  _purificationEffect: {fileID: 7776138370272337216}
 --- !u!1 &4550749441162253346
 GameObject:
   m_ObjectHideFlags: 0
@@ -11302,6 +11325,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidQuickSlotHudPresenter
   _view: {fileID: 440314333718291730}
+  _feedbackPresenter: {fileID: 8800000000000000109}
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
 --- !u!1 &6068095686071359075
 GameObject:

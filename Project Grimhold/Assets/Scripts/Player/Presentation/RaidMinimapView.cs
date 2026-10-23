@@ -41,6 +41,10 @@ public sealed class RaidMinimapView : MonoBehaviour
     [SerializeField]
     private Image _border;
 
+    private RectTransform _canvasMapRect;
+    private Canvas _mapCanvas;
+    private bool _mapCanvasResolved;
+
     /// <summary>Gets the useful minimap viewport size in local UI units.</summary>
     public Vector2 ViewportSize => _viewport != null ? _viewport.rect.size : Vector2.zero;
 
@@ -125,7 +129,11 @@ public sealed class RaidMinimapView : MonoBehaviour
         }
     }
 
-    /// <summary>Positions the generated map geometry in local RectTransform coordinates.</summary>
+    /// <summary>
+    /// Positions the map in local UI units, then rounds its screen pivot to physical pixels.
+    /// This keeps Point-filtered tile art at a stable sampling phase while the player moves;
+    /// the nearest-pixel translation error is at most half a screen pixel per axis.
+    /// </summary>
     public void PresentMapPosition(Vector2 anchoredPosition)
     {
         if (_mapRect == null)
@@ -135,6 +143,7 @@ public sealed class RaidMinimapView : MonoBehaviour
 
         _mapRect.anchoredPosition = anchoredPosition;
         _mapRect.localRotation = Quaternion.identity;
+        SnapMapToScreenPixels();
     }
 
     /// <summary>Presents the local player at the fixed center marker.</summary>
@@ -224,6 +233,45 @@ public sealed class RaidMinimapView : MonoBehaviour
     {
         DisableRaycasts();
         Clear();
+    }
+
+    private void SnapMapToScreenPixels()
+    {
+        if (!_mapCanvasResolved || _canvasMapRect != _mapRect)
+        {
+            _canvasMapRect = _mapRect;
+            Canvas canvas = _mapRect.GetComponentInParent<Canvas>();
+            _mapCanvas = canvas != null ? canvas.rootCanvas : null;
+            _mapCanvasResolved = true;
+        }
+
+        // Standalone views have no physical screen grid. World-space canvases also need
+        // an explicit camera; never discover Camera.main or change the rest of the HUD.
+        if (_mapCanvas == null)
+            return;
+
+        Camera camera = _mapCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null : _mapCanvas.worldCamera;
+        if (_mapCanvas.renderMode == RenderMode.WorldSpace && camera == null)
+            return;
+
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(camera, _mapRect.position);
+        screenPoint = new Vector2(Mathf.Round(screenPoint.x), Mathf.Round(screenPoint.y));
+        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                _mapRect, screenPoint, camera, out Vector3 worldPoint))
+        {
+            _mapRect.position = worldPoint;
+        }
+    }
+
+    private void OnCanvasHierarchyChanged()
+    {
+        _mapCanvasResolved = false;
+    }
+
+    private void OnTransformParentChanged()
+    {
+        _mapCanvasResolved = false;
     }
 
     private void ResetIconVisual()

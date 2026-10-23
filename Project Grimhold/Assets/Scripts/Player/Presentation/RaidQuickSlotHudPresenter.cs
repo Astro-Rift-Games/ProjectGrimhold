@@ -12,6 +12,8 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
     [SerializeField]
     private RaidQuickSlotHudView _view;
 
+    [SerializeField] private RaidHudPresenter _feedbackPresenter;
+
     [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
@@ -32,7 +34,7 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
         Unbind();
 
         if (quickSlots == null || consumable == null || inputReader == null || character == null ||
-            _view == null || !_view.HasAllSlots || _lootCatalog == null)
+            _view == null || !_view.HasAllSlots || _lootCatalog == null || _feedbackPresenter == null)
         {
             Debug.LogError($"{nameof(RaidQuickSlotHudPresenter)} has missing binding or serialized dependencies.", this);
             return;
@@ -46,7 +48,7 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
         _observedDowned = character.IsDowned;
         _quickSlots.Changed += Refresh;
         _inputReader.QuickSlotActivated += OnQuickSlotActivated;
-        _consumable.ConsumeRejected += OnConsumeRejected;
+
         Refresh();
     }
 
@@ -60,11 +62,6 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
         if (_inputReader != null)
         {
             _inputReader.QuickSlotActivated -= OnQuickSlotActivated;
-        }
-
-        if (_consumable != null)
-        {
-            _consumable.ConsumeRejected -= OnConsumeRejected;
         }
 
         _quickSlots = null;
@@ -143,13 +140,13 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
 
         if (_character.IsDowned)
         {
-            _view.ShowMessage("Estás abatido.");
+            _feedbackPresenter?.ShowNotice("Estás abatido.");
             return;
         }
 
         if (_quickSlots.GetAvailableAmount(lootId) <= 0)
         {
-            _view.ShowMessage("No tienes unidades disponibles.");
+            _feedbackPresenter?.ShowNotice("No tienes unidades disponibles.");
             return;
         }
 
@@ -161,21 +158,8 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
 
         if (!_consumable.TryRequestConsume(lootId))
         {
-            _view.ShowMessage("No puedes usar este objeto ahora.");
+            _feedbackPresenter?.ShowNotice("No puedes usar este objeto ahora.");
         }
     }
 
-    private void OnConsumeRejected(ConsumableFailureReason reason)
-    {
-        // The Inventory shows its own feedback while open; shortcuts cannot fire then.
-        string message = reason switch
-        {
-            ConsumableFailureReason.TargetDead => "Estás muerto.",
-            ConsumableFailureReason.HealthFull => "Tu salud ya está al máximo.",
-            ConsumableFailureReason.InsufficientAmount => "No tienes unidades disponibles.",
-            ConsumableFailureReason.TargetUnavailable => "No puedes usar objetos ahora.",
-            _ => "No se pudo usar el objeto."
-        };
-        _view.ShowMessage(message);
-    }
 }

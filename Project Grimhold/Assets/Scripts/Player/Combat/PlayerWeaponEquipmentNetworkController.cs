@@ -1511,7 +1511,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     }
 
     private bool CanMutateEquipment() => _character != null && _character.IsAlive &&
-        !PlayerDownedGate.IsDowned(_character) &&
+        !(PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) &&
         (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress);
 
     private bool MatchesSlot(EquipmentSlot slot, LootEntry? expected)

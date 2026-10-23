@@ -26,6 +26,9 @@ while another panel already holds a suppression token, so two overlays cannot st
 `TownPlayerMenuView` is passive: window, tab bar, tab button template, content root, title and close
 button. `TownPlayerMenu.prefab` is instantiated by the presenter as the first sibling of the Town inventory
 canvas content, so the inventory tooltip and drag preview, which live under that canvas, render above it.
+The SocialPlayer prefab keeps that canvas inactive for remote avatars. A successful local menu `Bind`
+activates its supplied UI parent after validating the reader and view, so opening any tab is visible in
+the hierarchy. Closing the menu hides its window, not this shared canvas; remote avatars never bind it.
 
 ## Tab registry
 

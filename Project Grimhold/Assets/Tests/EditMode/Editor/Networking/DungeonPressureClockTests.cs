@@ -95,4 +95,82 @@ public class DungeonPressureClockTests
 
         Assert.AreEqual(DungeonPressurePhase.CriticalPressure, phase);
     }
+
+    [Test]
+    public void Step_CriticalPressureReachingZero_TransitionsToCollapseAndInitializesCollapseTicks()
+    {
+        int remainingTicks = 1;
+        int collapseRemainingTicks = 0;
+        DungeonPressureState state = DungeonPressureState.Running;
+        DungeonPressurePhase phase = DungeonPressurePhase.CriticalPressure;
+
+        DungeonPressureClock.Step(
+            ref remainingTicks,
+            ref collapseRemainingTicks,
+            ref state,
+            ref phase,
+            isRaidInProgress: true,
+            isRaidClosingOrFinished: false,
+            reinforcementsThresholdSecs: 300,
+            criticalPressureThresholdSecs: 120,
+            collapseDurationSecs: 120,
+            deltaTime: DeltaTime);
+
+        Assert.AreEqual(0, remainingTicks);
+        Assert.AreEqual(DungeonPressurePhase.Collapse, phase);
+        Assert.AreEqual(120 * 60, collapseRemainingTicks);
+        Assert.AreEqual(DungeonPressureState.Running, state);
+    }
+
+    [Test]
+    public void Step_CollapsePhase_ConsumesCollapseTicks()
+    {
+        int remainingTicks = 0;
+        int collapseRemainingTicks = 100;
+        DungeonPressureState state = DungeonPressureState.Running;
+        DungeonPressurePhase phase = DungeonPressurePhase.Collapse;
+
+        DungeonPressureClock.Step(
+            ref remainingTicks,
+            ref collapseRemainingTicks,
+            ref state,
+            ref phase,
+            isRaidInProgress: true,
+            isRaidClosingOrFinished: false,
+            reinforcementsThresholdSecs: 300,
+            criticalPressureThresholdSecs: 120,
+            collapseDurationSecs: 120,
+            deltaTime: DeltaTime);
+
+        Assert.AreEqual(0, remainingTicks);
+        Assert.AreEqual(99, collapseRemainingTicks);
+        Assert.AreEqual(DungeonPressurePhase.Collapse, phase);
+        Assert.AreEqual(DungeonPressureState.Running, state);
+    }
+
+    [Test]
+    public void Step_CollapsePhase_ReachingZero_TransitionsToStopped()
+    {
+        int remainingTicks = 0;
+        int collapseRemainingTicks = 1;
+        DungeonPressureState state = DungeonPressureState.Running;
+        DungeonPressurePhase phase = DungeonPressurePhase.Collapse;
+
+        DungeonPressureClock.Step(
+            ref remainingTicks,
+            ref collapseRemainingTicks,
+            ref state,
+            ref phase,
+            isRaidInProgress: true,
+            isRaidClosingOrFinished: false,
+            reinforcementsThresholdSecs: 300,
+            criticalPressureThresholdSecs: 120,
+            collapseDurationSecs: 120,
+            deltaTime: DeltaTime);
+
+        Assert.AreEqual(0, remainingTicks);
+        Assert.AreEqual(0, collapseRemainingTicks);
+        Assert.AreEqual(DungeonPressurePhase.Collapse, phase);
+        Assert.AreEqual(DungeonPressureState.Stopped, state);
+    }
 }

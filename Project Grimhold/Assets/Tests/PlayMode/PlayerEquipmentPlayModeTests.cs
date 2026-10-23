@@ -79,6 +79,43 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator Consuming_RejectsBothHandInputsWithoutSpendingOrStartingIntervals()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            var consumables = _combat.GetComponent<PlayerConsumableNetworkController>();
+            Assert.That(consumables, Is.Not.Null);
+            typeof(PlayerConsumableNetworkController).GetProperty("ConsumptionTimer", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(consumables, TickTimer.CreateFromSeconds(_runner, 30f));
+            Assert.That(consumables.IsConsuming, Is.True);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            var feedback = new List<CombatPresentationEvent>();
+            _combat.CombatFeedbackResolved += feedback.Add;
+            int attacks = 0;
+            _combat.AttackPerformed += _ => attacks++;
+            float stamina = _stamina.CurrentStamina;
+            input.PrimaryHeld = input.SecondaryHeld = true;
+            int until = _runner.Tick + 5;
+            yield return WaitUntil(() => _runner.Tick >= until, "Input was not sampled.");
+            Assert.That(attacks, Is.Zero);
+            Assert.That(feedback.Exists(item => item.Kind == CombatFeedbackKind.AttackRejected &&
+                item.AttackFailureReason == AttackFailureReason.CooldownActive), Is.False,
+                "Consumption must not publish false cooldown feedback when no interval started.");
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(stamina));
+            Assert.That(_combat.IsExecutingWeaponAttack, Is.False);
+            Assert.That(_combat.HasPendingAttackRelease, Is.False);
+            foreach (EquipmentSlot slot in new[] { EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetAOffHand })
+            {
+                Assert.That(_combat.TryGetAttackStatus(slot, out PrimaryAttackStatus status), Is.True);
+                Assert.That(status.IsAvailable, Is.False);
+                Assert.That(status.CooldownDurationSeconds, Is.Zero);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator DualWield_WindowExpiresBeforeRelease_AndBothHandsKeepPendingPayloads()
         {
             yield return StartRaidPlayer();
@@ -107,6 +144,7 @@ namespace Tests.PlayMode.Equipment
                 "The first pending release incorrectly blocked the other hand.");
             var hands = (NetworkArray<WeaponHandAttackState>)property.GetValue(_combat);
             Assert.That((bool)hands[0].Melee.Pending, Is.True);
+            Assert.That(_combat.HasPendingAttackRelease, Is.True, "Consumables must see equipped-hand pending releases.");
             Assert.That(hands[0].Melee.WeaponCatalogIndexPlusOne, Is.Not.EqualTo(hands[1].WeaponCatalogIndexPlusOne));
             Assert.That(hands[0].Melee.ReleaseTick, Is.GreaterThan((int)_runner.Tick));
             Assert.That(hands[1].Sequence, Is.GreaterThan(hands[0].Sequence));

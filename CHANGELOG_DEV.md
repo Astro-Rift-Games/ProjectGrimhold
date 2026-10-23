@@ -6,6 +6,13 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **dungeon-pressure:** configure volume profile and scene vignette ([88b8425](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88b84251f8e436dce161ab5850edf133d60004f2))
+- **dungeon-pressure:** add urp volume vignette to ambient system ([fbff950](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fbff95087fb022002381ad06fff77ebdfca3a02f))
+- **release:** automate weekly integration and version publication ([605c88c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/605c88cebb5ba060a2ad19e6c14483ddb501c534))
+- **dungeon-pressure:** configure ambient assets in Gameplay scene ([4ffae04](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4ffae04004270e93ff95697e8ad95dc3f42a2fda))
+- **dungeon-pressure:** add ambient lighting and phase presentation ([19ca233](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19ca2337d8bb0e678ba7c041aa24746b6c98b7b4))
+- **camera:** add continuous baseline trauma to camera shake ([aeb7a7b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aeb7a7b2252500d690525e9acad2e2400f18a5fd))
+- **dungeon-pressure:** defeat remaining raiders upon collapse expiry ([24d88d8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/24d88d867cd446299d99b945570dcf3fe9c6dea0))
 - **security:** sanitize env placeholders and add secret scanner for us-61 ([6bc1ff4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6bc1ff4a9672dc4e1098ea6981ccba3a27823caf))
 - **security:** enforce session revocation and harden production backend ([21e11ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21e11ff073817b04d91880ebca5ad305b746b626))
 - **security:** authenticate town identity and authoritative raid admission ([19b1208](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19b1208a4cc5597e75ff6da221d32d4933e09022))
@@ -265,6 +272,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **extraction:** reserve each Sanctuary exclusively for one team ([48ed361](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/48ed3616ba136d1d99c48fa8c457cbc7c90bfca7))
 - **raid:** preserve reconnect tickets and unify disconnect continuity ([22719f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/22719f50528b159d2236fa303836a96fedd766f0))
 - **security:** harden secret scanning and remediate dependencies ([a14c5dd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a14c5dde8281eaadb8d11781fa7b5a3dae8ec156))
 - **security:** resolve qs to 6.16.1 and complete audit for us-62 ([4fd496d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4fd496df822c730fe48b419d735698a6d94a84a8))
@@ -329,6 +337,16 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **playmode:** register team extraction progress in the defeated loot runner ([c975bf5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c975bf5e0b7f11a0fa669eb27c8f1f3b2f58f3b5), [18e2d4c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/18e2d4c19e0bfc32105470d7f96854fd67e5a42f))
+- **playmode:** compose a matching local profile for HUD binder fixtures ([1fe9296](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1fe92964c87f01a8c45991ee11b222c66c1435e2), [3e45310](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3e453102b13f2c915c051a8d40a2f25198090fc3))
+- **networking:** pin RPC send acceptance to the installed Fusion contract ([80fee0d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/80fee0dffc19da4681e57263cae1bb32fd7a2219))
+- **playmode:** align extraction fixture with team progress model ([3275cad](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3275caddf1dcf0506b4496481933fbfe62157adb))
+- **playmode:** compose team extraction progress for XP fixtures ([b2923a2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b2923a2e7418d55e061ccf5f7960ab6b13b718ba))
+- **playmode:** isolate raid inventory fixture from shared UI actions ([0ddeaa3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0ddeaa37bdbf9224e2487c08d44b667000c89520))
+- **playmode:** restore runner composition and extraction assertions ([b246cd5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b246cd530acb81edc0ea833a70d0c11fa5afc152))
+- **editmode:** recover obsolete configuration contracts ([2572ba5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2572ba5218ad2fa71c49e679cc68dd40552cdbbc))
+- **playmode:** clean up owned Hub session resources ([daf5790](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/daf57901b6a9f7774c287ba8c6df462f0012aa0c))
+- **playmode:** isolate local readers between test runners ([6f79b2e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6f79b2e657c52eb35a1855c0ede656f318ed37e4))
 - **results:** drop stale return-gate case left by the ACK parameter removal ([8e68921](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8e68921766bd453156fc3bfe48731b8d9bc8a60d))
 - **abilities:** cover acquisition-to-Raid transport of prepared abilities ([99ee352](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99ee3527e9b8dcaa2a6934f46b193ecf15224087))
 - **revive:** cover assisted recovery flow and movement interruptions ([4bdf7d7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4bdf7d7fabe69edaf5594c04eddcffb4b29ff4a2))
@@ -415,6 +433,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Other Changes
 
+- Update tests for current persistence contracts ([6305da4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6305da4770409c95174a833f790004c0b65bc11c))
 - Expand Catacombs tileset layout ([c458783](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c458783027acdb743b5c0301d2e1c762a0ef974a), [ccaff7c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ccaff7c6e397c14e14333dc05a9a189fce0e23b7))
 - hotfix ([251013e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/251013edf8d3332357d667b4d184b00acfc7fca5), [9d0c66f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9d0c66f7e3c6f6fa577e3eb1d2b77797ad82c37d))
 - Fix equipment sprite resolution ([716f716](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/716f716676eadf315bc16f73713b487ffef8b9ad))

@@ -26,6 +26,10 @@ public sealed class MinimapLayout : ScriptableObject
     [SerializeField]
     private string _sourceHash;
 
+    [SerializeField] private Vector2 _renderSize;
+    [SerializeField] private Sprite[] _sourceSprites;
+    [SerializeField] private MinimapMeshBatch[] _artBatches;
+
     private byte[] _cellFlags;
 
     /// <summary>Gets the lowest serialized grid coordinate included by this layout.</summary>
@@ -45,6 +49,11 @@ public sealed class MinimapLayout : ScriptableObject
 
     /// <summary>Gets the total layout size in world units.</summary>
     public Vector2 WorldSize => Vector2.Scale(_sizeInCells, _cellSize);
+
+    /// <summary>Includes sprite overhang; positions remain relative to WorldPivotPosition.</summary>
+    public Vector2 RenderSize => _renderSize;
+    public int ArtBatchCount => _artBatches?.Length ?? 0;
+    public MinimapMeshBatch GetArtBatch(int index) => _artBatches[index];
 
     /// <summary>
     /// Returns the schematic flags for one absolute grid cell. Cells outside the generated
@@ -86,6 +95,24 @@ public sealed class MinimapLayout : ScriptableObject
             return false;
         }
 
+        if (!IsPositiveFinite(_renderSize.x) || !IsPositiveFinite(_renderSize.y) ||
+            _sourceSprites == null || _sourceSprites.Length == 0 || ArtBatchCount == 0)
+        {
+            error = "MinimapLayout has no generated tile art. Regenerate the dungeon minimap.";
+            return false;
+        }
+
+        for (int i = 0; i < ArtBatchCount; i++)
+        {
+            if (_artBatches[i] == null)
+            {
+                error = "MinimapLayout has a missing tile-art batch.";
+                return false;
+            }
+
+            if (!_artBatches[i].TryValidate(out error)) return false;
+        }
+
         error = null;
         return true;
     }
@@ -98,7 +125,10 @@ public sealed class MinimapLayout : ScriptableObject
         Vector2 cellSize,
         Vector2 worldPivotPosition,
         byte[] cellFlags,
-        string sourceHash)
+        string sourceHash,
+        Vector2 renderSize = default,
+        Sprite[] sourceSprites = null,
+        MinimapMeshBatch[] artBatches = null)
     {
         _minimumCell = minimumCell;
         _sizeInCells = sizeInCells;
@@ -107,6 +137,9 @@ public sealed class MinimapLayout : ScriptableObject
         _encodedCellFlags = EncodeCellFlags(cellFlags);
         _cellFlags = cellFlags;
         _sourceHash = sourceHash;
+        _renderSize = renderSize;
+        _sourceSprites = sourceSprites;
+        _artBatches = artBatches;
     }
 #endif
 

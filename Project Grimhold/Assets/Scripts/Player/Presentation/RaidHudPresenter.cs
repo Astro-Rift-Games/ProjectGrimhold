@@ -12,6 +12,17 @@ public sealed class RaidHudPresenter : MonoBehaviour
     [SerializeField]
     private RaidHudView _view;
 
+    [SerializeField] private RaidStatusFeedbackView _statusFeedbackView;
+    private EmpowerNetworkEffect _empowerEffect;
+    private PurificationNetworkEffect _purificationEffect;
+    private PlayerImmobilizationNetworkEffect _immobilizationEffect;
+    private PlayerInputReader _feedbackInputReader;
+    private PlayerMovementNetworkController _feedbackMovement;
+    private PlayerConsumableNetworkController _feedbackConsumable;
+    private bool _hasSprintRejectionBaseline;
+    private int _observedSprintRejectedSequence;
+
+
     private PlayerCharacter _character;
     private PlayerStaminaNetworkController _staminaController;
     private PlayerManaNetworkController _manaController;
@@ -185,6 +196,23 @@ public sealed class RaidHudPresenter : MonoBehaviour
     /// </summary>
     public void Unbind()
     {
+        if (_statusFeedbackView != null)
+        {
+            _statusFeedbackView.SwitchRequested -= OnSwitchRequested;
+            _statusFeedbackView.Clear();
+        }
+        _empowerEffect = null;
+        _purificationEffect = null;
+        _immobilizationEffect = null;
+        _feedbackInputReader = null;
+        if (_feedbackConsumable != null)
+        {
+            _feedbackConsumable.ConsumeConfirmed -= OnConsumeConfirmed;
+            _feedbackConsumable.ConsumeRejected -= OnConsumeRejected;
+        }
+        _feedbackConsumable = null;
+        _feedbackMovement = null;
+        _hasSprintRejectionBaseline = false;
         _character = null;
         _staminaController = null;
         _manaController = null;
@@ -214,6 +242,94 @@ public sealed class RaidHudPresenter : MonoBehaviour
     {
         ResetObservedState();
         _view?.Clear();
+        _statusFeedbackView?.Clear();
+        _hasSprintRejectionBaseline = false;
+    }
+
+    public void BindStatusFeedback(EmpowerNetworkEffect empower, PurificationNetworkEffect purification,
+        PlayerImmobilizationNetworkEffect immobilization, PlayerMovementNetworkController movement,
+        PlayerConsumableNetworkController consumable)
+    {
+        if (_feedbackConsumable != null)
+        {
+            _feedbackConsumable.ConsumeConfirmed -= OnConsumeConfirmed;
+            _feedbackConsumable.ConsumeRejected -= OnConsumeRejected;
+        }
+        _feedbackMovement = movement;
+        _hasSprintRejectionBaseline = false;
+        _feedbackConsumable = consumable;
+        if (_feedbackConsumable != null)
+        {
+            _feedbackConsumable.ConsumeConfirmed += OnConsumeConfirmed;
+            _feedbackConsumable.ConsumeRejected += OnConsumeRejected;
+        }
+        if (empower == null || purification == null || immobilization == null || movement == null || consumable == null)
+            Debug.LogError($"{nameof(RaidHudPresenter)} has missing serialized status feedback sources.", this);
+        _empowerEffect = empower;
+        _purificationEffect = purification;
+        _immobilizationEffect = immobilization;
+        if (_statusFeedbackView != null)
+        {
+            _statusFeedbackView.SwitchRequested -= OnSwitchRequested;
+            _statusFeedbackView.SwitchRequested += OnSwitchRequested;
+            _statusFeedbackView.Clear();
+        }
+        else
+        {
+            Debug.LogError($"{nameof(RaidHudPresenter)} requires its serialized status feedback view.", this);
+        }
+    }
+
+    public void SetFeedbackInputReader(PlayerInputReader reader) => _feedbackInputReader = reader;
+    public void ShowNotice(string message) => _statusFeedbackView?.ShowNotice(message);
+    public void ShowInsufficientSprintFeedback() => _view?.PulseInsufficientStamina();
+
+    private void OnConsumeConfirmed(LootId lootId) => ShowNotice("Item used.");
+
+    private void OnConsumeRejected(ConsumableFailureReason reason) => ShowNotice(reason switch
+    {
+        ConsumableFailureReason.TargetDead => "You are defeated.",
+        ConsumableFailureReason.Downed => "You are downed.",
+        ConsumableFailureReason.HealthFull => "Health is already full.",
+        ConsumableFailureReason.InsufficientAmount => "No items available.",
+        ConsumableFailureReason.AbilityInProgress => "An ability is in progress.",
+        ConsumableFailureReason.ConsumptionInProgress => "Already using an item.",
+        ConsumableFailureReason.Interrupted => "Item use interrupted.",
+        ConsumableFailureReason.TargetUnavailable => "Cannot use an item now.",
+        _ => "Item could not be used."
+    });
+
+    private void OnSwitchRequested()
+    {
+        if (!_isBound || _weaponEquipmentController == null || _feedbackInputReader == null) return;
+        WeaponSetSlot target = _weaponEquipmentController.ActiveWeaponSetSlot == WeaponSetSlot.SetA
+            ? WeaponSetSlot.SetB : WeaponSetSlot.SetA;
+        _feedbackInputReader.TryRequestWeaponSet(target);
+    }
+
+    private void RefreshStatusFeedback()
+    {
+        if (IsSpawned(_feedbackMovement))
+        {
+            int sequence = _feedbackMovement.SprintRejectedSequence;
+            if (_hasSprintRejectionBaseline && sequence != _observedSprintRejectedSequence)
+                ShowInsufficientSprintFeedback();
+            _observedSprintRejectedSequence = sequence;
+            _hasSprintRejectionBaseline = true;
+        }
+        else _hasSprintRejectionBaseline = false;
+        if (_statusFeedbackView == null) return;
+        if (IsSpawned(_weaponEquipmentController))
+        {
+            _statusFeedbackView.PresentWeaponSet(_weaponEquipmentController.ActiveWeaponSetSlot,
+                _feedbackInputReader != null && !_feedbackInputReader.IsGameplayInputSuppressed &&
+                IsSpawned(_character) && _character.IsAlive && !_character.IsDowned);
+        }
+        else _statusFeedbackView.Clear();
+        _statusFeedbackView.PresentEffects(
+            _empowerEffect != null && _empowerEffect.IsActive,
+            _purificationEffect != null && _purificationEffect.IsProtectedFromPurifiableStates,
+            _immobilizationEffect != null && _immobilizationEffect.IsActive);
     }
 
     private void OnDestroy()
@@ -228,6 +344,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
             return;
         }
 
+        RefreshStatusFeedback();
         RefreshHealth();
         RefreshStamina();
         RefreshMana();
@@ -237,6 +354,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
 
     private void RefreshAll()
     {
+        RefreshStatusFeedback();
         RefreshHealth();
         RefreshStamina();
         RefreshMana();

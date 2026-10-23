@@ -1166,6 +1166,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             string message = reason switch
             {
+                ConsumableFailureReason.Downed => "You are downed.",
+                ConsumableFailureReason.AbilityInProgress => "An ability is in progress.",
+                ConsumableFailureReason.ConsumptionInProgress => "Already consuming an item.",
+                ConsumableFailureReason.Interrupted => "Consumption interrupted.",
                 ConsumableFailureReason.TargetDead => "Estás muerto.",
                 ConsumableFailureReason.HealthFull => "Tu salud ya está al máximo.",
                 ConsumableFailureReason.InsufficientAmount => "No tienes suficientes consumibles.",

@@ -30,6 +30,11 @@ public sealed class PlayerCharacter : CharacterBase
     private float _defenseMitigationConstant = 100f;
 
     private PlayerStaminaNetworkController _staminaController;
+    private PlayerConsumableNetworkController _consumableController;
+
+    public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
+
+    protected override void OnDamageApplied(float amount) => _consumableController?.CancelConsumption();
     private bool _reportedMissingExtractionController;
     private bool _hasCachedEquipmentStatistics;
     private EquipmentStatisticsModifiers _cachedEquipmentStatistics;
@@ -318,6 +323,35 @@ public sealed class PlayerCharacter : CharacterBase
     }
 
     /// <summary>
+    /// Forces definitive defeat of this character due to dungeon absolute collapse.
+    /// Authoritatively clears Downed state without consuming reserves, sets Health to 0,
+    /// and triggers death/corpse conversion and participant defeat.
+    /// </summary>
+    internal void ForceDefinitiveDefeatFromCollapse()
+    {
+        if (!HasStateAuthority)
+        {
+            return;
+        }
+
+        if (IsDowned)
+        {
+            _downedStateController?.ClearDownedState();
+        }
+
+        Health = 0f;
+        HandleDeath();
+
+        if (_participantLink != null && _participantLink.TryResolveParticipant(out NetworkRaidParticipant participant))
+        {
+            if (participant.State == RaidParticipantState.Raiding)
+            {
+                participant.TryMarkDefeated(Object);
+            }
+        }
+    }
+
+    /// <summary>
     /// Completes a recovery from Downed in one authoritative step: leaves Downed (reserve
     /// discarded), restores Health and empties Stamina. Returns false with no side effects when a
     /// precondition fails. Grants no invulnerability and never touches Mana.
@@ -371,6 +405,7 @@ public sealed class PlayerCharacter : CharacterBase
 
     private void CacheDependencies()
     {
+        _consumableController = GetComponent<PlayerConsumableNetworkController>();
         if (_corpseGenerationController == null)
         {
             _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();

@@ -12,6 +12,18 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
 {
     [SerializeField] private TownPlayerMenuView _viewPrefab;
     [SerializeField] private GameObject[] _hudRoots;
+    [SerializeField] private UnityEngine.UI.Button _attributeAccessButton;
+    [SerializeField] private GameObject _attributeBadgeRoot;
+    [SerializeField] private TMPro.TMP_Text _attributeBadgeText;
+
+    /// <summary>Projects the confirmed available count on the always-visible Attributes access, not the sheet.</summary>
+    public void PresentAvailableAttributePoints(int points)
+    {
+        int count = Mathf.Max(0, points);
+        if (_attributeBadgeText != null) _attributeBadgeText.text = count.ToString();
+        if (_attributeBadgeRoot != null) _attributeBadgeRoot.SetActive(count > 0);
+    }
+
 
     private readonly TownHudVisibility _hud = new();
     private readonly Dictionary<string, TownMenuTabRegistration> _tabs = new(StringComparer.Ordinal);
@@ -71,6 +83,9 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
 
     private void Awake()
     {
+        _attributeAccessButton?.onClick.AddListener(OnAttributesToggleRequested);
+        PresentAvailableAttributePoints(0);
+        SetAttributeAccessVisible(false);
         if (_hudRoots == null)
         {
             return;
@@ -86,7 +101,7 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
     public void Bind(PlayerInputReader reader, Transform uiParent)
     {
         Unbind();
-        if (reader == null || uiParent == null)
+        if (!isActiveAndEnabled || reader == null || uiParent == null)
         {
             return;
         }
@@ -118,6 +133,10 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
         _reader.AttributesToggleRequested += OnAttributesToggleRequested;
         _reader.InventoryCloseRequested += OnCloseRequested;
         _reader.MenuToggleRequested += OnMenuToggleRequested;
+        // The social prefab keeps this canvas inactive for remote avatars. Only a
+        // successfully bound local menu owns activation of its presentation parent.
+        uiParent.gameObject.SetActive(true);
+        SetAttributeAccessVisible(true);
     }
 
     /// <summary>Stops listening, closes the menu and releases input suppression.</summary>
@@ -133,10 +152,20 @@ public sealed class TownPlayerMenuPresenter : MonoBehaviour
 
         CloseMenu();
         _reader = null;
+        SetAttributeAccessVisible(false);
+    }
+
+    private void OnDisable() => Unbind();
+
+    private void SetAttributeAccessVisible(bool visible)
+    {
+        if (_attributeAccessButton != null)
+            _attributeAccessButton.gameObject.SetActive(visible);
     }
 
     private void OnDestroy()
     {
+        _attributeAccessButton?.onClick.RemoveListener(OnAttributesToggleRequested);
         Unbind();
         if (_view != null)
         {

@@ -1,9 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// uGUI mesh renderer for a generated <see cref="MinimapLayout"/>. It draws static schematic
-/// cells only and remains independent from gameplay, networking and scene discovery.
+/// uGUI mesh renderer for a generated <see cref="MinimapLayout"/>. It draws static textured
+/// tile art only and remains independent from gameplay, networking and scene discovery.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RaidMinimapGraphic : MaskableGraphic
@@ -11,16 +12,23 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
     [SerializeField]
     private MinimapLayout _layout;
 
-    [SerializeField]
+    // Retain legacy serialized fields so existing HUD prefab overrides need no migration.
+    // Tile colours now come exclusively from the authored sprite/Tilemap data.
+    [SerializeField, HideInInspector]
     private Color _floorColor = new Color(0.42f, 0.48f, 0.55f, 1f);
 
-    [SerializeField]
+    [SerializeField, HideInInspector]
     private Color _wallColor = new Color(0.12f, 0.15f, 0.19f, 1f);
 
-    [SerializeField]
+    [SerializeField, HideInInspector]
     private Color _obstacleColor = new Color(0.55f, 0.35f, 0.17f, 1f);
 
     private float _uiUnitsPerWorldUnit = 1f;
+    private bool _configured;
+    private readonly List<RaidMinimapBatchGraphic> _batches = new List<RaidMinimapBatchGraphic>();
+
+    public override Texture mainTexture => _layout != null && _layout.ArtBatchCount > 0
+        ? _layout.GetArtBatch(0)?.Texture : base.mainTexture;
 
     /// <summary>Gets the generated layout consumed by this graphic.</summary>
     public MinimapLayout Layout => _layout;
@@ -35,6 +43,11 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
     /// </summary>
     public bool TryConfigure(float uiUnitsPerWorldUnit, out Vector2 uiSize, out string error)
     {
+        _configured = false;
+        foreach (RaidMinimapBatchGraphic batch in _batches)
+            if (batch != null) batch.gameObject.SetActive(false);
+        canvasRenderer.Clear();
+        SetAllDirty();
         uiSize = Vector2.zero;
         error = null;
         if (_layout == null)
@@ -55,78 +68,67 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
         }
 
         _uiUnitsPerWorldUnit = uiUnitsPerWorldUnit;
-        uiSize = _layout.WorldSize * _uiUnitsPerWorldUnit;
+        uiSize = _layout.RenderSize * _uiUnitsPerWorldUnit;
         if (!IsPositiveFinite(uiSize.x) || !IsPositiveFinite(uiSize.y))
         {
             error = "RaidMinimapGraphic produced an invalid UI size.";
             return false;
         }
 
-        SetVerticesDirty();
+        _configured = true;
+        RefreshBatches();
+        SetAllDirty();
         error = null;
         return true;
     }
 
     protected override void OnPopulateMesh(VertexHelper vertexHelper)
     {
-        vertexHelper.Clear();
-        if (_layout == null || !_layout.TryValidate(out _) ||
-            !IsPositiveFinite(_uiUnitsPerWorldUnit))
-        {
-            return;
-        }
-
-        Vector2 cellSize = _layout.CellSize * _uiUnitsPerWorldUnit;
-        Vector2 totalSize = _layout.WorldSize * _uiUnitsPerWorldUnit;
-        Vector2 start = -totalSize * 0.5f;
-        Vector2Int minimumCell = _layout.MinimumCell;
-        Vector2Int size = _layout.SizeInCells;
-
-        for (int y = 0; y < size.y; y++)
-        {
-            for (int x = 0; x < size.x; x++)
-            {
-                MinimapLayoutCellFlags flags = _layout.GetCellFlags(
-                    minimumCell + new Vector2Int(x, y));
-                if (flags == MinimapLayoutCellFlags.None)
-                {
-                    continue;
-                }
-
-                Vector2 bottomLeft = start + new Vector2(x * cellSize.x, y * cellSize.y);
-                if ((flags & MinimapLayoutCellFlags.Floor) != 0)
-                {
-                    AddQuad(vertexHelper, bottomLeft, cellSize, _floorColor);
-                }
-
-                if ((flags & MinimapLayoutCellFlags.Wall) != 0)
-                {
-                    AddQuad(vertexHelper, bottomLeft, cellSize, _wallColor);
-                }
-
-                if ((flags & MinimapLayoutCellFlags.Obstacle) != 0)
-                {
-                    AddQuad(vertexHelper, bottomLeft, cellSize, _obstacleColor);
-                }
-            }
-        }
+        RaidMinimapBatchGraphic.Populate(vertexHelper,
+            _configured && _layout != null && _layout.ArtBatchCount > 0 ? _layout.GetArtBatch(0) : null,
+            _uiUnitsPerWorldUnit, color);
     }
 
-    private static void AddQuad(
-        VertexHelper vertexHelper,
-        Vector2 bottomLeft,
-        Vector2 size,
-        Color color)
+    protected override void OnEnable()
     {
-        int startIndex = vertexHelper.currentVertCount;
-        vertexHelper.AddVert(bottomLeft, color, Vector2.zero);
-        vertexHelper.AddVert(bottomLeft + new Vector2(0f, size.y), color, Vector2.up);
-        vertexHelper.AddVert(bottomLeft + size, color, Vector2.one);
-        vertexHelper.AddVert(bottomLeft + new Vector2(size.x, 0f), color, Vector2.right);
-        vertexHelper.AddTriangle(startIndex, startIndex + 1, startIndex + 2);
-        vertexHelper.AddTriangle(startIndex + 2, startIndex + 3, startIndex);
+        base.OnEnable();
+        if (_configured) RefreshBatches();
     }
 
+    protected override void OnDisable()
+    {
+        foreach (RaidMinimapBatchGraphic batch in _batches)
+            if (batch != null) batch.gameObject.SetActive(false);
+        base.OnDisable();
+    }
+
+    private void RefreshBatches()
+    {
+        int required = _layout.ArtBatchCount - 1;
+        for (int i = 0; i < required; i++)
+        {
+            if (i == _batches.Count)
+            {
+                var child = new GameObject("TileArtBatch", typeof(RectTransform), typeof(CanvasRenderer),
+                    typeof(RaidMinimapBatchGraphic));
+                child.hideFlags = HideFlags.DontSave | HideFlags.HideInHierarchy;
+                child.layer = gameObject.layer;
+                child.transform.SetParent(transform, false);
+                var rect = (RectTransform)child.transform;
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+                _batches.Add(child.GetComponent<RaidMinimapBatchGraphic>());
+            }
+
+            RaidMinimapBatchGraphic graphic = _batches[i];
+            graphic.Configure(_layout.GetArtBatch(i + 1), _uiUnitsPerWorldUnit, color);
+            graphic.gameObject.SetActive(isActiveAndEnabled);
+        }
+
+        for (int i = required; i < _batches.Count; i++) _batches[i].gameObject.SetActive(false);
+    }
     private static bool IsPositiveFinite(float value)
     {
         return !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;

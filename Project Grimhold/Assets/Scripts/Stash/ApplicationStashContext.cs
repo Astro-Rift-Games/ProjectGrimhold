@@ -12,6 +12,7 @@ public sealed class ApplicationStashContext : MonoBehaviour
     public IPlayerCurrencyService CurrencyService { get; private set; }
     public IShopTransactionService ShopTransactionService { get; private set; }
     public LocalProfileStore Store { get; private set; }
+    public ConfirmedProgressionFeedbackQueue ProgressionFeedback { get; } = new();
     public ProfileId ProfileId => Store != null ? Store.ProfileId : default;
     public bool IsAvailable => Store != null && Store.IsAvailable;
     public LocalProfilePersistenceStatus PersistenceStatus => Store?.Status ?? LocalProfilePersistenceStatus.Unavailable;
@@ -33,19 +34,35 @@ public sealed class ApplicationStashContext : MonoBehaviour
         IPlayerCurrencyService currencyService,
         IShopTransactionService shopTransactionService)
     {
-        if (Store != null) Store.ProfileCommitted -= OnProfileCommitted;
+        if (Store != null)
+        {
+            Store.ProfileCommitted -= OnProfileCommitted;
+            Store.ProgressionCommitted -= OnProgressionCommitted;
+        }
+        ProgressionFeedback.Clear();
         Store = store;
         StashService = stashService;
         LoadoutService = loadoutService;
         CurrencyService = currencyService;
         ShopTransactionService = shopTransactionService;
-        if (Store != null) Store.ProfileCommitted += OnProfileCommitted;
+        if (Store != null)
+        {
+            Store.ProfileCommitted += OnProfileCommitted;
+            Store.ProgressionCommitted += OnProgressionCommitted;
+        }
     }
+
+    private void OnProgressionCommitted(ProfileId profileId, ExperienceApplicationResult result) =>
+        ProgressionFeedback.Record(profileId, result);
 
     private void OnProfileCommitted(ProfileId profileId) => ProfileCommitted?.Invoke(profileId);
 
     private void OnDestroy()
     {
-        if (Store != null) Store.ProfileCommitted -= OnProfileCommitted;
+        if (Store != null)
+        {
+            Store.ProfileCommitted -= OnProfileCommitted;
+            Store.ProgressionCommitted -= OnProgressionCommitted;
+        }
     }
 }

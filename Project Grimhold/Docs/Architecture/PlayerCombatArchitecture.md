@@ -49,7 +49,9 @@ State Authority accepts and releases only on forward ticks. Melee snapshots its 
 statistics and direction; the source slot/weapon must still be active when damage resolves.
 Using the other hand does not invalidate that source. Ranged snapshots remain independent of
 later selection. All pending flags are consumed before external damage or projectile spawning.
-Death, Downed, disabled combat and phase exit cancel pending work, without resetting intervals.
+Death, Downed, consumption, disabled combat and phase exit cancel pending work, without resetting intervals.
+Consumption blocks both equipped-hand starts and their presentation. `HasPendingAttackRelease` includes
+all four hand snapshots as well as legacy releases, so timed consumables cannot interrupt accepted work.
 
 `TryGetAttackStatus(EquipmentSlot, ...)` presents a hand's interval; the existing primary query
 is a Main-hand wrapper. The single-strategy API/timer remains only as the compatibility route
