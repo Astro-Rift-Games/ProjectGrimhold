@@ -27,6 +27,33 @@ public sealed class RaidHudView : MonoBehaviour
     [SerializeField]
     private Image _staminaFill;
 
+    [SerializeField] private Color _insufficientStaminaColor = new(1f, .3f, .15f, 1f);
+    [SerializeField, Min(.05f)] private float _insufficientStaminaPulseDuration = .3f;
+    private Color _staminaBaseColor;
+    private float _staminaPulseUntil;
+
+    public void PulseInsufficientStamina()
+    {
+        if (_staminaFill == null) return;
+        if (_staminaPulseUntil <= Time.unscaledTime) _staminaBaseColor = _staminaFill.color;
+        _staminaPulseUntil = Time.unscaledTime + _insufficientStaminaPulseDuration;
+    }
+
+    private void Update()
+    {
+        if (_staminaFill == null || _staminaPulseUntil <= 0) return;
+        float remaining = Mathf.Clamp01((_staminaPulseUntil - Time.unscaledTime) / Mathf.Max(.05f, _insufficientStaminaPulseDuration));
+        _staminaFill.color = Color.Lerp(_staminaBaseColor, _insufficientStaminaColor, Mathf.Sin(remaining * Mathf.PI));
+        if (remaining <= 0) _staminaPulseUntil = 0;
+    }
+
+    private void OnDisable()
+    {
+        if (_staminaFill != null && _staminaPulseUntil > 0) _staminaFill.color = _staminaBaseColor;
+        _staminaPulseUntil = 0;
+    }
+
+
     [SerializeField]
     private TMP_Text _manaText;
 

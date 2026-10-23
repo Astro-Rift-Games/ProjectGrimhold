@@ -78,6 +78,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private SessionTransitionResult? _pendingTransitionFailure;
     private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
+    private ApplicationStashContext _recoveryStashContext;
+    private RecoveryWeaponConsentView _recoveryWeaponConsentView;
+    private RecoveryWeaponPreparation _approvedRecoveryPreparation;
+    private RecoveryWeaponPreparation _pendingRecoveryPreparation;
+    private Action<bool> _recoveryConsentCompletion;
+    private RaidCode _recoveryConsentRaidCode;
+    private int _recoveryConsentRevision;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -104,6 +111,90 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     public event Action<SessionConnectionState> StateChanged;
     public event Action<RaidReconnectTicket?> ReconnectTicketChanged;
+
+    public void BindRecoveryWeaponConsentView(RecoveryWeaponConsentView view) => _recoveryWeaponConsentView = view;
+
+    public void UnbindRecoveryWeaponConsentView(RecoveryWeaponConsentView view)
+    {
+        if (_recoveryWeaponConsentView != view) return;
+        _recoveryWeaponConsentView = null;
+        CompleteRecoveryWeaponConsent(false);
+    }
+
+    // Preserves the coordinator's existing application-context acquisition boundary.
+    private ApplicationStashContext ResolveRecoveryStashContext()
+    {
+        if (_recoveryStashContext == null)
+            _recoveryStashContext = FindAnyObjectByType<ApplicationStashContext>();
+        return _recoveryStashContext;
+    }
+
+    public void BeginRecoveryWeaponConsent(RaidCode raidCode, int revision, Action<bool> completion)
+    {
+        CancelRecoveryWeaponConsent(_recoveryConsentRaidCode, _recoveryConsentRevision);
+        _recoveryConsentRaidCode = raidCode;
+        _recoveryConsentRevision = revision;
+        _recoveryConsentCompletion = completion;
+        ApplicationStashContext context = ResolveRecoveryStashContext();
+        if (State != SessionConnectionState.Town || _operationActive || context == null ||
+            context.ProfileId != LocalProfileProvider.GetOrCreateLocalProfile() || context.Store == null)
+        {
+            CompleteRecoveryWeaponConsent(false);
+            return;
+        }
+        ExpeditionPreparationResult result = context.Store.InspectRecoveryWeaponPreparation(out _pendingRecoveryPreparation);
+        if (result != ExpeditionPreparationResult.Success)
+        {
+            _pendingLaunchRejection = result;
+            CompleteRecoveryWeaponConsent(false);
+            return;
+        }
+        if (!_pendingRecoveryPreparation.RequiresConsent)
+        {
+            CompleteRecoveryWeaponConsent(true);
+            return;
+        }
+        if (_recoveryWeaponConsentView == null || !_recoveryWeaponConsentView.TryOpen(CompleteRecoveryWeaponConsent))
+        {
+            _pendingLaunchRejection = ExpeditionPreparationResult.ProfileUnavailable;
+            CompleteRecoveryWeaponConsent(false);
+        }
+    }
+
+    public void CancelRecoveryWeaponConsent(RaidCode raidCode, int revision)
+    {
+        if (_recoveryConsentRaidCode != raidCode || _recoveryConsentRevision != revision) return;
+        _recoveryWeaponConsentView?.Close();
+        _recoveryConsentCompletion = null;
+        _pendingRecoveryPreparation = null;
+        _approvedRecoveryPreparation = null;
+    }
+
+    private void CompleteRecoveryWeaponConsent(bool accepted)
+    {
+        if (_recoveryConsentCompletion == null) return;
+        ApplicationStashContext context = ResolveRecoveryStashContext();
+        accepted = accepted && State == SessionConnectionState.Town && !_operationActive &&
+                   context != null && context.ProfileId == LocalProfileProvider.GetOrCreateLocalProfile() &&
+                   context.Store != null && context.Store.IsRecoveryWeaponPreparationCurrent(_pendingRecoveryPreparation);
+        _approvedRecoveryPreparation = accepted ? _pendingRecoveryPreparation : null;
+        _pendingRecoveryPreparation = null;
+        Action<bool> completion = _recoveryConsentCompletion;
+        _recoveryConsentCompletion = null;
+        _recoveryWeaponConsentView?.Close();
+        completion(accepted);
+    }
+
+    private ExpeditionPreparationResult PrepareConsentedExpeditionEquipment(ApplicationStashContext context, RaidCode raidCode)
+    {
+        if (context.Store == null) return ExpeditionPreparationResult.ProfileUnavailable;
+        ExpeditionPreparationResult result = context.Store.InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation current);
+        if (result != ExpeditionPreparationResult.Success) return result;
+        if (!current.RequiresConsent) return context.Store.TryPrepareExpeditionEquipment(current);
+        if (_recoveryConsentRaidCode != raidCode || _approvedRecoveryPreparation == null)
+            return ExpeditionPreparationResult.ProfileUnavailable;
+        return context.Store.TryPrepareExpeditionEquipment(_approvedRecoveryPreparation);
+    }
 
     public bool TryGetPendingPartyContinuation(out TownPartyContinuationContext context)
     {
@@ -189,7 +280,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 : RaidLaunchPreparationResult.NotReady;
         }
 
-        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        ApplicationStashContext stashContext = ResolveRecoveryStashContext();
         if (stashContext == null || stashContext.LoadoutService == null)
         {
             Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Cannot reserve loadout without the application stash context.", this);
@@ -201,7 +292,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         // Normalizing the prepared Weapon Equipment happens before the reservation boundary, so
         // the reservation keeps rejecting a genuinely invalid loadout as a domain invariant.
         ExpeditionPreparationResult preparation =
-            stashContext.LoadoutService.TryPrepareExpeditionLoadout(localProfile);
+            PrepareConsentedExpeditionEquipment(stashContext, launchContext.RaidCode);
         if (preparation != ExpeditionPreparationResult.Success)
         {
             return RejectLaunchPreparation(

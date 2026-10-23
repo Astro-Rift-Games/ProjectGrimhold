@@ -18,6 +18,7 @@ using UnityEngine;
 public sealed class PurificationNetworkEffect : NetworkBehaviour
 {
     [SerializeField] private PlayerCharacter _character;
+    [SerializeField] private PlayerImmobilizationNetworkEffect _immobilizationEffect;
 
     [Networked] private TickTimer ProtectionTimer { get; set; }
 
@@ -33,11 +34,10 @@ public sealed class PurificationNetworkEffect : NetworkBehaviour
         IsOwnerConfigured && Object != null && Object.IsValid && Runner != null && !ProtectionTimer.ExpiredOrNotRunning(Runner);
 
     /// <summary>
-    /// Whether the owner has at least one active purifiable state. No player state is purifiable yet (the trap
-    /// Immobilize only affects enemies and no player Stun exists), so this is always false. It is the query a
-    /// future purifiable player state plugs into together with <see cref="PurgePurifiableStates"/>.
+    /// Whether the owner has the active trap-only purifiable player immobilization.
     /// </summary>
-    public bool HasPurifiableState => false;
+    public bool HasPurifiableState => _immobilizationEffect != null &&
+        _immobilizationEffect.gameObject == gameObject && _immobilizationEffect.IsActive;
 
     /// <summary>Whether the owner can receive the temporary protection: it is alive and can receive status effects.</summary>
     public bool CanReceiveProtection => IsOwnerConfigured && _character.CanReceiveStatusEffects;
@@ -73,10 +73,11 @@ public sealed class PurificationNetworkEffect : NetworkBehaviour
     }
 
     /// <summary>
-    /// The single extension point where every purifiable state of the owner is ended. Nothing is purifiable on
-    /// players today, so there is nothing to purge; do not add placeholder states.
+    /// Ends the concrete purifiable player state without reverting any already-resolved effect.
     /// </summary>
     private void PurgePurifiableStates()
     {
+        if (_immobilizationEffect != null && _immobilizationEffect.gameObject == gameObject)
+            _immobilizationEffect.TryPurify();
     }
 }

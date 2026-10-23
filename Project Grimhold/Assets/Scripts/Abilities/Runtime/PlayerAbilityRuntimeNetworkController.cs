@@ -359,7 +359,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private AbilityActivationFailure TryStartExecutionCore(UniversalAbilitySlot slot)
     {
         if (!TryBuildContext(slot, out var context) || !_playerCharacter.IsAlive ||
-            PlayerDownedGate.IsDowned(_playerCharacter)) return AbilityActivationFailure.PlayerUnavailable;
+            (PlayerDownedGate.IsDowned(_playerCharacter) || PlayerConsumptionGate.IsConsuming(_playerCharacter))) return AbilityActivationFailure.PlayerUnavailable;
         var match = _spawnManager != null ? _spawnManager.MatchController : null;
         if (match != null && match.Phase != NetworkMatchController.MatchPhase.InProgress)
             return AbilityActivationFailure.PlayerUnavailable;
@@ -410,7 +410,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     {
         var state = ReadExecution(slot);
         if (!state.IsActive) return;
-        if (!_playerCharacter.IsAlive || PlayerDownedGate.IsDowned(_playerCharacter))
+        if (!_playerCharacter.IsAlive || (PlayerDownedGate.IsDowned(_playerCharacter) || PlayerConsumptionGate.IsConsuming(_playerCharacter)))
         {
             StopExecution(slot, AbilityExecutionStopReason.Downed);
             return;

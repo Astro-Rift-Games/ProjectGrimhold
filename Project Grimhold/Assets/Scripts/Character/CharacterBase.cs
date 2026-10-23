@@ -145,12 +145,15 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
 
         if (TryApplyAlternateDamage(request, finalDamage, out DamageResult alternateResult))
         {
+            if (alternateResult.AppliedDamage > 0f) OnDamageApplied(alternateResult.AppliedDamage);
             return alternateResult;
         }
 
         float previousHealth = Health;
         Health = Mathf.Max(0f, Health - finalDamage);
         float actualDamageApplied = previousHealth - Health;
+
+        if (actualDamageApplied > 0f) OnDamageApplied(actualDamageApplied);
 
         bool isFatal = Health <= 0f;
 
@@ -249,6 +252,9 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
     {
         return request.Amount;
     }
+
+    /// <summary>Authoritative gameplay hook, invoked only after positive damage was committed.</summary>
+    protected virtual void OnDamageApplied(float amount) { }
 
     /// <summary>
     /// Resolves the locally derived maximum used by fresh initialization and healing.

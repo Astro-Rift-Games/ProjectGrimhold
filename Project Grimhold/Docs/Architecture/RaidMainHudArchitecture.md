@@ -333,3 +333,23 @@ Manual validation remains necessary for:
 - complete session restart;
 - layout, anchors, contrast, radial fill, target resolutions, and coexistence of the right panel, bottom row and interaction prompt (the bottom bar and vitals block were observed in a local Play Mode preview harness with sample data, never in a real match);
 - defeat, loot collection/transfer, equipped weapon icons, local extraction countdown/cancellation/completion, and extracted-player presentation in the actual game flow.
+
+## Confirmed local feedback (TASK 220)
+
+`RaidStatusFeedbackView` is an authored child surface referenced by `RaidHudPresenter`.
+Both previous/next arrows request the opposite of the currently confirmed Weapon Set through
+`PlayerInputReader.TryRequestWeaponSet`, preserving the existing input transport and authoritative
+validation. The A/B indicator never changes on click. Initial binding and re-enabling baseline the
+confirmed set without sound or pulse; only a subsequent confirmed change triggers them.
+
+`LocalPlayerHudBinder` injects the avatar's existing Empower, Purification and Immobilization owners,
+Movement controller and Consumable controller through serialized references. Status icons read the
+actual confirmed effect timers, including refresh/expiry, and do not invent presentation durations.
+The Movement controller's confirmed `SprintRejectedSequence` is baselined on bind and highlights the
+existing Stamina fill on a subsequent insufficient-sprint rejection.
+
+The status surface owns the central notice root/text and a configurable three-second default lifetime.
+Confirmed consumption successes and specific rejection results go there; Quick Slot local validation
+also uses the same surface. Binding/unbinding clears transients and removes owned subscriptions.
+Prefab wiring, authored icon art/audio, runtime visual checks and multiplayer verification remain
+separate from deterministic feedback-state tests.

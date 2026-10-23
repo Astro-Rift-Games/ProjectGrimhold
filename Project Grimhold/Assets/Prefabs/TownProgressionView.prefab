@@ -256,6 +256,12 @@ MonoBehaviour:
   _levelText: {fileID: 6920904288492355242}
   _statusText: {fileID: 2104392263869717231}
   _progressFill: {fileID: 7079277885795916124}
+  _pulseRoot: {fileID: 3641317311925229262}
+  _initialPulseDuration: 0.18
+  _fillDuration: 1.1
+  _completionPulseDuration: 0.24
+  _initialPulseScale: 1.08
+  _completionPulseScale: 1.15
 --- !u!1 &3889725650877196101
 GameObject:
   m_ObjectHideFlags: 0

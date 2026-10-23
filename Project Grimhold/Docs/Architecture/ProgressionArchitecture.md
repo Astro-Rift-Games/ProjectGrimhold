@@ -406,3 +406,21 @@ the same `ProfileId` to the existing participation and ledger, as detailed in
 `RaidConnectivityContinuityArchitecture.md`. A definitive disconnection (which triggers
 progression resolution for defeat/abandonment) now only occurs when a disconnected
 participant falls back due to exhaustions/no recovery decider.
+
+## Transient Town progression feedback (TASK 220)
+
+`LocalProfileStore.ProgressionCommitted` publishes an immutable `ExperienceApplicationResult` only
+after a newly committed authoritative Raid progression receipt has persisted. It is not the generic
+profile notification: login synchronization, development changes, duplicate receipts and failed saves
+do not publish it. `ApplicationStashContext` owns `ConfirmedProgressionFeedbackQueue` and records that
+notification before forwarding the generic profile refresh. This transient application-scoped queue
+survives the Raid-to-Town runner transition but is cleared when the profile context is reinitialized.
+It is not persisted and is never reconstructed from old login progress or a Results snapshot.
+
+Town presentation drains the matching profile's queued facts only after its authored view exists.
+`TownProgressionView` performs a short initial pulse, continuously fills through every intermediate
+level threshold, and ends at the exact confirmed level/remainder with a slightly larger completion
+pulse. All interpolation is local presentation; no progression rule or profile mutation runs from it.
+Opening the player menu pauses the view without replaying or re-consuming the notification.
+The existing Town menu owns a serialized Attributes access button and count badge; the count projects
+confirmed available points and the badge is hidden at zero, including after cleanup.

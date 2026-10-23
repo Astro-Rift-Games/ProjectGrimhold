@@ -19,9 +19,13 @@ public sealed class ConsumableDefinition : ScriptableObject
     [Tooltip("Prefab de ParticleSystem instanciado en la posición del jugador al consumir con éxito.")]
     private ParticleSystem _consumeParticles;
 
+    [SerializeField, Min(0.01f)]
+    private float _consumptionDurationSeconds = 2f;
+
     public ConsumableEffectBase Effect => _effect;
     public AudioClip ConsumeSound => _consumeSound;
     public ParticleSystem ConsumeParticles => _consumeParticles;
+    public float ConsumptionDurationSeconds => _consumptionDurationSeconds;
 
     /// <summary>
     /// Valida que la definición tenga las dependencias necesarias.
@@ -29,6 +33,13 @@ public sealed class ConsumableDefinition : ScriptableObject
     public bool TryValidate(out string error)
     {
         error = null;
+
+        if (float.IsNaN(_consumptionDurationSeconds) || float.IsInfinity(_consumptionDurationSeconds) ||
+            _consumptionDurationSeconds <= 0f)
+        {
+            error = $"ConsumableDefinition '{name}' must have a positive finite consumption duration.";
+            return false;
+        }
 
         if (_effect == null)
         {

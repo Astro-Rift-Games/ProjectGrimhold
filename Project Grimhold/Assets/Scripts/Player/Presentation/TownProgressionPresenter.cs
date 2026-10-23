@@ -105,6 +105,13 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
         }
 
         _view.Present(presentation);
+        if (_profileContext != null && _store != null)
+        {
+            while (_profileContext.ProgressionFeedback.TryTake(_store.ProfileId, out var application))
+                _view.EnqueueConfirmedFeedback(ProgressionBalanceDefaults.InitialExperienceCurve, application);
+            if (_store.TryGetCharacterAttributeState(out var attributes))
+                _menu?.PresentAvailableAttributePoints(attributes.AvailablePoints);
+        }
     }
 
     private void PresentUnavailable()
@@ -125,6 +132,7 @@ public sealed class TownProgressionPresenter : NetworkBehaviour
         _binding = null;
 
         DestroyView();
+        _menu?.PresentAvailableAttributePoints(0);
 
         ClearLocalReferences();
     }

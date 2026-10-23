@@ -67,6 +67,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private CharacterBase _character;
     private PlayerAttackVfxPresenter _attackVfx;
     private bool _hiddenByDowned;
+    private PlayerConsumableNetworkController _consumables;
+    private LootDefinition _presentedConsumable;
 
     private void Awake()
     {
@@ -90,6 +92,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private void OnDisable()
     {
+        _presentedConsumable = null;
         _mainHandDefinition = null;
         _offHandDefinition = null;
         _mainHandWorldSprite = null;
@@ -109,6 +112,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     {
         RefreshDownedVisibility();
         RefreshEquipment(force: false);
+        RefreshConsumptionPresentation();
         RefreshMainHandSprite();
         RefreshPose();
     }
@@ -287,6 +291,12 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     // Swaps only the sprite, so the pose, grip, angle correction, facing and mirror stay untouched.
     private void RefreshMainHandSprite()
     {
+        if (_presentedConsumable != null)
+        {
+            Sprite consumableSprite = _presentedConsumable.WorldSprite;
+            SetRendererSprite(_mainHandRenderer, consumableSprite);
+            return;
+        }
         float attackSeconds = 0f;
         bool isAttacking = _mainHandAttackSprites != null &&
             _animatorView.TryGetPresentedAttackSeconds(out attackSeconds);
@@ -489,7 +499,30 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         Transform root = _equipmentSource != null ? _equipmentSource.transform : transform.root;
         _downedState ??= root.GetComponent<PlayerDownedStateNetworkController>();
         _character ??= root.GetComponent<CharacterBase>();
+        _consumables ??= root.GetComponent<PlayerConsumableNetworkController>();
         _attackVfx ??= root.GetComponentInChildren<PlayerAttackVfxPresenter>(true);
+    }
+
+    private void RefreshConsumptionPresentation()
+    {
+        LootDefinition definition = null;
+        if (_consumables != null) _consumables.TryGetConsumingDefinition(out definition);
+        if (_presentedConsumable == definition) return;
+        _presentedConsumable = definition;
+        if (definition == null)
+        {
+            RefreshEquipment(force: true);
+            return;
+        }
+
+        ReleaseAimBlock();
+        AttachMainHandWeapon(WeaponRig.HandHeld);
+        SetWeaponDriven(false);
+        _hasMainHandWeapon = false;
+        _mainHandWeaponVisual.localPosition = Vector3.zero;
+        _mainHandWeaponVisual.localRotation = Quaternion.identity;
+        _mainHandWeaponVisual.localScale = _mainHandWeaponVisualBaseScale;
+        _attackVfx?.CancelAndRestore();
     }
 
     private void CaptureBaseState()

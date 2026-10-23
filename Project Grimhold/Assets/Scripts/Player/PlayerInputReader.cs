@@ -279,6 +279,16 @@ public sealed class PlayerInputReader : MonoBehaviour
 
     public bool IsGameplayInputSuppressed => _gameplaySuppressionCount > 0;
 
+    /// <summary>Queues the same discrete intent as the authored weapon-set key bindings.</summary>
+    public bool TryRequestWeaponSet(WeaponSetSlot set)
+    {
+        if (!isActiveAndEnabled || IsGameplayInputSuppressed ||
+            (set != WeaponSetSlot.SetA && set != WeaponSetSlot.SetB)) return false;
+        _pendingButtons.Set(set == WeaponSetSlot.SetA ? PlayerInputButton.WeaponSetA : PlayerInputButton.WeaponSetB, true);
+        return true;
+    }
+
+
     /// <summary>
     /// Returns the latest local intentions accumulated since Fusion's
     /// previous input collection.
