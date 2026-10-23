@@ -130,7 +130,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
             return;
         }
 
-        if (_character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
+        if (_character == null || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
             (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {

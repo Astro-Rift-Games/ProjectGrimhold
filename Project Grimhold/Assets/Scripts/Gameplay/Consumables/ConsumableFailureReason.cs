@@ -10,5 +10,9 @@ public enum ConsumableFailureReason : byte
     TargetDead = 4,
     TargetUnavailable = 5,
     HealthFull = 6,
-    EffectFailed = 7
+    EffectFailed = 7,
+    Downed = 8,
+    AbilityInProgress = 9,
+    ConsumptionInProgress = 10,
+    Interrupted = 11
 }

@@ -5,7 +5,8 @@ using UnityEngine;
 
 /// <summary>
 /// Caster-owned, runtime-spawned trap entity. Under State Authority it waits for the first valid enemy of its caster
-/// inside its trigger radius, applies its immobilize effect to that enemy through <see cref="ImmobilizeEffect"/>,
+/// inside its trigger radius, applies the creature <see cref="ImmobilizeEffect"/> or trap-only rival-player
+/// <see cref="PlayerImmobilizationNetworkEffect"/>,
 /// raises <see cref="Triggered"/> once and despawns; it also despawns when its lifetime ends. The effect parameters
 /// are [Networked] state, so a Host Migration restore keeps a fully working trap (a C# subscription would be lost).
 /// It owns no ability or placement rules: those belong to the behaviour that spawns it.
@@ -25,6 +26,7 @@ public sealed class NetworkTrap : NetworkBehaviour
     [Networked] private NetworkBool HasTriggered { get; set; }
     [Networked] private int TriggeredTargetIdValue { get; set; }
     [Networked] private float ImmobilizeSeconds { get; set; }
+    [Networked] private float PlayerImmobilizeSeconds { get; set; }
     [Networked] private float DamagePerTick { get; set; }
     [Networked] private float TickIntervalSeconds { get; set; }
     [Networked] private int DamageTypeValue { get; set; }
@@ -61,7 +63,8 @@ public sealed class NetworkTrap : NetworkBehaviour
     /// <c>onBeforeSpawned</c> callback on the State Authority.
     /// </summary>
     public void InitializeNetworkState(EntityId casterId, float lifetimeSeconds, float triggerRadius, int targetLayerMask,
-        float immobilizeSeconds, float damagePerTick, float tickIntervalSeconds, DamageType damageType, bool purifiable)
+        float immobilizeSeconds, float damagePerTick, float tickIntervalSeconds, DamageType damageType, bool purifiable,
+        float playerImmobilizeSeconds = 3f)
     {
         CasterEntityIdValue = casterId.Value;
         LifetimeTimer = TickTimer.CreateFromSeconds(Runner, lifetimeSeconds);
@@ -70,6 +73,7 @@ public sealed class NetworkTrap : NetworkBehaviour
         HasTriggered = false;
         TriggeredTargetIdValue = 0;
         ImmobilizeSeconds = immobilizeSeconds;
+        PlayerImmobilizeSeconds = playerImmobilizeSeconds;
         DamagePerTick = damagePerTick;
         TickIntervalSeconds = tickIntervalSeconds;
         DamageTypeValue = (int)damageType;
@@ -101,6 +105,15 @@ public sealed class NetworkTrap : NetworkBehaviour
     /// </summary>
     private void ApplyEffect(EntityId enemyId)
     {
+        if (_registry != null && _registry.TryGetDamageable(enemyId, out IDamageable target) &&
+            target is PlayerCharacter player)
+        {
+            if (!player.TryGetComponent(out PlayerImmobilizationNetworkEffect playerEffect) ||
+                !playerEffect.TryApply(PlayerImmobilizeSeconds))
+                Debug.LogError($"{nameof(NetworkTrap)} could not apply its effect to the triggering player.", this);
+            return;
+        }
+
         ImmobilizeEffect effect = null;
         if (_registry != null && _registry.TryGetTransform(enemyId, out Transform enemyTransform) && enemyTransform != null)
             effect = enemyTransform.GetComponent<ImmobilizeEffect>() ?? enemyTransform.GetComponentInParent<ImmobilizeEffect>();
@@ -127,7 +140,14 @@ public sealed class NetworkTrap : NetworkBehaviour
             if (collider == null || !_registry.TryGetEntityId(collider, out EntityId candidateId)) continue;
             if (candidateId.Value == 0 || !_registry.IsDamageCollider(candidateId, collider)) continue;
             if (!_registry.TryGetDamageable(candidateId, out IDamageable damageable)) continue;
-            if (!AbilityTargetPredicate.IsValidEnemy(caster, damageable)) continue;
+            if (damageable is PlayerCharacter player)
+            {
+                if (!AbilityTargetPredicate.IsValidCombatant(caster, damageable) ||
+                    !_registry.TryGetDamageable(caster, out IDamageable source) ||
+                    !(source is PlayerCharacter casterPlayer) ||
+                    !TrapPlayerTargetRules.IsValidTarget(casterPlayer, player)) continue;
+            }
+            else if (!AbilityTargetPredicate.IsValidEnemy(caster, damageable)) continue;
 
             enemyId = candidateId;
             found = true;

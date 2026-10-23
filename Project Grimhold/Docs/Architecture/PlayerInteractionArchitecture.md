@@ -135,3 +135,25 @@ The pickup is a consumable source with its own reservation. It does not implemen
 `LootTransferResult` preserves precise loot semantics. `InteractionResult` and `InteractionPresentationEvent` retain the nested `LootTransferFailureReason` when the general result is `LootRejected`, without expanding `InteractionFailureReason` with every transfer-specific case. This lets Input Authority distinguish `InventoryFull` from technical failures after authoritative confirmation.
 
 For a full pickup, local presentation animates only the pickup's `WorldVisual` child through a short jump and complete rotation, then restores its exact local pose. The root `NetworkObject`, collider, identity and inventory remain untouched. The interaction sequence deduplicates the signal across proxies and resimulation. Contextual invalid/out-of-range rejections pulse the existing prompt; technical failures retain their diagnostic text.
+
+## TASK-220: timed consumable execution
+
+Consumables now execute through `PlayerConsumableNetworkController` with a per-definition finite,
+positive duration (initially 2 seconds). Input Authority sends intent; State Authority starts and
+resolves execution during forward Fusion ticks. Catalog index, deadline and request sequence are
+replicated and are not reinitialized by `Spawned` after state restoration.
+
+The character's consumption gate blocks voluntary movement/sprint, primary attacks, shield use,
+ability activation, interactions, loot transfers/drops and equipment changes. The main-hand
+presenter temporarily shows the consumable WorldSprite without modifying real equipment; the
+off hand remains visible. An already-pending attack release prevents starting consumption.
+
+Completion revalidates target, inventory and provenance before applying the effect and spending
+one unit through the existing player-first provenance extraction. Positive committed damage
+cancels directly through the character damage hook (not a presentation event). Downed, defeat,
+extraction and match closure also cancel. Cancellation applies no effect and spends nothing.
+Rejected/zero damage does not cancel. Confirmations and specific rejection notices are dispatched
+locally during Render, outside simulation callbacks.
+
+Serialized integration must be applied and checked in Unity before acceptance. Source compilation
+alone does not validate Fusion weaving, prefab baking, Host/Client or Host Migration.

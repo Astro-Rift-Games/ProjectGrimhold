@@ -107,7 +107,7 @@ namespace Tests.PlayMode.Downed
             Assert.That(process, Is.Not.Null);
             var result = (ConsumableResult)process.Invoke(consumable, new object[] { 0 });
             Assert.That(result.Success, Is.False);
-            Assert.That(result.FailureReason, Is.EqualTo(ConsumableFailureReason.TargetUnavailable));
+            Assert.That(result.FailureReason, Is.EqualTo(ConsumableFailureReason.Downed));
         }
 
         [UnityTest]

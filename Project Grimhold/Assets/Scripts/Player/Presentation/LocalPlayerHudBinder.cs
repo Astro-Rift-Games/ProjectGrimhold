@@ -90,6 +90,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     [SerializeField]
     private PlayerWeaponEquipmentNetworkController _weaponEquipmentController;
 
+    [SerializeField] private PlayerMovementNetworkController _movementController;
+    [SerializeField] private EmpowerNetworkEffect _empowerEffect;
+    [SerializeField] private PurificationNetworkEffect _purificationEffect;
+    [SerializeField] private PlayerImmobilizationNetworkEffect _immobilizationEffect;
+
     [Header("Camera Shake")]
     [SerializeField]
     private LocalPlayerCameraShakeBinder _cameraShakeBinder;
@@ -233,6 +238,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _extractionProgressController,
             _assignmentService,
             _entityRegistry);
+        _raidHudPresenter.BindStatusFeedback(_empowerEffect, _purificationEffect, _immobilizationEffect,
+            _movementController, _consumableController);
         _abilityHudPresenter.Bind(_abilityController, _manaController, _staminaController);
         BindTeammateHud();
         if (_downedHudPresenter != null)
@@ -347,6 +354,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
 
     private void OnInputReaderChanged(PlayerInputReader inputReader)
     {
+        _raidHudPresenter?.SetFeedbackInputReader(inputReader);
         if (!_isBound || _inventoryPresenter == null)
         {
             return;

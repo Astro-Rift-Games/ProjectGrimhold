@@ -30,6 +30,11 @@ public sealed class PlayerCharacter : CharacterBase
     private float _defenseMitigationConstant = 100f;
 
     private PlayerStaminaNetworkController _staminaController;
+    private PlayerConsumableNetworkController _consumableController;
+
+    public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
+
+    protected override void OnDamageApplied(float amount) => _consumableController?.CancelConsumption();
     private bool _reportedMissingExtractionController;
     private bool _hasCachedEquipmentStatistics;
     private EquipmentStatisticsModifiers _cachedEquipmentStatistics;
@@ -400,6 +405,7 @@ public sealed class PlayerCharacter : CharacterBase
 
     private void CacheDependencies()
     {
+        _consumableController = GetComponent<PlayerConsumableNetworkController>();
         if (_corpseGenerationController == null)
         {
             _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();

@@ -31,11 +31,13 @@ public sealed class TrapAbilityBehaviour : AbilityExecutionBehaviour
     [SerializeField, Min(0.01f)] private float _lifetimeSeconds = 30f;
     [SerializeField, Min(1)] private int _maxTrapsPerCaster = 3;
     [SerializeField, Min(0.01f)] private float _triggerRadius = 0.75f;
-    [Tooltip("Layers holding the creatures' damage colliders; only valid enemies trigger the trap.")]
+    [Tooltip("Damage collider layers for creatures and confirmed rival players; allies never trigger.")]
     [SerializeField] private LayerMask _targetLayerMask;
 
     [Header("Effect")]
     [SerializeField, Min(0.01f)] private float _immobilizeSeconds = 3f;
+    [Tooltip("Purifiable voluntary-movement restriction for rival players; never applies the creature damage ticks.")]
+    [SerializeField, Min(0.01f)] private float _playerImmobilizeSeconds = 3f;
     [Tooltip("Zero is allowed: the enemy is still immobilized, without damage.")]
     [SerializeField, Min(0f)] private float _periodicDamage = 2f;
     [SerializeField, Min(0.01f)] private float _tickIntervalSeconds = 1f;
@@ -90,7 +92,8 @@ public sealed class TrapAbilityBehaviour : AbilityExecutionBehaviour
                 NetworkTrap trap = instance != null ? instance.GetComponent<NetworkTrap>() : null;
                 if (trap == null) return;
                 trap.InitializeNetworkState(casterId, _lifetimeSeconds, _triggerRadius, _targetLayerMask.value,
-                    _immobilizeSeconds, _periodicDamage, _tickIntervalSeconds, _damageType, _purifiable);
+                    _immobilizeSeconds, _periodicDamage, _tickIntervalSeconds, _damageType, _purifiable,
+                    _playerImmobilizeSeconds);
             });
 
         if (status != NetworkSpawnStatus.Spawned || trapObject == null || trapObject.GetComponent<NetworkTrap>() == null)
@@ -129,6 +132,11 @@ public sealed class TrapAbilityBehaviour : AbilityExecutionBehaviour
             Debug.LogError($"{nameof(TrapAbilityBehaviour)} configuration is invalid: the trap prefab is not assigned.", this);
             return false;
         }
+        if (!(_playerImmobilizeSeconds > 0f) || float.IsInfinity(_playerImmobilizeSeconds))
+        {
+            Debug.LogError($"{nameof(TrapAbilityBehaviour)} configuration is invalid: player immobilization duration must be finite and positive.", this);
+            return false;
+        }
         return true;
     }
 
@@ -165,6 +173,7 @@ public sealed class TrapAbilityBehaviour : AbilityExecutionBehaviour
         _maxTrapsPerCaster = Mathf.Max(1, _maxTrapsPerCaster);
         _triggerRadius = Mathf.Max(0.01f, _triggerRadius);
         _immobilizeSeconds = Mathf.Max(0.01f, _immobilizeSeconds);
+        _playerImmobilizeSeconds = Mathf.Max(0.01f, _playerImmobilizeSeconds);
         _periodicDamage = Mathf.Max(0f, _periodicDamage);
         _tickIntervalSeconds = Mathf.Max(0.01f, _tickIntervalSeconds);
     }

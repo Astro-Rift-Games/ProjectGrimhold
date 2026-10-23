@@ -54,6 +54,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     [Networked] private MeleeAttackRelease PendingMeleeRelease { get; set; }
     [Networked] private int LastAttackReleaseTick { get; set; }
     [Networked] private int LastAttackCancellationTick { get; set; }
+    public bool HasPendingAttackRelease => Object != null && Object.IsValid &&
+        (PendingRangedRelease.Pending || PendingMeleeRelease.Pending);
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
     [Networked]
@@ -176,7 +178,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         // Pending work is authority-only, forward-only, and independent of input/current equipment.
         if (HasStateAuthority && Runner.IsForward)
         {
-            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+            if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
                 CancelPendingRelease();
             else
                 AdvancePendingRelease();
@@ -537,7 +539,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     {
         seconds = 0f;
         if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
-            attack.Sequence != _lastObservedSequence || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+            attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
             return false;
         seconds = GetAttackElapsedSeconds(attack);
         // A newer received snapshot may still be ahead of the remote render clock. It must not
@@ -554,7 +556,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.MissingConfiguration;
         }
 
-        if (!IsAttackEnabled || !_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+        if (!IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
         {
             return AttackFailureReason.ControlDisabled;
         }

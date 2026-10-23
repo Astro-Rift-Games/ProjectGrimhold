@@ -30,6 +30,32 @@ block Join, Ready or Start.
 
 ## Launch and runner transition
 
+### Recovery weapon consent
+
+Start first opens a separate, replicated weapon-consent attempt while the preparation remains
+`Waiting`. Its revision is independent of `LaunchRevision`; no reservation, ACK deadline or
+countdown starts during this phase. Every member inspects the confirmed local profile without
+mutating it. A prepared weapon proceeds silently. An already-owned configured recovery weapon in
+Loadout or Stash also proceeds silently, retaining the existing deterministic reuse priority.
+Only a genuinely new free recovery weapon opens the preauthored `RecoveryWeaponConsentView`.
+
+The application coordinator retains an immutable inspection bound to the store, character and
+accepted aggregate snapshot revision. Accept revalidates that binding; it is not a global grant
+permission. The State Authority freezes the launch only after every current member accepts or
+needs no new grant. Until then Cancel, membership/Ready changes or authority replacement invalidate
+the entire attempt, reset Ready and leave every member in Town without granting or equipping.
+There is deliberately no consent timeout.
+
+After unanimous consent, the existing local launch materialization revalidates current need and
+commits through `LocalProfileStore`'s existing recovery helper before reservation. A replaced profile
+snapshot cannot authorize a new grant, even when its remote revision is unchanged. Double-clicks
+are consumed once by the modal, member responses are idempotent and repeated materialization never
+duplicates a granted unit. Persistence failures continue through the existing cohort rejection path.
+
+The view owns only serialized UI controls and registers with the coordinator through explicit Town
+composition. Its modal root is a child, not its own GameObject, so hiding it never removes its binding.
+Unloading/disable cancels any pending consent. No runtime UI construction or view scene search is used.
+
 Each preparation member controls only its own Ready flag. Only the Raid Host may Start, and only
 when every current member is Ready. Start freezes the full preparation snapshot and the current ACK,
 release and deadline workflow operates exclusively on that frozen roster. `RaidLaunchContext`

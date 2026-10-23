@@ -18,6 +18,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         public NetworkBool IsReady;
         public int LaunchRevision;
         public NetworkBool LaunchAcknowledged;
+        public NetworkBool WeaponConsentAccepted;
 
         public bool IsOccupied => !string.IsNullOrWhiteSpace(ProfileId.ToString());
     }
@@ -52,6 +53,10 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     [Networked]
     public int ReleaseRevision { get; private set; }
 
+    [Networked] public bool IsAwaitingWeaponConsent { get; private set; }
+    [Networked] public int WeaponConsentRevision { get; private set; }
+    [Networked] private int WeaponConsentMembershipRevision { get; set; }
+
     [Networked, Capacity(TownRaidPreparationRules.MaxMembers)]
     private NetworkArray<MemberNetwork> Members => default;
 
@@ -74,6 +79,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private ProfileId[] _initialMembers;
     private bool _hasSpawnInitialization;
     private int _authorityRebuildTicks;
+    private int _requestedLocalConsentRevision;
+    private RaidCode _localConsentRaidCode;
 
     public TownRaidPreparationSnapshot Snapshot => BuildSnapshot();
     public RaidCode RaidCode => RaidCode.TryParse(RaidCodeValue.ToString(), out RaidCode code) ? code : default;
@@ -86,11 +93,13 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         ResolveDirectory();
         _observedSnapshotRevision = SnapshotRevision;
         _directory?.RegisterPreparation(this);
+        TryRequestLocalWeaponConsent();
         TryMaterializeLocalLaunchContext();
     }
 
     public override void Render()
     {
+        TryRequestLocalWeaponConsent();
         if (_observedSnapshotRevision == SnapshotRevision)
         {
             return;
@@ -150,6 +159,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        SessionConnectionCoordinator.Instance?.CancelRecoveryWeaponConsent(_localConsentRaidCode, _requestedLocalConsentRevision);
         _directory?.UnregisterPreparation(this);
         _directory = null;
         ResetLaunchRuntime();
@@ -157,6 +167,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public void StateAuthorityChanged()
     {
+        if (HasStateAuthority && IsAwaitingWeaponConsent)
+            AuthorityCancelWeaponConsent();
         if (HasStateAuthority && State == TownRaidPreparationState.Launching)
         {
             ResetReleaseRuntime();
@@ -225,6 +237,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         RaidCodeValue = _initialRaidCode.Value;
         HostProfileIdValue = _initialHostProfileId.Value;
         State = TownRaidPreparationState.Waiting;
+        IsAwaitingWeaponConsent = false;
+        WeaponConsentRevision = 0;
+        WeaponConsentMembershipRevision = 0;
         LaunchRevision = 0;
         FrozenMemberCount = 0;
         ReleaseRevision = 0;
@@ -257,6 +272,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return false;
         }
 
+        if (IsAwaitingWeaponConsent) AuthorityCancelWeaponConsent();
         Members.Set(slot, new MemberNetwork { ProfileId = profileId.Value, IsReady = false });
         MembershipRevision++;
         MarkSnapshotChanged();
@@ -276,6 +292,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return false;
         }
 
+        if (IsAwaitingWeaponConsent) AuthorityCancelWeaponConsent();
         for (int index = memberIndex; index < TownRaidPreparationRules.MaxMembers - 1; index++)
         {
             Members.Set(index, Members[index + 1]);
@@ -305,6 +322,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return false;
         }
 
+        if (IsAwaitingWeaponConsent) AuthorityCancelWeaponConsent();
         MemberNetwork member = Members[memberIndex];
         if ((bool)member.IsReady == isReady)
         {
@@ -320,17 +338,39 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     public bool AuthorityTryStart(ProfileId requester)
     {
         TownRaidPreparationSnapshot snapshot = Snapshot;
-        if (!HasStateAuthority || !TownRaidPreparationRules.CanStart(snapshot, requester))
+        if (!HasStateAuthority || IsAwaitingWeaponConsent || !TownRaidPreparationRules.CanStart(snapshot, requester))
         {
             return false;
         }
+
+        // Consent is not a coordinated launch. No launch revision, reservation, or deadline exists yet.
+        WeaponConsentRevision++;
+        WeaponConsentMembershipRevision = MembershipRevision;
+        IsAwaitingWeaponConsent = true;
+        for (int index = 0; index < MemberCount; index++)
+        {
+            MemberNetwork member = Members[index];
+            member.WeaponConsentAccepted = false;
+            Members.Set(index, member);
+        }
+        MarkSnapshotChanged();
+        return true;
+    }
+
+    private bool AuthorityBeginConsentedLaunch()
+    {
+        TownRaidPreparationSnapshot snapshot = Snapshot;
+        if (!HasStateAuthority || !IsAwaitingWeaponConsent ||
+            WeaponConsentMembershipRevision != MembershipRevision ||
+            !TownRaidPreparationRules.CanStart(snapshot, HostProfileId)) return false;
 
         int nextRevision = LaunchRevision + 1;
-        if (!TownRaidPreparationRules.TryFreeze(snapshot, requester, nextRevision, out TownRaidPreparationSnapshot frozen))
+        if (!TownRaidPreparationRules.TryFreeze(snapshot, HostProfileId, nextRevision, out TownRaidPreparationSnapshot frozen))
         {
             return false;
         }
 
+        IsAwaitingWeaponConsent = false;
         LaunchRevision = nextRevision;
         FrozenMemberCount = frozen.FrozenMemberCount;
         State = TownRaidPreparationState.Launching;
@@ -348,6 +388,66 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         return true;
     }
 
+    private void TryRequestLocalWeaponConsent()
+    {
+        if (!IsAwaitingWeaponConsent || State != TownRaidPreparationState.Waiting ||
+            _requestedLocalConsentRevision == WeaponConsentRevision ||
+            !TryGetLocalProfile(out ProfileId localProfile) || !ContainsMember(localProfile)) return;
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        if (coordinator == null) return;
+        int revision = WeaponConsentRevision;
+        _requestedLocalConsentRevision = revision;
+        _localConsentRaidCode = RaidCode;
+        coordinator.BeginRecoveryWeaponConsent(RaidCode, revision, accepted =>
+        {
+            if (Object != null && Object.IsValid && IsAwaitingWeaponConsent && WeaponConsentRevision == revision)
+                RPC_RespondWeaponConsent(revision, accepted);
+        });
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    private void RPC_RespondWeaponConsent(int revision, bool accepted, RpcInfo info = default)
+    {
+        if (!TryResolveSender(info.Source, out ProfileId profileId)) return;
+        int index = FindMember(profileId);
+        if (!RecoveryWeaponPreparationLaunchRules.CanAcceptResponse(
+                IsAwaitingWeaponConsent, WeaponConsentRevision, revision, index >= 0)) return;
+        if (!accepted || MembershipRevision != WeaponConsentMembershipRevision)
+        {
+            AuthorityCancelWeaponConsent();
+            return;
+        }
+        MemberNetwork member = Members[index];
+        member.WeaponConsentAccepted = true;
+        Members.Set(index, member);
+        int acceptedCount = 0;
+        for (int memberIndex = 0; memberIndex < MemberCount; memberIndex++)
+            if (Members[memberIndex].WeaponConsentAccepted) acceptedCount++;
+        if (!RecoveryWeaponPreparationLaunchRules.CanFreeze(
+                WeaponConsentMembershipRevision, MembershipRevision, MemberCount, acceptedCount)) return;
+        if (!AuthorityBeginConsentedLaunch()) AuthorityCancelWeaponConsent();
+    }
+
+    private void AuthorityCancelWeaponConsent()
+    {
+        if (!HasStateAuthority || !IsAwaitingWeaponConsent) return;
+        IsAwaitingWeaponConsent = false;
+        // Cancel the whole cohort's attempt while keeping everyone and their inventory in Town.
+        for (int index = 0; index < MemberCount; index++)
+        {
+            MemberNetwork member = Members[index];
+            member.WeaponConsentAccepted = false;
+            member.IsReady = false;
+            Members.Set(index, member);
+        }
+        MarkSnapshotChanged();
+        RPC_CancelWeaponConsent(WeaponConsentRevision);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_CancelWeaponConsent(int revision) =>
+        SessionConnectionCoordinator.Instance?.CancelRecoveryWeaponConsent(RaidCode, revision);
+
     private void ArmAcknowledgeDeadline()
     {
         _acknowledgeDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
@@ -355,6 +455,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public void AuthorityHandlePlayerLeft(ProfileId profileId)
     {
+        if (HasStateAuthority && IsAwaitingWeaponConsent && ContainsMember(profileId))
+            AuthorityCancelWeaponConsent();
         if (!HasStateAuthority || State != TownRaidPreparationState.Launching || !profileId.IsValid)
         {
             return;
@@ -735,6 +837,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private void ResetLaunchRuntime()
     {
+        _requestedLocalConsentRevision = 0;
+        _localConsentRaidCode = default;
         _acknowledgedLocalRevision = 0;
         _rejectedLocalRevision = 0;
         _authorityRebuildTicks = 0;
