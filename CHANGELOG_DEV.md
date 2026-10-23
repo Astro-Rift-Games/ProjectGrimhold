@@ -6,6 +6,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **release:** automate weekly integration and version publication ([605c88c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/605c88cebb5ba060a2ad19e6c14483ddb501c534))
 - **dungeon-pressure:** configure ambient assets in Gameplay scene ([4ffae04](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4ffae04004270e93ff95697e8ad95dc3f42a2fda))
 - **dungeon-pressure:** add ambient lighting and phase presentation ([19ca233](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19ca2337d8bb0e678ba7c041aa24746b6c98b7b4))
 - **camera:** add continuous baseline trauma to camera shake ([aeb7a7b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aeb7a7b2252500d690525e9acad2e2400f18a5fd))
