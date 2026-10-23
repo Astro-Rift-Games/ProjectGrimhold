@@ -1,13 +1,15 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// Controls global ambient lighting and camera-shake presentation for dungeon pressure phases.
+/// Controls global ambient lighting, camera-shake, and post-process vignette presentation for dungeon pressure phases.
 /// Observes the replicated phase on <see cref="DungeonPressureController"/> and smoothly modulates
-/// the scene's global light and local <see cref="DungeonLightProp"/> components.
+/// the scene's global light, local <see cref="DungeonLightProp"/> components, and native URP Volume vignette.
 /// Handles late-joining players, host migration, and offline preview cleanly without requiring
 /// networked state.
 /// </summary>
+[ExecuteAlways]
 [DisallowMultipleComponent]
 public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 {
@@ -18,8 +20,11 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     [Tooltip("The scene's global 2D light. If null, automatically located in the scene.")]
     [SerializeField] private Light2D _globalLight;
 
+    [Tooltip("The URP Volume holding the post-process Vignette. If null, automatically located in the scene.")]
+    [SerializeField] private Volume _volume;
+
     [Header("Configuration")]
-    [Tooltip("Configuration asset defining global ambient lighting and screen shake per phase.")]
+    [Tooltip("Configuration asset defining global ambient lighting, screen shake, and vignette per phase.")]
     [SerializeField] private DungeonAmbientConfig _config;
 
     private DungeonPressurePhase _lastPhase = DungeonPressurePhase.Normal;
@@ -36,10 +41,32 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     private float _periodicShakeTimer;
     private bool _hasResolvedInitialPhase;
 
+    // Post-Process Vignette (URP Volume)
+    private Vignette _vignette;
+    private Color _currentVignetteColor = Color.black;
+    private float _currentVignetteIntensity;
+    private float _currentVignetteSmoothness = 0.4f;
+    private Color _fromVignetteColor = Color.black;
+    private float _fromVignetteIntensity;
+    private float _fromVignetteSmoothness = 0.4f;
+    private Color _targetVignetteColor = Color.black;
+    private float _targetVignetteIntensity;
+    private float _targetVignetteSmoothness = 0.4f;
+    private bool _targetVignetteRounded;
+    private float _vignetteTransitionDuration;
+    private float _vignetteTransitionProgress = 1f;
+
     public DungeonPressurePhase CurrentPhase => _lastPhase;
     public Light2D GlobalLight => _globalLight;
+    public Volume AmbientVolume => _volume;
+    public Vignette VignetteComponent => _vignette;
     public DungeonAmbientConfig Config => _config;
     public DungeonPressureController PressureController => _pressureController;
+
+    public Color CurrentVignetteColor => _currentVignetteColor;
+    public float CurrentVignetteIntensity => _currentVignetteIntensity;
+    public float CurrentVignetteSmoothness => _currentVignetteSmoothness;
+    public bool CurrentVignetteRounded => _targetVignetteRounded;
 
     private void Awake()
     {
@@ -65,13 +92,21 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         ResetPresentation();
     }
 
-    public void Configure(DungeonPressureController controller, DungeonAmbientConfig config, Light2D globalLight = null)
+    public void Configure(
+        DungeonPressureController controller,
+        DungeonAmbientConfig config,
+        Light2D globalLight = null,
+        Volume volume = null)
     {
         _pressureController = controller;
         _config = config;
         if (globalLight != null)
         {
             _globalLight = globalLight;
+        }
+        if (volume != null)
+        {
+            _volume = volume;
         }
 
         InitializeComponents();
@@ -95,12 +130,40 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             LocateGlobalLight();
         }
 
+        if (_volume == null)
+        {
+            _volume = GetComponent<Volume>();
+            if (_volume == null)
+            {
+                _volume = Object.FindAnyObjectByType<Volume>();
+            }
+        }
+
+        InitializeVignette();
+
         if (_globalLight != null && !_hasResolvedInitialPhase)
         {
             _currentGlobalColor = _globalLight.color;
             _currentGlobalIntensity = _globalLight.intensity;
             _targetGlobalColor = _currentGlobalColor;
             _targetGlobalIntensity = _currentGlobalIntensity;
+        }
+    }
+
+    private void InitializeVignette()
+    {
+        if (_volume == null)
+        {
+            return;
+        }
+
+        VolumeProfile profile = Application.isPlaying ? _volume.profile : _volume.sharedProfile;
+        if (profile != null)
+        {
+            if (!profile.TryGet(out _vignette))
+            {
+                _vignette = profile.Add<Vignette>(overrides: true);
+            }
         }
     }
 
@@ -149,12 +212,30 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             CameraShakeController.Instance.SetContinuousShake(settings.ContinuousShakeIntensity);
         }
 
+        // Snap post-process vignette immediately
+        _targetVignetteColor = settings.VignetteColor;
+        _targetVignetteIntensity = settings.VignetteIntensity;
+        _targetVignetteSmoothness = settings.VignetteSmoothness;
+        _targetVignetteRounded = settings.VignetteRounded;
+
+        _currentVignetteColor = _targetVignetteColor;
+        _currentVignetteIntensity = _targetVignetteIntensity;
+        _currentVignetteSmoothness = _targetVignetteSmoothness;
+        _vignetteTransitionProgress = 1f;
+
+        ApplyVignetteToVolume();
+
         // Notify props immediately
         DungeonLightPropRegistry.NotifyPhaseChanged(phase, immediate: true);
     }
 
     private void Update()
     {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
         if (_pressureController == null)
         {
             InitializeComponents();
@@ -187,6 +268,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
         UpdatePeriodicShake(deltaTime);
         UpdateGlobalLightInterpolation(deltaTime);
+        UpdateVignetteInterpolation(deltaTime);
     }
 
     private void OnPhaseChanged(DungeonPressurePhase newPhase)
@@ -231,11 +313,39 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             _globalTransitionProgress = 0f;
         }
 
+        // Setup smooth transition for post-process vignette
+        _targetVignetteColor = settings.VignetteColor;
+        _targetVignetteIntensity = settings.VignetteIntensity;
+        _targetVignetteSmoothness = settings.VignetteSmoothness;
+        _targetVignetteRounded = settings.VignetteRounded;
+
+        float vignetteDuration = settings.VignetteTransitionDuration > 0f
+            ? settings.VignetteTransitionDuration
+            : settings.GlobalTransitionDuration;
+
+        _vignetteTransitionDuration = vignetteDuration;
+        _fromVignetteColor = _currentVignetteColor;
+        _fromVignetteIntensity = _currentVignetteIntensity;
+        _fromVignetteSmoothness = _currentVignetteSmoothness;
+
+        if (_vignetteTransitionDuration <= 0f)
+        {
+            _currentVignetteColor = _targetVignetteColor;
+            _currentVignetteIntensity = _targetVignetteIntensity;
+            _currentVignetteSmoothness = _targetVignetteSmoothness;
+            _vignetteTransitionProgress = 1f;
+            ApplyVignetteToVolume();
+        }
+        else
+        {
+            _vignetteTransitionProgress = 0f;
+        }
+
         // Notify all registered light props in the dungeon
         DungeonLightPropRegistry.NotifyPhaseChanged(newPhase, immediate: false);
     }
 
-        private void UpdatePeriodicShake(float deltaTime)
+    private void UpdatePeriodicShake(float deltaTime)
     {
         if (_config == null)
         {
@@ -273,15 +383,98 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         _globalLight.intensity = _currentGlobalIntensity;
     }
 
-    private void ResetPresentation()
+    private void UpdateVignetteInterpolation(float deltaTime)
+    {
+        if (_vignetteTransitionProgress >= 1f)
+        {
+            return;
+        }
+
+        float rate = _vignetteTransitionDuration > 0.001f ? (deltaTime / _vignetteTransitionDuration) : 1f;
+        _vignetteTransitionProgress = Mathf.Clamp01(_vignetteTransitionProgress + rate);
+
+        _currentVignetteColor = Color.Lerp(_fromVignetteColor, _targetVignetteColor, _vignetteTransitionProgress);
+        _currentVignetteIntensity = Mathf.Lerp(_fromVignetteIntensity, _targetVignetteIntensity, _vignetteTransitionProgress);
+        _currentVignetteSmoothness = Mathf.Lerp(_fromVignetteSmoothness, _targetVignetteSmoothness, _vignetteTransitionProgress);
+
+        ApplyVignetteToVolume();
+    }
+
+    private void ApplyVignetteToVolume()
+    {
+        if (_vignette == null)
+        {
+            InitializeVignette();
+            if (_vignette == null)
+            {
+                return;
+            }
+        }
+
+        bool active = _currentVignetteIntensity > 0.001f || _targetVignetteIntensity > 0.001f;
+        _vignette.active = active;
+        _vignette.color.overrideState = active;
+        _vignette.color.value = _currentVignetteColor;
+
+        _vignette.intensity.overrideState = active;
+        _vignette.intensity.value = _currentVignetteIntensity;
+
+        _vignette.smoothness.overrideState = active;
+        _vignette.smoothness.value = _currentVignetteSmoothness;
+
+        _vignette.rounded.overrideState = active;
+        _vignette.rounded.value = _targetVignetteRounded;
+    }
+
+    public void ResetPresentation()
     {
         if (CameraShakeController.Instance != null)
         {
             CameraShakeController.Instance.SetContinuousShake(0f);
         }
 
+        _currentVignetteIntensity = 0f;
+        _targetVignetteIntensity = 0f;
+        _vignetteTransitionProgress = 1f;
+        ApplyVignetteToVolume();
+
         DungeonLightPropRegistry.Clear();
         _periodicShakeTimer = 0f;
         _hasResolvedInitialPhase = false;
     }
+
+#if UNITY_EDITOR
+    [ContextMenu("Preview/Phase: Normal")]
+    public void PreviewNormal() => PreviewPhase(DungeonPressurePhase.Normal);
+
+    [ContextMenu("Preview/Phase: Reinforcements")]
+    public void PreviewReinforcements() => PreviewPhase(DungeonPressurePhase.Reinforcements);
+
+    [ContextMenu("Preview/Phase: Critical Pressure")]
+    public void PreviewCriticalPressure() => PreviewPhase(DungeonPressurePhase.CriticalPressure);
+
+    [ContextMenu("Preview/Phase: Collapse")]
+    public void PreviewCollapse() => PreviewPhase(DungeonPressurePhase.Collapse);
+
+    [ContextMenu("Preview/Clear Preview")]
+    public void ClearPreview()
+    {
+        InitializeComponents();
+        if (_config != null)
+        {
+            ApplyInitialPhase(DungeonPressurePhase.Normal);
+        }
+        ResetPresentation();
+        UnityEditor.SceneView.RepaintAll();
+        UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+    }
+
+    public void PreviewPhase(DungeonPressurePhase phase)
+    {
+        InitializeComponents();
+        ApplyInitialPhase(phase);
+        UnityEditor.SceneView.RepaintAll();
+        UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+    }
+#endif
 }
