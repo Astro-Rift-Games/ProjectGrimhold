@@ -87,20 +87,76 @@ node tools/changelog/src/cli.js release-notes --tag v0.1.0 [--strict]
 
 Run the tests with `npm test` inside `tools/changelog`.
 
+## Automatic version planning
+
+The weekly publisher plans against the candidate integration of `New-Testing`
+into `main`. Public tags belong to `main`; development still keeps `Unreleased`.
+Version impact and public-note selection are independent: `feat` without a
+`Player-*` trailer increments the version but does not invent a player note.
+
+```bash
+node tools/changelog/src/release-cli.js plan --ref HEAD
+node tools/changelog/src/release-cli.js prepare --ref HEAD
+```
+
+Both commands accept `--root R` and print one JSON plan. `plan` is read-only;
+`prepare` writes only the three generated root changelogs when a release is due.
+Unknown, repeated or missing options fail with exit 2; validation failures use
+exit 1. The existing `cli.js` commands and output remain unchanged.
+
+| Effective change since the last public tag | Increment |
+|---|---|
+| Breaking marker (`!`, `BREAKING CHANGE`, `BREAKING-CHANGE`) | Minor during `0.x`, otherwise major |
+| `feat` | Minor |
+| `fix`, `perf` | Patch |
+| Internal-only changes without a breaking marker | No release |
+
+The highest increment wins. The existing developer parser supplies commit
+types, breaking markers, identity deduplication and reserved `chore(changelog)`
+exclusion. Functional impact of an otherwise internal type must use those
+existing breaking markers, not an additional trailer convention. A feature
+and its revert in the pending period cancel for version impact while remaining
+in technical history. Reverting previously published functionality warrants a
+patch. Published duplicate messages cannot increment the version again.
+
+Only strict stable `vX.Y.Z` tags without leading zeroes define publication
+boundaries. Reachable stable tags must occur on distinct commits in the
+candidate's first-parent history, in increasing SemVer order. Ambiguous,
+side-branch or nonmonotonic publication histories fail closed. Prerelease and
+malformed version names do not define stable boundaries. A computed version
+that already exists anywhere in the repository is refused, never reused or
+moved. With no stable tags, the base is `0.0.0`: the first feature produces
+`0.1.0`, the first fix `0.0.1`, and internal-only history produces no release.
+
+### Publisher API and commit metadata
+
+`createReleasePlan(root, ref = 'HEAD')` returns a JSON-safe object with
+`previousTag`, `previousVersion`, `version`, `bump`, `sourceCommit` and
+`releaseDate`. Missing previous values are `null`; `version` and `bump` are
+`null` when no release is due. `sourceCommit` is the full candidate integration
+SHA. `releaseDate` is its committer date in UTC, not the machine's current date,
+so repeated planning against the same history is deterministic.
+
+`writePlannedRelease(root, plan)` validates the plan again, validates overrides
+against that history, rejects all player-note warnings and validates the player
+JSON before writing. It returns the three output filenames. A no-release,
+stale or modified plan is refused. The outputs retain prior release boundaries,
+explicit trailers, overrides, commit references and an empty `Unreleased`.
+
+The versioned files use the **content-origin integration SHA**, not the SHA of
+the later metadata commit containing those very files; embedding that latter
+SHA would be circular. The final tag points to the metadata commit. Generate
+the GitHub Release asset with the existing generator **after tagging** so its
+`commit` field identifies the actual tagged commit. Given a tag date matching
+`releaseDate`, planned and post-tag outputs are identical apart from the new
+release's commit references. Use that deterministic UTC date when creating an
+annotated tag; lightweight tags derive their date from the tagged commit.
+
 ## Publishing a release
 
-1. Make sure `New-Testing` contains everything for the release, then review the pending notes in the latest **Changelog** run summary or with `preview`.
-2. Fix wording through `player-overrides.json` in a normal commit to `New-Testing`.
-3. Create a GitHub Release with a new tag `vX.Y.Z` targeting `New-Testing`. Leave **Set as a pre-release** unchecked. The body can stay empty.
-4. Publish it. The **Changelog release** workflow then:
-   - checks the tag format, that the tag is on `New-Testing`, and that the notes of that release have no warnings;
-   - regenerates all three files and commits them to `New-Testing` as `chore(changelog): publish changelogs for vX.Y.Z`;
-   - replaces the release body with the player notes and attaches `changelog-players.json`.
+Public versions now originate only from `main`, through the single weekly orchestrator. Do not create releases targeting `New-Testing` or rely on a bot-created Release to trigger another workflow.
 
-If the workflow fails on warnings, add overrides on `New-Testing` and re-run the workflow. It is idempotent.
-
-Only exact `vX.Y.Z` tags reachable from `New-Testing` count as versions. Commits after the last tag stay in `Unreleased` in the developer changelog and never appear in player files. The release date is the tag date in UTC.
-
+Start with [BOOTSTRAP.md](BOOTSTRAP.md). It defines disabled-by-default activation, mandatory licensed Unity validation, read-only manual dry-run, artifact lineage, publication recovery and development back-synchronization. The existing development workflow still maintains technical `Unreleased` history; it never decides a public version.
 ## `changelog-players.json` schema
 
 Version 1. Plain arrays of objects with no maps or nulls, so the file deserializes directly with Unity `JsonUtility` or any JSON library.
@@ -134,6 +190,7 @@ Version 1. Plain arrays of objects with no maps or nulls, so the file deserializ
 
 ## Limitations
 
-- The workflows push to `New-Testing` with `GITHUB_TOKEN`. If branch protection blocks that, allow GitHub Actions to push or switch the workflows to a token that can.
-- Release workflows run from the workflow file in the tagged commit. Tags on commits older than this tool do not trigger publication.
-- `workflow_dispatch` appears in the Actions UI only once the workflow exists on the default branch (`main`). Until then, run it with `gh workflow run changelog.yml --ref New-Testing`.
+- GitHub branch protections and Actions token eligibility must be checked during bootstrap; user admin access is not proof.
+- Scheduled and manual workflows must first be installed on the default branch (`main`).
+- Full simulation requires a matching licensed Unity runner and actual MainMenu wiring. Missing proof blocks publication.
+- No automatic game builds or executable distribution are implemented.

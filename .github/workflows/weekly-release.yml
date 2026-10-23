@@ -1,0 +1,103 @@
+# Local implementation only. Bootstrap and explicit activation are required.
+name: Weekly integration and release
+on:
+  schedule:
+    - cron: '15 9 * * 1'
+      timezone: America/Argentina/Buenos_Aires
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Validate and simulate without remote writes
+        type: boolean
+        default: true
+        required: true
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: grimhold-release-writer
+  cancel-in-progress: false
+jobs:
+  prerequisites:
+    if: github.event_name == 'workflow_dispatch' || vars.WEEKLY_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require approved bootstrap and a dedicated licensed Unity runner
+        env:
+          READY: ${{ vars.UNITY_RELEASE_RUNNER_READY }}
+          BOOTSTRAPPED: ${{ vars.WEEKLY_RELEASE_BOOTSTRAPPED }}
+          ENABLED: ${{ vars.WEEKLY_RELEASE_ENABLED }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          if [ "$READY" != true ]; then
+            echo '::error::Mandatory Unity infrastructure is unavailable. See tools/changelog/BOOTSTRAP.md.'
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo '::error::Run the installed bootstrap from main, not a development revision.'
+            exit 1
+          fi
+          if [ "$DRY_RUN" != true ] && { [ "$BOOTSTRAPPED" != true ] || [ "$ENABLED" != true ]; }; then
+            echo '::error::Publication is disabled until bootstrap approval and explicit activation.'
+            exit 1
+          fi
+  simulate:
+    needs: prerequisites
+    if: github.event_name == 'workflow_dispatch' && inputs.dry-run
+    permissions:
+      contents: read
+    runs-on: [self-hosted, grimhold-release-unity]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate and simulate (read-only token)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
+        run: node tools/changelog/scripts/weekly-release.js --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/weekly-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+      - name: Preserve diagnostics, never a game build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-simulation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/weekly-${{ github.run_id }}-${{ github.run_attempt }}/*
+          if-no-files-found: warn
+  publish:
+    needs: prerequisites
+    if: github.event_name == 'schedule' || !inputs.dry-run
+    permissions:
+      contents: write
+    runs-on: [self-hosted, grimhold-release-unity]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate, integrate and publish the pinned candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UNITY_EDITOR_PATH: ${{ vars.UNITY_EDITOR_PATH }}
+          WEEKLY_RELEASE_ENABLED: ${{ vars.WEEKLY_RELEASE_ENABLED }}
+          WEEKLY_RELEASE_BOOTSTRAPPED: ${{ vars.WEEKLY_RELEASE_BOOTSTRAPPED }}
+        run: node tools/changelog/scripts/weekly-release.js --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/weekly-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --publish
+      - name: Preserve partial-state recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/weekly-${{ github.run_id }}-${{ github.run_attempt }}/*
+          if-no-files-found: warn
