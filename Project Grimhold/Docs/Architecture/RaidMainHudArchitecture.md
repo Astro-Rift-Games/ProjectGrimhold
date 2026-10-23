@@ -177,20 +177,29 @@ for state presentation.
 The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
 bound by `LocalPlayerHudBinder` and composed as the first child of `RaidRightPanel`; `RaidHudPresenter` retains responsibility only for textual HUD
 content and the expedition progress bar. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
-`Floor`, `Walls` and `Obstacles` Tilemaps of `Dungeon_Graybox.prefab`, including its world pivot,
-cell size, occupancy and a source hash. `RaidMinimapGraphic` renders that north-up layout as uGUI
-geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
+`Floor`, `Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its overrides, world placement,
+cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches and a
+versioned dependency hash. `RaidMinimapGraphic` renders the source tile art at reduced scale as
+north-up uGUI geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
 adds no Canvas, camera, RenderTexture, networked property, RPC, event bus or gameplay timer. A
-changed graybox is regenerated through the permanent editor generator; no hand-drawn or static PNG
-representation is retained. The generated pivot is prefab-local; the presenter applies the
-serialized `Dungeon_Graybox` scene-instance world offset before projecting the background, keeping
-the fixed player marker aligned with the actual Gameplay placement without any scene lookup.
+changed graybox or imported art dependency is regenerated through the permanent editor generator;
+the prebuild hook verifies/regenerates freshness and fails the build on invalid sources. Only the
+generated asset is saved, leaving other dirty assets untouched. No hand-drawn/static PNG or
+runtime Tilemap watcher is retained. The generated pivot is already in scene-world coordinates;
+the presenter applies no additional origin offset, keeping the fixed player marker aligned with
+the actual Gameplay placement without runtime scene lookup or applying scene overrides to the prefab.
+Only the local player and its assigned extraction are shown; the latter appears after quota
+completion and assignment, before ritual completion, and never reveals another team's assignment.
 
 The map uses `_uiUnitsPerWorldUnit` in local RectTransform units at the Canvas reference
 resolution. `MinimapProjection` computes the inverse background translation and the edge
 intersection for external Sanctuary positions. Its result uses mathematical angles (`0` east,
 `90` north, `180` west, `-90` south); `RaidMinimapView` alone applies the serialized arrow
 correction. Zero player/Sanctuary displacement is valid and remains centered.
+The view snaps the background's screen pivot to physical pixels after projection, accounting
+for viewport placement and Canvas scaling. This prevents movement-dependent Point-filter
+sampling changes at reduced scale; its translation error is bounded by half a physical pixel
+per axis and does not change the Canvas-wide pixel-perfect setting or the centered player marker.
 
 `RaidMinimapPresenter.LateUpdate` validates the current runner and PlayerObject, projects the
 background, reads confirmed extraction, resolves or revalidates only the local assignment, reads

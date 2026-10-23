@@ -1,6 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 
 /// <summary>
@@ -10,9 +15,11 @@ using UnityEngine.Tilemaps;
 public static class MinimapLayoutGenerator
 {
     public const string SourcePrefabPath = "Assets/Prefabs/Dungeon_Graybox.prefab";
+    public const string SourceScenePath = "Assets/Scenes/Gameplay.unity";
     public const string LayoutAssetPath = "Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset";
 
     private static bool _isGenerating;
+    private static readonly HashSet<string> SourceDependencies = new HashSet<string>();
 
     /// <summary>Regenerates the layout asset from Floor, Walls and Obstacles.</summary>
     [MenuItem("Tools/Project Grimhold/Regenerate Dungeon Minimap Layout")]
@@ -60,9 +67,13 @@ public static class MinimapLayoutGenerator
                     data.CellSize,
                     data.WorldPivotPosition,
                     data.CellFlags,
-                    data.SourceHash);
+                    data.SourceHash,
+                    data.RenderSize,
+                    data.SourceSprites,
+                    data.ArtBatches);
                 EditorUtility.SetDirty(layout);
-                AssetDatabase.SaveAssets();
+                // Do not save unrelated dirty prefabs, fonts or scenes.
+                AssetDatabase.SaveAssetIfDirty(layout);
             }
 
             error = null;
@@ -80,7 +91,100 @@ public static class MinimapLayoutGenerator
         out string error)
     {
         data = default;
-        GameObject root = PrefabUtility.LoadPrefabContents(SourcePrefabPath);
+        Scene scene = default;
+        try
+        {
+            // The saved scene contains authored Tilemap overrides absent from the prefab asset.
+            // A preview scene reads those bytes without switching/saving the user's active scene.
+            scene = EditorSceneManager.OpenPreviewScene(SourceScenePath);
+            if (!TryFindSceneDungeon(scene, out GameObject root, out error) ||
+                !TryFindSourceTilemaps(root, out Tilemap floor, out Tilemap walls,
+                    out Tilemap obstacles, out error)) return false;
+            CollectSourceDependencies(floor, walls, obstacles);
+            return TryBuildGeneratedData(root, ComputeDependencyHash(),
+                out data, out error);
+        }
+        catch (Exception exception)
+        {
+            error = $"{nameof(MinimapLayoutGenerator)} could not read {SourceScenePath}: {exception.Message}";
+            return false;
+        }
+        finally
+        {
+            if (scene.IsValid()) EditorSceneManager.ClosePreviewScene(scene);
+        }
+    }
+
+    private static bool TryFindSceneDungeon(Scene scene, out GameObject dungeon, out string error)
+    {
+        dungeon = null;
+        foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+        {
+            foreach (Transform candidate in sceneRoot.GetComponentsInChildren<Transform>(true))
+            {
+                GameObject owner = candidate.gameObject;
+                if (PrefabUtility.GetNearestPrefabInstanceRoot(owner) != owner ||
+                    PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(owner) != SourcePrefabPath) continue;
+                if (dungeon != null)
+                {
+                    error = "Gameplay minimap requires exactly one Dungeon_Graybox prefab instance.";
+                    return false;
+                }
+                dungeon = owner;
+            }
+        }
+
+        error = dungeon != null ? null : "Gameplay minimap is missing its Dungeon_Graybox prefab instance.";
+        return dungeon != null;
+    }
+
+    private static void CollectSourceDependencies(params Tilemap[] maps)
+    {
+        SourceDependencies.Clear();
+        SourceDependencies.Add(SourceScenePath);
+        SourceDependencies.Add(SourcePrefabPath);
+        var tiles = new HashSet<TileBase>();
+        foreach (Tilemap map in maps)
+        {
+            foreach (Vector3Int cell in map.cellBounds.allPositionsWithin)
+            {
+                TileBase tile = map.GetTile(cell);
+                if (tile == null || !tiles.Add(tile)) continue;
+                string path = AssetDatabase.GetAssetPath(tile);
+                foreach (string dependency in AssetDatabase.GetDependencies(path, true))
+                    if (dependency != LayoutAssetPath) SourceDependencies.Add(dependency);
+            }
+        }
+    }
+
+    private static string ComputeDependencyHash()
+    {
+        var paths = new List<string>(SourceDependencies);
+        paths.Sort(StringComparer.Ordinal);
+        var signature = new StringBuilder();
+        foreach (string path in paths)
+        {
+            signature.Append(path).Append(':');
+            // Hash the source scene's own bytes, NOT its transitive dependency hash: the HUD
+            // can reference the generated layout, which would make that hash self-invalidating.
+            signature.Append(File.Exists(path) ? Hash128.Compute(File.ReadAllBytes(path)) :
+                AssetDatabase.GetAssetDependencyHash(path));
+            if (File.Exists(path + ".meta")) signature.Append(Hash128.Compute(File.ReadAllBytes(path + ".meta")));
+        }
+        return Hash128.Compute(signature.ToString()).ToString();
+    }
+
+    /// <summary>The same generation path, accepting an isolated source for deterministic Editor tests.</summary>
+    public static bool TryBuildGeneratedData(GameObject root, string dependencyHash,
+        out MinimapLayoutGeneratedData data, out string error)
+    {
+        data = default;
+        if (root == null)
+        {
+            error = "Dungeon minimap source prefab is missing.";
+            return false;
+        }
+
         try
         {
             if (!TryFindSourceTilemaps(root, out Tilemap floor, out Tilemap walls,
@@ -102,13 +206,19 @@ public static class MinimapLayoutGenerator
             AddTilemapFlags(walls, bounds, MinimapLayoutCellFlags.Wall, cellFlags);
             AddTilemapFlags(obstacles, bounds, MinimapLayoutCellFlags.Obstacle, cellFlags);
 
+            if (!MinimapTileArtBuilder.TryBuild(new[] { floor, walls, obstacles }, worldPivotPosition,
+                    Vector2.Scale(new Vector2(bounds.size.x, bounds.size.y), cellSize),
+                    out MinimapMeshBatch[] batches, out Sprite[] sprites, out Vector2 renderSize, out error))
+                return false;
+
             data = new MinimapLayoutGeneratedData(
                 new Vector2Int(bounds.xMin, bounds.yMin),
                 new Vector2Int(bounds.size.x, bounds.size.y),
                 cellSize,
                 worldPivotPosition,
                 cellFlags,
-                ComputeSourceHash(bounds, cellSize, worldPivotPosition, cellFlags));
+                ComputeSourceHash(bounds, cellSize, worldPivotPosition, cellFlags, dependencyHash, batches),
+                renderSize, sprites, batches);
             error = null;
             return true;
         }
@@ -117,10 +227,17 @@ public static class MinimapLayoutGenerator
             error = $"{nameof(MinimapLayoutGenerator)} could not read {SourcePrefabPath}: {exception.Message}";
             return false;
         }
-        finally
-        {
-            PrefabUtility.UnloadPrefabContents(root);
-        }
+    }
+
+    /// <summary>Checks import/delete/move paths without making the generated asset its own dependency.</summary>
+    public static bool IsSourceDependency(string path)
+    {
+        if (path == SourceScenePath || path == SourcePrefabPath) return true;
+        if (path == LayoutAssetPath) return false;
+        if (SourceDependencies.Count == 0)
+            foreach (string dependency in AssetDatabase.GetDependencies(SourceScenePath, true))
+                if (dependency != LayoutAssetPath) SourceDependencies.Add(dependency);
+        return SourceDependencies.Contains(path);
     }
 
     internal static void ScheduleRefresh()
@@ -288,7 +405,9 @@ public static class MinimapLayoutGenerator
         BoundsInt bounds,
         Vector2 cellSize,
         Vector2 worldPivotPosition,
-        byte[] cellFlags)
+        byte[] cellFlags,
+        string dependencyHash,
+        MinimapMeshBatch[] batches)
     {
         ulong hash = 14695981039346656037UL;
         HashInt(ref hash, bounds.xMin);
@@ -303,6 +422,24 @@ public static class MinimapLayoutGenerator
         {
             hash ^= cellFlags[i];
             hash *= 1099511628211UL;
+        }
+
+        // Version the generated representation as well as imported art and occupancy.
+        foreach (char character in "scene-tile-art-v2:" + dependencyHash) HashInt(ref hash, character);
+        foreach (MinimapMeshBatch batch in batches)
+        {
+            HashInt(ref hash, batch.VertexCount);
+            HashInt(ref hash, batch.IndexCount);
+            for (int i = 0; i < batch.VertexCount; i++)
+            {
+                HashInt(ref hash, batch.GetPosition(i).x.GetHashCode());
+                HashInt(ref hash, batch.GetPosition(i).y.GetHashCode());
+                HashInt(ref hash, batch.GetUv(i).x.GetHashCode());
+                HashInt(ref hash, batch.GetUv(i).y.GetHashCode());
+                Color32 color = batch.GetColor(i);
+                HashInt(ref hash, color.r | color.g << 8 | color.b << 16 | color.a << 24);
+            }
+            for (int i = 0; i < batch.IndexCount; i++) HashInt(ref hash, batch.GetIndex(i));
         }
 
         return hash.ToString("X16");
@@ -361,6 +498,9 @@ public readonly struct MinimapLayoutGeneratedData
     public Vector2 WorldPivotPosition { get; }
     public byte[] CellFlags { get; }
     public string SourceHash { get; }
+    public Vector2 RenderSize { get; }
+    public Sprite[] SourceSprites { get; }
+    public MinimapMeshBatch[] ArtBatches { get; }
 
     public MinimapLayoutGeneratedData(
         Vector2Int minimumCell,
@@ -368,7 +508,10 @@ public readonly struct MinimapLayoutGeneratedData
         Vector2 cellSize,
         Vector2 worldPivotPosition,
         byte[] cellFlags,
-        string sourceHash)
+        string sourceHash,
+        Vector2 renderSize = default,
+        Sprite[] sourceSprites = null,
+        MinimapMeshBatch[] artBatches = null)
     {
         MinimumCell = minimumCell;
         SizeInCells = sizeInCells;
@@ -376,6 +519,9 @@ public readonly struct MinimapLayoutGeneratedData
         WorldPivotPosition = worldPivotPosition;
         CellFlags = cellFlags;
         SourceHash = sourceHash;
+        RenderSize = renderSize;
+        SourceSprites = sourceSprites;
+        ArtBatches = artBatches;
     }
 }
 
@@ -387,10 +533,11 @@ internal sealed class DungeonMinimapLayoutPostprocessor : AssetPostprocessor
         string[] movedAssets,
         string[] movedFromAssetPaths)
     {
-        for (int i = 0; i < importedAssets.Length; i++)
+        foreach (string[] changes in new[] { importedAssets, deletedAssets, movedAssets, movedFromAssetPaths })
         {
-            if (importedAssets[i] == MinimapLayoutGenerator.SourcePrefabPath)
+            foreach (string path in changes)
             {
+                if (!MinimapLayoutGenerator.IsSourceDependency(path)) continue;
                 MinimapLayoutGenerator.ScheduleRefresh();
                 return;
             }

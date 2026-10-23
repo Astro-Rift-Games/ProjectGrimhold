@@ -17,8 +17,8 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
     [Tooltip("Local RectTransform units per world unit at the Canvas reference resolution; not physical monitor pixels.")]
     private float _uiUnitsPerWorldUnit = 4f;
 
-    [SerializeField]
-    [Tooltip("World-space position of the static Dungeon_Graybox prefab instance. This converts the generated layout's prefab-local pivot to the active Gameplay scene.")]
+    // Kept for existing prefab overrides; scene generation now includes placement in its pivot.
+    [SerializeField, HideInInspector]
     private Vector2 _layoutWorldOriginOffset;
 
     [SerializeField]
@@ -169,7 +169,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             return;
         }
 
-        Vector2 mapPivotWorldPosition = _view.MapPivotWorldPosition + _layoutWorldOriginOffset;
+        Vector2 mapPivotWorldPosition = _view.MapPivotWorldPosition;
         if (!MinimapProjection.TryProjectMapOffset(
                 mapPivotWorldPosition,
                 _playerTransform.position,
@@ -392,7 +392,7 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
 
     private bool TryValidatePresenterConfiguration(out string error)
     {
-        if (!IsPositiveFinite(_uiUnitsPerWorldUnit) || !IsFinite(_layoutWorldOriginOffset) ||
+        if (!IsPositiveFinite(_uiUnitsPerWorldUnit) ||
             !IsPositiveFinite(_zoom) ||
             !IsFinite(_markerInnerMargin) ||
             _markerInnerMargin < 0f || !IsFinite(_arrowBaseAngleCorrection) ||

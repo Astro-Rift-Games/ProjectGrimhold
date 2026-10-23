@@ -40,7 +40,7 @@ public sealed class RaidMinimapPrefabTests
     }
 
     [Test]
-    public void GeneratedLayoutMatchesTheThreeAuthorizedGrayboxTilemaps()
+    public void GeneratedLayoutMatchesTheThreeAuthorizedGameplayTilemaps()
     {
         MinimapLayout layout = AssetDatabase.LoadAssetAtPath<MinimapLayout>(
             MinimapLayoutGenerator.LayoutAssetPath);
@@ -71,13 +71,18 @@ public sealed class RaidMinimapPrefabTests
     }
 
     [Test]
-    public void GraphicEmitsOneQuadForEachLayoutLayerWithoutTextureAssets()
+    public void GraphicUsesTheOriginalTileAtlasWithoutBakingATexture()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
         RaidMinimapGraphic graphic = prefab.transform.Find("LocalGameplayHud/RaidRightPanel/RaidMinimap/Viewport/Map")
             .GetComponent<RaidMinimapGraphic>();
         Assert.That(graphic.TryConfigure(4f, out Vector2 uiSize, out string error), Is.True, error);
-        Assert.That(uiSize, Is.EqualTo(graphic.Layout.WorldSize * 4f));
+        Assert.That(uiSize, Is.EqualTo(graphic.Layout.RenderSize * 4f));
+
+        Texture2D sourceAtlas = AssetDatabase.LoadAssetAtPath<Texture2D>(
+            "Assets/Resources/ProvisionalTileset 48x56 (Tile 8x8).png");
+        Assert.That(graphic.mainTexture, Is.SameAs(sourceAtlas),
+            "The minimap must sample the original tiles, not render flat schematic colours.");
 
         using VertexHelper vertices = new VertexHelper();
         MethodInfo populate = typeof(RaidMinimapGraphic).GetMethod(
@@ -89,18 +94,23 @@ public sealed class RaidMinimapPrefabTests
         Assert.That(populate, Is.Not.Null);
         populate.Invoke(graphic, new object[] { vertices });
 
-        int layerCount = 0;
-        foreach (byte flags in EnumerateFlags(graphic.Layout))
-        {
-            layerCount += (flags & (byte)MinimapLayoutCellFlags.Floor) != 0 ? 1 : 0;
-            layerCount += (flags & (byte)MinimapLayoutCellFlags.Wall) != 0 ? 1 : 0;
-            layerCount += (flags & (byte)MinimapLayoutCellFlags.Obstacle) != 0 ? 1 : 0;
-        }
-
-        Assert.That(vertices.currentVertCount, Is.EqualTo(layerCount * 4));
-        Assert.That(vertices.currentIndexCount, Is.EqualTo(layerCount * 6));
+        Assert.That(vertices.currentVertCount, Is.EqualTo(graphic.Layout.GetArtBatch(0).VertexCount));
+        Assert.That(vertices.currentIndexCount, Is.EqualTo(graphic.Layout.GetArtBatch(0).IndexCount));
+        UIVertex vertex = default;
+        vertices.PopulateUIVertex(ref vertex, 0);
+        Assert.That((Vector2)vertex.uv0, Is.EqualTo(graphic.Layout.GetArtBatch(0).GetUv(0)));
         Assert.That(AssetDatabase.FindAssets("GrayboxMinimap t:Texture2D"), Is.Empty);
         Assert.That(graphic.GetComponentInParent<RaidMinimapView>(true).GetComponentsInChildren<Camera>(true), Is.Empty);
+    }
+
+    [Test]
+    public void GeneratedLayoutContainsTileArtRatherThanOnlyOccupancy()
+    {
+        MinimapLayout layout = AssetDatabase.LoadAssetAtPath<MinimapLayout>(
+            MinimapLayoutGenerator.LayoutAssetPath);
+        SerializedProperty batches = new SerializedObject(layout).FindProperty("_artBatches");
+        Assert.That(batches, Is.Not.Null, "Generated minimap must retain tile-art geometry and UVs.");
+        Assert.That(batches.arraySize, Is.GreaterThan(0));
     }
 
     [Test]
@@ -148,19 +158,4 @@ public sealed class RaidMinimapPrefabTests
         Assert.That(temporaryFiles, Is.Empty);
     }
 
-    private static byte[] EnumerateFlags(MinimapLayout layout)
-    {
-        Vector2Int size = layout.SizeInCells;
-        byte[] flags = new byte[size.x * size.y];
-        for (int y = 0; y < size.y; y++)
-        {
-            for (int x = 0; x < size.x; x++)
-            {
-                flags[y * size.x + x] = (byte)layout.GetCellFlags(
-                    layout.MinimumCell + new Vector2Int(x, y));
-            }
-        }
-
-        return flags;
-    }
 }
