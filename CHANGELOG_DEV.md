@@ -6,6 +6,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **dungeon-pressure:** defeat remaining raiders upon collapse expiry ([24d88d8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/24d88d867cd446299d99b945570dcf3fe9c6dea0))
 - **security:** sanitize env placeholders and add secret scanner for us-61 ([6bc1ff4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6bc1ff4a9672dc4e1098ea6981ccba3a27823caf))
 - **security:** enforce session revocation and harden production backend ([21e11ff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21e11ff073817b04d91880ebca5ad305b746b626))
 - **security:** authenticate town identity and authoritative raid admission ([19b1208](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/19b1208a4cc5597e75ff6da221d32d4933e09022))
