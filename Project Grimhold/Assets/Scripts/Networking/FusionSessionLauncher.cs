@@ -704,7 +704,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         return equipment.ActiveWeaponSetSlot ==
-            (expected.HasWeaponSetAMainHand ? WeaponSetSlot.SetA : WeaponSetSlot.SetB);
+            ((expected.HasWeaponSetAMainHand || expected.WeaponSetAOffHand.IsValid) ? WeaponSetSlot.SetA : WeaponSetSlot.SetB);
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

@@ -13,6 +13,8 @@ public readonly struct AttackPerformedEvent
     public int SimulationTick { get; }
     public int WeaponCatalogIndexPlusOne { get; }
     public int Sequence { get; }
+    public EquipmentSlot SourceSlot { get; }
+    public bool IsOffHand => EquipmentSlotRules.IsOffHandSlot(SourceSlot);
     public int ReleaseTick { get; }
     public float ScheduledWindupSeconds { get; }
     public bool HasReleaseTimeline => ReleaseTick >= SimulationTick;
@@ -30,7 +32,8 @@ public readonly struct AttackPerformedEvent
         int sequence = 0,
         int releaseTick = -1,
         float scheduledWindupSeconds = 0f,
-        bool isAimed = false)
+        bool isAimed = false,
+        EquipmentSlot sourceSlot = EquipmentSlot.None)
     {
         AttackerId = attackerId;
         AttackType = attackType;
@@ -42,5 +45,6 @@ public readonly struct AttackPerformedEvent
         ReleaseTick = releaseTick;
         ScheduledWindupSeconds = scheduledWindupSeconds;
         IsAimed = isAimed;
+        SourceSlot = sourceSlot;
     }
 }

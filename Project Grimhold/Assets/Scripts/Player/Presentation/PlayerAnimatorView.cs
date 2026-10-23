@@ -54,6 +54,37 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private AttackPerformedEvent _timedAttack;
     private AnimationClip _timedAttackClip;
     private float _authoredReleaseSeconds;
+    private AttackPerformedEvent _offHandAttack;
+    private bool _hasOffHandAttack;
+
+    public bool TryGetPresentedOffHandAttack(out AttackPerformedEvent attack, out LootDefinition loot, out float seconds)
+    {
+        attack = _offHandAttack;
+        loot = null;
+        seconds = 0f;
+        if (!_hasOffHandAttack || _combatController == null || _equipmentSource == null ||
+            !_combatController.TryGetAttackPresentationSeconds(attack, out float elapsed) ||
+            !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(attack.WeaponCatalogIndexPlusOne, out loot)) return false;
+        WeaponDefinition weapon = loot.WeaponDefinition;
+        seconds = AttackTiming.ClipSeconds(elapsed, attack.ScheduledWindupSeconds, weapon.AttackReleaseSeconds);
+        AnimationClip clip = weapon.Presentation.GetAttackClip(DirectionIndex(attack.Direction));
+        return clip != null && seconds < clip.length;
+    }
+
+    internal bool TryGetOffHandAttackElapsed(out float elapsed)
+    {
+        elapsed = 0f;
+        return _hasOffHandAttack && _combatController != null &&
+            _combatController.TryGetAttackPresentationSeconds(_offHandAttack, out elapsed);
+    }
+
+    internal static int DirectionIndex(Vector2 direction) => CharacterVisualDirectionResolver.Resolve(direction) switch
+    {
+        CharacterVisualDirection.North => 0, CharacterVisualDirection.NorthEast => 1,
+        CharacterVisualDirection.NorthWest => 2, CharacterVisualDirection.South => 3,
+        CharacterVisualDirection.SouthEast => 4, _ => 5
+    };
+
     private static readonly int AttackStateHash = Animator.StringToHash("RightHand.Attack");
     private static readonly int IdleStateHash = Animator.StringToHash("RightHand.RightHand-Idle");
     private readonly List<AnimatorClipInfo> _attackClipBuffer = new List<AnimatorClipInfo>(2);
@@ -108,7 +139,10 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void RefreshPresentedAim()
     {
-        if (_activeWeapon == null || _activeWeapon.Presentation.AimMode == WeaponAimMode.BakedFacing ||
+        bool offFreeAim = CanReadEquipmentState() &&
+            _equipmentSource.TryGetSlotDefinition(_equipmentSource.GetActiveHandSlot(true), out LootDefinition offLoot) &&
+            offLoot.WeaponDefinition != null && offLoot.WeaponDefinition.Presentation.AimMode == WeaponAimMode.FreeAim;
+        if ((!offFreeAim && (_activeWeapon == null || _activeWeapon.Presentation.AimMode == WeaponAimMode.BakedFacing)) ||
             _aimSource == null || _aimSource.Object == null || !_aimSource.Object.IsValid)
         {
             _hasPresentedAim = false;
@@ -225,6 +259,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _hasTimedAttack = false;
         _timedAttackClip = null;
         _hasPresentedAim = false;
+        _hasOffHandAttack = false;
         _showingAimBucket = false;
         _stancePoseActive = false;
         _aimStanceBlend = 0f;
@@ -302,6 +337,12 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void OnAttackPerformed(AttackPerformedEvent attackEvent)
     {
+        if (attackEvent.IsOffHand)
+        {
+            _offHandAttack = attackEvent;
+            _hasOffHandAttack = true;
+            return;
+        }
         if (AnimatorInstance == null)
         {
             return;

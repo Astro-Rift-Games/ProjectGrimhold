@@ -139,7 +139,7 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
             Level,
             Experience,
             LastAppliedProgressionResultSequence,
-            PreparedEquipment.HasWeaponSetAMainHand
+            (PreparedEquipment.HasWeaponSetAMainHand || PreparedEquipment.WeaponSetAOffHand.IsValid)
                 ? WeaponSetSlot.SetA
                 : WeaponSetSlot.SetB,
             effectiveAbilities);

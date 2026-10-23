@@ -242,7 +242,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 (Vector2)transform.position,
                 FacingDirection,
                 isDefenseAccepted,
-                aimStanceAccepted);
+                aimStanceAccepted,
+                _equipmentController != null &&
+                _equipmentController.GetWeaponCatalogIndexPlusOne(_equipmentController.GetActiveHandSlot(true)) > 0);
             AimDirection = PlayerAimMath.ResolveAimDirection(
                 in input,
                 (Vector2)transform.position,
@@ -347,7 +349,8 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         Vector2 finalPosition,
         Vector2 previousFacing,
         bool isDefenseAccepted = false,
-        bool isAimStanceAccepted = false)
+        bool isAimStanceAccepted = false,
+        bool hasOffHandWeapon = false)
     {
         Vector2 resolvedFacing = previousFacing;
         if (PlayerAimMath.TryNormalizeDirection(moveDirection, out Vector2 movementFacing))
@@ -358,6 +361,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool hasContextualFacingIntent =
             input.Buttons.IsSet(PlayerInputButton.PrimaryAttack) ||
             input.Buttons.IsSet(PlayerInputButton.Interact) ||
+            (hasOffHandWeapon && input.Buttons.IsSet(PlayerInputButton.SecondaryAction)) ||
             isDefenseAccepted ||
             isAimStanceAccepted;
         if (hasContextualFacingIntent &&

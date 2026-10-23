@@ -206,7 +206,11 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
     /// weapon attack passes a multiplier; the single-argument overload (enemies, tests) always deals the
     /// configured damage.
     /// </summary>
-    public AttackResult Execute(in AttackRequest request, float damageMultiplier)
+    public AttackResult Execute(in AttackRequest request, float damageMultiplier) =>
+        Execute(request, _runtimeParameters, damageMultiplier);
+
+    /// <summary>Resolves a committed swing using its accepted statistics, not the shared executor's latest hand.</summary>
+    public AttackResult Execute(in AttackRequest request, in AttackExecutionParameters parameters, float damageMultiplier)
     {
         if (!AttackTiming.IsFinite(damageMultiplier) || damageMultiplier < 0f)
         {
@@ -236,14 +240,14 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
         // Clear the buffer at the start of each execution
         _tempProcessedIds.Clear();
 
-        float damage = _runtimeParameters.Damage * damageMultiplier;
+        float damage = parameters.Damage * damageMultiplier;
 
         // 1. Build the target query (with normalized direction)
         AttackTargetQuery targetQuery = new AttackTargetQuery(
             request.AttackerId,
             request.Origin,
             request.Direction.normalized,
-            DetectionCenterOffset,
+            parameters.Range - _config.Radius,
             _config.Radius,
             _config.MaximumTargets,
             _config.TargetLayerMask.value
@@ -289,11 +293,11 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                     request.AttackerId,
                     target.TargetId,
                     damage,
-                    _runtimeParameters.DamageType,
+                    parameters.DamageType,
                     request.Direction,
                     target.HitPoint,
                     request.SimulationTick,
-                    _runtimeParameters.KnockbackForce
+                    parameters.KnockbackForce
                 );
 
                 // We do not depend on the Resolve result to decide if the attack was executed

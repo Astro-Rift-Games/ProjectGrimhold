@@ -57,6 +57,29 @@ namespace Tests.PlayMode.Combat
         }
 
         [UnityTest]
+        public IEnumerator CoalescedHandSnapshots_PresentChronologicallyAndKeepNewestMainAndOff()
+        {
+            yield return StartGameplayRunner();
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var catalog = (LootDefinitionCatalog)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(equipment);
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            Assert.That(catalog.TryGetIndex(sword.LootId, out int index), Is.True);
+            var sequences = new System.Collections.Generic.List<int>();
+            combat.AttackPerformed += attack => sequences.Add(attack.Sequence);
+            _strategyDriver.RequestCoalescedHandPresentation(combat, index + 1);
+            yield return WaitUntil(() => sequences.Count >= 4, "The coalesced snapshots were not presented.");
+            Assert.That(sequences, Is.EqualTo(new[] { 1, 2, 3, 4 }));
+            PlayerAnimatorView view = player.GetComponentInChildren<PlayerAnimatorView>(true);
+            var off = (AttackPerformedEvent)typeof(PlayerAnimatorView).GetField("_offHandAttack", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+            var main = (AttackPerformedEvent)typeof(PlayerAnimatorView).GetField("_timedAttack", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+            Assert.That(off.Sequence, Is.EqualTo(2));
+            Assert.That(main.Sequence, Is.EqualTo(4));
+        }
+
+        [UnityTest]
         public IEnumerator NeutralAssignmentAndCooldownFlow_UsesAuthoritativeStrategyPresence()
         {
             yield return StartGameplayRunner();
@@ -412,7 +435,7 @@ namespace Tests.PlayMode.Combat
                     Assert.That(player.GetComponent<PlayerCharacter>().IsAlive, Is.EqualTo(cancellation == 1));
                 }
                 yield return WaitUntil(() => !(bool)ReadPending(combat).Pending, "Cancellation did not clear wind-up.");
-                int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+                int cancellationTick = ReadCancellationTick(combat);
                 Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
                 Assert.That(cancellationTick, Is.LessThan(deadline));
                 Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cancellation must not refund recovery.");
@@ -449,14 +472,14 @@ namespace Tests.PlayMode.Combat
             TickTimer cooldown = ReadCooldown(combat);
             Assert.That(spawner.Count, Is.Zero);
             Assert.That(cooldown.RemainingTime(_runner), Is.GreaterThan(0f), "Cooldown must start at acceptance.");
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
 
             // Change only the real match phase, not the combat-enabled flag or character state.
             // No input is supplied: cancellation must still run before the input gate.
             _runner.ProvideInput = false;
             yield return SetPhase(phaseDriver, match, NetworkMatchController.MatchPhase.Finished);
             yield return WaitUntil(() => !(bool)ReadPending(combat).Pending, "Phase exit did not cancel the accepted wind-up.");
-            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            int cancellationTick = ReadCancellationTick(combat);
             Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(phaseDriver.ChangedTick));
             Assert.That(cancellationTick, Is.LessThan(deadline), "The phase must exit before release is due.");
             Assert.That((bool)combat.IsAttackEnabled, Is.True, "This case must exercise phase gating, not explicit disable.");
@@ -472,7 +495,7 @@ namespace Tests.PlayMode.Combat
             Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
             Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(cancellationTick));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(cancellationTick));
         }
 
         [UnityTest]
@@ -523,7 +546,7 @@ namespace Tests.PlayMode.Combat
             Assert.That(player.GetComponent<PlayerMovementNetworkController>().FacingDirection.x, Is.LessThan(-0.99f));
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
             Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
             Assert.That(spawner.Count, Is.Zero);
 
             yield return WaitUntil(() => spawner.Count == 1, "Defense input cancelled or stalled the accepted release.");
@@ -541,7 +564,7 @@ namespace Tests.PlayMode.Combat
             Assert.That(spawner.LastRequest.KnockbackForce, Is.EqualTo(accepted.Knockback));
             Assert.That(spawner.LastRequest.Origin, Is.EqualTo(spawner.OriginAtSpawn + accepted.Direction * accepted.SpawnOffset));
             Assert.That((bool)ReadPending(combat).Pending, Is.False);
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
             Assert.That(ReadAttackSequence(combat), Is.EqualTo(sequence));
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
             Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1.5f));
@@ -574,7 +597,7 @@ namespace Tests.PlayMode.Combat
             yield return WaitUntil(() => (int)_runner.Tick > secondDeadline + 3, "Runner did not cross the second release deadline.");
             Assert.That(spawner.Count, Is.EqualTo(2));
             Assert.That((bool)ReadPending(combat).Pending, Is.False);
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
         }
 
         [UnityTest]
@@ -596,7 +619,7 @@ namespace Tests.PlayMode.Combat
             yield return WaitUntil(() => spawner.Count == 1, "Release attempt did not reach spawner.");
             Assert.That(spawner.WasAuthoritativeForward, Is.True);
             Assert.That(spawner.LastRequest.SimulationTick, Is.EqualTo(deadline));
-            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            int cancellationTick = ReadCancellationTick(combat);
             Assert.That(cancellationTick, Is.EqualTo(deadline));
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
             Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1f));
@@ -620,7 +643,7 @@ namespace Tests.PlayMode.Combat
             Assert.That((int)GetField("_lastObservedSequence").GetValue(combat), Is.EqualTo(sequence));
             Assert.That(observed.ReleaseTick, Is.EqualTo(deadline));
             Assert.That(_runner.LocalRenderTime, Is.GreaterThanOrEqualTo((double)observed.SimulationTick * _runner.DeltaTime));
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(cancellationTick));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(cancellationTick));
             Assert.That((bool)ReadPending(combat).Pending, Is.False);
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown));
             Assert.That(ReadCooldownDuration(combat), Is.EqualTo(1f));
@@ -668,7 +691,7 @@ namespace Tests.PlayMode.Combat
             Assert.That(observed.HasReleaseTimeline, Is.True);
             Assert.That(observed.ReleaseTick, Is.EqualTo(accepted.ReleaseTick));
             Assert.That((bool)ReadPendingMelee(combat).Pending, Is.False);
-            Assert.That((int)GetProperty("LastAttackCancellationTick").GetValue(combat), Is.EqualTo(-1));
+            Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
             for (int i = 0; i < 12; i++) yield return null;
             Assert.That(meleeRecorder.ResolveCount, Is.EqualTo(1), "A consumed swing must not replay.");
         }
@@ -731,7 +754,7 @@ namespace Tests.PlayMode.Combat
 
             yield return SetAttackEnabled(combat, false, true);
             yield return WaitUntil(() => !(bool)ReadPendingMelee(combat).Pending, "Disabling combat did not cancel the swing.");
-            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            int cancellationTick = ReadCancellationTick(combat);
             Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
             Assert.That(cancellationTick, Is.LessThan(deadline));
             Assert.That(ReadCooldown(combat), Is.EqualTo(cooldown), "Cancellation must not refund recovery.");
@@ -775,7 +798,7 @@ namespace Tests.PlayMode.Combat
 
             yield return Equip(equipment, wand, EquipmentSlot.WeaponSetAMainHand);
             yield return WaitUntil(() => !(bool)ReadPendingMelee(combat).Pending, "Changing weapon did not cancel the swing.");
-            int cancellationTick = (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+            int cancellationTick = ReadCancellationTick(combat);
             Assert.That(cancellationTick, Is.GreaterThanOrEqualTo(acceptedTick));
             Assert.That(cancellationTick, Is.LessThan(deadline));
             yield return WaitUntil(() => (int)_runner.Tick > deadline + 2, "Runner did not cross the cancelled deadline.");
@@ -783,7 +806,21 @@ namespace Tests.PlayMode.Combat
         }
 
         private static MeleeAttackRelease ReadPendingMelee(PlayerCombatNetworkController combat) =>
-            (MeleeAttackRelease)GetProperty("PendingMeleeRelease").GetValue(combat);
+            TryReadHandAttack(combat, out WeaponHandAttackState state) ? state.Melee :
+                (MeleeAttackRelease)GetProperty("PendingMeleeRelease").GetValue(combat);
+
+        private static int ReadCancellationTick(PlayerCombatNetworkController combat) =>
+            TryReadHandAttack(combat, out WeaponHandAttackState state) ? state.CancellationTick :
+                (int)GetProperty("LastAttackCancellationTick").GetValue(combat);
+
+        private static bool TryReadHandAttack(PlayerCombatNetworkController combat, out WeaponHandAttackState state)
+        {
+            state = default;
+            var hands = (NetworkArray<WeaponHandAttackState>)GetProperty("HandAttacks").GetValue(combat);
+            for (int i = 0; i < 4; i++)
+                if (hands[i].Sequence > state.Sequence) state = hands[i];
+            return state.Sequence > 0;
+        }
 
         private static MeleeAttack ConfigureMeleeAttack(NetworkObject player, float delay, float cooldown,
             out RecordingMeleeTargets recorder)
@@ -829,7 +866,8 @@ namespace Tests.PlayMode.Combat
         }
 
         private static RangedAttackRelease ReadPending(PlayerCombatNetworkController combat) =>
-            (RangedAttackRelease)PendingReleaseProperty.GetValue(combat);
+            TryReadHandAttack(combat, out WeaponHandAttackState state) ? state.Ranged :
+                (RangedAttackRelease)PendingReleaseProperty.GetValue(combat);
 
         private static RangedAttack ConfigureScheduledAttack(NetworkObject player, float delay, float cooldown,
             out RecordingProjectileSpawner spawner)

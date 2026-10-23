@@ -67,6 +67,13 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private CharacterBase _character;
     private PlayerAttackVfxPresenter _attackVfx;
     private bool _hiddenByDowned;
+    private OneHandPoseSampler _offHandSampler;
+    private SpriteRenderer _offHandAttackVfx;
+    private bool _mainHandShield;
+    private DirectionalShieldSpriteSet _mainHandDefenseSprites;
+    private PlayerShieldDefenseNetworkController _shieldDefense;
+    private Vector3 _offHandBaseScale;
+
 
     private void Awake()
     {
@@ -100,6 +107,10 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _mainHandAimMode = WeaponAimMode.BakedFacing;
         ReleaseAimBlock();
         _hiddenByDowned = false;
+        _offHandSampler?.Dispose();
+        _offHandSampler = null;
+        if (_offHandAttackVfx != null) Destroy(_offHandAttackVfx.gameObject);
+        _offHandAttackVfx = null;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
@@ -109,6 +120,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     {
         RefreshDownedVisibility();
         RefreshEquipment(force: false);
+        RefreshOffHandAttackPose();
         RefreshMainHandSprite();
         RefreshPose();
     }
@@ -166,9 +178,11 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
                 _equipmentSource.TryGetEquippedDefinition(out mainHand);
             }
 
+            if (_animatorView.TryGetPresentedOffHandAttack(out _, out LootDefinition pinnedOffHand, out _))
+                offHand = pinnedOffHand;
             WeaponSetSlot activeSet = _equipmentSource.ActiveWeaponSetSlot;
             EquipmentSlot offHandSlot = EquipmentSlotRules.GetOffHandSlot(activeSet);
-            if (offHandSlot != EquipmentSlot.None)
+            if (offHand == null && offHandSlot != EquipmentSlot.None)
             {
                 _equipmentSource.TryGetSlotDefinition(offHandSlot, out offHand);
             }
@@ -190,7 +204,9 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void ApplyMainHandDefinition(LootDefinition definition)
     {
         WeaponDefinition weapon = definition != null ? definition.WeaponDefinition : null;
-        _mainHandWorldSprite = weapon != null ? definition.WorldSprite ?? definition.Icon : null;
+        _mainHandShield = definition != null && definition.Category == LootCategory.Shield;
+        _mainHandDefenseSprites = _mainHandShield ? definition.DefenseSprites : null;
+        _mainHandWorldSprite = weapon != null || _mainHandShield ? definition.WorldSprite ?? definition.Icon : null;
         _mainHandAttackSprites = weapon != null ? weapon.Presentation.AttackSpriteAnimation : null;
         SetRendererSprite(_mainHandRenderer, _mainHandWorldSprite);
         WeaponRig rig = weapon != null ? weapon.Presentation.Rig : WeaponRig.HandHeld;
@@ -276,7 +292,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void ApplyOffHandDefinition(LootDefinition definition)
     {
         bool isShield = definition != null && definition.Category == LootCategory.Shield;
-        _offHandWorldSprite = isShield ? definition.WorldSprite ?? definition.Icon : null;
+        _offHandWorldSprite = isShield || definition?.WeaponDefinition != null ? definition.WorldSprite ?? definition.Icon : null;
         _offHandDirectionalSprites = isShield ? definition.DefenseSprites : null;
         SetRendererSprite(_offHandRenderer, _offHandWorldSprite);
 
@@ -305,9 +321,11 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void RefreshOffHandSprite(CharacterVisualDirection direction)
     {
         Sprite sprite = PlayerWeaponPresentationMath.ResolveOffHandSprite(
-            _offHandWorldSprite,
-            _offHandDirectionalSprites,
-            direction);
+            _offHandWorldSprite, _offHandDirectionalSprites, direction);
+        if (_offHandDefinition?.WeaponDefinition != null &&
+            _animatorView.TryGetPresentedOffHandAttack(out _, out _, out float seconds))
+            sprite = PlayerWeaponPresentationMath.ResolveMainHandSprite(sprite,
+                _offHandDefinition.WeaponDefinition.Presentation.AttackSpriteAnimation, true, seconds);
         if (_offHandRenderer.sprite != sprite)
         {
             _offHandRenderer.sprite = sprite;
@@ -360,6 +378,21 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             SortingOrderFront,
             SortingOrderBack);
 
+        if (_mainHandShield)
+        {
+            _mainHandWeaponPivot.localRotation = Quaternion.identity;
+            _mainHandWeaponPivot.localScale = _mainHandWeaponPivotBaseScale;
+            _mainHandRenderer.sprite = PlayerWeaponPresentationMath.ResolveOffHandSprite(
+                _mainHandWorldSprite, _mainHandDefenseSprites, direction);
+            // Defense clips already pose LeftHand. Transfer that pose to the shield's actual hand.
+            var defense = _shieldDefense;
+            if (defense != null && defense.Object != null && defense.Object.IsValid && defense.IsDefending)
+            {
+                _mainHandGrip.parent.SetLocalPositionAndRotation(_offHandGrip.parent.localPosition, _offHandGrip.parent.localRotation);
+                _mainHandGrip.SetLocalPositionAndRotation(_offHandGrip.localPosition, _offHandGrip.localRotation);
+            }
+        }
+        PoseOffHandWeapon(facing, mirrored);
         _mainHandRenderer.sortingOrder = order;
         // The weapon-pose hand is the LeftHand renderer that also carries OffHandGrip.
         _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(
@@ -381,6 +414,58 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     // After the Animator: the hand pivots carry no curves, so they are set absolutely; WeaponPose is animated, so its
     // freshly evaluated pose is read and rewritten. Everything turns about the weapon's torso pivot by the residual.
+    private void RefreshOffHandAttackPose()
+    {
+        if (_offHandAttackVfx != null) _offHandAttackVfx.enabled = false;
+        if (_hiddenByDowned || !_animatorView.TryGetPresentedOffHandAttack(
+            out AttackPerformedEvent attack, out LootDefinition loot, out float seconds)) return;
+        WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
+        AnimationClip clip = presentation.GetAttackClip(PlayerAnimatorView.DirectionIndex(attack.Direction));
+        _offHandSampler ??= new OneHandPoseSampler();
+        _offHandSampler.Sample(clip, seconds, _offHandGrip.parent, _offHandGrip, _weaponPoseHandRenderer);
+        AttackVfxDefinition vfx = presentation.AttackVfx;
+        if (vfx == null || _attackVfx == null || !_attackVfx.TryGetWeaponTint(loot.WeaponDefinition.DamageType, out Color tint) ||
+            !_animatorView.TryGetOffHandAttackElapsed(out float elapsed)) return;
+        float vfxSeconds = AttackTiming.ReleaseVfxSeconds(elapsed, attack.ScheduledWindupSeconds, vfx.ReleaseLeadSeconds);
+        if (vfxSeconds < 0f || vfxSeconds >= vfx.Clip.length) return;
+        if (_offHandAttackVfx == null)
+        {
+            var visual = new GameObject("OffHandAttackVfx");
+            visual.transform.SetParent(_animatorView.transform, false);
+            _offHandAttackVfx = visual.AddComponent<SpriteRenderer>();
+            _offHandAttackVfx.sortingLayerID = _offHandRenderer.sortingLayerID;
+        }
+        if (!vfx.TryResolvePose(PlayerAnimatorView.DirectionIndex(attack.Direction), presentation.BladeReach,
+            out AttackVfxDefinition.ResolvedPose pose)) return;
+        _offHandAttackVfx.transform.SetLocalPositionAndRotation(pose.Position, pose.Rotation);
+        _offHandAttackVfx.transform.localScale = pose.Scale;
+        _offHandAttackVfx.sortingOrder = pose.SortingOrder;
+        _offHandAttackVfx.sprite = _offHandSampler.SampleVfx(vfx.Clip, vfxSeconds);
+        _offHandAttackVfx.color = tint;
+        _offHandAttackVfx.enabled = _offHandAttackVfx.sprite != null;
+    }
+
+    private void PoseOffHandWeapon(Vector2 facing, bool mirrored)
+    {
+        WeaponDefinition weapon = _offHandDefinition != null ? _offHandDefinition.WeaponDefinition : null;
+        if (weapon == null) return;
+        if (weapon.Presentation.AimMode == WeaponAimMode.BakedFacing &&
+            _animatorView.TryGetPresentedOffHandAttack(out AttackPerformedEvent attack, out _, out _))
+        {
+            facing = attack.Direction;
+            mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
+        }
+        float angle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing);
+        if (weapon.Presentation.AimMode == WeaponAimMode.FreeAim && _animatorView.HasPresentedAim)
+            angle += FreeAimResidual.AngleDegrees(facing, _animatorView.PresentedAimDirection);
+        angle += PlayerWeaponPresentationMath.ResolveAngleCorrection(weapon.Presentation.AngleCorrection, mirrored);
+        Vector2 scale = new(_offHandBaseScale.x, Mathf.Abs(_offHandBaseScale.y) * (mirrored ? -1f : 1f));
+        Vector2 offset = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(weapon.Presentation.GripPoint, scale, angle);
+        _offHandVisual.localPosition = new Vector3(offset.x, offset.y, 0f);
+        _offHandVisual.localRotation = Quaternion.Euler(0f, 0f, angle);
+        _offHandVisual.localScale = new Vector3(scale.x, scale.y, _offHandBaseScale.z);
+    }
+
     private void ApplyAimBlock(float residual, Vector2 aim)
     {
         if (_leftHandPivot == null || _rightHandPivot == null)
@@ -486,6 +571,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
 
         _equipmentSource ??= GetComponentInParent<PlayerWeaponEquipmentNetworkController>();
+        _shieldDefense ??= GetComponentInParent<PlayerShieldDefenseNetworkController>();
         Transform root = _equipmentSource != null ? _equipmentSource.transform : transform.root;
         _downedState ??= root.GetComponent<PlayerDownedStateNetworkController>();
         _character ??= root.GetComponent<CharacterBase>();
@@ -501,6 +587,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             return;
         }
 
+        _offHandBaseScale = _offHandVisual != null ? _offHandVisual.localScale : Vector3.one;
         _mainHandWeaponPivotBaseScale = _mainHandWeaponPivot.localScale;
         _mainHandWeaponVisualBaseScale = _mainHandWeaponVisual.localScale;
         _weaponPoseHandBaseSortingOrder = _weaponPoseHandRenderer != null ? _weaponPoseHandRenderer.sortingOrder : 0;

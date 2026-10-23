@@ -1296,7 +1296,7 @@ public sealed class LocalProfileStore
         }
 
         // Admission carries the active Set explicitly, so either valid Main Hand is sufficient.
-        if (prepared.HasAnyMainHand)
+        if (PreparedEquipmentLoadout.HasUsableWeapon(prepared, _lootCatalog))
         {
             return ExpeditionPreparationResult.Success;
         }
