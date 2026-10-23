@@ -15,6 +15,7 @@ MonoBehaviour:
   _totalDurationSeconds: 300
   _reinforcementsThresholdSeconds: 240
   _criticalPressureThresholdSeconds: 60
+  _collapseDurationSeconds: 120
   _maxGlobalEnemies: 20
   _normalPolicy:
     PopulationBudget: 0

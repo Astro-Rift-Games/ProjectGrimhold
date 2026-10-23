@@ -3159,6 +3159,80 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     }
 
     /// <summary>
+    /// Forces definitive defeat on all remaining raiding participants upon absolute dungeon collapse.
+    /// Generates corpses, resolves loot and progression, marks disconnected participants terminal,
+    /// and transitions match towards natural completion.
+    /// </summary>
+    public void DefeatRemainingRaidingParticipantsForAbsoluteClosure()
+    {
+        if (_runner == null || !_runner.IsServer)
+        {
+            return;
+        }
+
+        Debug.Log("[NetworkSpawnManager] Defeating all remaining raiding participants for absolute dungeon closure.");
+
+        // 1. Resolve connected raiding participants
+        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
+        {
+            if (participantObject == null || !participantObject.IsValid ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.State != RaidParticipantState.Raiding)
+            {
+                continue;
+            }
+
+            if (participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar != null &&
+                avatar.TryGetBehaviour(out PlayerCharacter character))
+            {
+                character.ForceDefinitiveDefeatFromCollapse();
+            }
+            else
+            {
+                participant.TryMarkDefeated(avatar);
+            }
+        }
+
+        // 2. Resolve disconnected retained raiding participants
+        IReadOnlyList<NetworkObject> retained = _disconnectedRegistry.RetainedParticipants;
+        for (int i = retained.Count - 1; i >= 0; i--)
+        {
+            NetworkObject participantObject = retained[i];
+            if (participantObject == null || !participantObject.IsValid ||
+                !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.State != RaidParticipantState.Raiding)
+            {
+                continue;
+            }
+
+            string profileId = participant.ProfileId.ToString();
+            string generationId = participant.RaidGenerationId.ToString();
+            var departureKey = new ControlledReturnKey(profileId, generationId);
+
+            if (participant.TryResolveCurrentAvatar(out NetworkObject avatar) && avatar != null &&
+                avatar.TryGetBehaviour(out PlayerCharacter character))
+            {
+                character.ForceDefinitiveDefeatFromCollapse();
+            }
+            else
+            {
+                participant.TryMarkDefeated(avatar);
+            }
+
+            if (participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+            {
+                connectivity.IsAbsenceConfirmed = true;
+            }
+
+            _controlledReturns.MarkTerminal(in departureKey);
+            _disconnectedRegistry.Remove(new ProfileId(profileId));
+        }
+
+        UpdateMatchSessionGate();
+        SignalRosterChanged();
+    }
+
+    /// <summary>
     /// Cleans gameplay world state once while retaining connected participant Results objects.
     /// The runner shutdown remains the definitive generation cleanup boundary.
     /// </summary>

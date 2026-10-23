@@ -18,6 +18,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
     public int RemainingTicks { get; set; }
 
     [Networked]
+    public int CollapseRemainingTicks { get; set; }
+
+    [Networked]
     public DungeonPressurePhase Phase { get; set; }
 
     [Networked]
@@ -29,7 +32,7 @@ public sealed class DungeonPressureController : NetworkBehaviour
     public bool IsRunning => State == DungeonPressureState.Running;
     
     public int RemainingSeconds => Runner != null 
-        ? Mathf.CeilToInt(RemainingTicks * Runner.DeltaTime) 
+        ? Mathf.CeilToInt((Phase == DungeonPressurePhase.Collapse ? CollapseRemainingTicks : RemainingTicks) * Runner.DeltaTime) 
         : 0;
 
     public override void Spawned()
@@ -49,17 +52,20 @@ public sealed class DungeonPressureController : NetworkBehaviour
                     Debug.LogError("[DungeonPressureController] _config is NULL! Timer will not start.");
                     State = DungeonPressureState.Stopped;
                     RemainingTicks = 0;
+                    CollapseRemainingTicks = 0;
                 }
                 else if (!_config.Validate(out string error))
                 {
                     Debug.LogError($"[DungeonPressureController] Config is invalid! Timer will not start. Reason: {error}");
                     State = DungeonPressureState.Stopped;
                     RemainingTicks = 0;
+                    CollapseRemainingTicks = 0;
                 }
                 else
                 {
                     RemainingTicks = Mathf.CeilToInt(_config.TotalDurationSeconds / Runner.DeltaTime);
-                    Debug.Log($"[DungeonPressureController] Initialized RemainingTicks to {RemainingTicks} from duration {_config.TotalDurationSeconds}");
+                    CollapseRemainingTicks = Mathf.CeilToInt(_config.CollapseDurationSeconds / Runner.DeltaTime);
+                    Debug.Log($"[DungeonPressureController] Initialized RemainingTicks to {RemainingTicks} and CollapseRemainingTicks to {CollapseRemainingTicks}");
                 }
             }
         }
@@ -85,6 +91,7 @@ public sealed class DungeonPressureController : NetworkBehaviour
         var state = State;
         var phase = Phase;
         var remainingTicks = RemainingTicks;
+        var collapseRemainingTicks = CollapseRemainingTicks;
         
         bool isInProgress = _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         bool isClosingOrFinished = _matchController.Phase == NetworkMatchController.MatchPhase.Closing || 
@@ -108,6 +115,7 @@ public sealed class DungeonPressureController : NetworkBehaviour
             phase = Phase;
             state = State;
             remainingTicks = RemainingTicks;
+            collapseRemainingTicks = CollapseRemainingTicks;
         }
 
         if (EditorTimeMultiplier > 1f && state == DungeonPressureState.Running)
@@ -116,22 +124,36 @@ public sealed class DungeonPressureController : NetworkBehaviour
             int ticksToDeduct = Mathf.FloorToInt(_editorAccumulatedExtraTime / Runner.DeltaTime);
             if (ticksToDeduct > 0)
             {
-                remainingTicks -= ticksToDeduct;
+                if (phase == DungeonPressurePhase.Collapse)
+                {
+                    collapseRemainingTicks -= ticksToDeduct;
+                    if (collapseRemainingTicks < 0) collapseRemainingTicks = 0;
+                }
+                else
+                {
+                    remainingTicks -= ticksToDeduct;
+                    if (remainingTicks < 0) remainingTicks = 0;
+                }
                 _editorAccumulatedExtraTime -= ticksToDeduct * Runner.DeltaTime;
-                if (remainingTicks < 0) remainingTicks = 0;
             }
         }
 #endif
 
         DungeonPressureClock.Step(
             ref remainingTicks,
+            ref collapseRemainingTicks,
             ref state,
             ref phase,
             isInProgress,
             isClosingOrFinished,
             _config.ReinforcementsThresholdSeconds,
             _config.CriticalPressureThresholdSeconds,
+            _config.CollapseDurationSeconds,
             Runner.DeltaTime);
+
+        bool shouldTriggerAbsoluteClosure = State == DungeonPressureState.Running &&
+                                             state == DungeonPressureState.Stopped &&
+                                             phase == DungeonPressurePhase.Collapse;
 
         if (State != state)
         {
@@ -153,6 +175,13 @@ public sealed class DungeonPressureController : NetworkBehaviour
         }
         
         RemainingTicks = remainingTicks;
+        CollapseRemainingTicks = collapseRemainingTicks;
+
+        if (shouldTriggerAbsoluteClosure)
+        {
+            Debug.Log("[DungeonPressureController] Absolute collapse deadline reached. Defeating remaining raiding participants.");
+            _spawnManager.DefeatRemainingRaidingParticipantsForAbsoluteClosure();
+        }
     }
 
 #if UNITY_EDITOR
@@ -198,7 +227,15 @@ public sealed class DungeonPressureController : NetworkBehaviour
         {
             Phase = DungeonPressurePhase.Collapse;
             RemainingTicks = 0;
-            Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. RemainingTicks: {RemainingTicks}");
+            CollapseRemainingTicks = Mathf.CeilToInt(_config.CollapseDurationSeconds / Runner.DeltaTime);
+            Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. CollapseRemainingTicks: {CollapseRemainingTicks}");
+        }
+        else if (Phase == DungeonPressurePhase.Collapse)
+        {
+            CollapseRemainingTicks = 0;
+            State = DungeonPressureState.Stopped;
+            _spawnManager?.DefeatRemainingRaidingParticipantsForAbsoluteClosure();
+            Debug.Log("[DungeonPressureController] Advanced phase past Collapse -> Absolute Closure executed.");
         }
     }
 #endif
