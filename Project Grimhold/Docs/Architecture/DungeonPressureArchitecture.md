@@ -52,10 +52,11 @@ The system must remain deterministic and robust across Host Migration:
 - **Stage 5 & 6 (Director & Config):** The Director retrieves the policy from `DungeonPressureConfig.GetPolicy(Phase)`. `Validate` enforces strict rules: `Normal` must have 0 budget, `Collapse` must have >0 budget, `MaxSpawnsPerAttempt` cannot exceed `PopulationBudget`, and successive phases (Reinforcements -> CriticalPressure -> Collapse) must have an equal or greater `PopulationBudget`, an equal or lesser `EvaluationIntervalSeconds`, and an equal or greater `MaxSpawnsPerAttempt` compared to the previous phase. On every phase change the evaluation timer is restarted with the new policy's interval, so a transition never triggers an instant wave. It surfaces rejections through the `ReinforcementRejection` enum.
 - **Stage 7 (Host Migration):** Validates the snapshot integration, tracker reconstruction, and recovery pause logic.
 - **Stage 8 (Debug):** Provides a strict `#if UNITY_EDITOR` overlay for timeline manipulation and spawn verification.
+- **Stage 9 (Ambient Communication):** `DungeonPressureAmbientPresenter` translates the replicated `DungeonPressurePhase` into global environmental presentation without modifying gameplay or adding networked state. Uses `DungeonAmbientConfig` for global light modulation and screen shake (entry shake, sustained continuous tremor, and periodic interval tremors) via `CameraShakeController`. Modulates local props (torches, braziers) via `DungeonLightProp` and `DungeonLightPropConfig` with customizable effect patterns (`Steady`, `TorchFlicker`, `UnstableFlicker`, `Pulse`). Supports late join and host migration idempotently without replaying past transition shakes.
 
 ## 6. Verification Criteria Mapping
 
-| Criterio de Aceptación (#455, #478) | Sección / Entidad |
+| Criterio de Aceptación (#455, #478, #479) | Sección / Entidad |
 | :--- | :--- |
 | **Única fuente de verdad para la fase temporal** | [2. Ownership and Boundaries](#2-ownership-and-boundaries) (`DungeonPressureController`) |
 | **Bootstrap y refuerzos tienen responsabilidades separadas** | [3.1. Initialization and Raid Start](#31-initialization-and-raid-start) |
@@ -69,6 +70,7 @@ The system must remain deterministic and robust across Host Migration:
 | Interacción con NetworkMatchController | [3.1. Initialization and Raid Start](#31-initialization-and-raid-start) |
 | Limpieza del estado al finalizar Raid | [3.2. Raid Closure](#32-raid-closure) |
 | Cierre absoluto de Dungeon y derrota de participantes | [1. Context and Objective](#1-context-and-objective), [5. Technical Contracts by Stage](#5-technical-contracts-by-stage) |
+| Comunicación ambiental y luces de props por fase | [5. Technical Contracts by Stage](#5-technical-contracts-by-stage) (`DungeonPressureAmbientPresenter`, `DungeonLightProp`) |
 
 ## 7. Pending / Technical Debt
 
