@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c323765fbbf07424fa9d6c08061b6004, type: 3}
+  m_Name: DefaultDungeonAmbientConfig
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonAmbientConfig
+  _normal:
+    _globalLightColor: {r: 0.85, g: 0.88, b: 0.92, a: 1}
+    _globalLightIntensity: 0.85
+    _globalTransitionDuration: 1
+    _entryShakeIntensity: 0
+    _entryShakeDuration: 0
+    _continuousShakeIntensity: 0
+    _periodicShakeIntensity: 0
+    _periodicShakeDuration: 0
+    _periodicShakeIntervalSeconds: 0
+  _reinforcements:
+    _globalLightColor: {r: 0.78, g: 0.74, b: 0.63, a: 1}
+    _globalLightIntensity: 0.75
+    _globalTransitionDuration: 2
+    _entryShakeIntensity: 0.08
+    _entryShakeDuration: 0.6
+    _continuousShakeIntensity: 0
+    _periodicShakeIntensity: 0
+    _periodicShakeDuration: 0
+    _periodicShakeIntervalSeconds: 0
+  _criticalPressure:
+    _globalLightColor: {r: 0.65, g: 0.4, b: 0.28, a: 1}
+    _globalLightIntensity: 0.65
+    _globalTransitionDuration: 2
+    _entryShakeIntensity: 0.25
+    _entryShakeDuration: 1.2
+    _continuousShakeIntensity: 0
+    _periodicShakeIntensity: 0.15
+    _periodicShakeDuration: 0.8
+    _periodicShakeIntervalSeconds: 25
+  _collapse:
+    _globalLightColor: {r: 0.49, g: 0.15, b: 0.15, a: 1}
+    _globalLightIntensity: 0.55
+    _globalTransitionDuration: 1.5
+    _entryShakeIntensity: 0.75
+    _entryShakeDuration: 2.5
+    _continuousShakeIntensity: 0.1
+    _periodicShakeIntensity: 0.35
+    _periodicShakeDuration: 1.2
+    _periodicShakeIntervalSeconds: 12
