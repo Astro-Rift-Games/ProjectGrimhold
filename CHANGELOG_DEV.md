@@ -6,6 +6,10 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **ui:** open Settings from the Town options and the Raid menu ([fce29a1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fce29a1d02be52a24c9591cd3a416eefea91de73))
+- **ui:** complete Main Menu session, settings, credits and exit actions ([ab58a94](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ab58a9464b04a07b8de2d6918367ec06a53d9c97))
+- **ui:** add shared Settings and Credits panels ([99919de](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99919dec0c175034b0e3e734f4dd87d01f2a5e3e))
+- **audio:** persist master, music and SFX volume preferences ([9c26f5a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c26f5a8d315147502eed10cc22906d3a32c0538))
 - **combat:** add attack animation validator and fix off-hand attacks ([d2c0824](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d2c0824cd5199ae0fa2a75dfd97b14ef9a0154bd))
 - **combat:** add per-hand dual wield and execution windows ([acf33ed](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/acf33edce336d1b85684296ff931b8dea4655ee6))
 - **player:** implement TASK-220 feedback and timed actions ([90b01f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/90b01f5f9370483a8358166d8ba97164efda9a7e))
@@ -276,6 +280,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **ui:** hide the Main Menu Play button without a session ([6ae1e09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6ae1e0997b4fbd68c4d7cfae9f98ce49405e7ac1))
+- **ui:** enter the Town right after a successful login ([57cb98d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/57cb98d7832e7c3e5bd03d5be3200be1f329f95d))
+- **ui:** use accented labels in the new Settings, Credits and session buttons ([400789c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/400789c31ad5be3e3f2a52c3a08f34bce4ce79af))
 - **player:** align player action rules with Game Design ([5ad42e1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5ad42e1074adb1cf8478ed89b36f5c7e5ab7edc3))
 - **town:** restore visibility of local player menus ([a98475c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a98475c14e03ab4ab40346bbe0d9c4c631c41709))
 - **extraction:** reserve each Sanctuary exclusively for one team ([48ed361](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/48ed3616ba136d1d99c48fa8c457cbc7c90bfca7))
@@ -343,6 +350,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **ui:** expect the Jugar label on the Main Menu Play button ([46a42e3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46a42e32406c8b92666a63589d008f00c4c5f31d))
 - **playmode:** register team extraction progress in the defeated loot runner ([c975bf5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c975bf5e0b7f11a0fa669eb27c8f1f3b2f58f3b5), [18e2d4c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/18e2d4c19e0bfc32105470d7f96854fd67e5a42f))
 - **playmode:** compose a matching local profile for HUD binder fixtures ([1fe9296](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1fe92964c87f01a8c45991ee11b222c66c1435e2), [3e45310](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3e453102b13f2c915c051a8d40a2f25198090fc3))
 - **networking:** pin RPC send acceptance to the installed Fusion contract ([80fee0d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/80fee0dffc19da4681e57263cae1bb32fd7a2219))
