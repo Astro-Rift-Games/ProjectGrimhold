@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,9 +28,14 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     [SerializeField]
     private Button _discardReconnectButton;
     private Button _closeButton;
+    [SerializeField] private TownRaidPreparationMemberCardView _memberCardPrefab;
+    [SerializeField] private RectTransform _memberCardContainer;
+    private readonly List<TownRaidPreparationMemberCardView> _memberCards = new();
+    private bool _cardConfigurationErrorLogged;
     private bool _localReady;
     private string _rejectionNotice;
 
+    public event Action<ProfileId> MemberSelected;
     public event Action<string> CreateRequested;
     public event Action<string> JoinRequested;
     public event Action<bool> ReadyRequested;
@@ -180,6 +186,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void PresentNoPreparation()
     {
+        HideMemberCards();
         _localReady = false;
         HideReconnectOpportunity();
         if (_codeInput != null)
@@ -246,7 +253,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         var status = new System.Text.StringBuilder();
         status.Append("Jugadores: ").Append(presentation.Members.Count)
             .Append(" / ").Append(TownRaidPreparationRules.MaxMembers).AppendLine();
-        for (int index = 0; index < presentation.Members.Count; index++)
+        bool cardsAvailable = PresentMemberCards(presentation);
+        for (int index = 0; !cardsAvailable && index < presentation.Members.Count; index++)
         {
             TownRaidPreparationPresentation.Member member = presentation.Members[index];
             status.Append(member.DisplayName);
@@ -285,6 +293,49 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             }
         }
         HideReconnectOpportunity();
+    }
+
+    private bool PresentMemberCards(in TownRaidPreparationPresentation presentation)
+    {
+        if (_memberCardPrefab == null || _memberCardContainer == null)
+        {
+            HideMemberCards();
+            if (!_cardConfigurationErrorLogged)
+            {
+                Debug.LogError("TownRaidPreparationView requires member card prefab and container references; using text roster fallback.", this);
+                _cardConfigurationErrorLogged = true;
+            }
+            return false;
+        }
+
+        for (int index = 0; index < presentation.Members.Count; index++)
+        {
+            if (index == _memberCards.Count)
+            {
+                TownRaidPreparationMemberCardView card = Instantiate(_memberCardPrefab, _memberCardContainer);
+                card.Selected += ForwardMemberSelected;
+                _memberCards.Add(card);
+            }
+            _memberCards[index].gameObject.SetActive(true);
+            _memberCards[index].Present(presentation.Members[index]);
+        }
+        for (int index = presentation.Members.Count; index < _memberCards.Count; index++)
+            _memberCards[index].gameObject.SetActive(false);
+        return true;
+    }
+
+    private void HideMemberCards()
+    {
+        for (int index = 0; index < _memberCards.Count; index++)
+            _memberCards[index].gameObject.SetActive(false);
+    }
+
+    private void ForwardMemberSelected(ProfileId profileId) => MemberSelected?.Invoke(profileId);
+
+    private void OnDestroy()
+    {
+        for (int index = 0; index < _memberCards.Count; index++)
+            if (_memberCards[index] != null) _memberCards[index].Selected -= ForwardMemberSelected;
     }
 
     public void PresentReconnectOpportunity(in RaidReconnectTicket ticket)

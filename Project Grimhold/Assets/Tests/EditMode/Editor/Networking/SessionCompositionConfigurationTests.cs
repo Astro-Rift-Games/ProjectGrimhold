@@ -573,7 +573,31 @@ public sealed class SessionCompositionConfigurationTests
         TMP_Text status = statusViewport?.Find("Status")?.GetComponent<TMP_Text>();
         Assert.That(status, Is.Not.Null);
         Assert.That(statusViewport.GetComponent<ScrollRect>(), Is.Not.Null);
-        Assert.That(statusViewport.GetComponent<LayoutElement>().preferredHeight, Is.GreaterThanOrEqualTo(300f));
+
+        Transform cardsViewport = prefab.transform.Find("RaidCodePanel/MemberCardsViewport");
+        ScrollRect cardsScroll = cardsViewport?.GetComponent<ScrollRect>();
+        Assert.That(cardsScroll, Is.Not.Null);
+        Assert.That(cardsScroll.vertical, Is.True);
+        Assert.That(cardsScroll.content.GetComponent<GridLayoutGroup>(), Is.Not.Null);
+        Assert.That(cardsScroll.content.GetComponent<ContentSizeFitter>().verticalFit,
+            Is.EqualTo(ContentSizeFitter.FitMode.PreferredSize));
+
+        var serializedView = new SerializedObject(prefab.GetComponent<TownRaidPreparationView>());
+        Assert.That(serializedView.FindProperty("_memberCardContainer").objectReferenceValue,
+            Is.SameAs(cardsScroll.content));
+        var cardPrefab = serializedView.FindProperty("_memberCardPrefab").objectReferenceValue
+            as TownRaidPreparationMemberCardView;
+        Assert.That(cardPrefab, Is.Not.Null);
+
+        SerializedProperty cardReference = new SerializedObject(cardPrefab).GetIterator();
+        while (cardReference.NextVisible(true))
+        {
+            if (cardReference.propertyType == SerializedPropertyType.ObjectReference &&
+                cardReference.name.StartsWith("_"))
+            {
+                Assert.That(cardReference.objectReferenceValue, Is.Not.Null, cardReference.name);
+            }
+        }
     }
 
     [Test]
