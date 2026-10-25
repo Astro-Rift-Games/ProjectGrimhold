@@ -216,7 +216,7 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
-        public IEnumerator DisplayOrder_RealPanelsAndBulkButtonsUseCompleteSortedCopiesWithoutDisplayWrites()
+        public IEnumerator DisplayOrder_RealPanelsAndBulkButtonsUseStoredOrderWithoutDisplayWrites()
         {
             LootDefinitionCatalog authoredCatalog = _catalog;
             var synthetic = ScriptableObject.CreateInstance<LootDefinitionCatalog>();
@@ -234,11 +234,11 @@ namespace Tests.PlayMode.Presentation
             _catalog = synthetic;
             try
             {
-                LootId[] expected = definitions.Select(d => d.LootId).ToArray();
+                LootId[] expected = definitions.Select(d => d.LootId).Reverse().ToArray();
                 CreateScreen(snapshot =>
                 {
-                    foreach (LootId id in expected.Reverse()) snapshot.Stash.Add(new StashItem(id, 1));
-                    foreach (LootId id in expected.Take(3).Reverse()) snapshot.Loadout.Add(new StashItem(id, 1));
+                    foreach (LootId id in expected) snapshot.Stash.Add(new StashItem(id, 1));
+                    foreach (LootId id in expected.Take(3)) snapshot.Loadout.Add(new StashItem(id, 1));
                 });
                 var presenter = _instance.GetComponent<LobbyStashPresenter>();
                 _instance.SetActive(false);
@@ -283,6 +283,65 @@ namespace Tests.PlayMode.Presentation
                 foreach (var definition in definitions) Object.DestroyImmediate(definition);
                 Object.DestroyImmediate(synthetic);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator SortButtons_PersistOnlyTheirListRemoteFirstWhileReady()
+        {
+            var ids = DistinctLootIds(6);
+            var source = ids.Select((id, i) => new StashItem(id, i + 2)).ToArray();
+            var sorted = StashDisplayOrder.SortedCopy(source, _catalog).ToArray();
+            source = sorted.Reverse().ToArray();
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.AddRange(source);
+                snapshot.Loadout.AddRange(source);
+            });
+            _instance.GetComponent<LobbyStashPresenter>().SetEquipmentGate(() => false);
+            yield return null;
+            foreach (InventoryList list in new[] { InventoryList.Stash, InventoryList.Loadout })
+            {
+                var gate = new TaskCompletionSource<bool>();
+                _remote.Gates.Enqueue(gate.Task);
+                Button button = GetButton(list == InventoryList.Stash ? "_stashSortButton" : "_loadoutSortButton");
+                Assert.That(button.IsInteractable(), Is.True, "Ready must not gate Sort.");
+                ClickButton(button);
+                yield return null;
+                Assert.That(button.IsInteractable(), Is.False);
+                Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(), Is.EqualTo(source),
+                    "Local order must not change before the remote response.");
+                Assert.That(_remote.Calls.Last(), Is.EqualTo($"order:{list}:{string.Join(",", sorted.Select(s => s.LootId.Value))}"));
+                gate.SetResult(true);
+                for (int frame = 0; frame < 5; frame++) yield return null;
+                Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(), Is.EqualTo(sorted));
+                Assert.That(_store.GetStash(), Is.EqualTo(sorted));
+                Assert.That(_store.GetLoadout(), Is.EqualTo(list == InventoryList.Stash ? source : sorted));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ApplicationQueue_BlocksOtherConsumersWhileStashTransferIsPending()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(new LootId("bone"), 3)));
+            yield return null;
+            var context = _contextObject.GetComponent<ApplicationStashContext>();
+            var coordinator = context.GetTransferCoordinator();
+            var gate = new TaskCompletionSource<bool>();
+            _remote.Gates.Enqueue(gate.Task);
+            ClickMoveAll(StashPanel());
+            yield return null;
+            var otherConsumerSort = coordinator.SortAsync(InventoryList.Loadout, _catalog);
+            _instance.SetActive(false);
+            _instance.SetActive(true);
+            yield return null;
+            Assert.That(context.GetTransferCoordinator(), Is.SameAs(coordinator));
+            Assert.That(otherConsumerSort.IsCompleted, Is.False);
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+            gate.SetResult(true);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+            Assert.That(otherConsumerSort.IsCompleted, Is.True);
+            Assert.That(otherConsumerSort.Result.IsSuccess, Is.True);
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(new LootId("bone"), 3) }));
         }
 
         private void CreateScreen(Action<LocalProfileSnapshot> configure)
@@ -398,6 +457,8 @@ namespace Tests.PlayMode.Presentation
 
         public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService
         {
+            public Task<(bool success, BackendError error)> OrderAsync(InventoryList list, IReadOnlyList<LootId> lootIds) =>
+                Run($"order:{list}:{string.Join(",", lootIds.Select(id => id.Value))}");
             public readonly List<string> Calls = new();
             public readonly Queue<Task> Gates = new();
 

@@ -61,6 +61,131 @@ namespace Tests.PlayMode.Presentation
             Object.DestroyImmediate(_canvasObject);
         }
 
+        [Test]
+        public void ReservedOffHand_IsVisualOnly_AndResetsWhenReleased()
+        {
+            var root = new GameObject("Reserved slot", typeof(RectTransform), typeof(RaidInventorySlotView));
+            root.transform.SetParent(_canvasObject.transform);
+            var slot = root.GetComponent<RaidInventorySlotView>();
+            var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            icon.transform.SetParent(root.transform);
+            var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            label.transform.SetParent(root.transform);
+            var background = root.AddComponent<Image>();
+            var button = root.AddComponent<Button>();
+            typeof(RaidInventorySlotView).GetField("_button", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, button);
+            typeof(RaidInventorySlotView).GetField("_icon", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, icon);
+            typeof(RaidInventorySlotView).GetField("_nameText", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, label);
+            typeof(RaidInventorySlotView).GetField("_background", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, background);
+            var sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.zero);
+            try
+            {
+                var data = RaidInventorySlotData.Create(new LootEntry(new LootId("Greatsword"), 1), null, sprite);
+                int actions = 0;
+                slot.TooltipRequested += (_, __) => actions++;
+                slot.ContextRequested += (_, __) => actions++;
+                slot.DragStarted += _ => actions++;
+                slot.DropReceived += (_, __) => actions++;
+                slot.SetDragLocation(DragSlotLocation.Equipment, EquipmentSlot.WeaponSetAOffHand);
+                slot.PresentEquipmentSlot(EquipmentSlot.WeaponSetAOffHand, in data, true, true, true);
+                Assert.That(icon.sprite, Is.SameAs(sprite));
+                Assert.That(icon.color.a, Is.LessThan(1f));
+                Assert.That(label.text, Does.Contain("Reservado por Greatsword"));
+                Assert.That(slot.IsOccupied, Is.False, "Reservation is not another item");
+                slot.OnPointerEnter(null);
+                slot.OnPointerClick(new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Right });
+                slot.OnBeginDrag(new PointerEventData(EventSystem.current));
+                slot.OnDrop(null);
+                Assert.That(actions, Is.Zero);
+                slot.SetDropHighlight(DropHighlightState.Valid);
+                Assert.That(background.color.r, Is.GreaterThan(background.color.g));
+                slot.PresentEquipmentSlot(EquipmentSlot.WeaponSetAOffHand, in data, false, true);
+                Assert.That(icon.color.a, Is.EqualTo(1f));
+                Assert.That(slot.IsOccupied, Is.True);
+            }
+            finally { Object.DestroyImmediate(sprite); }
+        }
+
+        [Test]
+        public void ReservedProjection_UsesCorrespondingMainHandData()
+        {
+            var data = new RaidInventorySlotData[EquipmentSlotRules.AllSlots.Length];
+            for (int i = 0; i < data.Length; i++)
+            {
+                var slot = EquipmentSlotRules.AllSlots[i];
+                if (EquipmentSlotRules.IsMainHandSlot(slot))
+                    data[i] = RaidInventorySlotData.Create(new LootEntry(new LootId(slot.ToString()), 1), null, null);
+            }
+            _view.PresentEquipmentSlots(data, WeaponSetSlot.SetA, true, true, true);
+            var views = (RaidInventorySlotView[])typeof(RaidInventoryView)
+                .GetField("_equipmentSlotViews", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view);
+            foreach (var offHand in new[] { EquipmentSlot.WeaponSetAOffHand, EquipmentSlot.WeaponSetBOffHand })
+            {
+                var view = views[System.Array.IndexOf(EquipmentSlotRules.AllSlots, offHand)];
+                var text = (TMP_Text)typeof(RaidInventorySlotView).GetField("_nameText", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+                Assert.That(text.text, Does.Contain("Reservado por " + EquipmentSlotRules.GetMainHandSlot(EquipmentSlotRules.GetWeaponSet(offHand))));
+            }
+        }
+
+        [Test]
+        public void WeaponSets_HighlightBothHands_DimInactive_AndSwapOrNoneResets()
+        {
+            var data = new RaidInventorySlotData[EquipmentSlotRules.AllSlots.Length];
+            _view.PresentEquipmentSlots(data, WeaponSetSlot.SetA, true);
+            var slots = (RaidInventorySlotView[])typeof(RaidInventoryView)
+                .GetField("_equipmentSlotViews", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view);
+            var colors = new Color[slots.Length];
+            for (int i = 0; i < slots.Length; i++)
+                colors[i] = ((Image)typeof(RaidInventorySlotView).GetField("_background", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(slots[i])).color;
+            _view.PresentEquipmentSlots(data, WeaponSetSlot.SetB, true);
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (EquipmentSlotRules.GetWeaponSet(EquipmentSlotRules.AllSlots[i]) == WeaponSetSlot.None) continue;
+                var image = (Image)typeof(RaidInventorySlotView).GetField("_background", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(slots[i]);
+                Assert.That(image.color, Is.Not.EqualTo(colors[i]));
+                if (EquipmentSlotRules.GetWeaponSet(EquipmentSlotRules.AllSlots[i]) == WeaponSetSlot.SetA)
+                    Assert.That(image.color.a, Is.LessThan(colors[i].a));
+            }
+            _view.PresentEquipmentSlots(data, WeaponSetSlot.None, true);
+            Color? neutral = null;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (EquipmentSlotRules.GetWeaponSet(EquipmentSlotRules.AllSlots[i]) == WeaponSetSlot.None) continue;
+                var image = (Image)typeof(RaidInventorySlotView).GetField("_background", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(slots[i]);
+                if (neutral.HasValue) Assert.That(image.color, Is.EqualTo(neutral.Value));
+                neutral = image.color;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SortButton_EmitsOnlyWhenEnabled_AndUnhooksOnDestroy()
+        {
+            var staging = new GameObject("Inactive sort view staging");
+            staging.transform.SetParent(_canvasObject.transform, false);
+            staging.SetActive(false);
+            var instance = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(SharedInventoryPrefabPath), staging.transform);
+            var view = instance.GetComponent<RaidInventoryView>();
+            var buttonObject = new GameObject("Sort", typeof(RectTransform), typeof(Button));
+            buttonObject.transform.SetParent(staging.transform, false);
+            var button = buttonObject.GetComponent<Button>();
+            typeof(RaidInventoryView).GetField("_sortButton", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(view, button);
+            int requests = 0;
+            view.SortRequested += () => requests++;
+            instance.SetActive(true);
+            staging.SetActive(true);
+            view.SetScreenVisible(true);
+            yield return null;
+            view.SetSortInteractable(false);
+            button.onClick.Invoke();
+            Assert.That(requests, Is.Zero);
+            view.SetSortInteractable(true);
+            button.onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(1));
+            Object.DestroyImmediate(instance);
+            button.onClick.Invoke();
+            Assert.That(requests, Is.EqualTo(1));
+        }
+
         [UnityTest]
         public IEnumerator InventoryAndContainerSlots_ShowAndDismissSharedTooltip()
         {

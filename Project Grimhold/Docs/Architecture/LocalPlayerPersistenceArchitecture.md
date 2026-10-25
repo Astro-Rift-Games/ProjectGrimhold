@@ -108,6 +108,41 @@ The existing secure-loot boundary still rejects duplicate input IDs as `InvalidI
 Hydration and codec persistence do not impose Stash capacity: accepted server excess remains
 intact and can be reduced. Extraction and unequip destinations are unchanged.
 
+### Inventory order
+
+Implemented (TASK-218; Host/Client validation pending): Stash and Loadout display their stored list order, preserved by the local
+Store, file cache/save codec and backend arrays; no surface automatically sorts. Each list has one
+entry per `LootId` and is compact, with no holes. Removing an entry through transfer, consumption,
+drop or equip shifts following entries up. A new ID appends at the first free slot (the end);
+merging into an existing ID retains its position. This matches `ProfileInventoryRules.TryMerge`
+and `TryRemove` and the existing codec/backend array behavior. Hydration preserves backend order,
+with duplicate IDs retaining their first position. Stash pagination uses this stored order, and
+Take All / Leave All snapshot source IDs in stored (displayed) order, not `StashDisplayOrder`.
+
+Implemented (TASK-218; Host/Client validation pending): an explicit Town Sort is a new `LocalProfileStore` order transaction over
+Stash or Loadout, accepting only a permutation of the current list with identical IDs and amounts.
+It never changes identity, amount or `Origin` and never merges stacks. It rejects with
+`ReservationPending` while a Loadout reservation is pending, but remains allowed while Ready:
+like Quick Slot bindings it moves no ownership. It uses the same `StashTransferCoordinator`
+serialized queue and remote-first policy as transfers: backend write, then local apply. Remote
+failure or local divergence reconciles once and stops without retry. The reservation moves the
+Loadout in its stored order; the owning Raid presentation inherits that reserved order, without
+changing the replicated inventory representation. Raid-local Sort is not carried back on extraction;
+extraction retains its existing append behavior.
+
+Implemented (TASK-218; Host/Client validation pending), backend contract: no existing route writes order, so an authenticated character
+inventory order write is required (`PUT /character/me/inventory/order`). Its DTO carries
+the target list (`stash` or `loadout`), ordered `LootId` list and `expectedRevision`. The backend
+validates an exact permutation of the current array, rejects while a reservation is pending, writes
+the reordered array under the revision check and returns snapshot/revision like the move endpoints.
+No position field is added to `itemSchema`. Exact DTOs and endpoint naming remain backend-contract
+responsibilities; the route is implemented in `InventoryService.updateOrder` and returns `RESERVATION_PENDING`, `REVISION_CONFLICT` or `VALIDATION_FAILED` on rejection.
+
+Design debt: Inventory document 16 section 3 says sorting does not automatically compact empty
+spaces outside the Sort action, implying holes. The user explicitly approved a compact no-hole
+model for TASK-218; this is an approved exception pending reconciliation of the live document,
+not a claim that the discrepancy has been resolved.
+
 ### Backend persistence integration boundary
 
 Backend persistence is asynchronous and must remain outside the synchronous

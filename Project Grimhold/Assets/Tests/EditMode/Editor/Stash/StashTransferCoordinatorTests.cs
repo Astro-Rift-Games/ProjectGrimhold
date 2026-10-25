@@ -59,6 +59,23 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
+        public void ApplicationContext_SharesQueueAcrossConsumersAndReinitialization_ReplacesOnServiceChange()
+        {
+            Create(null);
+            var context = _services.AddComponent<ApplicationStashContext>();
+            context.Initialize(_store, _stash, _loadout, null, null);
+            var first = context.GetTransferCoordinator();
+            Assert.That(first, Is.Not.Null);
+            Assert.That(context.GetTransferCoordinator(), Is.SameAs(first));
+            context.Initialize(_store, _stash, _loadout, null, null);
+            Assert.That(context.GetTransferCoordinator(), Is.SameAs(first));
+            var replacement = _services.AddComponent<InMemoryPlayerLoadoutService>();
+            replacement.Initialize(_store);
+            context.Initialize(_store, _stash, replacement, null, null);
+            Assert.That(context.GetTransferCoordinator(), Is.Not.SameAs(first));
+        }
+
+        [Test]
         public async Task Transfer_FullLoadout_IsRejectedBeforeAnyRemoteCall()
         {
             LootId[] ids = DistinctLootIds(LocalProfileSnapshot.MaxLoadoutSlots + 1);
@@ -900,6 +917,149 @@ namespace Tests.EditMode.Stash
             Assert.That(_store.GetStash(), Has.Count.EqualTo(2));
         }
 
+        [Test]
+        public async Task Sort_RemoteFirst_ThenLocal_AndIdenticalOrderSkips()
+        {
+            LootId[] ids = new[] { Bone, Sword }.OrderByDescending(id => id.Value, StringComparer.Ordinal).ToArray();
+            var coordinator = Create(snapshot =>
+            {
+                foreach (LootId id in ids) snapshot.Stash.Add(new StashItem(id, 2));
+            });
+            _remote.OnCall = _ => Assert.That(_store.GetStash().Select(item => item.LootId), Is.EqualTo(ids));
+            Assert.That((await coordinator.SortAsync(InventoryList.Stash)).IsSuccess, Is.True);
+            Assert.That(_store.GetStash().Select(item => item.LootId), Is.EqualTo(ids.Reverse()));
+            Assert.That((await coordinator.SortAsync(InventoryList.Stash)).IsSuccess, Is.True);
+            Assert.That(_remote.Calls, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task Sort_RemoteFailure_ReconcilesOnceWithoutApplying()
+        {
+            var coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+            });
+            _remote.Succeeds = false;
+            Assert.That((await coordinator.SortAsync(InventoryList.Stash)).IsSuccess, Is.False);
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Has.Count.EqualTo(1));
+            Assert.That(_store.GetStash()[0].LootId, Is.EqualTo(Sword));
+        }
+
+        [Test]
+        public void Order_ExactPermutation_PreservesAmountsAndOtherList_NoOpDoesNotPublish()
+        {
+            Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 3));
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+                snapshot.Loadout.Add(new StashItem(Bone, 5));
+            });
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+            Assert.That(_store.EvaluateOrder(InventoryList.Stash, new[] { Bone, Sword }), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(commits, Is.Zero);
+            Assert.That(_store.TryOrder(InventoryList.Stash, new[] { Bone, Sword }), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(_store.GetStash().Select(item => item.Amount), Is.EqualTo(new[] { 2, 3 }));
+            Assert.That(_store.GetLoadout().Single().Amount, Is.EqualTo(5));
+            Assert.That(_store.TryOrder(InventoryList.Stash, new[] { Bone, Sword }), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(commits, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Order_RejectsMissingExtraAndDuplicateIds()
+        {
+            Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+            });
+            foreach (LootId[] order in new[] { new[] { Bone }, new[] { Bone, Sword, new LootId("extra") }, new[] { Bone, Bone } })
+                Assert.That(_store.TryOrder(InventoryList.Stash, order), Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(_store.GetStash()[0].LootId, Is.EqualTo(Sword));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task Sort_LocalRefusalAfterRemoteSuccess_ReconcilesOnce(bool recoverySucceeds)
+        {
+            var coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+            });
+            // Remove an ID so the accepted remote permutation is no longer applicable.
+            _remote.OnCall = _ => Assert.That(_store.TryTransferToLoadout(Bone, 2), Is.EqualTo(StashOperationResult.Success));
+            _reconciliation.Succeeds = recoverySucceeds;
+            var result = await coordinator.SortAsync(InventoryList.Stash);
+            Assert.That(result.IsSuccess, Is.False);
+            if (!recoverySucceeds) Assert.That(result.Status, Is.EqualTo(StashTransferStatus.RecoveryFailed));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task Sort_UnknownRemoteResult_ReconcilesOnce()
+        {
+            var coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+            });
+            _remote.OnCall = _ => throw new InvalidOperationException("unknown result");
+            Assert.That((await coordinator.SortAsync(InventoryList.Stash)).IsSuccess, Is.False);
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void OrderRequest_SerializesBackendContract()
+        {
+            var request = new InventoryOrderRequest { list = "stash", lootIds = new[] { "bone", "rapier" }, expectedRevision = 7 };
+            string json = JsonUtility.ToJson(request);
+            Assert.That(json, Does.Contain("\"list\":\"stash\""));
+            Assert.That(json, Does.Contain("\"lootIds\":[\"bone\",\"rapier\"]"));
+            Assert.That(json, Does.Contain("\"expectedRevision\":7"));
+        }
+
+        [TestCase(InventoryList.Stash)]
+        [TestCase(InventoryList.Loadout)]
+        public void Order_ReservationPending_RejectsEvenIdenticalOrder(InventoryList list)
+        {
+            Create(snapshot => snapshot.PendingReservation = new PendingLoadoutReservation("order-test", Array.Empty<StashItem>()));
+            Assert.That(_store.EvaluateOrder(list, Array.Empty<LootId>()), Is.EqualTo(StashOperationResult.ReservationPending));
+            Assert.That(_store.TryOrder(list, Array.Empty<LootId>()), Is.EqualTo(StashOperationResult.ReservationPending));
+        }
+
+        [Test]
+        public async Task Sort_AllowedWhenEquipmentReadyGateIsClosed()
+        {
+            var coordinator = Create(snapshot =>
+            {
+                snapshot.Loadout.Add(new StashItem(Sword, 3));
+                snapshot.Loadout.Add(new StashItem(Bone, 2));
+            });
+            _canMutateEquipment = false;
+            Assert.That((await coordinator.SortAsync(InventoryList.Loadout)).IsSuccess, Is.True);
+            Assert.That(_store.GetLoadout().Select(item => item.LootId), Is.EqualTo(new[] { Bone, Sword }));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task BulkTransfer_WithCatalog_UsesStoredOrder(bool fromStash)
+        {
+            var coordinator = Create(snapshot =>
+            {
+                var source = fromStash ? snapshot.Stash : snapshot.Loadout;
+                source.Add(new StashItem(Sword, 1));
+                source.Add(new StashItem(Bone, 2));
+            }, withCatalog: true);
+            Assert.That((await (fromStash ? coordinator.TakeAllAsync() : coordinator.LeaveAllAsync())).IsSuccess, Is.True);
+            string direction = fromStash ? "toLoadout" : "toStash";
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { $"{direction}:rapier:1", $"{direction}:bone:2" }));
+        }
+
         private static async Task YieldSeveralTimes()
         {
             for (int index = 0; index < 5; index++)
@@ -942,7 +1102,7 @@ namespace Tests.EditMode.Stash
             return ids;
         }
 
-        private StashTransferCoordinator Create(Action<LocalProfileSnapshot> configure, bool withRemote = true)
+        private StashTransferCoordinator Create(Action<LocalProfileSnapshot> configure, bool withRemote = true, bool withCatalog = false)
         {
             var repository = new InMemoryLocalProfileRepository();
             Assert.That(repository.Initialize(_profile, _catalog), Is.True);
@@ -970,11 +1130,14 @@ namespace Tests.EditMode.Stash
                 _loadout,
                 withRemote ? _remote : null,
                 withRemote ? _reconciliation : null,
-                endpoint);
+                endpoint,
+                withCatalog ? _catalog : null);
         }
 
         private sealed class FakeRemote : IRemoteInventoryService
         {
+            public Task<(bool success, BackendError error)> OrderAsync(InventoryList list, IReadOnlyList<LootId> lootIds) => Run("order");
+
             public readonly List<string> Calls = new();
             public readonly Queue<Task> Gates = new();
             public Action<string> OnCall;

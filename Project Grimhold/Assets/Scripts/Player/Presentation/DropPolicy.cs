@@ -45,8 +45,11 @@ public static class DropPolicy
         return true;
     }
 
-    public static bool CanAttemptEquipmentDrop(in DragPayload payload, EquipmentSlot targetSlot)
+    public static bool CanAttemptEquipmentDrop(in DragPayload payload, EquipmentSlot targetSlot, bool isReserved = false)
     {
+        if (isReserved && (targetSlot == EquipmentSlot.WeaponSetAOffHand || targetSlot == EquipmentSlot.WeaponSetBOffHand))
+            return false;
+
         if (!CanAttemptDrop(payload.Source, DragSlotLocation.Equipment, targetSlot))
         {
             return false;

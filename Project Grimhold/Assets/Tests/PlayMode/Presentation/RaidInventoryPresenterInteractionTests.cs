@@ -104,6 +104,209 @@ namespace Tests.PlayMode.Presentation
             }
         }
 
+        [Test]
+        public async System.Threading.Tasks.Task TownSort_PersistsThroughSharedQueue_AllowedWhileReady()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+            var profile = new ProfileId("49494949494949494949494949494949");
+            var repository = new InMemoryLocalProfileRepository();
+            Assert.That(repository.Initialize(profile, catalog), Is.True);
+            var snapshot = repository.Snapshot.Clone();
+            var expected = StashDisplayOrder.SortedCopy(new[] {
+                new StashItem(new LootId("bone"), 2), new StashItem(new LootId("rapier"), 1) }, catalog);
+            snapshot.Loadout.Add(expected[1]);
+            snapshot.Loadout.Add(expected[0]);
+            Assert.That(repository.TrySave(snapshot, out _), Is.True);
+            var services = new GameObject("Town sort services");
+            LocalLoadoutInventoryReadSource source = null;
+            try
+            {
+                var store = new LocalProfileStore(repository, profile, catalog);
+                var stash = services.AddComponent<InMemoryPlayerStashService>();
+                stash.Initialize(store);
+                var loadout = services.AddComponent<InMemoryPlayerLoadoutService>();
+                loadout.Initialize(store);
+                var remote = services.AddComponent<LobbyStashPresenterPlayModeTests.FakeRemoteComponent>();
+                var context = services.AddComponent<ApplicationStashContext>();
+                context.Initialize(store, stash, loadout, null, null);
+                source = new LocalLoadoutInventoryReadSource(context, profile);
+                SetPresenterField(_presenter, "_lootCatalog", catalog);
+                _presenter.BindTown(source, source,
+                    new TownEquipmentMutationEndpoint(loadout, profile, catalog, () => false),
+                    _inputReader, true, null, context.GetTransferCoordinator(), () => store.PendingReservation == null);
+                SetPresenterMode(_presenter, 1);
+                Assert.That(typeof(RaidInventoryPresenter).GetProperty("CanSortInventory",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter), Is.True,
+                    "Ready blocks Equipment, not Sort.");
+                var gate = new System.Threading.Tasks.TaskCompletionSource<bool>();
+                remote.Gates.Enqueue(gate.Task);
+                var task = (System.Threading.Tasks.Task)InvokeMethod(_presenter, "SortTownAsync");
+                Assert.That(store.GetLoadout()[0], Is.EqualTo(expected[1]), "Remote first.");
+                gate.SetResult(true);
+                await task;
+                Assert.That(store.GetLoadout(), Is.EqualTo(expected));
+                Assert.That(remote.Calls, Has.Count.EqualTo(1));
+                Assert.That(context.GetTransferCoordinator(), Is.SameAs(context.GetTransferCoordinator()));
+                // A valid reservation requires prepared Main Hand equipment, not just carried loot.
+                Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("rapier")),
+                    Is.EqualTo(StashOperationResult.Success));
+                Assert.That(loadout.TryCreateLoadoutReservation(profile, "sort-pending", out _), Is.EqualTo(StashOperationResult.Success));
+                InvokeMethod(_presenter, "OnSortRequested");
+                Assert.That(remote.Calls, Has.Count.EqualTo(1), "Pending reservation rejects Sort.");
+            }
+            finally
+            {
+                _presenter.Unbind();
+                source?.Dispose();
+                UnityEngine.Object.DestroyImmediate(services);
+            }
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        public void Downed_ObservesEntryAndRecovery_WithoutClosingScreen(int mode)
+        {
+            bool downed = false;
+            SetPresenterField(_presenter, "_inventorySource", new SortSource());
+            SetPresenterField(_presenter, "_isBound", true);
+            SetPresenterField(_presenter, "_isRaidBinding", true);
+            SetPresenterField(_presenter, "_readDowned", (Func<bool>)(() => downed));
+            SetPresenterMode(_presenter, mode);
+            SetViewScreenVisible(_view, true);
+            InvokeMethod(_presenter, "ObserveDowned");
+            var drag = new DragPayload(new LootId("bone"), DragSlotLocation.Inventory,
+                default, null, 1, default, default);
+            SetPresenterField(_presenter, "_activeDrag", drag);
+            var takeAll = (RaidLootTakeAllState)typeof(RaidInventoryPresenter).GetField("_takeAllState",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter);
+            Assert.That(takeAll.TryBegin(new[] { new LootEntry(new LootId("bone"), 1) }), Is.True);
+            downed = true;
+            InvokeMethod(_presenter, "ObserveDowned");
+            Assert.That(((DragPayload)typeof(RaidInventoryPresenter).GetField("_activeDrag",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter)).IsValid, Is.False);
+            Assert.That(takeAll.IsActive, Is.False);
+            Assert.That(GetPresenterMode(_presenter), Is.EqualTo(mode));
+            Assert.That(_presenter.IsOpen, Is.True);
+            Assert.That(_view.TransferFeedbackText.text,
+                Is.EqualTo("Estás abatido: el inventario es de solo lectura."));
+            Assert.That(_view.TakeAllButton.interactable, Is.False);
+            Assert.That(_view.SortButton.interactable, Is.False);
+            _view.ShowTransferFeedback("Late confirmation");
+            Assert.That(_view.TransferFeedbackText.text,
+                Is.EqualTo("Estás abatido: el inventario es de solo lectura."));
+            downed = false;
+            InvokeMethod(_presenter, "ObserveDowned");
+            Assert.That(GetPresenterMode(_presenter), Is.EqualTo(mode));
+            Assert.That(_view.TransferFeedbackText.text, Is.Empty);
+            if (mode == 1) Assert.That(_view.SortButton.interactable, Is.True);
+            downed = true;
+            InvokeMethod(_presenter, "ObserveDowned");
+            _presenter.SetGameplayMutationsBlocked(true);
+            Assert.That(_presenter.IsOpen, Is.False);
+            downed = true;
+            InvokeMethod(_presenter, "ObserveDowned");
+            downed = false;
+            InvokeMethod(_presenter, "ObserveDowned");
+            Assert.That(_presenter.GameplayMutationsBlocked, Is.True);
+            Assert.That(_presenter.IsOpen, Is.False);
+        }
+
+        [Test]
+        public void Downed_RejectsMutationEntryPoints_AndClearsOnUnbind()
+        {
+            SetPresenterField(_presenter, "_inventorySource", new SortSource());
+            SetPresenterField(_presenter, "_isBound", true);
+            SetPresenterField(_presenter, "_isRaidBinding", true);
+            SetPresenterField(_presenter, "_readDowned", (Func<bool>)(() => true));
+            SetPresenterMode(_presenter, 1);
+            InvokeMethod(_presenter, "ObserveDowned");
+            // Missing mutation endpoints deliberately make any escaped gate fail immediately.
+            var drag = new DragPayload(new LootId("bone"), DragSlotLocation.Inventory,
+                default, null, 1, default, default);
+            InvokeMethod(_presenter, "OnDragStarted", drag);
+            Assert.That(((DragPayload)typeof(RaidInventoryPresenter).GetField("_activeDrag",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter)).IsValid, Is.False);
+            SetPresenterField(_presenter, "_activeDrag", drag);
+            InvokeMethod(_presenter, "OnDropReceived", DragSlotLocation.Equipment, EquipmentSlot.WeaponSetAMainHand);
+            InvokeMethod(_presenter, "OnDropReceived", DragSlotLocation.Container, default(EquipmentSlot));
+            SetPresenterField(_presenter, "_activeDrag", new DragPayload(new LootId("bone"),
+                DragSlotLocation.Equipment, EquipmentSlot.WeaponSetAMainHand, null, 1, default, default));
+            InvokeMethod(_presenter, "OnDropReceived", DragSlotLocation.Inventory, default(EquipmentSlot));
+            InvokeMethod(_presenter, "OnPlayerSlotContextRequested", new LootId("bone"), null);
+            InvokeMethod(_presenter, "OnContextActionRequested", default(LootContextActionId));
+            InvokeMethod(_presenter, "OnEquipmentUnequipRequested", EquipmentSlot.WeaponSetAMainHand);
+            InvokeMethod(_presenter, "OnEquipmentSlotContextRequested", EquipmentSlot.WeaponSetAMainHand, null);
+            InvokeMethod(_presenter, "OnPlayerSlotSelected", new LootId("bone"), LootTransferQuantityMode.SingleUnit);
+            InvokeMethod(_presenter, "OnContainerSlotSelected", new LootId("bone"), LootTransferQuantityMode.SingleUnit);
+            InvokeMethod(_presenter, "OnTakeAllRequested");
+            InvokeMethod(_presenter, "TryStartNextTakeAllTransfer");
+            InvokeMethod(_presenter, "OnQuickSlotDropReceived", 0);
+            InvokeMethod(_presenter, "OnQuickSlotClearRequested", 0);
+            InvokeMethod(_presenter, "OnSortRequested");
+            Assert.That(typeof(RaidInventoryPresenter).GetMethod("CanMutateQuickSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_presenter, null), Is.False);
+            _presenter.Unbind();
+            Assert.That(typeof(RaidInventoryPresenter).GetField("_downedReadOnly",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter), Is.False);
+        }
+
+        [Test]
+        public void Downed_TownBindingIgnoresPredicate()
+        {
+            SetPresenterField(_presenter, "_readDowned", (Func<bool>)(() => true));
+            SetPresenterMode(_presenter, 1);
+            InvokeMethod(_presenter, "ObserveDowned");
+            Assert.That(typeof(RaidInventoryPresenter).GetMethod("CanMutateQuickSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_presenter, null), Is.True);
+        }
+
+        private sealed class SortSource : IInventoryReadSource
+        {
+            public readonly System.Collections.Generic.List<LootEntry> Items = new();
+            public int SlotCapacity => 8;
+            public int Revision => 0;
+            public event Action Changed { add { } remove { } }
+            public bool TryGetLootContent(out System.Collections.Generic.IReadOnlyList<LootEntry> content)
+            {
+                content = Items;
+                return true;
+            }
+        }
+
+        [Test]
+        public void RaidSort_OnlyPersonalMode_SortsOnceAndAppendsNewLoot()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+            var a = new LootEntry(new LootId("bone"), 2);
+            var b = new LootEntry(new LootId("rapier"), 1);
+            var source = new SortSource();
+            bool aFirst = StashDisplayOrder.Compare(new StashItem(a.LootId, 2), new StashItem(b.LootId, 1), catalog) < 0;
+            source.Items.Add(aFirst ? b : a);
+            source.Items.Add(aFirst ? a : b);
+            SetPresenterField(_presenter, "_inventorySource", source);
+            SetPresenterField(_presenter, "_lootCatalog", catalog);
+            SetPresenterField(_presenter, "_isBound", true);
+            SetPresenterField(_presenter, "_isRaidBinding", true);
+            SetPresenterMode(_presenter, 2);
+            InvokeMethod(_presenter, "OnSortRequested");
+            var field = typeof(RaidInventoryPresenter).GetField("_displayOrder", BindingFlags.Instance | BindingFlags.NonPublic);
+            var order = (RaidInventoryDisplayOrder)field.GetValue(_presenter);
+            Assert.That(order.Entries, Is.Empty, "Container mode must reject Sort.");
+            SetPresenterMode(_presenter, 1);
+            InvokeMethod(_presenter, "OnSortRequested");
+            Assert.That(order.Entries[0].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
+            source.Items.RemoveAt(1);
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            source.Items.Insert(0, aFirst ? a : b);
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            Assert.That(order.Entries[1].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
+            SetPresenterField(_presenter, "_gameplayMutationsBlocked", true);
+            InvokeMethod(_presenter, "OnSortRequested");
+            Assert.That(order.Entries[1].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         public void LocalInteractPress_WhileLootIsOpenOrPending_ClosesScreenAndReleasesSuppression(int mode)

@@ -19,7 +19,7 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public void PresenterProjection_SortsEveryCategoryThenOrdinalIgnoreCaseNameWithoutMutatingSource()
+        public void PresenterProjection_PreservesStoredOrderWithoutMutatingSource()
         {
             LootCategory[] categories = { LootCategory.Valuable, LootCategory.Material, LootCategory.Quest,
                 LootCategory.Miscellaneous, LootCategory.Weapon, LootCategory.Helmet, LootCategory.Armor,
@@ -33,13 +33,13 @@ namespace Tests.EditMode.Stash
             StashItem[] original = source.ToArray();
             var projected = Project(source, definitions);
             Assert.That(projected.Select(s => s.LootId.Value), Is.EqualTo(
-                new[] { "alpha", "beta" }.Concat(Enumerable.Range(0, categories.Length).Select(i => $"item{i:D2}"))));
+                source.Select(s => s.LootId.Value)));
             Assert.That(source, Is.EqualTo(original));
             Assert.That(projected.All(s => s.Amount == 3), Is.True);
         }
 
         [Test]
-        public void PresenterProjection_UsesOrdinalIdTiesRawBlankNameAndKnownCategoryDespiteMissingIcon()
+        public void PresenterProjection_PreservesOrderAndUsesRawBlankNames()
         {
             var definitions = new List<LootDefinition> {
                 Definition("tie_b", "SAME", LootCategory.Material),
@@ -50,11 +50,10 @@ namespace Tests.EditMode.Stash
                 Definition("invalid", "yyy", (LootCategory)999) };
             string[] ids = { "missing", "none", "tie_b", "invalid", "tie_a", "bbb_null", "aaa_blank" };
             var projected = Project(ids.Select(id => new StashItem(new LootId(id), 1)).ToArray(), definitions);
-            Assert.That(projected.Select(s => s.LootId.Value), Is.EqualTo(new[] {
-                "aaa_blank", "bbb_null", "tie_a", "tie_b", "missing", "invalid", "none" }));
-            Assert.That(projected[0].DisplayName, Is.EqualTo("aaa_blank"));
-            Assert.That(projected[1].DisplayName, Is.EqualTo("bbb_null"));
-            Assert.That(projected[4].DisplayName, Is.EqualTo("missing"));
+            Assert.That(projected.Select(s => s.LootId.Value), Is.EqualTo(ids));
+            Assert.That(projected[6].DisplayName, Is.EqualTo("aaa_blank"));
+            Assert.That(projected[5].DisplayName, Is.EqualTo("bbb_null"));
+            Assert.That(projected[0].DisplayName, Is.EqualTo("missing"));
         }
 
         [Test]
@@ -93,7 +92,7 @@ namespace Tests.EditMode.Stash
                 .SetValue(catalog, new List<LootDefinition> { definition });
             var item = new StashItem(definition.LootId, 6);
             var original = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, null);
-            var projected = StashDisplayOrder.Project(new[] { item }, catalog, null)[0];
+            var projected = Project(new[] { item }, new List<LootDefinition> { definition })[0];
             Assert.That(projected.DisplayName, Is.EqualTo("blank"));
             Assert.That(original.DisplayName, Is.EqualTo(" "));
             Assert.That(projected.Category, Is.EqualTo(original.Category));

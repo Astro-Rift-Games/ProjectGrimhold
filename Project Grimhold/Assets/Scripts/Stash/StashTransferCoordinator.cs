@@ -32,13 +32,13 @@ public sealed class StashTransferCoordinator
         IPlayerLoadoutService loadout,
         IRemoteInventoryService remote,
         IProfileReconciliation reconciliation,
-        ITownEquipmentMutationEndpoint equipment,
+        ITownEquipmentMutationEndpoint equipment = null,
         LootDefinitionCatalog catalog = null)
     {
         _profileId = profileId;
         _stash = stash ?? throw new ArgumentNullException(nameof(stash));
         _loadout = loadout ?? throw new ArgumentNullException(nameof(loadout));
-        _equipment = equipment ?? throw new ArgumentNullException(nameof(equipment));
+        _equipment = equipment;
         _remote = remote;
         _reconciliation = reconciliation;
         _catalog = catalog;
@@ -46,6 +46,25 @@ public sealed class StashTransferCoordinator
 
     public Task<StashTransferOutcome> TransferAsync(LootId lootId, bool fromStash, LootTransferQuantityMode mode) =>
         RunExclusiveAsync(() => TransferCoreAsync(lootId, fromStash, mode));
+
+    public Task<StashTransferOutcome> SortAsync(InventoryList list, LootDefinitionCatalog catalog = null) =>
+        RunExclusiveAsync(() => SortCoreAsync(list, catalog ?? _catalog));
+
+    private async Task<StashTransferOutcome> SortCoreAsync(InventoryList list, LootDefinitionCatalog catalog)
+    {
+        if (list != InventoryList.Stash && list != InventoryList.Loadout)
+            return StashTransferOutcome.Rejected(StashOperationResult.InvalidInventory);
+        IReadOnlyList<StashItem> source = list == InventoryList.Stash
+            ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
+        LootId[] order = StashDisplayOrder.SortedCopy(source, catalog).Select(item => item.LootId).ToArray();
+        StashOperationResult rule = _loadout.EvaluateOrder(_profileId, list, order);
+        if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
+        if (source.Select(item => item.LootId).SequenceEqual(order)) return StashTransferOutcome.Success();
+        if (_remote == null) return StashTransferOutcome.Unavailable();
+        StashTransferOutcome remote = await ExecuteRemoteAsync(() => _remote.OrderAsync(list, order));
+        if (!remote.IsSuccess) return remote;
+        return await ApplyLocalAsync(_loadout.TryOrder(_profileId, list, order));
+    }
 
     public Task<StashTransferOutcome> TakeAllAsync() => RunExclusiveAsync(TakeAllCoreAsync);
 
@@ -55,11 +74,12 @@ public sealed class StashTransferCoordinator
     /// Equips one unit. The Stash source projects, moves remotely, syncs Equipment, then applies atomically; the
     /// Loadout source goes through the Town Equipment endpoint and its Ready gate.
     /// </summary>
-    public Task<StashTransferOutcome> EquipAsync(LootId lootId, EquipmentSlot slot, bool fromStash) =>
-        RunExclusiveAsync(() => EquipCoreAsync(lootId, slot, fromStash));
+    public Task<StashTransferOutcome> EquipAsync(LootId lootId, EquipmentSlot slot, bool fromStash,
+        ITownEquipmentMutationEndpoint equipment = null) =>
+        RunExclusiveAsync(() => EquipCoreAsync(lootId, slot, fromStash, equipment ?? _equipment));
 
-    public Task<StashTransferOutcome> UnequipAsync(EquipmentSlot slot) =>
-        RunExclusiveAsync(() => UnequipCoreAsync(slot));
+    public Task<StashTransferOutcome> UnequipAsync(EquipmentSlot slot, ITownEquipmentMutationEndpoint equipment = null) =>
+        RunExclusiveAsync(() => UnequipCoreAsync(slot, equipment ?? _equipment));
 
     private async Task<StashTransferOutcome> RunExclusiveAsync(Func<Task<StashTransferOutcome>> operation)
     {
@@ -112,7 +132,7 @@ public sealed class StashTransferCoordinator
     private Task<StashTransferOutcome> LeaveAllCoreAsync() => TransferEachStackAsync(fromStash: false);
 
     /// <summary>
-    /// Take All / Leave All snapshots all source IDs in display order (legacy Store order without a catalog), including items outside the
+    /// Take All / Leave All snapshots all source IDs in stored order, including items outside the
     /// visible pool. Each stack is checked, moved remotely and applied locally before the next.
     /// Ordinary failures are skipped, but failed reconciliation stops further mutations.
     /// Counts describe confirmed attempts versus unconfirmed/not-attempted IDs, not actual moves.
@@ -126,7 +146,7 @@ public sealed class StashTransferCoordinator
 
         IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
         // Snapshot once inside the queue, not from a visible page or a cached projection.
-        LootId[] order = (_catalog != null ? StashDisplayOrder.SortedCopy(source, _catalog) : source)
+        LootId[] order = source
             .Select(item => item.LootId)
             .ToArray();
         int completed = 0;
@@ -191,9 +211,10 @@ public sealed class StashTransferCoordinator
         return false;
     }
 
-    private async Task<StashTransferOutcome> EquipCoreAsync(LootId lootId, EquipmentSlot slot, bool fromStash)
+    private async Task<StashTransferOutcome> EquipCoreAsync(LootId lootId, EquipmentSlot slot, bool fromStash,
+        ITownEquipmentMutationEndpoint equipment)
     {
-        if (!_equipment.CanMutate)
+        if (equipment == null || !equipment.CanMutate)
         {
             return StashTransferOutcome.Blocked();
         }
@@ -226,7 +247,7 @@ public sealed class StashTransferCoordinator
             return await ApplyLocalAsync(_loadout.TryEquipFromStash(_profileId, lootId, slot));
         }
 
-        StashOperationResult local = _equipment.TryEquip(lootId, slot);
+        StashOperationResult local = equipment.TryEquip(lootId, slot);
         return local == StashOperationResult.Success
             ? await SyncPreparedEquipmentAsync()
             : StashTransferOutcome.Rejected(local);
@@ -246,14 +267,14 @@ public sealed class StashTransferCoordinator
         return expected.Length == current.Count && expected.All(item => current.Contains(item));
     }
 
-    private async Task<StashTransferOutcome> UnequipCoreAsync(EquipmentSlot slot)
+    private async Task<StashTransferOutcome> UnequipCoreAsync(EquipmentSlot slot, ITownEquipmentMutationEndpoint equipment)
     {
-        if (!_equipment.CanMutate)
+        if (equipment == null || !equipment.CanMutate)
         {
             return StashTransferOutcome.Blocked();
         }
 
-        StashOperationResult local = _equipment.TryUnequip(slot);
+        StashOperationResult local = equipment.TryUnequip(slot);
         return local == StashOperationResult.Success
             ? await SyncPreparedEquipmentAsync()
             : StashTransferOutcome.Rejected(local);

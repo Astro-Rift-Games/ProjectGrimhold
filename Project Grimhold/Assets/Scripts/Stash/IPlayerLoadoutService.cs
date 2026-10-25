@@ -13,6 +13,9 @@ public interface IPlayerLoadoutService
     /// </summary>
     IReadOnlyList<StashItem> GetLoadout(ProfileId profileId);
 
+    StashOperationResult TryOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds);
+    StashOperationResult EvaluateOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds);
+
     PreparedEquipmentLoadout GetPreparedEquipment(ProfileId profileId);
 
     /// <summary>

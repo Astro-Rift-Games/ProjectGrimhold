@@ -48,6 +48,25 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
 
+    private readonly RaidInventoryDisplayOrder _displayOrder = new();
+    private readonly OrderedInventorySource _orderedSource = new();
+    private StashTransferCoordinator _townSortCoordinator;
+    private Func<bool> _canSortTown;
+    private bool _sortPending;
+
+    private sealed class OrderedInventorySource : IInventoryReadSource
+    {
+        public IReadOnlyList<LootEntry> Content;
+        public int SlotCapacity { get; set; }
+        public int Revision => 0;
+        public event Action Changed { add { } remove { } }
+        public bool TryGetLootContent(out IReadOnlyList<LootEntry> content)
+        {
+            content = Content;
+            return content != null;
+        }
+    }
+
     private IInventoryReadSource _inventorySource;
     private QuickSlotController _quickSlots;
     private IPreparedEquipmentReadSource _preparedEquipmentSource;
@@ -78,6 +97,31 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private string _takeAllLastFailureMessage;
     private LootContextActionContext _contextActionContext;
     private bool _gameplayMutationsBlocked;
+    private PlayerCharacter _boundPlayerCharacter;
+    // Deterministic test seam; production reads the cached avatar, never Fusion state writes.
+    private Func<bool> _readDowned;
+    private bool _downedReadOnly;
+    private bool MutationsBlocked => _gameplayMutationsBlocked || _downedReadOnly;
+
+    private void ObserveDowned()
+    {
+        bool downed = _isRaidBinding && IsOpen && (_readDowned != null
+            ? _readDowned() : PlayerDownedGate.IsDowned(_boundPlayerCharacter));
+        if (_downedReadOnly == downed) return;
+        _downedReadOnly = downed;
+        if (downed)
+        {
+            CancelActiveDrag();
+            HideContextMenu();
+            _view?.TooltipView?.Hide();
+            CancelTakeAll();
+        }
+        _view?.SetDownedReadOnly(downed && IsOpen);
+        RefreshTransferInteraction();
+        RefreshEquipmentSlots();
+        RefreshQuickSlots();
+        UpdateSortInteractable();
+    }
     private bool _isRaidBinding;
     private bool _isExternallyHosted;
     private bool _observedTownEquipmentCanMutate;
@@ -156,6 +200,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         AttachQuickSlots(quickSlots);
         _runner = runner;
         _localPlayerTransform = localPlayerTransform;
+        _boundPlayerCharacter = localPlayerTransform.GetComponent<PlayerCharacter>();
         _registry = runner.GetComponent<EntityRegistry>();
         if (_registry == null)
         {
@@ -164,6 +209,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        var joinContext = runner.GetComponent<LocalPlayerJoinContext>();
+        _displayOrder.Seed(joinContext != null && joinContext.HasRaidAdmission
+            ? joinContext.RaidAdmission.ReservedLoadout : null);
         _isRaidBinding = true;
         _view.SetEquipmentPanelVisible(true);
         _isBound = true;
@@ -190,7 +238,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         ITownEquipmentMutationEndpoint equipmentEndpoint,
         PlayerInputReader inputReader,
         bool externallyHosted = false,
-        QuickSlotController quickSlots = null)
+        QuickSlotController quickSlots = null,
+        StashTransferCoordinator sortCoordinator = null,
+        Func<bool> canSort = null)
     {
         Unbind();
 
@@ -203,6 +253,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _inventorySource = inventorySource;
+        _townSortCoordinator = sortCoordinator;
+        _canSortTown = canSort;
         _preparedEquipmentSource = preparedEquipmentSource;
         _townEquipmentEndpoint = equipmentEndpoint;
         _inputReader = inputReader;
@@ -231,6 +283,10 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         Unsubscribe();
         Close();
+        _displayOrder.Seed(null);
+        _orderedSource.Content = null;
+        _townSortCoordinator = null;
+        _canSortTown = null;
         _playerPanelPresenter.Clear();
         _containerPanelPresenter.Clear();
         _view?.ClearContent();
@@ -270,11 +326,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     public void Close()
     {
         CancelActiveDrag();
+        _downedReadOnly = false;
+        _view?.SetDownedReadOnly(false);
         _mode = ScreenMode.Closed;
         HideContextMenu();
         ClearContainerBinding();
         _view?.HideTransferFeedback();
         _view?.SetContainerPanelVisible(false);
+        _view?.SetSortInteractable(false);
         _view?.SetScreenVisible(false);
         ReleaseInputSuppression();
     }
@@ -311,6 +370,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        ObserveDowned();
+        UpdateSortInteractable();
         if (_playerValueRefreshPending)
         {
             RetryPlayerValue();
@@ -371,6 +432,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _lastObservedInteractionSequence = _isRaidBinding
             ? _interactionController.CurrentInteractionSequence
             : 0;
+        _view.SortRequested += OnSortRequested;
         _inventorySource.Changed += OnInventorySourceChanged;
         if (_quickSlots != null)
         {
@@ -450,6 +512,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         if (_view != null)
         {
+            _view.SortRequested -= OnSortRequested;
             _view.QuickSlotDropReceived -= OnQuickSlotDropReceived;
             _view.QuickSlotClearRequested -= OnQuickSlotClearRequested;
         }
@@ -594,8 +657,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         HideContextMenu();
         ClearContainerBinding();
         _mode = ScreenMode.Personal;
+        ObserveDowned();
+        _view.SetDownedReadOnly(_downedReadOnly);
         RefreshPlayerPanel();
         RefreshEquipmentSlots();
+        RefreshQuickSlots();
         EnsureInputSuppression();
         _view.SetContainerPanelVisible(false);
         _view.SetScreenVisible(true);
@@ -684,6 +750,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         _pendingChestOpening = null;
         _mode = ScreenMode.ContainerLoot;
+        ObserveDowned();
+        _view.SetDownedReadOnly(_downedReadOnly);
         RefreshPlayerPanel();
         RefreshContainerPanel();
         EnsureInputSuppression();
@@ -693,7 +761,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
+        if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_containerSelection.TrySelect(lootId, _containerPanelPresenter.OccupiedEntries))
         {
@@ -717,7 +785,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnPlayerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
+        if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _takeAllState.IsActive || _transferController.HasRequestInFlight ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries))
         {
@@ -750,7 +818,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnDragStarted(DragPayload payload)
     {
-        if (_gameplayMutationsBlocked || !payload.IsValid) return;
+        if (MutationsBlocked || !payload.IsValid) return;
         
         _activeDrag = payload;
         if (_view.ContextMenu != null) _view.ContextMenu.Hide();
@@ -775,11 +843,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnDropReceived(DragSlotLocation targetLocation, EquipmentSlot targetEquipmentSlot)
     {
-        if (!_activeDrag.IsValid || _gameplayMutationsBlocked) return;
+        if (!_activeDrag.IsValid || MutationsBlocked) return;
         DragPayload payload = _activeDrag;
         
         if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
-        if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot)) return;
+        if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot, _view.IsEquipmentDropReserved(targetEquipmentSlot))) return;
 
         _view.HideTransferFeedback();
 
@@ -822,7 +890,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate;
         // Quick Slot bindings never move items, so they stay available when equipment changes are not.
         contextActionsAvailable |= _quickSlots != null && CanMutateQuickSlots();
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !contextActionsAvailable ||
+        if (MutationsBlocked || _mode != ScreenMode.Personal || !contextActionsAvailable ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
             _lootCatalog == null || !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition))
@@ -850,7 +918,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnContextActionRequested(LootContextActionId actionId)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
+        if (MutationsBlocked || _mode != ScreenMode.Personal || !_contextActionContext.IsValid ||
             !TryResolveCurrentContextEntry(out LootEntry currentEntry))
         {
             HideContextMenu();
@@ -935,7 +1003,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnEquipmentUnequipRequested(EquipmentSlot slot)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal)
+        if (MutationsBlocked || _mode != ScreenMode.Personal)
         {
             _view.ShowTransferFeedback("No se pudo solicitar desequipar");
             return;
@@ -960,7 +1028,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnEquipmentSlotContextRequested(EquipmentSlot slot, RectTransform anchor)
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.Personal || anchor == null ||
+        if (MutationsBlocked || _mode != ScreenMode.Personal || anchor == null ||
             !TryGetEquipmentEntry(slot, out LootEntry entry) ||
             !_lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition))
         {
@@ -982,7 +1050,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private bool CanRequestEquipmentUnequip(EquipmentSlot slot)
     {
-        return _mode == ScreenMode.Personal && TryGetEquipmentEntry(slot, out _) &&
+        return !MutationsBlocked && _mode == ScreenMode.Personal && TryGetEquipmentEntry(slot, out _) &&
             (_isRaidBinding
                 ? _equipmentController != null && !_equipmentController.HasRequestInFlight
                 : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate);
@@ -1062,7 +1130,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
                 : RaidInventorySlotData.Empty;
         }
 
-        bool canUnequip = _mode == ScreenMode.Personal && !_gameplayMutationsBlocked &&
+        bool canUnequip = _mode == ScreenMode.Personal && !MutationsBlocked &&
             (_isRaidBinding
                 ? _equipmentController != null && !_equipmentController.HasRequestInFlight
                 : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate);
@@ -1310,7 +1378,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void OnTakeAllRequested()
     {
-        if (_gameplayMutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
+        if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController == null || _transferController.HasRequestInFlight ||
             _takeAllState.IsActive ||
             !_takeAllState.TryBegin(_containerPanelPresenter.OccupiedEntries))
@@ -1330,7 +1398,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void TryStartNextTakeAllTransfer()
     {
-        if (_gameplayMutationsBlocked)
+        if (MutationsBlocked)
         {
             CancelTakeAll();
             return;
@@ -1503,11 +1571,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             ReportPlayerValueFailureOnce();
         }
 
-        bool transferInteractive = _mode == ScreenMode.ContainerLoot && _container != null &&
+        bool transferInteractive = !MutationsBlocked && _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
-        RaidLootSlotInteractionMode interactionMode = _mode == ScreenMode.Personal &&
+        RaidLootSlotInteractionMode interactionMode = !MutationsBlocked && _mode == ScreenMode.Personal &&
             (_isRaidBinding
                 ? _dropController != null && !_dropController.HasRequestInFlight &&
                     _equipmentController != null && !_equipmentController.HasRequestInFlight
@@ -1516,8 +1584,21 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
                 : transferInteractive
                     ? RaidLootSlotInteractionMode.Transfer
                     : RaidLootSlotInteractionMode.ReadOnly;
+        UpdateSortInteractable();
+        IInventoryReadSource displaySource = _inventorySource;
+        if (_isRaidBinding)
+        {
+            _orderedSource.Content = null;
+            _orderedSource.SlotCapacity = _inventorySource.SlotCapacity;
+            if (content != null)
+            {
+                _displayOrder.Reconcile(content);
+                _orderedSource.Content = _displayOrder.Entries;
+            }
+            displaySource = _orderedSource;
+        }
         bool refreshed = _playerPanelPresenter.Refresh(
-            _inventorySource,
+            displaySource,
             _lootCatalog,
             _view.PlayerPanel,
             totalValue,
@@ -1537,6 +1618,50 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view.ContextMenu != null && _view.ContextMenu.IsOpen && !_playerSelection.HasSelection)
         {
             HideContextMenu();
+        }
+    }
+
+    private bool CanSortInventory => _isBound && !MutationsBlocked &&
+        _mode == ScreenMode.Personal && !_sortPending &&
+        (_isRaidBinding || (_townSortCoordinator != null && _canSortTown != null && _canSortTown()));
+
+    private void UpdateSortInteractable() => _view?.SetSortInteractable(CanSortInventory);
+
+    private void OnSortRequested()
+    {
+        if (!CanSortInventory) return;
+        if (_isRaidBinding)
+        {
+            if (!_inventorySource.TryGetLootContent(out var snapshot)) return;
+            _displayOrder.Reconcile(snapshot);
+            _displayOrder.Sort(_lootCatalog);
+            RefreshPlayerPanel();
+            return;
+        }
+        _ = SortTownAsync();
+    }
+
+    private async System.Threading.Tasks.Task SortTownAsync()
+    {
+        _sortPending = true;
+        UpdateSortInteractable();
+        try
+        {
+            StashTransferOutcome result = await _townSortCoordinator.SortAsync(InventoryList.Loadout, _lootCatalog);
+            if (!result.IsSuccess) Debug.LogWarning($"[{nameof(RaidInventoryPresenter)}] Sort did not complete: {result}.", this);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+        }
+        finally
+        {
+            _sortPending = false;
+            if (this != null)
+            {
+                RefreshPlayerPanel();
+                UpdateSortInteractable();
+            }
         }
     }
 
@@ -1580,7 +1705,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _observedContainerLootSequence = _container.LootChangeSequence;
-        bool interactive = !_transferController.HasRequestInFlight && !_takeAllState.IsActive;
+        bool interactive = !MutationsBlocked && !_transferController.HasRequestInFlight && !_takeAllState.IsActive;
         bool refreshed = _containerPanelPresenter.Refresh(
             _container,
             _container,
@@ -1610,11 +1735,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
-        bool interactive = _mode == ScreenMode.ContainerLoot && _container != null &&
+        bool interactive = !MutationsBlocked && _mode == ScreenMode.ContainerLoot && _container != null &&
             _container.IsInitialized && _container.IsAvailable &&
             _transferController != null && !_transferController.HasRequestInFlight &&
             !_takeAllState.IsActive;
-        RaidLootSlotInteractionMode playerMode = _mode == ScreenMode.Personal &&
+        RaidLootSlotInteractionMode playerMode = !MutationsBlocked && _mode == ScreenMode.Personal &&
             (_isRaidBinding
                 ? _dropController != null && !_dropController.HasRequestInFlight &&
                     _equipmentController != null && !_equipmentController.HasRequestInFlight
@@ -1774,7 +1899,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _contextActionProviders.Add(_quickSlotActionProvider);
     }
 
-    private bool CanMutateQuickSlots() => !_gameplayMutationsBlocked;
+    private bool CanMutateQuickSlots() => !MutationsBlocked;
 
     private void OnQuickSlotsChanged() => RefreshQuickSlots();
 
@@ -1851,6 +1976,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private void ClearBindingReferences()
     {
+        _boundPlayerCharacter = null;
+        _readDowned = null;
+        _downedReadOnly = false;
         _inventorySource = null;
         _preparedEquipmentSource = null;
         _townEquipmentEndpoint = null;

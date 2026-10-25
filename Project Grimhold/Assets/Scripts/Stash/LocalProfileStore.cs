@@ -917,6 +917,46 @@ public sealed class LocalProfileStore
     /// <summary>Reports what <see cref="TryTransferAllToStash"/> would return now, changing nothing.</summary>
     public StashOperationResult EvaluateTransferAllToStash() => PlanTransferAllToStash(out _);
 
+    public StashOperationResult TryOrder(InventoryList list, IReadOnlyList<LootId> lootIds) =>
+        CommitPlan(PlanOrder(list, lootIds, out LocalProfileSnapshot next), next);
+
+    public StashOperationResult EvaluateOrder(InventoryList list, IReadOnlyList<LootId> lootIds) =>
+        PlanOrder(list, lootIds, out _);
+
+    private StashOperationResult PlanOrder(InventoryList list, IReadOnlyList<LootId> lootIds, out LocalProfileSnapshot next)
+    {
+        next = null;
+        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        if (gate != StashOperationResult.Success) return gate;
+        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || lootIds == null)
+            return StashOperationResult.InvalidInventory;
+        var source = list == InventoryList.Stash ? current.Stash : current.Loadout;
+        if (lootIds.Count != source.Count) return StashOperationResult.InvalidInventory;
+        var items = new Dictionary<LootId, StashItem>();
+        foreach (StashItem item in source)
+        {
+            if (!item.LootId.IsValid || item.Amount <= 0 || items.ContainsKey(item.LootId))
+                return StashOperationResult.InvalidInventory;
+            items.Add(item.LootId, item);
+        }
+        var ordered = new List<StashItem>(source.Count);
+        bool changed = false;
+        for (int i = 0; i < lootIds.Count; i++)
+        {
+            if (!items.TryGetValue(lootIds[i], out StashItem item)) return StashOperationResult.InvalidInventory;
+            items.Remove(lootIds[i]);
+            ordered.Add(item);
+            changed |= source[i].LootId != lootIds[i];
+        }
+        // As with empty transfers, an identical order succeeds without a commit.
+        if (!changed) return StashOperationResult.Success;
+        next = current.Clone();
+        var target = list == InventoryList.Stash ? next.Stash : next.Loadout;
+        target.Clear();
+        target.AddRange(ordered);
+        return StashOperationResult.Success;
+    }
+
     private StashOperationResult CommitPlan(StashOperationResult plan, LocalProfileSnapshot next) =>
         plan == StashOperationResult.Success && next != null ? Commit(next) : plan;
 

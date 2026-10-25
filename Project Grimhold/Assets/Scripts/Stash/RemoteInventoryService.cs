@@ -8,6 +8,33 @@ using Grimhold.Backend;
 /// </summary>
 public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
 {
+    public async Task<(bool success, BackendError error)> OrderAsync(
+        InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || lootIds == null)
+            return (false, new BackendError { error = "VALIDATION_FAILED", message = "Invalid inventory order" });
+        var ids = new string[lootIds.Count];
+        for (int i = 0; i < ids.Length; i++) ids[i] = lootIds[i].Value;
+        await _mutationLock.WaitAsync();
+        try
+        {
+            var body = new InventoryOrderRequest
+            {
+                list = list == InventoryList.Stash ? "stash" : "loadout",
+                lootIds = ids,
+                expectedRevision = _store?.RemoteRevision ?? 0
+            };
+            var (success, result, error) = await InventoryClient.OrderAsync(_backendConfig, AuthToken, body);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            if (success && _store != null) _store.SetRemoteRevision(result.revision);
+            return (success, error);
+        }
+        finally { _mutationLock.Release(); }
+    }
+
     private BackendConfiguration _backendConfig;
     private LocalProfileStore _store;
     private readonly System.Threading.SemaphoreSlim _mutationLock = new System.Threading.SemaphoreSlim(1, 1);

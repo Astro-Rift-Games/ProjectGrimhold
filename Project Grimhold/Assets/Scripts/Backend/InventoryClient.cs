@@ -11,8 +11,21 @@ namespace Grimhold.Backend
     /// All methods follow the same (bool success, T data, BackendError error) tuple
     /// convention used by AuthenticationClient and CharacterClient.
     /// </summary>
+    [System.Serializable]
+    public sealed class InventoryOrderRequest
+    {
+        public string list;
+        public string[] lootIds;
+        public int expectedRevision;
+    }
+
     public static class InventoryClient
     {
+        public static Task<(bool success, MoveItemResult data, BackendError error)> OrderAsync(
+            BackendConfiguration config, string token, InventoryOrderRequest body) =>
+            PutJson<InventoryOrderRequest, MoveItemResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/order", body);
+
         // ------------------------------------------------------------------
         // GET inventory — called at login to hydrate the local Unity state
         // ------------------------------------------------------------------

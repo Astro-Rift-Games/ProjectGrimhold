@@ -32,6 +32,13 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     [SerializeField]
     private Color _selectedColor = new(0.28f, 0.22f, 0.08f, 1f);
 
+    private bool _isReserved;
+    private bool _isInactiveSet;
+    private const float ReservedIconAlpha = 0.35f;
+    private const float InactiveSetAlpha = 0.45f;
+
+    public bool IsEquipmentDropReserved => _isReserved;
+
     private LootId _lootId;
     private bool _isOccupied;
     private RaidLootSlotInteractionMode _interactionMode;
@@ -91,6 +98,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
         if (_icon != null)
         {
+            _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = data.Icon;
             _icon.enabled = data.Icon != null;
         }
@@ -118,29 +126,47 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         in RaidInventorySlotData data,
         bool isActive,
         bool canUnequip,
-        bool isBlocked = false)
+        bool isBlocked = false,
+        bool isInactiveSet = false)
     {
         string slotLabel = ResolveSlotLabel(slot);
         if (isBlocked)
         {
             Clear();
-            if (_nameText != null) _nameText.text = $"{slotLabel}\nBloqueado (arma 2M)";
+            _isReserved = true;
+            if (_icon != null)
+            {
+                _icon.sprite = data.Icon;
+                _icon.enabled = data.Icon != null;
+                _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, ReservedIconAlpha);
+            }
+            if (_nameText != null) _nameText.text = $"{slotLabel}\nReservado por {data.DisplayName}";
+            SetWeaponSetVisual(isActive, isInactiveSet);
             return;
         }
         if (!data.IsOccupied)
         {
             Clear();
             if (_nameText != null) _nameText.text = $"{slotLabel}\nVacío";
-            if (_background != null) _background.color = _normalColor;
+            SetWeaponSetVisual(isActive, isInactiveSet);
             return;
         }
 
+        _isReserved = false;
         Present(in data);
         if (_nameText != null) _nameText.text = $"{slotLabel}\n{data.DisplayName}";
         if (_amountText != null) _amountText.text = isActive ? "Activa · Desequipar" : "Desequipar";
         SetInteraction(
             canUnequip ? RaidLootSlotInteractionMode.TransferWithContextMenu : RaidLootSlotInteractionMode.ReadOnly,
             isActive);
+        SetWeaponSetVisual(isActive, isInactiveSet);
+    }
+
+    private void SetWeaponSetVisual(bool active, bool inactive)
+    {
+        _isSelected = active;
+        _isInactiveSet = inactive;
+        RefreshBackground();
     }
 
     /// <summary>
@@ -192,6 +218,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void Clear()
     {
+        _isReserved = false;
+        _isInactiveSet = false;
         _transferPulseRemaining = 0f;
         _dropHighlight = DropHighlightState.None;
         if (_isOccupied)
@@ -204,6 +232,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _slotData = default;
         if (_icon != null)
         {
+            _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = null;
             _icon.enabled = false;
         }
@@ -288,7 +317,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void SetDropHighlight(DropHighlightState state)
     {
-        _dropHighlight = state;
+        _dropHighlight = _isReserved && state == DropHighlightState.Valid ? DropHighlightState.Invalid : state;
         RefreshBackground();
     }
 
@@ -321,8 +350,10 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         {
             DropHighlightState.Valid => new Color(0.2f, 0.6f, 0.2f, 0.8f),
             DropHighlightState.Invalid => new Color(0.6f, 0.2f, 0.2f, 0.8f),
-            _ => _isSelected && _isOccupied ? _selectedColor : _normalColor
+            _ => _isSelected ? _selectedColor : _normalColor
         };
+        if (_isInactiveSet && _dropHighlight == DropHighlightState.None)
+            restingColor.a *= InactiveSetAlpha;
         _background.color = Color.Lerp(restingColor, new Color(0.25f, 0.8f, 0.4f, 1f),
             _transferPulseRemaining / TransferPulseDuration);
     }
@@ -362,7 +393,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     public void OnDrop(PointerEventData eventData)
     {
         Debug.Log($"OnDrop on slot {_lootId.Value} dragLoc={_dragLocation}");
-        if (_dragLocation != DragSlotLocation.None)
+        if (!_isReserved && _dragLocation != DragSlotLocation.None)
         {
             DropReceived?.Invoke(_dragLocation, _assignedEquipmentSlot);
         }

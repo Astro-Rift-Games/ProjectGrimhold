@@ -7,6 +7,8 @@ using Grimhold.Backend;
 /// </summary>
 public interface IRemoteInventoryService
 {
+    Task<(bool success, BackendError error)> OrderAsync(InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds);
+
     /// <summary>Persists a move of <paramref name="amount"/> units from the Stash to the Loadout.</summary>
     Task<(bool success, BackendError error)> MoveToLoadoutAsync(LootId lootId, int amount);
 

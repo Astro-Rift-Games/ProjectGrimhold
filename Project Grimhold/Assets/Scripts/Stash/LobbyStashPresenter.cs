@@ -18,15 +18,11 @@ public class LobbyStashPresenter : MonoBehaviour
     private IPlayerLoadoutService _loadoutService;
     private ApplicationStashContext _context;
     private StashTransferCoordinator _coordinator;
-    private ProfileId _coordinatorProfileId;
-    private IPlayerStashService _coordinatorStashService;
-    private IPlayerLoadoutService _coordinatorLoadoutService;
-    private IRemoteInventoryService _coordinatorRemote;
-    private IProfileReconciliation _coordinatorReconciliation;
-    private LootDefinitionCatalog _coordinatorCatalog;
+    private ITownEquipmentMutationEndpoint _equipmentEndpoint;
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
     private DragPayload _activeDrag = DragPayload.Empty;
+    private int _pendingActions;
     private Func<bool> _canMutateEquipment = AllowEquipmentMutation;
 
     /// <summary>
@@ -49,6 +45,7 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested += OnTransferRequested;
             _stashUI.TakeAllRequested += OnTakeAllRequested;
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
+            _stashUI.SortRequested += OnSortRequested;
             _stashUI.PreparedEquipmentAssignmentRequested += OnPreparedEquipmentAssignmentRequested;
             _stashUI.PreparedEquipmentClearRequested += OnPreparedEquipmentClearRequested;
 
@@ -71,6 +68,7 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             Debug.LogWarning("[LobbyStashPresenter] ApplicationStashContext not found. Stash UI will be empty.");
         }
+        UpdateActions();
     }
 
     private void OnDisable()
@@ -81,6 +79,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.TransferRequested -= OnTransferRequested;
             _stashUI.TakeAllRequested -= OnTakeAllRequested;
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
+            _stashUI.SortRequested -= OnSortRequested;
+            _stashUI.SetActionsInteractable(false);
             _stashUI.PreparedEquipmentAssignmentRequested -= OnPreparedEquipmentAssignmentRequested;
             _stashUI.PreparedEquipmentClearRequested -= OnPreparedEquipmentClearRequested;
 
@@ -95,10 +95,7 @@ public class LobbyStashPresenter : MonoBehaviour
     }
 
     /// <summary>
-    /// Returns the coordinator for the current profile and services. It is kept across closing and
-    /// reopening the screen and only rebuilt when a dependency instance changes (a logout replaces
-    /// the services), because a new instance would start a second queue while a transfer from the
-    /// previous opening is still waiting for the backend.
+    /// Borrows the application's queue; opening another screen must never create a second queue.
     /// </summary>
     private StashTransferCoordinator ResolveCoordinator()
     {
@@ -111,38 +108,9 @@ public class LobbyStashPresenter : MonoBehaviour
             return null;
         }
 
-        IRemoteInventoryService remote = _context.GetComponent<IRemoteInventoryService>();
-        IProfileReconciliation reconciliation = _context.GetComponent<IProfileReconciliation>();
-        if (_coordinator != null &&
-            _coordinatorProfileId == _localProfileId &&
-            ReferenceEquals(_coordinatorStashService, _stashService) &&
-            ReferenceEquals(_coordinatorLoadoutService, _loadoutService) &&
-            ReferenceEquals(_coordinatorRemote, remote) &&
-            ReferenceEquals(_coordinatorReconciliation, reconciliation) &&
-            ReferenceEquals(_coordinatorCatalog, _lootCatalog))
-        {
-            return _coordinator;
-        }
-
-        var equipment = new TownEquipmentMutationEndpoint(
-            _loadoutService,
-            _localProfileId,
-            _lootCatalog,
-            () => _canMutateEquipment());
-        _coordinator = new StashTransferCoordinator(
-            _localProfileId,
-            _stashService,
-            _loadoutService,
-            remote,
-            reconciliation,
-            equipment,
-            _lootCatalog);
-        _coordinatorProfileId = _localProfileId;
-        _coordinatorStashService = _stashService;
-        _coordinatorLoadoutService = _loadoutService;
-        _coordinatorRemote = remote;
-        _coordinatorReconciliation = reconciliation;
-        _coordinatorCatalog = _lootCatalog;
+        _equipmentEndpoint = new TownEquipmentMutationEndpoint(
+            _loadoutService, _localProfileId, _lootCatalog, () => _canMutateEquipment());
+        _coordinator = _context.ProfileId == _localProfileId ? _context.GetTransferCoordinator() : null;
         return _coordinator;
     }
 
@@ -185,7 +153,7 @@ public class LobbyStashPresenter : MonoBehaviour
         DragPayload payload = _activeDrag;
 
         if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
-        if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot)) return;
+        if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot, _stashUI.IsEquipmentDropReserved(targetEquipmentSlot))) return;
 
         if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Stash)
         {
@@ -205,9 +173,11 @@ public class LobbyStashPresenter : MonoBehaviour
         }
         else if (payload.Source == DragSlotLocation.Stash && targetLocation == DragSlotLocation.Equipment)
         {
-            Run(coordinator => coordinator.EquipAsync(payload.LootId, targetEquipmentSlot, fromStash: true));
+            Run(coordinator => coordinator.EquipAsync(payload.LootId, targetEquipmentSlot, fromStash: true, equipment: _equipmentEndpoint));
         }
     }
+
+    private void OnSortRequested(InventoryList list) => Run(coordinator => coordinator.SortAsync(list, _lootCatalog));
 
     private void OnTakeAllRequested() => Run(coordinator => coordinator.TakeAllAsync());
 
@@ -217,23 +187,29 @@ public class LobbyStashPresenter : MonoBehaviour
         Run(coordinator => coordinator.TransferAsync(lootId, isFromStash, mode));
 
     private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot, bool fromStash) =>
-        Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash));
+        Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash, _equipmentEndpoint));
 
     private void OnPreparedEquipmentClearRequested(EquipmentSlot slot) =>
-        Run(coordinator => coordinator.UnequipAsync(slot));
+        Run(coordinator => coordinator.UnequipAsync(slot, _equipmentEndpoint));
 
     /// <summary>Queues one action on the coordinator and reports, without throwing, how it ended.</summary>
     private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action)
     {
         if (_coordinator == null) return;
-        _ = ObserveAsync(action(_coordinator));
+        _pendingActions++;
+        UpdateActions();
+        _ = ObserveAsync(action, _coordinator);
     }
 
-    private static async Task ObserveAsync(Task<StashTransferOutcome> action)
+    private void UpdateActions() =>
+        _stashUI?.SetActionsInteractable(isActiveAndEnabled && _context != null && _coordinator != null && _pendingActions == 0);
+
+    private async Task ObserveAsync(
+        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator)
     {
         try
         {
-            StashTransferOutcome outcome = await action;
+            StashTransferOutcome outcome = await action(coordinator);
             if (!outcome.IsSuccess)
             {
                 Debug.LogWarning($"[{nameof(LobbyStashPresenter)}] Stash action did not complete: {outcome}.");
@@ -242,6 +218,11 @@ public class LobbyStashPresenter : MonoBehaviour
         catch (Exception exception)
         {
             Debug.LogException(exception);
+        }
+        finally
+        {
+            _pendingActions--;
+            if (this != null) UpdateActions();
         }
     }
 
@@ -286,8 +267,21 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private IReadOnlyList<RaidInventorySlotData> MapToPresentation(IReadOnlyList<StashItem> items) =>
-        StashDisplayOrder.Project(items, _lootCatalog, ResolvePlaceholderIcon());
+    private IReadOnlyList<RaidInventorySlotData> MapToPresentation(IReadOnlyList<StashItem> items)
+    {
+        var result = new List<RaidInventorySlotData>();
+        if (items == null) return result;
+        foreach (StashItem item in items)
+        {
+            LootDefinition definition = null;
+            if (_lootCatalog != null) _lootCatalog.TryGet(item.LootId.Value, out definition);
+            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, ResolvePlaceholderIcon());
+            if (slot.IsOccupied && string.IsNullOrWhiteSpace(slot.DisplayName))
+                slot = slot.WithDisplayName(item.LootId.Value);
+            result.Add(slot);
+        }
+        return result;
+    }
 
     private RaidInventorySlotData MapPreparedUnit(LootId lootId)
     {

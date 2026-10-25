@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
-/// <summary>Disposable Stash-screen ordering; never reorders persistent inventory or Equipment.</summary>
+/// <summary>Shared category/name comparer for explicit Sort intentions.</summary>
 public static class StashDisplayOrder
 {
     public static List<StashItem> SortedCopy(IReadOnlyList<StashItem> source, LootDefinitionCatalog catalog)
@@ -12,22 +11,7 @@ public static class StashDisplayOrder
         return copy;
     }
 
-    public static IReadOnlyList<RaidInventorySlotData> Project(
-        IReadOnlyList<StashItem> source, LootDefinitionCatalog catalog, Sprite placeholder)
-    {
-        var result = new List<RaidInventorySlotData>();
-        foreach (StashItem item in SortedCopy(source, catalog))
-        {
-            LootDefinition definition = Resolve(item, catalog);
-            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, placeholder);
-            if (slot.IsOccupied && string.IsNullOrWhiteSpace(slot.DisplayName))
-                slot = slot.WithDisplayName(item.LootId.Value);
-            result.Add(slot);
-        }
-        return result;
-    }
-
-    private static int Compare(StashItem left, StashItem right, LootDefinitionCatalog catalog)
+    public static int Compare(StashItem left, StashItem right, LootDefinitionCatalog catalog)
     {
         LootDefinition leftDefinition = Resolve(left, catalog);
         LootDefinition rightDefinition = Resolve(right, catalog);

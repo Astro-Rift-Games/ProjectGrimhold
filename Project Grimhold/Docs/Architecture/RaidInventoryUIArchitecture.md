@@ -61,7 +61,8 @@ slot prefab inside the existing screen and emit only a typed `EquipmentSlot` une
 the two Main Hand views carry an active state and participate in Set selection; Off Hand views derive
 a non-interactable blocked state while their Set's Main Hand contains a two-handed weapon. Armor views
 show nothing but empty/occupied, the piece's icon and metadata, and the unequip intention. They do
-not form a separate Equipment screen or a second inventory, and there is no drag & drop.
+not form a separate Equipment screen or a second inventory. Quick Slot assignment supports the
+Inventory drag documented below; this does not define an Equipment drag operation.
 
 The eight Equipment views are **authored in the prefab and never created at runtime**.
 `RaidInventoryView` exposes one named serialized field per slot (Set A/B Main Hand and Off Hand,
@@ -105,7 +106,11 @@ outside attribute requirements during the MVP.
 
 ## Slot projection and metadata
 
-`PlayerLootReceiver.TryGetLootContent` already emits catalog-index order. `RaidInventoryProjection` preserves that order, rejects content beyond gameplay capacity, and appends empty entries until the projection length equals `SlotCapacity`.
+`PlayerLootReceiver.TryGetLootContent` emits catalog-index order. For TASK-218, the personal
+panel projects the owning client's presentation-local order described below, rather than catalog-index
+order; Town projects stored Loadout order. Container panels still preserve snapshot order.
+`RaidInventoryProjection` rejects content beyond gameplay capacity and appends empty entries until
+the projection length equals `SlotCapacity`.
 
 Every occupied slot whose `LootDefinition` resolves carries an immutable equipment-tooltip
 presentation built from definition-owned data. Weapons expose base damage/type, interval, range,
@@ -133,7 +138,9 @@ capability. Loot mode makes occupied slots in both the player and container pane
 full capacity, including empty slots and `Contenedor vacío`; empty content does not close the
 screen. A container-slot click withdraws to the player, while a player-slot click deposits into the
 open container. In either panel, left click requests exactly one unit and right click requests the
-complete authoritative stack. There is no drag and drop, editable amount or multiple selection.
+complete authoritative stack. These container transfer clicks do not define drag and drop,
+editable amount or multiple selection; personal Quick Slot assignment supports the Inventory drag
+documented below.
 
 The container panel's “Tomar todo” button is enabled only for a valid open container with at least one visible occupied stack and no active request or batch. `RaidLootTakeAllState` copies the visible `LootId` values in order and tracks only the current local request. The presenter disables both panels and the button until that request finalizes, refreshes the replicated projections, and continues after success or rejection. It retains the last rejection feedback during the batch. New stacks are not appended, quantities remain authoritative, and close or target loss cancels unsent identities without affecting completed transfers.
 
@@ -220,12 +227,13 @@ regenerating tool can no longer overwrite manual layout work or renumber the aut
 Adding a slot to a pool means adding the slot instance in the prefab and appending it to the
 panel's `_authoredSlots`; the code only shows, hides and drives what the prefab already contains.
 
-`LobbyStashPresenter` remains the only owner of the profile services and binds the screen's intentions,
-but it holds no rules. It hands every transfer, Take All / Leave All, equip and unequip to a
-`StashTransferCoordinator`, which runs them through one serialized queue so an equip never interleaves
-with a transfer waiting for the backend. The presenter keeps that coordinator across closing and
-reopening the screen and only rebuilds it when the profile, a service instance or its bound loot catalog changes, because a
-second queue would let a reopened screen run ahead of a transfer still waiting for the backend. A transfer is first checked with the Store's dry-run
+`ApplicationStashContext` owns the profile services and the single `StashTransferCoordinator` for
+its bound profile/service instances. `LobbyStashPresenter` borrows it through `GetTransferCoordinator`;
+`TownInventoryBinder` injects that same coordinator into the personal inventory presenter. Transfers,
+Take All / Leave All, equip, unequip and Town Sort share its serialized queue across screen close/reopen
+and simultaneous screens. The context rebuilds only when the profile or a service instance changes.
+Catalog metadata and the caller's Equipment capability are supplied per operation, so changing a
+screen catalog cannot create a second queue and the context retains no UI dependencies. A transfer is first checked with the Store's dry-run
 evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would refuse, such as a move
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
@@ -245,17 +253,13 @@ attempt succeeded, it retains the first failure's status and details with the fu
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
 no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
-actual Stash prefab. `StashDisplayOrder` sorts disposable copies of both Stash and Loadout before
-paging: Valuable, Material, Quest, Miscellaneous, Weapon, Helmet, Armor, Gloves, Boots, Shield,
-then None/unresolved/unrecognized categories at one shared last rank. Within a rank, display names
-use ordinal-ignore-case comparison, then raw LootId uses ordinal comparison. Blank or missing names
-fall back to raw LootId; missing icons do not change a resolved category. This explicit user-approved
-screen priority does not change persisted inventory order or the fixed Equipment slot order, and
-does not change other Town/Raid inventory screens. Projection and bulk sequences share this helper;
-bulk ordering snapshots the complete source inside the existing queue, never the visible page.
-The presenter supplies its bound catalog and retains the queue across reopen with unchanged bindings.
-For compatibility, coordinator callers omitting the optional catalog retain legacy source order;
-the Stash screen always supplies its catalog. `RaidInventorySlotData.WithDisplayName` copies all
+actual Stash prefab. Implemented (TASK-218; Host/Client validation pending): both panels display stored order without automatic sorting;
+Stash pages over that order using its 16 authored slots. Each panel has its own Sort button, changing
+only that panel's persistent list through the shared comparer and transaction described below.
+Take All / Leave All snapshot the complete source in stored (displayed) order inside the existing
+queue, never just the visible page and never a `StashDisplayOrder` projection. The Town personal
+Inventory screen also exposes Sort for the same persistent Loadout list. The presenter supplies its
+bound catalog and retains the queue across reopen with unchanged bindings. `RaidInventorySlotData.WithDisplayName` copies all
 metadata for this screen's blank-name fallback without changing the shared `Create` factory.
 Page count covers the larger of configured capacity and accepted item count,
 so accepted remote excess is reachable. The last page hides unused authored slots beyond that
@@ -292,7 +296,68 @@ ownership, compatibility and the exclusive Inventory/Stash-to-Equipment moves de
 `TownStashPresenter` instantiates the authored prefab, resolves its `TownStashView` and only shows
 or hides it; it never adds components or configures the Canvas at runtime.
 
+## Player-controlled order and Sort (TASK-218)
+
+TASK-218 source implementation: no inventory surface sorts automatically: Stash, Town Loadout and Raid personal
+Inventory reorder only on an explicit Sort press. `StashDisplayOrder` becomes the shared Sort
+comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
+Helmet, Armor, Gloves, Boots, Shield, then None/unresolved/unrecognized at one last rank; display
+name ordinal-ignore-case next, then raw `LootId` ordinal. Blank names fall back to `LootId`;
+missing icons do not alter a resolved category. Sort never changes identity, amount or `Origin`,
+merges stacks or reorders fixed Equipment slots. Lists have one entry per ID and no holes: removing
+an entry shifts the rest up, a new ID appends, and a merge preserves the existing position.
+
+Town Sort persists through the Store, cache and backend, using the order
+transaction and authenticated backend write in `LocalPlayerPersistenceArchitecture.md`, through the
+same application-owned `StashTransferCoordinator` serialized queue as transfers. The Town binder
+injects it with a reservation-only Sort capability (Ready remains allowed); the shared view exposes
+one optional `_sortButton` and `SortRequested`. Backend write precedes local apply;
+remote failure or local divergence reconciles once and stops without retry. A pending Loadout
+reservation rejects Sort with `ReservationPending`; Ready does not block it because ownership is
+unchanged. Stash and Loadout buttons affect only their own lists.
+
+`PlayerLootReceiver` remains a catalog-index-keyed networked dictionary with
+unchanged replicated order. The owning client's `RaidInventoryPresenter` keeps a personal-panel
+list of `LootId`s, seeded at binding from the runner's local
+`LocalPlayerJoinContext.RaidAdmission.ReservedLoadout`, retained independently of reservation
+confirmation and inherited from Town. Snapshot IDs absent from that list (picked-up loot or unequipped items) append; IDs that
+leave are removed and the remainder shifts up. Each Raid Sort press sorts this local list once;
+new items are never automatically sorted in. This is local presentation only: no RPC, replication,
+other-peer use, container/corpse ordering or extraction persistence. Extraction retains its existing
+append behavior into Town Loadout. Container panels have no Sort button. The shared screen's
+Sort control is disabled outside Personal mode and while gameplay mutations are blocked. Source
+implementation is separate from prefab wiring and Unity/runtime acceptance, which remain required.
+
+## Equipment presentation and Downed read-only (TASK-218)
+
+Implemented (TASK-218; Host/Client validation pending): the shared Equipment slot view in Raid, Town and Stash presents the Off Hand
+of a Set with a two-handed Main Hand as reserved by that same weapon: a dimmed weapon icon and
+`reserved by <name>` label, never a second copy. It has no tooltip, context action, drag source or
+drop target. Local `DropPolicy` refuses drops there; State Authority continues rejecting them with
+`IncompatibleHandConfiguration`. Both slots of the active Weapon Set are highlighted and both
+slots of the inactive Set are dimmed, superseding the Main-Hand-only active visual described above.
+Code drives existing slot visuals and refreshes through the existing `EquipmentRevision` observation
+on Set swap; no prefab rework or #335 work is included.
+
+Implemented (TASK-218; Host/Client validation pending): `RaidInventoryPresenter` derives a reversible local read-only block from the
+local avatar's `PlayerDownedGate.IsDowned`, distinct from the participant's `Defeated` mutation
+block. Personal or container screens may stay open and visible while Downed, but entering Downed
+cancels an active drag and rejects drag, drop, context menu, unequip, transfer, take-all, world drop,
+Quick Slot assignment and Sort intentions. A visible reason explains that inventory is read-only
+while Downed; Spanish UI wording is an implementation choice. Leaving Downed restores interactivity
+without reopening. Raid binding caches the avatar's `PlayerCharacter` and compares the Downed
+predicate each frame, like Equipment revision observation. A private predicate seam supports
+non-networked presentation tests. Close clears local read-only presentation; reopening observes
+Downed again. The existing feedback channel keeps the persistent reason ahead of late transfer
+feedback until recovery or close. This is UX only: authoritative gates in `DownedAndReviveArchitecture.md` section 9
+remain unchanged.
+
 ## Validation strategy
+
+Implemented (TASK-218; Host/Client validation pending): pure tests cover Sort's exact permutation and amount/`Origin` invariance, plus
+order maintenance on add, merge and remove. PlayMode tests cover the panel-specific Sort buttons,
+reserved Off Hand behavior, both-slot active/inactive Set visuals and the reversible Downed block.
+Manual Host/Client checks cover Downed entry/recovery and Set swap on a remote client.
 
 Pure tests cover projection order/capacity, slot fallback and tooltip data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity, tooltip hover/clamping/lifecycle and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
 
@@ -310,4 +375,5 @@ restart and the defeated body's final visual transition.
 
 ## Quick Slots (TASK-214)
 
-The shared personal-inventory screen carries four authored Quick Slot views (`QuickSlot1..4` under `EquipmentPanel` in `RaidInventoryUI.prefab`, assigned to `RaidInventoryView`). They bind a definition, never a stack: dropping an Inventory slot on one (`DragSlotLocation.QuickSlot`, only from `Inventory`) or choosing "Asignar a Quick Slot N" from the context menu (`LootQuickSlotContextActionProvider`, only for Quick Slot compatible definitions) calls `QuickSlotController.TryAssign`, which moves an existing binding of the same definition to the new slot. A right click on an occupied slot unassigns it. A bound definition with no available units stays visible with a zero amount. Both Raid and Town bind a `QuickSlotController` for the inventory they show, and assignment is available in Town even while Ready, because it changes no equipment or items; it is blocked only for a defeated participant (`SetGameplayMutationsBlocked`). The slot layout is provisional until the UI assets of #335 land.
+The shared personal-inventory screen carries four authored Quick Slot views (`QuickSlot1..4` under `EquipmentPanel` in `RaidInventoryUI.prefab`, assigned to `RaidInventoryView`). They bind a definition, never a stack: dropping an Inventory slot on one (`DragSlotLocation.QuickSlot`, only from `Inventory`) or choosing "Asignar a Quick Slot N" from the context menu (`LootQuickSlotContextActionProvider`, only for Quick Slot compatible definitions) calls `QuickSlotController.TryAssign`, which moves an existing binding of the same definition to the new slot. A right click on an occupied slot unassigns it. A bound definition with no available units stays visible with a zero amount. Both Raid and Town bind a `QuickSlotController` for the inventory they show, and assignment is available in Town even while Ready, because it changes no equipment or items; it is blocked for a defeated participant (`SetGameplayMutationsBlocked`) and, Implemented (TASK-218; Host/Client validation pending),
+while Downed through the separate reversible read-only block. The slot layout is provisional until the UI assets of #335 land.

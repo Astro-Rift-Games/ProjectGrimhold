@@ -173,7 +173,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             _equipmentEndpoint,
             inputReader,
             hosted,
-            _quickSlots);
+            _quickSlots,
+            _profileContext.GetTransferCoordinator(),
+            CanSortInventory);
         if (hosted)
         {
             _menuPresenter.RegisterTab(new TownMenuTabRegistration(
@@ -197,6 +199,10 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     /// </summary>
     private bool CanReleaseDepletedQuickSlot() =>
         _profileContext != null && _profileContext.Store != null &&
+        _profileContext.Store.PendingReservation == null;
+
+    private bool CanSortInventory() =>
+        _profileContext != null && _profileContext.IsAvailable &&
         _profileContext.Store.PendingReservation == null;
 
     private bool CanMutateEquipment() =>

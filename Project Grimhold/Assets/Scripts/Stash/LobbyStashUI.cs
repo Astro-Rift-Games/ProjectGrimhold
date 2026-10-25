@@ -34,6 +34,8 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     [SerializeField] private Button _takeAllButton;
     [SerializeField] private Button _leaveAllButton;
+    [SerializeField] private Button _stashSortButton;
+    [SerializeField] private Button _loadoutSortButton;
     [SerializeField] private Button _stashPreviousPage;
     [SerializeField] private Button _stashNextPage;
     [SerializeField] private TMP_Text _stashPageLabel;
@@ -68,6 +70,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     public event Action<LootId, bool, LootTransferQuantityMode> TransferRequested; // LootId, isFromStash, quantityMode
     public event Action TakeAllRequested;
     public event Action LeaveAllRequested;
+    public event Action<InventoryList> SortRequested;
 
     public event Action<DragPayload> DragStarted;
     public event Action DragUpdated;
@@ -91,6 +94,11 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (_stashNextPage != null) _stashNextPage.onClick.AddListener(OnNextStashPage);
         if (_takeAllButton != null) _takeAllButton.onClick.AddListener(OnTakeAllClicked);
         if (_leaveAllButton != null) _leaveAllButton.onClick.AddListener(OnLeaveAllClicked);
+        if (_stashSortButton != null) _stashSortButton.onClick.AddListener(OnStashSortClicked);
+        else ReportMissingView(nameof(_stashSortButton));
+        if (_loadoutSortButton != null) _loadoutSortButton.onClick.AddListener(OnLoadoutSortClicked);
+        else ReportMissingView(nameof(_loadoutSortButton));
+        SetActionsInteractable(false);
         if (_contextMenu != null) _contextMenu.ActionRequested += OnContextActionRequested;
 
         if (_stashPanel != null)
@@ -136,6 +144,8 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (_stashNextPage != null) _stashNextPage.onClick.RemoveListener(OnNextStashPage);
         if (_takeAllButton != null) _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
         if (_leaveAllButton != null) _leaveAllButton.onClick.RemoveListener(OnLeaveAllClicked);
+        if (_stashSortButton != null) _stashSortButton.onClick.RemoveListener(OnStashSortClicked);
+        if (_loadoutSortButton != null) _loadoutSortButton.onClick.RemoveListener(OnLoadoutSortClicked);
         if (_contextMenu != null) _contextMenu.ActionRequested -= OnContextActionRequested;
 
         if (_stashPanel != null)
@@ -227,9 +237,13 @@ public sealed class LobbyStashUI : MonoBehaviour
             RaidLootSlotInteractionMode.TransferWithContextMenu,
             ref _hasReportedLoadoutOverflow);
 
+    public bool IsEquipmentDropReserved(EquipmentSlot slot) =>
+        slot == EquipmentSlot.WeaponSetAOffHand && _setAOffHandBlocked ||
+        slot == EquipmentSlot.WeaponSetBOffHand && _setBOffHandBlocked;
+
     /// <summary>
-    /// Projects the eight Equipment slots. Every occupied slot offers the release intention; only the
-    /// Main Hand slots may become the effective weapon, which the Town does not preview.
+    /// Projects prepared Equipment, including visual-only two-handed reservations.
+    /// Town does not preview an active weapon Set, so Set visuals remain neutral.
     /// </summary>
     public void DisplayPreparedEquipment(
         IReadOnlyList<RaidInventorySlotData> slotData,
@@ -258,6 +272,12 @@ public sealed class LobbyStashUI : MonoBehaviour
             EquipmentSlot slot = slots[index];
             bool blocked = slot == EquipmentSlot.WeaponSetAOffHand && setAOffHandBlocked ||
                            slot == EquipmentSlot.WeaponSetBOffHand && setBOffHandBlocked;
+            if (blocked)
+            {
+                EquipmentSlot mainHand = EquipmentSlotRules.GetMainHandSlot(EquipmentSlotRules.GetWeaponSet(slot));
+                int mainIndex = System.Array.IndexOf(slots, mainHand);
+                data = mainIndex >= 0 && mainIndex < slotData.Count ? slotData[mainIndex] : RaidInventorySlotData.Empty;
+            }
             view.PresentEquipmentSlot(slot, in data, false, data.IsOccupied, blocked);
         }
     }
@@ -376,6 +396,17 @@ public sealed class LobbyStashUI : MonoBehaviour
             }
         }
     }
+
+    public void SetActionsInteractable(bool interactable)
+    {
+        if (_takeAllButton != null) _takeAllButton.interactable = interactable;
+        if (_leaveAllButton != null) _leaveAllButton.interactable = interactable;
+        if (_stashSortButton != null) _stashSortButton.interactable = interactable;
+        if (_loadoutSortButton != null) _loadoutSortButton.interactable = interactable;
+    }
+
+    private void OnStashSortClicked() => SortRequested?.Invoke(InventoryList.Stash);
+    private void OnLoadoutSortClicked() => SortRequested?.Invoke(InventoryList.Loadout);
 
     private void OnTakeAllClicked() => TakeAllRequested?.Invoke();
 

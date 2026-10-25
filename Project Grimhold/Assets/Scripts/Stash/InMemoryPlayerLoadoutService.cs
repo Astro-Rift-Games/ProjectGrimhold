@@ -8,6 +8,12 @@ using UnityEngine;
 /// </summary>
 public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadoutService
 {
+    public StashOperationResult TryOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) =>
+        IsProfile(profileId) ? _store.TryOrder(list, lootIds) : StashOperationResult.InvalidInventory;
+
+    public StashOperationResult EvaluateOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) =>
+        IsProfile(profileId) ? _store.EvaluateOrder(list, lootIds) : StashOperationResult.InvalidInventory;
+
     private LocalProfileStore _store;
 
     public event Action<ProfileId> LoadoutChanged;

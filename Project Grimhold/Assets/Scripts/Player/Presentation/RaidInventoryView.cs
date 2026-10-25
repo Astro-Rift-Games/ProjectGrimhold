@@ -30,6 +30,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     private Button _takeAllButton;
 
     [SerializeField]
+    private Button _sortButton;
+
+    [SerializeField]
     private RaidLootContextMenuView _contextMenu;
 
     [SerializeField]
@@ -83,6 +86,19 @@ public sealed class RaidInventoryView : MonoBehaviour
     private float _transferFeedbackDuration = 1.5f;
 
     private float _transferFeedbackRemaining;
+    private bool _downedReadOnly;
+    private const string DownedReadOnlyReason = "Estás abatido: el inventario es de solo lectura.";
+
+    public void SetDownedReadOnly(bool readOnly)
+    {
+        _downedReadOnly = readOnly;
+        if (readOnly) SetTransferFeedback(DownedReadOnlyReason, false);
+        else
+        {
+            HideTransferFeedback();
+            if (_transferFeedbackText != null) _transferFeedbackText.text = string.Empty;
+        }
+    }
 
     /// <summary>
     /// The eight serialized views in <see cref="EquipmentSlotRules.AllSlots"/>
@@ -95,6 +111,18 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     /// <summary>Local-only intention emitted when the enabled take-all control is activated.</summary>
     public event Action TakeAllRequested;
+    public event Action SortRequested;
+
+    public void SetSortInteractable(bool interactable)
+    {
+        if (_sortButton != null) _sortButton.interactable = interactable;
+    }
+
+    private void OnSortClicked()
+    {
+        if (isActiveAndEnabled && _sortButton != null && _sortButton.interactable)
+            SortRequested?.Invoke();
+    }
     public event Action<EquipmentSlot> EquipmentUnequipRequested;
     public event Action<EquipmentSlot, RectTransform> EquipmentContextRequested;
 
@@ -121,12 +149,14 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     /// <summary>Gets the container take-all control for presentation verification.</summary>
     public Button TakeAllButton => _takeAllButton;
+    public Button SortButton => _sortButton;
     public RaidLootContextMenuView ContextMenu => _contextMenu;
     public EquipmentTooltipView TooltipView => _tooltipView;
     public DragPreviewView DragPreview => _dragPreview;
 
     private void Awake()
     {
+        if (_sortButton != null) _sortButton.onClick.AddListener(OnSortClicked);
         if (_takeAllButton != null)
         {
             _takeAllButton.onClick.AddListener(OnTakeAllClicked);
@@ -162,6 +192,7 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_sortButton != null) _sortButton.onClick.RemoveListener(OnSortClicked);
         if (_takeAllButton != null)
         {
             _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
@@ -264,7 +295,7 @@ public sealed class RaidInventoryView : MonoBehaviour
     }
 
     /// <summary>
-    /// Projects the eight Equipment slots. Only Main Hand slots carry an active state;
+    /// Projects the eight Equipment slots. Both hands carry their Set's active state;
     /// the armor slots show occupancy and offer the unequip intention.
     /// </summary>
     public void PresentEquipmentSlots(
@@ -293,13 +324,28 @@ public sealed class RaidInventoryView : MonoBehaviour
             RaidInventorySlotData data = slotData[index];
             bool blocked = slot == EquipmentSlot.WeaponSetAOffHand && setAOffHandBlocked ||
                            slot == EquipmentSlot.WeaponSetBOffHand && setBOffHandBlocked;
+            if (blocked)
+            {
+                EquipmentSlot mainHand = EquipmentSlotRules.GetMainHandSlot(EquipmentSlotRules.GetWeaponSet(slot));
+                int mainIndex = System.Array.IndexOf(slots, mainHand);
+                data = mainIndex >= 0 && mainIndex < slotData.Count ? slotData[mainIndex] : RaidInventorySlotData.Empty;
+            }
             view.PresentEquipmentSlot(
                 slot,
                 in data,
                 EquipmentSlotRules.GetWeaponSet(slot) == activeSlot && activeSlot != WeaponSetSlot.None,
                 canUnequip,
-                blocked);
+                blocked,
+                activeSlot != WeaponSetSlot.None && EquipmentSlotRules.GetWeaponSet(slot) != WeaponSetSlot.None &&
+                    EquipmentSlotRules.GetWeaponSet(slot) != activeSlot);
         }
+    }
+
+    public bool IsEquipmentDropReserved(EquipmentSlot slot)
+    {
+        int index = System.Array.IndexOf(EquipmentSlotRules.AllSlots, slot);
+        return _equipmentSlotViews != null && index >= 0 && index < _equipmentSlotViews.Length &&
+            _equipmentSlotViews[index] != null && _equipmentSlotViews[index].IsEquipmentDropReserved;
     }
 
     /// <summary>
@@ -482,6 +528,11 @@ public sealed class RaidInventoryView : MonoBehaviour
 
     private void SetTransferFeedback(string message, bool autoHide)
     {
+        if (_downedReadOnly)
+        {
+            message = DownedReadOnlyReason;
+            autoHide = false;
+        }
         if (_transferFeedbackText != null)
         {
             _transferFeedbackText.text = message ?? string.Empty;
@@ -500,6 +551,11 @@ public sealed class RaidInventoryView : MonoBehaviour
     /// <summary>Clears contextual transfer feedback without changing inventory state.</summary>
     public void HideTransferFeedback()
     {
+        if (_downedReadOnly)
+        {
+            SetTransferFeedback(DownedReadOnlyReason, false);
+            return;
+        }
         _transferFeedbackRemaining = 0f;
         if (_transferFeedbackRoot != null)
         {

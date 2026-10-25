@@ -23,6 +23,36 @@ public sealed class ApplicationStashContext : MonoBehaviour
 
     public event System.Action<ProfileId> ProfileCommitted;
 
+    private StashTransferCoordinator _coordinator;
+    private ProfileId _coordinatorProfile;
+    private IPlayerStashService _coordinatorStash;
+    private IPlayerLoadoutService _coordinatorLoadout;
+    private IRemoteInventoryService _coordinatorRemote;
+    private IProfileReconciliation _coordinatorReconciliation;
+
+    /// <summary>
+    /// One application queue for the bound profile/services, retained across screen lifecycles.
+    /// Catalog and Equipment capabilities are supplied per operation, not retained from a UI.
+    /// </summary>
+    public StashTransferCoordinator GetTransferCoordinator()
+    {
+        if (!IsAvailable || !ProfileId.IsValid || StashService == null || LoadoutService == null) return null;
+        var remote = GetComponent<IRemoteInventoryService>();
+        var reconciliation = GetComponent<IProfileReconciliation>();
+        if (_coordinator != null && _coordinatorProfile == ProfileId &&
+            ReferenceEquals(_coordinatorStash, StashService) && ReferenceEquals(_coordinatorLoadout, LoadoutService) &&
+            ReferenceEquals(_coordinatorRemote, remote) && ReferenceEquals(_coordinatorReconciliation, reconciliation))
+            return _coordinator;
+
+        _coordinator = new StashTransferCoordinator(ProfileId, StashService, LoadoutService, remote, reconciliation);
+        _coordinatorProfile = ProfileId;
+        _coordinatorStash = StashService;
+        _coordinatorLoadout = LoadoutService;
+        _coordinatorRemote = remote;
+        _coordinatorReconciliation = reconciliation;
+        return _coordinator;
+    }
+
     /// <summary>
     /// Injects the concrete implementation of the stash service.
     /// This should only be called during initialization by a bootstrapper.

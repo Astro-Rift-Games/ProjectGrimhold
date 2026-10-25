@@ -126,6 +126,8 @@ public sealed class LocalLoadoutInventoryReadSourceTests
 
     private sealed class FakeLoadoutService : IPlayerLoadoutService
     {
+        public StashOperationResult TryOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) => StashOperationResult.InvalidInventory;
+        public StashOperationResult EvaluateOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) => StashOperationResult.InvalidInventory;
         public IReadOnlyList<StashItem> Loadout { get; set; } = Array.Empty<StashItem>();
         public PreparedEquipmentLoadout PreparedEquipment { get; set; }
         public event Action<ProfileId> LoadoutChanged

@@ -466,6 +466,8 @@ public sealed class DevelopmentProfileBootstrapTests
     /// <see cref="TryPrepareExpeditionLoadout"/>; every other member is unused by this rule.</summary>
     private sealed class FakeLoadoutService : IPlayerLoadoutService
     {
+        public StashOperationResult TryOrder(ProfileId profileId, InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds) => StashOperationResult.InvalidInventory;
+        public StashOperationResult EvaluateOrder(ProfileId profileId, InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds) => StashOperationResult.InvalidInventory;
         private readonly ExpeditionPreparationResult _result;
 
         public FakeLoadoutService(ExpeditionPreparationResult result)
