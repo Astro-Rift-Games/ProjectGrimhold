@@ -8,7 +8,9 @@ Evidence levels: **confirmed** = read in source; **inferred** = follows from sou
 
 ## Baseline
 
-- Unity commerce EditMode tests: 18 fixtures, 283/283 passed, 0 console errors (job `7774d012dca947e499a76d3abfa40783`).
+- Unity commerce EditMode tests: 283/283 passed, 0 console errors (job `7774d012dca947e499a76d3abfa40783`).
+- `ShopTransactionPersistenceEditModeTests` contributed nothing to that count. It sits in `Assets/Tests/EditMode/` outside an `Editor` folder, so it compiles into `Assembly-CSharp` and the runner only discovers it in PlayMode (37/37 before this branch).
+- The same applies to the other `#if UNITY_EDITOR && UNITY_INCLUDE_TESTS` files in `Assets/Tests/EditMode/` outside `Editor/` (Currency, LocalProfile, QuickSlots, `Stash/RemoteOperationPolicyTests`, and others): they run only in PlayMode despite their EditMode names (L7).
 - Backend tests: not run (`backend/node_modules` and `.env` absent locally; suites use `MongoMemoryServer`).
 - Runtime: Unity loads `Resources/BackendConfiguration.asset` = `https://projectgrimhold.onrender.com` (health ok). `BackendConfiguration_Local.asset` (`localhost:3000`) is not loaded by any code path.
 
