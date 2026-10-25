@@ -71,11 +71,11 @@ test('E2E Concurrency & Idempotency (US-45)', async (t) => {
     
     const req1 = request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token}`)
-      .send({ transactionId: 'tx-buy-1', lootId: 'health_potion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
+      .send({ transactionId: 'tx-buy-1', lootId: 'healthpotion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
 
     const req2 = request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token}`)
-      .send({ transactionId: 'tx-buy-1', lootId: 'health_potion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
+      .send({ transactionId: 'tx-buy-1', lootId: 'healthpotion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
 
     const [res1, res2] = await Promise.all([req1, req2]);
     

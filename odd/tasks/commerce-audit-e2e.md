@@ -12,10 +12,10 @@ Engram mirror topic: `odd/commerce-audit-e2e/tasks`.
 ## Tasks
 - [x] T1 Audit (read-only): code + tests vs architecture and Game Design | route: 2 delegated explorers (Unity, backend) + delegated EditMode baseline verifier (283/283) + parent spot checks (H1, H2 backend, H3)
 - [x] T2 Audit report with severity and `path:line` evidence; user selects fixes | report: `docs/audit_commerce_2026-10-25.md` | commit: `4226ba51` `docs(commerce): add commerce system audit report`
-- [ ] T3 E2E in Editor against backend (Town buy/sell, backend state check)
+- [ ] T3 E2E in Editor against backend (Town buy/sell, backend state check) | phase A PASS (delegated verifier): Render login -> Town, Unity/backend state match (0 gold, rev 0), merchant stock 6 lines matching backend prices, InsufficientCurrency blocks Confirm with `Oro insuficiente: faltan 5`, forced Confirm no-op, 2-line draft + close discards. Phase B (real raid funding) running.
 - [ ] T4 Permanent PlayMode E2E tests
 - [ ] T5a H2 reservation gate (Unity `TryCommitTrade` + backend `shopBuy`/`shopSell` 409) | backend part done: delegated worker, RED (unit `Missing expected rejection.`, integration `200 !== 409`) -> GREEN; npm test 159/159, integration 68/68, concurrency 7/7; commit `fix(backend): reject shop trades while a raid reservation is pending`; Unity part pending (Editor busy with E2E)
-- [ ] T5b H4 align `shopCatalog.js` to Unity assets + EditMode parity test; drop dead `training_sword` / duplicate `health_potion`
+- [x] T5b H4 align `shopCatalog.js` to Unity assets + EditMode parity test; drop dead `training_sword` / duplicate `health_potion` | route: delegated worker; RED parity 24 mismatches -> GREEN; npm test 160/160, integration 68/68, concurrency 7/7; two integration fixtures switched `health_potion` -> `healthpotion`; note: `health_potion` does not normalize, legacy stacks with that spelling become unsellable (Unity hydration already skips unknown ids) | commit: `fix(backend): mirror Unity loot prices in the shop catalog`
 - [ ] T5c H5 report persisted only after backend ack; M2 RPC null guard; L1 missing config is an error; L3 docs
 - [ ] T5d Design proposal for H1 (durable ability unlock) and H3 (atomic multi-line trade endpoint); no code until approved
 

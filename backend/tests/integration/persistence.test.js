@@ -79,11 +79,11 @@ test('E2E Persistence across restarts (US-45)', async (t) => {
   await t.test('6. Buy from Shop', async () => {
     const res = await request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token1}`)
-      .send({ transactionId: 'tx1', lootId: 'health_potion', amount: 5, declaredPrice: 100, expectedRevision: 2 });
+      .send({ transactionId: 'tx1', lootId: 'healthpotion', amount: 5, declaredPrice: 100, expectedRevision: 2 });
     
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.currency, 900);
-    assert.strictEqual(res.body.loadout.find(i => i.lootId === 'health_potion').amount, 5);
+    assert.strictEqual(res.body.loadout.find(i => i.lootId === 'healthpotion').amount, 5);
   });
 
   await t.test('7. Save Raid Reservation', async () => {

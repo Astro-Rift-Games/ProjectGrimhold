@@ -10,20 +10,18 @@ const MAX_TRANSACTION_AMOUNT = 999;
 
 /**
  * Authoritative catalog of items offered for purchase by the Town Merchant.
+ * Unity LootDefinition assets are the source of truth: mirror positive buy values only.
+ * Backend-only ids use GD-14 values and have no Unity asset yet.
  * Prices are in gold (currency) units.
  * Legitimate free items are explicitly marked with `isFree: true`.
  */
 const BUY_CATALOG = Object.freeze({
   healthpotion: { buyPrice: 20, isFree: false },
-  health_potion: { buyPrice: 20, isFree: false },
   bone: { buyPrice: 5, isFree: false },
   placeholder_helmet: { buyPrice: 10, isFree: false },
   placeholder_armor: { buyPrice: 10, isFree: false },
   placeholder_gloves: { buyPrice: 10, isFree: false },
   placeholder_boots: { buyPrice: 10, isFree: false },
-  arming_sword: { buyPrice: 25, isFree: false },
-  shield: { buyPrice: 20, isFree: false },
-  training_sword: { buyPrice: 15, isFree: false },
   // Explicit legitimate free promotional/testing item:
   free_sample: { buyPrice: 0, isFree: true }
 });
@@ -31,19 +29,36 @@ const BUY_CATALOG = Object.freeze({
 /**
  * Authoritative catalog of items the Town Merchant is willing to purchase from players.
  * Values are in gold (currency) units per single unit.
- * Aligned with GD-14 (Tabla maestra de Value del catálogo MVP) and Unity LootDefinition assets.
+ * Unity LootDefinition assets are the source of truth: mirror positive sell values only.
+ * Backend-only ids use GD-14 values and have no Unity asset yet.
  */
 const SELL_CATALOG = Object.freeze({
   healthpotion: { sellValue: 10 },
-  health_potion: { sellValue: 10 },
   bone: { sellValue: 5 },
   placeholder_helmet: { sellValue: 5 },
   placeholder_armor: { sellValue: 5 },
   placeholder_gloves: { sellValue: 5 },
   placeholder_boots: { sellValue: 5 },
-  arming_sword: { sellValue: 12 },
-  shield: { sellValue: 10 },
-  training_sword: { sellValue: 7 },
+  army_ranger_armor: { sellValue: 5 },
+  army_ranger_gloves: { sellValue: 5 },
+  army_ranger_hat: { sellValue: 5 },
+  army_ranger_trousers: { sellValue: 5 },
+  fire_mage_garb: { sellValue: 5 },
+  fire_mage_gloves: { sellValue: 5 },
+  fire_mage_hood: { sellValue: 5 },
+  fire_mage_trousers: { sellValue: 5 },
+  forest_ranger_gloves: { sellValue: 5 },
+  forest_ranger_hood: { sellValue: 5 },
+  forest_ranger_leather_armor: { sellValue: 5 },
+  forest_ranger_trousers: { sellValue: 5 },
+  heavy_armor_breastplate: { sellValue: 5 },
+  heavy_armor_gauntlets: { sellValue: 5 },
+  heavy_armor_helmet: { sellValue: 5 },
+  heavy_armor_leg_plate: { sellValue: 5 },
+  light_armor_chain_mail_armor: { sellValue: 5 },
+  light_armor_chain_mail_trousers: { sellValue: 5 },
+  light_armor_gloves: { sellValue: 5 },
+  light_armor_open_sallet: { sellValue: 5 },
   coins: { sellValue: 1 },
   gold_coin: { sellValue: 1 },
   // GD-14 master list resources
