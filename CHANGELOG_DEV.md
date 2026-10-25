@@ -6,6 +6,10 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **town:** inspect another member's equipment in Preparation ([3925da9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3925da99a497fe3a0ac064f7a0c42fc65ca5d3f2))
+- **town:** show a card per member in Preparation ([373ec31](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/373ec313eb19a373e2a76e99a8816b9cdcde235b))
+- **town:** project member equipment into Preparation presentation ([36143c9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36143c92809977326eae46fadd813a58853f0ccf))
+- **town:** replicate full prepared equipment for inspection ([a448183](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a448183f336873960f022470b8dc8b9dbfb24c2f))
 - **inventory:** add manual sort, reserved 2H slot and Downed lock ([06c164e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/06c164e9c6cf56cb0bceffd093b49c8097f6bc42))
 - **backend:** persist player-controlled inventory order ([c261944](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c261944f2a77a8dfd242237b720e7c98ef2c5ffb))
 - **ui:** open Settings from the Town options and the Raid menu ([fce29a1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fce29a1d02be52a24c9591cd3a416eefea91de73))
