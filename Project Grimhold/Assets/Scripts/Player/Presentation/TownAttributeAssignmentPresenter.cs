@@ -16,10 +16,16 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
     private TownAttributeAssignmentView _view;
     private ApplicationStashContext _profileContext;
     private LocalProfileStore _store;
+    private TownAttributeMutationEndpoint _endpoint;
+    private TownRaidPreparationDirectory _preparationDirectory;
+    private ProfileId _localProfileId;
     private PlayerInputReader _inputReader;
     private IDisposable _inputSuppression;
 
     public override void Spawned() => TryBind();
+
+    private bool CanMutate() =>
+        TownEquipmentMutationGate.CanMutate(_preparationDirectory, _localProfileId);
 
     private void OnEnable()
     {
@@ -69,6 +75,10 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
             return;
         }
 
+        _localProfileId = localProfileId;
+        _preparationDirectory = FindAnyObjectByType<TownRaidPreparationDirectory>();
+        _endpoint = new TownAttributeMutationEndpoint(_store, CanMutate);
+
         _view = Instantiate(_viewPrefab, transform, false);
         _view.name = _viewPrefab.name;
 
@@ -84,7 +94,7 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
                 TownMenuTabIds.Attributes,
                 "Attributes",
                 (RectTransform)_view.transform,
-                _view.Open,
+                OpenView,
                 _view.Close));
         }
         else
@@ -105,7 +115,8 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
             PresentUnavailable,
             TryBuildStatistics,
             PresentStatistics,
-            PresentStatisticsUnavailable);
+            PresentStatisticsUnavailable,
+            CanMutate);
     }
 
     /// <summary>
@@ -179,6 +190,13 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
         }
 
         _inputSuppression = _inputReader.AcquireGameplayInputSuppression();
+        OpenView();
+    }
+
+    private void OpenView()
+    {
+        // The Ready state can change without a profile commit, so showing the panel always refreshes.
+        _binding?.Refresh();
         _view.Open();
     }
 
@@ -197,10 +215,14 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 
     private async void AssignAttribute(CharacterAttribute attribute)
     {
-        if (_store == null || _isCommitInFlight) return;
+        if (_endpoint == null || _isCommitInFlight) return;
 
-        var commitResult = _store.TryAssignCharacterAttribute(attribute, out _);
-        if (commitResult != CharacterAttributeAssignmentCommitResult.Success) return;
+        if (!_endpoint.TryAssign(attribute, out _))
+        {
+            // A Ready lock may have closed assignment since the panel opened: show the locked state.
+            _binding?.Refresh();
+            return;
+        }
 
         var remoteService         = _profileContext?.GetComponent<RemoteInventoryService>();
         var reconciliationService = _profileContext?.GetComponent<ProfileReconciliationService>();
@@ -293,6 +315,9 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
     {
         _profileContext = null;
         _store = null;
+        _endpoint = null;
+        _preparationDirectory = null;
+        _localProfileId = default;
         _inputReader = null;
     }
 }

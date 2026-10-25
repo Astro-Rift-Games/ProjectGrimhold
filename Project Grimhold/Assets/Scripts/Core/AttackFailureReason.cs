@@ -36,5 +36,8 @@ public enum AttackFailureReason
     /// <summary>
     /// Falló la ejecución propia de la estrategia de ataque.
     /// </summary>
-    ExecutionFailed
+    ExecutionFailed,
+
+    /// <summary>A basic attack cannot start while an ability is executing.</summary>
+    AbilityInProgress
 }

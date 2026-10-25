@@ -830,6 +830,8 @@ La configuración exacta debe validarse en la implementación y en pruebas host/
 ## 15. Bloqueos autoritativos
 
 Los bloqueos autoritativos representan reglas de gameplay que impiden movimiento voluntario.
+La ejecución de un ataque de arma o habilidad solo suprime Sprint; no modifica `canMove`
+ni bloquea por sí misma el movimiento base (ver §20.1).
 
 Ejemplos futuros:
 
@@ -1017,6 +1019,14 @@ Sprint is implemented as a held intention in `PlayerNetworkInput`. The movement 
 derives whether Sprint applies for the current tick from valid movement intention, gameplay
 availability and a successful complete payment to `PlayerStaminaNetworkController`. Sprint has
 no independent `[Networked]` flag: when payment fails, the same input continues at walking speed.
+
+`ShouldSprint` reevaluates `isActionExecuting` every tick from
+`PlayerCombatNetworkController.IsExecutingWeaponAttack` or
+`PlayerAbilityRuntimeNetworkController.HasActiveExecution`. While either is true, Sprint provides
+no speed bonus, spends no sprint Stamina and emits no sprint-rejection telemetry. It resumes when
+execution ends if still held; `canMove` and base movement are unaffected by this Sprint gate.
+Movement runs at execution order `-10`, before combat at `-7`, so Sprint still applies on the tick
+an attack starts (known one-tick latency).
 
 `PlayerStaminaNetworkController.FixedUpdateNetwork()` runs before
 `PlayerMovementNetworkController.FixedUpdateNetwork()`. The current configured orders are `-11`

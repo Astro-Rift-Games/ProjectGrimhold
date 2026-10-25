@@ -20,6 +20,7 @@ public sealed class TownAttributeAssignmentBinding : IDisposable
     private readonly Action<TownCharacterStatisticsPresentation> _presentStatistics;
     private readonly Action _presentStatisticsUnavailable;
     private readonly Action<ProfileId> _changeHandler;
+    private readonly Func<bool> _canMutate;
     private bool _disposed;
 
     /// <param name="buildStatistics">
@@ -37,7 +38,8 @@ public sealed class TownAttributeAssignmentBinding : IDisposable
         Action presentUnavailable,
         TryBuildStatistics buildStatistics = null,
         Action<TownCharacterStatisticsPresentation> presentStatistics = null,
-        Action presentStatisticsUnavailable = null)
+        Action presentStatisticsUnavailable = null,
+        Func<bool> canMutate = null)
     {
         if (buildStatistics != null && (presentStatistics == null || presentStatisticsUnavailable == null))
         {
@@ -46,6 +48,7 @@ public sealed class TownAttributeAssignmentBinding : IDisposable
                 nameof(buildStatistics));
         }
 
+        _canMutate = canMutate ?? (() => true);
         _buildStatistics = buildStatistics;
         _presentStatistics = presentStatistics;
         _presentStatisticsUnavailable = presentStatisticsUnavailable;
@@ -93,7 +96,7 @@ public sealed class TownAttributeAssignmentBinding : IDisposable
         Refresh();
     }
 
-    private void Refresh()
+    public void Refresh()
     {
         if (_disposed)
         {
@@ -104,7 +107,8 @@ public sealed class TownAttributeAssignmentBinding : IDisposable
             !TownAttributeAssignmentPresentation.TryCreate(
                 state,
                 _maximumAttributeValue,
-                out TownAttributeAssignmentPresentation presentation))
+                out TownAttributeAssignmentPresentation presentation,
+                _canMutate()))
         {
             _presentUnavailable();
             _presentStatisticsUnavailable?.Invoke();

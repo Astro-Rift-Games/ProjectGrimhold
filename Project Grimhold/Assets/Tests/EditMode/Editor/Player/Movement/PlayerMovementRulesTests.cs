@@ -106,6 +106,20 @@ namespace Tests.EditMode.Player.Movement
                 Is.False);
         }
 
+        [TestCase(true, false, 5f)]
+        [TestCase(false, true, 7.5f)]
+        public void SprintIntent_ExecutionSuppressesSprintButPreservesBaseSpeed(
+            bool executing, bool expectedSprint, float expectedSpeed)
+        {
+            var input = new PlayerNetworkInput { MoveDirection = Vector2.right };
+            input.Buttons.Set(PlayerInputButton.Sprint, true);
+            bool sprint = PlayerMovementNetworkController.ShouldSprint(
+                in input, true, Vector2.right, true, isActionExecuting: executing);
+            Assert.That(sprint, Is.EqualTo(expectedSprint));
+            Assert.That(PlayerMovementNetworkController.ResolveVoluntarySpeed(5f, sprint, 1.5f, false, 1f),
+                Is.EqualTo(expectedSpeed));
+        }
+
         [Test]
         public void ShouldSprint_WhileDowned_IsAlwaysFalse()
         {

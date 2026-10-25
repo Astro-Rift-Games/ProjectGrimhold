@@ -20,6 +20,46 @@ namespace Tests.PlayMode.Abilities
         private readonly System.Collections.Generic.List<ScriptableObject> _manaTestAssets = new();
 
         [UnityTest]
+        public IEnumerator BasicAttack_DuringAbilityIsRejectedWithoutCancellingOrQueuing()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-attack-gate",
+                new PreparedAbilityLoadout(new AbilityId("charge"), default)), true, "charge");
+            yield return WaitUntil(() => runtime.IsInitialized);
+            var equipment = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var catalog = (LootDefinitionCatalog)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(equipment);
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            Assert.That(catalog.TryGetIndex(sword.LootId, out int index), Is.True);
+            yield return InSimulation(() =>
+            {
+                SetNetworked(equipment, "WeaponSetAMainHandCatalogIndexPlusOne", index + 1);
+                SetNetworked(equipment, "ActiveWeaponSetSlotValue", (int)WeaponSetSlot.SetA);
+            });
+            var combat = runtime.GetComponent<PlayerCombatNetworkController>();
+            int Sequence() => (int)typeof(PlayerCombatNetworkController)
+                .GetProperty("AttackSequence", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(combat);
+            int before = Sequence();
+            yield return PressSlot1();
+            Assert.That(runtime.HasActiveExecution, Is.True);
+            _inputDriver.Buttons.Set(PlayerInputButton.PrimaryAttack, true);
+            yield return WaitTicks();
+            Assert.That(Sequence(), Is.EqualTo(before), "An active ability rejects basic attacks.");
+            Assert.That(runtime.HasActiveExecution, Is.True);
+            Assert.That(runtime.GetComponent<TestAbilityExecutionBehaviour>().Stops, Is.Zero);
+            Assert.That(combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAMainHand, out var status), Is.True);
+            Assert.That(status.IsAvailable, Is.False);
+            _inputDriver.Buttons = default;
+            runtime.GetComponent<TestAbilityExecutionBehaviour>().Complete = true;
+            yield return WaitTicks();
+            Assert.That(runtime.HasActiveExecution, Is.False);
+            Assert.That(Sequence(), Is.EqualTo(before), "Rejected requests must not be queued.");
+            _inputDriver.Buttons.Set(PlayerInputButton.PrimaryAttack, true);
+            yield return WaitTicks();
+            Assert.That(Sequence(), Is.GreaterThan(before), "Normal attacks still work after the ability ends.");
+        }
+
+        [UnityTest]
         public IEnumerator AbilityCycle_EffectiveAttributeChangesAreRevalidatedAtUse()
         {
             yield return StartRunner();

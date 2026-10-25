@@ -157,7 +157,11 @@ recalculate Level gains.
 available point to one selected attribute. The caller supplies the current balance maximum; the
 operation consumes one available point, preserves every other attribute and rejects atomically when
 the identifier is unknown, no point is available or the selected value is already at or above that
-maximum. The maximum is an operational balance rule rather than a structural invariant, so an
+maximum. The current maximum is 30 in both `ProgressionBalanceDefaults.InitialMaximumAttributeValue`
+and backend `MAX_ATTRIBUTE_VALUE`. The backend rejects a maxed assignment with HTTP 422
+`ATTRIBUTE_MAXED` and guards the atomic update with `$lt`. Loaders never clamp attributes:
+profiles with values of 25 keep loading and can assign up to 30.
+The maximum is an operational balance rule rather than a structural invariant, so an
 existing `CharacterAttributeState` may remain structurally valid above it. The consumer is responsible
 for exposing assignment only in Town; this domain rule has no UI, networking or persistence context.
 
@@ -269,8 +273,15 @@ only the current confirmed values exposed by `LocalProfileStore` and never recal
 Experience.
 
 Town attribute assignment follows the same confirmed-profile presentation boundary. Its binding
-reads `CharacterAttributeState` through `LocalProfileStore`, refreshes only after a matching
-`ProfileCommitted`, and derives button availability by querying `CharacterAttributeAssignmentRules`.
+reads `CharacterAttributeState` through `LocalProfileStore`, refreshes after a matching
+`ProfileCommitted`, and derives button availability from `CharacterAttributeAssignmentRules` and
+the Town Ready gate. `TownAttributeAssignmentPresentation` and its binding disable all assignment
+buttons while Ready; the presenter also refreshes when the panel opens and after a blocked attempt.
+`TownAttributeMutationEndpoint` checks `TownEquipmentMutationGate.CanMutate` before touching
+`LocalProfileStore`. A blocked attempt reaches neither the store nor
+`POST /character/me/progression/commit`. Ready is host-authoritative Fusion session state, not
+backend state: as with equipment and abilities, this gate is enforced at the Unity mutation
+boundary. Backend Ready validation remains a limitation/follow-up.
 The UI neither grants Level-up points nor mutates attributes optimistically. Attributes and points
 form part of the character state currently maintained by the process-local aggregate and are
 intended for durable persistence through the future backend integration.

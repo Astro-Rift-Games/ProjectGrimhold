@@ -97,6 +97,32 @@ test('Progression Attributes - Authoritative Assignment', async (t) => {
     }
   });
 
+  await t.test('should use the Game Design attribute maximum of 30', () => {
+    const { MAX_ATTRIBUTE_VALUE } = require('../src/config/progressionBalance');
+    assert.strictEqual(MAX_ATTRIBUTE_VALUE, 30);
+  });
+
+  await t.test('should let an attribute at the former maximum of 25 keep rising', async () => {
+    Character.findOne = async () => ({
+      accountId: 'acc123',
+      characterAttributes: {
+        strength: 25,
+        availablePoints: 1
+      }
+    });
+
+    let capturedQuery;
+    Character.findOneAndUpdate = async (query) => {
+      capturedQuery = query;
+      return { characterAttributes: { strength: 26, availablePoints: 0 } };
+    };
+
+    const result = await ProgressionService.commitProgression('acc123', { attribute: 'Strength', expectedRevision: 0 });
+
+    assert.strictEqual(result.characterAttributes.strength, 26);
+    assert.deepStrictEqual(capturedQuery['characterAttributes.strength'], { $lt: 30 });
+  });
+
   await t.test('should handle case insensitivity of the attribute name', async () => {
     Character.findOne = async () => ({
       accountId: 'acc123',

@@ -43,7 +43,8 @@ public readonly struct TownAttributeAssignmentPresentation
     public static bool TryCreate(
         in CharacterAttributeState state,
         int maximumAttributeValue,
-        out TownAttributeAssignmentPresentation presentation)
+        out TownAttributeAssignmentPresentation presentation,
+        bool canMutate = true)
     {
         presentation = default;
 
@@ -55,12 +56,12 @@ public readonly struct TownAttributeAssignmentPresentation
 
         presentation = new TownAttributeAssignmentPresentation(
             state,
-            canAssignVitality,
-            CanAssign(state, maximumAttributeValue, CharacterAttribute.Resistance, out _),
-            CanAssign(state, maximumAttributeValue, CharacterAttribute.Strength, out _),
-            CanAssign(state, maximumAttributeValue, CharacterAttribute.Dexterity, out _),
-            CanAssign(state, maximumAttributeValue, CharacterAttribute.Intelligence, out _),
-            CanAssign(state, maximumAttributeValue, CharacterAttribute.Luck, out _));
+            canMutate && canAssignVitality,
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Resistance, out _),
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Strength, out _),
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Dexterity, out _),
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Intelligence, out _),
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Luck, out _));
         return true;
     }
 

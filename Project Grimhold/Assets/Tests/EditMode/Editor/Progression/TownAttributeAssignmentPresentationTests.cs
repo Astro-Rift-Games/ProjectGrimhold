@@ -47,6 +47,23 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
+        public void ReadyGate_DisablesEveryAssignment_AndUnlockRestoresAssignment()
+        {
+            Assert.That(CharacterAttributeState.TryCreate(
+                5, 5, 5, 5, 5, 5, 3, out var state), Is.True);
+            foreach (bool canMutate in new[] { false, true, false, true })
+            {
+                Assert.That(TownAttributeAssignmentPresentation.TryCreate(
+                    state, 25, out var presentation, canMutate), Is.True);
+                foreach (CharacterAttribute attribute in System.Enum.GetValues(typeof(CharacterAttribute)))
+                {
+                    Assert.That(presentation.TryGet(attribute, out _, out bool canAssign), Is.True);
+                    Assert.That(canAssign, Is.EqualTo(canMutate));
+                }
+            }
+        }
+
+        [Test]
         public void InvalidMaximum_RejectsPresentation()
         {
             Assert.That(TownAttributeAssignmentPresentation.TryCreate(

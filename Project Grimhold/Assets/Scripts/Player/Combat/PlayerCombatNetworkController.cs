@@ -55,6 +55,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private readonly int[] _observedHandSequences = new int[4];
     private readonly bool[] _resumeHandPresentation = new bool[4];
     private PlayerStaminaNetworkController _stamina;
+    private PlayerAbilityRuntimeNetworkController _abilityRuntime;
 
     public bool IsExecutingWeaponAttack => Object != null && Object.IsValid && Runner != null &&
         Runner.Tick < WeaponExecutionEndTick;
@@ -618,6 +619,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.ControlDisabled;
         }
 
+        if (_abilityRuntime != null && _abilityRuntime.HasActiveExecution)
+            return AttackFailureReason.AbilityInProgress;
+
         if (PendingRangedRelease.Pending || PendingMeleeRelease.Pending) return AttackFailureReason.CooldownActive;
 
         return AttackCooldown.ExpiredOrNotRunning(Runner)
@@ -648,6 +652,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         WeaponHandAttackState state = HandAttacks[index];
         bool available = IsAttackEnabled && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
             !PlayerConsumptionGate.IsConsuming(_character) &&
+            (_abilityRuntime == null || !_abilityRuntime.HasActiveExecution) &&
             EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
             !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease;
         if (available && _equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) &&
@@ -678,7 +683,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             // Consumption disables control; it is not a weapon cooldown rejection.
             if (pressed && !PlayerConsumptionGate.IsConsuming(_character))
                 RecordCombatFeedback(CombatFeedbackKind.AttackRejected, default, default, 0f,
-                    Runner.Tick, AttackFailureReason.CooldownActive);
+                    Runner.Tick, _abilityRuntime != null && _abilityRuntime.HasActiveExecution
+                        ? AttackFailureReason.AbilityInProgress : AttackFailureReason.CooldownActive);
             return false;
         }
         // A paid weapon cannot bypass an absent/uninitialized Stamina owner.
@@ -945,6 +951,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _equipmentController ??= GetComponent<PlayerWeaponEquipmentNetworkController>();
         _releaseSpawner ??= GetComponent<IProjectileSpawner>();
         _stamina ??= GetComponent<PlayerStaminaNetworkController>();
+        _abilityRuntime ??= GetComponent<PlayerAbilityRuntimeNetworkController>();
 
         if (_attackOrigin == null)
         {

@@ -71,9 +71,15 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
-        public void Assign_ValueBelowInitialMaximumCanReachMaximum()
+        public void InitialMaximumAttributeValue_MatchesGameDesignMaximum()
         {
-            CharacterAttributeState state = CreateState(24, 5, 5, 5, 5, 5, 1);
+            Assert.That(ProgressionBalanceDefaults.InitialMaximumAttributeValue, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void Assign_ValueAtFormerMaximumCanKeepRising()
+        {
+            CharacterAttributeState state = CreateState(25, 5, 5, 5, 5, 5, 1);
 
             Assert.That(TryAssign(
                 ProgressionBalanceDefaults.InitialMaximumAttributeValue,
@@ -81,12 +87,26 @@ namespace Tests.EditMode.Progression
                 CharacterAttribute.Vitality,
                 out CharacterAttributeState candidate,
                 out _), Is.True);
-            Assert.That(candidate.Vitality, Is.EqualTo(25));
+            Assert.That(candidate.Vitality, Is.EqualTo(26));
+        }
+
+        [Test]
+        public void Assign_ValueBelowInitialMaximumCanReachMaximum()
+        {
+            CharacterAttributeState state = CreateState(29, 5, 5, 5, 5, 5, 1);
+
+            Assert.That(TryAssign(
+                ProgressionBalanceDefaults.InitialMaximumAttributeValue,
+                state,
+                CharacterAttribute.Vitality,
+                out CharacterAttributeState candidate,
+                out _), Is.True);
+            Assert.That(candidate.Vitality, Is.EqualTo(30));
             Assert.That(candidate.AvailablePoints, Is.Zero);
         }
 
-        [TestCase(25)]
-        [TestCase(26)]
+        [TestCase(30)]
+        [TestCase(31)]
         public void Assign_ValueAtOrAboveInitialMaximumIsRejected(int value)
         {
             CharacterAttributeState state = CreateState(value, 5, 5, 5, 5, 5, 1);

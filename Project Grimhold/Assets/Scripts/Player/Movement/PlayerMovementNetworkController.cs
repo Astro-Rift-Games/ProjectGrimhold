@@ -112,6 +112,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private PlayerDownedStateNetworkController _downedState;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
     private PlayerAbilityRuntimeNetworkController _abilityRuntime;
+    private PlayerCombatNetworkController _combatController;
     private NetworkMatchController _matchController;
     private NetworkMatchController.MatchPhase _lastObservedPhase;
 
@@ -177,7 +178,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Downed is networked state, so reading it here stays resimulation-safe.
         bool isDowned = _downedState != null && _downedState.IsDowned;
-        bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned);
+        bool isActionExecuting = (_combatController != null && _combatController.IsExecutingWeaponAttack) ||
+            (_abilityRuntime != null && _abilityRuntime.HasActiveExecution);
+        bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned, isActionExecuting);
         bool isSprinting = shouldSprint && CanSprint(Runner.DeltaTime);
         if (HasStateAuthority && Runner.IsForward)
         {
@@ -397,9 +400,10 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         bool hasInput,
         Vector2 moveDirection,
         bool canMove,
-        bool isDowned = false)
+        bool isDowned = false,
+        bool isActionExecuting = false)
     {
-        return hasInput && canMove && !isDowned &&
+        return hasInput && canMove && !isDowned && !isActionExecuting &&
                moveDirection.sqrMagnitude > ValidMovementSqrThreshold &&
                input.Buttons.IsSet(PlayerInputButton.Sprint);
     }
@@ -476,6 +480,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_abilityRuntime == null)
         {
             _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
+        }
+
+        if (_combatController == null)
+        {
+            _combatController = GetComponent<PlayerCombatNetworkController>();
         }
     }
 

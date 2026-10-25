@@ -297,7 +297,7 @@ The Mana resource contract's deactivation responsibility in [Downed and Revive A
 | Boundary | Contract |
 | --- | --- |
 | Acceptance | Definition owns INT 10, Mana 15 and cooldown 5 s. The side-effect-free plan validates explicit prefab/mask/spawner, finite tuning, runner registry and projectile-local resolver composition before payment. No enemy or clear trajectory is required. |
-| Preparation | Baseline 0.5 s, configurable. Runtime captures the character facing at Preparing start and owns the copied phase/deadline/sequence. Movement reads a derived multiplier on every simulating peer; only voluntary walking/sprinting is scaled, never forced displacement or knockback. Other abilities default to 1. |
+| Preparation | Baseline 0.5 s, configurable. Runtime captures the character facing at Preparing start and owns the copied phase/deadline/sequence. Movement reads a derived multiplier on every simulating peer; only voluntary movement is scaled, never forced displacement or knockback; Sprint is suppressed during execution. Other abilities default to 1. |
 | Resolution | State Authority forward simulation consumes the sequence before the spawn attempt and completes in that tick. Missing input does not stall it; Begin/Rebind never spawn or restart the deadline. Spawn failure retains cost/cooldown and is not retried. |
 | Interruption | Knockback/Stun and runtime-mandatory Downed/participation closure stop preparation before spawn without refund. Stop never deletes an already-spawned projectile. |
 | Flight | Request explicitly opts into copied `IsUnbounded` and `EnemyOnly` modes. No lifetime timer, range clamp, huge sentinel range or caster-lifecycle cleanup. Caster/player colliders are ignored; the shared valid-enemy predicate filters creature damage hitboxes. First valid enemy or environment consumes the projectile once, without piercing; non-character world objects consume it as geometry. Existing requests default to bounded/all-damageable behavior. |
@@ -364,7 +364,7 @@ Radii, Empower bonus/duration, Restoration heal/movement multiplier and Purifica
 
 The multiplier is read ONLY by `PlayerCombatNetworkController` for player basic weapon attacks, not by abilities, traps, orb contact, consumables or enemy attacks. Melee reads it at actual swing release. Ranged captures scaled damage at wind-up acceptance in the copied `RangedAttackRelease`; subsequent expiry, refresh, weapon reconfiguration or flight does not change that committed damage. Ordinary strategy calls retain multiplier 1. A combat avatar without Empower capability may omit the effect; a composed Empower-capable avatar must reference its own valid effect, and a missing/foreign reference fails dependency validation. No global `DamageResolver` scaling or weapon-stat mutation is introduced.
 
-**Restoration:** requires at least one living, non-Downed ally missing Health at start and rechecks those particular conditions at resolution. Each eligible ally receives `ApplyHealing(new HealRequest(_healAmount))` (currently 30), using the existing authoritative, maximum-capped healing path. It neither heals Downed reserve nor revives. During preparation only voluntary walking/sprinting is scaled by 0.5; forced displacement/knockback are not. An interrupted preparation applies no heal and retains the spent Mana/cooldown.
+**Restoration:** requires at least one living, non-Downed ally missing Health at start and rechecks those particular conditions at resolution. Each eligible ally receives `ApplyHealing(new HealRequest(_healAmount))` (currently 30), using the existing authoritative, maximum-capped healing path. It neither heals Downed reserve nor revives. During preparation only voluntary walking is scaled by 0.5; Sprint is suppressed during execution and forced displacement/knockback are not scaled. An interrupted preparation applies no heal and retains the spent Mana/cooldown.
 
 **Purification:** the particular target rule is `HasPurifiableState || CanReceiveProtection`, allowing preventive use without an existing debuff. `PurificationNetworkEffect.CanReceiveProtection` reads `PlayerCharacter.CanReceiveStatusEffects` (`IsAlive && !IsDowned`), excluding Downed and defeated recipients, including Self. Accepted resolution starts/refreshes each recipient's networked `ProtectionTimer`; `Spawned` does not overwrite it. The effect is independent of the caster/execution and does not undo previously resolved damage or displacement.
 
@@ -521,6 +521,15 @@ Host Migration never reloads Town persistence, re-runs unlock acquisition, re-pr
 ## Relationship to basic weapon combat
 
 The implemented `IAttack` strategies and `PlayerCombatNetworkController` form the current basic weapon attack flow. Their single active strategy, primary-attack input, weapon cooldown, and attack presentation sequence are not the runtime contract for character abilities.
+
+While `HasActiveExecution` is true, basic primary/hand attacks are unavailable and rejected as
+`AttackFailureReason.AbilityInProgress`, including the legacy path. Rejection neither cancels the
+ability nor queues an attack, and produces no cooldown pulse. The reverse gate (ability start
+during a basic attack) remains a TASK-223 follow-up to Game Design 17 §7.3.
+Sprint is suppressed during ability or weapon-attack execution, reevaluated each movement tick,
+without sprint speed, sprint Stamina spend or sprint-rejection telemetry. Held Sprint resumes after
+execution; the gate does not change `canMove` or base movement. Movement runs before combat, so
+Sprint still applies on the tick an attack starts (see `PlayerMovementArchitecture.md` §20.1).
 
 Future abilities must not be adapted into `IAttack`, installed as the controller's active weapon strategy, or multiplexed through its cooldown and `AttackSequence`. Doing so would merge two independently prepared and independently owned domains into one state slot.
 

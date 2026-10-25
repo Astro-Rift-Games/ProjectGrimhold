@@ -8,7 +8,7 @@ public static class ProgressionBalanceDefaults
     public const int InitialAttributeValue = 5;
     public const int InitialAvailableAttributePoints = 10;
     public const int InitialAttributePointsPerLevel = 1;
-    public const int InitialMaximumAttributeValue = 25;
+    public const int InitialMaximumAttributeValue = 30;
     public const int InitialBaseMaximumHealth = 75;
     public const int InitialMaximumHealthPerVitality = 5;
     public const int InitialBaseMaximumStamina = 75;

@@ -44,6 +44,28 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
+        public void Refresh_ReadsReadyGateWithoutProfileCommit_AndStopsAfterDispose()
+        {
+            Assert.That(CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 3, out _state), Is.True);
+            bool canMutate = true;
+            var binding = new TownAttributeAssignmentBinding(
+                _observed, 25,
+                (out CharacterAttributeState state) => { state = _state; return true; },
+                _ => { }, _ => { },
+                presentation => _presentations.Add(presentation), () => { },
+                canMutate: () => canMutate);
+            canMutate = false;
+            binding.Refresh();
+            Assert.That(_presentations[1].CanAssignVitality, Is.False);
+            canMutate = true;
+            binding.Refresh();
+            Assert.That(_presentations[2].CanAssignVitality, Is.True);
+            binding.Dispose();
+            binding.Refresh();
+            Assert.That(_presentations, Has.Count.EqualTo(3));
+        }
+
+        [Test]
         public void Construction_SubscribesOnceBeforeInitialTryRead()
         {
             using var binding = CreateBinding();

@@ -23,7 +23,7 @@ const XP_REQUIREMENTS = [
 ];
 
 const MAX_LEVEL = INITIAL_LEVEL + XP_REQUIREMENTS.length; // 30
-const MAX_ATTRIBUTE_VALUE = 25;
+const MAX_ATTRIBUTE_VALUE = 30;
 
 // ---------------------------------------------------------------------------
 // Pure computation functions

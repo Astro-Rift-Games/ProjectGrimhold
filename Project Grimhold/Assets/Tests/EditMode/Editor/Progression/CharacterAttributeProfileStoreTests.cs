@@ -86,7 +86,7 @@ namespace Tests.EditMode.Progression
         public void RuleRejection_PreservesSnapshotAndDoesNotPublishCommit()
         {
             Assert.That(CharacterAttributeState.TryCreate(
-                26, 5, 5, 5, 5, 5, 10, out CharacterAttributeState aboveMaximum), Is.True);
+                30, 5, 5, 5, 5, 5, 10, out CharacterAttributeState aboveMaximum), Is.True);
             var repository = ReadyRepository(aboveMaximum);
             var store = new LocalProfileStore(repository, Profile);
             LocalProfileSnapshot before = repository.Snapshot;

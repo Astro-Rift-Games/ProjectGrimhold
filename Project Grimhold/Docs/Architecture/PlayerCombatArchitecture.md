@@ -195,6 +195,7 @@ Serves as the network boundary for the current basic weapon attack flow:
 * Represents strategy presence through the authoritative `[Networked]` `HasActiveAttack` state, independently from `IsAttackEnabled`.
 * Delegates execution to the local `IAttack` only when both authoritative presence and a valid local implementation exist.
 * Stores the duration associated with the attack that started the current cooldown so proxies can present it without resolving the concrete strategy.
+* Rejects primary/hand attacks while `PlayerAbilityRuntimeNetworkController.HasActiveExecution` is true. This gate covers `TryGetAttackStatus` availability, authoritative acceptance and the legacy path. `AttackFailureReason.AbilityInProgress` is appended to the enum; rejection neither cancels the ability nor queues the attack. `CombatFeedbackPresenter` does not present this reason or pulse the cooldown.
 
 An absent strategy is a valid neutral gameplay state. Primary-attack input still advances
 the replicated button history but produces no execution, cooldown, sequence, rejection, or
@@ -257,7 +258,7 @@ ScriptableObjects and presentation state are never replicated.
 
 `TryGetPrimaryAttackStatus` returns no presentable state while `HasActiveAttack` is false.
 When presence is authoritative, the query does not require a local `IAttack`; it derives
-availability from `IsAttackEnabled`, `ICharacter.IsAlive`, and the replicated cooldown, and
+availability from `IsAttackEnabled`, `ICharacter.IsAlive`, the ability-execution gate and the replicated cooldown, and
 reports the replicated duration snapshot from the attack that started that timer. This allows
 proxies to present the same cooldown without knowing strategy identity. `RaidHudPresenter`
 clears its attack presentation whenever the query returns `false`, so a neutral player cannot
@@ -1265,6 +1266,8 @@ for in-flight replication; local persistence stores `LootId` strings.
 ---
 
 ## Known Limitations and Technical Debt
+
+* **Ability/basic-attack exclusion is one-way**: basic attacks are blocked during ability execution. Blocking ability start during a basic attack remains a TASK-223 follow-up to the bidirectional incompatibility in Game Design 17 §7.3.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
