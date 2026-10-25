@@ -126,6 +126,17 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
         return !string.IsNullOrWhiteSpace(displayName);
     }
 
+    public bool TryGetPreparedEquipment(ProfileId profileId, out IPreparedEquipmentReader reader)
+    {
+        reader = null;
+        if (!TryResolvePlayer(profileId, out PlayerRef player)) return false;
+        NetworkObject playerObject = Runner.GetPlayerObject(player);
+        if (playerObject == null ||
+            !playerObject.TryGetBehaviour(out SocialPlayerArmorEquipmentNetworkSource source)) return false;
+        reader = source;
+        return true;
+    }
+
     public bool TryResolvePlayer(ProfileId profileId, out PlayerRef player)
     {
         player = PlayerRef.None;

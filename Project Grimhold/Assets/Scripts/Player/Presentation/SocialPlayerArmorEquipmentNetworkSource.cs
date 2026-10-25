@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
-public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, IEquipmentVisualSource
+public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, IEquipmentVisualSource, IPreparedEquipmentReader
 {
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
 

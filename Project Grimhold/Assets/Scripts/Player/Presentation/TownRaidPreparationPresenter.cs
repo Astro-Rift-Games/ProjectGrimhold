@@ -227,7 +227,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         }
 
         if (!force && !_showingNoPreparation && _presentedPreparation == preparation &&
-            _presentedRevision == preparation.SnapshotRevision && NamesMatch(snapshot))
+            _presentedRevision == preparation.SnapshotRevision && MemberPresentationMatches(snapshot))
         {
             return;
         }
@@ -235,10 +235,14 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         TownRaidPreparationPresentation.DisplayNameResolver resolver = _partyDirectory != null
             ? _partyDirectory.TryGetDisplayName
             : null;
+        TownRaidPreparationPresentation.PreparedEquipmentResolver equipmentResolver = _partyDirectory != null
+            ? _partyDirectory.TryGetPreparedEquipment
+            : null;
         if (!TownRaidPreparationPresentation.TryCreate(
                 snapshot,
                 localProfile,
                 resolver,
+                equipmentResolver,
                 out TownRaidPreparationPresentation presentation))
         {
             if (force || !_showingNoPreparation)
@@ -260,7 +264,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         _view.PresentPreparation(presentation);
     }
 
-    private bool NamesMatch(in TownRaidPreparationSnapshot snapshot)
+    private bool MemberPresentationMatches(in TownRaidPreparationSnapshot snapshot)
     {
         if (_presentedPresentation.Members == null ||
             _presentedPresentation.Members.Count != snapshot.Members.Count)
@@ -279,8 +283,18 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
                 displayName = resolvedName;
             }
 
+            TownRaidPreparationPresentation.Member member = _presentedPresentation.Members[index];
+            IPreparedEquipmentReader reader = null;
+            bool hasEquipment = _partyDirectory != null &&
+                _partyDirectory.TryGetPreparedEquipment(profileId, out reader) && reader != null;
+            if (member.ProfileId != profileId || member.HasEquipment != hasEquipment ||
+                member.EquipmentRevision != (hasEquipment ? reader.ObservedEquipmentRevision : 0))
+            {
+                return false;
+            }
+
             if (!string.Equals(
-                    _presentedPresentation.Members[index].DisplayName,
+                    member.DisplayName,
                     displayName,
                     StringComparison.Ordinal))
             {
