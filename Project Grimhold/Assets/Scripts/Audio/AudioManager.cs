@@ -5,9 +5,19 @@ using UnityEngine.Audio;
 /// Gestor central de audio. Persiste entre escenas y maneja un pool de AudioSources para SFX,
 /// además de un AudioSource dedicado para música.
 /// </summary>
-public class AudioManager : MonoBehaviour
+public sealed class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
+
+    private AudioVolumeSettingsStore _volumeSettings;
+    private bool _hasStarted;
+
+    public float MasterVolume => VolumeSettings.MasterVolume;
+    public float MusicVolume => VolumeSettings.MusicVolume;
+    public float SfxVolume => VolumeSettings.SfxVolume;
+
+    private AudioVolumeSettingsStore VolumeSettings =>
+        _volumeSettings ?? (_volumeSettings = new AudioVolumeSettingsStore());
 
     [Header("Mixer Configuration")]
     [SerializeField] private AudioMixer _mixer;
@@ -37,6 +47,16 @@ public class AudioManager : MonoBehaviour
 
         InitializeSfxPool();
         InitializeMusicSource();
+    }
+
+    private void Start()
+    {
+        if (Instance != this) return;
+
+        _hasStarted = true;
+        SetVolumeParam("MasterVolume", MasterVolume);
+        SetVolumeParam("MusicVolume", MusicVolume);
+        SetVolumeParam("SFXVolume", SfxVolume);
     }
 
     private void InitializeSfxPool()
@@ -168,22 +188,25 @@ public class AudioManager : MonoBehaviour
 
     public void SetMasterVolume(float normalizedVolume)
     {
-        SetVolumeParam("MasterVolume", normalizedVolume);
+        VolumeSettings.SetMasterVolume(normalizedVolume);
+        SetVolumeParam("MasterVolume", MasterVolume);
     }
 
     public void SetSfxVolume(float normalizedVolume)
     {
-        SetVolumeParam("SFXVolume", normalizedVolume);
+        VolumeSettings.SetSfxVolume(normalizedVolume);
+        SetVolumeParam("SFXVolume", SfxVolume);
     }
 
     public void SetMusicVolume(float normalizedVolume)
     {
-        SetVolumeParam("MusicVolume", normalizedVolume);
+        VolumeSettings.SetMusicVolume(normalizedVolume);
+        SetVolumeParam("MusicVolume", MusicVolume);
     }
 
     private void SetVolumeParam(string paramName, float normalizedVolume)
     {
-        if (_mixer == null) return;
+        if (!_hasStarted || _mixer == null) return;
 
         // Evitar log10 de 0
         float clampedVol = Mathf.Clamp(normalizedVolume, 0.0001f, 1f);
