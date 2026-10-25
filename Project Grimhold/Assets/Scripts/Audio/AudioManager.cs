@@ -5,7 +5,7 @@ using UnityEngine.Audio;
 /// Gestor central de audio. Persiste entre escenas y maneja un pool de AudioSources para SFX,
 /// además de un AudioSource dedicado para música.
 /// </summary>
-public sealed class AudioManager : MonoBehaviour
+public sealed class AudioManager : MonoBehaviour, IAudioVolumeControl
 {
     public static AudioManager Instance { get; private set; }
 
