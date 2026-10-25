@@ -299,17 +299,17 @@ only entity identity and the always-available `ICharacter` contract required by 
 Animator Controller, shared locomotion clips, and the same `PlayerArmorPresenter` used by the Raid
 avatar. The presenter consumes `IEquipmentVisualSource`: Raid supplies its authoritative Equipment
 controller, while Town supplies `SocialPlayerArmorEquipmentNetworkSource`, a narrow replicated
-projection of Helmet, Armor, Gloves and Boots from the confirmed persistent Loadout. This adapter
-contains no appearance rules; it only makes the shared body-equipment projection visible to other
-Town peers.
+projection of the full prepared Equipment (eight slots) from the confirmed persistent Loadout.
+`PlayerArmorPresenter` still consumes only Helmet, Armor, Gloves and Boots. This adapter contains no
+appearance rules; weapon slots are exposed solely for read-only Preparation inspection (TASK-219).
 
 The prefab intentionally excludes combat, attacks, health and damage, death and corpse
 generation, extraction, raid loot and inventory, raid HUD, visibility/minimap, and raid-only
 feedback (including weapon/combat presentation). Persistent Town weapon assignments remain visible
 in the shared inventory Equipment slots and travel through the normal reservation/admission path,
-but `SocialPlayer` does not replicate or render them and has no weapon presenter, attack strategy,
-selection input or cooldown state. Town presentation may observe local state but may not mutate raid
-gameplay state.
+but `SocialPlayer` replicates them only for read-only inspection, does not render them, and has no
+weapon presenter, attack strategy, selection input or cooldown state. Town presentation may observe
+local state but may not mutate raid gameplay state.
 
 `Lobby-Town` contains the social spawn configuration and a `LocalCameraController`. It does
 not contain a launcher or automatic debug starter; lifecycle ownership remains in the

@@ -2,9 +2,9 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Replicates only the visible body Equipment prepared by this SocialPlayer in Town.
-/// Weapon assignments remain in the persistent Loadout but are deliberately excluded so Town
-/// cannot present a held weapon or acquire any weapon-selection/combat behaviour.
+/// Replicates the full prepared Equipment for this SocialPlayer in Town.
+/// The visual contract renders only body armor; weapons are exposed for read-only inspection
+/// only, without held-weapon presentation or weapon-selection/combat behaviour.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
@@ -12,6 +12,10 @@ public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, 
 {
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
 
+    [Networked] private int WeaponSetAMainHandCatalogIndexPlusOne { get; set; }
+    [Networked] private int WeaponSetAOffHandCatalogIndexPlusOne { get; set; }
+    [Networked] private int WeaponSetBMainHandCatalogIndexPlusOne { get; set; }
+    [Networked] private int WeaponSetBOffHandCatalogIndexPlusOne { get; set; }
     [Networked] private int HelmetCatalogIndexPlusOne { get; set; }
     [Networked] private int ArmorCatalogIndexPlusOne { get; set; }
     [Networked] private int GlovesCatalogIndexPlusOne { get; set; }
@@ -57,7 +61,7 @@ public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, 
         }
 
         _refreshRequested = false;
-        ApplyPreparedArmor(_profileContext.LoadoutService.GetPreparedEquipment(_profileId));
+        ApplyPreparedEquipment(_profileContext.LoadoutService.GetPreparedEquipment(_profileId));
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -73,7 +77,14 @@ public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, 
     public bool TryGetSlotDefinition(EquipmentSlot slot, out LootDefinition definition)
     {
         definition = null;
-        if (Object == null || !Object.IsValid || !EquipmentSlotRules.IsArmorSlot(slot))
+        return EquipmentSlotRules.IsArmorSlot(slot) && TryGetPreparedSlotDefinition(slot, out definition);
+    }
+
+    /// <summary>Resolves replicated prepared Equipment for read-only inspection, not combat.</summary>
+    public bool TryGetPreparedSlotDefinition(EquipmentSlot slot, out LootDefinition definition)
+    {
+        definition = null;
+        if (Object == null || !Object.IsValid)
         {
             return false;
         }
@@ -83,18 +94,28 @@ public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, 
             _lootCatalog.TryGetByIndex(catalogIndex, out definition) && definition != null;
     }
 
-    private void ApplyPreparedArmor(in PreparedEquipmentLoadout prepared)
+    private void ApplyPreparedEquipment(in PreparedEquipmentLoadout prepared)
     {
+        int mainA = ResolveCatalogIndexPlusOne(prepared.WeaponSetAMainHand, EquipmentSlot.WeaponSetAMainHand);
+        int offA = ResolveCatalogIndexPlusOne(prepared.WeaponSetAOffHand, EquipmentSlot.WeaponSetAOffHand);
+        int mainB = ResolveCatalogIndexPlusOne(prepared.WeaponSetBMainHand, EquipmentSlot.WeaponSetBMainHand);
+        int offB = ResolveCatalogIndexPlusOne(prepared.WeaponSetBOffHand, EquipmentSlot.WeaponSetBOffHand);
         int helmet = ResolveCatalogIndexPlusOne(prepared.Helmet, EquipmentSlot.Helmet);
         int armor = ResolveCatalogIndexPlusOne(prepared.Armor, EquipmentSlot.Armor);
         int gloves = ResolveCatalogIndexPlusOne(prepared.Gloves, EquipmentSlot.Gloves);
         int boots = ResolveCatalogIndexPlusOne(prepared.Boots, EquipmentSlot.Boots);
-        if (HelmetCatalogIndexPlusOne == helmet && ArmorCatalogIndexPlusOne == armor &&
+        if (WeaponSetAMainHandCatalogIndexPlusOne == mainA && WeaponSetAOffHandCatalogIndexPlusOne == offA &&
+            WeaponSetBMainHandCatalogIndexPlusOne == mainB && WeaponSetBOffHandCatalogIndexPlusOne == offB &&
+            HelmetCatalogIndexPlusOne == helmet && ArmorCatalogIndexPlusOne == armor &&
             GlovesCatalogIndexPlusOne == gloves && BootsCatalogIndexPlusOne == boots)
         {
             return;
         }
 
+        WeaponSetAMainHandCatalogIndexPlusOne = mainA;
+        WeaponSetAOffHandCatalogIndexPlusOne = offA;
+        WeaponSetBMainHandCatalogIndexPlusOne = mainB;
+        WeaponSetBOffHandCatalogIndexPlusOne = offB;
         HelmetCatalogIndexPlusOne = helmet;
         ArmorCatalogIndexPlusOne = armor;
         GlovesCatalogIndexPlusOne = gloves;
@@ -112,6 +133,10 @@ public sealed class SocialPlayerArmorEquipmentNetworkSource : NetworkBehaviour, 
 
     private int GetCatalogIndexPlusOne(EquipmentSlot slot) => slot switch
     {
+        EquipmentSlot.WeaponSetAMainHand => WeaponSetAMainHandCatalogIndexPlusOne,
+        EquipmentSlot.WeaponSetAOffHand => WeaponSetAOffHandCatalogIndexPlusOne,
+        EquipmentSlot.WeaponSetBMainHand => WeaponSetBMainHandCatalogIndexPlusOne,
+        EquipmentSlot.WeaponSetBOffHand => WeaponSetBOffHandCatalogIndexPlusOne,
         EquipmentSlot.Helmet => HelmetCatalogIndexPlusOne,
         EquipmentSlot.Armor => ArmorCatalogIndexPlusOne,
         EquipmentSlot.Gloves => GlovesCatalogIndexPlusOne,

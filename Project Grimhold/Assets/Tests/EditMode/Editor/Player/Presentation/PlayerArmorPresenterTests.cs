@@ -284,6 +284,43 @@ public class PlayerArmorPresenterTests
         Assert.That(head, Is.LessThan(helmet), "Head < Helmet");
     }
 
+    [TestCase(EquipmentSlot.WeaponSetAMainHand)]
+    [TestCase(EquipmentSlot.WeaponSetAOffHand)]
+    [TestCase(EquipmentSlot.WeaponSetBMainHand)]
+    [TestCase(EquipmentSlot.WeaponSetBOffHand)]
+    [TestCase(EquipmentSlot.Helmet)]
+    [TestCase(EquipmentSlot.Armor)]
+    [TestCase(EquipmentSlot.Gloves)]
+    [TestCase(EquipmentSlot.Boots)]
+    public void SocialEquipment_EveryPreparedSlotHasReplicatedCatalogIndex(EquipmentSlot slot)
+    {
+        PropertyInfo property = typeof(SocialPlayerArmorEquipmentNetworkSource).GetProperty(
+            $"{slot}CatalogIndexPlusOne", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property.PropertyType, Is.EqualTo(typeof(int)));
+        Assert.That(System.Attribute.IsDefined(property, typeof(Fusion.NetworkedAttribute)), Is.True);
+    }
+
+    [TestCase(EquipmentSlot.WeaponSetAMainHand)]
+    [TestCase(EquipmentSlot.WeaponSetAOffHand)]
+    [TestCase(EquipmentSlot.WeaponSetBMainHand)]
+    [TestCase(EquipmentSlot.WeaponSetBOffHand)]
+    [TestCase(EquipmentSlot.Helmet)]
+    [TestCase(EquipmentSlot.Armor)]
+    [TestCase(EquipmentSlot.Gloves)]
+    [TestCase(EquipmentSlot.Boots)]
+    [TestCase(EquipmentSlot.None)]
+    [TestCase((EquipmentSlot)200)]
+    public void SocialEquipment_UnspawnedSourceExposesNoDefinitions(EquipmentSlot slot)
+    {
+        var source = _root.AddComponent<SocialPlayerArmorEquipmentNetworkSource>();
+        Assert.That(source.TryGetSlotDefinition(slot, out LootDefinition visual), Is.False);
+        Assert.That(visual, Is.Null);
+        Assert.That(source.TryGetPreparedSlotDefinition(slot, out LootDefinition prepared), Is.False);
+        Assert.That(prepared, Is.Null);
+        Assert.That(source.ObservedEquipmentRevision, Is.Zero);
+    }
+
     private static SerializedObject LoadPrefabPresenter()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
