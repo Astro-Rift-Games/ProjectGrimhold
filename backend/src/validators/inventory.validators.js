@@ -16,6 +16,19 @@ function handleValidationErrors(req, res, next) {
   next();
 }
 
+const inventoryOrderValidator = [
+  body('list').isIn(['stash', 'loadout']).withMessage('must be stash or loadout'),
+  body('lootIds').isArray().withMessage('must be an array'),
+  body('lootIds.*')
+    .isString().withMessage('must be a string')
+    .bail()
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  handleValidationErrors
+];
+
 // Validates the body for move-to-loadout and move-to-stash operations.
 const moveItemValidator = [
   body('lootId')
@@ -112,4 +125,4 @@ const shopBuyValidator = [
   handleValidationErrors
 ];
 
-module.exports = { moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+module.exports = { inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

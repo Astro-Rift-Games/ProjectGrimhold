@@ -48,6 +48,42 @@ function serializePendingReservation(res) {
 }
 
 class InventoryService {
+  /** Reorders one inventory list without changing item identity or amounts. */
+  static async updateOrder(accountId, list, lootIds, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    if (character.inventory.pendingReservation) {
+      throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot reorder inventory while a reservation is pending.' };
+    }
+    const items = ['stash', 'loadout'].includes(list) ? character.inventory[list] : null;
+    if (!items || !Array.isArray(lootIds) || lootIds.length !== items.length ||
+        lootIds.some(id => typeof id !== 'string' || !id.trim()) ||
+        new Set(lootIds).size !== lootIds.length ||
+        lootIds.some(id => !items.some(item => item.lootId === id))) {
+      throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Order must be an exact permutation of the target inventory list.' };
+    }
+    const byId = new Map(items.map(item => [item.lootId, item]));
+    const ordered = lootIds.map(id => ({ lootId: id, amount: byId.get(id).amount }));
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: expectedRevision, 'inventory.pendingReservation': null },
+      { $set: { [`inventory.${list}`]: ordered }, $inc: { revision: 1 } },
+      { new: true }
+    );
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during inventory reorder.' };
+    }
+    return {
+      stash: serializeItems(updated.inventory.stash),
+      loadout: serializeItems(updated.inventory.loadout),
+      revision: updated.revision
+    };
+  }
+
   /**
    * Retrieves the full inventory snapshot for the given account's character.
    * Used during login to hydrate the local Unity state.

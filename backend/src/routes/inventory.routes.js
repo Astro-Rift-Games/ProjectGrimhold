@@ -7,6 +7,7 @@ const env = require('../config/env');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const authenticate = require('../middleware/authenticate');
 const {
+  inventoryOrderValidator,
   moveItemValidator,
   preparedEquipmentValidator,
   pendingReservationValidator,
@@ -26,6 +27,18 @@ router.get('/me/inventory', async (req, res, next) => {
   try {
     const inventory = await InventoryService.getInventory(req.accountId);
     res.json(inventory);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /character/me/inventory/order
+// Body: { list: 'stash' | 'loadout', lootIds: string[], expectedRevision }
+router.put('/me/inventory/order', inventoryOrderValidator, async (req, res, next) => {
+  try {
+    const { list, lootIds, expectedRevision } = req.body;
+    const result = await InventoryService.updateOrder(req.accountId, list, lootIds, expectedRevision);
+    res.json(result);
   } catch (err) {
     next(err);
   }
