@@ -625,7 +625,7 @@ public sealed class SessionCompositionConfigurationTests
         TMP_InputField roomInput = serializedController.FindProperty("roomCodeInput").objectReferenceValue as TMP_InputField;
 
         Assert.That(createButton, Is.Not.Null);
-        Assert.That(createButton.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo("Iniciar"));
+        Assert.That(createButton.GetComponentInChildren<TMP_Text>(true).text, Is.EqualTo("Jugar"));
         Assert.That(joinButton.gameObject.activeSelf, Is.False);
         Assert.That(roomInput.gameObject.activeSelf, Is.False);
     }
