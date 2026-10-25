@@ -1356,6 +1356,8 @@ MonoBehaviour:
   _titleText: {fileID: 1187550265258274862}
   _statusText: {fileID: 1187550265258274852}
   _controlsText: {fileID: 1187550265258274874}
+  _settingsButton: {fileID: 8150847716316965776}
+  _settingsPanel: {fileID: 6192915826568105266}
   _resumeButton: {fileID: 1187550265258274831}
   _resumeButtonText: {fileID: 1187550265258274827}
   _abandonButton: {fileID: 1187550265258274821}
@@ -7934,6 +7936,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+--- !u!114 &6192915826568105266 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4635159941525907953, guid: d29a75dd1baf0844388befd4de9c882a, type: 3}
+  m_PrefabInstance: {fileID: 1559034136079443139}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 509035891dba0c845813f3d6f70e980b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SettingsPanelView
+--- !u!114 &8150847716316965776 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7259641630336569171, guid: d29a75dd1baf0844388befd4de9c882a, type: 3}
+  m_PrefabInstance: {fileID: 1559034136079443139}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
 --- !u!1001 &1880663289053248221
 PrefabInstance:
   m_ObjectHideFlags: 0

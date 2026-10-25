@@ -22,6 +22,8 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField] private TMP_Text _titleText;
     [SerializeField] private TMP_Text _statusText;
     [SerializeField] private TMP_Text _controlsText;
+    [SerializeField] private Button _settingsButton;
+    [SerializeField] private SettingsPanelView _settingsPanel;
     [SerializeField] private Button _resumeButton;
     [SerializeField] private TMP_Text _resumeButtonText;
     [SerializeField] private Button _abandonButton;
@@ -84,6 +86,8 @@ public sealed class RaidMenuView : MonoBehaviour
     public TMP_Text TitleText => _titleText;
     public TMP_Text StatusText => _statusText;
     public TMP_Text ControlsText => _controlsText;
+    public Button SettingsButton => _settingsButton;
+    public SettingsPanelView SettingsPanel => _settingsPanel;
     public Button ResumeButton => _resumeButton;
     public TMP_Text ResumeButtonText => _resumeButtonText;
     public Button AbandonButton => _abandonButton;
@@ -120,11 +124,21 @@ public sealed class RaidMenuView : MonoBehaviour
         UnbindButtonListeners();
     }
 
+    private void OnDestroy()
+    {
+        UnbindButtonListeners();
+    }
+
     public void SetMenuVisible(bool visible)
     {
         if (visible)
         {
             BindButtonListeners();
+        }
+
+        if (!visible && _settingsPanel != null && _settingsPanel.IsOpen)
+        {
+            _settingsPanel.Close();
         }
 
         UiPanelVisibility.SetVisible(_menuRoot, visible);
@@ -195,6 +209,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentAliveState(bool canAbandon = true)
     {
+        SetButtonState(_settingsButton, true, true);
         SetProgressionResultsVisible(false);
         SetTitleEmphasis(false);
         SetText(_titleText, "Menú de Incursión");
@@ -210,6 +225,7 @@ public sealed class RaidMenuView : MonoBehaviour
     /// <summary>Presents role-aware actions for a defeated local participant.</summary>
     public void PresentDefeatedState(bool canReturn, bool isSpectating)
     {
+        SetButtonState(_settingsButton, true, true);
         SetProgressionResultsVisible(false);
         SetTitleEmphasis(true);
         SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Defeated));
@@ -228,6 +244,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentExtractedState(bool isCommitConfirmed)
     {
+        HideSettings();
         SetProgressionResultsVisible(false);
         SetTitleEmphasis(true);
         SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Extracted));
@@ -244,6 +261,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentExtractedState(ExtractionLootSaveStatus saveStatus)
     {
+        HideSettings();
         SetProgressionResultsVisible(false);
         SetTitleEmphasis(true);
         SetText(_titleText, GetOutcomeTitle(RaidResultsOutcome.Extracted));
@@ -268,6 +286,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public void PresentAbandonConfirmation()
     {
+        HideSettings();
         SetProgressionResultsVisible(false);
         SetTitleEmphasis(false);
         SetText(_titleText, "Abandonar incursión");
@@ -445,6 +464,7 @@ public sealed class RaidMenuView : MonoBehaviour
         bool isSpectating,
         bool canRetryPersistence)
     {
+        HideSettings();
         bool showPrimaryAction = canRetryPersistence || canSpectate;
         SetButtonState(_resumeButton, showPrimaryAction, showPrimaryAction);
         SetText(
@@ -536,8 +556,15 @@ public sealed class RaidMenuView : MonoBehaviour
         }
     }
 
+    private void HideSettings()
+    {
+        SetButtonState(_settingsButton, false, false);
+        if (_settingsPanel != null && _settingsPanel.IsOpen) _settingsPanel.Close();
+    }
+
     private void BindButtonListeners()
     {
+        BindButton(_settingsButton, OnSettingsButtonClicked);
         BindButton(_resumeButton, OnResumeButtonClicked);
         BindButton(_abandonButton, OnAbandonButtonClicked);
         BindButton(_cancelRaidButton, OnCancelRaidButtonClicked);
@@ -547,6 +574,7 @@ public sealed class RaidMenuView : MonoBehaviour
 
     private void UnbindButtonListeners()
     {
+        _settingsButton?.onClick.RemoveListener(OnSettingsButtonClicked);
         _resumeButton?.onClick.RemoveListener(OnResumeButtonClicked);
         _abandonButton?.onClick.RemoveListener(OnAbandonButtonClicked);
         _cancelRaidButton?.onClick.RemoveListener(OnCancelRaidButtonClicked);
@@ -587,6 +615,7 @@ public sealed class RaidMenuView : MonoBehaviour
         button.interactable = visible && interactable;
     }
 
+    private void OnSettingsButtonClicked() => _settingsPanel?.Open();
     private void OnResumeButtonClicked() => ResumeRequested?.Invoke();
     private void OnAbandonButtonClicked() => AbandonRequested?.Invoke();
     private void OnCancelRaidButtonClicked() => CancelRaidRequested?.Invoke();

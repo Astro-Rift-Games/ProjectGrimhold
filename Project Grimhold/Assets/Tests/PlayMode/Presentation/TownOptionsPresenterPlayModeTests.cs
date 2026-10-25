@@ -124,6 +124,45 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_menu.IsOpen, Is.False);
         }
 
+        [Test]
+        public void SettingsButton_OpensSettingsWithoutPausingAndOptionsCloseClosesSettings()
+        {
+            PressEscape();
+
+            TownOptionsView view = _canvas.GetComponentInChildren<TownOptionsView>(true);
+            SettingsPanelView settings = view.GetComponentInChildren<SettingsPanelView>(true);
+            Assert.That(settings, Is.Not.Null, "Options must contain the nested SettingsPanel.");
+            settings.Bind(new FakeAudioVolumeControl());
+            Button button = FindButton("SettingsButton");
+            Assert.That(button.gameObject.activeInHierarchy, Is.True);
+            Assert.That(button.interactable, Is.True);
+            float timeScale = Time.timeScale;
+
+            button.onClick.Invoke();
+
+            Assert.That(settings.IsOpen, Is.True);
+            Assert.That(Time.timeScale, Is.EqualTo(timeScale));
+
+            view.SetInteractable(false);
+            Assert.That(button.interactable, Is.False);
+            view.SetInteractable(true);
+            Assert.That(button.interactable, Is.True);
+            view.Close();
+
+            Assert.That(settings.IsOpen, Is.False);
+            Assert.That(Time.timeScale, Is.EqualTo(timeScale));
+        }
+
+        private sealed class FakeAudioVolumeControl : IAudioVolumeControl
+        {
+            public float MasterVolume => 1f;
+            public float MusicVolume => 1f;
+            public float SfxVolume => 1f;
+            public void SetMasterVolume(float normalizedVolume) { }
+            public void SetMusicVolume(float normalizedVolume) { }
+            public void SetSfxVolume(float normalizedVolume) { }
+        }
+
         private Button FindButton(string name)
         {
             foreach (Button button in _canvas.GetComponentsInChildren<Button>(true))

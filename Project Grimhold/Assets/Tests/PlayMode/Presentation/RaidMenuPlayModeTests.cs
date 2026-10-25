@@ -162,6 +162,69 @@ namespace Tests.PlayMode.Presentation
             Assert.That(banner.gameObject.activeSelf, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator RaidMenu_SettingsOpensWithoutPausingAndMenuCloseClosesSettings()
+        {
+            yield return StartRunnerAndSpawnPlayer();
+
+            RaidMenuView view = _playerObject.GetComponentInChildren<RaidMenuView>(true);
+            SettingsPanelView settings = view.GetComponentInChildren<SettingsPanelView>(true);
+            Assert.That(settings, Is.Not.Null, "Raid menu must contain the nested SettingsPanel.");
+            settings.Bind(new FakeAudioVolumeControl());
+            Assert.That(view.SettingsPanel, Is.SameAs(settings));
+            Assert.That(view.SettingsButton, Is.Not.Null);
+            // Drive the view directly: every presenter close path converges on SetMenuVisible(false).
+            view.PresentAliveState();
+            view.SetMenuVisible(true);
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.True);
+            Assert.That(view.SettingsButton.interactable, Is.True);
+            float timeScale = Time.timeScale;
+
+            view.SettingsButton.onClick.Invoke();
+
+            Assert.That(settings.IsOpen, Is.True);
+            Assert.That(Time.timeScale, Is.EqualTo(timeScale));
+            Assert.That(_playerObject.GetComponent<PlayerCharacter>().IsAlive, Is.True);
+            view.SetMenuVisible(false);
+
+            Assert.That(settings.IsOpen, Is.False);
+            Assert.That(Time.timeScale, Is.EqualTo(timeScale));
+        }
+
+        [UnityTest]
+        public IEnumerator RaidMenu_SettingsAvailability_FollowsPresentedState()
+        {
+            yield return StartRunnerAndSpawnPlayer();
+
+            RaidMenuView view = _playerObject.GetComponentInChildren<RaidMenuView>(true);
+            Assert.That(view.SettingsButton, Is.Not.Null);
+            view.PresentDefeatedState(canReturn: false, isSpectating: true);
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.True);
+            Assert.That(view.SettingsButton.interactable, Is.True);
+            view.PresentAbandonConfirmation();
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.False);
+            view.PresentAliveState();
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.True);
+            view.PresentExtractedState(true);
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.False);
+            view.PresentAliveState();
+            view.PresentExtractedState(ExtractionLootSaveStatus.Committed);
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.False);
+            view.PresentAliveState();
+            view.PresentProgressionResultsPending("Results", "Pending", false, false, false);
+            Assert.That(view.SettingsButton.gameObject.activeSelf, Is.False);
+        }
+
+        private sealed class FakeAudioVolumeControl : IAudioVolumeControl
+        {
+            public float MasterVolume => 1f;
+            public float MusicVolume => 1f;
+            public float SfxVolume => 1f;
+            public void SetMasterVolume(float normalizedVolume) { }
+            public void SetMusicVolume(float normalizedVolume) { }
+            public void SetSfxVolume(float normalizedVolume) { }
+        }
+
         private static Transform FindChild(Transform root, string name)
         {
             foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
