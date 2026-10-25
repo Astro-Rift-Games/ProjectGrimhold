@@ -11,11 +11,16 @@ Engram mirror topic: `odd/commerce-audit-e2e/tasks`.
 
 ## Tasks
 - [x] T1 Audit (read-only): code + tests vs architecture and Game Design | route: 2 delegated explorers (Unity, backend) + delegated EditMode baseline verifier (283/283) + parent spot checks (H1, H2 backend, H3)
-- [ ] T2 Audit report with severity and `path:line` evidence; user selects fixes | report: `docs/audit_commerce_2026-10-25.md`
+- [x] T2 Audit report with severity and `path:line` evidence; user selects fixes | report: `docs/audit_commerce_2026-10-25.md` | commit: `4226ba51` `docs(commerce): add commerce system audit report`
 - [ ] T3 E2E in Editor against backend (Town buy/sell, backend state check)
 - [ ] T4 Permanent PlayMode E2E tests
-- [ ] T5 Approved fixes (one commit each)
+- [ ] T5a H2 reservation gate (Unity `TryCommitTrade` + backend `shopBuy`/`shopSell` 409) | backend part done: delegated worker, RED (unit `Missing expected rejection.`, integration `200 !== 409`) -> GREEN; npm test 159/159, integration 68/68, concurrency 7/7; commit `fix(backend): reject shop trades while a raid reservation is pending`; Unity part pending (Editor busy with E2E)
+- [ ] T5b H4 align `shopCatalog.js` to Unity assets + EditMode parity test; drop dead `training_sword` / duplicate `health_potion`
+- [ ] T5c H5 report persisted only after backend ack; M2 RPC null guard; L1 missing config is an error; L3 docs
+- [ ] T5d Design proposal for H1 (durable ability unlock) and H3 (atomic multi-line trade endpoint); no code until approved
 
 ## Log
 - L1 (2026-10-25, user): scope all four areas; reference Architecture + live GD; E2E Editor + real backend (already running); report + tests + fixes; new branch; work-unit commits authorized.
 - L2 Env: nothing listens on localhost:3000; Unity loads `Resources/BackendConfiguration.asset` = `https://projectgrimhold.onrender.com` (health ok, mongo connected). L3 (user): E2E runs against Render with a dedicated test account/character.
+- L4 (user): approved fixes H2, H4, H5+M2+L1/L3; plan-only for H1 and H3. H4 price source = Unity LootDefinition assets; backend mirrors them. E2E account: create a new dedicated account on Render. Backend fixes cannot be verified against Render until deployed (deploy is out of scope).
+- L5 C1 found during E2E feasibility (runtime probe on Render, user-authorized): client-shipped HMAC secret accepted -> item minting; recorded in report commit `7c42f7dd`. E2E funding route: real raid in Editor (user choice).

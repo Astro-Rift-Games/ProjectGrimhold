@@ -652,6 +652,11 @@ class InventoryService {
       }
     }
 
+    // Applied receipts remain replayable during a reservation; only new mutations are blocked.
+    if (character.inventory.pendingReservation) {
+      throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+    }
+
     // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
@@ -695,7 +700,7 @@ class InventoryService {
     }
 
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: expectedRevision },
+      { accountId, revision: expectedRevision, 'inventory.pendingReservation': null },
       {
         $set: { 'inventory.loadout': loadout },
         $inc: { revision: 1, 'inventory.currency': authoritativeRevenue },
@@ -710,6 +715,10 @@ class InventoryService {
     );
 
     if (!updated) {
+      const latest = await Character.findOne({ accountId });
+      if (latest?.inventory?.pendingReservation) {
+        throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+      }
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during shop sale.' };
     }
 
@@ -774,6 +783,11 @@ class InventoryService {
       }
     }
 
+    // Applied receipts remain replayable during a reservation; only new mutations are blocked.
+    if (character.inventory.pendingReservation) {
+      throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+    }
+
     // 2. Validate revision for new mutations
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
@@ -818,7 +832,7 @@ class InventoryService {
     }
 
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: expectedRevision, 'inventory.currency': { $gte: authoritativeCost } },
+      { accountId, revision: expectedRevision, 'inventory.pendingReservation': null, 'inventory.currency': { $gte: authoritativeCost } },
       {
         $set: { 'inventory.loadout': loadout },
         $inc: { revision: 1, 'inventory.currency': -authoritativeCost },
@@ -833,6 +847,10 @@ class InventoryService {
     );
 
     if (!updated) {
+      const latest = await Character.findOne({ accountId });
+      if (latest?.inventory?.pendingReservation) {
+        throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+      }
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict or insufficient funds during shop purchase.' };
     }
 

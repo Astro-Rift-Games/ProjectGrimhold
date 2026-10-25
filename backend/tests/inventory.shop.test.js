@@ -15,7 +15,7 @@ function makeCharacter(overrides = {}) {
       currency: 100,
       stash:   [],
       loadout: [],
-      preparedEquipment: { weaponSlot1: '', weaponSlot2: '', helmet: '', armor: '', gloves: '', boots: '' },
+      preparedEquipment: { weaponSlot1: '', weaponSlot2: '', offHand1: '', offHand2: '', helmet: '', armor: '', gloves: '', boots: '' },
       pendingReservation: null
     },
     appliedShopReceipts: [],
@@ -82,6 +82,32 @@ test('InventoryService - Shop Authoritative Security (US-57 / SEC-57.2)', async 
       return mockChar;
     };
   };
+
+  for (const operation of ['buy', 'sell']) {
+    await t.test(`${operation}: pending reservation rejects without mutation`, async () => {
+      const char = makeCharacter();
+      char.inventory.loadout = [{ lootId: 'bone', amount: 2 }];
+      char.inventory.pendingReservation = { raidId: 'raid-shop', items: [] };
+      setupMocks(char);
+      const before = JSON.stringify(char);
+      await assert.rejects(
+        InventoryService[operation === 'buy' ? 'shopBuy' : 'shopSell']('acc123', 'bone', 1, 5, 0, `reserved-${operation}`),
+        err => err.statusCode === 409 && err.errorCode === 'RESERVATION_PENDING'
+      );
+      assert.strictEqual(JSON.stringify(char), before);
+    });
+
+    await t.test(`${operation}: receipt replay precedes reservation and revision guards`, async () => {
+      const char = makeCharacter();
+      char.inventory.pendingReservation = { raidId: 'raid-shop', items: [] };
+      char.appliedShopReceipts = [{ transactionId: 'replay', type: operation, lootId: 'bone', amount: 1 }];
+      setupMocks(char);
+      const before = JSON.stringify(char);
+      const result = await InventoryService[operation === 'buy' ? 'shopBuy' : 'shopSell']('acc123', 'bone', 1, 5, -1, 'replay');
+      assert.strictEqual(result.alreadySecured, true);
+      assert.strictEqual(JSON.stringify(char), before);
+    });
+  }
 
   await t.test('Exploit: Client declaredPrice = 0 cannot bypass server price or exceed max amount', async () => {
     const char = makeCharacter({ inventory: { currency: 0, loadout: [], stash: [] } });

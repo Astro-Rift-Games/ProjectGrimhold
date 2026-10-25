@@ -37,6 +37,70 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
     currentRevision = 0;
   });
 
+  for (const operation of ['buy', 'sell']) {
+    await t.test(`${operation}: reservation blocks new transaction but permits receipt replay`, async () => {
+      await Character.findOneAndUpdate({ accountId }, { $set: {
+        'inventory.currency': 500,
+        'inventory.loadout': [{ lootId: 'bone', amount: 2 }],
+        'inventory.pendingReservation': { raidId: 'raid-shop', items: [{ lootId: 'bone', amount: 3 }] },
+        appliedShopReceipts: [{ transactionId: `replay-${operation}`, type: operation, lootId: 'bone', amount: 1, totalAmount: 5 }],
+        revision: 0
+      } });
+      try {
+        const before = await Character.findOne({ accountId }).lean();
+        const replay = await request(app).post(`/character/me/inventory/shop/${operation}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ transactionId: `replay-${operation}`, lootId: 'bone', amount: 1, expectedRevision: 99 });
+        assert.strictEqual(replay.status, 200);
+        assert.strictEqual(replay.body.alreadySecured, true);
+        const res = await request(app).post(`/character/me/inventory/shop/${operation}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ transactionId: `blocked-${operation}`, lootId: 'bone', amount: 1, expectedRevision: 0 });
+        assert.strictEqual(res.status, 409);
+        assert.strictEqual(res.body.error, 'RESERVATION_PENDING');
+        const after = await Character.findOne({ accountId }).lean();
+        assert.deepStrictEqual(after, before, 'Reservation rejection and replay must leave all persisted state unchanged');
+      } finally {
+        await Character.findOneAndUpdate({ accountId }, { $set: {
+          'inventory.currency': 500, 'inventory.loadout': [], 'inventory.pendingReservation': null,
+          appliedShopReceipts: [], revision: 0
+        } });
+      }
+    });
+  }
+
+  for (const operation of ['buy', 'sell']) {
+    await t.test(`${operation}: reservation created between read and atomic write blocks trade`, async () => {
+      await Character.findOneAndUpdate({ accountId }, { $set: {
+        'inventory.currency': 500, 'inventory.loadout': [{ lootId: 'bone', amount: 2 }], revision: 0
+      } });
+      const originalUpdate = Character.findOneAndUpdate;
+      let reservedState;
+      Character.findOneAndUpdate = async function (filter, update, options) {
+        // Keep revision unchanged to prove the reservation predicate itself protects the write.
+        await originalUpdate.call(this, { accountId }, { $set: {
+          'inventory.pendingReservation': { raidId: 'race-raid', items: [{ lootId: 'bone', amount: 3 }] }
+        } });
+        reservedState = await Character.findOne({ accountId }).lean();
+        return originalUpdate.call(this, filter, update, options);
+      };
+      try {
+        const res = await request(app).post(`/character/me/inventory/shop/${operation}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ transactionId: `race-${operation}`, lootId: 'bone', amount: 1, expectedRevision: 0 });
+        assert.strictEqual(res.status, 409);
+        assert.strictEqual(res.body.error, 'RESERVATION_PENDING');
+        assert.deepStrictEqual(await Character.findOne({ accountId }).lean(), reservedState);
+      } finally {
+        Character.findOneAndUpdate = originalUpdate;
+        await Character.findOneAndUpdate({ accountId }, { $set: {
+          'inventory.currency': 500, 'inventory.loadout': [], 'inventory.pendingReservation': null,
+          appliedShopReceipts: [], revision: 0
+        } });
+      }
+    });
+  }
+
   await t.test('2. Legitimate Purchase: Deducts authoritative cost from currency and credits loadout', async () => {
     // Buy 2 bones. Server unit buy price is 5 gold -> Total cost: 10 gold.
     const res = await request(app).post('/character/me/inventory/shop/buy')
