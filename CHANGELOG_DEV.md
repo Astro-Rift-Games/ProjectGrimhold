@@ -276,6 +276,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **player:** align player action rules with Game Design ([5ad42e1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5ad42e1074adb1cf8478ed89b36f5c7e5ab7edc3))
 - **town:** restore visibility of local player menus ([a98475c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a98475c14e03ab4ab40346bbe0d9c4c631c41709))
 - **extraction:** reserve each Sanctuary exclusively for one team ([48ed361](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/48ed3616ba136d1d99c48fa8c457cbc7c90bfca7))
 - **raid:** preserve reconnect tickets and unify disconnect continuity ([22719f5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/22719f50528b159d2236fa303836a96fedd766f0))
