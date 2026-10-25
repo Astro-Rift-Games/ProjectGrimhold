@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 695eb1d508634f71a85ad608942fa931, type: 3}
+  m_Name: Sword1H_OffHand
+  m_EditorClassIdentifier: Assembly-CSharp::DirectionalAttackAnimationSet
+  _canonicalSlash: 1
+  _slashStrokeWindow: {x: 0.15, y: 0.45}
+  _slashRecoveryEndSeconds: 0.6
+  _offHandStroke: 1
+  _attackN: {fileID: 7400000, guid: fe8a91fcf1991fc4094be4480f7b2059, type: 2}
+  _attackNE: {fileID: 7400000, guid: be900964f064cc94c9e69513dfa88a15, type: 2}
+  _attackNW: {fileID: 7400000, guid: a6b5dad6a1ce16b45960a4c523258285, type: 2}
+  _attackS: {fileID: 7400000, guid: eac8894bc6a8a434da33bad4ac663dcc, type: 2}
+  _attackSE: {fileID: 7400000, guid: 54f820ec595fef34ea634c023099c769, type: 2}
+  _attackSW: {fileID: 7400000, guid: ea362492ecbb05b44a4c9264da436ea1, type: 2}
+  _gripOriginOffsets:
+  - {x: -0.71875, y: -0.03125}
+  - {x: -0.59375, y: 0.15625}
+  - {x: -0.59375, y: -0.21875}
+  - {x: 0.78125, y: -0.03125}
+  - {x: 0.65625, y: 0.15625}
+  - {x: 0.65625, y: -0.21875}
+  _retargetSourceSignature: 7986b9b4cf752b38ee780535d68f36ce
+  _mainGripNeutralPositions:
+  - {x: 0.34375, y: -0.21875, z: 0}
+  - {x: 0.28125, y: -0.28125, z: 0}
+  - {x: 0.28125, y: -0.09375, z: 0}
+  - {x: -0.40625, y: -0.21875, z: 0}
+  - {x: -0.34375, y: -0.28125, z: 0}
+  - {x: -0.34375, y: -0.09375, z: 0}
+  _mirroredWeaponBasisRotations:
+  - {x: 0, y: 0, z: 1, w: -0.00000004371139}
+  - {x: 0, y: 0, z: 0.70710677, w: 0.70710677}
+  - {x: 0, y: 0, z: 0.70710677, w: -0.70710677}
+  - {x: 0, y: 0, z: -1, w: -0.00000004371139}
+  - {x: 0, y: 0, z: -0.70710677, w: 0.70710677}
+  - {x: 0, y: 0, z: -0.70710677, w: -0.70710677}

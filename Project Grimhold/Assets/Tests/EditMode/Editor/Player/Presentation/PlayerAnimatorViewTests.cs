@@ -602,29 +602,16 @@ public sealed class PlayerAnimatorViewTests
     [Test]
     public void DirectionalSouthClips_PreserveJuanAuthoredCurves()
     {
-        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        // ArmingSword is excluded: slash weapons bake the canonical body-frame arc (see
+        // CanonicalSlashGeneratorTests); its authored source clip only drives timing.
+        string[] weapons = { "Rapier", "RondelDagger", "MagicWand" };
         foreach (string weapon in weapons)
         {
             AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/{weapon}_Attack.anim");
             AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Weapons/Directional/{weapon}/{weapon}_Attack_S.anim");
             Assert.That(source, Is.Not.Null);
             Assert.That(south, Is.Not.Null);
-            if (weapon == "ArmingSword")
-            {
-                EditorCurveBinding[] authored = AnimationUtility.GetCurveBindings(source);
-                EditorCurveBinding[] runtime = AnimationUtility.GetCurveBindings(south);
-                EditorCurveBinding[] grip = runtime.Where(binding =>
-                    binding.path == "RightHandPivot/RightHand/MainHandGrip" &&
-                    binding.type == typeof(Transform) &&
-                    (binding.propertyName == "m_LocalPosition.x" ||
-                     binding.propertyName == "m_LocalPosition.y" ||
-                     binding.propertyName == "m_LocalPosition.z")).ToArray();
-                Assert.That(grip.Select(binding => binding.propertyName),
-                    Is.EquivalentTo(new[] { "m_LocalPosition.x", "m_LocalPosition.y", "m_LocalPosition.z" }));
-                Assert.That(runtime.Except(grip), Is.EqualTo(authored));
-                AssertCurvesEqual(source, south, allowSouthGrip: true);
-            }
-            else if (weapon == "Rapier" || weapon == "RondelDagger" || weapon == "MagicWand")
+            if (weapon == "Rapier" || weapon == "RondelDagger" || weapon == "MagicWand")
             {
                 AssertCurvesEqual(source, south, allowSouthGrip: true);
             }
@@ -638,7 +625,8 @@ public sealed class PlayerAnimatorViewTests
     [Test]
     public void DirectionalAttackRotations_PreserveTheSourceSwingAcrossAllFacings()
     {
-        string[] weapons = { "ArmingSword", "Rapier", "RondelDagger", "MagicWand" };
+        // Slash weapons (ArmingSword) follow the canonical arc instead of the authored swing.
+        string[] weapons = { "Rapier", "RondelDagger", "MagicWand" };
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
 
         foreach (string weapon in weapons)

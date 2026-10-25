@@ -273,6 +273,13 @@ public sealed class WeaponDefinition : ScriptableObject
                 error = $"Weapon definition '{name}' free aim requires a ranged attack.";
                 return false;
             }
+
+            if ((_presentation.AttackAnimationSet != null && _presentation.AttackAnimationSet.OffHandStroke == OffHandStroke.Mirrored) ||
+                (_presentation.OffHandAttackAnimationSet != null && _presentation.OffHandAttackAnimationSet.OffHandStroke == OffHandStroke.Mirrored))
+            {
+                error = $"Weapon definition '{name}' free aim does not support mirrored Off Hand strokes.";
+                return false;
+            }
         }
 
         if (_presentation.AimMode == WeaponAimMode.AimStance)
@@ -328,8 +335,10 @@ public sealed class WeaponDefinition : ScriptableObject
         public float AngleCorrection => _angleCorrection;
 
         [SerializeField] private DirectionalAttackAnimationSet _attackAnimationSet;
+        [SerializeField] private DirectionalAttackAnimationSet _offHandAttackAnimationSet;
 
         public DirectionalAttackAnimationSet AttackAnimationSet => _attackAnimationSet;
+        public DirectionalAttackAnimationSet OffHandAttackAnimationSet => _offHandAttackAnimationSet;
         public bool HasGenericAttack => _attackAnimationSet != null && _attackAnimationSet.IsComplete;
 
         [SerializeField] private AttackVfxDefinition _attackVfx;
@@ -365,8 +374,13 @@ public sealed class WeaponDefinition : ScriptableObject
         public AnimationClip GetAttackClip(int direction) =>
             _attackAnimationSet != null ? _attackAnimationSet.GetAttackClip(direction) : null;
 
+        public AnimationClip GetOffHandAttackClip(int direction) =>
+            _offHandAttackAnimationSet != null ? _offHandAttackAnimationSet.GetAttackClip(direction) : null;
+
         public bool TryValidate(out string error)
         {
+            if (_offHandAttackAnimationSet != null && !_offHandAttackAnimationSet.TryValidate(out error))
+                return false;
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||
                 !IsFinite(_gripPoint.x) || !IsFinite(_gripPoint.y) ||
                 !IsFinite(_angleCorrection) ||

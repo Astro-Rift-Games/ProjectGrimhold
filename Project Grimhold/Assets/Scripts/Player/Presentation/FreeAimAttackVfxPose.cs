@@ -7,6 +7,17 @@ using UnityEngine;
 /// </summary>
 internal static class FreeAimAttackVfxPose
 {
+    /// <summary>Resolve the same free-aim contract at an independently animated holding grip.</summary>
+    internal static AttackVfxDefinition.DirectionalPose ResolveAtGrip(
+        Transform visualRoot, Transform grip, Vector2 localAim, bool mirrored,
+        AttackVfxDefinition.DirectionalPose authoredLead, int sortingOrder)
+    {
+        Vector3 anchor = visualRoot.InverseTransformPoint(grip.position);
+        Vector3 axis = visualRoot.InverseTransformVector(grip.TransformVector(localAim));
+        return Resolve(anchor, Mathf.Atan2(axis.y, axis.x) * Mathf.Rad2Deg,
+            mirrored, authoredLead, sortingOrder);
+    }
+
     /// <summary>
     /// <paramref name="anchor"/> is the pivot position in the Animator root space and
     /// <paramref name="pivotAngleDegrees"/> its angle. <paramref name="authoredLead"/> supplies the reach offset

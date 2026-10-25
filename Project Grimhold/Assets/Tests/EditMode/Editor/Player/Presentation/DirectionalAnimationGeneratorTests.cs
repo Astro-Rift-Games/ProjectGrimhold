@@ -6,6 +6,64 @@ using UnityEngine;
 
 public sealed class DirectionalAnimationGeneratorTests
 {
+    [TestCase("N", -2)]
+    [TestCase("NE", -2)]
+    [TestCase("NW", -2)]
+    [TestCase("S", 22)]
+    [TestCase("SE", 22)]
+    [TestCase("SW", 22)]
+    public void OffHandSorting_AllFacingsKeepTheHoldingHandOnTheWeaponSide(string direction, int expected)
+    {
+        Assert.That(DirectionalAnimationGenerator.ResolveOffHandSortingOrder(direction), Is.EqualTo(expected));
+    }
+
+    [TestCase("Idle")]
+    [TestCase("Walk")]
+    public void LocomotionSorting_KeysLeftHandForEveryFacing(string motion)
+    {
+        foreach (string direction in new[] { "N", "NE", "NW", "S", "SE", "SW" })
+        {
+            var body = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/{motion}/{motion}_{direction}.anim");
+            var hand = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/{motion}/LeftHand/LeftHand_{motion}_{direction}.anim");
+            Assert.That(body, Is.Not.Null);
+            Assert.That(hand, Is.Not.Null);
+            var generated = UnityEngine.Object.Instantiate(body);
+            try
+            {
+                // Remove any baked value so this proves the writer, not the current imported clip.
+                AnimationUtility.SetEditorCurve(generated,
+                    EditorCurveBinding.FloatCurve(SecondHand, typeof(SpriteRenderer), "m_SortingOrder"), null);
+                DirectionalAnimationGenerator.WriteWeaponPoseLocomotion(generated, hand);
+                AssertConstantSorting(generated, SecondHand, direction.StartsWith("N", StringComparison.Ordinal) ? -2 : 22);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(generated); }
+        }
+    }
+
+    [TestCase("Idle", "N")]
+    [TestCase("Idle", "NE")]
+    [TestCase("Idle", "NW")]
+    [TestCase("Walk", "N")]
+    [TestCase("Walk", "NE")]
+    [TestCase("Walk", "NW")]
+    public void AuthoredMainHandLocomotion_BackFacingsRestBehindBody(string motion, string direction)
+    {
+        var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            $"Assets/Animations/Player/{motion}/RightHand/RightHand_{motion}_{direction}.anim");
+        Assert.That(clip, Is.Not.Null);
+        AssertConstantSorting(clip, Hand, -2);
+    }
+
+    private static void AssertConstantSorting(AnimationClip clip, string path, int expected)
+    {
+        AnimationCurve sorting = Curve(clip, path, "m_SortingOrder");
+        Assert.That(sorting, Is.Not.Null, $"{clip.name}/{path} must not fall back to WriteDefaults.");
+        Assert.That(sorting.keys, Is.Not.Empty);
+        Assert.That(sorting.keys.Select(key => key.value), Is.All.EqualTo((float)expected), clip.name);
+        for (int sample = 0; sample <= 60; sample++)
+            Assert.That(sorting.Evaluate(clip.length * sample / 60f), Is.EqualTo(expected).Within(0.0001f), clip.name);
+    }
+
     private const string Hand = "RightHandPivot/RightHand";
     private const string Grip = Hand + "/MainHandGrip";
     private const string Root = "Assets/Animations/Weapons/Directional/ArmingSword/ArmingSword_Attack_";
@@ -743,7 +801,8 @@ public sealed class DirectionalAnimationGeneratorTests
         try
         {
             EditorCurveBinding[] originalBindings = AnimationUtility.GetCurveBindings(regenerated)
-                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip).ToArray();
+                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip &&
+                    !(binding.path == SecondHand && binding.propertyName == "m_SortingOrder")).ToArray();
             AnimationCurve[] originalCurves = originalBindings
                 .Select(binding => AnimationUtility.GetEditorCurve(regenerated, binding)).ToArray();
             EditorCurveBinding[] spriteBindings = AnimationUtility.GetObjectReferenceCurveBindings(regenerated);
@@ -782,7 +841,8 @@ public sealed class DirectionalAnimationGeneratorTests
                 Assert.That(grip.y, Is.EqualTo(anchor.y).Within(0.00001f), $"{frame.time}");
             }
             Assert.That(AnimationUtility.GetCurveBindings(regenerated)
-                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip), Is.EquivalentTo(originalBindings));
+                .Where(binding => binding.path != WeaponPose && binding.path != OffHandGrip &&
+                    !(binding.path == SecondHand && binding.propertyName == "m_SortingOrder")), Is.EquivalentTo(originalBindings));
             for (int i = 0; i < originalBindings.Length; i++)
                 Assert.That(AnimationUtility.GetEditorCurve(regenerated, originalBindings[i]).keys,
                     Is.EqualTo(originalCurves[i].keys), originalBindings[i].path);
@@ -954,10 +1014,10 @@ public sealed class DirectionalAnimationGeneratorTests
         }
     }
 
-    // Spellbook is one-handed like the wand: its definition rides the same HandHeld bake, the authored
-    // LeftHand motion is dropped and the one-shot clips keep the source's 1.0 s length.
+    // Spellbook uses the two-handed HandHeld bake: its independent authored LeftHand motion
+    // is retained, like Magic Staff, and the one-shot clips keep the source's 1.0 s length.
     [Test]
-    public void SpellbookOutputs_BakeFromSouthKeepOnlyTheRightHandAndRemainStableOnRepeat()
+    public void SpellbookOutputs_BakeFromSouthKeepAuthoredLeftHandAndRemainStableOnRepeat()
     {
         AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/Spellbook_Attack.anim");
         Assert.That(source, Is.Not.Null);
@@ -965,7 +1025,8 @@ public sealed class DirectionalAnimationGeneratorTests
             Is.True, "The source authors LeftHand motion.");
         WeaponDefinition weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SpellbookDefinitionPath);
         Assert.That(weapon, Is.Not.Null);
-        Assert.That(weapon.Handedness, Is.EqualTo(WeaponHandedness.OneHanded));
+        Assert.That(weapon.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+        Assert.That(weapon.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
         Assert.That(weapon.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
         string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
         DirectionalAnimationGenerator.GenerateSpellbookAssets();
@@ -982,9 +1043,10 @@ public sealed class DirectionalAnimationGeneratorTests
                 Assert.That(actual.isLooping, Is.False, direction);
                 Assert.That(actual.length, Is.EqualTo(source.length).Within(0.00001f), direction);
                 Assert.That(AnimationUtility.GetCurveBindings(actual).Any(b => b.path.StartsWith("LeftHandPivot", StringComparison.Ordinal)),
-                    Is.False, $"{direction} drops the authored LeftHand motion.");
-                Assert.That(AnimationUtility.GetCurveBindings(actual).All(b => b.path == Hand || b.path == Grip),
-                    Is.True, $"{direction} keeps only the RightHand hierarchy.");
+                    Is.True, $"{direction} keeps the authored LeftHand motion.");
+                Assert.That(AnimationUtility.GetCurveBindings(actual).All(b => b.path == Hand || b.path == Grip ||
+                    b.path.StartsWith("LeftHandPivot", StringComparison.Ordinal)),
+                    Is.True, $"{direction} keeps both hand hierarchies.");
                 Assert.That(AnimationUtility.GetCurveBindings(actual), Is.EquivalentTo(AnimationUtility.GetCurveBindings(expected)), direction);
                 foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(expected))
                     Assert.That(AnimationUtility.GetEditorCurve(actual, binding).keys,
@@ -1054,28 +1116,15 @@ public sealed class DirectionalAnimationGeneratorTests
             .All(b => b.path == Hand || b.path == Grip), Is.True);
 
         foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(source)
-            .Where(b => b.path == Hand && !b.propertyName.StartsWith("m_LocalPosition.", StringComparison.Ordinal)))
+            .Where(b => b.path == Hand && !b.propertyName.StartsWith("m_LocalPosition.", StringComparison.Ordinal)
+                && !b.propertyName.Contains("Euler") && !b.propertyName.StartsWith("m_LocalRotation.")))
         {
             Assert.That(AnimationUtility.GetEditorCurve(clip, binding).keys,
                 Is.EqualTo(AnimationUtility.GetEditorCurve(source, binding).keys), binding.propertyName);
         }
 
-        float radians = angle * Mathf.Deg2Rad;
-        float cos = Mathf.Cos(radians);
-        float sin = Mathf.Sin(radians);
-        AnimationCurve sx = Curve(source, Hand, "m_LocalPosition.x");
-        AnimationCurve sy = Curve(source, Hand, "m_LocalPosition.y");
-        AnimationCurve rx = Curve(clip, Hand, "m_LocalPosition.x");
-        AnimationCurve ry = Curve(clip, Hand, "m_LocalPosition.y");
-        Assert.That(rx.length, Is.EqualTo(sx.length));
-        for (int i = 0; i < sx.length; i++)
-        {
-            Assert.That(rx.keys[i].time, Is.EqualTo(sx.keys[i].time));
-            Assert.That(rx.keys[i].value, Is.EqualTo(cos * sx.keys[i].value - sin * sy.keys[i].value).Within(0.00002f));
-            Assert.That(ry.keys[i].value, Is.EqualTo(sin * sx.keys[i].value + cos * sy.keys[i].value).Within(0.00002f));
-            Assert.That(rx.keys[i].outTangent, Is.EqualTo(cos * sx.keys[i].outTangent - sin * sy.keys[i].outTangent).Within(0.00002f));
-            Assert.That(ry.keys[i].inTangent, Is.EqualTo(sin * sx.keys[i].inTangent + cos * sy.keys[i].inTangent).Within(0.00002f));
-        }
+        // Both slash weapons now share canonical body geometry, not the authored south XY keys.
+        AssertCanonicalSlashGeometry(clip, source, direction);
 
         AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
         foreach (string axis in new[] { "x", "y", "z" })
@@ -1099,7 +1148,9 @@ public sealed class DirectionalAnimationGeneratorTests
     {
         AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
         Assert.That(south, Is.Not.Null);
-        AnimationClip result = DirectionalAnimationGenerator.CreateClip(south, direction, "ArmingSword");
+        // The generic south-rotation contract remains for non-canonical weapons. Slash geometry
+        // is independently exercised by AssertCanonicalSlashGeometry and the real-catalog suite.
+        AnimationClip result = DirectionalAnimationGenerator.CreateClip(south, direction, "LegacyTrajectoryFixture");
         try
         {
             float radians = angle * Mathf.Deg2Rad;
@@ -1174,37 +1225,8 @@ public sealed class DirectionalAnimationGeneratorTests
         Assert.That(AnimationUtility.GetAnimationClipSettings(clip).loopTime,
             Is.EqualTo(AnimationUtility.GetAnimationClipSettings(south).loopTime));
 
-        float radians = angle * Mathf.Deg2Rad;
-        float cos = Mathf.Cos(radians);
-        float sin = Mathf.Sin(radians);
-        AnimationCurve sx = Curve(south, Hand, "m_LocalPosition.x");
-        AnimationCurve sy = Curve(south, Hand, "m_LocalPosition.y");
-        AnimationCurve rx = Curve(clip, Hand, "m_LocalPosition.x");
-        AnimationCurve ry = Curve(clip, Hand, "m_LocalPosition.y");
-        Assert.That(rx, Is.Not.Null);
-        Assert.That(ry, Is.Not.Null);
-        Assert.That(rx.length, Is.EqualTo(sx.length));
-        Assert.That(ry.length, Is.EqualTo(sy.length));
-        for (int i = 0; i < sx.length; i++)
-        {
-            float time = sx.keys[i].time;
-            Assert.That(ry.keys[i].time, Is.EqualTo(time));
-            Assert.That(rx.keys[i].time, Is.EqualTo(time));
-            Assert.That(rx.keys[i].value, Is.EqualTo(cos * sx.keys[i].value - sin * sy.keys[i].value).Within(0.00002f));
-            Assert.That(ry.keys[i].value, Is.EqualTo(sin * sx.keys[i].value + cos * sy.keys[i].value).Within(0.00002f));
-            Assert.That(rx.keys[i].inTangent, Is.EqualTo(cos * sx.keys[i].inTangent - sin * sy.keys[i].inTangent).Within(0.00002f));
-            Assert.That(ry.keys[i].inTangent, Is.EqualTo(sin * sx.keys[i].inTangent + cos * sy.keys[i].inTangent).Within(0.00002f));
-            Assert.That(rx.keys[i].outTangent, Is.EqualTo(cos * sx.keys[i].outTangent - sin * sy.keys[i].outTangent).Within(0.00002f));
-            Assert.That(ry.keys[i].outTangent, Is.EqualTo(sin * sx.keys[i].outTangent + cos * sy.keys[i].outTangent).Within(0.00002f));
-            for (int sample = 0; i + 1 < sx.length && sample < 4; sample++)
-            {
-                float t = Mathf.Lerp(time, sx.keys[i + 1].time, sample / 4f);
-                Assert.That(rx.Evaluate(t), Is.EqualTo(cos * sx.Evaluate(t) - sin * sy.Evaluate(t)).Within(0.00002f));
-                Assert.That(ry.Evaluate(t), Is.EqualTo(sin * sx.Evaluate(t) + cos * sy.Evaluate(t)).Within(0.00002f));
-            }
-        }
-        Assert.That(rx.Evaluate(sx.keys[sx.length - 1].time), Is.EqualTo(cos * sx.Evaluate(south.length) - sin * sy.Evaluate(south.length)).Within(0.00002f));
-        Assert.That(ry.Evaluate(sy.keys[sy.length - 1].time), Is.EqualTo(sin * sx.Evaluate(south.length) + cos * sy.Evaluate(south.length)).Within(0.00002f));
+        // Dense canonical geometry intentionally replaces the old six authored trajectory keys.
+        AssertCanonicalSlashGeometry(clip, south, direction);
 
         AnimationClip idle = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim");
         Assert.That(idle, Is.Not.Null);
@@ -1234,13 +1256,17 @@ public sealed class DirectionalAnimationGeneratorTests
     }
 
     [Test]
-    public void SouthRetainsEveryArtisticCurveFromOriginal()
+    public void SouthRetainsNonGeometricArtAndUsesCanonicalGeometry()
     {
         AnimationClip original = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
         AnimationClip south = AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim");
         Assert.That(AssetDatabase.GetAssetPath(original), Is.EqualTo("Assets/Animations/Weapons/ArmingSword_Attack.anim"));
         Assert.That(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(original)), Is.Not.Empty);
-        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(original))
+        AssertCanonicalSlashGeometry(south, original, "S");
+        // Position and planar rotation are deliberately replaced by the approved canonical arc.
+        foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(original).Where(b =>
+            !b.propertyName.StartsWith("m_LocalPosition.") && !b.propertyName.Contains("Euler") &&
+            !b.propertyName.StartsWith("m_LocalRotation.")))
         {
             AnimationCurve source = AnimationUtility.GetEditorCurve(original, binding);
             AnimationCurve actual = AnimationUtility.GetEditorCurve(south, binding);
@@ -1252,11 +1278,11 @@ public sealed class DirectionalAnimationGeneratorTests
     }
 
     [Test]
-    public void CreateClip_ReconstructsSouthWithoutReadingDestinationAndReflectsSourceEdits()
+    public void CreateClip_ReconstructsCanonicalSouthAndPreservesSourceScaleEdits()
     {
-        AnimationClip original = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
+        AnimationClip original = SourceWithExplicitScale();
         AnimationClip copy = UnityEngine.Object.Instantiate(original);
-        var binding = new EditorCurveBinding { path = Hand, type = typeof(Transform), propertyName = "m_LocalPosition.x" };
+        var binding = new EditorCurveBinding { path = Hand, type = typeof(Transform), propertyName = "m_LocalScale.x" };
         try
         {
             AnimationCurve changed = AnimationUtility.GetEditorCurve(copy, binding);
@@ -1267,14 +1293,14 @@ public sealed class DirectionalAnimationGeneratorTests
             AnimationClip generated = DirectionalAnimationGenerator.CreateClip(copy, "S", "ArmingSword");
             try
             {
-                Assert.That(Curve(generated, Hand, "m_LocalPosition.x").keys[0].value,
+                Assert.That(Curve(generated, Hand, "m_LocalScale.x").keys[0].value,
                     Is.EqualTo(keys[0].value).Within(0.00001f));
-                Assert.That(Curve(original, Hand, "m_LocalPosition.x").keys[0].value,
+                Assert.That(Curve(original, Hand, "m_LocalScale.x").keys[0].value,
                     Is.Not.EqualTo(keys[0].value));
             }
             finally { UnityEngine.Object.DestroyImmediate(generated); }
         }
-        finally { UnityEngine.Object.DestroyImmediate(copy); }
+        finally { UnityEngine.Object.DestroyImmediate(copy); UnityEngine.Object.DestroyImmediate(original); }
     }
 
     [Test]
@@ -1331,13 +1357,14 @@ public sealed class DirectionalAnimationGeneratorTests
     }
 
     [Test]
-    public void Bake_RecreatesDeletedSouthAndPersistsEditedSourceWithoutMutatingOriginal()
+    public void Bake_RecreatesDeletedSouthAndPersistsSourceScaleWithoutMutatingOriginal()
     {
         const string folder = "Assets/Tests/EditMode/Editor/Player/Presentation/ArmingSwordDirectionalGenerationScratch";
         string path = folder + "/ArmingSword_Attack_S.anim";
-        AnimationClip original = AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Weapons/ArmingSword_Attack.anim");
+        AnimationClip original = SourceWithExplicitScale();
         AnimationClip copy = UnityEngine.Object.Instantiate(original);
-        var binding = new EditorCurveBinding { path = Hand, type = typeof(Transform), propertyName = "m_LocalPosition.x" };
+        // Canonical geometry replaces source XY, but scale remains authored and must persist.
+        var binding = new EditorCurveBinding { path = Hand, type = typeof(Transform), propertyName = "m_LocalScale.x" };
         float originalValue = AnimationUtility.GetEditorCurve(original, binding).keys[0].value;
         try
         {
@@ -1348,7 +1375,7 @@ public sealed class DirectionalAnimationGeneratorTests
             Assert.That(AssetDatabase.LoadAssetAtPath<AnimationClip>(path), Is.Null);
             DirectionalAnimationGenerator.Bake(original, "S", path, "ArmingSword");
             AssertImportedBindings(path, "S");
-            float runtimeSouthValue = Curve(AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim"), Hand, "m_LocalPosition.x").keys[0].value;
+            string runtimeSouthJson = EditorJsonUtility.ToJson(AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim"));
             AnimationCurve changed = AnimationUtility.GetEditorCurve(copy, binding);
             Keyframe[] keys = changed.keys;
             keys[0].value += 0.125f;
@@ -1356,14 +1383,15 @@ public sealed class DirectionalAnimationGeneratorTests
             AnimationUtility.SetEditorCurve(copy, binding, changed);
             DirectionalAnimationGenerator.Bake(copy, "S", path, "ArmingSword");
             AnimationClip imported = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
-            Assert.That(Curve(imported, Hand, "m_LocalPosition.x").keys[0].value, Is.EqualTo(keys[0].value).Within(0.00001f));
-            Assert.That(Curve(original, Hand, "m_LocalPosition.x").keys[0].value, Is.EqualTo(originalValue));
-            Assert.That(Curve(AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim"), Hand, "m_LocalPosition.x").keys[0].value,
-                Is.EqualTo(runtimeSouthValue));
+            Assert.That(Curve(imported, Hand, "m_LocalScale.x").keys[0].value, Is.EqualTo(keys[0].value).Within(0.00001f));
+            Assert.That(Curve(original, Hand, "m_LocalScale.x").keys[0].value, Is.EqualTo(originalValue));
+            Assert.That(EditorJsonUtility.ToJson(AssetDatabase.LoadAssetAtPath<AnimationClip>(Root + "S.anim")),
+                Is.EqualTo(runtimeSouthJson));
         }
         finally
         {
             UnityEngine.Object.DestroyImmediate(copy);
+            UnityEngine.Object.DestroyImmediate(original);
             AssetDatabase.DeleteAsset(path);
             AssetDatabase.DeleteAsset(folder);
         }
@@ -1471,6 +1499,44 @@ public sealed class DirectionalAnimationGeneratorTests
             Assert.That(AnimationUtility.GetEditorCurve(result, binding), Is.Not.Null);
         }
         finally { UnityEngine.Object.DestroyImmediate(result); }
+    }
+
+    private static AnimationClip SourceWithExplicitScale()
+    {
+        // The production slash source omits identity scale. This fixture explicitly authors it
+        // so preservation of an edited artistic curve is tested without mutating the source asset.
+        var source = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/Animations/Weapons/ArmingSword_Attack.anim"));
+        AnimationUtility.SetEditorCurve(source, EditorCurveBinding.FloatCurve(Hand, typeof(Transform), "m_LocalScale.x"),
+            AnimationCurve.Constant(0, source.length, 1));
+        return source;
+    }
+
+    private static void AssertCanonicalSlashGeometry(AnimationClip clip, AnimationClip source, string direction)
+    {
+        using var rig = new AttackPreviewRig();
+        var visual = rig.VisualRoot;
+        AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim").SampleAnimation(visual.gameObject, 0);
+        foreach (string side in new[] { "RightHand", "LeftHand" })
+            AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/{side}/{side}_Idle_{direction}.anim").SampleAnimation(visual.gameObject, 0);
+        float radius = (((Vector2)visual.InverseTransformPoint(rig.MainHandGrip.position)).magnitude +
+            ((Vector2)visual.InverseTransformPoint(rig.OffHandGrip.position)).magnitude) * .5f;
+        int index = Array.IndexOf(new[] { "N", "NE", "NW", "S", "SE", "SW" }, direction);
+        Vector2 f = PlayerWeaponPresentationMath.CanonicalFacing(index), r = new Vector2(f.y, -f.x);
+        var window = DirectionalAnimationGenerator.ResolveSlashWindow(source);
+        var authored = Curve(source, Hand, "localEulerAnglesRaw.z");
+        for (int i = 0; i <= 24; i++)
+        {
+            float t = Mathf.Lerp(window.x, window.y, i / 24f);
+            clip.SampleAnimation(visual.gameObject, t);
+            Vector2 p = visual.InverseTransformPoint(rig.MainHandGrip.position);
+            float progress = (authored.Evaluate(t) - authored.Evaluate(window.x)) /
+                (authored.Evaluate(window.y) - authored.Evaluate(window.x));
+            Assert.That(p.magnitude, Is.EqualTo(radius).Within(.0005f));
+            Assert.That(Mathf.Atan2(Vector2.Dot(p,r), Vector2.Dot(p,f)) * Mathf.Rad2Deg,
+                Is.EqualTo(Mathf.Lerp(135, -45, progress)).Within(.1f));
+        }
+        Assert.That(clip.length, Is.EqualTo(source.length).Within(.00001f));
     }
 
     private static void AssertImportedBindings(string path, string direction)

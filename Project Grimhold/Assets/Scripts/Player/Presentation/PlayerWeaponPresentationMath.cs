@@ -6,6 +6,31 @@ using UnityEngine;
 /// </summary>
 internal static class PlayerWeaponPresentationMath
 {
+    internal static Vector2 CanonicalFacing(int direction) => direction switch
+    {
+        0 => CharacterVisualDirectionResolver.CanonicalNorth,
+        1 => CharacterVisualDirectionResolver.CanonicalNorthEast,
+        2 => CharacterVisualDirectionResolver.CanonicalNorthWest,
+        3 => CharacterVisualDirectionResolver.CanonicalSouth,
+        4 => CharacterVisualDirectionResolver.CanonicalSouthEast,
+        5 => CharacterVisualDirectionResolver.CanonicalSouthWest,
+        _ => throw new System.ArgumentOutOfRangeException(nameof(direction))
+    };
+
+    internal static Vector3 ReflectAcrossFacing(Vector3 value, int direction)
+    {
+        Vector3 f = CanonicalFacing(direction);
+        Vector3 reflected = 2 * Vector3.Dot(value, f) * f - value;
+        reflected.z = value.z;
+        return reflected;
+    }
+
+    internal static Quaternion ReflectedRotation(Quaternion rotation, int direction)
+    {
+        Vector2 f = CanonicalFacing(direction);
+        return Quaternion.AngleAxis(2 * Mathf.Atan2(f.y, f.x) * Mathf.Rad2Deg, Vector3.forward) * Quaternion.Inverse(rotation);
+    }
+
     internal static float CalculateFacingAngleDegrees(Vector2 facing)
     {
         return Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg;
@@ -62,12 +87,17 @@ internal static class PlayerWeaponPresentationMath
     }
 
     /// <summary>
-    /// Front facings draw the Off Hand item over its hand and that hand's glove, which the Animator may raise over
-    /// the main hand; it never drops below the front order. Back facings keep it behind the body.
+    /// Shields intentionally cover their holding hand and glove in every facing.
     /// </summary>
+    internal static int ResolveShieldSortingOrder(int itemOrder, int handOrder)
+    {
+        return Mathf.Max(itemOrder, handOrder + 2);
+    }
+
+    // Offensive items use fixed configured depth, independent of previous-frame hand sorting.
     internal static int ResolveOffHandSortingOrder(bool frontFacing, int frontOrder, int backOrder, int handOrder)
     {
-        return frontFacing ? Mathf.Max(frontOrder, handOrder + 2) : backOrder;
+        return frontFacing ? frontOrder : backOrder;
     }
 
     /// <summary>

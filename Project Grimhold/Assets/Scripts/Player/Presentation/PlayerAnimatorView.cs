@@ -43,7 +43,9 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private float _drawnClipSeconds;
     private Vector2 _presentedAim;
     private bool _hasPresentedAim;
-    private PlayerCombatNetworkController _subscribedCombatController;
+    private IPlayerPresentationState _presentationState;
+    private NetworkPlayerPresentationState _networkPresentationState;
+    private IPlayerPresentationState _subscribedCombatController;
     private int _mainHandCombatLayerIndex = -1;
     private bool _hasObservedAttackState;
     private WeaponDefinition _activeWeapon;
@@ -62,20 +64,20 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         attack = _offHandAttack;
         loot = null;
         seconds = 0f;
-        if (!_hasOffHandAttack || _combatController == null || _equipmentSource == null ||
-            !_combatController.TryGetAttackPresentationSeconds(attack, out float elapsed) ||
-            !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(attack.WeaponCatalogIndexPlusOne, out loot)) return false;
+        if (!_hasOffHandAttack || _presentationState == null ||
+            !_presentationState.TryGetAttackPresentationSeconds(attack, out float elapsed) ||
+            !_presentationState.TryGetWeaponByCatalogIndexPlusOne(attack.WeaponCatalogIndexPlusOne, out loot)) return false;
         WeaponDefinition weapon = loot.WeaponDefinition;
         seconds = AttackTiming.ClipSeconds(elapsed, attack.ScheduledWindupSeconds, weapon.AttackReleaseSeconds);
-        AnimationClip clip = weapon.Presentation.GetAttackClip(DirectionIndex(attack.Direction));
+        AnimationClip clip = weapon.Presentation.GetOffHandAttackClip(DirectionIndex(attack.Direction));
         return clip != null && seconds < clip.length;
     }
 
     internal bool TryGetOffHandAttackElapsed(out float elapsed)
     {
         elapsed = 0f;
-        return _hasOffHandAttack && _combatController != null &&
-            _combatController.TryGetAttackPresentationSeconds(_offHandAttack, out elapsed);
+        return _hasOffHandAttack && _presentationState != null &&
+            _presentationState.TryGetAttackPresentationSeconds(_offHandAttack, out elapsed);
     }
 
     internal static int DirectionIndex(Vector2 direction) => CharacterVisualDirectionResolver.Resolve(direction) switch
@@ -115,13 +117,13 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     /// </summary>
     public bool IsAimDriven =>
         HasTemporalFacing ||
-        (_aimSource != null && _aimSource.Object != null && _aimSource.Object.IsValid && _aimSource.IsAimStance);
+        (_presentationState != null && _presentationState.IsAimReadable && _presentationState.IsAimStance);
 
-    protected override void Update()
+    internal override void BeginFrame()
     {
         // Sampled every frame, including during an attack, so the weapon keeps following the aim.
         RefreshPresentedAim();
-        base.Update();
+        base.BeginFrame();
     }
 
     protected override bool TryGetPresentedFacing(Vector2 movementFacing, out Vector2 facing)
@@ -140,24 +142,24 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private void RefreshPresentedAim()
     {
         bool offFreeAim = CanReadEquipmentState() &&
-            _equipmentSource.TryGetSlotDefinition(_equipmentSource.GetActiveHandSlot(true), out LootDefinition offLoot) &&
+            _presentationState.TryGetSlotDefinition(_presentationState.GetActiveHandSlot(true), out LootDefinition offLoot) &&
             offLoot.WeaponDefinition != null && offLoot.WeaponDefinition.Presentation.AimMode == WeaponAimMode.FreeAim;
         if ((!offFreeAim && (_activeWeapon == null || _activeWeapon.Presentation.AimMode == WeaponAimMode.BakedFacing)) ||
-            _aimSource == null || _aimSource.Object == null || !_aimSource.Object.IsValid)
+            _presentationState == null || !_presentationState.IsAimReadable)
         {
             _hasPresentedAim = false;
             return;
         }
 
         _presentedAim = AimDirectionSmoothing.Resolve(
-            _aimSource.AimDirection,
-            _aimSource.FacingDirection,
+            _presentationState.AimDirection,
+            _presentationState.FacingDirection,
             _presentedAim,
             _hasPresentedAim,
             Time.deltaTime,
             RemoteAimTurnRateDegreesPerSecond,
             // The owning player renders its own cursor immediately; only proxies smooth the sampled aim.
-            !_aimSource.Object.HasInputAuthority);
+            !_presentationState.HasInputAuthority);
         _hasPresentedAim = true;
     }
 
@@ -176,7 +178,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         seconds = 0f;
         if (_hasTimedAttack)
         {
-            if (!_combatController.TryGetAttackPresentationSeconds(_timedAttack, out float elapsed)) return false;
+            if (!_presentationState.TryGetAttackPresentationSeconds(_timedAttack, out float elapsed)) return false;
             seconds = _timedAttack.IsAimed
                 ? AttackTiming.AimedClipSeconds(
                     elapsed, _timedAttack.ScheduledWindupSeconds, _authoredReleaseSeconds, _drawnClipSeconds)
@@ -224,17 +226,46 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private AnimatorOverrideController _attackOverrides;
     private AnimationClip[] _placeholderClips;
 
-    private void OnEnable()
+    private void OnEnable() => InitializePresentation();
+
+    /// <summary>Binds externally owned preview state; the presenter never disposes the supplied state.</summary>
+    internal void BindPresentationState(IPlayerPresentationState state)
     {
-        CacheDependencies();
+        if (state == null) throw new System.ArgumentNullException(nameof(state));
+        UnsubscribeFromCombat();
+        _networkPresentationState?.Dispose();
+        _networkPresentationState = null;
+        _presentationState = state;
+    }
+
+    internal override void InitializePresentation()
+    {
+        base.InitializePresentation();
+        if (_presentationState == null)
+        {
+            _networkPresentationState = new NetworkPlayerPresentationState(
+                _combatController, _equipmentSource, _aimSource, _shieldDefense,
+                GetComponentInParent<PlayerDownedStateNetworkController>(),
+                GetComponentInParent<CharacterBase>(), GetComponentInParent<PlayerConsumableNetworkController>());
+            _presentationState = _networkPresentationState;
+        }
         SubscribeToCombat();
         CacheCombatLayerIndex();
         RefreshCombatParameters();
     }
 
-    protected override void OnDisable()
+    protected override void OnDisable() => ReleasePresentation();
+
+    /// <summary>Releases preview subscriptions and transient controllers when callbacks do not run.</summary>
+    internal void ReleasePresentation()
     {
         UnsubscribeFromCombat();
+        if (_networkPresentationState != null)
+        {
+            _networkPresentationState.Dispose();
+            _networkPresentationState = null;
+            _presentationState = null;
+        }
         if (AnimatorInstance != null)
         {
             AnimatorInstance.SetBool(HasGenericAttackHash, false);
@@ -246,7 +277,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         }
         if (_attackOverrides != null)
         {
-            Destroy(_attackOverrides);
+            if (Application.isPlaying) Destroy(_attackOverrides);
+            else DestroyImmediate(_attackOverrides);
             _attackOverrides = null;
         }
         _baseController = null;
@@ -268,7 +300,10 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         ResetVisualPositionSample();
     }
 
-    private void LateUpdate()
+    private void LateUpdate() => PresentFrame();
+
+    /// <summary>Runs the post-Animator presentation step for an explicit preview frame.</summary>
+    internal void PresentFrame()
     {
         if (AnimatorInstance == null)
         {
@@ -311,13 +346,13 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private void SubscribeToCombat()
     {
-        if (_subscribedCombatController == _combatController)
+        if (_subscribedCombatController == _presentationState)
         {
             return;
         }
 
         UnsubscribeFromCombat();
-        _subscribedCombatController = _combatController;
+        _subscribedCombatController = _presentationState;
         if (_subscribedCombatController != null)
         {
             _subscribedCombatController.AttackPerformed += OnAttackPerformed;
@@ -350,8 +385,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
         _hasTimedAttack = false;
         _timedAttackClip = null;
-        _attackWeaponPinned = _equipmentSource != null &&
-            _equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
+        _attackWeaponPinned = _presentationState != null &&
+            _presentationState.TryGetWeaponByCatalogIndexPlusOne(
                 attackEvent.WeaponCatalogIndexPlusOne, out _confirmedAttackWeapon);
         if (!_attackWeaponPinned)
         {
@@ -421,7 +456,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
                 blend = 1f;
                 pin = TryGetPresentedAttackSeconds(out float seconds) && seconds < _authoredReleaseSeconds ? 1f : 0f;
             }
-            else if (_aimSource != null && _aimSource.TryGetAimStanceElapsedSeconds(out float elapsed))
+            else if (_presentationState != null && _presentationState.TryGetAimStanceElapsedSeconds(out float elapsed))
             {
                 blend = AimStanceDraw.Progress(elapsed, _activeWeapon.AimStanceDrawSeconds);
                 pin = _hasTimedAttack ? 0f : blend;
@@ -443,7 +478,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
         if (_mainHandCombatLayerIndex < 0 || _hasTimedAttack || !PlayerAimStanceRules.WeaponAllows(_activeWeapon) ||
             !_activeWeapon.Presentation.HasGenericAttack || _attackOverrides == null ||
-            _aimSource == null || !_aimSource.TryGetAimStanceElapsedSeconds(out float elapsed))
+            _presentationState == null || !_presentationState.TryGetAimStanceElapsedSeconds(out float elapsed))
         {
             return false;
         }
@@ -501,10 +536,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     // Mirrors the replicated defense state; gameplay alone decides when it holds.
     private bool IsDefending()
     {
-        return _shieldDefense != null &&
-            _shieldDefense.Object != null &&
-            _shieldDefense.Object.IsValid &&
-            _shieldDefense.IsDefending;
+        return _presentationState != null && _presentationState.IsDefending;
     }
 
     private void RefreshAttackAnimation()
@@ -512,7 +544,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         WeaponDefinition weapon = _attackWeaponPinned
             ? _confirmedAttackWeapon.WeaponDefinition : null;
         if (!_attackWeaponPinned && CanReadEquipmentState() &&
-            _equipmentSource.TryGetEquippedDefinition(out LootDefinition definition) &&
+            _presentationState.TryGetEquippedDefinition(out LootDefinition definition) &&
             definition != null)
         {
             weapon = definition.WeaponDefinition;
@@ -588,9 +620,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
 
     private bool CanReadEquipmentState()
     {
-        return _equipmentSource != null &&
-            _equipmentSource.Object != null &&
-            _equipmentSource.Object.IsValid;
+        return _presentationState != null && _presentationState.IsEquipmentReadable;
     }
 
     private void CacheCombatLayerIndex()

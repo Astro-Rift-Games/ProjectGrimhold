@@ -14,34 +14,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
   _visual: {fileID: 11400000, guid: 29cf5fd5ff8b4e27999aaf006e170beb, type: 2}
   _startSeconds: 0.25
+  _releaseLeadSeconds: 0
   _poses:
-  - _position: {x: 0, y: 0.11, z: 0}
-    _rotation: {x: 0, y: 0, z: 133}
-    _reachOffset: -0.06
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: 27.458668}
+    _reachOffset: 0.42907202
+    _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: 0.07, y: 0.08, z: 0}
-    _rotation: {x: 0, y: 0, z: 88}
-    _reachOffset: 0.16
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: -17.541334}
+    _reachOffset: 0.3671602
+    _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: -0.07, y: 0.07, z: 0}
-    _rotation: {x: 0, y: 0, z: -173}
-    _reachOffset: -0.15
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: 72.458664}
+    _reachOffset: 0.3692026
+    _mirrored: 1
     _sortingOrder: -9
-  - _position: {x: 0, y: -0.11, z: 0}
-    _rotation: {x: 0, y: 0, z: -45}
-    _reachOffset: 0.37
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: -152.54134}
+    _reachOffset: 0.4560473
+    _mirrored: 1
     _sortingOrder: 21
-  - _position: {x: 0.08, y: -0.08, z: 0}
-    _rotation: {x: 0, y: 0, z: -4}
-    _reachOffset: 0.13
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: -107.541336}
+    _reachOffset: 0.39035937
+    _mirrored: 1
     _sortingOrder: 21
-  - _position: {x: -0.07, y: -0.06, z: 0}
-    _rotation: {x: 0, y: 0, z: -82}
-    _reachOffset: 0.43
-    _mirrored: 0
+  - _position: {x: 0, y: 0, z: 0}
+    _rotation: {x: 0, y: 0, z: -197.54134}
+    _reachOffset: 0.39912328
+    _mirrored: 1
     _sortingOrder: 21

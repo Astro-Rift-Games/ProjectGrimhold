@@ -69,13 +69,20 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private bool _hiddenByDowned;
     private OneHandPoseSampler _offHandSampler;
     private SpriteRenderer _offHandAttackVfx;
+    private SpriteRenderer _mainHandHoldingRenderer;
     private bool _mainHandShield;
     private DirectionalShieldSpriteSet _mainHandDefenseSprites;
     private PlayerShieldDefenseNetworkController _shieldDefense;
     private Vector3 _offHandBaseScale;
+    private LootDefinition _reportedMissingOffHandSet;
+    private bool _secondaryGripPinned;
+    private Vector3 _secondaryHandLocalPosition;
+    private int _secondaryHandSortingOrder;
 
     private PlayerConsumableNetworkController _consumables;
     private LootDefinition _presentedConsumable;
+    private IPlayerPresentationState _presentationState;
+    private NetworkPlayerPresentationState _networkPresentationState;
 
     private void Awake()
     {
@@ -83,10 +90,31 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         CaptureBaseState();
     }
 
-    private void OnEnable()
+    private void OnEnable() => InitializePresentation();
+
+    /// <summary>Binds externally owned state for preview rendering without Fusion.</summary>
+    internal void BindPresentationState(IPlayerPresentationState state)
+    {
+        if (state == null) throw new System.ArgumentNullException(nameof(state));
+        _networkPresentationState?.Dispose();
+        _networkPresentationState = null;
+        _presentationState = state;
+    }
+
+    /// <summary>Performs the same dependency validation and initial pose as OnEnable.</summary>
+    internal void InitializePresentation()
     {
         CacheDependencies();
         CaptureBaseState();
+        if (_presentationState == null)
+        {
+            Transform root = _equipmentSource != null ? _equipmentSource.transform : transform.root;
+            _networkPresentationState = new NetworkPlayerPresentationState(
+                root.GetComponent<PlayerCombatNetworkController>(), _equipmentSource,
+                root.GetComponent<PlayerMovementNetworkController>(), _shieldDefense,
+                _downedState, _character, _consumables);
+            _presentationState = _networkPresentationState;
+        }
         if (!ValidateDependencies())
         {
             enabled = false;
@@ -97,8 +125,20 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         RefreshPose();
     }
 
-    private void OnDisable()
+    private void OnDisable() => ReleasePresentation();
+
+    /// <summary>Releases the sampled overlay and owned preview resources without Unity callbacks.</summary>
+    internal void ReleasePresentation()
     {
+        RestoreSecondaryGripPin();
+        if (_networkPresentationState != null)
+        {
+            _networkPresentationState.Dispose();
+            _networkPresentationState = null;
+            _presentationState = null;
+        }
+        _offHandSampler?.Restore();
+        _reportedMissingOffHandSet = null;
         _presentedConsumable = null;
         _mainHandDefinition = null;
         _offHandDefinition = null;
@@ -112,37 +152,56 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         _hiddenByDowned = false;
         _offHandSampler?.Dispose();
         _offHandSampler = null;
-        if (_offHandAttackVfx != null) Destroy(_offHandAttackVfx.gameObject);
+        if (_offHandAttackVfx != null)
+        {
+            if (Application.isPlaying) Destroy(_offHandAttackVfx.gameObject);
+            else DestroyImmediate(_offHandAttackVfx.gameObject);
+        }
         _offHandAttackVfx = null;
         SetWeaponDriven(false);
         SetRendererSprite(_mainHandRenderer, null);
         SetRendererSprite(_offHandRenderer, null);
     }
 
-    private void LateUpdate()
+    private void Update() => BeginFrame();
+
+    /// <summary>Restores the previous off-hand overlay before the Animator evaluates.</summary>
+    internal void BeginFrame()
+    {
+        RestoreSecondaryGripPin();
+        _offHandSampler?.Restore();
+    }
+
+    private void LateUpdate() => PresentFrame();
+
+    /// <summary>Runs held-item presentation after the Animator view's post-Animator step.</summary>
+    internal void PresentFrame()
     {
         RefreshDownedVisibility();
         RefreshEquipment(force: false);
-        RefreshOffHandAttackPose();
         RefreshConsumptionPresentation();
         RefreshMainHandSprite();
         RefreshPose();
+        // Main/shield consumers read the evaluated base, never the offensive left overlay.
+        RefreshOffHandAttackPose();
+        Vector2 offFacing = _animatorView.VisualFacingDirection;
+        if (_offHandDefinition?.WeaponDefinition?.Presentation.AimMode == WeaponAimMode.BakedFacing &&
+            _animatorView.TryGetPresentedOffHandAttack(out AttackPerformedEvent offAttack, out _, out _))
+            offFacing = offAttack.Direction;
+        RefreshOffHandDepth(CharacterVisualDirectionResolver.Resolve(offFacing));
     }
 
     // Presentation only: observes the networked Downed state. Visibility combines with the equipment
     // sprite (an empty slot stays hidden) instead of forcing the renderers on.
     private void RefreshDownedVisibility()
     {
-        bool isDowned = _downedState != null &&
-            _downedState.Object != null &&
-            _downedState.Object.IsValid &&
-            _downedState.IsDowned;
+        bool isDowned = _presentationState != null && _presentationState.IsDowned;
         bool hidden = _hiddenByDowned;
         if (isDowned)
         {
             hidden = true;
         }
-        else if (_hiddenByDowned && _character != null && _character.IsAlive)
+        else if (_hiddenByDowned && _presentationState != null && _presentationState.IsAlive)
         {
             hidden = false;
         }
@@ -179,16 +238,16 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         {
             if (!_animatorView.TryGetPresentedAttackWeapon(out mainHand))
             {
-                _equipmentSource.TryGetEquippedDefinition(out mainHand);
+                _presentationState.TryGetEquippedDefinition(out mainHand);
             }
 
             if (_animatorView.TryGetPresentedOffHandAttack(out _, out LootDefinition pinnedOffHand, out _))
                 offHand = pinnedOffHand;
-            WeaponSetSlot activeSet = _equipmentSource.ActiveWeaponSetSlot;
+            WeaponSetSlot activeSet = _presentationState.ActiveWeaponSetSlot;
             EquipmentSlot offHandSlot = EquipmentSlotRules.GetOffHandSlot(activeSet);
             if (offHand == null && offHandSlot != EquipmentSlot.None)
             {
-                _equipmentSource.TryGetSlotDefinition(offHandSlot, out offHand);
+                _presentationState.TryGetSlotDefinition(offHandSlot, out offHand);
             }
         }
 
@@ -394,31 +453,32 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
             _mainHandWeaponPivot.localScale = _mainHandWeaponPivotBaseScale;
             _mainHandRenderer.sprite = PlayerWeaponPresentationMath.ResolveOffHandSprite(
                 _mainHandWorldSprite, _mainHandDefenseSprites, direction);
-            // Defense clips already pose LeftHand. Transfer that pose to the shield's actual hand.
-            var defense = _shieldDefense;
-            if (defense != null && defense.Object != null && defense.Object.IsValid && defense.IsDefending)
+            // Defense clips animate LeftHand's motion about its drawn anchor. Reuse that motion,
+            // not its grip coordinates: the anatomical right sprite has a different drawn anchor.
+            // MainHandGrip retains the right-hand idle anchor evaluated by the Animator, so the
+            // shield follows the right fist throughout the transferred translation and rotation.
+            if (_presentationState != null && _presentationState.IsDefending)
             {
                 _mainHandGrip.parent.SetLocalPositionAndRotation(_offHandGrip.parent.localPosition, _offHandGrip.parent.localRotation);
-                _mainHandGrip.SetLocalPositionAndRotation(_offHandGrip.localPosition, _offHandGrip.localRotation);
             }
         }
         PoseOffHandWeapon(facing, mirrored);
-        _mainHandRenderer.sortingOrder = order;
+        _mainHandRenderer.sortingOrder = _mainHandShield
+            ? PlayerWeaponPresentationMath.ResolveShieldSortingOrder(order,
+                (_mainHandHoldingRenderer ??= _mainHandGrip.parent.GetComponent<SpriteRenderer>()).sortingOrder)
+            : order;
         // The weapon-pose hand is the LeftHand renderer that also carries OffHandGrip.
-        _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(
-            CharacterVisualDirectionResolver.IsFrontFacing(direction),
-            SortingOrderFront,
-            SortingOrderBack,
-            _weaponPoseHandRenderer.sortingOrder);
+        RefreshOffHandDepth(direction);
         RefreshOffHandSprite(direction);
         if (_weaponDriven)
         {
             _weaponPoseHandRenderer.sortingOrder = CharacterVisualDirectionResolver.CalculateSortingOrder(
                 direction,
                 WeaponPoseHandSortingOrderFront,
-                _weaponPoseHandBaseSortingOrder);
+                -2);
         }
 
+        ApplySecondaryGripPin(direction);
         RefreshAttackVfxPivot(followsAim, mirrored, CharacterVisualDirectionResolver.IsFrontFacing(direction));
     }
 
@@ -427,10 +487,27 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void RefreshOffHandAttackPose()
     {
         if (_offHandAttackVfx != null) _offHandAttackVfx.enabled = false;
+        WeaponDefinition equipped = _offHandDefinition != null ? _offHandDefinition.WeaponDefinition : null;
+        if (equipped != null && equipped.Presentation.HasGenericAttack &&
+            (equipped.Presentation.OffHandAttackAnimationSet == null ||
+             !equipped.Presentation.OffHandAttackAnimationSet.IsComplete ||
+             !equipped.Presentation.OffHandAttackAnimationSet.HasGripOriginOffsets ||
+             (equipped.Presentation.OffHandAttackAnimationSet.OffHandStroke == OffHandStroke.Mirrored &&
+              !equipped.Presentation.OffHandAttackAnimationSet.HasMirrorMetadata)))
+        {
+            if (_reportedMissingOffHandSet != _offHandDefinition)
+            {
+                _reportedMissingOffHandSet = _offHandDefinition;
+                Debug.LogError($"{equipped.name}: missing generated Off Hand presentation. Regenerate Off Hand attacks in the Editor.", this);
+            }
+            return;
+        }
+        _reportedMissingOffHandSet = null;
         if (_hiddenByDowned || !_animatorView.TryGetPresentedOffHandAttack(
             out AttackPerformedEvent attack, out LootDefinition loot, out float seconds)) return;
         WeaponDefinition.PresentationConfig presentation = loot.WeaponDefinition.Presentation;
-        AnimationClip clip = presentation.GetAttackClip(PlayerAnimatorView.DirectionIndex(attack.Direction));
+        int direction = PlayerAnimatorView.DirectionIndex(attack.Direction);
+        AnimationClip clip = presentation.GetOffHandAttackClip(direction);
         _offHandSampler ??= new OneHandPoseSampler();
         _offHandSampler.Sample(clip, seconds, _offHandGrip.parent, _offHandGrip, _weaponPoseHandRenderer);
         AttackVfxDefinition vfx = presentation.AttackVfx;
@@ -447,20 +524,57 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         }
         if (!vfx.TryResolvePose(PlayerAnimatorView.DirectionIndex(attack.Direction), presentation.BladeReach,
             out AttackVfxDefinition.ResolvedPose pose)) return;
-        _offHandAttackVfx.transform.SetLocalPositionAndRotation(pose.Position, pose.Rotation);
-        _offHandAttackVfx.transform.localScale = pose.Scale;
+        Vector3 position = pose.Position + (Vector3)presentation.OffHandAttackAnimationSet.GetGripOriginOffset(direction);
+        Quaternion rotation = pose.Rotation;
+        Vector3 scale = pose.Scale;
+        var offSet = presentation.OffHandAttackAnimationSet;
+        if (offSet.OffHandStroke == OffHandStroke.Mirrored)
+        {
+            Vector3 mainNeutral = offSet.GetMainGripNeutralPosition(direction);
+            Vector3 displacement = pose.Position - mainNeutral;
+            displacement = PlayerWeaponPresentationMath.ReflectAcrossFacing(displacement, direction);
+            position = offSet.CanonicalSlash
+                ? PlayerWeaponPresentationMath.ReflectAcrossFacing(pose.Position, direction)
+                : mainNeutral + (Vector3)offSet.GetGripOriginOffset(direction) + displacement;
+            // Reflect the axis about the body's facing, and reverse sprite-sequence handedness.
+            rotation = PlayerWeaponPresentationMath.ReflectedRotation(rotation, direction);
+            scale.y = -scale.y;
+        }
+        if (presentation.AimMode == WeaponAimMode.FreeAim)
+        {
+            Vector2 aim = _animatorView.HasPresentedAim ? _animatorView.PresentedAimDirection : attack.Direction;
+            var source = FreeAimAttackVfxPose.ResolveAtGrip(_animatorView.transform, _offHandGrip, aim,
+                PlayerWeaponPresentationMath.ShouldMirror(_animatorView.VisualFacingDirection), vfx.GetPose(direction), pose.SortingOrder);
+            if (!vfx.TryResolvePose(source, presentation.BladeReach, out pose)) return;
+            position = pose.Position;
+            rotation = pose.Rotation;
+            scale = pose.Scale;
+        }
+        _offHandAttackVfx.transform.SetLocalPositionAndRotation(position, rotation);
+        _offHandAttackVfx.transform.localScale = scale;
         _offHandAttackVfx.sortingOrder = pose.SortingOrder;
         _offHandAttackVfx.sprite = _offHandSampler.SampleVfx(vfx.Clip, vfxSeconds);
         _offHandAttackVfx.color = tint;
         _offHandAttackVfx.enabled = _offHandAttackVfx.sprite != null;
     }
 
+    private void RefreshOffHandDepth(CharacterVisualDirection direction)
+    {
+        _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(
+            CharacterVisualDirectionResolver.IsFrontFacing(direction), SortingOrderFront, SortingOrderBack,
+            _weaponPoseHandRenderer.sortingOrder);
+        // Shields intentionally cover their holding hand and glove, in either hemisphere.
+        if (_offHandDefinition != null && _offHandDefinition.Category == LootCategory.Shield)
+            _offHandRenderer.sortingOrder = PlayerWeaponPresentationMath.ResolveShieldSortingOrder(
+                _offHandRenderer.sortingOrder, _weaponPoseHandRenderer.sortingOrder);
+    }
+
     private void PoseOffHandWeapon(Vector2 facing, bool mirrored)
     {
         WeaponDefinition weapon = _offHandDefinition != null ? _offHandDefinition.WeaponDefinition : null;
         if (weapon == null) return;
-        if (weapon.Presentation.AimMode == WeaponAimMode.BakedFacing &&
-            _animatorView.TryGetPresentedOffHandAttack(out AttackPerformedEvent attack, out _, out _))
+        bool attacking = _animatorView.TryGetPresentedOffHandAttack(out AttackPerformedEvent attack, out _, out _);
+        if (weapon.Presentation.AimMode == WeaponAimMode.BakedFacing && attacking)
         {
             facing = attack.Direction;
             mirrored = PlayerWeaponPresentationMath.ShouldMirror(facing);
@@ -468,7 +582,19 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         float angle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(facing);
         if (weapon.Presentation.AimMode == WeaponAimMode.FreeAim && _animatorView.HasPresentedAim)
             angle += FreeAimResidual.AngleDegrees(facing, _animatorView.PresentedAimDirection);
-        angle += PlayerWeaponPresentationMath.ResolveAngleCorrection(weapon.Presentation.AngleCorrection, mirrored);
+        float correction = PlayerWeaponPresentationMath.ResolveAngleCorrection(weapon.Presentation.AngleCorrection, mirrored);
+        // Main Hand applies correction below a mirrored pivot. Flattening that hierarchy must
+        // reverse the correction across the reflection; rotation and reflection do not commute.
+        angle += mirrored ? -correction : correction;
+        var offSet = weapon.Presentation.OffHandAttackAnimationSet;
+        if (attacking && offSet != null && offSet.OffHandStroke == OffHandStroke.Mirrored && offSet.HasMirrorMetadata)
+        {
+            int direction = PlayerAnimatorView.DirectionIndex(attack.Direction);
+            Quaternion rotation = offSet.GetMirroredWeaponBasisRotation(direction) * Quaternion.AngleAxis(-angle, Vector3.forward);
+            Vector3 axis = rotation * Vector3.right;
+            angle = Mathf.Atan2(axis.y, axis.x) * Mathf.Rad2Deg;
+            mirrored = !mirrored;
+        }
         Vector2 scale = new(_offHandBaseScale.x, Mathf.Abs(_offHandBaseScale.y) * (mirrored ? -1f : 1f));
         Vector2 offset = PlayerWeaponPresentationMath.CalculateGripAlignedWeaponPosition(weapon.Presentation.GripPoint, scale, angle);
         _offHandVisual.localPosition = new Vector3(offset.x, offset.y, 0f);
@@ -497,6 +623,37 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     // The one exception to the Animator owning the hands: the drawn string hand sits on the weapon's nock point. It runs
     // after the Animator and the rigid block, so it follows the posed weapon, and it fades with the draw and ends at the
     // release frame, when the authored animation takes over again. Only weapon-driven weapons (bows, crossbow) pin.
+    private void RestoreSecondaryGripPin()
+    {
+        if (!_secondaryGripPinned) return;
+        _offHandGrip.parent.localPosition = _secondaryHandLocalPosition;
+        _weaponPoseHandRenderer.sortingOrder = _secondaryHandSortingOrder;
+        _secondaryGripPinned = false;
+    }
+
+    // Shared locomotion clips key OffHandGrip to the opaque hand centroid. Reconcile that
+    // anchor after every pose, including baked attacks: authored non-planar hand rotation
+    // and attack/locomotion transitions must not detach a hand that always holds the handle.
+    // Preserve authored rotation and attack sorting; restore before the next Animator pass.
+    private void ApplySecondaryGripPin(CharacterVisualDirection direction)
+    {
+        var weapon = _mainHandDefinition != null ? _mainHandDefinition.WeaponDefinition : null;
+        if (weapon == null || weapon.Handedness != WeaponHandedness.TwoHanded ||
+            weapon.Presentation.Rig != WeaponRig.HandHeld ||
+            weapon.Presentation.SecondHand != SecondHandPresentation.HoldsSecondaryGrip ||
+            _offHandDefinition != null) return;
+        if (!_secondaryGripPinned)
+        {
+            _secondaryHandLocalPosition = _offHandGrip.parent.localPosition;
+            _secondaryHandSortingOrder = _weaponPoseHandRenderer.sortingOrder;
+            _secondaryGripPinned = true;
+        }
+        Vector3 target = _mainHandWeaponVisual.TransformPoint(weapon.Presentation.SecondaryGripPoint);
+        _offHandGrip.parent.position += target - _offHandGrip.position;
+        if (!_animatorView.TryGetPresentedAttackSeconds(out _))
+            _weaponPoseHandRenderer.sortingOrder = CharacterVisualDirectionResolver.IsFrontFacing(direction) ? 25 : -2;
+    }
+
     private void ApplyStringPin(bool mirrored)
     {
         float weight = _animatorView.StringHandPinWeight;
@@ -592,7 +749,7 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     private void RefreshConsumptionPresentation()
     {
         LootDefinition definition = null;
-        if (_consumables != null) _consumables.TryGetConsumingDefinition(out definition);
+        if (_presentationState != null) _presentationState.TryGetConsumingDefinition(out definition);
         if (_presentedConsumable == definition) return;
         _presentedConsumable = definition;
         if (definition == null)
@@ -645,15 +802,13 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
 
     private bool CanReadEquipmentState()
     {
-        return _equipmentSource != null &&
-            _equipmentSource.Object != null &&
-            _equipmentSource.Object.IsValid;
+        return _presentationState != null && _presentationState.IsEquipmentReadable;
     }
 
     private bool ValidateDependencies()
     {
         if (_animatorView != null &&
-            _equipmentSource != null &&
+            _presentationState != null && (_networkPresentationState == null || _equipmentSource != null) &&
             _mainHandGrip != null &&
             _weaponPose != null &&
             _weaponPoseHandRenderer != null &&

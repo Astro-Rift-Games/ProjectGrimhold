@@ -415,19 +415,11 @@ public sealed class SwordSlashPresentationTests
         Assert.That(SlashTipRadius(vfx), Is.EqualTo(1.05f));
         Assert.That(sword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.8125f)));
         Assert.That(sword.Presentation.BladeReach, Is.EqualTo(1.4375f).Within(0.0001f));
-        // Index order: N, NE, NW, S, SE, SW.
-        var positions = new[]
-        {
-            new Vector3(-0.04f, 0.52f, 0f), new Vector3(0.34f, 0.4f, 0f), new Vector3(-0.44f, 0.31f, 0f),
-            new Vector3(0.05f, -0.53f, 0f), new Vector3(0.39f, -0.35f, 0f), new Vector3(-0.31f, -0.45f, 0f)
-        };
-        var rotations = new[] { 87f, 41f, 141f, -93f, -51f, -131f };
-        var reachOffsets = new[] { -0.31f, -0.09f, -0.4f, 0.12f, -0.12f, 0.16f };
-        AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: true);
+        AssertCanonicalSlashPoses(sword);
     }
 
-    // Magic Sword winds up counterclockwise until 0.3s and strikes clockwise until 0.55s around the
-    // body center, so its four Slash frames span apex to strike end from 0.25s and play unmirrored.
+    // Both one-handed slashes now share the approved canonical Main arc. Magic retains its
+    // own .25s VFX start and authored stroke window, not its old opposite-sense geometry.
     [Test]
     public void MagicSwordVfxConfiguration_AlignsSharedSlashWithItsOwnSwing()
     {
@@ -438,14 +430,7 @@ public sealed class SwordSlashPresentationTests
         Assert.That(vfx.StartSeconds, Is.EqualTo(0.25f));
         Assert.That(magicSword.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.75f)));
         Assert.That(magicSword.Presentation.BladeReach, Is.EqualTo(1.3125f).Within(0.0001f));
-        var positions = new[]
-        {
-            new Vector3(0f, 0.11f, 0f), new Vector3(0.07f, 0.08f, 0f), new Vector3(-0.07f, 0.07f, 0f),
-            new Vector3(0f, -0.11f, 0f), new Vector3(0.08f, -0.08f, 0f), new Vector3(-0.07f, -0.06f, 0f)
-        };
-        var rotations = new[] { 133f, 88f, -173f, -45f, -4f, -82f };
-        var reachOffsets = new[] { -0.06f, 0.16f, -0.15f, 0.37f, 0.13f, 0.43f };
-        AssertPoses(vfx, positions, rotations, reachOffsets, mirrored: false);
+        AssertCanonicalSlashPoses(magicSword);
         for (int i = 0; i < 6; i++)
         {
             Assert.That(vfx.StartSeconds + vfx.Clip.length,
@@ -619,6 +604,35 @@ public sealed class SwordSlashPresentationTests
         }
     }
 
+    private void AssertCanonicalSlashPoses(WeaponDefinition weapon)
+    {
+        var visual = _contents.GetComponentInChildren<PlayerAnimatorView>(true).transform;
+        var vfx = weapon.Presentation.AttackVfx;
+        string[] directions = { "N", "NE", "NW", "S", "SE", "SW" };
+        float? relativeAngle = null;
+        for (int i = 0; i < directions.Length; i++)
+        {
+            string direction = directions[i];
+            AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/Idle_{direction}.anim").SampleAnimation(visual.gameObject, 0);
+            foreach (string side in new[] { "RightHand", "LeftHand" })
+                AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Idle/{side}/{side}_Idle_{direction}.anim").SampleAnimation(visual.gameObject, 0);
+            float radius = (((Vector2)visual.InverseTransformPoint(visual.Find("RightHandPivot/RightHand/MainHandGrip").position)).magnitude +
+                ((Vector2)visual.InverseTransformPoint(visual.Find("LeftHandPivot/LeftHand/OffHandGrip").position)).magnitude) * .5f;
+            var pose = vfx.GetPose(i);
+            Assert.That(pose.Position, Is.EqualTo(Vector3.zero), $"body pivot {i}");
+            Assert.That(pose.ReachOffset, Is.EqualTo(radius).Within(.00001f), $"grip radius {i}");
+            Assert.That(pose.Mirrored, Is.True);
+            Assert.That(pose.SortingOrder, Is.EqualTo(i < 3 ? -9 : 21));
+            Vector2 f = PlayerWeaponPresentationMath.CanonicalFacing(i);
+            float angle = Mathf.DeltaAngle(Mathf.Atan2(f.y, f.x) * Mathf.Rad2Deg, Angle(pose.Rotation * Vector3.right));
+            if (relativeAngle.HasValue) Assert.That(Mathf.Abs(Mathf.DeltaAngle(relativeAngle.Value, angle)), Is.LessThan(.001f));
+            relativeAngle = angle;
+            Assert.That(vfx.TryResolvePose(i, weapon.Presentation.BladeReach, out var resolved), Is.True);
+            float sweep = MeasureVfxSweep(vfx.Clip, Matrix4x4.TRS(resolved.Position, resolved.Rotation, resolved.Scale));
+            Assert.That(sweep, Is.InRange(150f, 210f), $"canonical Main screen-space sweep {i}");
+        }
+    }
+
     private static void AssertPoses(AttackVfxDefinition vfx, Vector3[] positions, float[] rotations,
         float[] reachOffsets, bool mirrored)
     {
@@ -657,8 +671,9 @@ public sealed class SwordSlashPresentationTests
         Assert.That(magicSword.StartSeconds, Is.Not.EqualTo(sword.StartSeconds));
         Assert.That(longSword.StartSeconds, Is.Not.EqualTo(sword.StartSeconds));
         Assert.That(longSword.StartSeconds, Is.Not.EqualTo(magicSword.StartSeconds));
-        Assert.That(magicSword.GetPose(3).Position, Is.Not.EqualTo(sword.GetPose(3).Position));
-        Assert.That(magicSword.GetPose(3).Mirrored, Is.Not.EqualTo(sword.GetPose(3).Mirrored));
+        // Independent assets/timing remain; canonical one-handed geometry is deliberately shared.
+        Assert.That(magicSword.GetPose(3).Position, Is.EqualTo(sword.GetPose(3).Position));
+        Assert.That(magicSword.GetPose(3).Mirrored, Is.EqualTo(sword.GetPose(3).Mirrored));
         for (int i = 0; i < 6; i++)
         {
             Assert.That(longSword.GetPose(i).Position, Is.Not.EqualTo(sword.GetPose(i).Position), $"pose {i}");

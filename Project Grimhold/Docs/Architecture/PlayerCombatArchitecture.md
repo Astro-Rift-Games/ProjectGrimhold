@@ -61,13 +61,73 @@ slot sequence independently, dispatches coalesced snapshots in acceptance-sequen
 pending timelines without start audio, and does not let
 Off-hand events replace Main-hand Animator/VFX timelines.
 
-Off-hand weapons reuse the existing grip/renderer. `OneHandPoseSampler` samples existing
-one-handed directional clips on an owned inert rig and transfers only the sampled hand pose;
-it does not mutate animation assets or seek the live Main-hand Animator. The sampled rig is
-created lazily and disposed with the presenter. Main shields reuse the existing defensive pose
-and directional sprites. FreeAim rotates a Wand around its own hand's grip; melee retains its
-committed direction. `SecondHandPresentation` continues owning generated two-handed support-hand
-motion; TASK-222 does not reinterpret it as gameplay state or change two-handed art.
+Off-hand weapons reuse the existing grip/renderer, but never the right-hand sprite or its absolute
+pose. `OffHandAnimationGenerator` derives six left-hand clips from the weapon's assigned Main Hand
+set and the real directional idle hand/grip anchors. The source set explicitly authors `OffHandStroke`:
+- `Reanchored` (default): in VisualRoot space the grip follows
+  `offNeutral + (sampledMainGrip - mainNeutral)`, preserving rotation/scale deltas.
+- `Mirrored`: reflect across the canonical facing axis `f` in VisualRoot space:
+  `M(v) = 2 dot(v,f) f - v` (preserving Z). This is not screen-X reflection on diagonals.
+  Rotation deltas reverse their planar angle; scale deltas remain unchanged.
+  Sword1H and MagicSword use the canonical slash contract below. Rapier/Dagger thrust sets and
+  Wand casts remain Reanchored. Mirrored + FreeAim is rejected by weapon validation.
+
+### Canonical one-handed slash presentation
+
+ArmingSword (Sword1H) and MagicSword share a body-centered 180-degree grip arc in all six facings.
+The pivot is the VisualRoot origin; each facing's radius is the average distance of its two independently
+sampled neutral grips from that origin. In `(forward,right)` coordinates, where `right` is `f` rotated
+clockwise 90 degrees, Main traverses +135 to -45 degrees and Off traverses -135 to +45 degrees.
+The blade points radially outward. Named tunable angle constants live on `DirectionalAttackAnimationSet`.
+Generated Main clips replace south-source XY geometry, while preserving anatomical sprites, scale,
+sorting, duration, release and gameplay timing. Thrusts, casts and two-handed weapons are unchanged.
+
+The source angular curve's two turning keys define anticipation/stroke/recovery boundaries. Normalized
+source angular progress drives the canonical stroke; anticipation blends from neutral to its back-side
+start and recovery blends back to neutral. ArmingSword's stroke is .15–.45 s and recovery ends at .60 s;
+MagicSword's stroke is .30–.55 s and recovery ends at .80 s, before its .85 s clip end. Generated sets
+store both the stroke window and authored recovery endpoint. Off mirrors the absolute Main path about
+the body during the stroke; a phase-weighted anatomical-neutral correction outside the stroke ensures
+it returns to its own left-hand idle grip at the same authored recovery endpoint.
+
+Both modes retain the drawn left sprite, clip duration and release timing.
+The generated pose compensates for the left sprite's own grip. Derived sets copy the source mode and
+store neutral Main grip positions and a neutral grip rotation basis. The presenter uses that basis to
+reflect the complete blade path, including facing and angular correction, not only the animated hand.
+Weapons sharing a Main Hand set also share its derived set; no hand-authored duplicate is required.
+
+`PresentationConfig.OffHandAttackAnimationSet` and `GetOffHandAttackClip` are additive. The original
+Main Hand selector is unchanged. Missing left clips never fall back to right clips: the held item keeps
+its base pose and the presenter reports missing generated configuration once per equipped definition.
+Legacy definitions may omit the field; two-handed definitions must not reference an Off Hand set.
+The production six-weapon one-handed catalog must pass
+`Tools/Animations/Validate Off Hand Attacks`; regenerate with `Tools/Animations/Generate Off Hand Attacks`.
+The generator updates existing assets in place, preserving GUIDs, and only saves its owned assets.
+Main directional generation refreshes affected left sets through clip references, not weapon names.
+Derived assets use `_OffHand` beside their source assets. Do not edit them manually: change the Main
+source or the directional neutral art, regenerate, then validate. A source/dependency signature detects
+stale derivatives, including unsaved stroke-mode changes; bump the generator format version when changing
+the retargeting algorithm. Format `off-hand-retarget/5-facing-axis-slash-recovery` includes facing-axis reflection, canonical slash phase metadata and the authored recovery endpoint. Reflected planar Euler keys and tangents preserve the Main clip's interpolation. Dense canonical slash curve groups are replaced atomically to avoid Unity transform-axis key-index assertions; other generators retain their existing serialized ordering.
+
+`OneHandPoseSampler` samples the generated LeftHand/OffHandGrip hierarchy on an owned inert rig,
+reset before every sample. It never seeks the live Animator. Its transient overlay captures only
+hand/grip transforms and hand sprite/sorting, not renderer visibility. `PlayerWeaponPresenter.Update`
+releases the previous overlay before normal animation; LateUpdate applies the new one after the
+Animator and Main/shield base consumers. Finish, cancellation, set changes, disable and disposal
+restore the evaluated base rather than leaving unkeyed attack values in idle/walk. Final item sorting
+observes the sampled hand. `PlayerArmorPresenter` runs after the weapon presenter so gloves use the
+same frame's left sprite and sorting. Main shields cannot borrow an already-overwritten offensive pose.
+
+Generated per-direction origin offsets translate Reanchored melee VFX without changing their stroke.
+For canonical Mirrored slashes, Main and Off VFX arc centers are the body origin. The Main poses are
+calibrated from the shared sprite sequence's first/last opaque centroids; their reach offsets equal the
+measured grip radius, so size follows grip radius plus blade reach. Off reflects both position and axis
+across `f` (`rotation' = R(2 facingAngle) inverse(rotation)`) and negates local Y scale, so placement and
+sprite sweep reflect together. Non-canonical Mirrored poses retain neutral-grip anchoring but use the
+same facing-axis reflection. Sorting, size, playback time and release remain unchanged.
+FreeAim VFX use the actual animated holding grip and continuous aim through the shared free-aim pose
+contract. Independent Off Hand timelines do not replace Main Hand state. `SecondHandPresentation`
+continues owning generated two-handed support-hand motion; it is not repurposed for Dual Wield.
 
 Host Migration copies hand snapshots, interval/window deadlines and release flags with the avatar.
 Fresh-spawn initialization is skipped on restore. Equipment reconstructs local executors without
@@ -505,6 +565,35 @@ destruction. See `Docs/Architecture/BreakableLootArchitecture.md`.
 
 The combat system coordinates gameplay state with the visual presentation layer through decoupled events and synchronized networked variables. This ensures visual changes have zero impact on the simulation's determinism.
 
+### Read-only presentation seam
+
+`IPlayerPresentationState` exposes attack performed/resumed events and their presentation clock;
+alive, Downed and consumption state; equipment readability, catalog/slot lookups and active hands;
+aim readability, directions, stance timing and Input Authority; shield defense and the consuming
+item. Locomotion remains on `IMovementState`, and armor visuals on `IEquipmentVisualSource`.
+It is a read-only presentation boundary, not a simulation or equipment authority.
+
+`NetworkPlayerPresentationState` is the default runtime adapter: it delegates 1:1 to the existing
+controllers, preserving their network-validity guards, clocks and event payloads rather than
+introducing another state store. Each consumer preserves its original `IsDowned` predicate:
+the weapon presenter uses only the valid Downed controller, while the VFX presenter explicitly
+selects `PlayerDownedGate.IsDowned(character)`. Neither source falls back to the other. The adapter
+owns its event subscriptions, not the controllers; externally bound state remains caller-owned.
+
+Internal preview entry points expose the existing lifecycle without changing runtime order:
+`BindPresentationState` binds Animator/weapon/VFX state, `BindMovementState` binds the character
+Animator's movement source, and `BindEquipmentVisualSource` binds armor. Unity callbacks delegate
+to `InitializePresentation` (OnEnable), `BeginFrame` (Update, before Animator evaluation),
+`PresentFrame` (LateUpdate) and `ReleasePresentation` (OnDisable, where cleanup is owned).
+The weapon's BeginFrame restores the previous Off Hand overlay; post-Animator consumers retain
+their existing execution order, with armor after weapons. Armor has no release entry point because
+it owns no subscriptions or transient resources.
+
+The [Editor Attack Animation Validator](../../Assets/Editor/AttackAnimationValidator/README.md)
+is the only non-network consumer outside tests. It supplies deterministic
+`PreviewPlayerPresentationState` and explicitly drives the real presenters on an isolated prefab;
+it does not run combat simulation or establish runtime-only correctness.
+
 ### Modular Character Composition and Animator-Owned Weapon Presentation
 
 `NetworkPlayer.prefab` owns one `PlayerWeaponPresenter` and one `PlayerAnimatorView` over the
@@ -558,9 +647,10 @@ idle, keeps the source clip length, and always emits a one-shot clip. The genera
 weapon's `WeaponHandedness` as an explicit input and never branches on weapon identity.
 For one-handed weapons only the `RightHandPivot/RightHand` hierarchy is part of the output; other
 source curves, such as the LeftHand motion authored in `MagicSword_Attack.anim`, are dropped because
-LeftHand carries `OffHandGrip` and belongs to separately authored off-hand clips. Spellbook is baked this way with
-`Tools/Animations/Generate Spellbook Directional Attacks`: it is one-handed on the `HandHeld` rig like Magic Wand, its
-`Spellbook_Attack.anim` source keeps a 1.0 s one-shot length, and the LeftHand motion that source authors is dropped.
+LeftHand carries `OffHandGrip` and belongs to separately authored off-hand clips. Spellbook is instead two-handed,
+Main Hand only, on the `HandHeld` rig with `SecondHandPresentation.FollowsAuthoredMotion`, like Magic Staff.
+`Tools/Animations/Generate Spellbook Directional Attacks` keeps its source's authored LeftHand motion and
+1.0 s one-shot length. Spellbook has no Off Hand attack set and cannot coexist with any Off Hand item.
 A two-handed weapon blocks the Off Hand, so `OffHandGrip` stays empty and the authored
 `LeftHandPivot/LeftHand` transform is its second hand, which the two-handed output therefore keeps.
 Being two-handed equipment does not by itself mean the second hand holds the weapon:
@@ -596,8 +686,15 @@ animates, so its re-derived second hand stays within 3.5 px of the authored path
 3 px handle between guard and pommel, and Zweihander grips `(0, -0.4375)` and `(0, -0.75)` (rows 23 and 28,
 5 px apart, matching the ~5.3 px its source animates). Each source remains its weapon's single south source
 and bakes through the same two-handed contract without weapon-specific code. The
-second-hand sprite is not part of the output: the LeftHand layer keeps owning it, so a walk cycle played
-during an attack can still move the drawn second hand away from the handle.
+second-hand sprite is not part of the output: the LeftHand layer keeps owning it. For a two-handed
+HandHeld `HoldsSecondaryGrip` weapon with an empty Off Hand, `PlayerWeaponPresenter` reconciles the
+animated OffHandGrip anchor onto the posed weapon's SecondaryGripPoint after the Animator, in idle,
+walk and attacks. Shared locomotion already keys that grip using the opaque-pixel centroid convention;
+no per-weapon locomotion clips or runtime texture reads are needed. The pin preserves animated rotation
+and attack sorting, and restores its positional overlay before the next Animator pass and on release.
+This also corrects separation introduced by non-planar authored support-hand rotation. Locomotion uses
+support sorting -2 in northern facings and 25 in front facings; attacks retain their authored -5/25 rule.
+One-handed items, shields, FollowsAuthoredMotion and WeaponDriven rigs do not participate in this pin.
 `GreatHammer_Attack.anim` holds the hammer the same way: at rest its hands lie on a horizontal handle,
 the head toward the screen left in S, and the strike at 0.55 s brings the head onto the facing. Great Hammer
 therefore uses `AngleCorrection` `180` with grips `(0, -0.375)` and `(0, -0.8125)` (rows 22 and 29 of the
@@ -658,10 +755,10 @@ instead sample the shared confirmed elapsed clock minus rounded wind-up duration
 art lead, never an independent start timer or simulation authority. The VFX clip binds only `AttackVfx/SpriteRenderer.m_Sprite`, never hand transforms,
 and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
 the animated hand or weapon pivot, so the effect never inherits the swing twice. The Sword Slash
-visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s, mirrored to
-its counterclockwise swing; Magic Sword aligns it from 0.25s, so the first frame straddles its
-windup apex at 0.3s and the last one its strike end at 0.55s, unmirrored to its clockwise strike
-around the body center. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
+visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s and Magic Sword
+from 0.25s, preserving their original visual timing. Both Main slash poses now use mirrored playback
+for the canonical +135 to -45 degree stroke; Off reflects it across the facing axis. Their positions,
+rotations and reach offsets are regenerated from the body-centered arc and sprite centroids. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
 its windup apex at 0.2s, frames 1-2 cover its counterclockwise strike to 0.4s and frame 3 the
 recoil, mirrored like Arming Sword; its size follows the main-hand grip to blade tip reach only,
 never `SecondaryGripPoint`. The two-handed Zweihander has its own alignment from 0.25s: frame 0
@@ -789,12 +886,14 @@ the shield's `LootDefinition.DefenseSprites`, separate from the gameplay `Shield
 Defend; the world sprite is only a fallback when directional art is unavailable. Defense changes the
 authored hand pose, not the selected shield art.
 
-Each Defend clip also keys the LeftHand renderer's sorting order for its facing: the base order 4 where
-the raised hand stays beside the body (S, SE, NW), the north main hand's -2 behind the body where it
-turns away from the view (N, NE), and 32 in SW, where it crosses in front of the main hand (30) and its
-glove (31); the glove keeps following one slot above. In front facings `PlayerWeaponPresenter` draws the
-Off Hand item at least two slots over its hand (`max(20, hand + 2)`), so locomotion keeps order 20 and
-the SW shield covers the main hand; back facings keep -10.
+The holding hand and its weapon stay on the same side of Body (order 2). In back facings N/NE/NW,
+both hands rest at -2 and weapons draw at -10. RightHand Idle/Walk clips key that rest depth; generated
+body locomotion clips key LeftHand depth so Write Defaults cannot restore the prefab's order 4.
+In front facings S/SE/SW, Off Hand stays at 22, Main Hand at 30, and weapons at 20; gloves follow one
+slot above their hand. Shared Defend clips use the same LeftHand depths (-2 back, 22 front), including
+when Main Hand holds the shield and Off Hand holds a weapon. Shields alone draw at
+`max(itemOrder, holdingHandOrder + 2)`, giving a front Off Hand shield order 24 without hiding the
+weapon-holding hand when the shield occupies the other slot.
 The Animator never owns mitigation or coverage rules. Both held
 renderers stay on the existing `Characters` Sorting Layer and derive front/back order from the
 resolved visual bucket.
@@ -937,7 +1036,7 @@ of future scaling variation.
 | `compound_bow` | 2 | `RangePlayerAttackConfig` | CompoundBow set (two-handed, held by the left hand) |
 | `magic_wand` | 1 | `RangePlayerAttackConfig` | Wand set |
 | `magic_staff` | 2 | `RangePlayerAttackConfig` | MagicStaff set (two-handed, authored second hand) |
-| `spell_book` | 1 | `SpellbookMeleeAttackConfig` | Spellbook set |
+| `spell_book` | 2 | `SpellbookMeleeAttackConfig` | Spellbook set (Main Hand only, authored second hand) |
 
 Grip points are expressed in sprite-local units from the centered pivot to the point that must
 coincide with the owner of the weapon pose (`MainHandGrip` by default). Vertical weapon art uses a `-90` degree correction to align its
@@ -1039,7 +1138,7 @@ center column, 1.5 px above the centered pivot, with the string on the bottom ro
 selects how the held weapon follows the continuous `AimDirection`. The body and both hands always play the
 authored six-bucket animation; an aim mode only adds a presentation-only residual on top of it.
 
-- `BakedFacing` (default): the weapon follows the baked bucket pose. Melee weapons, Spellbook and every
+- `BakedFacing` (default): the weapon follows the baked bucket pose. Melee weapons, two-handed Spellbook and every
   weapon not listed below.
 - `FreeAim` (Magic Wand): the weapon follows the aim whenever there is one. Validation requires a ranged attack.
 - `AimStance` (Long Bow, Compound Bow, Light Crossbow, Magic Staff): a two-handed ranged weapon that follows the

@@ -18,7 +18,9 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     [SerializeField, Tooltip("Maps the confirmed weapon's damage type to the color that tints the neutral VFX sprite.")]
     private AttackVfxTintPalette _tintPalette;
 
-    private PlayerCombatNetworkController _subscribedCombat;
+    private IPlayerPresentationState _presentationState;
+    private NetworkPlayerPresentationState _networkPresentationState;
+    private IPlayerPresentationState _subscribedCombat;
     private AttackVfxDefinition _vfx;
     private AnimationClip _attackClip;
     private int _layer = -1;
@@ -38,10 +40,24 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     private int _attackIndex;
     private float _bladeReach;
 
-    private void OnEnable()
+    private void OnEnable() => InitializePresentation();
+
+    /// <summary>Binds externally owned preview state and releases the previous event source.</summary>
+    internal void BindPresentationState(IPlayerPresentationState state)
     {
+        if (state == null) throw new System.ArgumentNullException(nameof(state));
+        UnsubscribeFromCombat();
+        _networkPresentationState?.Dispose();
+        _networkPresentationState = null;
+        _presentationState = state;
+    }
+
+    /// <summary>Validates the serialized VFX rig and subscribes without requiring Unity callbacks.</summary>
+    internal void InitializePresentation()
+    {
+        CacheDependencies();
         _layer = _animator != null ? _animator.GetLayerIndex("RightHand") : -1;
-        if (_combatController == null || _equipmentSource == null || _character == null || _layer < 0 ||
+        if ((_networkPresentationState != null && (_combatController == null || _equipmentSource == null || _character == null)) || _layer < 0 ||
             _vfxTransform == null || _vfxRenderer == null || _vfxRenderer.transform != _vfxTransform ||
             _vfxTransform.parent != _animator.transform || _vfxTransform.name != "AttackVfx")
         {
@@ -56,13 +72,41 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             enabled = false;
             return;
         }
-        _subscribedCombat = _combatController;
+        UnsubscribeFromCombat();
+        _subscribedCombat = _presentationState;
         _subscribedCombat.AttackPerformed += OnAttackPerformed;
         _subscribedCombat.AttackPresentationResumed += OnAttackPerformed;
         Clear();
     }
 
-    private void OnDisable()
+    private void OnDisable() => ReleasePresentation();
+
+    /// <summary>Unsubscribes and clears effects when an editor preview is disposed explicitly.</summary>
+    internal void ReleasePresentation()
+    {
+        UnsubscribeFromCombat();
+        if (_networkPresentationState != null)
+        {
+            _networkPresentationState.Dispose();
+            _networkPresentationState = null;
+            _presentationState = null;
+        }
+        Clear();
+        _hasFreeAimPivot = false;
+    }
+
+    private void CacheDependencies()
+    {
+        if (_presentationState != null) return;
+        _networkPresentationState = new NetworkPlayerPresentationState(
+            _combatController, _equipmentSource, GetComponentInParent<PlayerMovementNetworkController>(),
+            GetComponentInParent<PlayerShieldDefenseNetworkController>(),
+            null, _character, GetComponentInParent<PlayerConsumableNetworkController>(),
+            useCharacterDownedGate: true);
+        _presentationState = _networkPresentationState;
+    }
+
+    private void UnsubscribeFromCombat()
     {
         if (_subscribedCombat != null)
         {
@@ -70,8 +114,6 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
             _subscribedCombat.AttackPresentationResumed -= OnAttackPerformed;
             _subscribedCombat = null;
         }
-        Clear();
-        _hasFreeAimPivot = false;
     }
 
     /// <summary>
@@ -138,8 +180,10 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
     private void OnAttackPerformed(AttackPerformedEvent attack)
     {
         if (attack.IsOffHand) return; // The other hand has an independent sampled renderer and timeline.
+        // Also supports existing editor consumers that deliver a confirmed event before OnEnable.
+        CacheDependencies();
         Clear();
-        if (!_character.IsAlive || PlayerDownedGate.IsDowned(_character) || !_equipmentSource.TryGetWeaponByCatalogIndexPlusOne(
+        if (!_presentationState.IsAlive || _presentationState.IsDowned || !_presentationState.TryGetWeaponByCatalogIndexPlusOne(
             attack.WeaponCatalogIndexPlusOne, out LootDefinition loot))
         {
             return;
@@ -186,9 +230,12 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         _pendingSince = Time.time;
     }
 
-    private void LateUpdate()
+    private void LateUpdate() => PresentFrame();
+
+    /// <summary>Samples attack effects on an explicit preview frame using the shared attack clock.</summary>
+    internal void PresentFrame()
     {
-        if (!_character.IsAlive || PlayerDownedGate.IsDowned(_character))
+        if (!_presentationState.IsAlive || _presentationState.IsDowned)
         {
             Clear();
             return;
@@ -196,7 +243,7 @@ public sealed class PlayerAttackVfxPresenter : MonoBehaviour
         if (!_pending) return;
         if (_attack.HasReleaseTimeline)
         {
-            if (!_combatController.TryGetAttackPresentationSeconds(_attack, out float elapsed))
+            if (!_presentationState.TryGetAttackPresentationSeconds(_attack, out float elapsed))
             {
                 Clear();
                 return;

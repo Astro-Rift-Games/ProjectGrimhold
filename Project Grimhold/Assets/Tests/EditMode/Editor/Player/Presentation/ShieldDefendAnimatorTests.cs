@@ -216,11 +216,22 @@ public sealed class ShieldDefendAnimatorTests
         }
     }
 
+    [TestCase(20, 22, 24)]
+    [TestCase(20, 32, 34)]
+    [TestCase(20, 30, 32)]
+    [TestCase(-10, -2, 0)]
+    [TestCase(-10, 4, 6)]
+    public void ShieldSorting_AlwaysCoversItsHoldingHandAndGlove(int itemOrder, int handOrder, int expected)
+    {
+        Assert.That(PlayerWeaponPresentationMath.ResolveShieldSortingOrder(itemOrder, handOrder), Is.EqualTo(expected));
+    }
+
     [TestCase(true, 4, 20)]
-    [TestCase(true, 32, 34)]
+    [TestCase(true, 22, 20)]
+    [TestCase(true, 32, 20)]
     [TestCase(false, 4, -10)]
     [TestCase(false, -2, -10)]
-    public void OffHandSorting_DrawsTheFrontItemOverItsHandAndKeepsBackItemsBehind(
+    public void OffHandSorting_KeepsFrontItemAtTwentyAndBackItemsBehind(
         bool frontFacing, int handOrder, int expected)
     {
         Assert.That(PlayerWeaponPresentationMath.ResolveOffHandSortingOrder(frontFacing, 20, -10, handOrder),

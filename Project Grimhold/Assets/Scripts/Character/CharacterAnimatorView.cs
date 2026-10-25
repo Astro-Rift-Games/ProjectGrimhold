@@ -32,6 +32,7 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private MonoBehaviour _movementControllerSource;
 
     private IMovementState _movementState;
+    private bool _hasBoundMovementState;
 
     private int _moveXHash;
     private int _moveYHash;
@@ -55,6 +56,20 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         CacheDependencies();
     }
 
+    /// <summary>Explicit movement binding for editor previews without a network simulation.</summary>
+    internal void BindMovementState(IMovementState state)
+    {
+        _movementState = state ?? throw new System.ArgumentNullException(nameof(state));
+        _hasBoundMovementState = true;
+    }
+
+    /// <summary>Initializes cached presentation dependencies when Unity lifecycle callbacks have not run.</summary>
+    internal virtual void InitializePresentation()
+    {
+        InitializeHashes();
+        CacheDependencies();
+    }
+
     protected virtual void OnDisable()
     {
         _safeFacing = Vector2.down;
@@ -63,7 +78,10 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         _isDefeated = false;
     }
 
-    protected virtual void Update()
+    protected virtual void Update() => BeginFrame();
+
+    /// <summary>Runs the pre-Animator facing/locomotion step for an explicit preview frame.</summary>
+    internal virtual void BeginFrame()
     {
         if (_movementState == null || _animator == null)
         {
@@ -194,6 +212,8 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         {
             _animator = GetComponentInChildren<Animator>();
         }
+
+        if (_hasBoundMovementState) return;
 
         if (_movementControllerSource != null)
         {

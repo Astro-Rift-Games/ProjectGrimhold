@@ -5,6 +5,7 @@ using UnityEngine;
 /// Driven through the same read-only visual contract in Raid and Town.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(PlayerWeaponPresenter.FreeAimExecutionOrder + 100)]
 public sealed class PlayerArmorPresenter : MonoBehaviour
 {
     [Header("Dependencies")]
@@ -27,6 +28,7 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
 
     private int _lastEquipmentRevision = -1;
     private IEquipmentVisualSource _visualSource;
+    private bool _hasBoundVisualSource;
 
     // Cache the resolved definitions so we don't fetch them every frame
     private EquipmentVisualDefinition _helmetConfig;
@@ -39,7 +41,17 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
         CacheDependencies();
     }
 
-    private void OnEnable()
+    private void OnEnable() => InitializePresentation();
+
+    /// <summary>Binds the existing equipment-visual contract for editor previews.</summary>
+    internal void BindEquipmentVisualSource(IEquipmentVisualSource source)
+    {
+        _visualSource = source ?? throw new System.ArgumentNullException(nameof(source));
+        _hasBoundVisualSource = true;
+    }
+
+    /// <summary>Resolves equipment and synchronizes the rig without requiring Unity callbacks.</summary>
+    internal void InitializePresentation()
     {
         _lastEquipmentRevision = -1;
         CacheDependencies();
@@ -47,7 +59,10 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
         UpdateVisualsToMatchBase();
     }
 
-    private void LateUpdate()
+    private void LateUpdate() => PresentFrame();
+
+    /// <summary>Copies the final evaluated sprites after weapon presentation (execution order 200).</summary>
+    internal void PresentFrame()
     {
         if (_visualSource == null)
         {
@@ -145,6 +160,7 @@ public sealed class PlayerArmorPresenter : MonoBehaviour
 
     private void CacheDependencies()
     {
+        if (_hasBoundVisualSource) return;
         _visualSource = _equipmentSource as IEquipmentVisualSource;
         if (_visualSource != null)
         {

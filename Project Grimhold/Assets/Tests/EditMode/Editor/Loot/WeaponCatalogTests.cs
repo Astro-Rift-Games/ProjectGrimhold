@@ -167,15 +167,31 @@ namespace Tests.EditMode.Loot
             AssertWeapon("magic_staff", 45f, 1.4f, 7f, 22f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 15,
                 typeof(RangedAttackConfig));
-            // GD 09 sections 5-6: Libro de hechizos, INT 10, 34 damage, 1.10 s, 2.5 tiles, 15 stamina, Magical, one-handed.
+            // GD 09 sections 5-6: Libro de hechizos, INT 10, 34 damage, 1.10 s, 2.5 tiles, 15 stamina, Magical.
+            // Two-handed by team decision (2026-10-24); GD 09 still lists 1M and is pending owner update.
             AssertWeapon("spell_book", 34f, 1.1f, 2.5f, 15f, 0f, DamageType.Magical,
-                WeaponHandedness.OneHanded, CharacterAttribute.Intelligence, 0, 0, 10,
+                WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 10,
                 typeof(MeleeAttackConfig));
         }
 
         // GD 09 gives the Spellbook an "area / proximity" identity but no numbers: it hits several targets in a
         // wider circle than the shared single-target melee config, which other weapons keep using untouched.
         // Radius and target count are provisional balance values.
+        [Test]
+        public void Spellbook_IsTwoHandedMainOnlyWithAuthoredSecondHandAndNoOffHandSet()
+        {
+            Assert.That(_catalog.TryGet("spell_book", out LootDefinition loot), Is.True);
+            WeaponDefinition weapon = loot.WeaponDefinition;
+            Assert.That(weapon.Handedness, Is.EqualTo(WeaponHandedness.TwoHanded));
+            Assert.That(weapon.Presentation.SecondHand, Is.EqualTo(SecondHandPresentation.FollowsAuthoredMotion));
+            Assert.That(weapon.Presentation.Rig, Is.EqualTo(WeaponRig.HandHeld));
+            Assert.That(weapon.Presentation.AimMode, Is.EqualTo(WeaponAimMode.BakedFacing));
+            Assert.That(weapon.Presentation.OffHandAttackAnimationSet, Is.Null);
+            Assert.That(EquipmentSlotRules.IsCompatible(loot, EquipmentSlot.WeaponSetAMainHand), Is.True);
+            Assert.That(EquipmentSlotRules.IsCompatible(loot, EquipmentSlot.WeaponSetAOffHand), Is.False);
+            Assert.That(EquipmentSlotRules.IsCompatible(loot, EquipmentSlot.WeaponSetBOffHand), Is.False);
+        }
+
         [Test]
         public void Spellbook_UsesItsOwnAreaMeleeConfigWiderThanTheSharedOne()
         {

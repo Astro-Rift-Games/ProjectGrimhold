@@ -19,11 +19,10 @@ public static class DirectionalAnimationGenerator
     // north main hand (-2). The next slot of each stays free for its glove.
     private const int FrontSecondHandSortingOrder = 25;
     private const int BackSecondHandSortingOrder = -5;
-    // A raised off hand keeps the LeftHand renderer's base order (4, between the torso and the head) where it
-    // stays beside the body, goes behind the body like the north main hand where it turns away from the view
-    // (N, NE), and crosses in front of the main hand (30) and its glove (31) in SW. Its glove follows one above.
+    // Front Off Hand sits above its weapon (20) and VFX (21), below Main Hand (30).
+    // Back-facing hands stay behind the body in all three north facings. Gloves follow one above.
     public const int OffHandSortingOrder = 4;
-    public const int OffHandOverMainHandSortingOrder = 32;
+    public const int FrontOffHandSortingOrder = 22;
     // The presenter points the held weapon along the facing, which is -90 degrees for south.
     private const float SouthFacingAngle = -90f;
     private const float DerivativeStep = 0.0005f;
@@ -45,7 +44,7 @@ public static class DirectionalAnimationGenerator
     [MenuItem("Tools/Animations/Generate Magic Wand Directional Attacks")]
     public static void GenerateMagicWandAssets() => GenerateAssets("MagicWand");
 
-    // One-handed: only the RightHand hierarchy is baked; the authored LeftHand motion is dropped.
+    // Read the definition's handedness and second-hand policy so Spellbook keeps authored LeftHand motion.
     [MenuItem("Tools/Animations/Generate Spellbook Directional Attacks")]
     public static void GenerateSpellbookAssets() => GenerateAssets("Spellbook",
         RequireWeapon("Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset"));
@@ -101,15 +100,20 @@ public static class DirectionalAnimationGenerator
                 AnimationClip hand = RequireClip($"Assets/Animations/Player/{motion}/LeftHand/LeftHand_{motion}_{direction}.anim");
                 WriteWeaponPoseLocomotion(body, hand);
                 EditorUtility.SetDirty(body);
+                AssetDatabase.SaveAssetIfDirty(body);
             }
         }
-        AssetDatabase.SaveAssets();
     }
 
     public static void WriteWeaponPoseLocomotion(AnimationClip body, AnimationClip hand)
     {
         if (body == null) throw new ArgumentNullException(nameof(body));
         if (hand == null) throw new ArgumentNullException(nameof(hand));
+        string direction = hand.name.Substring(hand.name.LastIndexOf('_') + 1);
+        if (Array.IndexOf(Directions, direction) < 0)
+            throw new ArgumentException("Expected a directional LeftHand locomotion clip.", nameof(hand));
+        AnimationUtility.SetEditorCurve(body, Binding(SecondHand, typeof(SpriteRenderer), "m_SortingOrder"),
+            Constant(ResolveOffHandSortingOrder(direction), body.length));
         ObjectReferenceKeyframe[] frames = AnimationUtility.GetObjectReferenceCurve(hand,
             Binding(SecondHand, typeof(SpriteRenderer), "m_Sprite"));
         if (frames == null || frames.Length == 0 || frames[0].time != 0f)
@@ -173,6 +177,9 @@ public static class DirectionalAnimationGenerator
                 $"{OutputRoot}/{weaponName}/{weaponName}_Attack_{direction}.anim",
                 weaponName, weapon);
         }
+        if (IsCanonicalSlash(weaponName)) ConfigureCanonicalSlash(weaponName, original);
+        OffHandAnimationGenerator.GenerateAffectedBy(
+            Directions.Select(direction => $"{OutputRoot}/{weaponName}/{weaponName}_Attack_{direction}.anim"));
     }
 
     public static void Bake(AnimationClip original, string direction, string path, string weaponName,
@@ -237,7 +244,7 @@ public static class DirectionalAnimationGenerator
             AnimationUtility.SetObjectReferenceCurve(result, Binding(SecondHand, typeof(SpriteRenderer), "m_Sprite"),
                 new[] { new ObjectReferenceKeyframe { time = 0f, value = handSprite } });
             AnimationUtility.SetEditorCurve(result, Binding(SecondHand, typeof(SpriteRenderer), "m_SortingOrder"),
-                Constant(ResolveOffHandSortingOrder(direction), original.length));
+                Constant(ResolveShieldHandSortingOrder(direction), original.length));
             return result;
         }
         catch
@@ -247,10 +254,13 @@ public static class DirectionalAnimationGenerator
         }
     }
 
+    // Defend is shared by both shield slots, so a weapon in the other slot must keep its holding hand above it.
+    public static int ResolveShieldHandSortingOrder(string direction) => ResolveOffHandSortingOrder(direction);
+
     public static int ResolveOffHandSortingOrder(string direction) => direction switch
     {
-        "N" or "NE" => NorthHandSortingOrder,
-        "SW" => OffHandOverMainHandSortingOrder,
+        "N" or "NE" or "NW" => NorthHandSortingOrder,
+        "S" or "SE" or "SW" => FrontOffHandSortingOrder,
         _ => OffHandSortingOrder
     };
 
@@ -264,7 +274,7 @@ public static class DirectionalAnimationGenerator
             throw new ArgumentException("Destination cannot overwrite the source animation clip.", nameof(path));
     }
 
-    private static void WriteGenerated(AnimationClip generated, string path)
+    internal static void WriteGenerated(AnimationClip generated, string path)
     {
         try
         {
@@ -275,11 +285,27 @@ public static class DirectionalAnimationGenerator
                 destination = RequireClip(path);
             }
             EditorUtility.CopySerialized(generated, destination);
-            foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(generated))
+            // Transform axes share Unity's imported curve storage. Clearing/replacing one axis
+            // at a time can temporarily give dense axes different key counts (Unity key-index asserts).
+            // Only canonical slash outputs need atomic replacement. Other generators retain their
+            // established serialized ordering (including the pre-existing two-handed regeneration tests).
+            var bindings = AnimationUtility.GetCurveBindings(generated);
+            bool canonicalSlash = generated.name.StartsWith("ArmingSword_Attack_", StringComparison.Ordinal) ||
+                generated.name.StartsWith("MagicSword_Attack_", StringComparison.Ordinal);
+            if (canonicalSlash)
             {
-                AnimationCurve curve = AnimationUtility.GetEditorCurve(generated, binding);
-                AnimationUtility.SetEditorCurve(destination, binding, null);
-                AnimationUtility.SetEditorCurve(destination, binding, curve);
+                var curves = bindings.Select(binding => AnimationUtility.GetEditorCurve(generated, binding)).ToArray();
+                AnimationUtility.SetEditorCurves(destination, bindings, new AnimationCurve[bindings.Length]);
+                AnimationUtility.SetEditorCurves(destination, bindings, curves);
+            }
+            else
+            {
+                foreach (var binding in bindings)
+                {
+                    var curve = AnimationUtility.GetEditorCurve(generated, binding);
+                    AnimationUtility.SetEditorCurve(destination, binding, null);
+                    AnimationUtility.SetEditorCurve(destination, binding, curve);
+                }
             }
             foreach (EditorCurveBinding binding in AnimationUtility.GetObjectReferenceCurveBindings(generated))
             {
@@ -289,7 +315,7 @@ public static class DirectionalAnimationGenerator
             }
             destination.name = generated.name;
             EditorUtility.SetDirty(destination);
-            AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssetIfDirty(destination);
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
         }
         finally
@@ -362,6 +388,7 @@ public static class DirectionalAnimationGenerator
                 // key times and LeftHand-layer sorting stay authored.
                 WriteTrajectory(result, SecondHand, RotateTrajectory(original, SecondHand, radians));
             }
+            if (IsCanonicalSlash(weaponName)) BakeCanonicalSlash(original, result, index);
             return result;
         }
         catch
@@ -369,6 +396,126 @@ public static class DirectionalAnimationGenerator
             UnityEngine.Object.DestroyImmediate(result);
             throw;
         }
+    }
+
+    private static bool IsCanonicalSlash(string name) => name == "ArmingSword" || name == "MagicSword";
+
+    public static Vector2 ResolveSlashWindow(AnimationClip source)
+    {
+        var keys = RequireCurve(source, Binding(Hand, typeof(Transform), AngleZ)).keys;
+        var turns = new System.Collections.Generic.List<float>();
+        for (int i = 1; i < keys.Length - 1; i++)
+            if ((keys[i].value - keys[i - 1].value) * (keys[i + 1].value - keys[i].value) < 0)
+                turns.Add(keys[i].time);
+        if (turns.Count != 2) throw new InvalidOperationException("Canonical slash requires two authored turning keys.");
+        return new Vector2(turns[0], turns[1]);
+    }
+
+    private static GameObject NeutralSlashRig(int direction)
+    {
+        var rig = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab"));
+        rig.hideFlags = HideFlags.HideAndDontSave;
+        Transform visual = rig.GetComponentInChildren<PlayerAnimatorView>(true).transform;
+        RequireClip($"Assets/Animations/Player/Idle/Idle_{Directions[direction]}.anim").SampleAnimation(visual.gameObject, 0);
+        foreach (string side in new[] { "RightHand", "LeftHand" })
+            RequireClip($"Assets/Animations/Player/Idle/{side}/{side}_Idle_{Directions[direction]}.anim").SampleAnimation(visual.gameObject, 0);
+        return rig;
+    }
+
+    private static float SlashRadius(Transform visual)
+    {
+        Vector2 main = visual.InverseTransformPoint(visual.Find(Grip).position);
+        Vector2 off = visual.InverseTransformPoint(visual.Find(OffHandGrip).position);
+        return (main.magnitude + off.magnitude) * .5f;
+    }
+
+    private static void BakeCanonicalSlash(AnimationClip source, AnimationClip result, int direction)
+    {
+        Vector2 window = ResolveSlashWindow(source);
+        AnimationCurve authored = RequireCurve(source, Binding(Hand, typeof(Transform), AngleZ));
+        var rig = NeutralSlashRig(direction);
+        try
+        {
+            Transform visual = rig.GetComponentInChildren<PlayerAnimatorView>(true).transform;
+            Transform hand = visual.Find(Hand), grip = visual.Find(Grip);
+            Vector3 neutral = visual.InverseTransformPoint(grip.position);
+            Vector3 neutralPosition = hand.localPosition;
+            Quaternion neutralRotation = hand.localRotation;
+            float radius = SlashRadius(visual);
+            Vector2 f = PlayerWeaponPresentationMath.CanonicalFacing(direction);
+            Vector2 right = new Vector2(f.y, -f.x);
+            var x = new AnimationCurve(); var y = new AnimationCurve(); var z = new AnimationCurve();
+            var angle = new AnimationCurve();
+            float recoveryEnd = authored.keys[authored.length - 1].time;
+            int count = Mathf.CeilToInt(source.length * 240);
+            var boundaries = new[] { 0f, window.x, window.y, recoveryEnd, source.length };
+            var times = new System.Collections.Generic.SortedSet<float>(Enumerable.Range(0, count + 1)
+                .Select(i => source.length * i / count).Where(t => !boundaries.Any(b => Mathf.Abs(t - b) < .00001f)));
+            foreach (float boundary in boundaries) times.Add(boundary);
+            foreach (float t in times)
+            {
+                float progress = Mathf.Clamp01((authored.Evaluate(Mathf.Clamp(t, window.x, window.y)) - authored.Evaluate(window.x)) /
+                    (authored.Evaluate(window.y) - authored.Evaluate(window.x)));
+                float bodyAngle = Mathf.Lerp(DirectionalAttackAnimationSet.SlashStartDegrees, DirectionalAttackAnimationSet.SlashEndDegrees, progress);
+                float radians = bodyAngle * Mathf.Deg2Rad;
+                Vector3 target = radius * (Mathf.Cos(radians) * f + Mathf.Sin(radians) * right);
+                float blend = t < window.x ? Mathf.SmoothStep(0, 1, t / window.x) :
+                    t > window.y ? 1 - Mathf.SmoothStep(0, 1, (t - window.y) / (recoveryEnd - window.y)) : 1;
+                target = Vector3.Lerp(neutral, target, blend);
+                float rotation = -bodyAngle * blend;
+                hand.localPosition = neutralPosition;
+                hand.localRotation = Quaternion.AngleAxis(rotation, Vector3.forward) * neutralRotation;
+                hand.position += visual.TransformPoint(target) - grip.position;
+                x.AddKey(t, hand.localPosition.x); y.AddKey(t, hand.localPosition.y); z.AddKey(t, hand.localPosition.z);
+                angle.AddKey(t, hand.localEulerAngles.z > 180 ? hand.localEulerAngles.z - 360 : hand.localEulerAngles.z);
+            }
+            foreach (var binding in AnimationUtility.GetCurveBindings(result).Where(b => b.path == Hand && b.propertyName.StartsWith("m_LocalRotation.")).ToArray())
+                AnimationUtility.SetEditorCurve(result, binding, null);
+            AnimationUtility.SetEditorCurve(result, Binding(Hand, typeof(Transform), "m_LocalPosition.x"), x);
+            AnimationUtility.SetEditorCurve(result, Binding(Hand, typeof(Transform), "m_LocalPosition.y"), y);
+            AnimationUtility.SetEditorCurve(result, Binding(Hand, typeof(Transform), "m_LocalPosition.z"), z);
+            AnimationUtility.SetEditorCurve(result, Binding(Hand, typeof(Transform), AngleZ), angle);
+        }
+        finally { UnityEngine.Object.DestroyImmediate(rig); }
+    }
+
+    private static void ConfigureCanonicalSlash(string weaponName, AnimationClip original)
+    {
+        var weapon = RequireWeapon($"Assets/Scriptable Objects/Loot/Definitions/{weaponName}WeaponDefinition.asset");
+        using (var set = new SerializedObject(weapon.Presentation.AttackAnimationSet))
+        {
+            set.FindProperty("_canonicalSlash").boolValue = true;
+            set.FindProperty("_slashStrokeWindow").vector2Value = ResolveSlashWindow(original);
+            var recovery = RequireCurve(original, Binding(Hand, typeof(Transform), AngleZ));
+            set.FindProperty("_slashRecoveryEndSeconds").floatValue = recovery.keys[recovery.length - 1].time;
+            set.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssetIfDirty(set.targetObject);
+        }
+        var vfx = weapon.Presentation.AttackVfx;
+        var sprites = AnimationUtility.GetObjectReferenceCurveBindings(vfx.Clip)
+            .SelectMany(b => AnimationUtility.GetObjectReferenceCurve(vfx.Clip, b)).Select(k => k.value as Sprite).Where(s => s != null).ToArray();
+        Vector2 first = ResolveSpriteAnchor(sprites.First()), last = ResolveSpriteAnchor(sprites.Last());
+        float firstAngle = Mathf.Atan2(-first.y, first.x) * Mathf.Rad2Deg;
+        float span = Mathf.Repeat(Mathf.Atan2(-last.y, last.x) * Mathf.Rad2Deg - firstAngle, 360);
+        using var data = new SerializedObject(vfx);
+        for (int i = 0; i < 6; i++)
+        {
+            var rig = NeutralSlashRig(i);
+            try
+            {
+                var visual = rig.GetComponentInChildren<PlayerAnimatorView>(true).transform;
+                Vector2 f = PlayerWeaponPresentationMath.CanonicalFacing(i);
+                var pose = data.FindProperty("_poses").GetArrayElementAtIndex(i);
+                pose.FindPropertyRelative("_position").vector3Value = Vector3.zero;
+                pose.FindPropertyRelative("_rotation").vector3Value = new Vector3(0, 0,
+                    Mathf.Atan2(f.y, f.x) * Mathf.Rad2Deg - 135 - firstAngle + (180 - span) * .5f);
+                pose.FindPropertyRelative("_reachOffset").floatValue = SlashRadius(visual);
+                pose.FindPropertyRelative("_mirrored").boolValue = true;
+            }
+            finally { UnityEngine.Object.DestroyImmediate(rig); }
+        }
+        data.ApplyModifiedPropertiesWithoutUndo();
+        AssetDatabase.SaveAssetIfDirty(vfx);
     }
 
     /// <summary>

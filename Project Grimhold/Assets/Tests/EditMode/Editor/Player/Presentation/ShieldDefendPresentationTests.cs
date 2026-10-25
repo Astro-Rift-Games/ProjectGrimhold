@@ -154,22 +154,28 @@ public sealed class ShieldDefendPresentationTests
         }
     }
 
-    // N and NE share the north main hand's order behind the body.
+    // Defense clips are shared by both shield slots: do not drop a weapon-holding LeftHand
+    // below its weapon. Shield presentation independently raises the shield above hand + glove.
     [TestCase("N", -2)]
     [TestCase("NE", -2)]
-    [TestCase("NW", DirectionalAnimationGenerator.OffHandSortingOrder)]
-    [TestCase("S", DirectionalAnimationGenerator.OffHandSortingOrder)]
-    [TestCase("SE", DirectionalAnimationGenerator.OffHandSortingOrder)]
-    [TestCase("SW", DirectionalAnimationGenerator.OffHandOverMainHandSortingOrder)]
+    [TestCase("NW", -2)]
+    [TestCase("S", 22)]
+    [TestCase("SE", 22)]
+    [TestCase("SW", 22)]
     public void Outputs_DrawTheRaisedHandAtItsFacingDepth(string direction, int expected)
     {
-        DirectionalAnimationGenerator.GenerateShieldDefendAssets();
-        AnimationCurve sorting = AnimationUtility.GetEditorCurve(Output(direction),
-            EditorCurveBinding.FloatCurve(OffHand, typeof(SpriteRenderer), "m_SortingOrder"));
-
-        Assert.That(sorting, Is.Not.Null, direction);
-        Assert.That(sorting.keys.Select(key => key.value), Is.All.EqualTo((float)expected), direction);
-        Assert.That(sorting.keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True, "stepped");
+        AnimationClip clip = DirectionalAnimationGenerator.CreateOffHandClip(Source(), direction, $"Shield_Defend_{direction}");
+        try
+        {
+            AnimationCurve sorting = AnimationUtility.GetEditorCurve(clip,
+                EditorCurveBinding.FloatCurve(OffHand, typeof(SpriteRenderer), "m_SortingOrder"));
+            Assert.That(sorting, Is.Not.Null, direction);
+            Assert.That(sorting.keys.Select(key => key.value), Is.All.EqualTo((float)expected), direction);
+            Assert.That(sorting.keys.All(key => float.IsPositiveInfinity(key.outTangent)), Is.True, "stepped");
+            if (expected == 22)
+                Assert.That(PlayerWeaponPresentationMath.ResolveShieldSortingOrder(20, expected), Is.EqualTo(24));
+        }
+        finally { UnityEngine.Object.DestroyImmediate(clip); }
     }
 
     [Test]
@@ -183,9 +189,11 @@ public sealed class ShieldDefendPresentationTests
         // Behind the body: below the legs, the lowest body renderer.
         Assert.That(DirectionalAnimationGenerator.ResolveOffHandSortingOrder("N"), Is.LessThan(Order("Legs")));
         Assert.That(DirectionalAnimationGenerator.ResolveOffHandSortingOrder("NE"), Is.LessThan(Order("Legs")));
-        // Over the main hand and its glove, leaving the next slot for the left glove.
-        Assert.That(DirectionalAnimationGenerator.OffHandOverMainHandSortingOrder,
-            Is.GreaterThan(Order("RightGloveVisual")));
+        Assert.That(DirectionalAnimationGenerator.ResolveOffHandSortingOrder("NW"), Is.LessThan(Order("Legs")));
+        // Front hand and glove remain below Main Hand, above the Off weapon/VFX.
+        Assert.That(DirectionalAnimationGenerator.FrontOffHandSortingOrder, Is.EqualTo(22));
+        Assert.That(DirectionalAnimationGenerator.FrontOffHandSortingOrder + 1,
+            Is.LessThan(Order("RightHand")));
     }
 
     [Test]
