@@ -149,6 +149,12 @@ New findings from E2E:
 
 End state of the test account: 20 gold, revision 6, loadout bone 6, healthpotion 2, placeholder_helmet 1, forest_ranger_hood 1.
 
+**Re-run after `4416f9d3` (remote-first persistence), same account, Render unchanged:**
+- Hood sale: the trade stays in flight until the backend answers, with no transient local sale. The panel then shows `Transacción rechazada: revisa Oro, objetos y espacio`, and stock and profile are unchanged.
+- Bone purchase: `Transacción completada` appears only after the acknowledgement, and Unity matches the backend (15 gold, rev 7).
+- Second Confirm while the first is in flight: refused. A later purchase succeeds, merchant bone stock ends at initial − 2, and Unity matches the backend (10 gold, rev 8).
+- Two-line trade: still `No se pudo guardar la transacción` (H3, open).
+
 ## E2E focus (runtime confirmation)
 
 1. Single-line buy and sell against Render: backend revision, currency and loadout match Unity.
