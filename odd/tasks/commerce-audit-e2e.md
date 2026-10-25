@@ -17,7 +17,7 @@ Engram mirror topic: `odd/commerce-audit-e2e/tasks`.
 - [ ] T5a H2 reservation gate (Unity `TryCommitTrade` + backend `shopBuy`/`shopSell` 409) | backend part done: delegated worker, RED (unit `Missing expected rejection.`, integration `200 !== 409`) -> GREEN; npm test 159/159, integration 68/68, concurrency 7/7; commit `fix(backend): reject shop trades while a raid reservation is pending`; Unity part pending (Editor busy with E2E)
 - [x] T5b H4 align `shopCatalog.js` to Unity assets + EditMode parity test; drop dead `training_sword` / duplicate `health_potion` | route: delegated worker; RED parity 24 mismatches -> GREEN; npm test 160/160, integration 68/68, concurrency 7/7; two integration fixtures switched `health_potion` -> `healthpotion`; note: `health_potion` does not normalize, legacy stacks with that spelling become unsellable (Unity hydration already skips unknown ids) | commit: `fix(backend): mirror Unity loot prices in the shop catalog`
 - [ ] T5c H5 report persisted only after backend ack; M2 RPC null guard; L1 missing config is an error; L3 docs
-- [ ] T5d Design proposal for H1 (durable ability unlock) and H3 (atomic multi-line trade endpoint); no code until approved
+- [x] T5d Design proposal for H1 (durable ability unlock) and H3 (atomic multi-line trade endpoint); no code until approved | `docs/proposal_commerce_h1_h3_c1.md` (also C1 options) | commit: `docs(commerce): propose durable ability purchases and atomic trades`
 
 ## Log
 - L1 (2026-10-25, user): scope all four areas; reference Architecture + live GD; E2E Editor + real backend (already running); report + tests + fixes; new branch; work-unit commits authorized.
