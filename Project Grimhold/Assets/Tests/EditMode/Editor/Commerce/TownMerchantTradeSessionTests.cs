@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections;
+using UnityEngine.TestTools;
 using NUnit.Framework;
 using Assert = NUnit.Framework.Assert;
 
@@ -64,6 +67,63 @@ public class TownMerchantTradeSessionTests
     }
 
     private MerchantShopViewModel View => _session.Current;
+
+    [UnityTest]
+    public IEnumerator BackendPending_KeepsSubmissionLockedUntilRejectedOutcome()
+    {
+        _profile.Pending = new TaskCompletionSource<StashOperationResult>();
+        _session.AddPurchase(Potion, 1);
+        _session.ConfirmTrade();
+        _endpoint.DeliverResponses();
+
+        Assert.That(_endpoint.Outcomes, Is.Empty, "No persisted report before backend acknowledgement.");
+        Assert.That(_results, Is.Empty);
+        _now = Timeout + 1;
+        _session.Tick();
+        _endpoint.RaiseAuthorityChanged();
+        Assert.That(_session.ConfirmTrade(), Is.False, "Acknowledgement must serialize confirmations even after timeout/authority change.");
+        Assert.That(View.IsInFlight, Is.True);
+
+        _profile.Pending.SetResult(StashOperationResult.InvalidInventory);
+        yield return null;
+        Assert.That(_endpoint.Outcomes.Single().Persisted, Is.False);
+        Assert.That(_results.Single(), Is.EqualTo(MerchantTransactionResult.RejectedByProfile));
+        Assert.That(MerchantTradeFeedback.DescribeResult(_results.Single()), Does.Not.Contain("completada"));
+        Assert.That(View.IsInFlight, Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator BackendException_ReportsNotPersistedAndFailureFeedback()
+    {
+        _profile.Pending = new TaskCompletionSource<StashOperationResult>();
+        _session.AddPurchase(Potion, 1);
+        _session.ConfirmTrade();
+        var response = _endpoint.PendingResponses.Single();
+        _endpoint.DeliverResponses();
+        Assert.That(_session.HandleTradeResponse(response), Is.True, "Duplicate response stays handled.");
+        Assert.That(_profile.ExecuteCalls, Is.EqualTo(1));
+        _profile.Pending.SetException(new InvalidOperationException("Transport lost"));
+        yield return null;
+        Assert.That(_endpoint.Outcomes.Single().Persisted, Is.False);
+        Assert.That(_results.Single(), Is.EqualTo(MerchantTransactionResult.PersistenceFailed));
+        Assert.That(View.IsInFlight, Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator DisposedDuringBackendCall_ReportsOutcomeWithoutPresenting()
+    {
+        _profile.Pending = new TaskCompletionSource<StashOperationResult>();
+        _session.AddPurchase(Potion, 1);
+        _session.ConfirmTrade();
+        _endpoint.DeliverResponses();
+        _session.Dispose();
+        int presented = _presented.Count;
+        _profile.Pending.SetResult(StashOperationResult.Success);
+        yield return null;
+        Assert.That(_endpoint.Outcomes.Single().Persisted, Is.True);
+        Assert.That(_presented.Count, Is.EqualTo(presented));
+        Assert.That(_results, Is.Empty);
+    }
 
     // --- Draft and preview ---
 
@@ -640,6 +700,15 @@ public class TownMerchantTradeSessionTests
 
         public long Currency { get; private set; }
         public StashOperationResult NextResult { get; set; } = StashOperationResult.Success;
+        public TaskCompletionSource<StashOperationResult> Pending { get; set; }
+        public int ExecuteCalls { get; private set; }
+
+        public async Task<StashOperationResult> ExecuteTradeAsync(ProfileId profileId, MerchantTradeTicket ticket)
+        {
+            ExecuteCalls++;
+            if (Pending != null) return await Pending.Task;
+            return ApplyTrade(profileId, ticket);
+        }
         public List<MerchantTradeTicket> ExecutedTickets { get; } = new List<MerchantTradeTicket>();
         public int SlotCapacity => LocalProfileSnapshot.MaxLoadoutSlots;
         public int Revision { get; private set; }
@@ -652,7 +721,7 @@ public class TownMerchantTradeSessionTests
             return true;
         }
 
-        public StashOperationResult TryExecuteTrade(ProfileId profileId, MerchantTradeTicket ticket)
+        private StashOperationResult ApplyTrade(ProfileId profileId, MerchantTradeTicket ticket)
         {
             ExecutedTickets.Add(ticket);
             if (NextResult != StashOperationResult.Success)

@@ -34,6 +34,22 @@ public sealed class ShopTransactionPersistenceEditModeTests
         _nextTimestamp = 1000;
     }
 
+    [Test]
+    public void EvaluateTrade_PlansWithoutMutationOrPublication_AndMatchesCommit()
+    {
+        Seed(currency: 100, (Coins, 2));
+        var ticket = Ticket(NextId(), Buy(Potion, 1, 30), Sell(Coins, 2, 1));
+        Assert.That(_store.EvaluateTrade(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(100));
+        AssertLoadout((Coins, 2));
+        Assert.That(_commits, Is.Zero);
+        Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.False);
+        Assert.That(_store.TryCommitTrade(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
+        int commits = _commits;
+        Assert.That(_store.EvaluateTrade(Profile, ticket), Is.EqualTo(StashOperationResult.AlreadyApplied));
+        Assert.That(_commits, Is.EqualTo(commits));
+    }
+
     // --- Multi-line trades ---
 
     [Test]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Pure C# state of one open merchant session for the local Input Authority player, owned by
@@ -25,6 +26,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
     private Guid? _unansweredRequestId;
     private double _submittedAt;
     private bool _disposed;
+    private bool _persisting;
 
     public event Action<MerchantTransactionResult> TradeCompleted;
 
@@ -113,7 +115,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
     /// </summary>
     public void Tick()
     {
-        if (!_disposed && _draft.IsInFlight && _clock() - _submittedAt >= _submissionTimeoutSeconds)
+        if (!_disposed && !_persisting && _draft.IsInFlight && _clock() - _submittedAt >= _submissionTimeoutSeconds)
         {
             AbandonSubmission();
         }
@@ -141,6 +143,8 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
             return false;
         }
 
+        // A duplicate response must not start a second persistence call or release its reservation.
+        if (_persisting) return true;
         _unansweredRequestId = null;
 
         if (!response.IsApproved)
@@ -150,9 +154,29 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
             return true;
         }
 
-        StashOperationResult result = _shopService.TryExecuteTrade(_profileId, response.Ticket);
+        _persisting = true;
+        _ = PersistAndReportAsync(response);
+        return true;
+    }
+
+    private async Task PersistAndReportAsync(MerchantTradeResponse response)
+    {
+        StashOperationResult result;
+        try
+        {
+            // Keep Unity's SynchronizationContext: endpoint and presentation are main-thread only.
+            result = await _shopService.ExecuteTradeAsync(_profileId, response.Ticket);
+        }
+        catch (Exception exception)
+        {
+            UnityEngine.Debug.LogWarning($"[TownMerchantTradeSession] Trade persistence failed: {exception.Message}");
+            result = StashOperationResult.PersistenceFailed;
+        }
+
         bool persisted = result == StashOperationResult.Success || result == StashOperationResult.AlreadyApplied;
         _endpoint.ReportTradeOutcome(response.RequestId, response.Ticket.TransactionId, persisted);
+        _persisting = false;
+        if (_disposed) return;
 
         if (persisted)
         {
@@ -164,7 +188,6 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         }
 
         Complete(MapPersistenceResult(result));
-        return true;
     }
 
     /// <summary>
@@ -184,7 +207,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
 
     private void OnAuthorityChanged()
     {
-        if (_draft.IsInFlight)
+        if (_draft.IsInFlight && !_persisting)
         {
             AbandonSubmission();
         }

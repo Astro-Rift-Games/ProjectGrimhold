@@ -33,6 +33,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
 
     private readonly List<MerchantTradeRecord> _pendingTradesBuffer = new List<MerchantTradeRecord>();
     private MerchantRequestValidator _requestValidator;
+    private bool _warnedValidatorUnavailable;
     private IMerchantTradeClient _tradeClient;
     private int _observedStockRevision = -1;
 
@@ -176,6 +177,17 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
     void IMerchantAuthorityState.SetTradeStockLine(int index, MerchantTradeStockLine line) => TradeStockLines.Set(index, line);
     void IMerchantAuthorityState.MarkStockChanged() => StockRevision++;
 
+    private bool IsValidatorAvailable()
+    {
+        if (_requestValidator != null) return true;
+        if (!_warnedValidatorUnavailable)
+        {
+            _warnedValidatorUnavailable = true;
+            Debug.LogWarning("[TownMerchantNetworkController] Ignoring commerce RPC: request validator is unavailable.", this);
+        }
+        return false;
+    }
+
     // --- RPCs ---
     [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
     private void Rpc_RequestTrade(
@@ -185,7 +197,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
         MerchantTradeRequestLineMessage[] sales,
         RpcInfo info = default)
     {
-        if (!TryResolveRequester(info, out PlayerRef requester, out ProfileId senderProfile))
+        if (!IsValidatorAvailable() || !TryResolveRequester(info, out PlayerRef requester, out ProfileId senderProfile))
         {
             return;
         }
@@ -209,7 +221,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
     [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
     private void Rpc_ReportTradeOutcome(Guid requestId, long timestamp, Guid txGuid, NetworkBool persisted, RpcInfo info = default)
     {
-        if (!TryResolveRequester(info, out _, out ProfileId senderProfile))
+        if (!IsValidatorAvailable() || !TryResolveRequester(info, out _, out ProfileId senderProfile))
         {
             return;
         }
@@ -220,7 +232,7 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
     [Rpc(RpcSources.All, RpcTargets.StateAuthority, Channel = RpcChannel.Reliable)]
     private void Rpc_RequestPendingTrades(string profileId, RpcInfo info = default)
     {
-        if (!TryResolveRequester(info, out PlayerRef requester, out ProfileId senderProfile) ||
+        if (!IsValidatorAvailable() || !TryResolveRequester(info, out PlayerRef requester, out ProfileId senderProfile) ||
             new ProfileId(profileId) != senderProfile || !HasStateAuthority)
         {
             return;

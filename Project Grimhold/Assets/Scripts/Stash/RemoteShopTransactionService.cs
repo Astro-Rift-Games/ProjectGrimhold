@@ -1,140 +1,133 @@
-using UnityEngine;
+using System;
 using System.Threading.Tasks;
 using Grimhold.Backend;
-using System.Threading;
+using UnityEngine;
 
 /// <summary>
-/// Remote implementation of the shop transaction service.
-/// Validates transactions locally first, then delegates to the backend for authority.
-/// Retries on REVISION_CONFLICT and network errors via RemoteOperationPolicy.
+/// Remote-first shop persistence boundary: dry run, await backend acknowledgement, then commit
+/// the local receipt and revision. No automatic retries, including revision conflicts.
+/// A lost transport response can hide a persisted trade; reconciliation converges the profile and
+/// the backend receipt makes a later retry with the same transaction id safe.
 /// </summary>
 public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransactionService
 {
-    private LocalProfileStore _store;
-    private BackendConfiguration _config;
-    private ProfileReconciliationService _reconciliationService;
-    private string AuthToken => ApplicationAuthContext.Instance?.Token;
+    // One infrastructure seam for the two single-line endpoints; no separate commerce transport.
+    public delegate Task<(bool success, ShopTransactionResult data, BackendError error)> BackendCall(
+        bool purchase, string transactionId, MerchantPricedTradeLine line, int expectedRevision);
 
-    public void Initialize(
-        LocalProfileStore store,
-        LocalProfilePersistenceConfiguration localConfig,
+    private LocalProfileStore _store;
+    private BackendCall _backend;
+    private Func<Task<bool>> _reconcile;
+
+    public void Initialize(LocalProfileStore store, LocalProfilePersistenceConfiguration localConfig,
         ProfileReconciliationService reconciliationService)
     {
-        _store = store ?? throw new System.ArgumentNullException(nameof(store));
-        
-        if (LoginFlowController.Instance != null && LoginFlowController.Instance.Config != null)
+        if (reconciliationService == null) throw new ArgumentNullException(nameof(reconciliationService));
+        BackendConfiguration config = LoginFlowController.Instance != null ? LoginFlowController.Instance.Config : null;
+        if (config == null) config = Resources.Load<BackendConfiguration>("BackendConfiguration");
+        if (config == null)
         {
-            _config = LoginFlowController.Instance.Config;
-        }
-        else
-        {
-            _config = Resources.Load<BackendConfiguration>("BackendConfiguration");
-            if (_config == null) _config = ScriptableObject.CreateInstance<BackendConfiguration>();
+            Debug.LogError("[RemoteShopTransactionService] BackendConfiguration is missing; commerce is unavailable.");
+            _store = store ?? throw new ArgumentNullException(nameof(store));
+            _backend = null;
+            return;
         }
 
-        _reconciliationService = reconciliationService ?? throw new System.ArgumentNullException(nameof(reconciliationService));
+        Initialize(store, (purchase, transactionId, line, revision) => purchase
+            ? InventoryClient.ShopBuyAsync(config, ApplicationAuthContext.Instance?.Token,
+                transactionId, line.LootId.Value, line.Amount, revision)
+            : InventoryClient.ShopSellAsync(config, ApplicationAuthContext.Instance?.Token,
+                transactionId, line.LootId.Value, line.Amount, revision), reconciliationService.ReconcileAsync);
     }
 
-    /// <summary>
-    /// Commits the ticket locally, then synchronizes it with the backend. The backend only exposes
-    /// single-item buy and sell endpoints, so a ticket with more than one line is refused before any
-    /// mutation: sending several calls would not be atomic remotely. Multi-line tickets need an
-    /// atomic backend trade endpoint (follow-up).
-    /// </summary>
-    public StashOperationResult TryExecuteTrade(ProfileId profileId, MerchantTradeTicket ticket)
+    /// <summary>Explicit infrastructure injection, also used by deterministic tests.</summary>
+    public void Initialize(LocalProfileStore store, BackendCall backend, Func<Task<bool>> reconcile)
     {
-        if (_store == null) return StashOperationResult.PersistenceFailed;
-        if (!IsProfile(profileId) || ticket == null) return StashOperationResult.InvalidInventory;
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _backend = backend ?? throw new ArgumentNullException(nameof(backend));
+        _reconcile = reconcile ?? throw new ArgumentNullException(nameof(reconcile));
+    }
+
+    public async Task<StashOperationResult> ExecuteTradeAsync(ProfileId profileId, MerchantTradeTicket ticket)
+    {
+        if (_store == null || !_store.IsAvailable || _backend == null) return StashOperationResult.PersistenceFailed;
+        if (!profileId.IsValid || _store.ProfileId != profileId || ticket == null)
+            return StashOperationResult.InvalidInventory;
         if (ticket.LineCount != 1)
         {
             Debug.LogError($"[RemoteShopTransactionService] Trade {ticket.TransactionId.Value:N} has {ticket.LineCount} lines; the backend has no atomic multi-line trade endpoint.");
             return StashOperationResult.PersistenceFailed;
         }
 
-        // 1. Attempt local validation & optimistic mutation first
-        StashOperationResult localResult = _store.TryCommitTrade(profileId, ticket);
-        if (localResult != StashOperationResult.Success)
+        StashOperationResult localResult = _store.EvaluateTrade(profileId, ticket);
+        if (localResult != StashOperationResult.Success) return localResult;
+
+        bool purchase = ticket.Purchases.Count == 1;
+        (bool success, ShopTransactionResult data, BackendError error) response;
+        try
         {
-            return localResult; // E.g., InvalidInventory (insufficient funds), AlreadyApplied
+            // Deliberately preserve Unity's synchronization context for all store/UI consumers.
+            response = await _backend(purchase, ticket.TransactionId.Value.ToString("N"),
+                purchase ? ticket.Purchases[0] : ticket.Sales[0], _store.RemoteRevision);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"[RemoteShopTransactionService] Backend outcome unknown: {exception.Message}");
+            _ = ReconcileSafelyAsync();
+            return StashOperationResult.PersistenceFailed;
         }
 
-        // 2. Fire-and-forget the backend synchronization wrapped in the remote retry policy.
-        // The RemoteOperationPolicy will retry on REVISION_CONFLICT / TransportFailure.
-        // If it ultimately fails, it triggers a full ProfileReconciliationService sync which will revert the local optimistic state.
-        string transactionId = ticket.TransactionId.Value.ToString("N");
-        _ = ticket.Purchases.Count == 1
-            ? ExecutePurchaseAsync(transactionId, ticket.Purchases[0])
-            : ExecuteSaleAsync(transactionId, ticket.Sales[0]);
-
-        return StashOperationResult.Success;
-    }
-
-    /// <summary>
-    /// Reads the local aggregate, which the optimistic commit updates before backend sync.
-    /// </summary>
-    public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
-    {
-        return _store != null && _store.IsTradeApplied(profileId, transactionId);
-    }
-
-    private async Task ExecutePurchaseAsync(string transactionId, MerchantPricedTradeLine line)
-    {
-        await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-            async () =>
+        if (response.success)
+        {
+            try
             {
-                var (success, data, error) = await InventoryClient.ShopBuyAsync(
-                    _config, 
-                    AuthToken, 
-                    transactionId,
-                    line.LootId.Value, 
-                    line.Amount, 
-                    _store.RemoteRevision);
-
-                if (success)
+                StashOperationResult committed = _store.TryCommitTrade(profileId, ticket);
+                _store.SetRemoteRevision(response.data.revision);
+                if ((committed != StashOperationResult.Success && committed != StashOperationResult.AlreadyApplied) ||
+                    _store.RemoteRevision != response.data.revision)
                 {
-                    _store.SetRemoteRevision(data.revision);
+                    Debug.LogError($"[RemoteShopTransactionService] Backend persisted trade {ticket.TransactionId.Value:N} but local commit/revision save failed ({committed}); reconciling.");
+                    _ = ReconcileSafelyAsync();
                 }
-                else if (error.error == BackendErrorUtility.Unauthorized)
-                {
-                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-                }
-
-                return (success, error);
-            },
-            () => _reconciliationService.ReconcileAsync()
-        );
-    }
-
-    private async Task ExecuteSaleAsync(string transactionId, MerchantPricedTradeLine line)
-    {
-        await RemoteOperationPolicy.ExecuteWithReconciliationAsync(
-            async () =>
+            }
+            catch (Exception exception)
             {
-                var (success, data, error) = await InventoryClient.ShopSellAsync(
-                    _config, 
-                    AuthToken, 
-                    transactionId,
-                    line.LootId.Value, 
-                    line.Amount, 
-                    _store.RemoteRevision);
+                Debug.LogError($"[RemoteShopTransactionService] Backend persisted trade {ticket.TransactionId.Value:N} but local persistence threw: {exception.Message}");
+                _ = ReconcileSafelyAsync();
+            }
+            // Includes alreadySecured: backend persistence is authoritative even if the cache failed.
+            // Reporting failure here would incorrectly release stock for a durable transaction.
+            return StashOperationResult.Success;
+        }
 
-                if (success)
-                {
-                    _store.SetRemoteRevision(data.revision);
-                }
-                else if (error.error == BackendErrorUtility.Unauthorized)
-                {
-                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-                }
+        if (response.error.error == BackendErrorUtility.Unauthorized)
+        {
+            ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            return StashOperationResult.PersistenceFailed;
+        }
 
-                return (success, error);
-            },
-            () => _reconciliationService.ReconcileAsync()
-        );
+        _ = ReconcileSafelyAsync();
+        return response.error.error switch
+        {
+            "RESERVATION_PENDING" => StashOperationResult.ReservationPending,
+            "INSUFFICIENT_FUNDS" or "INSUFFICIENT_ITEMS" or "ITEM_NOT_SELLABLE" or "ITEM_NOT_OFFERED" or
+                "REVISION_CONFLICT" or "VALIDATION_FAILED" => StashOperationResult.InvalidInventory,
+            _ => StashOperationResult.PersistenceFailed
+        };
     }
 
-    private bool IsProfile(ProfileId profileId)
+    private async Task ReconcileSafelyAsync()
     {
-        return profileId.IsValid && _store.ProfileId == profileId;
+        try
+        {
+            if (!await _reconcile()) Debug.LogWarning("[RemoteShopTransactionService] Reconciliation failed.");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"[RemoteShopTransactionService] Reconciliation failed: {exception.Message}");
+        }
     }
+
+    public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId) =>
+        _store != null && _store.IsTradeApplied(profileId, transactionId);
 }

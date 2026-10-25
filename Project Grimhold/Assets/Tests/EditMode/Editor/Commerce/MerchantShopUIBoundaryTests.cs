@@ -52,7 +52,7 @@ public class MerchantShopUIBoundaryTests
 
         Assert.That(source, Does.Not.Contain("BuyValuePerUnit"));
         Assert.That(source, Does.Not.Contain("SellValuePerUnit"));
-        Assert.That(source, Does.Not.Contain("TryExecuteTrade"));
+        Assert.That(source, Does.Not.Contain("ExecuteTradeAsync"));
         Assert.That(source, Does.Not.Contain("FindAnyObjectByType"));
         Assert.That(source, Does.Not.Contain("MerchantTradePreview"), "The UI reads the preview only through the view model.");
         Assert.That(source, Does.Not.Contain("UnitPrice *"), "The UI multiplies no prices.");

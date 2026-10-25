@@ -796,6 +796,20 @@ public sealed class LocalProfileStore
 
     public StashOperationResult TryCommitTrade(ProfileId profileId, MerchantTradeTicket ticket)
     {
+        lock (_sync)
+        {
+            StashOperationResult result = PlanTrade(profileId, ticket, out LocalProfileSnapshot next);
+            return result == StashOperationResult.Success ? Commit(next) : result;
+        }
+    }
+
+    /// <summary>Plans the exact same candidate as TryCommitTrade, without saving or publishing.</summary>
+    public StashOperationResult EvaluateTrade(ProfileId profileId, MerchantTradeTicket ticket) =>
+        PlanTrade(profileId, ticket, out _);
+
+    private StashOperationResult PlanTrade(ProfileId profileId, MerchantTradeTicket ticket, out LocalProfileSnapshot candidate)
+    {
+        candidate = null;
         if (ticket == null || !profileId.IsValid || profileId != _profileId || !ticket.IsWellFormed)
             return StashOperationResult.InvalidInventory;
 
@@ -841,7 +855,8 @@ public sealed class LocalProfileStore
 
             next.Currency = projectedCurrency;
             RecordShopReceipt(next, receipt);
-            return Commit(next);
+            candidate = next;
+            return StashOperationResult.Success;
         }
     }
 

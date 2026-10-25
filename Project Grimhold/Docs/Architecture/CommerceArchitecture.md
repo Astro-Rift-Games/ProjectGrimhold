@@ -140,8 +140,11 @@ change, only unlocks the draft with the same request id; it never releases stock
 State Authority for its profile's pending trades when it opens, when the merchant authority
 changes and when an edit discards a request it already sent, and reports each one it no longer
 uses from the confirmed profile: persisted if the profile holds its receipt
-(`IShopTransactionService.IsTradeApplied`), otherwise not persisted. That report is final because
-a session only ever persists the ticket of its in-flight request.
+(`IShopTransactionService.IsTradeApplied`), otherwise not persisted. Within one live session,
+its current request is excluded from this recovery report. **Remaining cross-session gap:** a
+new session may query an old pending trade while the disposed session is still awaiting backend
+acknowledgement; the local receipt is not yet available. Recovery needs pending-operation awareness
+or an authoritative outcome query before treating receipt absence as final.
 
 ### Fusion State Authority (merchant NetworkObject)
 
@@ -210,13 +213,36 @@ Current representation on `TownMerchantNetworkController` (Fusion 2.1.1):
 - The only persistence boundary for Commerce. It receives the complete ticket for one profile and
   applies all its lines as one atomic `LocalProfileStore` transaction: funds, final capacity and
   owned-quantity validation, receipt idempotency keyed by the authority `ShopTransactionId`.
-- Returns an explicit outcome (`Success`, `AlreadyApplied`, rejection reason, persistence failure).
+- Returns a task containing the final persistence outcome (`Success`, `AlreadyApplied`, rejection
+  reason, persistence failure). The requester reports persistence only after awaiting that outcome.
   `AlreadyApplied` is a success for reservation purposes and publishes nothing twice.
 - Backend submission, retries, revision conflicts and reconciliation are implementation details
   behind this boundary and are owned by the backend contract, not by Commerce.
 - Its behavior never depends on scene names or UI state.
 
-Current representation: `TryExecuteTrade(ProfileId, MerchantTradeTicket)`. The ticket is immutable:
+Current representation: `ExecuteTradeAsync(ProfileId, MerchantTradeTicket)`. The remote service
+first uses `LocalProfileStore.EvaluateTrade` to plan without mutation or publication. It awaits the
+single-line backend buy/sell endpoint with the ticket transaction id and current remote revision,
+then commits locally and saves the acknowledged revision. Backend success (including an existing
+receipt / `alreadySecured`) is final success. If the local commit unexpectedly fails after backend
+success, it logs an error and reconciles, but still reports success: the durable backend trade must
+consume/restock merchant stock even when the local cache cannot be saved. There are no automatic
+retries. Missing `BackendConfiguration` logs an error and makes the remote service unavailable.
+
+The session keeps Confirm and editing disabled through the await, not merely until the authority
+ticket arrives. Its response timeout and authority-change handling cannot unlock a backend call
+in progress. Duplicate responses do not submit the ticket twice. It reports the final outcome even
+if closed while awaiting, without updating disposed presentation; exceptions count as failure.
+
+Backend error mapping: `RESERVATION_PENDING` -> `ReservationPending`;
+`INSUFFICIENT_FUNDS`, `INSUFFICIENT_ITEMS`, `ITEM_NOT_SELLABLE`, `ITEM_NOT_OFFERED`,
+`REVISION_CONFLICT`, `VALIDATION_FAILED` -> `InvalidInventory`; unauthorized, transport and
+unknown failures -> `PersistenceFailed`. Rejections/unknown outcomes request reconciliation;
+`UNAUTHORIZED` instead invokes the existing unauthorized-session handler. Local dry-run rejection
+or receipt replay makes no backend call. Presentation currently groups `ReservationPending` with
+other profile rejections because `MerchantTransactionResult` has no reservation-specific value.
+
+The ticket is immutable:
 `ShopTransactionId` plus read-only `Purchases` and `Sales` of `MerchantPricedTradeLine`
 (`LootId`, `Amount`, authority `UnitPrice`). `LocalProfileStore.TryCommitTrade` rejects malformed
 tickets (empty, invalid id/loot, non-positive amount or buy price, negative sell price, repeated
@@ -258,8 +284,13 @@ Commerce does not introduce its own inventory model.
 
 - No response or authority loss: the draft unlocks with the same request id; the player may retry
   it, and dedup guarantees at most one acceptance. An accepted reservation stays held.
-- Ticket accepted but persistence rejects or fails: the profile is unchanged, the reservation is
-  released and the draft stays editable.
+- Ticket accepted but backend rejects: the local profile is unchanged by Commerce, reconciliation
+  is requested, the reservation is released and the draft stays editable.
+- Transport loss / unknown backend outcome: return `PersistenceFailed` and request reconciliation.
+  **Remaining durability gap:** the backend may already have applied the trade despite the lost
+  response. Reporting not persisted can release merchant stock for that durable trade. Backend
+  receipts make a later retry with the same transaction id safe, but reconciliation alone does not
+  repair shared merchant stock. Closing this gap needs authoritative outcome lookup/reporting.
 - Outcome report lost: the reservation stays held until the requester's next session resolves it
   from the confirmed profile's receipts.
 - Requester leaves after acceptance and does not return: the reservation stays held for the rest of
@@ -306,19 +337,22 @@ resolved record the follow-up task that closed them.
     `RemoteShopTransactionService` refuses any ticket with more than one line with
     `PersistenceFailed` before mutating anything, and syncs a one-line ticket through the matching
     endpoint. Multi-line trades through the remote service need an atomic backend trade endpoint.
-    Persistence rejections are not typed: every one is `InvalidInventory`.
-11. **Optimistic remote commit.** `RemoteShopTransactionService` commits the local aggregate, returns
-    `Success`, then synchronizes the backend fire-and-forget and relies on reconciliation. The
-    confirmation reported to State Authority therefore does not imply backend durability; this
-    is consistent with the current process-local persistence limitation and remains a backend
-    follow-up.
+    Rejections are mapped as described above; multi-line transport remains out of scope.
+11. **Backend acknowledgement gate resolved (H5/E1).** Remote trades are dry-run locally, submitted
+    remotely and awaited before committing the local aggregate or reporting persistence to State
+    Authority. Confirm stays locked until acknowledgement, serializing trades in one session.
+    Transport loss still has the unknown-outcome durability gap described in Failure policy; no
+    automatic mutation retry is performed. Close/reopen during acknowledgement also retains the
+    cross-session recovery gap described under TownMerchantPresenter.
 12. **Partially resolved in COM-07.** `ShopTransactionResponse`, `IMasterClientRpcSender` and the
     orchestrator were removed and `MerchantTransactionResult` now names trade outcomes.
     `LocalShopTransactionService` is still not composed.
 13. **Test gaps.** EditMode covers the validator, wire codec, trade session (draft, preview,
     confirm, outcome), shop interaction and feedback mapping, UI boundaries, ticket and store trade
-    transactions. There is no coverage for
-    the Fusion RPC path itself, the presenter lifecycle, or `RemoteShopTransactionService`.
+    transactions. Remote-service tests cover backend success, business/transport failures, dry-run
+    rejection, receipt replay and pending acknowledgement. Session tests cover delayed outcomes,
+    serialization and disposal during persistence. The Fusion RPC execution path and presenter
+    lifecycle still require runtime validation.
 14. **Held reservations of absent requesters.** A requester who leaves between ticket and outcome
     and never reopens the merchant keeps that trade's stock reserved, and its record pending, until
     the merchant `NetworkObject` ends. Enough such records would fill `MaxTradeRecords` and reject

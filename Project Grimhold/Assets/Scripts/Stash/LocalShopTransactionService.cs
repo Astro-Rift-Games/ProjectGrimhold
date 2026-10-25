@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Local implementation of the shop transaction service that delegates directly
@@ -13,10 +14,11 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
         _store = store ?? throw new System.ArgumentNullException(nameof(store));
     }
 
-    public StashOperationResult TryExecuteTrade(ProfileId profileId, MerchantTradeTicket ticket)
+    public Task<StashOperationResult> ExecuteTradeAsync(ProfileId profileId, MerchantTradeTicket ticket)
     {
-        if (_store == null) return StashOperationResult.PersistenceFailed;
-        return _store.TryCommitTrade(profileId, ticket);
+        return Task.FromResult(_store == null
+            ? StashOperationResult.PersistenceFailed
+            : _store.TryCommitTrade(profileId, ticket));
     }
 
     public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
