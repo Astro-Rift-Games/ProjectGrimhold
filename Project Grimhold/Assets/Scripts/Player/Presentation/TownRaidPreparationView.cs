@@ -31,6 +31,9 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     [SerializeField] private TownRaidPreparationMemberCardView _memberCardPrefab;
     [SerializeField] private RectTransform _memberCardContainer;
     private readonly List<TownRaidPreparationMemberCardView> _memberCards = new();
+    [SerializeField] private TownRaidPreparationInspectionView _inspectionView;
+    private TownRaidPreparationPresentation _lastPresentation;
+    private bool _inspectionConfigurationErrorLogged;
     private bool _cardConfigurationErrorLogged;
     private bool _localReady;
     private string _rejectionNotice;
@@ -135,8 +138,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         WireButton(_copyButton, CopyCode);
         WireButton(_readyButton, () => ReadyRequested?.Invoke(!_localReady));
         WireButton(_startButton, () => StartRequested?.Invoke());
-        WireButton(_leaveButton, () => LeaveRequested?.Invoke());
-        WireButton(_closeButton, () => CloseRequested?.Invoke());
+        WireButton(_leaveButton, RequestLeave);
+        WireButton(_closeButton, RequestClose);
     }
 
     private GameObject FindChild(string path) => transform.Find(path)?.gameObject;
@@ -186,6 +189,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void PresentNoPreparation()
     {
+        _lastPresentation = default;
+        HideInspection();
         HideMemberCards();
         _localReady = false;
         HideReconnectOpportunity();
@@ -214,8 +219,28 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void Close()
     {
+        HideInspection();
         UiPanelVisibility.SetVisible(_panelRoot, false);
     }
+
+    private void RequestClose()
+    {
+        HideInspection();
+        CloseRequested?.Invoke();
+    }
+
+    private void RequestLeave()
+    {
+        HideInspection();
+        LeaveRequested?.Invoke();
+    }
+
+    private void HideInspection()
+    {
+        if (_inspectionView != null) _inspectionView.Hide();
+    }
+
+    private void OnDisable() => HideInspection();
 
     public void SetBusy(bool busy, string status = null)
     {
@@ -242,6 +267,15 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void PresentPreparation(in TownRaidPreparationPresentation presentation)
     {
+        _lastPresentation = presentation;
+        if (_inspectionView != null && _inspectionView.IsOpen)
+        {
+            if (TownRaidPreparationInspectionRules.TryFindInspectable(presentation,
+                _inspectionView.InspectedProfileId, out var inspectedMember))
+                _inspectionView.Present(inspectedMember);
+            else
+                _inspectionView.Hide();
+        }
         TownRaidPreparationSnapshot snapshot = presentation.Snapshot;
         _localReady = presentation.LocalReady;
         if (_codeInput != null)
@@ -330,7 +364,20 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             _memberCards[index].gameObject.SetActive(false);
     }
 
-    private void ForwardMemberSelected(ProfileId profileId) => MemberSelected?.Invoke(profileId);
+    private void ForwardMemberSelected(ProfileId profileId)
+    {
+        if (TownRaidPreparationInspectionRules.TryFindInspectable(_lastPresentation, profileId, out var member))
+        {
+            if (_inspectionView != null)
+                _inspectionView.Present(member);
+            else if (!_inspectionConfigurationErrorLogged)
+            {
+                Debug.LogError("TownRaidPreparationView requires an inspection view reference for member inspection.", this);
+                _inspectionConfigurationErrorLogged = true;
+            }
+        }
+        MemberSelected?.Invoke(profileId);
+    }
 
     private void OnDestroy()
     {
@@ -340,6 +387,9 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void PresentReconnectOpportunity(in RaidReconnectTicket ticket)
     {
+        _lastPresentation = default;
+        HideInspection();
+        HideMemberCards();
         _localReady = false;
         if (_codeInput != null)
         {
@@ -443,10 +493,10 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         _copyButton = CreateButton("Copiar código", _panelRoot.transform, CopyCode, out _);
         _readyButton = CreateButton("Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _);
         _startButton = CreateButton("Iniciar raid", _panelRoot.transform, () => StartRequested?.Invoke(), out _);
-        _leaveButton = CreateButton("Abandonar preparacion", _panelRoot.transform, () => LeaveRequested?.Invoke(), out _);
+        _leaveButton = CreateButton("Abandonar preparacion", _panelRoot.transform, RequestLeave, out _);
         _reconnectButton = CreateButton("Volver a la raid", _panelRoot.transform, () => ReconnectRequested?.Invoke(), out _);
         _discardReconnectButton = CreateButton("Descartar reconexion", _panelRoot.transform, () => DiscardReconnectRequested?.Invoke(), out _);
-        _closeButton = CreateButton("Cerrar", _panelRoot.transform, () => CloseRequested?.Invoke(), out _);
+        _closeButton = CreateButton("Cerrar", _panelRoot.transform, RequestClose, out _);
 
         _panelRoot.SetActive(false);
         _promptRoot.SetActive(false);

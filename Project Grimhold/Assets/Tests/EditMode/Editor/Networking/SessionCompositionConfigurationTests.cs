@@ -598,6 +598,24 @@ public sealed class SessionCompositionConfigurationTests
                 Assert.That(cardReference.objectReferenceValue, Is.Not.Null, cardReference.name);
             }
         }
+
+        var inspection = serializedView.FindProperty("_inspectionView").objectReferenceValue
+            as TownRaidPreparationInspectionView;
+        Assert.That(inspection, Is.Not.Null);
+        var serializedInspection = new SerializedObject(inspection);
+        Assert.That(serializedInspection.FindProperty("_root").objectReferenceValue, Is.Not.Null);
+        Assert.That(serializedInspection.FindProperty("_titleText").objectReferenceValue, Is.Not.Null);
+        Assert.That(serializedInspection.FindProperty("_closeButton").objectReferenceValue, Is.Not.Null);
+        Assert.That(serializedInspection.FindProperty("_tooltip").objectReferenceValue, Is.Not.Null);
+        SerializedProperty slots = serializedInspection.FindProperty("_slots");
+        var inspectedSlots = new HashSet<EquipmentSlot>();
+        for (int index = 0; index < slots.arraySize; index++)
+        {
+            var slot = slots.GetArrayElementAtIndex(index).objectReferenceValue as TownRaidPreparationInspectionSlotView;
+            Assert.That(slot, Is.Not.Null);
+            inspectedSlots.Add(slot.Slot);
+        }
+        Assert.That(inspectedSlots, Is.EquivalentTo(EquipmentSlotRules.AllSlots));
     }
 
     [Test]
