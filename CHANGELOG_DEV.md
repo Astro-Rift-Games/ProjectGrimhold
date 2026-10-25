@@ -6,6 +6,8 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **inventory:** add manual sort, reserved 2H slot and Downed lock ([06c164e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/06c164e9c6cf56cb0bceffd093b49c8097f6bc42))
+- **backend:** persist player-controlled inventory order ([c261944](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c261944f2a77a8dfd242237b720e7c98ef2c5ffb))
 - **ui:** open Settings from the Town options and the Raid menu ([fce29a1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fce29a1d02be52a24c9591cd3a416eefea91de73))
 - **ui:** complete Main Menu session, settings, credits and exit actions ([ab58a94](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ab58a9464b04a07b8de2d6918367ec06a53d9c97))
 - **ui:** add shared Settings and Credits panels ([99919de](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/99919dec0c175034b0e3e734f4dd87d01f2a5e3e))
