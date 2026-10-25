@@ -274,10 +274,11 @@ public class TownMerchantTradeSessionTests
         Assert.That(_endpoint.Submissions[1].RequestId, Is.EqualTo(_endpoint.Submissions[0].RequestId));
     }
 
-    [Test]
-    public void PersistenceRejection_ReleasesTheReservationAndKeepsTheDraft()
+    [TestCase(StashOperationResult.InvalidInventory)]
+    [TestCase(StashOperationResult.ReservationPending)]
+    public void PersistenceRejection_ReleasesTheReservationAndKeepsTheDraft(StashOperationResult result)
     {
-        _profile.NextResult = StashOperationResult.InvalidInventory;
+        _profile.NextResult = result;
         _session.AddPurchase(Potion, 2);
         _session.ConfirmTrade();
 

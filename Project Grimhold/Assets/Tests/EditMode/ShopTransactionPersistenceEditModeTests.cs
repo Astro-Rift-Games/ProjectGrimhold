@@ -193,6 +193,36 @@ public sealed class ShopTransactionPersistenceEditModeTests
         AssertRejectedWithoutChange(StashOperationResult.PersistenceFailed, Buy(Potion, 1, 30), Sell(Coins, 2, 10));
     }
 
+    [Test]
+    public void PendingReservation_RejectsPurchaseWithoutChangeAndRollbackRestoresLoadout()
+    {
+        LootId[] reserved = FillLoadoutToCapacity(out LootId purchase);
+        PrepareReservableStore();
+        Assert.That(_store.TryCreateLoadoutReservation("shop-reservation", out _), Is.EqualTo(StashOperationResult.Success));
+
+        AssertRejectedWithoutChange(StashOperationResult.ReservationPending, Buy(purchase, 1, 1));
+
+        Assert.That(_store.TryRollbackLoadoutReservation("shop-reservation"), Is.EqualTo(StashOperationResult.Success));
+        AssertLoadout(reserved.Select(id => (id, 2)).ToArray());
+        Assert.That(_store.GetCurrency(), Is.EqualTo(100L));
+    }
+
+    [Test]
+    public void PendingReservation_AppliedTicketReplayReturnsAlreadyAppliedWithoutChange()
+    {
+        Seed(currency: 100, (Bone, 2));
+        MerchantTradeTicket ticket = Ticket(NextId(), Buy(Potion, 1, 30));
+        PrepareReservableStore();
+        Assert.That(_store.TryCommitTrade(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_store.TryCreateLoadoutReservation("shop-replay", out _), Is.EqualTo(StashOperationResult.Success));
+
+        AssertRejectedWithoutChange(StashOperationResult.AlreadyApplied, () => _store.TryCommitTrade(Profile, ticket));
+
+        Assert.That(_store.TryRollbackLoadoutReservation("shop-replay"), Is.EqualTo(StashOperationResult.Success));
+        AssertLoadout((Bone, 2), (Potion, 1));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(70L));
+    }
+
     // --- Same loot on both sides: independent lines, never netted ---
 
     [Test]
@@ -400,6 +430,19 @@ public sealed class ShopTransactionPersistenceEditModeTests
         snapshot.Loadout.Clear();
         foreach ((LootId lootId, int amount) in loadout) snapshot.Loadout.Add(new StashItem(lootId, amount));
         Assert.That(_repository.TrySave(snapshot, out string error), Is.True, error);
+    }
+
+    /// <summary>
+    /// Reservations validate prepared equipment against the catalog and require a weapon, so the
+    /// store is rebuilt with the catalog and a prepared main-hand weapon.
+    /// </summary>
+    private void PrepareReservableStore()
+    {
+        LocalProfileSnapshot snapshot = _repository.Snapshot.Clone();
+        snapshot.PreparedEquipment = new PreparedEquipmentLoadout(new LootId("rapier"), default);
+        Assert.That(_repository.TrySave(snapshot, out string error), Is.True, error);
+        _store = new LocalProfileStore(_repository, Profile, _catalog);
+        _store.ProfileCommitted += _ => _commits++;
     }
 
     private LootId[] FillLoadoutToCapacity(out LootId unusedLoot)

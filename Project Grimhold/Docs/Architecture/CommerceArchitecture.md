@@ -220,11 +220,15 @@ Current representation: `TryExecuteTrade(ProfileId, MerchantTradeTicket)`. The t
 `ShopTransactionId` plus read-only `Purchases` and `Sales` of `MerchantPricedTradeLine`
 (`LootId`, `Amount`, authority `UnitPrice`). `LocalProfileStore.TryCommitTrade` rejects malformed
 tickets (empty, invalid id/loot, non-positive amount or buy price, negative sell price, repeated
-loot on one side), returns `AlreadyApplied` for a known receipt before any content check, then
+loot on one side), returns `AlreadyApplied` for a known receipt before the reservation gate and
+trade-content validation, then applies the shared Town mutation gate. New trades are rejected
+while a Raid loadout reservation is pending (`ReservationPending` in Unity, backend HTTP
+`409 RESERVATION_PENDING`); receipt replays remain `AlreadyApplied`. After the gate it
 builds one candidate snapshot: sales against the confirmed Inventory, overflow-safe totals, final
 Currency and final slot capacity through `ProfileInventoryRules`, one `Commit`. Buy and sell lines
-of the same loot stay independent, matching `MerchantTradePreview`. Every rejection returns
-`InvalidInventory` without publishing `ProfileCommitted`.
+of the same loot stay independent, matching `MerchantTradePreview`. Content validation failures
+return `InvalidInventory`; reservation rejection returns `ReservationPending`. Neither mutates the
+profile nor publishes `ProfileCommitted`.
 
 ### Confirmed profile
 

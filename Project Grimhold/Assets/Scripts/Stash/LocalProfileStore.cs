@@ -803,8 +803,12 @@ public sealed class LocalProfileStore
         {
             var receipt = new ShopTransactionReceipt(ticket.TransactionId, _profileId);
             LocalProfileSnapshot current = _repository.Snapshot;
+            // Replay receipts before the reservation gate, matching backend idempotency.
             if (IsShopReceiptApplied(current, receipt))
                 return StashOperationResult.AlreadyApplied;
+
+            StashOperationResult gate = BeginTownMutation(out current);
+            if (gate != StashOperationResult.Success) return gate;
 
             LocalProfileSnapshot next = current.Clone();
             long saleTotal = 0;
