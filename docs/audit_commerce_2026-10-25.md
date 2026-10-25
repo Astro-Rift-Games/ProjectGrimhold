@@ -110,6 +110,43 @@ Evidence levels: **confirmed** = read in source; **inferred** = follows from sou
 | Sold units enter stock only on persisted outcome | Met formally; "persisted" is optimistic (H5) |
 | Ability Vendor durable and authoritative | **Not met** (H1); no contract |
 
+## E2E results (2026-10-25, Unity Editor + Render)
+
+The Editor was driven through the Unity MCP. A dedicated account (`e2ecom1025`) was used. Render runs the catalog from before this branch, so none of this branch's backend fixes are deployed.
+
+**Phase A (no funds): passed.**
+- Login against Render reaches Town, and the Unity and backend profiles match (0 gold, revision 0).
+- The merchant stock (bone 5, healthpotion 3, placeholder pieces 5) matches backend prices.
+- With insufficient gold, Confirm is disabled and the panel shows `Oro insuficiente: faltan 5`. A forced `Confirm()` changes nothing.
+- A two-line draft followed by Close discards the draft and restores the previous state (GD §7.1 and §7.2).
+
+**Phase B (real raid funding): blocked by the harness.**
+- The solo raid entry works: recovery-weapon consent, `Gameplay.unity`, Host.
+- Looting through MCP is impossible because `NetworkLootContainer.cs:288-292` requires `Runner.IsSimulationUpdating`, and the avatar ended `Defeated`.
+- During the raid the backend showed revision 2 with `pendingReservation = null`. This is unexplained and outside commerce.
+- The account was then funded through a signed extraction result and `/me/extraction/commit` (the C1 path, test account only): coins 30, bone 4, healthpotion 2, placeholder_helmet 1, forest_ranger_hood 1.
+
+**Phase C (real trades):**
+
+| Scenario | Observed | Confirms |
+| --- | --- | --- |
+| Hydration after an extraction commit | Unity = backend (0 gold, rev 3, all items) | OK |
+| Sell coins ×30 | Unity = backend 30 gold, rev 4; coins never appear as re-buyable stock | OK / **E2** |
+| Buy bone ×1 | Unity = backend 25 gold, rev 5; stock bone 5 → 4 | OK |
+| Sell forest_ranger_hood ×1 | Immediate local success (30 gold), then `ITEM_NOT_SELLABLE` and reconciliation back to 25 gold with the hood restored; the feedback stays `Transacción completada` | H4, H5, **E1** |
+| Sell bone ×1 + buy placeholder_boots ×1 | `No se pudo guardar la transacción`; console reports `has 2 lines; the backend has no atomic multi-line trade endpoint`; nothing changes | H3 |
+| Two quick bone purchases | The second sync fails `REVISION_CONFLICT`; the profile converges to 20 gold, rev 6, bone 6; merchant bone stock ends at 2 instead of 3 | H5, M3 |
+
+New findings from E2E:
+- **E1 (Medium)** After a backend rejection and the revert, the merchant feedback still reads `Transacción completada`. The player is told that a trade which did not happen succeeded.
+- **E2 (Architecture vs GD)**
+  - GD UI.1.4 §7.1 says items sold by the player enter the merchant stock and can be bought back until rotation.
+  - The implementation only restocks units of items already offered, matching the contract ("restock sold offered units"). Coins sold are not re-buyable.
+  - Needs a decision; not changed.
+- **E3 (Info)** `AssertException: tick >= sc._latestTickAcknowledged` (Fusion `Simulation.StateReplicator.cs:1129`) was reported after leaving Play Mode. Onset not established.
+
+End state of the test account: 20 gold, revision 6, loadout bone 6, healthpotion 2, placeholder_helmet 1, forest_ranger_hood 1.
+
 ## E2E focus (runtime confirmation)
 
 1. Single-line buy and sell against Render: backend revision, currency and loadout match Unity.
