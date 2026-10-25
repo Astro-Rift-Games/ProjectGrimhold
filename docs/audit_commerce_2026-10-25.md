@@ -14,6 +14,16 @@ Evidence levels: **confirmed** = read in source; **inferred** = follows from sou
 
 ## Findings
 
+### Critical
+
+**C1 Item minting: the raid-result HMAC secret ships in the client and Render accepts it (confirmed at runtime).**
+- `POST /character/raid/extraction-result` (`backend/src/routes/raid.routes.js:12`) is JWT-only. `RaidResultService.publishHostResult` (`RaidResultService.js:87-101`) checks an HMAC keyed by `env.webhookSecret`.
+- The Unity client signs with `WebhookSecret` from `Resources/BackendConfiguration.asset:17` (`dev-webhook-secret-do-not-use-in-prod`, used by `RemoteInventoryService.cs:458`). That value ships in every build.
+- Probe on 2026-10-25: a result for the dedicated test account, signed with the asset value and carrying an empty item list, returned `200 published`.
+- Any authenticated player can therefore publish arbitrary items and experience and redeem them through `/me/extraction/commit`, minting sellable items and gold through the merchant.
+- `env.js:24-30` rejects the default secret only when `NODE_ENV=production`, so the Render service does not run with `NODE_ENV=production`.
+- Out of commerce scope by system, but it defeats every server-side commerce guarantee. A shared secret on a player-hosted client cannot authenticate the host; this needs an architecture decision.
+
 ### High
 
 **H1 Ability Vendor purchases are local-only (confirmed).**
