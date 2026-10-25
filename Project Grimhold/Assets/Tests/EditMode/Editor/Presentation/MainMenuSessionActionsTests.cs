@@ -6,11 +6,11 @@ namespace Tests.EditMode.Presentation
     public sealed class MainMenuSessionActionsTests
     {
         [Test]
-        public void Unauthenticated_ShowsLoginAndDisabledPlay()
+        public void Unauthenticated_ShowsLoginAndHidesPlay()
         {
             var actions = new MainMenuSessionActions(false, false);
 
-            Assert.That(actions.PlayVisible, Is.True);
+            Assert.That(actions.PlayVisible, Is.False);
             Assert.That(actions.PlayInteractable, Is.False);
             Assert.That(actions.LoginVisible, Is.True);
             Assert.That(actions.LogoutVisible, Is.False);
@@ -35,7 +35,7 @@ namespace Tests.EditMode.Presentation
         {
             var actions = new MainMenuSessionActions(isAuthenticated, true);
 
-            Assert.That(actions.PlayVisible, Is.True);
+            Assert.That(actions.PlayVisible, Is.EqualTo(isAuthenticated));
             Assert.That(actions.PlayInteractable, Is.False);
             Assert.That(actions.SecondaryInteractable, Is.False);
             Assert.That(actions.LoginVisible, Is.EqualTo(!isAuthenticated));

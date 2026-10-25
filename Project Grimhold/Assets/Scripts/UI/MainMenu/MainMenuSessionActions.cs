@@ -1,6 +1,6 @@
 public readonly struct MainMenuSessionActions
 {
-    public bool PlayVisible => true;
+    public bool PlayVisible { get; }
     public bool PlayInteractable { get; }
     public bool LoginVisible { get; }
     public bool LogoutVisible { get; }
@@ -8,6 +8,7 @@ public readonly struct MainMenuSessionActions
 
     public MainMenuSessionActions(bool isAuthenticated, bool isBusy)
     {
+        PlayVisible = isAuthenticated;
         PlayInteractable = isAuthenticated && !isBusy;
         LoginVisible = !isAuthenticated;
         LogoutVisible = isAuthenticated;
