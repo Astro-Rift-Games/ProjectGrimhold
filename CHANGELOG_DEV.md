@@ -356,6 +356,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **town:** cover Preparation member cards and inspection in PlayMode ([08c8bc3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/08c8bc34a3d76804658ff8e850df622ca81c9caf))
 - **ui:** expect the Jugar label on the Main Menu Play button ([46a42e3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46a42e32406c8b92666a63589d008f00c4c5f31d))
 - **playmode:** register team extraction progress in the defeated loot runner ([c975bf5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c975bf5e0b7f11a0fa669eb27c8f1f3b2f58f3b5), [18e2d4c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/18e2d4c19e0bfc32105470d7f96854fd67e5a42f))
 - **playmode:** compose a matching local profile for HUD binder fixtures ([1fe9296](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1fe92964c87f01a8c45991ee11b222c66c1435e2), [3e45310](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3e453102b13f2c915c051a8d40a2f25198090fc3))
