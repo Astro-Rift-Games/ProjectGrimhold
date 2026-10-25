@@ -286,6 +286,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **tests:** guard PlayModeLocalProfile editor-only asset loading ([87b0326](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/87b0326e90791df9a3d8b2bd8cd6079da0301a87))
 - **ui:** hide the Main Menu Play button without a session ([6ae1e09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6ae1e0997b4fbd68c4d7cfae9f98ce49405e7ac1))
 - **ui:** enter the Town right after a successful login ([57cb98d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/57cb98d7832e7c3e5bd03d5be3200be1f329f95d))
 - **ui:** use accented labels in the new Settings, Credits and session buttons ([400789c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/400789c31ad5be3e3f2a52c3a08f34bce4ce79af))
