@@ -40,6 +40,20 @@ public sealed class MainMenuController : MonoBehaviour
     [SerializeField]
     private LoginFlowController _loginFlowController;
 
+    [Header("Session actions")]
+    [SerializeField] private Button _loginButton;
+    [SerializeField] private Button _logoutButton;
+    [SerializeField] private Button _settingsButton;
+    [SerializeField] private Button _creditsButton;
+    [SerializeField] private Button _exitButton;
+    [SerializeField] private SettingsPanelView _settingsPanel;
+    [SerializeField] private CreditsPanelView _creditsPanel;
+
+    private bool _isBusy;
+    private ApplicationAuthContext _subscribedAuthContext;
+
+    public Action QuitAction { get; set; } = ApplicationExit.Quit;
+
     private LoginFlowController LoginFlow
     {
         get
@@ -74,7 +88,26 @@ public sealed class MainMenuController : MonoBehaviour
         lobbyPanel.SetActive(false);
         menuPanel.SetActive(true);
 
-        createRoomButton.interactable = true;
+        _loginButton?.onClick.AddListener(ShowLoginPanel);
+        _logoutButton?.onClick.AddListener(OnLogoutButtonClicked);
+        _settingsButton?.onClick.AddListener(OnSettingsButtonClicked);
+        _creditsButton?.onClick.AddListener(OnCreditsButtonClicked);
+        _exitButton?.onClick.AddListener(OnExitButtonClicked);
+
+        if (_loginButton == null || _logoutButton == null || _settingsButton == null ||
+            _creditsButton == null || _exitButton == null || _settingsPanel == null || _creditsPanel == null)
+        {
+            Debug.LogError($"[{nameof(MainMenuController)}] Assign all session action buttons and SettingsPanelView/CreditsPanelView references.", this);
+        }
+
+        _subscribedAuthContext = ApplicationAuthContext.Instance;
+        if (_subscribedAuthContext != null)
+        {
+            _subscribedAuthContext.SessionInvalidated += RefreshSessionActions;
+        }
+
+        SetStatus(string.Empty);
+        RefreshSessionActions();
 
         if (_characterCreationPanel != null)
         {
@@ -100,6 +133,16 @@ public sealed class MainMenuController : MonoBehaviour
     {
         createRoomButton.onClick.RemoveListener(CreateRoom);
         joinRoomButton.onClick.RemoveListener(JoinRoom);
+        _loginButton?.onClick.RemoveListener(ShowLoginPanel);
+        _logoutButton?.onClick.RemoveListener(OnLogoutButtonClicked);
+        _settingsButton?.onClick.RemoveListener(OnSettingsButtonClicked);
+        _creditsButton?.onClick.RemoveListener(OnCreditsButtonClicked);
+        _exitButton?.onClick.RemoveListener(OnExitButtonClicked);
+        if (_subscribedAuthContext != null)
+        {
+            _subscribedAuthContext.SessionInvalidated -= RefreshSessionActions;
+        }
+        _subscribedAuthContext = null;
 
         if (_loginPanel != null)
         {
@@ -125,20 +168,29 @@ public sealed class MainMenuController : MonoBehaviour
 
         _loginPanel.SetInteractable(false);
         _loginPanel.SetStatus("Logging in...");
+        SetUIInteractable(false);
 
         string username = _loginPanel.Username;
-        LoginFlowResult result;
-
-        if (loginFlow.HasHydrationFailed && loginFlow.PendingUsername == username)
+        try
         {
-            result = await loginFlow.RetryHydrationAsync();
+            LoginFlowResult result;
+            if (loginFlow.HasHydrationFailed && loginFlow.PendingUsername == username)
+            {
+                result = await loginFlow.RetryHydrationAsync();
+            }
+            else
+            {
+                result = await loginFlow.ExecuteLoginAsync(username, _loginPanel.Password);
+            }
+            if (this != null) HandleLoginFlowResult(result);
         }
-        else
+        catch (Exception ex)
         {
-            result = await loginFlow.ExecuteLoginAsync(username, _loginPanel.Password);
+            if (this == null) return;
+            _loginPanel.SetStatus(ex.Message);
+            _loginPanel.SetInteractable(true);
+            SetUIInteractable(true);
         }
-
-        HandleLoginFlowResult(result);
     }
 
     private async void OnRegisterButtonClicked()
@@ -152,22 +204,34 @@ public sealed class MainMenuController : MonoBehaviour
 
         _loginPanel.SetInteractable(false);
         _loginPanel.SetStatus("Registering...");
+        SetUIInteractable(false);
 
-        LoginFlowResult result = await loginFlow.ExecuteRegisterAsync(
-            _loginPanel.Username,
-            _loginPanel.Password);
-
-        HandleLoginFlowResult(result);
+        try
+        {
+            LoginFlowResult result = await loginFlow.ExecuteRegisterAsync(
+                _loginPanel.Username,
+                _loginPanel.Password);
+            if (this != null) HandleLoginFlowResult(result);
+        }
+        catch (Exception ex)
+        {
+            if (this == null) return;
+            _loginPanel.SetStatus(ex.Message);
+            _loginPanel.SetInteractable(true);
+            SetUIInteractable(true);
+        }
     }
 
     private void HandleLoginFlowResult(LoginFlowResult result)
     {
+        SetUIInteractable(true);
         if (result.IsSuccess)
         {
-            _loginPanel.SetStatus("Success.");
+            _loginPanel.SetStatus(string.Empty);
             UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
-            createRoomButton.interactable = true;
-            CreateRoom();
+            UiPanelVisibility.SetVisible(menuPanel, true);
+            SetStatus(string.Empty);
+            RefreshSessionActions();
         }
         else if (result.Status == LoginFlowStatus.NeedsCharacterCreation)
         {
@@ -198,15 +262,31 @@ public sealed class MainMenuController : MonoBehaviour
 
         _characterCreationPanel.SetInteractable(false);
         _characterCreationPanel.SetStatus("Creating character...");
+        SetUIInteractable(false);
 
-        LoginFlowResult result = await loginFlow.CreateCharacterAsync(_characterCreationPanel.CharacterName);
+        LoginFlowResult result;
+        try
+        {
+            result = await loginFlow.CreateCharacterAsync(_characterCreationPanel.CharacterName);
+        }
+        catch (Exception ex)
+        {
+            if (this == null) return;
+            _characterCreationPanel.SetStatus(ex.Message);
+            _characterCreationPanel.SetInteractable(true);
+            SetUIInteractable(true);
+            return;
+        }
+        if (this == null) return;
+        SetUIInteractable(true);
 
         if (result.IsSuccess)
         {
-            _characterCreationPanel.SetStatus("Success.");
+            _characterCreationPanel.SetStatus(string.Empty);
             UiPanelVisibility.SetVisible(_characterCreationPanel.gameObject, false);
-            createRoomButton.interactable = true;
-            CreateRoom();
+            UiPanelVisibility.SetVisible(menuPanel, true);
+            SetStatus(string.Empty);
+            RefreshSessionActions();
         }
         else
         {
@@ -215,29 +295,86 @@ public sealed class MainMenuController : MonoBehaviour
         }
     }
 
+    private void RefreshSessionActions()
+    {
+        var actions = new MainMenuSessionActions(
+            ApplicationAuthContext.Instance?.IsAuthenticated == true, _isBusy);
+        createRoomButton.gameObject.SetActive(actions.PlayVisible);
+        createRoomButton.interactable = actions.PlayInteractable;
+        if (_loginButton != null) _loginButton.gameObject.SetActive(actions.LoginVisible);
+        if (_logoutButton != null) _logoutButton.gameObject.SetActive(actions.LogoutVisible);
+        if (_loginButton != null) _loginButton.interactable = actions.SecondaryInteractable;
+        if (_logoutButton != null) _logoutButton.interactable = actions.SecondaryInteractable;
+        if (_settingsButton != null) _settingsButton.interactable = actions.SecondaryInteractable;
+        if (_creditsButton != null) _creditsButton.interactable = actions.SecondaryInteractable;
+        if (_exitButton != null) _exitButton.interactable = actions.SecondaryInteractable;
+    }
+
+    private void SetStatus(string message)
+    {
+        if (_statusText == null) return;
+        _statusText.text = message;
+        _statusText.gameObject.SetActive(!string.IsNullOrEmpty(message));
+    }
+
+    private void OnSettingsButtonClicked()
+    {
+        if (!_isBusy) _settingsPanel?.Open();
+    }
+
+    private void OnCreditsButtonClicked()
+    {
+        if (!_isBusy) _creditsPanel?.Open();
+    }
+
+    private void OnExitButtonClicked()
+    {
+        if (!_isBusy) QuitAction();
+    }
+
+    private async void OnLogoutButtonClicked()
+    {
+        if (_isBusy) return;
+        SetUIInteractable(false);
+        SetStatus("Logging out...");
+        try
+        {
+            var loginFlow = LoginFlow;
+            if (loginFlow == null)
+            {
+                throw new InvalidOperationException("LoginFlowController is unavailable.");
+            }
+            await loginFlow.ExecuteLogoutAsync();
+            if (this == null) return;
+            SetStatus(string.Empty);
+        }
+        catch (Exception ex)
+        {
+            if (this == null) return;
+            SetStatus($"Failed to log out: {ex.Message}");
+        }
+        finally
+        {
+            if (this != null) SetUIInteractable(true);
+        }
+    }
+
     private void RefreshConnectionButtons()
     {
-        createRoomButton.interactable = true;
-        joinRoomButton.interactable = true;
+        RefreshSessionActions();
+        joinRoomButton.interactable = !_isBusy;
     }
 
     private void SetUIInteractable(bool interactable)
     {
+        _isBusy = !interactable;
         roomCodeInput.interactable = interactable;
-
-        if (interactable)
-        {
-            RefreshConnectionButtons();
-        }
-        else
-        {
-            createRoomButton.interactable = false;
-            joinRoomButton.interactable = false;
-        }
+        RefreshConnectionButtons();
     }
 
     public async void CreateRoom()
     {
+        if (_isBusy) return;
         if (ApplicationAuthContext.Instance?.IsAuthenticated != true)
         {
             ShowLoginPanel();
@@ -245,7 +382,7 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         SetUIInteractable(false);
-        _statusText.text = "Connecting to Town...";
+        SetStatus("Connecting to Town...");
 
         try
         {
@@ -260,15 +397,20 @@ public sealed class MainMenuController : MonoBehaviour
 
             if (result != SessionTransitionResult.Succeeded)
             {
-                _statusText.text = $"Failed to enter Town: {result}.";
+                SetStatus($"Failed to enter Town: {result}.");
                 UiPanelVisibility.SetVisible(menuPanel, true);
                 SetUIInteractable(true);
+            }
+            else
+            {
+                _isBusy = false;
+                SetStatus(string.Empty);
             }
         }
         catch (Exception ex)
         {
             Debug.LogError($"Error entering Town: {ex.Message}");
-            _statusText.text = $"Failed to enter Town: {ex.Message}";
+            SetStatus($"Failed to enter Town: {ex.Message}");
             UiPanelVisibility.SetVisible(menuPanel, true);
             SetUIInteractable(true);
         }
@@ -276,9 +418,11 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void ShowLoginPanel()
     {
+        if (_isBusy) return;
+        SetStatus(string.Empty);
         if (_loginPanel == null)
         {
-            _statusText.text = "Login is unavailable.";
+            SetStatus("Login is unavailable.");
             Debug.LogError($"[{nameof(MainMenuController)}] Cannot continue without a LoginPanelView.");
             return;
         }
@@ -292,29 +436,30 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void OnLoginBackButtonClicked()
     {
+        if (_isBusy) return;
         _loginPanel.ClearFields();
         _loginPanel.SetStatus(string.Empty);
         UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
         UiPanelVisibility.SetVisible(menuPanel, true);
-        createRoomButton.interactable = true;
+        RefreshSessionActions();
     }
 
     public async void JoinRoom()
     {
         if (string.IsNullOrEmpty(roomCodeInput.text))
         {
-            _statusText.text = "Please enter a room code.";
+            SetStatus("Please enter a room code.");
             return;
         }
 
         if (roomCodeInput.text.Length < 6)
         {
-            _statusText.text = "Invalid room code";
+            SetStatus("Invalid room code");
             return;
         }
 
         SetUIInteractable(false);
-        _statusText.text = "Joining...";
+        SetStatus("Joining...");
 
         SessionTransitionResult result = SessionTransitionResult.ConnectionFailed;
         try
@@ -332,19 +477,20 @@ public sealed class MainMenuController : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"Error joining room: {ex.Message}");
-            _statusText.text = $"Failed to join room: {ex.Message}";
+            SetStatus($"Failed to join room: {ex.Message}");
         }
 
         if (result == SessionTransitionResult.Succeeded)
         {
-            _statusText.text = "Connected through the direct development route.";
+            _isBusy = false;
+            SetStatus(string.Empty);
         }
         else
         {
             SetUIInteractable(true);
-            if (_statusText.text == "Joining...")
+            if (_statusText != null && _statusText.text == "Joining...")
             {
-                _statusText.text = "Failed to join room: Session is closed, full, or does not exist.";
+                SetStatus("Failed to join room: Session is closed, full, or does not exist.");
             }
         }
     }

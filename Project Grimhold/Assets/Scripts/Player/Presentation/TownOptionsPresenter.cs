@@ -149,10 +149,6 @@ public sealed class TownOptionsPresenter : MonoBehaviour
 
     private static void QuitApplication()
     {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.ExitPlaymode();
-#else
-        Application.Quit();
-#endif
+        ApplicationExit.Quit();
     }
 }
