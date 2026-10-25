@@ -229,9 +229,8 @@ public sealed class MainMenuController : MonoBehaviour
         {
             _loginPanel.SetStatus(string.Empty);
             UiPanelVisibility.SetVisible(_loginPanel.gameObject, false);
-            UiPanelVisibility.SetVisible(menuPanel, true);
-            SetStatus(string.Empty);
             RefreshSessionActions();
+            CreateRoom();
         }
         else if (result.Status == LoginFlowStatus.NeedsCharacterCreation)
         {
@@ -284,9 +283,8 @@ public sealed class MainMenuController : MonoBehaviour
         {
             _characterCreationPanel.SetStatus(string.Empty);
             UiPanelVisibility.SetVisible(_characterCreationPanel.gameObject, false);
-            UiPanelVisibility.SetVisible(menuPanel, true);
-            SetStatus(string.Empty);
             RefreshSessionActions();
+            CreateRoom();
         }
         else
         {
