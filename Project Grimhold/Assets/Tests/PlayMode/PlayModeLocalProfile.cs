@@ -1,3 +1,4 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using NUnit.Framework;
 using UnityEditor;
@@ -88,3 +89,4 @@ namespace Tests.PlayMode
         }
     }
 }
+#endif
