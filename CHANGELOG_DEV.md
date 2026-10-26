@@ -6,6 +6,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **dungeon-pressure:** add collapse music and falling ceiling particles ([eb00230](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f))
+- **lighting:** add light prop extinction support and prop prefabs ([a5ccb45](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a5ccb45149e51dcd843ad7a3aa50df94640d9486))
+- **camera:** add accessibility and aim scaling to camera shake ([17ebd02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/17ebd026725ca90f64d9efe9bdeb07f9f62b2f79))
 - **commerce:** show and confirm equipment buy-back in the merchant ([747b09b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/747b09b3832d77a5cd4370405906c84f7dfbdeb4))
 - **commerce:** hydrate and execute equipment buy-back in Unity ([ee84e41](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ee84e4178d1a7ce6653f46f79cb0307fc73c0617))
 - **backend:** let players buy back equipment they sold this Town session ([5cd99fe](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5cd99fe01ed5686bca116b805effcbbe0471641e))
@@ -395,6 +398,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Documentation
 
+- **dungeon-pressure:** update collapse presentation and resolve conflict ([88999f4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88999f4fdb9765c95a0b94d3e82154d47ba95e81))
 - **commerce:** record E2E re-run after remote-first persistence ([754e48f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/754e48fbbcd4b423f9ccb2a3baa6d130cbee8dfe))
 - **commerce:** note persistence tests run only in PlayMode ([79471b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/79471b9ac02fd378a1c176a0219ad075142f8f7c))
 - **commerce:** record E2E results against Render ([ec93b98](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec93b98e938da9ae1f865f1532474e52d96620ed))
