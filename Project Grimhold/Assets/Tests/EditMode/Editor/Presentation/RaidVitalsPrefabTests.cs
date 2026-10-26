@@ -5,8 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Visual-fidelity contract of the vitals block: icon + bar rows with a single value text each, no static name
-/// labels, and fills that grow from the left edge of their bar.
+/// Visual-fidelity contract of the modular vitals: independent circular fills with one unscaled value each.
 /// </summary>
 public sealed class RaidVitalsPrefabTests
 {
@@ -51,7 +50,7 @@ public sealed class RaidVitalsPrefabTests
 
                 TMP_Text text = value.GetComponent<TMP_Text>();
                 Assert.That(text.alignment, Is.EqualTo(TextAlignmentOptions.Center), row + " value centered");
-                Assert.That(text.fontSize, Is.GreaterThanOrEqualTo(18f), row + " readable size");
+                Assert.That(text.fontSize, Is.GreaterThanOrEqualTo(row == "Stamina" ? 10f : 16f), row + " native value size");
                 Assert.That(text.enableAutoSizing, Is.False);
                 Assert.That(text.font.name, Is.EqualTo("alagard SDF"), row + " pixel font");
             }
@@ -63,7 +62,7 @@ public sealed class RaidVitalsPrefabTests
     }
 
     [Test]
-    public void FillsStartAtTheLeftEdgeOfTheirTrackAndShrinkTowardsIt()
+    public void CircularFillsStayCenteredAndUseTheirAuthoredSpriteColors()
     {
         GameObject hud = Instantiate();
         try
@@ -78,26 +77,16 @@ public sealed class RaidVitalsPrefabTests
                 RectTransform rect = fill.rectTransform;
                 RectTransform track = (RectTransform)rect.parent;
                 Assert.That(track.name, Is.EqualTo(Rows[i] + "Track"), Rows[i] + " fill parent");
-                Assert.That(rect.pivot.x, Is.Zero, Rows[i] + " pivot at the left edge");
-                Assert.That(rect.anchorMin.x, Is.Zero, Rows[i] + " anchored to the left edge");
-                Assert.That(rect.anchorMax.x, Is.EqualTo(1f), Rows[i] + " stretches over the track");
-
-                Vector3[] full = new Vector3[4];
-                rect.localScale = Vector3.one;
-                rect.GetWorldCorners(full);
-                Vector3[] half = new Vector3[4];
-                rect.localScale = new Vector3(0.5f, 1f, 1f);
-                rect.GetWorldCorners(half);
-
-                Assert.That(half[0].x, Is.EqualTo(full[0].x).Within(0.001f), Rows[i] + " left edge stays fixed");
-                Assert.That(half[2].x - half[0].x, Is.EqualTo((full[2].x - full[0].x) * 0.5f).Within(0.001f));
-                rect.localScale = Vector3.one;
+                Assert.That(rect.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)), Rows[i] + " centred pivot");
+                Assert.That(fill.type, Is.EqualTo(Image.Type.Filled));
+                Assert.That(fill.color, Is.EqualTo(Color.white), "do not tint pre-coloured pixel art");
+                Assert.That(rect.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(rect.sizeDelta.x, Is.EqualTo(rect.sizeDelta.y), "circular canvas");
             }
 
-            Assert.That(view.HealthFill.color.r, Is.GreaterThan(view.HealthFill.color.b), "health is red");
-            Assert.That(view.ManaFill.color.b, Is.GreaterThan(view.ManaFill.color.r), "mana is blue");
-            Assert.That(view.StaminaFill.color.r, Is.GreaterThan(view.StaminaFill.color.b), "stamina is gold");
-            Assert.That(view.StaminaFill.color.g, Is.GreaterThan(view.HealthFill.color.g), "stamina is gold, not red");
+            Assert.That(view.HealthFill.sprite.name, Is.EqualTo("orb_health_fill"));
+            Assert.That(view.ManaFill.sprite.name, Is.EqualTo("orb_mana_fill"));
+            Assert.That(view.StaminaFill.sprite.name, Is.EqualTo("ring_stamina_fill"));
         }
         finally
         {

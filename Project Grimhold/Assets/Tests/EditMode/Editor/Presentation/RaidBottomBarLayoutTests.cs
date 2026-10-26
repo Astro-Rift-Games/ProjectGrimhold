@@ -226,7 +226,9 @@ public sealed class RaidBottomBarLayoutTests
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
         RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
-        Assert.That(bar.Overlaps(ResolveRect(frame, root, canvas)), Is.False, "container vs vitals");
+        Assert.That(ResolveRect(frame, root, canvas).Contains(bar.min) && ResolveRect(frame, root, canvas).Contains(bar.max), Is.True, "container inside unified frame");
+        foreach (string orb in new[] { "Health", "Mana" })
+            Assert.That(bar.Overlaps(ResolveRect((RectTransform)frame.Find(orb), root, canvas)), Is.False, "container vs " + orb);
         Assert.That(bar.Overlaps(ResolveRect((RectTransform)frame.Find("DefeatedIndicator"), root, canvas)), Is.False, "container vs defeated indicator");
         Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("RaidDuoHud"), root, canvas)), Is.False, "container vs teammate HUD");
         Assert.That(bar.Overlaps(ResolveRect((RectTransform)hud.transform.Find("DungeonPressureHUD/Timer"), root, canvas)), Is.False, "container vs pressure timer");
@@ -261,20 +263,20 @@ public sealed class RaidBottomBarLayoutTests
     }
 
     [Test]
-    public void VitalsBlockIsAnchoredAtTheBottomLeftWithAMargin()
+    public void VitalsBlockIsAnchoredAtTheBottomCenterWithAMargin()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform frame = (RectTransform)hud.transform.Find("RaidMainHud");
 
-        Assert.That(frame.anchorMin, Is.EqualTo(Vector2.zero), "anchor min bottom-left");
-        Assert.That(frame.anchorMax, Is.EqualTo(Vector2.zero), "anchor max bottom-left");
-        Assert.That(frame.pivot, Is.EqualTo(Vector2.zero), "pivot bottom-left");
-        Assert.That(frame.anchoredPosition.x, Is.InRange(16f, 32f), "left margin");
+        Assert.That(frame.anchorMin, Is.EqualTo(new Vector2(0.5f, 0f)), "anchor min bottom-center");
+        Assert.That(frame.anchorMax, Is.EqualTo(new Vector2(0.5f, 0f)), "anchor max bottom-center");
+        Assert.That(frame.pivot, Is.EqualTo(new Vector2(0.5f, 0f)), "pivot bottom-center");
+        Assert.That(frame.anchoredPosition.x, Is.EqualTo(0f), "centered horizontally");
         Assert.That(frame.anchoredPosition.y, Is.InRange(16f, 32f), "bottom margin");
     }
 
     [Test]
-    public void VitalsRowsAreHealthManaStaminaStackedWithoutOverlapInsideTheFrame()
+    public void OrbsSitSideBySideAndStaminaEncirclesManaWithoutDistortion()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
@@ -282,31 +284,25 @@ public sealed class RaidBottomBarLayoutTests
         Vector2 size = new Vector2(1920f, 1080f);
         Rect frameRect = ResolveRect(frame, root, size);
 
-        string[] order = { "Health", "Mana", "Stamina" };
-        Rect previous = default;
-        for (int i = 0; i < order.Length; i++)
+        foreach (string name in new[] { "Health", "Mana", "Stamina" })
         {
-            Transform rowTransform = frame.Find(order[i]);
-            Assert.That(rowTransform, Is.Not.Null, order[i] + " row");
-            Rect row = ResolveRect((RectTransform)rowTransform, root, size);
-            Assert.That(row.xMin, Is.GreaterThanOrEqualTo(frameRect.xMin - Tolerance), order[i] + " left");
-            Assert.That(row.xMax, Is.LessThanOrEqualTo(frameRect.xMax + Tolerance), order[i] + " right");
-            Assert.That(row.yMax, Is.LessThanOrEqualTo(frameRect.yMax + Tolerance), order[i] + " top");
-            Assert.That(row.yMin, Is.GreaterThanOrEqualTo(frameRect.yMin - Tolerance), order[i] + " bottom");
-            if (i > 0)
-            {
-                Assert.That(row.yMax, Is.LessThanOrEqualTo(previous.yMin + Tolerance),
-                    order[i] + " must sit below " + order[i - 1] + " without overlap");
-            }
-
-            previous = row;
+            Rect row = ResolveRect((RectTransform)frame.Find(name), root, size);
+            Assert.That(row.xMin, Is.GreaterThanOrEqualTo(frameRect.xMin - Tolerance));
+            Assert.That(row.xMax, Is.LessThanOrEqualTo(frameRect.xMax + Tolerance));
+            Assert.That(row.yMax, Is.LessThanOrEqualTo(frameRect.yMax + Tolerance));
+            Assert.That(row.yMin, Is.GreaterThanOrEqualTo(frameRect.yMin - Tolerance));
         }
-
-        Assert.That(previous.yMin - frameRect.yMin, Is.LessThanOrEqualTo(16f), "frame is shrunk to its content");
+        Rect health = ResolveRect((RectTransform)frame.Find("Health/HealthTrack"), root, size);
+        Rect mana = ResolveRect((RectTransform)frame.Find("Mana/ManaTrack"), root, size);
+        Rect stamina = ResolveRect((RectTransform)frame.Find("Stamina/StaminaTrack"), root, size);
+        Assert.That(health.Overlaps(mana), Is.False);
+        Assert.That(stamina.center, Is.EqualTo(mana.center));
+        Assert.That(stamina.width, Is.GreaterThan(health.width));
+        Assert.That(stamina.width, Is.EqualTo(stamina.height));
     }
 
     [Test]
-    public void EachVitalsRowHasAnIconOnTheLeftAndABarToItsRight()
+    public void LegacyIconsAreHiddenAndResourceSpritesAreIndependent()
     {
         GameObject hud = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
         RectTransform root = (RectTransform)hud.transform;
@@ -320,12 +316,11 @@ public sealed class RaidBottomBarLayoutTests
             RectTransform track = (RectTransform)row.Find(rowName + "Track");
             Assert.That(icon, Is.Not.Null, rowName + "Icon");
             Assert.That(track, Is.Not.Null, rowName + "Track");
-            Assert.That(icon.GetComponent<Image>().sprite, Is.Not.Null, rowName + " icon sprite");
-
-            Rect iconRect = ResolveRect(icon, root, size);
-            Rect trackRect = ResolveRect(track, root, size);
-            Assert.That(iconRect.xMax, Is.LessThanOrEqualTo(trackRect.xMin + Tolerance), rowName + " icon left of the bar");
-            Assert.That(trackRect.width, Is.GreaterThan(160f), rowName + " bar is wide enough for the value text");
+            Assert.That(icon.gameObject.activeSelf, Is.False, "the orb/ring replaces the legacy icon");
+            Image fill = track.Find(rowName + "Fill").GetComponent<Image>();
+            Assert.That(fill.sprite.name, Is.EqualTo(rowName == "Stamina" ? "ring_stamina_fill" : "orb_" + rowName.ToLowerInvariant() + "_fill"));
+            Assert.That(fill.type, Is.EqualTo(Image.Type.Filled));
+            Assert.That(fill.color, Is.EqualTo(Color.white));
         }
     }
 
@@ -357,7 +352,7 @@ public sealed class RaidBottomBarLayoutTests
 
         Assert.That(duo.yMin, Is.GreaterThanOrEqualTo(defeated.yMax), "teammate HUD above the defeated indicator");
         Assert.That(duo.yMin - vitals.yMax, Is.LessThanOrEqualTo(64f), "teammate HUD stays close to the vitals block");
-        Assert.That(duo.xMin, Is.EqualTo(vitals.xMin).Within(Tolerance), "teammate HUD shares the vitals left edge");
+        Assert.That(duo.xMin, Is.EqualTo(24f).Within(Tolerance), "teammate HUD retains its left margin");
     }
 
     [TestCase(1920f, 1080f)]
@@ -382,9 +377,9 @@ public sealed class RaidBottomBarLayoutTests
         Assert.That(vitals.Overlaps(phase), Is.False, "vitals vs pressure phase");
         Assert.That(duo.Overlaps(timer), Is.False, "teammate HUD vs pressure timer");
         Assert.That(duo.Overlaps(phase), Is.False, "teammate HUD vs pressure phase");
-        Assert.That(vitals.Overlaps(weapon), Is.False, "vitals vs weapon slot");
-        Assert.That(vitals.Overlaps(q), Is.False, "vitals vs Q slot");
-        Assert.That(vitals.Overlaps(e), Is.False, "vitals vs E slot");
+        Assert.That(vitals.Contains(weapon.min) && vitals.Contains(weapon.max), Is.True, "weapon slot inside unified frame");
+        Assert.That(vitals.Contains(q.min) && vitals.Contains(q.max), Is.True, "Q slot inside unified frame");
+        Assert.That(vitals.Contains(e.min) && vitals.Contains(e.max), Is.True, "E slot inside unified frame");
         Assert.That(duo.Overlaps(weapon), Is.False, "teammate HUD vs weapon slot");
         Assert.That(vitals.Overlaps(prompt), Is.False, "vitals vs interaction prompt");
         Assert.That(vitals.xMin, Is.GreaterThanOrEqualTo(0f));

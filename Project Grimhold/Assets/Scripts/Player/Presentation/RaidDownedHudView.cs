@@ -29,6 +29,13 @@ public sealed class RaidDownedHudView : MonoBehaviour
     [SerializeField]
     private Image _reviveFill;
 
+    [Header("Optional modular status ring")]
+    [SerializeField]
+    private GameObject _reserveRingRoot;
+
+    [SerializeField]
+    private GameObject _reviveRingRoot;
+
     [SerializeField]
     private TMP_Text _reviveText;
 
@@ -58,9 +65,13 @@ public sealed class RaidDownedHudView : MonoBehaviour
     private float _pulseRemaining;
     private Vector3 _pulseBaseScale = Vector3.one;
     private bool _hasPulseBase;
+    private bool _showReserveRing;
+    private bool _showReviveRing;
 
     public void PresentDowned(bool active, float reserveFraction, string reserveText, bool isPaused)
     {
+        _showReserveRing = active;
+        RefreshStatusRing();
         SetActive(_downedRoot, active);
         if (!active)
         {
@@ -74,6 +85,8 @@ public sealed class RaidDownedHudView : MonoBehaviour
 
     public void PresentReviveProgress(bool visible, float fraction, bool asReviver)
     {
+        _showReviveRing = visible;
+        RefreshStatusRing();
         SetActive(_reviveRoot, visible);
         if (!visible)
         {
@@ -122,6 +135,9 @@ public sealed class RaidDownedHudView : MonoBehaviour
 
     public void Clear()
     {
+        _showReserveRing = false;
+        _showReviveRing = false;
+        RefreshStatusRing();
         SetActive(_downedRoot, false);
         SetActive(_reviveRoot, false);
         SetActive(_allyDownedRoot, false);
@@ -161,11 +177,27 @@ public sealed class RaidDownedHudView : MonoBehaviour
         }
     }
 
-    /// <summary>Fills a left-anchored bar by scaling it on X, like the vitals bars of the main HUD.</summary>
+    private void RefreshStatusRing()
+    {
+        // A confirmed revive temporarily owns the shared ring; reserve text stays visible.
+        SetActive(_reserveRingRoot, _showReserveRing && !_showReviveRing);
+        SetActive(_reviveRingRoot, _showReviveRing);
+    }
+
+    /// <summary>Clips authored Filled images without deforming them; legacy bars keep their scale contract.</summary>
     private static void SetFill(Image fill, float fraction)
     {
         if (fill == null)
         {
+            return;
+        }
+
+        if (fill.type == Image.Type.Filled)
+        {
+            fill.fillAmount = float.IsNaN(fraction) || float.IsInfinity(fraction)
+                ? 0f
+                : Mathf.Clamp01(fraction);
+            fill.rectTransform.localScale = Vector3.one;
             return;
         }
 
