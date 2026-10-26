@@ -19,6 +19,7 @@ public sealed class MerchantShopInteraction
 {
     private readonly IMerchantShopIntentions _intentions;
     private LootId _selectedLootId;
+    private string _selectedBuybackEntryId;
     private bool _isSelectedFromMerchant;
     private int _syncedDraftAmount;
     private bool _confirmPending;
@@ -62,7 +63,8 @@ public sealed class MerchantShopInteraction
     public bool CanClear => ViewModel.CanClear;
 
     public bool IsSelected(MerchantShopRowViewModel row) =>
-        HasSelection && row.LootId == _selectedLootId && row.IsMerchantStock == _isSelectedFromMerchant;
+        HasSelection && row.LootId == _selectedLootId && row.IsMerchantStock == _isSelectedFromMerchant &&
+        row.BuybackEntryId == _selectedBuybackEntryId;
 
     /// <summary>
     /// Shows a new view model. The selection follows its row; the quantity resets to the draft
@@ -78,7 +80,7 @@ public sealed class MerchantShopInteraction
             return;
         }
 
-        if (!TryFindRow(_selectedLootId, _isSelectedFromMerchant, out MerchantShopRowViewModel row))
+        if (!TryFindRow(_selectedLootId, _isSelectedFromMerchant, _selectedBuybackEntryId, out MerchantShopRowViewModel row))
         {
             ClearSelection();
             return;
@@ -96,15 +98,16 @@ public sealed class MerchantShopInteraction
     }
 
     /// <summary>Selects a merchant row for purchase or an Inventory row for sale.</summary>
-    public bool Select(LootId lootId, bool isMerchantStock)
+    public bool Select(LootId lootId, bool isMerchantStock, string buybackEntryId = null)
     {
-        if (!TryFindRow(lootId, isMerchantStock, out MerchantShopRowViewModel row))
+        if (!TryFindRow(lootId, isMerchantStock, buybackEntryId, out MerchantShopRowViewModel row))
         {
             return false;
         }
 
         HasSelection = true;
         _selectedLootId = lootId;
+        _selectedBuybackEntryId = buybackEntryId;
         _isSelectedFromMerchant = isMerchantStock;
         SelectedRow = row;
         SyncQuantityWithDraft();
@@ -116,6 +119,7 @@ public sealed class MerchantShopInteraction
         HasSelection = false;
         SelectedRow = default;
         _selectedLootId = default;
+        _selectedBuybackEntryId = null;
         _syncedDraftAmount = 0;
         Quantity = 0;
     }
@@ -145,6 +149,8 @@ public sealed class MerchantShopInteraction
         }
 
         MerchantShopRowViewModel row = SelectedRow;
+        if (row.IsBuyback)
+            return _intentions is IBuybackShopIntentions buyback && buyback.SetBuyback(row.BuybackEntryId, Quantity);
         if (LineAction == MerchantShopLineAction.Add)
         {
             return row.IsMerchantStock
@@ -164,6 +170,8 @@ public sealed class MerchantShopInteraction
             return false;
         }
 
+        if (SelectedRow.IsBuyback)
+            return _intentions is IBuybackShopIntentions buyback && buyback.RemoveBuyback(SelectedRow.BuybackEntryId);
         return SelectedRow.IsMerchantStock
             ? _intentions.RemovePurchase(SelectedRow.LootId)
             : _intentions.RemoveSale(SelectedRow.LootId);
@@ -200,12 +208,12 @@ public sealed class MerchantShopInteraction
 
     private int Clamp(int quantity) => Math.Min(Math.Max(1, quantity), MaxQuantity);
 
-    private bool TryFindRow(LootId lootId, bool isMerchantStock, out MerchantShopRowViewModel found)
+    private bool TryFindRow(LootId lootId, bool isMerchantStock, string buybackEntryId, out MerchantShopRowViewModel found)
     {
         IReadOnlyList<MerchantShopRowViewModel> rows = isMerchantStock ? ViewModel.MerchantRows : ViewModel.InventoryRows;
         foreach (MerchantShopRowViewModel row in rows)
         {
-            if (row.LootId == lootId)
+            if (row.LootId == lootId && row.BuybackEntryId == buybackEntryId)
             {
                 found = row;
                 return true;

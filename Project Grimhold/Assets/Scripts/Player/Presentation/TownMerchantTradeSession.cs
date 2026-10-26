@@ -12,8 +12,10 @@ using System.Threading.Tasks;
 /// It never persists a ticket outside its in-flight request, so a not-persisted report is final;
 /// pending trades it no longer uses are resolved from the confirmed profile's receipts.
 /// </summary>
-public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchantTradeClient, IDisposable
+public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IBuybackShopIntentions, IMerchantTradeClient, IDisposable
 {
+    private readonly BuybackLedger _buybackLedger;
+    private readonly IBuybackService _buybackService;
     private readonly ProfileId _profileId;
     private readonly IMerchantTradeEndpoint _endpoint;
     private readonly IShopTransactionService _shopService;
@@ -27,6 +29,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
     private double _submittedAt;
     private bool _disposed;
     private bool _persisting;
+    private ShopTransactionId _buybackTransaction;
 
     public event Action<MerchantTransactionResult> TradeCompleted;
 
@@ -42,7 +45,9 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         Action<MerchantShopViewModel> present,
         Func<double> clock,
         double submissionTimeoutSeconds,
-        Func<Guid> requestIdProvider = null)
+        Func<Guid> requestIdProvider = null,
+        BuybackLedger buybackLedger = null,
+        IBuybackService buybackService = null)
     {
         if (!profileId.IsValid)
         {
@@ -54,6 +59,8 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
             throw new ArgumentOutOfRangeException(nameof(submissionTimeoutSeconds));
         }
 
+        _buybackLedger = buybackLedger;
+        _buybackService = buybackService;
         _profileId = profileId;
         _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         _shopService = shopService ?? throw new ArgumentNullException(nameof(shopService));
@@ -64,6 +71,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         _submissionTimeoutSeconds = submissionTimeoutSeconds;
         _draft = new MerchantTradeDraft(requestIdProvider);
 
+        if (_buybackLedger != null) _buybackLedger.Changed += Refresh;
         _endpoint.StockChanged += Refresh;
         _endpoint.AuthorityChanged += OnAuthorityChanged;
         _inventory.Changed += Refresh;
@@ -84,6 +92,16 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
 
     public bool ClearTrade() => Edit(_draft.TryClear());
 
+    public bool SetBuyback(string entryId, int amount)
+    {
+        if (_disposed || _buybackService == null || _buybackLedger == null) return false;
+        foreach (MerchantBuybackEntry entry in _buybackLedger.Entries)
+            if (entry.EntryId == entryId) return Edit(_draft.TrySetBuyback(entry, amount));
+        return false;
+    }
+
+    public bool RemoveBuyback(string entryId) => !_disposed && Edit(_draft.TryRemoveBuyback(entryId));
+
     /// <summary>
     /// Sends the whole draft as one request, only when the current preview allows it. The draft
     /// stays locked until State Authority answers.
@@ -94,6 +112,18 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
             !_draft.TryBeginSubmission(out Guid requestId))
         {
             return false;
+        }
+
+        if (_draft.Buyback.HasValue)
+        {
+            _persisting = true;
+            Refresh();
+            MerchantBuybackEntry entry = _draft.Buyback.Value;
+            if (_buybackTransaction.Value != requestId)
+                _buybackTransaction = new ShopTransactionId(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), requestId);
+            _ = PersistBuybackAsync(new MerchantBuybackRequest(_buybackTransaction,
+                entry.EntryId, entry.LootId, _draft.BuybackAmount, entry.UnitPrice));
+            return true;
         }
 
         if (!_endpoint.TrySubmitTrade(_profileId, requestId, _draft.Purchases, _draft.Sales))
@@ -129,6 +159,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         }
 
         _disposed = true;
+        if (_buybackLedger != null) _buybackLedger.Changed -= Refresh;
         _endpoint.StockChanged -= Refresh;
         _endpoint.AuthorityChanged -= OnAuthorityChanged;
         _inventory.Changed -= Refresh;
@@ -157,6 +188,27 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         _persisting = true;
         _ = PersistAndReportAsync(response);
         return true;
+    }
+
+    private async Task PersistBuybackAsync(MerchantBuybackRequest request)
+    {
+        StashOperationResult result;
+        try
+        {
+            result = await _buybackService.ExecuteBuybackAsync(_profileId, request);
+        }
+        catch (Exception exception)
+        {
+            UnityEngine.Debug.LogWarning($"[TownMerchantTradeSession] Buy-back persistence failed: {exception.Message}");
+            result = StashOperationResult.PersistenceFailed;
+        }
+        _persisting = false;
+        if (_disposed) return;
+        if (result == StashOperationResult.Success || result == StashOperationResult.AlreadyApplied)
+            _draft.MarkSubmissionSucceeded();
+        else
+            _draft.MarkSubmissionRejectedOrFailed();
+        Complete(MapPersistenceResult(result));
     }
 
     private async Task PersistAndReportAsync(MerchantTradeResponse response)
@@ -277,7 +329,7 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
         try
         {
             preview = MerchantTradePreview.Calculate(
-                inventory, _inventory.SlotCapacity, currency, _draft, _endpoint.GetAvailableStock, _endpoint.Catalog);
+                inventory, _inventory.SlotCapacity, currency, _draft, _endpoint.GetAvailableStock, _endpoint.Catalog, _buybackLedger);
             return true;
         }
         catch (ArgumentException)
@@ -341,6 +393,19 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IMerchan
                 maxDraftAmount: Math.Max(limit, draftAmount)));
         }
 
+        if (_buybackLedger != null)
+        {
+            foreach (MerchantBuybackEntry entry in _buybackLedger.Entries)
+            {
+                if (!_endpoint.Catalog.TryGet(entry.LootId.Value, out LootDefinition definition) || definition == null)
+                    continue;
+                int draftAmount = _draft.Buyback?.EntryId == entry.EntryId ? _draft.BuybackAmount : 0;
+                rows.Add(new MerchantShopRowViewModel(definition, entry.LootId, true,
+                    entry.UnitPrice, entry.Amount, draftAmount, entry.UnitPrice * draftAmount,
+                    canEdit && _buybackService != null && (!_draft.Buyback.HasValue || draftAmount > 0),
+                    Math.Max(entry.Amount, draftAmount), entry.EntryId));
+            }
+        }
         return rows;
     }
 

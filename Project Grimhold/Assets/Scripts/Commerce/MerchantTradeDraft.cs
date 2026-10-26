@@ -18,7 +18,32 @@ public sealed class MerchantTradeDraft
     public IReadOnlyList<MerchantTradeLine> Purchases => _purchasesView;
     public IReadOnlyList<MerchantTradeLine> Sales => _salesView;
 
-    public bool IsEmpty => _purchases.Count == 0 && _sales.Count == 0;
+    public MerchantBuybackEntry? Buyback { get; private set; }
+    public int BuybackAmount { get; private set; }
+    public bool IsEmpty => _purchases.Count == 0 && _sales.Count == 0 && !Buyback.HasValue;
+
+    public bool TrySetBuyback(MerchantBuybackEntry entry, int amount)
+    {
+        if (IsInFlight || string.IsNullOrWhiteSpace(entry.EntryId) || !entry.LootId.IsValid ||
+            amount < 1 || amount > entry.Amount || entry.UnitPrice < 0 ||
+            (Buyback.HasValue && Buyback.Value.EntryId != entry.EntryId)) return false;
+        if (!Buyback.HasValue || BuybackAmount != amount)
+        {
+            Buyback = entry;
+            BuybackAmount = amount;
+            RequestId = null;
+        }
+        return true;
+    }
+
+    public bool TryRemoveBuyback(string entryId)
+    {
+        if (IsInFlight || !Buyback.HasValue || Buyback.Value.EntryId != entryId) return false;
+        Buyback = null;
+        BuybackAmount = 0;
+        RequestId = null;
+        return true;
+    }
     public bool IsInFlight { get; private set; }
 
     /// <summary>
@@ -54,6 +79,8 @@ public sealed class MerchantTradeDraft
 
         _purchases.Clear();
         _sales.Clear();
+        Buyback = null;
+        BuybackAmount = 0;
         RequestId = null;
         return true;
     }
@@ -100,6 +127,8 @@ public sealed class MerchantTradeDraft
 
         _purchases.Clear();
         _sales.Clear();
+        Buyback = null;
+        BuybackAmount = 0;
         RequestId = null;
         IsInFlight = false;
     }

@@ -87,7 +87,8 @@ public sealed class StoreItemUI : MonoBehaviour
         if (_amountText != null) _amountText.text = row.IsUnlimited ? string.Empty : row.Available.ToString();
 
         if (_priceRoot != null) _priceRoot.SetActive(row.IsMerchantStock);
-        if (_priceText != null) _priceText.text = row.UnitPrice.ToString();
+        if (_priceText != null) _priceText.text = row.IsBuyback
+            ? $"Recompra {row.UnitPrice}" : row.UnitPrice.ToString();
 
         bool hasDraftLine = row.DraftAmount > 0;
         if (_draftBadge != null) _draftBadge.SetActive(hasDraftLine);

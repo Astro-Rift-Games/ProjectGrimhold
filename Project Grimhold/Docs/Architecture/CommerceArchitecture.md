@@ -44,7 +44,9 @@ Merchant interaction
 ### MerchantTradeDraft
 
 - Plain C# local state owned by the Input Authority client for one open merchant session.
-- Holds ordered buy lines and sell lines (`LootId + Amount`), the client request identity once
+- Holds ordered buy lines and sell lines (`LootId + Amount`), or one entry-keyed buy-back line
+  with its frozen ledger price and amount. Mixed normal/buy-back drafts cannot confirm.
+  It holds the client request identity once
   Confirm is pressed, and an in-flight flag.
 - Never mutates the profile, Currency, Inventory, merchant stock or any `[Networked]` value.
   Adding, removing or changing a line has no side effect outside the draft.
@@ -105,7 +107,7 @@ selected-item panel in the center, merchant stock grid on the right) and an inde
 grids use five fixed columns aligned from the top inside a vertical `ScrollRect` that only scrolls
 when the content exceeds it, so slots keep their size. The Inventory grid always renders
 `SlotCapacity` slots (or more when rows exceed it): empty slots show only their background and raise
-no selection or intention; the merchant grid shows only offered items. The center panel separates
+no selection or intention; the merchant grid shows authored offering rows followed by account-local buy-back rows. The center panel separates
 identity (icon, name, category, rarity), a scrollable block with properties/requirements and
 description, and the line editor (unit price, quantity, line total, line state, Add/Update, Remove)
 that stays in place. The line total is `MerchantShopInteraction.LineTotal`, read from the row view
@@ -126,7 +128,8 @@ None of them holds services, the network controller or economy rules.
   the preview view model, acquires/releases input suppression and closes on invalid runner/NPC.
 - Receives its dependencies (confirmed-profile read sources, shop transaction boundary) through
   explicit composition, not scene-wide searches.
-- Forwards Confirm to the merchant network endpoint and routes the outcome back to the view.
+- Forwards normal trade Confirm to the merchant network endpoint; buy-back Confirm goes directly
+  to `IBuybackService`. Routes the awaited outcome back to the view.
 - Never mutates the profile or stock directly.
 
 Current representation: each open merchant owns one pure `TownMerchantTradeSession` (draft, preview
@@ -210,7 +213,7 @@ Current representation on `TownMerchantNetworkController` (Fusion 2.1.1):
 
 ### IShopTransactionService
 
-- The only persistence boundary for Commerce. It receives the complete ticket for one profile and
+- The persistence boundary for normal Commerce trades (buy-back uses `IBuybackService`). It receives the complete ticket for one profile and
   applies all its lines as one atomic `LocalProfileStore` transaction: funds, final capacity and
   owned-quantity validation, receipt idempotency keyed by the authority `ShopTransactionId`.
 - Returns a task containing the final persistence outcome (`Success`, `AlreadyApplied`, rejection
@@ -255,6 +258,48 @@ Currency and final slot capacity through `ProfileInventoryRules`, one `Commit`. 
 of the same loot stay independent, matching `MerchantTradePreview`. Content validation failures
 return `InvalidInventory`; reservation rejection returns `ReservationPending`. Neither mutates the
 profile nor publishes `ProfileCommitted`.
+
+### Buy-back
+
+Source: live Game Design **GD UI.1.4 §7.1**. Buy-back lets only the selling account
+recover equipment/weapons sold during its current Town session. It is not an extension of the
+shared merchant offering.
+
+- **Ownership:** the backend owns the per-account ledger and validates
+  `POST /character/me/inventory/shop/buyback` (`transactionId`, `entryId`, `amount`,
+  `expectedRevision`). Unity's application-owned `BuybackLedger` is a memory-only read model,
+  replaced by hydration, reconciliation and shop acknowledgements; it is never persisted locally
+  or replicated through Fusion.
+- **Eligibility:** backend `isBuybackEligible` currently accepts LootCategory Weapon, Helmet,
+  Armor, Gloves, Boots and Shield. Unity `IBuybackEligibilityPolicy` is presentation-only, not
+  authorization. Both are extension points for a future rule accepting only upgraded equipment
+  or items the market does not sell; that stricter rule is not active today.
+- **Price:** `ceil(sellValue * BUYBACK_PRICE_MULTIPLIER)`, currently **1.5**, frozen per unit at
+  sale time. The ledger's unit price, not the catalog's normal purchase price, drives the preview;
+  the backend resolves the entry again on confirmation.
+- **Capacity:** at most **16 entries**, FIFO eviction of the oldest sale entry. Partial buy-back
+  consumes units of the selected entry; buying all units removes it.
+- **Lifetime:** a Town session is a Town session ticket epoch. Login issues a new ticket; Town
+  join renews an expired **30-minute** ticket. Issuing a new ticket clears the backend epoch and
+  the local ledger. Returning from a Raid within the ticket TTL retains entries.
+- **Flow:** `TownMerchantTradeSession` receives the ledger and `IBuybackService` explicitly
+  through `TownInventoryBinder` / `TownMerchantProfileSource`. Confirmation awaits
+  `ExecuteBuybackAsync(profileId, request)` remote-first. There is no Fusion RPC, authority ticket,
+  reservation or shared stock mutation for buy-back. Confirm and all edits remain locked until
+  completion, including across the normal trade timeout or merchant authority changes. Success
+  clears the draft; rejection or exception keeps it and presents the real persistence outcome.
+- **Separate operation:** only one buy-back entry is confirmed at a time. A draft containing
+  buy-back together with any normal purchase/sale is blocked by `BuybackMustBeAlone` and the
+  feedback "La recompra se confirma por separado". Atomic multi-line backend trades remain H3,
+  out of scope.
+- **Presentation:** authored offering rows keep their existing behavior. Ledger rows follow them
+  in the same merchant grid, keyed by entry id (several sales can contain the same loot), showing
+  ledger amount and "Recompra" beside the frozen unit price. The selected item's name also has
+  a "(Recompra)" suffix. The existing row/center text fields are reused, without prefab changes.
+  The session refreshes on `BuybackLedger.Changed` and matching confirmed profile commits.
+  The coherent `MerchantTradePreview` projects buy-back cost and Inventory capacity through the
+  same `ProfileInventoryRules` as purchases. A removed/expired or insufficient ledger entry
+  blocks confirmation.
 
 ### Confirmed profile
 
@@ -316,9 +361,11 @@ resolved record the follow-up task that closed them.
    and confirms it as one multi-line trade.
 2. **Resolved in COM-04:** State Authority gate, shared replicated stock, reservation until the
    persistence outcome, and authority-resolved prices returned in the response.
-3. **Sold items outside the offering do not enter stock.** Stock slots are fixed to the configured
-   offering, so a persisted sale of any other item credits Gold without becoming purchasable.
-   Adding dynamic slots belongs with restock/rotation design.
+3. **Resolved for eligible equipment by the per-account buy-back (GD UI.1.4 §7.1).** Sold equipment outside
+   the offering enters the selling account's buy-back ledger, not shared stock; see **Buy-back**.
+   Offered items still restock the existing shared stock on persisted sales. Non-eligible items
+   outside the offering do not become purchasable. Dynamic shared slots, rotation and replenishment
+   remain out of scope pending Game Design.
 4. **Stock is session-scoped.** Shared stock lives only for the merchant `NetworkObject`; it is
    reseeded from configuration when a new Town session spawns the merchant.
 5. **Resolved in COM-07:** request identity is `ProfileId + RequestId`, deduplicated also after

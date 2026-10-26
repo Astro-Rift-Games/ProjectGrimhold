@@ -14,7 +14,9 @@ public readonly struct MerchantShopRowViewModel
     public LootDefinition Definition { get; }
     public LootId LootId { get; }
     public bool IsMerchantStock { get; }
-    public int UnitPrice { get; }
+    public string BuybackEntryId { get; }
+    public bool IsBuyback => !string.IsNullOrEmpty(BuybackEntryId);
+    public long UnitPrice { get; }
     public int Available { get; }
     public int DraftAmount { get; }
     public long DraftTotal { get; }
@@ -32,13 +34,15 @@ public readonly struct MerchantShopRowViewModel
         LootDefinition definition,
         LootId lootId,
         bool isMerchantStock,
-        int unitPrice,
+        long unitPrice,
         int available,
         int draftAmount,
         long draftTotal,
         bool canAdd,
-        int maxDraftAmount)
+        int maxDraftAmount,
+        string buybackEntryId = null)
     {
+        BuybackEntryId = buybackEntryId;
         Definition = definition;
         LootId = lootId;
         IsMerchantStock = isMerchantStock;

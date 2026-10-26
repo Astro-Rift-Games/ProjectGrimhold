@@ -125,6 +125,142 @@ public class TownMerchantTradeSessionTests
         Assert.That(_results, Is.Empty);
     }
 
+    [Test]
+    public void BuybackComposition_IsAvailableWithoutChangingTheTradeEndpoint()
+    {
+        // Reflection keeps this RED executable before the new composition seam exists.
+        var constructor = typeof(TownMerchantTradeSession).GetConstructors().Single();
+        Assert.That(constructor.GetParameters().Any(p => p.ParameterType == typeof(BuybackLedger)),
+            Is.True, "The merchant session must accept the application-owned buy-back ledger.");
+        Assert.That(constructor.GetParameters().Any(p => p.ParameterType == typeof(IBuybackService)),
+            Is.True, "Buy-back must have its own persistence boundary, not a Fusion trade ticket.");
+    }
+
+    private BuybackLedger OpenBuyback(FakeBuybackService service, int amount = 2, long price = 8)
+    {
+        _session.Dispose();
+        var ledger = new BuybackLedger();
+        ledger.Replace(new Grimhold.Backend.BuybackData { entries = new[] {
+            new Grimhold.Backend.BuybackEntryData { entryId = "sale-1", lootId = Hat.Value, amount = amount, unitPrice = price }
+        }});
+        _session = new TownMerchantTradeSession(Profile, _endpoint, _profile, _profile,
+            () => _profile.Currency, _presented.Add, () => _now, Timeout,
+            buybackLedger: ledger, buybackService: service);
+        _session.TradeCompleted += _results.Add;
+        return ledger;
+    }
+
+    [Test]
+    public void BuybackRows_FollowStockAndRefreshFromLedgerAndProfile()
+    {
+        var ledger = OpenBuyback(new FakeBuybackService());
+        Assert.That(View.MerchantRows.Select(r => r.LootId), Is.EqualTo(new[] { Potion, Bone, Hat }));
+        var row = View.MerchantRows.Last();
+        Assert.That(row.IsBuyback, Is.True);
+        Assert.That(row.Available, Is.EqualTo(2));
+        Assert.That(row.UnitPrice, Is.EqualTo(8), "Use the frozen ledger price, not the catalog buy price.");
+        _profile.CommitExternally(77);
+        Assert.That(View.ConfirmedCurrency, Is.EqualTo(77));
+        ledger.Replace(default);
+        Assert.That(View.MerchantRows.Count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void BuybackPreview_PricesQuantityAndBlocksGoldAndExpiredEntries()
+    {
+        var ledger = OpenBuyback(new FakeBuybackService());
+        Assert.That(_session.SetBuyback("sale-1", 0), Is.False);
+        Assert.That(_session.SetBuyback("sale-1", 3), Is.False);
+        Assert.That(_session.SetBuyback("sale-1", 2), Is.True);
+        Assert.That(View.PurchaseTotal, Is.EqualTo(16));
+        Assert.That(View.ProjectedCurrency, Is.EqualTo(84));
+        _profile.CommitExternally(15);
+        Assert.That(View.Blocks.Any(b => b.Reason == MerchantTradeBlockReason.InsufficientCurrency), Is.True);
+        Assert.That(View.CanConfirm, Is.False);
+        ledger.Replace(default);
+        Assert.That(View.Blocks.Any(b => b.Reason == MerchantTradeBlockReason.InsufficientStock), Is.True);
+        Assert.That(_session.ConfirmTrade(), Is.False);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void BuybackMixedWithTrade_CannotConfirmAndExplainsSeparateOperation(bool purchase)
+    {
+        OpenBuyback(new FakeBuybackService());
+        _session.SetBuyback("sale-1", 1);
+        if (purchase) _session.AddPurchase(Potion, 1); else _session.AddSale(Bone, 1);
+        Assert.That(View.CanConfirm, Is.False);
+        Assert.That(View.Blocks.Any(b => b.Reason == MerchantTradeBlockReason.BuybackMustBeAlone), Is.True);
+        Assert.That(MerchantTradeFeedback.DescribePrimaryBlock(View), Is.EqualTo("La recompra se confirma por separado"));
+        Assert.That(_session.ConfirmTrade(), Is.False);
+        Assert.That(_endpoint.Submissions, Is.Empty);
+    }
+
+    [UnityTest]
+    public IEnumerator BuybackConfirm_AwaitsOwnServiceWithoutFusionAndClearsOnlyOnSuccess()
+    {
+        var service = new FakeBuybackService();
+        OpenBuyback(service);
+        _session.SetBuyback("sale-1", 2);
+        Assert.That(_session.ConfirmTrade(), Is.True);
+        Assert.That(service.Request.Amount, Is.EqualTo(2));
+        Assert.That(service.Request.EntryId, Is.EqualTo("sale-1"));
+        Assert.That(service.Request.UnitPrice, Is.EqualTo(8));
+        Assert.That(service.Profile, Is.EqualTo(Profile));
+        Assert.That(_endpoint.Submissions, Is.Empty);
+        Assert.That(_profile.ExecuteCalls, Is.Zero);
+        Assert.That(View.IsInFlight, Is.True);
+        _now = Timeout + 1;
+        _session.Tick();
+        _endpoint.RaiseAuthorityChanged();
+        Assert.That(View.IsInFlight, Is.True);
+        Assert.That(_session.ConfirmTrade(), Is.False);
+        Assert.That(_session.ClearTrade(), Is.False);
+        service.Pending.SetResult(StashOperationResult.Success);
+        yield return null;
+        Assert.That(View.HasDraft, Is.False);
+        Assert.That(View.IsInFlight, Is.False);
+        Assert.That(_results.Single(), Is.EqualTo(MerchantTransactionResult.Success));
+        Assert.That(MerchantTradeFeedback.DescribeResult(_results.Single()), Does.Contain("completada"));
+        Assert.That(_endpoint.Outcomes, Is.Empty);
+    }
+
+    [UnityTest]
+    public IEnumerator BuybackFailure_KeepsDraftAndRequestIdentityForRetry()
+    {
+        var service = new FakeBuybackService();
+        OpenBuyback(service);
+        _session.SetBuyback("sale-1", 1);
+        _session.ConfirmTrade();
+        var transaction = service.Request.TransactionId;
+        service.Pending.SetResult(StashOperationResult.InvalidInventory);
+        yield return null;
+        Assert.That(View.HasDraft, Is.True);
+        Assert.That(View.IsInFlight, Is.False);
+        Assert.That(_results.Single(), Is.EqualTo(MerchantTransactionResult.RejectedByProfile));
+        service.Pending = new TaskCompletionSource<StashOperationResult>();
+        _session.ConfirmTrade();
+        Assert.That(service.Request.TransactionId, Is.EqualTo(transaction));
+        service.Pending.SetException(new InvalidOperationException("Lost acknowledgement"));
+        yield return null;
+        Assert.That(View.HasDraft, Is.True);
+        Assert.That(_results.Last(), Is.EqualTo(MerchantTransactionResult.PersistenceFailed));
+        Assert.That(_endpoint.Outcomes, Is.Empty);
+    }
+
+    private sealed class FakeBuybackService : IBuybackService
+    {
+        public TaskCompletionSource<StashOperationResult> Pending = new TaskCompletionSource<StashOperationResult>();
+        public MerchantBuybackRequest Request;
+        public ProfileId Profile;
+        public Task<StashOperationResult> ExecuteBuybackAsync(ProfileId profileId, MerchantBuybackRequest request)
+        {
+            Profile = profileId;
+            Request = request;
+            return Pending.Task;
+        }
+    }
+
     // --- Draft and preview ---
 
     [Test]
