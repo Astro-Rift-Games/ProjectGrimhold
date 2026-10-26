@@ -6,6 +6,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **commerce:** show and confirm equipment buy-back in the merchant ([747b09b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/747b09b3832d77a5cd4370405906c84f7dfbdeb4))
+- **commerce:** hydrate and execute equipment buy-back in Unity ([ee84e41](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ee84e4178d1a7ce6653f46f79cb0307fc73c0617))
+- **backend:** let players buy back equipment they sold this Town session ([5cd99fe](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5cd99fe01ed5686bca116b805effcbbe0471641e))
 - **town:** inspect another member's equipment in Preparation ([3925da9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3925da99a497fe3a0ac064f7a0c42fc65ca5d3f2))
 - **town:** show a card per member in Preparation ([373ec31](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/373ec313eb19a373e2a76e99a8816b9cdcde235b))
 - **town:** project member equipment into Preparation presentation ([36143c9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36143c92809977326eae46fadd813a58853f0ccf))
