@@ -6,6 +6,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **backend:** permit dev webhook secret under explicit risk flag ([987a203](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/987a203c014baf03b6944fa791c27b2988e54c1f))
 - **dungeon-pressure:** add collapse music and falling ceiling particles ([eb00230](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f))
 - **lighting:** add light prop extinction support and prop prefabs ([a5ccb45](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a5ccb45149e51dcd843ad7a3aa50df94640d9486))
 - **camera:** add accessibility and aim scaling to camera shake ([17ebd02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/17ebd026725ca90f64d9efe9bdeb07f9f62b2f79))
@@ -398,6 +399,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Documentation
 
+- **security:** document candidate resolutions and render deploy for US-61 ([bf61d36](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bf61d366d84f922ca02ffc3269033460dd2e3a21))
 - **dungeon-pressure:** update collapse presentation and resolve conflict ([88999f4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88999f4fdb9765c95a0b94d3e82154d47ba95e81))
 - **commerce:** record E2E re-run after remote-first persistence ([754e48f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/754e48fbbcd4b423f9ccb2a3baa6d130cbee8dfe))
 - **commerce:** note persistence tests run only in PlayMode ([79471b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/79471b9ac02fd378a1c176a0219ad075142f8f7c))
