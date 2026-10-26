@@ -17,6 +17,7 @@ namespace Tests.PlayMode.Progression
 
         private NetworkRunner _runner;
         private ExpeditionExperienceSimulationDriver _driver;
+        private ExtractionProgressSimulationDriver _actionDriver;
 
         [UnityTearDown]
         public IEnumerator TearDown()
@@ -116,6 +117,76 @@ namespace Tests.PlayMode.Progression
                     Is.EqualTo(PlayerExpeditionProgressionFinalizationStatus.AlreadyCommitted));
                 Assert.That(resolution.ConsolidatedExperience, Is.EqualTo(consolidated[index]));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator DisconnectedNaturalDefeat_ResolvesZeroProvisionalXp()
+        {
+            yield return VerifyDefeatRetention(disconnected: true, absenceConfirmed: false, expectedExperience: 0);
+        }
+
+        [UnityTest]
+        public IEnumerator ConfirmedAbsenceDefeat_ResolvesZeroProvisionalXp()
+        {
+            yield return VerifyDefeatRetention(disconnected: false, absenceConfirmed: true, expectedExperience: 0);
+        }
+
+        [UnityTest]
+        public IEnumerator ConnectedDefeat_RetainsTwentyPercentOfProvisionalXp()
+        {
+            yield return VerifyDefeatRetention(disconnected: false, absenceConfirmed: false, expectedExperience: 20);
+        }
+
+        private IEnumerator VerifyDefeatRetention(bool disconnected, bool absenceConfirmed, long expectedExperience)
+        {
+            yield return StartRunner(composeAvatarDependencies: true);
+            NetworkObject participantObject = SpawnParticipant(1, 1, 0);
+            NetworkRaidParticipant participant = participantObject.GetComponent<NetworkRaidParticipant>();
+            PlayerExpeditionExperienceLedger ledger = participantObject.GetComponent<PlayerExpeditionExperienceLedger>();
+            PlayerExpeditionProgressionResolver resolver = participantObject.GetComponent<PlayerExpeditionProgressionResolver>();
+            RaidParticipantConnectivity connectivity = participantObject.GetComponent<RaidParticipantConnectivity>();
+            Assert.That(connectivity, Is.Not.Null);
+            NetworkPrefabId avatarId = _runner.Config.PrefabTable.GetId(
+                NetworkObjectGuid.Parse("fea3a7b256f965a4eb9b965832939741"));
+            NetworkObject avatar = _runner.Spawn(
+                _runner.Config.PrefabTable.Load(avatarId, true), Vector3.zero, Quaternion.identity,
+                inputAuthority: null, onBeforeSpawned: (_, instance) =>
+                    instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participantObject));
+            Assert.That(participant.TrySetCurrentAvatar(avatar), Is.True);
+            yield return Register(ledger, ExpeditionExperienceSource.PveKill, 100);
+
+            ExtractionProgressSimulationDriver actionDriver = _actionDriver;
+            actionDriver.PendingAction = _ =>
+            {
+                connectivity.IsDisconnected = disconnected;
+                connectivity.IsAbsenceConfirmed = absenceConfirmed;
+                int previousSequence = participant.ResultSequence;
+                Assert.That(participant.TryMarkDefeated(avatar), Is.True);
+                Assert.That(participant.State, Is.EqualTo(RaidParticipantState.Defeated));
+                Assert.That(participant.FinalizationCause, Is.EqualTo(disconnected || absenceConfirmed
+                    ? ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+                    : ExpeditionProgressionFinalizationCause.DefeatConfirmed));
+                Assert.That(participant.ResultSequence, Is.EqualTo(previousSequence + 1));
+                Assert.That(resolver.TryGetProgressionResult(out ExpeditionProgressionResult first), Is.True);
+                Assert.That(first.Outcome, Is.EqualTo(disconnected || absenceConfirmed
+                    ? ExpeditionExperienceResolutionOutcome.DefeatedWhileDisconnected
+                    : ExpeditionExperienceResolutionOutcome.Defeated));
+                Assert.That(first.ProvisionalExperienceTotal, Is.EqualTo(100));
+                Assert.That(first.ConsolidatedExperience, Is.EqualTo(expectedExperience));
+                Assert.That(first.RetentionBasisPoints, Is.EqualTo(expectedExperience == 0 ? 0 : 2000));
+                Assert.That((bool)ledger.IsFrozen, Is.True);
+                Assert.That(participant.TryMarkDefeated(avatar), Is.False);
+                Assert.That(participant.ResultSequence, Is.EqualTo(previousSequence + 1));
+                Assert.That(resolver.TryGetProgressionResult(out ExpeditionProgressionResult repeated), Is.True);
+                Assert.That(repeated, Is.EqualTo(first));
+            };
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (actionDriver.PendingAction != null && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+            Assert.That(actionDriver.PendingAction, Is.Null);
+            Assert.That(actionDriver.LastException, Is.Null, actionDriver.LastException?.ToString());
         }
 
         [UnityTest]
@@ -415,11 +486,19 @@ namespace Tests.PlayMode.Progression
             Assert.That(stored.Entries[0].Amount, Is.EqualTo(3));
         }
 
-        private IEnumerator StartRunner()
+        private IEnumerator StartRunner(bool composeAvatarDependencies = false)
         {
             var runnerObject = new GameObject("ExpeditionProgressionResolverTestRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
             PlayModeRunnerComposition.AddLocalInputContext(_runner);
+            if (composeAvatarDependencies)
+            {
+                // A spawned NetworkPlayer avatar resolves these runner-scoped services on Spawned.
+                runnerObject.AddComponent<EntityRegistry>();
+                PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
+                _actionDriver = runnerObject.AddComponent<ExtractionProgressSimulationDriver>();
+            }
+
             _driver = runnerObject.AddComponent<ExpeditionExperienceSimulationDriver>();
 
             var start = _runner.StartGame(new StartGameArgs

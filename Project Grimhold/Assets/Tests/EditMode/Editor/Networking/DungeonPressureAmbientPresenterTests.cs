@@ -37,8 +37,9 @@ public sealed class DungeonPressureAmbientPresenterTests
         _volumeGo = new GameObject("GlobalVolume");
         _volume = _volumeGo.AddComponent<Volume>();
         _volume.isGlobal = true;
-        _volume.profile = ScriptableObject.CreateInstance<VolumeProfile>();
-        _vignette = _volume.profile.Add<Vignette>(overrides: true);
+        // Outside Play Mode the presenter writes to sharedProfile to avoid instantiating a profile copy.
+        _volume.sharedProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+        _vignette = _volume.sharedProfile.Add<Vignette>(overrides: true);
 
         _config = ScriptableObject.CreateInstance<DungeonAmbientConfig>();
         var normal = new DungeonAmbientPhaseSettings(
