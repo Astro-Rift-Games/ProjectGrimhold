@@ -31,7 +31,7 @@ public static class StashDisplayOrder
     private static int Rank(LootDefinition definition)
     {
         int category = definition == null ? 0 : (int)definition.Category;
-        return category >= (int)LootCategory.Valuable && category <= (int)LootCategory.Shield
+        return category >= (int)LootCategory.Resource && category <= (int)LootCategory.Shield
             ? category : int.MaxValue;
     }
 
