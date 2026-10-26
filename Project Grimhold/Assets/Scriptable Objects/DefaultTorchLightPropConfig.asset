@@ -15,20 +15,24 @@ MonoBehaviour:
   _normal:
     _color: {r: 1, g: 0.65, b: 0.35, a: 1}
     _intensity: 1.2
-    _pattern: 1
+    _pattern: 0
     _transitionDuration: 1
+    _isExtinguished: 0
   _reinforcements:
     _color: {r: 1, g: 0.6, b: 0.25, a: 1}
     _intensity: 1.1
     _pattern: 1
     _transitionDuration: 2
+    _isExtinguished: 0
   _criticalPressure:
     _color: {r: 1, g: 0.45, b: 0.2, a: 1}
     _intensity: 0.95
     _pattern: 2
     _transitionDuration: 2
+    _isExtinguished: 0
   _collapse:
     _color: {r: 1, g: 0.25, b: 0.15, a: 1}
     _intensity: 0.75
     _pattern: 2
     _transitionDuration: 1.5
+    _isExtinguished: 1

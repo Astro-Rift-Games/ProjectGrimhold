@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public sealed class DungeonLightPropTests
 {
@@ -62,5 +63,49 @@ public sealed class DungeonLightPropTests
 
         Object.DestroyImmediate(go2);
         Assert.That(DungeonLightPropRegistry.Count, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ExtinguishableProp_SwapsSpriteAndDisablesFlame()
+    {
+        var config = ScriptableObject.CreateInstance<DungeonLightPropConfig>();
+        var litSettings = new DungeonLightPropPhaseSettings(Color.white, 1f, LightEffectPattern.Steady, 0f, isExtinguished: false);
+        var unlitSettings = new DungeonLightPropPhaseSettings(Color.black, 0f, LightEffectPattern.Steady, 0f, isExtinguished: true);
+        config.Initialize(litSettings, litSettings, litSettings, unlitSettings);
+
+        var go = new GameObject("TorchProp");
+        var light = go.AddComponent<Light2D>();
+        var renderer = go.AddComponent<SpriteRenderer>();
+        var flameGo = new GameObject("Flame");
+        flameGo.transform.SetParent(go.transform);
+
+        var litSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.zero);
+        var unlitSprite = Sprite.Create(Texture2D.blackTexture, new Rect(0, 0, 1, 1), Vector2.zero);
+
+        var prop = go.AddComponent<DungeonLightProp>();
+        prop.Configure(config, light, renderer, litSprite, unlitSprite, flameGo);
+
+        // Normal phase: Lit
+        prop.ApplyPhase(DungeonPressurePhase.Normal, immediate: true);
+        Assert.That(prop.IsExtinguished, Is.False);
+        Assert.That(renderer.sprite, Is.EqualTo(litSprite));
+        Assert.That(flameGo.activeSelf, Is.True);
+        Assert.That(prop.CurrentBaseIntensity, Is.EqualTo(1f).Within(0.001f));
+
+        // Collapse phase: Extinguished
+        prop.ApplyPhase(DungeonPressurePhase.Collapse, immediate: true);
+        Assert.That(prop.IsExtinguished, Is.True);
+        Assert.That(renderer.sprite, Is.EqualTo(unlitSprite));
+        Assert.That(flameGo.activeSelf, Is.False);
+        Assert.That(prop.CurrentBaseIntensity, Is.EqualTo(0f));
+
+        // Return to Normal: Restores lit visuals
+        prop.ApplyPhase(DungeonPressurePhase.Normal, immediate: true);
+        Assert.That(prop.IsExtinguished, Is.False);
+        Assert.That(renderer.sprite, Is.EqualTo(litSprite));
+        Assert.That(flameGo.activeSelf, Is.True);
+        Assert.That(prop.CurrentBaseIntensity, Is.EqualTo(1f).Within(0.001f));
+
+        Object.DestroyImmediate(go);
     }
 }
