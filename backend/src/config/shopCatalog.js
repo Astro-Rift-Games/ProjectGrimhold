@@ -42,9 +42,7 @@ const BUY_CATALOG = Object.freeze({
   placeholder_helmet: { buyPrice: 10, isFree: false },
   placeholder_armor: { buyPrice: 10, isFree: false },
   placeholder_gloves: { buyPrice: 10, isFree: false },
-  placeholder_boots: { buyPrice: 10, isFree: false },
-  // Explicit legitimate free promotional/testing item:
-  free_sample: { buyPrice: 0, isFree: true }
+  placeholder_boots: { buyPrice: 10, isFree: false }
 });
 
 /**

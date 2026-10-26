@@ -8,7 +8,6 @@ const testDb = require('./testDb');
 
 const Account = require('../../src/models/Account');
 const Character = require('../../src/models/Character');
-const { MAX_TRANSACTION_AMOUNT } = require('../../src/config/shopCatalog');
 
 test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
   await testDb.connect();
@@ -250,16 +249,19 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
     assert.strictEqual(sellRes.body.error, 'ITEM_NOT_SELLABLE');
   });
 
-  await t.test('9. Rejection: Amount exceeding MAX_TRANSACTION_AMOUNT is rejected with 400', async () => {
+  await t.test('9. Rejection: buy amount 1000 returns VALIDATION_FAILED without mutation', async () => {
+    const before = await Character.findOne({ accountId }).lean();
     const res = await request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token}`)
       .send({
         transactionId: 'tx-overflow-amount',
         lootId: 'bone',
-        amount: MAX_TRANSACTION_AMOUNT + 1,
+        amount: 1000,
         expectedRevision: currentRevision
       });
     assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.error, 'VALIDATION_FAILED');
+    assert.deepStrictEqual(await Character.findOne({ accountId }).lean(), before);
   });
 
   await t.test('10. Idempotency: Exact retry returns alreadySecured without duplicate charge', async () => {

@@ -143,6 +143,15 @@ test('InventoryService - Shop Authoritative Security (US-57 / SEC-57.2)', async 
     assert.strictEqual(char.inventory.currency, 5);
   });
 
+  await t.test('free_sample is not offered and rejection leaves state unchanged', async () => {
+    const char = makeCharacter();
+    setupMocks(char);
+    const before = JSON.stringify(char);
+    await assert.rejects(InventoryService.shopBuy('acc123', 'free_sample', 1, 0, 0, 'no-free-sample'),
+      err => err.errorCode === 'ITEM_NOT_OFFERED');
+    assert.strictEqual(JSON.stringify(char), before);
+  });
+
   await t.test('Rejection: Item not offered in shop cannot be bought', async () => {
     const char = makeCharacter({ inventory: { currency: 10000, loadout: [], stash: [] } });
     setupMocks(char);
