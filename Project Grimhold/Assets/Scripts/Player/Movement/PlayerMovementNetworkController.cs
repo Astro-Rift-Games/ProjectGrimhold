@@ -172,14 +172,15 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             : Vector2.zero;
 
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
+        bool isConsuming = PlayerConsumptionGate.IsConsuming(_characterBase);
         bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive &&
-            !PlayerConsumptionGate.IsConsuming(_characterBase) &&
             (_immobilizationEffect == null || !_immobilizationEffect.IsActive);
 
         // Downed is networked state, so reading it here stays resimulation-safe.
         bool isDowned = _downedState != null && _downedState.IsDowned;
         bool isActionExecuting = (_combatController != null && _combatController.IsExecutingWeaponAttack) ||
-            (_abilityRuntime != null && _abilityRuntime.HasActiveExecution);
+            (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) ||
+            isConsuming;
         bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned, isActionExecuting);
         bool isSprinting = shouldSprint && CanSprint(Runner.DeltaTime);
         if (HasStateAuthority && Runner.IsForward)
@@ -191,13 +192,17 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
                 SprintRejectionReported = true;
             }
         }
+        float consumableSpeedMultiplier = _characterBase is PlayerCharacter player
+            ? player.ConsumableMovementSpeedMultiplier
+            : 1f;
         float effectiveSpeed = ResolveVoluntarySpeed(
             _moveSpeed,
             isSprinting,
             _sprintSpeedMultiplier,
             isDowned,
             isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f,
-            _abilityRuntime != null ? _abilityRuntime.VoluntaryMovementSpeedMultiplier : 1f);
+            _abilityRuntime != null ? _abilityRuntime.VoluntaryMovementSpeedMultiplier : 1f,
+            consumableSpeedMultiplier);
 
         if (ForcedActive && HasStateAuthority && Runner.IsForward &&
             !ForcedDisplacementMath.ShouldRemainActive(isAlive, isDowned))
@@ -420,9 +425,28 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         float downedSpeedMultiplier,
         float abilitySpeedMultiplier = 1f)
     {
+        return ResolveVoluntarySpeed(
+            moveSpeed,
+            isSprinting,
+            sprintSpeedMultiplier,
+            isDowned,
+            downedSpeedMultiplier,
+            abilitySpeedMultiplier,
+            1f);
+    }
+
+    internal static float ResolveVoluntarySpeed(
+        float moveSpeed,
+        bool isSprinting,
+        float sprintSpeedMultiplier,
+        bool isDowned,
+        float downedSpeedMultiplier,
+        float abilitySpeedMultiplier,
+        float consumableSpeedMultiplier)
+    {
         float voluntarySpeed = isDowned ? moveSpeed * downedSpeedMultiplier :
             isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
-        return voluntarySpeed * abilitySpeedMultiplier;
+        return voluntarySpeed * abilitySpeedMultiplier * consumableSpeedMultiplier;
     }
 
     private bool WeaponAllowsAimStance()

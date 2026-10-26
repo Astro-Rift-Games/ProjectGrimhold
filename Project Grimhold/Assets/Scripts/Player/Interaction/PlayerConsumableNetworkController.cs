@@ -36,6 +36,10 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     public bool HasRequestInFlight => _clientInFlightSequence > 0;
     // Keep the gate closed through the completion tick, until the authoritative transaction clears it.
     public bool IsConsuming => _spawned && Object != null && Object.IsValid && ConsumptionTimer.IsRunning;
+    public float VoluntaryMovementSpeedMultiplier =>
+        TryGetConsumingDefinition(out LootDefinition def) && def.ConsumableDefinition != null
+            ? def.ConsumableDefinition.MovementSpeedMultiplier
+            : 1f;
 
     private void Awake() => CacheDependencies();
 
@@ -175,8 +179,20 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(catalogIndex, out definition) ||
             definition.ConsumableDefinition == null || !definition.ConsumableDefinition.TryValidate(out _))
             return ConsumableFailureReason.InvalidLoot;
-        return _lootReceiver.GetLootAmount(definition.LootId) > 0
-            ? ConsumableFailureReason.None : ConsumableFailureReason.InsufficientAmount;
+        if (_lootReceiver.GetLootAmount(definition.LootId) <= 0)
+            return ConsumableFailureReason.InsufficientAmount;
+        if (!definition.ConsumableDefinition.Effect.CanApply(_character, out string reason))
+        {
+            return reason switch
+            {
+                "La salud ya está al máximo." => ConsumableFailureReason.HealthFull,
+                "El maná ya está al máximo." => ConsumableFailureReason.ManaFull,
+                "El objetivo está muerto." => ConsumableFailureReason.TargetDead,
+                "El objetivo está derribado." => ConsumableFailureReason.Downed,
+                _ => ConsumableFailureReason.EffectFailed
+            };
+        }
+        return ConsumableFailureReason.None;
     }
 
     // Retains the existing completion seam for deterministic integration tests.
@@ -196,6 +212,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
             {
                 "El objetivo está muerto." => ConsumableFailureReason.TargetDead,
                 "La salud ya está al máximo." => ConsumableFailureReason.HealthFull,
+                "El maná ya está al máximo." => ConsumableFailureReason.ManaFull,
                 "No hay autoridad para curar." => ConsumableFailureReason.MissingAuthority,
                 _ => ConsumableFailureReason.EffectFailed
             };

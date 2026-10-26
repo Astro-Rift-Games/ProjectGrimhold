@@ -38,7 +38,7 @@ MonoBehaviour:
   _sellValuePerUnit: 8
   _buyValuePerUnit: 16
   _defaultPickupQuantity: 1
-  _consumableDefinition: {fileID: 0}
+  _consumableDefinition: {fileID: 11400000, guid: f1809406c5cc483a8bd8d737927162ea, type: 2}
   _weaponDefinition: {fileID: 0}
   _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 0}

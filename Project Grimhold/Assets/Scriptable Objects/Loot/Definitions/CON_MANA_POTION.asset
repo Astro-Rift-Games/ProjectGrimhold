@@ -34,12 +34,12 @@ MonoBehaviour:
   _canBeDiscarded: 1
   _canBeUsed: 1
   _missionCompatible: 0
-  _useMode: 1
+  _useMode: 2
   _extractionValuePerUnit: 20
   _sellValuePerUnit: 20
   _buyValuePerUnit: 40
   _defaultPickupQuantity: 1
-  _consumableDefinition: {fileID: 0}
+  _consumableDefinition: {fileID: 11400000, guid: a5fdf959769b4ad2abdc6e0b3db1539b, type: 2}
   _weaponDefinition: {fileID: 0}
   _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 0}

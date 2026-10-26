@@ -16,3 +16,4 @@ MonoBehaviour:
   _consumeSound: {fileID: 0}
   _consumeParticles: {fileID: 3102856796109358856, guid: f8bfdd594ba798d46a62ed5d087d00b1, type: 3}
   _consumptionDurationSeconds: 2.5
+  _movementSpeedMultiplier: 0.5

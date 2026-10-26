@@ -6,7 +6,7 @@ using Fusion;
 /// Character identity, health and damage behavior are inherited from CharacterBase.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class PlayerCharacter : CharacterBase
+public sealed class PlayerCharacter : CharacterBase, IManaReceiver
 {
     [SerializeField]
     private PlayerCorpseGenerationController _corpseGenerationController;
@@ -32,7 +32,59 @@ public sealed class PlayerCharacter : CharacterBase
     private PlayerStaminaNetworkController _staminaController;
     private PlayerConsumableNetworkController _consumableController;
 
+    [SerializeField]
+    private PlayerManaNetworkController _manaController;
+
     public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
+    public float ConsumableMovementSpeedMultiplier =>
+        _consumableController != null && _consumableController.IsConsuming
+            ? _consumableController.VoluntaryMovementSpeedMultiplier
+            : 1f;
+
+    public float CurrentMana => _manaController != null ? _manaController.CurrentMana : 0f;
+    public float MaximumMana => _manaController != null && _manaController.TryGetMaximumMana(out float max) ? max : 0f;
+
+    public bool TryRestoreMana(float amount, out string failureReason)
+    {
+        if (_manaController == null)
+        {
+            failureReason = "El objetivo no puede gestionar maná.";
+            return false;
+        }
+
+        if (!IsAlive)
+        {
+            failureReason = "El objetivo está muerto.";
+            return false;
+        }
+
+        if (IsDowned)
+        {
+            failureReason = "El objetivo está derribado.";
+            return false;
+        }
+
+        if (!_manaController.TryGetMaximumMana(out float maximum))
+        {
+            failureReason = "El objetivo no puede gestionar maná.";
+            return false;
+        }
+
+        if (_manaController.CurrentMana >= maximum)
+        {
+            failureReason = "El maná ya está al máximo.";
+            return false;
+        }
+
+        if (!_manaController.TryRestore(amount))
+        {
+            failureReason = "No se pudo restaurar el maná.";
+            return false;
+        }
+
+        failureReason = string.Empty;
+        return true;
+    }
 
     protected override void OnDamageApplied(float amount) => _consumableController?.CancelConsumption();
     private bool _reportedMissingExtractionController;
@@ -439,6 +491,11 @@ public sealed class PlayerCharacter : CharacterBase
         if (_staminaController == null)
         {
             _staminaController = GetComponent<PlayerStaminaNetworkController>();
+        }
+
+        if (_manaController == null)
+        {
+            _manaController = GetComponent<PlayerManaNetworkController>();
         }
     }
 

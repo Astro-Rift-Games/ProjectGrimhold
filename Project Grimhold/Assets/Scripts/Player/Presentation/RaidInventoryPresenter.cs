@@ -1240,6 +1240,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
                 ConsumableFailureReason.Interrupted => "Consumption interrupted.",
                 ConsumableFailureReason.TargetDead => "Estás muerto.",
                 ConsumableFailureReason.HealthFull => "Tu salud ya está al máximo.",
+                ConsumableFailureReason.ManaFull => "Tu maná ya está al máximo.",
                 ConsumableFailureReason.InsufficientAmount => "No tienes suficientes consumibles.",
                 _ => "No se pudo usar el objeto."
             };

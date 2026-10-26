@@ -291,6 +291,7 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ConsumableFailureReason.TargetDead => "You are defeated.",
         ConsumableFailureReason.Downed => "You are downed.",
         ConsumableFailureReason.HealthFull => "Health is already full.",
+        ConsumableFailureReason.ManaFull => "Mana is already full.",
         ConsumableFailureReason.InsufficientAmount => "No items available.",
         ConsumableFailureReason.AbilityInProgress => "An ability is in progress.",
         ConsumableFailureReason.ConsumptionInProgress => "Already using an item.",

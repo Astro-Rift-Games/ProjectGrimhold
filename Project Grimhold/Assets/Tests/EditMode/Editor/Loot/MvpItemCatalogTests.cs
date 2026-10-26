@@ -87,7 +87,7 @@ namespace Tests.EditMode.Loot
 
             // 8 Consumibles
             new ExpectedItemData("CON_HEALTH_POTION", LootCategory.Consumable, 20, 5, 0, "Potions", true, true, ItemUseMode.Channeled),
-            new ExpectedItemData("CON_MANA_POTION", LootCategory.Consumable, 20, 5, 0, "Potions", true, true, ItemUseMode.Instant),
+            new ExpectedItemData("CON_MANA_POTION", LootCategory.Consumable, 20, 5, 0, "Potions", true, true, ItemUseMode.Channeled),
             new ExpectedItemData("CON_MANA_FRAGMENT", LootCategory.Consumable, 8, 10, 0, "Potions", true, true, ItemUseMode.Instant),
             new ExpectedItemData("CON_EXPLOSIVE_BOMB", LootCategory.Consumable, 30, 5, 0, "Offensive", true, true, ItemUseMode.AimedQuickSlot),
             new ExpectedItemData("CON_THROWING_DAGGER", LootCategory.Consumable, 12, 10, 0, "Offensive", true, true, ItemUseMode.AimedQuickSlot),
