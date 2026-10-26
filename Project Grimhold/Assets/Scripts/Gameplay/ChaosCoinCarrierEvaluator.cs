@@ -47,7 +47,7 @@ public static class ChaosCoinCarrierEvaluator
             return false;
         }
 
-        if (!affiliations.TryGetTeammateProfileId(interactorParticipant.ProfileId, out ProfileId teammateProfileId) ||
+        if (!affiliations.TryGetTeammateProfileId(new ProfileId(interactorParticipant.ProfileId.Value), out ProfileId teammateProfileId) ||
             !teammateProfileId.IsValid)
         {
             return false;
@@ -62,7 +62,7 @@ public static class ChaosCoinCarrierEvaluator
             }
 
             if (playerObj.TryGetBehaviour(out NetworkRaidParticipant candidateParticipant) &&
-                candidateParticipant.ProfileId == teammateProfileId &&
+                candidateParticipant.ProfileId.Value == teammateProfileId.Value &&
                 candidateParticipant.TryResolveCurrentAvatar(out NetworkObject avatarObj) &&
                 avatarObj != null &&
                 avatarObj.TryGetComponent(out PlayerCharacter teammateCharacter))
@@ -76,7 +76,7 @@ public static class ChaosCoinCarrierEvaluator
                      candidateCharacter != interactor &&
                      candidateCharacter.TryGetComponent(out RaidAvatarParticipantLink candidateLink) &&
                      candidateLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
-                     participant.ProfileId == teammateProfileId)
+                     participant.ProfileId.Value == teammateProfileId.Value)
             {
                 if (IsActiveCarrier(candidateCharacter))
                 {
