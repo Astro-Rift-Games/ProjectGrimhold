@@ -34,6 +34,19 @@ public sealed class CameraShakeController : MonoBehaviour
     /// </summary>
     public Vector3 ShakeOffset { get; private set; }
 
+    private static float s_accessibilityScale = 1f;
+
+    /// <summary>
+    /// Global accessibility multiplier for screen shake intensity clamped to [0, 1].
+    /// Setting this to 0 completely disables camera shake for players sensitive to motion sickness.
+    /// Default is 1.
+    /// </summary>
+    public static float AccessibilityScale
+    {
+        get => s_accessibilityScale;
+        set => s_accessibilityScale = Mathf.Clamp01(value);
+    }
+
     /// <summary>
     /// Current sustained trauma floor clamped to [0, 1].
     /// </summary>
@@ -163,7 +176,7 @@ public sealed class CameraShakeController : MonoBehaviour
         float offsetX = (Mathf.PerlinNoise(_noiseOffsetX + _noiseTime, 0f) * 2f - 1f) * _maxOffset * shake;
         float offsetY = (Mathf.PerlinNoise(_noiseOffsetY, _noiseTime) * 2f - 1f) * _maxOffset * shake;
 
-        ShakeOffset = new Vector3(offsetX, offsetY, 0f);
+        ShakeOffset = new Vector3(offsetX, offsetY, 0f) * s_accessibilityScale;
 
         // Decay trauma after computing the offset.
         float decay = _traumaDecayPerSecond == float.MaxValue
