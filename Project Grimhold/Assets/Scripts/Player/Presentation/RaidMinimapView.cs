@@ -250,8 +250,13 @@ public sealed class RaidMinimapView : MonoBehaviour
         if (_mapCanvas == null)
             return;
 
-        Camera camera = _mapCanvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null : _mapCanvas.worldCamera;
+        if (_mapCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
+        {
+            SnapMapToOverlayCanvasPixels();
+            return;
+        }
+
+        Camera camera = _mapCanvas.worldCamera;
         if (_mapCanvas.renderMode == RenderMode.WorldSpace && camera == null)
             return;
 
@@ -262,6 +267,23 @@ public sealed class RaidMinimapView : MonoBehaviour
         {
             _mapRect.position = worldPoint;
         }
+    }
+
+    private void SnapMapToOverlayCanvasPixels()
+    {
+        // Overlay canvases render relative to their own RectTransform and ignore where it sits
+        // in world space. The HUD is parented to the moving player, so measure the pixel grid
+        // in root-canvas space; world coordinates drift by the player's fractional position.
+        float scale = _mapCanvas.scaleFactor;
+        if (!IsPositiveFinite(scale))
+            return;
+
+        var canvasRect = (RectTransform)_mapCanvas.transform;
+        Vector3 local = canvasRect.InverseTransformPoint(_mapRect.position);
+        Vector2 origin = canvasRect.rect.min;
+        Vector2 pixel = ((Vector2)local - origin) * scale;
+        Vector2 snapped = new Vector2(Mathf.Round(pixel.x), Mathf.Round(pixel.y)) / scale + origin;
+        _mapRect.position = canvasRect.TransformPoint(new Vector3(snapped.x, snapped.y, local.z));
     }
 
     private void OnCanvasHierarchyChanged()
