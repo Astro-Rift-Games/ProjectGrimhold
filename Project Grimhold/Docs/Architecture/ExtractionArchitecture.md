@@ -254,10 +254,14 @@ retained only to preserve prefab overrides and is not used. The Editor reads an 
 scene and closes it without saving/applying changes; runtime tracking does not discover the scene.
 
 `RaidMinimapView` rounds only the background's actual screen pivot to whole physical pixels,
-including the inherited viewport position, Canvas scaling and render camera. This keeps the
-Point-filtered source art at a stable sampling phase during movement without changing source
-texture import settings or enabling pixel-perfect rendering for the entire HUD. Translation
-is quantized by at most half a physical pixel per axis; the local player stays centered.
+including the inherited viewport position, Canvas scaling and render camera. For a Screen Space
+Overlay Canvas the pivot is rounded in root-canvas pixel space (canvas-local position minus the
+canvas rect origin, times `scaleFactor`), never in world space: `LocalGameplayHud` is parented to
+the moving `NetworkPlayer`, and Unity does not re-centre an overlay canvas transform, so world
+coordinates drift by the player's fractional position. This keeps the Point-filtered tile art at a
+stable sampling phase during movement without changing source texture import settings or enabling
+pixel-perfect rendering for the entire HUD. Translation is quantized by at most half a physical
+pixel per axis; the local player stays centered.
 
 `MinimapProjection` is pure math. `_uiUnitsPerWorldUnit` means local RectTransform units per
 world unit at the Canvas reference resolution, not physical monitor pixels. The map offset is
@@ -282,14 +286,50 @@ assignment; the assigned Sanctuary is shown before its ritual completes, so the 
 it. An absent/foreign/invalid assignment or an extracted player hides both Sanctuary visuals.
 No marker is baked into the background, and no loot, enemy or remote-player markers are added.
 
-Saving changes to Gameplay, changing its source prefab, or importing, moving or deleting tile-art dependencies
-(Tile assets, sprites, textures and import settings) schedules a coalesced Editor refresh. The
-hash includes the generation version, direct source/dependency bytes and importer metadata, and resolved visual buffers. It does not hash the scene transitive dependency graph, which may include this generated asset through HUD references. Unchanged
-generation does not dirty/write the asset; saving is restricted to that generated asset rather
-than all dirty project assets. The generated asset is excluded from its own invalidation inputs.
-`MinimapLayoutBuildPreprocessor` regenerates/checks freshness before a build and throws
-`BuildFailedException` if source validation/generation fails. This is an authored, saved-scene
-workflow: Gameplay Tilemap overrides are authoritative, while unsaved edits and runtime Tilemap changes are not generation sources.
+### Minimap regeneration contract
+
+`DungeonGrayboxMinimapLayout.asset` is a generated, version-controlled snapshot of the saved
+`Floor`, `Walls` and `Obstacles` Tilemaps of the `Dungeon_Graybox` instance in `Gameplay.unity`.
+It is never read from the live Tilemap at runtime.
+
+Triggers. `MinimapLayoutGenerator.EnsureCurrentLayout` runs on:
+
+- a coalesced Editor refresh after saving `Gameplay.unity` or `Dungeon_Graybox.prefab`, or after
+  importing, moving or deleting any tile-art dependency (Tile assets, sprites, textures and their
+  `.meta` import settings);
+- Editor load (`DungeonMinimapLayoutBootstrap`);
+- every player build (`MinimapLayoutBuildPreprocessor`), which throws `BuildFailedException` if
+  source validation or generation fails;
+- manually: `Tools/Project Grimhold/Regenerate Dungeon Minimap Layout`.
+
+Expected result:
+
+| Saved change | Minimap result |
+| --- | --- |
+| Paint/erase tiles in `Floor`, `Walls` or `Obstacles` | Bounds, occupancy, geometry and art regenerate |
+| Swap a tile's sprite or transform/tint a cell | Geometry, UVs and tint regenerate |
+| Edit a tileset PNG or its import settings | The 2x2 averaged atlas is re-baked from the PNG bytes |
+| Nothing relevant changed | No write; the asset is not dirtied |
+
+The hash covers the generation version tag (`scene-tile-art-v3-avg2`), direct source/dependency
+file bytes and importer metadata, occupancy, and resolved geometry/UV/colour buffers. It does not
+hash the scene's transitive dependency graph, which may include this generated asset through HUD
+references, and the generated asset is excluded from its own invalidation inputs. A layout whose
+batches do not reference art embedded in the layout itself is also regenerated. Saving is
+restricted to the generated asset rather than all dirty project assets. Bump the version tag
+whenever the generated representation changes.
+
+Not generation sources: unsaved scene/prefab edits, runtime Tilemap changes, other Tilemaps,
+and objects outside the `Dungeon_Graybox` instance.
+
+Constraints and team workflow:
+
+- Every tile texture referenced by those Tilemaps must have even width and height (2x2 averaging);
+  otherwise generation fails and the build stops.
+- Commit the regenerated `DungeonGrayboxMinimapLayout.asset` together with the scene, prefab or
+  art change that caused it, so other clones and builds start from a fresh layout.
+- Verify after a dungeon change: the layout asset appears modified in Git, the minimap matches
+  the Tilemap in play, and the `Minimap` EditMode tests pass.
 
 ## Authoritative Extraction Result and Producer Boundary (US-58 / SEC-58)
 
