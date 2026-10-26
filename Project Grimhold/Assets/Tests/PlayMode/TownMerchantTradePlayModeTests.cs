@@ -267,7 +267,7 @@ public sealed class TownMerchantTradePlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator MultiLineTicket_ReportsPersistenceFailedAndReleasesStock()
+    public IEnumerator MultiLineDraft_IsRejectedBeforeSubmission_AndSingleLineStillWorks()
     {
         yield return Start();
         var second = _merchant.Stock[1].Item.LootId;
@@ -275,19 +275,23 @@ public sealed class TownMerchantTradePlayModeTests
         int secondStock = _merchant.GetAvailableStock(second);
         Assert.That(_session.AddPurchase(Item, 1), Is.True);
         Assert.That(_session.AddPurchase(second, 1), Is.True);
-        LogAssert.Expect(UnityEngine.LogType.Error, new Regex("RemoteShopTransactionService.*has 2 lines; the backend has no atomic multi-line trade endpoint"));
-        Assert.That(_session.ConfirmTrade(), Is.True);
-        yield return WaitFor(() => _completed > 0, "Multi-line refusal");
-        yield return WaitFor(() => Stock == stock && _merchant.GetAvailableStock(second) == secondStock, "Stock reservation release");
-        yield return WaitFor(() => HasAuthorityOutcome(MerchantTradeRecordStatus.Released), "Multi-line authority release");
-        Assert.That(_endpoint.Ticket.LineCount, Is.EqualTo(2));
+        Assert.That(_session.ConfirmTrade(), Is.False);
+        Assert.That(_session.IsSubmissionInFlight, Is.False);
+        Assert.That(Stock, Is.EqualTo(stock));
+        Assert.That(_merchant.GetAvailableStock(second), Is.EqualTo(secondStock));
+        Assert.That(_endpoint.Submissions, Is.Zero);
         AssertProfile(10000, 0);
-        AssertOutcome(MerchantTransactionResult.PersistenceFailed);
+        AssertOutcome(MerchantTransactionResult.RejectedByMerchant);
         Assert.That(_profile.BackendCalls, Is.Zero);
         Assert.That(_commits, Is.Zero);
         Assert.That(_profile.Store.RemoteRevision, Is.Zero);
-        Assert.That(_profile.Shop.IsTradeApplied(_profile.ProfileId, _endpoint.Ticket.TransactionId), Is.False);
-        Assert.That(_endpoint.Outcomes, Is.EqualTo(1));
+        Assert.That(_endpoint.Outcomes, Is.Zero);
+
+        Assert.That(_session.RemovePurchase(second), Is.True);
+        Assert.That(_session.ConfirmTrade(), Is.True);
+        yield return WaitFor(() => _endpoint.Submissions == 1 && _completed == 2, "Single-line trade after rejection");
+        Assert.That(_result, Is.EqualTo(MerchantTransactionResult.Success));
+        Assert.That(_profile.BackendCalls, Is.EqualTo(1));
     }
 
     [UnityTest]

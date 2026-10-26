@@ -349,11 +349,9 @@ public class TownMerchantTradeSessionTests
     // --- Confirmation ---
 
     [Test]
-    public void OneConfirmation_SendsOneMultiLineRequestWithProfileAndRequestId()
+    public void OneConfirmation_SendsOneSingleLineRequestWithProfileAndRequestId()
     {
         _session.AddPurchase(Potion, 1);
-        _session.AddPurchase(Bone, 2);
-        _session.AddSale(Hat, 1);
 
         Assert.That(_session.ConfirmTrade(), Is.True);
 
@@ -361,8 +359,8 @@ public class TownMerchantTradeSessionTests
         Submission submission = _endpoint.Submissions[0];
         Assert.That(submission.ProfileId, Is.EqualTo(Profile));
         Assert.That(submission.RequestId, Is.EqualTo(RequestId(1)));
-        Assert.That(submission.Purchases.Select(l => (l.LootId, l.Amount)), Is.EqualTo(new[] { (Potion, 1), (Bone, 2) }));
-        Assert.That(submission.Sales.Select(l => (l.LootId, l.Amount)), Is.EqualTo(new[] { (Hat, 1) }));
+        Assert.That(submission.Purchases.Select(l => (l.LootId, l.Amount)), Is.EqualTo(new[] { (Potion, 1) }));
+        Assert.That(submission.Sales, Is.Empty);
     }
 
     [Test]
@@ -384,14 +382,13 @@ public class TownMerchantTradeSessionTests
     public void ApprovedTicket_IsPersistedWithAuthorityPricesAndClearsTheDraft()
     {
         _session.AddPurchase(Potion, 2);
-        _session.AddSale(Hat, 1);
         _session.ConfirmTrade();
 
         _endpoint.DeliverResponses();
 
         MerchantTradeTicket ticket = _profile.ExecutedTickets.Single();
         Assert.That(ticket.Purchases.Single().UnitPrice, Is.EqualTo(30));
-        Assert.That(ticket.Sales.Single().UnitPrice, Is.EqualTo(5));
+        Assert.That(ticket.Sales, Is.Empty);
         Assert.That(_results, Is.EqualTo(new[] { MerchantTransactionResult.Success }));
         Assert.That(View.HasDraft, Is.False, "Success clears the draft.");
         Assert.That(View.IsInFlight, Is.False);
@@ -487,22 +484,23 @@ public class TownMerchantTradeSessionTests
         Assert.That(View.CanConfirm, Is.True);
     }
 
-    [Test]
-    public void RemoteMultiLinePersistenceFailure_IsPropagatedWithoutSplittingTheTrade()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MultiLineDraft_IsRejectedBeforeSubmission(bool mixedPurchaseAndSale)
     {
-        _profile.NextResult = StashOperationResult.PersistenceFailed;
         _session.AddPurchase(Potion, 1);
-        _session.AddSale(Hat, 1);
-        _session.ConfirmTrade();
+        if (mixedPurchaseAndSale) _session.AddSale(Hat, 1);
+        else _session.AddPurchase(Bone, 1);
 
-        _endpoint.DeliverResponses();
-
-        Assert.That(_profile.ExecutedTickets.Single().LineCount, Is.EqualTo(2), "One ticket, never split.");
-        Assert.That(_endpoint.Submissions.Count, Is.EqualTo(1));
-        Assert.That(_endpoint.Outcomes.Single().Persisted, Is.False);
+        Assert.That(_session.ConfirmTrade(), Is.False);
+        Assert.That(_profile.ExecutedTickets, Is.Empty);
+        Assert.That(_endpoint.Submissions, Is.Empty);
+        Assert.That(_endpoint.Outcomes, Is.Empty);
         Assert.That(_endpoint.GetAvailableStock(Potion), Is.EqualTo(3));
-        Assert.That(_results, Is.EqualTo(new[] { MerchantTransactionResult.PersistenceFailed }));
+        Assert.That(_results, Is.EqualTo(new[] { MerchantTransactionResult.RejectedByMerchant }));
         Assert.That(View.HasDraft, Is.True);
+        Assert.That(View.IsInFlight, Is.False);
+        Assert.That(MerchantTradeFeedback.DescribeResult(_results.Single()), Is.Not.Empty);
     }
 
     [Test]
