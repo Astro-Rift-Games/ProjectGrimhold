@@ -144,4 +144,40 @@ public sealed class DungeonPressureAmbientPresenterTests
         _presenter.EvaluatePresentation(1.0f);
         Object.DestroyImmediate(controllerGo);
     }
+
+    [Test]
+    public void Particles_ScaleEmissionWithPhase()
+    {
+        var dustGo = new GameObject("Dust");
+        var dustPs = dustGo.AddComponent<ParticleSystem>();
+        var debrisGo = new GameObject("Debris");
+        var debrisPs = debrisGo.AddComponent<ParticleSystem>();
+
+        var customConfig = ScriptableObject.CreateInstance<DungeonAmbientConfig>();
+        var normal = new DungeonAmbientPhaseSettings(
+            Color.white, 1f, 1f, 0f, 0f, 0f, 0f, 0f, 0f,
+            Color.black, 0f, 0.4f, false, 0f,
+            default, 0f, 0f);
+        var collapse = new DungeonAmbientPhaseSettings(
+            Color.red, 0.5f, 1f, 0f, 0f, 0f, 0f, 0f, 0f,
+            Color.red, 1.0f, 0.6f, false, 0f,
+            default, 25f, 12f);
+
+        customConfig.Initialize(normal, normal, normal, collapse);
+
+        _presenter.Configure(null, customConfig, _globalLight, _volume, dustPs, debrisPs);
+
+        // Normal phase
+        _presenter.ApplyInitialPhase(DungeonPressurePhase.Normal);
+        Assert.That(dustPs.emission.rateOverTime.constant, Is.EqualTo(0f));
+        Assert.That(debrisPs.emission.rateOverTime.constant, Is.EqualTo(0f));
+
+        // Collapse phase
+        _presenter.ApplyInitialPhase(DungeonPressurePhase.Collapse);
+        Assert.That(dustPs.emission.rateOverTime.constant, Is.EqualTo(25f).Within(0.001f));
+        Assert.That(debrisPs.emission.rateOverTime.constant, Is.EqualTo(12f).Within(0.001f));
+
+        Object.DestroyImmediate(dustGo);
+        Object.DestroyImmediate(debrisGo);
+    }
 }

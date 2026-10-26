@@ -19,6 +19,7 @@ public sealed class CameraShakeControllerContinuousTests
     [TearDown]
     public void TearDown()
     {
+        CameraShakeController.AccessibilityScale = 1f;
         if (_cameraGo != null)
         {
             Object.DestroyImmediate(_cameraGo);
@@ -51,5 +52,18 @@ public sealed class CameraShakeControllerContinuousTests
         // When continuous shake is cleared
         _controller.SetContinuousShake(0f);
         Assert.That(_controller.SustainedTrauma, Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void AccessibilityScale_ClampsBetweenZeroAndOne()
+    {
+        CameraShakeController.AccessibilityScale = -0.5f;
+        Assert.That(CameraShakeController.AccessibilityScale, Is.EqualTo(0f));
+
+        CameraShakeController.AccessibilityScale = 1.5f;
+        Assert.That(CameraShakeController.AccessibilityScale, Is.EqualTo(1f));
+
+        CameraShakeController.AccessibilityScale = 0.5f;
+        Assert.That(CameraShakeController.AccessibilityScale, Is.EqualTo(0.5f).Within(0.001f));
     }
 }

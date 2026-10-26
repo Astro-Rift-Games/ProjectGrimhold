@@ -129,6 +129,85 @@ describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () =
     assert.match(result.stderr, /WEBHOOK_SECRET must be set to a secure value/);
   });
 
+  test('env.js rejects default dev WEBHOOK_SECRET in production when ALLOW_DEV_WEBHOOK_SECRET is unset or false', () => {
+    const { spawnSync } = require('node:child_process');
+    const path = require('node:path');
+    const envPath = path.resolve(__dirname, '../src/config/env.js');
+
+    const result = spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(envPath)})`],
+      {
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          MONGODB_URI: 'mongodb://localhost:27017/grimhold',
+          JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
+          WEBHOOK_SECRET: 'dev-webhook-secret-do-not-use-in-prod'
+        },
+        encoding: 'utf8', cwd: __dirname
+      }
+    );
+
+    assert.notEqual(result.status, 0, 'Must exit non-zero on dev WEBHOOK_SECRET in production');
+    assert.match(result.stderr, /ALLOW_DEV_WEBHOOK_SECRET=true/);
+  });
+
+  test('env.js permits dev WEBHOOK_SECRET with warning when ALLOW_DEV_WEBHOOK_SECRET=true (US-61 / SEC-61.4)', () => {
+    const { spawnSync } = require('node:child_process');
+    const path = require('node:path');
+    const envPath = path.resolve(__dirname, '../src/config/env.js');
+
+    const result = spawnSync(
+      process.execPath,
+      ['-e', `console.log(JSON.stringify(require(${JSON.stringify(envPath)})))`],
+      {
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          MONGODB_URI: 'mongodb://localhost:27017/grimhold',
+          JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
+          WEBHOOK_SECRET: 'dev-webhook-secret-do-not-use-in-prod',
+          ALLOW_DEV_WEBHOOK_SECRET: 'true'
+        },
+        encoding: 'utf8', cwd: __dirname
+      }
+    );
+
+    assert.equal(result.status, 0, 'Must succeed when ALLOW_DEV_WEBHOOK_SECRET=true');
+    assert.match(result.stderr, /explicit risk acceptance \(US-61 \/ SEC-61\.4\)/);
+    const parsed = JSON.parse(result.stdout.trim().split('\n').at(-1));
+    assert.equal(parsed.allowDevWebhookSecret, true);
+  });
+
+  test('env.js still rejects weak non-dev WEBHOOK_SECRET even if ALLOW_DEV_WEBHOOK_SECRET=true', () => {
+    const { spawnSync } = require('node:child_process');
+    const path = require('node:path');
+    const envPath = path.resolve(__dirname, '../src/config/env.js');
+
+    const result = spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(envPath)})`],
+      {
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          MONGODB_URI: 'mongodb://localhost:27017/grimhold',
+          JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
+          WEBHOOK_SECRET: 'short-secret',
+          ALLOW_DEV_WEBHOOK_SECRET: 'true'
+        },
+        encoding: 'utf8', cwd: __dirname
+      }
+    );
+
+    assert.notEqual(result.status, 0, 'Weak arbitrary secrets must still be rejected');
+    assert.match(result.stderr, /WEBHOOK_SECRET must be set to a secure value/);
+  });
+
   test('env.js rejects synthetic PLACEHOLDER values from .env.example in production startup (US-61 / SEC-61.1)', () => {
     const { spawnSync } = require('node:child_process');
     const path = require('node:path');

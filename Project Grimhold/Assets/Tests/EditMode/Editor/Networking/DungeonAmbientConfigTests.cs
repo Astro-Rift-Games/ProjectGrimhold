@@ -50,7 +50,10 @@ public sealed class DungeonAmbientConfigTests
             1.5f, // vignette intensity > 1 -> 1
             0.001f, // smoothness < 0.01 -> 0.01
             true,
-            -5f // transition duration < 0 -> 0
+            -5f, // transition duration < 0 -> 0
+            default,
+            -15f, // dust emission negative -> 0
+            -8f // debris emission negative -> 0
         );
 
         Assert.That(settings.GlobalLightIntensity, Is.EqualTo(0f));
@@ -65,6 +68,8 @@ public sealed class DungeonAmbientConfigTests
         Assert.That(settings.VignetteSmoothness, Is.EqualTo(0.01f));
         Assert.That(settings.VignetteRounded, Is.True);
         Assert.That(settings.VignetteTransitionDuration, Is.EqualTo(0f));
+        Assert.That(settings.DustEmissionRate, Is.EqualTo(0f));
+        Assert.That(settings.DebrisEmissionRate, Is.EqualTo(0f));
     }
 
     [Test]
@@ -88,5 +93,27 @@ public sealed class DungeonAmbientConfigTests
         Assert.That(retrieved.VignetteSmoothness, Is.EqualTo(0.55f).Within(0.001f));
         Assert.That(retrieved.VignetteRounded, Is.False);
         Assert.That(retrieved.VignetteTransitionDuration, Is.EqualTo(2.5f).Within(0.001f));
+    }
+
+    [Test]
+    public void ParticlesAndAudioSettings_StoredCorrectly()
+    {
+        var config = ScriptableObject.CreateInstance<DungeonAmbientConfig>();
+
+        var collapse = new DungeonAmbientPhaseSettings(
+            Color.red, 0.5f, 1.5f,
+            0.8f, 2f, 0.1f,
+            0.3f, 1f, 10f,
+            Color.black, 0.5f, 0.5f, false, 1f,
+            default,
+            25f, // dust emission
+            12f  // debris emission
+        );
+
+        config.Initialize(collapse, collapse, collapse, collapse);
+
+        var retrieved = config.GetSettings(DungeonPressurePhase.Collapse);
+        Assert.That(retrieved.DustEmissionRate, Is.EqualTo(25f).Within(0.001f));
+        Assert.That(retrieved.DebrisEmissionRate, Is.EqualTo(12f).Within(0.001f));
     }
 }

@@ -85,3 +85,47 @@ Dado que el hallazgo del 13/10/2026 reflejó un URI presente en el árbol de tra
 - **Procedimiento de contención y articulación con US-63 (#531):**
   1. Verificar con el propietario las ACLs de los archivos locales OAuth antes de afirmar que están restringidas; no se verificaron ni modificaron en esta corrección.
   2. En caso de rotación en **Google Cloud Console -> APIs & Services -> Credentials**, regenerar el `Client Secret` del OAuth 2.0 Client ID de escritorio, descargar el nuevo `credentials.json` localmente y regenerar el token con `npm run auth --prefix tools/grimhold-docs-mcp` (alcance estrictamente de solo lectura `https://www.googleapis.com/auth/drive.readonly`).
+
+--- 
+
+## 4. Resolución de Candidatos y Cierre de Contención: SEC-61.4 (#639)
+
+> **Fecha de resolución:** 26/10/2026  
+> **Responsable técnico / Infraestructura:** Tomás Taboada  
+> **Tarea HacknPlan:** [SEC-61.4 (#639)](https://hacknplan.com)  
+
+En cumplimiento de los criterios de aceptación de US-61 (#529) y SEC-61.4 (#639), se consolida la matriz de candidatos identificados con su clasificación formal, acción ejecutada, evidencia redactada y estado de cierre.
+
+### 4.1. Matriz Consolidada de Candidatos y Resoluciones
+
+| Candidato / Identificador | Clasificación | Acción / Decisión de Cierre | Evidencia Redactada | Responsable | Estado de Cierre |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`WEBHOOK_SECRET`** (HMAC de extracción Raid) | **Exposición confirmada** en cliente (`Resources/BackendConfiguration.asset`) | **Aceptación de riesgo documentada (Opción B):** Al ser un modelo cliente-host P2P, cualquier secreto en el cliente es accesible. La contención definitiva se defiere a la arquitectura de Host Trust / Servidor Dedicado (**#400**). Se habilitó el flag de riesgo explícito `ALLOW_DEV_WEBHOOK_SECRET=true` en `backend/src/config/env.js` para que Render arranque con `NODE_ENV=production` sin relajar los demás guards. | `dev-***-prod` en cliente; Render arranca con advertencia `[Config] WARNING: Running in production with dev-webhook-secret-do-not-use-in-prod under explicit risk acceptance (US-61 / SEC-61.4)`. | Tomás Taboada | **Riesgo Aceptado** (Diferido a #400) |
+| **`MONGODB_URI`** (Línea 3 observada el 13/10) | **Incertidumbre no confirmada** (solo en working tree local, nunca versionado en Git) | **Riesgo aceptado con recomendación de rotación preventiva:** El responsable no pudo confirmar la naturaleza del valor observado el 13/10. La investigación forense probó que nunca llegó al historial Git (`git log -p` muestra siempre template sintético). Se recomienda rotación preventiva de contraseña en MongoDB Atlas. No se presenta como remediada en Atlas hasta ejecutar dicha rotación. | Historial Git limpio (`mongodb+srv://<user>:<password>@<cluster>...`). `backend/.env.example` sanitizado con `PLACEHOLDER_*`. | Tomás Taboada | **Riesgo Aceptado / Pendiente de Rotación Atlas** |
+| **`JWT_SECRET`** (Firma de tokens de sesión) | **Requisito crítico de producción** | **Control preventivo verificado:** `backend/src/config/env.js` valida en `NODE_ENV=production` longitud >= 32 caracteres, alta entropía y ausencia de placeholders. En Render se debe generar un secreto criptográfico independiente no versionado (`crypto.randomBytes(32).toString('hex')`). | Tests en verde en `tests/env.hardening.test.js`. Suite unitaria 179/179 pasados. | Tomás Taboada | **Remediación Verificada** (Control técnico) |
+| **`TRUST_PROXY` y `NODE_ENV`** (Render Deploy) | **Hardening de gateway e IP spoofing** | **Configuración coordinada para Render:** Render requiere `NODE_ENV=production` y `TRUST_PROXY=1` (proxy inverso de 1 salto) para no permitir evasión de rate limiting (`X-Forwarded-For`). `TRUST_PROXY=true` es rechazado fail-closed. | Tests en `tests/env.hardening.test.js` validan `TRUST_PROXY=1` y rechazo de `true`. | Tomás Taboada | **Remediación Verificada** |
+| **Custodia Local MCP** (`tools/grimhold-docs-mcp/{.env,credentials.json,.auth/token.json}`) | **Credenciales locales no versionadas** | **Permisos restringidos verificados:** Inspección mediante `icacls` el 26/10/2026 confirmó herencia deshabilitada y permisos exclusivos para el usuario del sistema (`PC-TABOR\tomas:(F)`), `SYSTEM:(F)` y administradores locales. | Salida `icacls`: `NT AUTHORITY\SYSTEM:(F)`, `PC-TABOR\tomas:(F)`. Sin grupos amplios. | Tomás Taboada | **Remediación Verificada** |
+| **Custodia Local Backend** (`backend/.env`) | **Credenciales locales no versionadas** | **Herencia documentada:** Inspección con `icacls` detectó herencia activa desde el directorio padre. Al ser propiedad de administradores, la remoción de herencia requiere ejecución en consola de Administrador: `icacls "backend\.env" /inheritance:r /grant:r "$($env:USERDOMAIN)\$($env:USERNAME):(F)" "NT AUTHORITY\SYSTEM:(F)" "BUILTIN\Administradores:(F)"`. Se recomienda excluir de sincronización de OneDrive. | Salida `icacls` documentada en reporte. | Tomás Taboada | **Riesgo Local Aceptado / Acción Manual Pendiente** |
+| **Escáner Repetible de Secretos** (`scan-secrets.js`) | **Herramienta preventiva de CI/auditoría** | **Escaneo integral ejecutado:** Soporta archivos de hasta 25 MB (incluyendo YAMLs de Unity como `Gameplay.unity` de 5.79 MB y templates de escena) e historial Git. Ejecutado el 26/10/2026 con 0 secretos detectados. Exclusión de binarios (.png, .dll, .anim) y archivos > 25 MB documentada y aceptada. | Comando: `npm run security:scan --prefix backend`. Salida: `Scan complete: No exposed credentials, OAuth secrets, or private keys detected`. | Tomás Taboada | **Remediación Verificada** |
+
+### 4.2. Instrucciones Operativas para el Despliegue en Render
+
+Para desplegar la rama `New-Testing` en Render manteniendo el backend operativo y los controles de seguridad activos:
+
+1. En el panel de **Render -> Environment Variables**, configurar:
+   - `NODE_ENV` = `production`
+   - `PORT` = `3000` (o asignado por Render)
+   - `TRUST_PROXY` = `1`
+   - `JWT_SECRET` = *(Cadena criptográfica aleatoria de 64 caracteres hex, generada con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)*
+   - `MONGODB_URI` = *(URI segura de MongoDB Atlas de producción)*
+   - `WEBHOOK_SECRET` = `dev-webhook-secret-do-not-use-in-prod`
+   - `ALLOW_DEV_WEBHOOK_SECRET` = `true`
+2. Verificar en los logs de inicio de Render:
+   ```text
+   [Config] WARNING: Running in production with dev-webhook-secret-do-not-use-in-prod under explicit risk acceptance (US-61 / SEC-61.4). Deferred to #400.
+   Server running on port 3000
+   ```
+3. Comprobar desde el cliente Unity o Postman:
+   - Login / Register responde `200 OK` con token JWT firmado.
+   - Rate limiting bloquea tras 5 intentos fallidos consecutivos de login.
+   - Publicación de resultados de Raid desde el Host (`POST /character/raid/extraction-result`) firma y verifica correctamente.

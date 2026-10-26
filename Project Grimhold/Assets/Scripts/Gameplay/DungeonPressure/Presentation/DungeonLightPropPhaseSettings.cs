@@ -21,16 +21,26 @@ public struct DungeonLightPropPhaseSettings
     [Min(0f)]
     [SerializeField] private float _transitionDuration;
 
+    [Tooltip("Whether the light source is extinguished during this phase (e.g. blown out by drafts or cave-in).")]
+    [SerializeField] private bool _isExtinguished;
+
     public Color Color => _color;
     public float Intensity => _intensity;
     public LightEffectPattern Pattern => _pattern;
     public float TransitionDuration => _transitionDuration;
+    public bool IsExtinguished => _isExtinguished;
 
     public DungeonLightPropPhaseSettings(Color color, float intensity, LightEffectPattern pattern, float transitionDuration)
+        : this(color, intensity, pattern, transitionDuration, isExtinguished: false)
+    {
+    }
+
+    public DungeonLightPropPhaseSettings(Color color, float intensity, LightEffectPattern pattern, float transitionDuration, bool isExtinguished)
     {
         _color = color;
         _intensity = Mathf.Max(0f, intensity);
         _pattern = pattern;
         _transitionDuration = Mathf.Max(0f, transitionDuration);
+        _isExtinguished = isExtinguished;
     }
 }

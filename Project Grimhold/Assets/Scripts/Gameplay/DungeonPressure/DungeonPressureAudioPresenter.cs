@@ -2,8 +2,8 @@ using UnityEngine;
 using Fusion;
 
 /// <summary>
-/// Detects changes in the DungeonPressurePhase and plays the corresponding SFX via the AudioManager.
-/// Uses Render() to ensure all clients (not just the host) hear the sound when the networked phase changes.
+/// Detects changes in the DungeonPressurePhase and plays the corresponding SFX and music transitions via the AudioManager.
+/// Uses Render() to ensure all clients (not just the host) hear the audio cues when the networked phase changes.
 /// </summary>
 public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
 {
@@ -20,7 +20,17 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
     [Tooltip("Sound played when the dungeon Collapses.")]
     [SerializeField] private CustomClip _collapseSfx;
 
+    [Header("Music Transition")]
+    [Tooltip("Optional music track played during Collapse phase with crossfade.")]
+    [SerializeField] private CustomClip _collapseMusic;
+
+    [Tooltip("Crossfade duration in seconds when transitioning to Collapse music.")]
+    [SerializeField] private float _collapseMusicCrossfade = 2.5f;
+
     private DungeonPressurePhase _lastPhase = DungeonPressurePhase.Normal;
+
+    public CustomClip CollapseMusic => _collapseMusic;
+    public float CollapseMusicCrossfade => _collapseMusicCrossfade;
 
     public override void Spawned()
     {
@@ -32,6 +42,10 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
         if (_pressureController != null)
         {
             _lastPhase = _pressureController.Phase;
+            if (_lastPhase == DungeonPressurePhase.Collapse && _collapseMusic.IsValid && AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayMusic(_collapseMusic, _collapseMusicCrossfade);
+            }
         }
     }
 
@@ -70,6 +84,10 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
                 break;
             case DungeonPressurePhase.Collapse:
                 clipToPlay = _collapseSfx;
+                if (_collapseMusic.IsValid)
+                {
+                    AudioManager.Instance.PlayMusic(_collapseMusic, _collapseMusicCrossfade);
+                }
                 break;
         }
 

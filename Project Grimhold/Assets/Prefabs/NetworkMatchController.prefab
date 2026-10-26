@@ -98,8 +98,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureController
   _config: {fileID: 11400000, guid: 8143ae40b1350374fb16d30fcbf233c2, type: 2}
   _RemainingTicks: 0
+  _CollapseRemainingTicks: 0
   _Phase: 0
   _State: 0
+  EditorTimeMultiplier: 1
 --- !u!114 &-678287303909189332
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -113,6 +115,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyReinforcementDirector
   _config: {fileID: 11400000, guid: 8143ae40b1350374fb16d30fcbf233c2, type: 2}
+  _TotalSpawnsGenerated: 0
 --- !u!114 &6306402160097955794
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -141,12 +144,19 @@ MonoBehaviour:
     _spatialBlend: 0
     _loop: 0
   _collapseSfx:
+    _clips: []
+    _volume: 0
+    _pitch: 0
+    _spatialBlend: 0
+    _loop: 0
+  _collapseMusic:
     _clips:
     - {fileID: 8300000, guid: 5ae4d298ed547ba4c88587effb75d7e1, type: 3}
     _volume: 0
     _pitch: 0
     _spatialBlend: 0
     _loop: 0
+  _collapseMusicCrossfade: 2.5
 --- !u!114 &7184920473859102845
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -173,4 +183,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TeamExtractionCoordinator
   _config: {fileID: 11400000, guid: 8f4d2742272b465690541c37b55a3120, type: 2}
-

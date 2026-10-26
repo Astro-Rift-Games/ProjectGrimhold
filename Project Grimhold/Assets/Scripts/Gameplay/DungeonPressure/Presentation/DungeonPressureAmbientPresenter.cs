@@ -3,11 +3,10 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// Controls global ambient lighting, camera-shake, and post-process vignette presentation for dungeon pressure phases.
+/// Controls global ambient lighting, camera-shake, post-process vignette, and ceiling debris particles for dungeon pressure phases.
 /// Observes the replicated phase on <see cref="DungeonPressureController"/> and smoothly modulates
-/// the scene's global light, local <see cref="DungeonLightProp"/> components, and native URP Volume vignette.
-/// Handles late-joining players, host migration, and offline preview cleanly without requiring
-/// networked state.
+/// the scene's global light, local <see cref="DungeonLightProp"/> components, native URP Volume vignette, and falling debris particles.
+/// Handles late-joining players, host migration, and offline preview cleanly without requiring networked state.
 /// </summary>
 [ExecuteAlways]
 [DisallowMultipleComponent]
@@ -23,8 +22,18 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     [Tooltip("The URP Volume holding the post-process Vignette. If null, automatically located in the scene.")]
     [SerializeField] private Volume _volume;
 
+    [Header("Falling Debris & Dust Particles")]
+    [Tooltip("ParticleSystem emitting falling ceiling dust over the camera viewport.")]
+    [SerializeField] private ParticleSystem _dustParticles;
+
+    [Tooltip("ParticleSystem emitting falling rock debris/pebbles over the camera viewport.")]
+    [SerializeField] private ParticleSystem _debrisParticles;
+
+    [Tooltip("Whether to follow the active camera position so particles cover the viewport everywhere in the dungeon.")]
+    [SerializeField] private bool _followCamera = true;
+
     [Header("Configuration")]
-    [Tooltip("Configuration asset defining global ambient lighting, screen shake, and vignette per phase.")]
+    [Tooltip("Configuration asset defining global ambient lighting, screen shake, vignette, and debris per phase.")]
     [SerializeField] private DungeonAmbientConfig _config;
 
     private DungeonPressurePhase _lastPhase = DungeonPressurePhase.Normal;
@@ -60,6 +69,8 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     public Light2D GlobalLight => _globalLight;
     public Volume AmbientVolume => _volume;
     public Vignette VignetteComponent => _vignette;
+    public ParticleSystem DustParticles => _dustParticles;
+    public ParticleSystem DebrisParticles => _debrisParticles;
     public DungeonAmbientConfig Config => _config;
     public DungeonPressureController PressureController => _pressureController;
 
@@ -96,7 +107,9 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         DungeonPressureController controller,
         DungeonAmbientConfig config,
         Light2D globalLight = null,
-        Volume volume = null)
+        Volume volume = null,
+        ParticleSystem dustParticles = null,
+        ParticleSystem debrisParticles = null)
     {
         _pressureController = controller;
         _config = config;
@@ -107,6 +120,14 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         if (volume != null)
         {
             _volume = volume;
+        }
+        if (dustParticles != null)
+        {
+            _dustParticles = dustParticles;
+        }
+        if (debrisParticles != null)
+        {
+            _debrisParticles = debrisParticles;
         }
 
         InitializeComponents();
@@ -121,7 +142,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             _pressureController = GetComponent<DungeonPressureController>();
             if (_pressureController == null)
             {
-                _pressureController = Object.FindAnyObjectByType<DungeonPressureController>();
+                _pressureController = FindObjectOfType<DungeonPressureController>();
             }
         }
 
@@ -132,21 +153,158 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
         if (_volume == null)
         {
-            _volume = GetComponent<Volume>();
-            if (_volume == null)
+            LocateVolume();
+        }
+        else
+        {
+            InitializeVignette();
+        }
+
+        EnsureParticleSystems();
+    }
+
+    private void EnsureParticleSystems()
+    {
+        if (_dustParticles == null)
+        {
+            Transform existing = transform.Find("CeilingDustParticles");
+            if (existing != null)
             {
-                _volume = Object.FindAnyObjectByType<Volume>();
+                _dustParticles = existing.GetComponent<ParticleSystem>();
+            }
+            else
+            {
+                _dustParticles = CreateDefaultDustParticleSystem("CeilingDustParticles");
             }
         }
 
-        InitializeVignette();
-
-        if (_globalLight != null && !_hasResolvedInitialPhase)
+        if (_debrisParticles == null)
         {
-            _currentGlobalColor = _globalLight.color;
-            _currentGlobalIntensity = _globalLight.intensity;
-            _targetGlobalColor = _currentGlobalColor;
-            _targetGlobalIntensity = _currentGlobalIntensity;
+            Transform existing = transform.Find("CeilingDebrisParticles");
+            if (existing != null)
+            {
+                _debrisParticles = existing.GetComponent<ParticleSystem>();
+            }
+            else
+            {
+                _debrisParticles = CreateDefaultDebrisParticleSystem("CeilingDebrisParticles");
+            }
+        }
+    }
+
+    private ParticleSystem CreateDefaultDustParticleSystem(string name)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform);
+        go.transform.localPosition = Vector3.zero;
+
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.0f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.28f);
+        main.startColor = new Color(0.82f, 0.78f, 0.72f, 0.22f);
+        main.gravityModifier = new ParticleSystem.MinMaxCurve(0.08f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0f;
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Box;
+        shape.scale = new Vector3(26f, 2f, 1f);
+
+        var vel = ps.velocityOverLifetime;
+        vel.enabled = true;
+        vel.space = ParticleSystemSimulationSpace.World;
+        vel.y = new ParticleSystem.MinMaxCurve(-0.8f, -1.5f);
+
+        var colorOverLife = ps.colorOverLifetime;
+        colorOverLife.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new[] { new GradientColorKey(new Color(0.85f, 0.82f, 0.75f), 0f), new GradientColorKey(new Color(0.85f, 0.82f, 0.75f), 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.25f, 0.2f), new GradientAlphaKey(0.2f, 0.8f), new GradientAlphaKey(0f, 1f) }
+        );
+        colorOverLife.color = grad;
+
+        var renderer = go.GetComponent<ParticleSystemRenderer>();
+        if (renderer != null)
+        {
+            renderer.sortingLayerName = "VFX";
+            renderer.sortingOrder = 10;
+        }
+
+        return ps;
+    }
+
+    private ParticleSystem CreateDefaultDebrisParticleSystem(string name)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform);
+        go.transform.localPosition = Vector3.zero;
+
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 2.8f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(2.0f, 4.5f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
+        main.startColor = new Color(0.35f, 0.32f, 0.28f, 0.85f);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        main.gravityModifier = new ParticleSystem.MinMaxCurve(0.65f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+
+        var emission = ps.emission;
+        emission.rateOverTime = 0f;
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Box;
+        shape.scale = new Vector3(24f, 1.5f, 1f);
+
+        var rotOverLife = ps.rotationOverLifetime;
+        rotOverLife.enabled = true;
+        rotOverLife.z = new ParticleSystem.MinMaxCurve(-3f, 3f);
+
+        var renderer = go.GetComponent<ParticleSystemRenderer>();
+        if (renderer != null)
+        {
+            renderer.sortingLayerName = "VFX";
+            renderer.sortingOrder = 11;
+        }
+
+        return ps;
+    }
+
+    private void LocateGlobalLight()
+    {
+        Light2D[] lights = FindObjectsOfType<Light2D>();
+        for (int i = 0; i < lights.Length; i++)
+        {
+            if (lights[i].lightType == Light2D.LightType.Global)
+            {
+                _globalLight = lights[i];
+                break;
+            }
+        }
+    }
+
+    private void LocateVolume()
+    {
+        Volume[] volumes = FindObjectsOfType<Volume>();
+        for (int i = 0; i < volumes.Length; i++)
+        {
+            if (volumes[i].isGlobal)
+            {
+                _volume = volumes[i];
+                InitializeVignette();
+                break;
+            }
         }
     }
 
@@ -157,7 +315,12 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             return;
         }
 
-        VolumeProfile profile = Application.isPlaying ? _volume.profile : _volume.sharedProfile;
+        VolumeProfile profile = _volume.sharedProfile;
+        if (profile == null)
+        {
+            profile = _volume.profile;
+        }
+
         if (profile != null)
         {
             if (!profile.TryGet(out _vignette))
@@ -167,24 +330,11 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         }
     }
 
-    private void LocateGlobalLight()
-    {
-        Light2D[] lights = Object.FindObjectsByType<Light2D>(FindObjectsInactive.Exclude);
-        for (int i = 0; i < lights.Length; i++)
-        {
-            if (lights[i] != null && lights[i].lightType == Light2D.LightType.Global)
-            {
-                _globalLight = lights[i];
-                break;
-            }
-        }
-    }
-
     public void ApplyInitialPhase(DungeonPressurePhase phase)
     {
+        _hasResolvedInitialPhase = true;
         _lastPhase = phase;
         _periodicShakeTimer = 0f;
-        _hasResolvedInitialPhase = true;
 
         if (_config == null)
         {
@@ -193,7 +343,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
         DungeonAmbientPhaseSettings settings = _config.GetSettings(phase);
 
-        // Snap global light immediately without entry shake to handle Late Join and Host Migration cleanly
+        // Snap global light immediately without interpolation
         _targetGlobalColor = settings.GlobalLightColor;
         _targetGlobalIntensity = settings.GlobalLightIntensity;
         _currentGlobalColor = _targetGlobalColor;
@@ -224,6 +374,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         _vignetteTransitionProgress = 1f;
 
         ApplyVignetteToVolume();
+        ApplyParticleEmission(settings);
 
         // Notify props immediately
         DungeonLightPropRegistry.NotifyPhaseChanged(phase, immediate: true);
@@ -269,6 +420,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         UpdatePeriodicShake(deltaTime);
         UpdateGlobalLightInterpolation(deltaTime);
         UpdateVignetteInterpolation(deltaTime);
+        UpdateCameraParticlePosition();
     }
 
     private void OnPhaseChanged(DungeonPressurePhase newPhase)
@@ -341,6 +493,14 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             _vignetteTransitionProgress = 0f;
         }
 
+        // Update particle systems
+        ApplyParticleEmission(settings);
+
+        if (newPhase > _lastPhase && settings.DebrisEmissionRate > 0f && _debrisParticles != null)
+        {
+            _debrisParticles.Emit(Mathf.RoundToInt(settings.EntryShakeIntensity * 15f) + 4);
+        }
+
         // Notify all registered light props in the dungeon
         DungeonLightPropRegistry.NotifyPhaseChanged(newPhase, immediate: false);
     }
@@ -363,6 +523,66 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         {
             _periodicShakeTimer = 0f;
             CameraShakeController.Instance?.RequestShake(settings.PeriodicShakeIntensity, settings.PeriodicShakeDuration);
+            if (settings.PeriodicShakeSfx.IsValid && AudioManager.Instance != null)
+            {
+                Vector3 playPos = Camera.main != null ? Camera.main.transform.position : transform.position;
+                AudioManager.Instance.PlaySfx(settings.PeriodicShakeSfx, playPos);
+            }
+            if (_debrisParticles != null && settings.DebrisEmissionRate > 0f)
+            {
+                _debrisParticles.Emit(Mathf.RoundToInt(settings.PeriodicShakeIntensity * 12f) + 3);
+            }
+        }
+    }
+
+    private void UpdateCameraParticlePosition()
+    {
+        if (!_followCamera) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 camPos = cam.transform.position;
+        Vector3 targetPos = new Vector3(camPos.x, camPos.y + 4f, 0f);
+
+        if (_dustParticles != null)
+        {
+            _dustParticles.transform.position = targetPos;
+        }
+        if (_debrisParticles != null)
+        {
+            _debrisParticles.transform.position = targetPos;
+        }
+    }
+
+    private void ApplyParticleEmission(DungeonAmbientPhaseSettings settings)
+    {
+        if (_dustParticles != null)
+        {
+            var emission = _dustParticles.emission;
+            emission.rateOverTime = settings.DustEmissionRate;
+            if (settings.DustEmissionRate > 0.01f && !_dustParticles.isPlaying)
+            {
+                _dustParticles.Play();
+            }
+            else if (settings.DustEmissionRate <= 0.01f && _dustParticles.isPlaying)
+            {
+                _dustParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmitting);
+            }
+        }
+
+        if (_debrisParticles != null)
+        {
+            var emission = _debrisParticles.emission;
+            emission.rateOverTime = settings.DebrisEmissionRate;
+            if (settings.DebrisEmissionRate > 0.01f && !_debrisParticles.isPlaying)
+            {
+                _debrisParticles.Play();
+            }
+            else if (settings.DebrisEmissionRate <= 0.01f && _debrisParticles.isPlaying)
+            {
+                _debrisParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmitting);
+            }
         }
     }
 
@@ -437,6 +657,15 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         _targetVignetteIntensity = 0f;
         _vignetteTransitionProgress = 1f;
         ApplyVignetteToVolume();
+
+        if (_dustParticles != null)
+        {
+            _dustParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        if (_debrisParticles != null)
+        {
+            _debrisParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
 
         DungeonLightPropRegistry.Clear();
         _periodicShakeTimer = 0f;

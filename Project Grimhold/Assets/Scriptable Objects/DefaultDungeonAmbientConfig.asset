@@ -22,6 +22,14 @@ MonoBehaviour:
     _periodicShakeIntensity: 0
     _periodicShakeDuration: 0
     _periodicShakeIntervalSeconds: 0
+    _periodicShakeSfx:
+      _clips: []
+      _volume: 1
+      _pitch: 1
+      _spatialBlend: 0
+      _loop: 0
+    _dustEmissionRate: 0
+    _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0
     _vignetteSmoothness: 0.4
@@ -37,6 +45,14 @@ MonoBehaviour:
     _periodicShakeIntensity: 0
     _periodicShakeDuration: 0
     _periodicShakeIntervalSeconds: 0
+    _periodicShakeSfx:
+      _clips: []
+      _volume: 1
+      _pitch: 1
+      _spatialBlend: 0
+      _loop: 0
+    _dustEmissionRate: 3
+    _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.25
     _vignetteSmoothness: 0.4
@@ -52,6 +68,14 @@ MonoBehaviour:
     _periodicShakeIntensity: 0.15
     _periodicShakeDuration: 0.8
     _periodicShakeIntervalSeconds: 25
+    _periodicShakeSfx:
+      _clips: []
+      _volume: 1
+      _pitch: 1
+      _spatialBlend: 0
+      _loop: 0
+    _dustEmissionRate: 6
+    _debrisEmissionRate: 3
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.525
     _vignetteSmoothness: 0.45
@@ -67,6 +91,15 @@ MonoBehaviour:
     _periodicShakeIntensity: 0.35
     _periodicShakeDuration: 1.2
     _periodicShakeIntervalSeconds: 12
+    _periodicShakeSfx:
+      _clips:
+      - {fileID: 0}
+      _volume: 1
+      _pitch: 1
+      _spatialBlend: 0
+      _loop: 0
+    _dustEmissionRate: 12
+    _debrisEmissionRate: 7
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.65
     _vignetteSmoothness: 0.55

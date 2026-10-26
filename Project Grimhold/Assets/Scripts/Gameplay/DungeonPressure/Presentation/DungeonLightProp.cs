@@ -4,6 +4,7 @@ using UnityEngine.Rendering.Universal;
 /// <summary>
 /// Controls the appearance, color, intensity, and temporal effect pattern (flicker, pulse)
 /// of a 2D light prop (e.g. torch, brazier, candle) across dungeon pressure phases.
+/// Supports optional visual extinction (swapping to unlit sprite, disabling flame, emitting smoke).
 /// </summary>
 [ExecuteAlways]
 [DisallowMultipleComponent]
@@ -15,6 +16,22 @@ public sealed class DungeonLightProp : MonoBehaviour
 
     [Tooltip("Configuration asset defining colors, intensities, and patterns per phase.")]
     [SerializeField] private DungeonLightPropConfig _config;
+
+    [Header("Extinguishable Prop Visuals (Optional)")]
+    [Tooltip("Optional SpriteRenderer to switch between lit and unlit sprites.")]
+    [SerializeField] private SpriteRenderer _spriteRenderer;
+
+    [Tooltip("Sprite displayed when the prop is active/lit.")]
+    [SerializeField] private Sprite _litSprite;
+
+    [Tooltip("Sprite displayed when the prop is extinguished/unlit.")]
+    [SerializeField] private Sprite _extinguishedSprite;
+
+    [Tooltip("Optional child GameObject holding the animated flame or flame particle system to disable when extinguished.")]
+    [SerializeField] private GameObject _flameObject;
+
+    [Tooltip("Optional particle system triggered once when extinguishing (e.g. puff of smoke).")]
+    [SerializeField] private ParticleSystem _extinguishSmokeVfx;
 
     private Color _currentColor = Color.white;
     private float _currentIntensity = 1f;
@@ -31,12 +48,18 @@ public sealed class DungeonLightProp : MonoBehaviour
     private float _noiseSeedX;
     private float _noiseSeedY;
     private bool _isInitialized;
+    private bool _isExtinguished;
 
     public Light2D LightComponent => _light;
     public DungeonLightPropConfig Config => _config;
     public LightEffectPattern CurrentPattern => _currentPattern;
     public Color CurrentBaseColor => _currentColor;
     public float CurrentBaseIntensity => _currentIntensity;
+    public bool IsExtinguished => _isExtinguished;
+    public SpriteRenderer PropSpriteRenderer => _spriteRenderer;
+    public Sprite LitSprite => _litSprite;
+    public Sprite ExtinguishedSprite => _extinguishedSprite;
+    public GameObject FlameObject => _flameObject;
 
     private void Awake()
     {
@@ -54,12 +77,19 @@ public sealed class DungeonLightProp : MonoBehaviour
         DungeonLightPropRegistry.Unregister(this);
     }
 
-    public void Configure(DungeonLightPropConfig config, Light2D light = null)
+    public void Configure(
+        DungeonLightPropConfig config,
+        Light2D light = null,
+        SpriteRenderer spriteRenderer = null,
+        Sprite litSprite = null,
+        Sprite extinguishedSprite = null,
+        GameObject flameObject = null)
     {
-        if (light != null)
-        {
-            _light = light;
-        }
+        if (light != null) _light = light;
+        if (spriteRenderer != null) _spriteRenderer = spriteRenderer;
+        if (litSprite != null) _litSprite = litSprite;
+        if (extinguishedSprite != null) _extinguishedSprite = extinguishedSprite;
+        if (flameObject != null) _flameObject = flameObject;
 
         _config = config;
         _isInitialized = false;
@@ -78,6 +108,11 @@ public sealed class DungeonLightProp : MonoBehaviour
         if (_light == null)
         {
             _light = GetComponent<Light2D>();
+        }
+
+        if (_spriteRenderer == null)
+        {
+            _spriteRenderer = GetComponent<SpriteRenderer>();
         }
 
         // Independent noise offsets avoid multiple lights in the same room flickering in sync
@@ -109,10 +144,42 @@ public sealed class DungeonLightProp : MonoBehaviour
 
         DungeonLightPropPhaseSettings settings = _config.GetSettings(phase);
 
+        bool willBeExtinguished = settings.IsExtinguished;
+        bool wasExtinguished = _isExtinguished;
+
         _targetColor = settings.Color;
-        _targetIntensity = settings.Intensity;
+        _targetIntensity = willBeExtinguished ? 0f : settings.Intensity;
         _currentPattern = settings.Pattern;
         _transitionDuration = settings.TransitionDuration;
+
+        if (willBeExtinguished)
+        {
+            if (_spriteRenderer != null && _extinguishedSprite != null)
+            {
+                _spriteRenderer.sprite = _extinguishedSprite;
+            }
+            if (_flameObject != null)
+            {
+                _flameObject.SetActive(false);
+            }
+            if (!immediate && !wasExtinguished && _extinguishSmokeVfx != null)
+            {
+                _extinguishSmokeVfx.Play();
+            }
+        }
+        else
+        {
+            if (_spriteRenderer != null && _litSprite != null)
+            {
+                _spriteRenderer.sprite = _litSprite;
+            }
+            if (_flameObject != null)
+            {
+                _flameObject.SetActive(true);
+            }
+        }
+
+        _isExtinguished = willBeExtinguished;
 
         if (immediate || _transitionDuration <= 0f)
         {
@@ -152,6 +219,13 @@ public sealed class DungeonLightProp : MonoBehaviour
 
     private void EvaluatePattern()
     {
+        if (_isExtinguished && _transitionProgress >= 1f)
+        {
+            _light.color = _currentColor;
+            _light.intensity = 0f;
+            return;
+        }
+
         float time = Time.time;
         float finalIntensity = _currentIntensity;
 
