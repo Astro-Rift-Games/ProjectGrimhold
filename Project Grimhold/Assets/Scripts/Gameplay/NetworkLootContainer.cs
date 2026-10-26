@@ -284,6 +284,23 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     /// </summary>
     internal bool TryResolveRandomContent(out string error)
     {
+        return TryResolveRandomContent(default, out error);
+    }
+
+    /// <summary>
+    /// Explicit alias matching the Doc 07 / Doc 14 architecture contract for resolving loot source content.
+    /// </summary>
+    internal bool TryResolveLootSourceContent(EntityId interactorId, out string error)
+    {
+        return TryResolveRandomContent(interactorId, out error);
+    }
+
+    /// <summary>
+    /// Consumes the pending table-backed generation exactly once, consulting the interactor
+    /// and their team for active modifiers such as Chaos Coin (TRE_CHAOS_COIN).
+    /// </summary>
+    internal bool TryResolveRandomContent(EntityId interactorId, out string error)
+    {
         error = null;
         if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating ||
             !IsInitialized || !IsAvailable || !_isRegistered ||
@@ -305,6 +322,14 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return false;
             }
 
+            bool hasChaosCoin = false;
+            if (interactorId.Value != 0 && _registry != null &&
+                _registry.TryGetDamageable(interactorId, out IDamageable damageable) &&
+                damageable is PlayerCharacter player)
+            {
+                hasChaosCoin = ChaosCoinCarrierEvaluator.HasActiveChaosCoinCarrier(player);
+            }
+
             LootContainerRandomContentConfig randomConfig =
                 GetComponent<LootContainerRandomContentConfig>();
             if (randomConfig == null || !randomConfig.enabled ||
@@ -320,6 +345,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     snapshot,
                     unchecked((ulong)RandomGenerationSeedBits),
                     AdditionalLootChanceBasisPoints,
+                    hasChaosCoin,
                     out IReadOnlyList<LootEntry> rolledContent,
                     out error) ||
                 !LootContainerInitializationRules.TryBuild(
