@@ -35,6 +35,39 @@ public class MerchantTradePreviewTests
         _draft = new MerchantTradeDraft(() => new Guid("11111111-1111-1111-1111-111111111111"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Buyback_UsesAggregateCapacityAndFrozenPriceIncludingUnmarketedItems(bool merge)
+    {
+        var ledger = new BuybackLedger();
+        ledger.Replace(new Grimhold.Backend.BuybackData { entries = new[] {
+            new Grimhold.Backend.BuybackEntryData { entryId = "sale", lootId = Relic.Value, amount = 2, unitPrice = 38 }
+        }});
+        Assert.That(_draft.TrySetBuyback(ledger.Entries[0], 2), Is.True);
+        var inventory = merge ? Inventory((Relic, 1)) : Inventory((Bone, 1));
+        var preview = MerchantTradePreview.Calculate(inventory, 1, 100, _draft, id => 0, _catalog, ledger);
+        Assert.That(preview.PurchaseTotal, Is.EqualTo(76));
+        Assert.That(preview.ProjectedCurrency, Is.EqualTo(24));
+        Assert.That(preview.HasBlock(MerchantTradeBlockReason.CapacityExceeded), Is.EqualTo(!merge));
+        Assert.That(preview.HasBlock(MerchantTradeBlockReason.NotPurchasable), Is.False,
+            "Buy-back does not require a positive normal catalog purchase price.");
+        Assert.That(preview.CanConfirm, Is.EqualTo(merge));
+    }
+
+    [Test]
+    public void Buyback_PriceOverflowBlocksWithoutWrappingTotals()
+    {
+        var ledger = new BuybackLedger();
+        ledger.Replace(new Grimhold.Backend.BuybackData { entries = new[] {
+            new Grimhold.Backend.BuybackEntryData { entryId = "sale", lootId = Hat.Value, amount = 2, unitPrice = long.MaxValue }
+        }});
+        _draft.TrySetBuyback(ledger.Entries[0], 2);
+        var preview = MerchantTradePreview.Calculate(Inventory(), Capacity, long.MaxValue, _draft, id => 0, _catalog, ledger);
+        Assert.That(preview.HasBlock(MerchantTradeBlockReason.Overflow), Is.True);
+        Assert.That(preview.PurchaseTotal, Is.Zero);
+        Assert.That(preview.CanConfirm, Is.False);
+    }
+
     // --- Draft state ---
 
     [Test]

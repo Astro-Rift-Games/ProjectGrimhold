@@ -28,5 +28,8 @@ public enum MerchantTradeBlockReason
     CapacityExceeded,
 
     /// <summary>A Currency value or a projected stack amount exceeds its representable range.</summary>
-    Overflow
+    Overflow,
+
+    /// <summary>Buy-back is a separate, single-entry operation.</summary>
+    BuybackMustBeAlone
 }

@@ -11,13 +11,15 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
     private BackendConfiguration _config;
     private LocalProfilePersistenceConfiguration _localConfig;
     private LocalProfileStore _store;
+    private BuybackLedger _buybackLedger;
 
     private string AuthToken => ApplicationAuthContext.Instance?.Token;
 
-    public void Initialize(LocalProfilePersistenceConfiguration localConfig, LocalProfileStore store)
+    public void Initialize(LocalProfilePersistenceConfiguration localConfig, LocalProfileStore store, BuybackLedger buybackLedger = null)
     {
         _localConfig = localConfig;
         _store = store;
+        _buybackLedger = buybackLedger;
         
         if (LoginFlowController.Instance != null && LoginFlowController.Instance.Config != null)
         {
@@ -94,6 +96,7 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
             return false;
         }
         
+        _buybackLedger?.Replace(invData.buyback);
         return true;
     }
 }

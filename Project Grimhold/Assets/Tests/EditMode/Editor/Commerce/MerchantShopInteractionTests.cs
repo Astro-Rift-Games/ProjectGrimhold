@@ -311,6 +311,26 @@ public class MerchantShopInteractionTests
         Assert.That(_interaction.LineTotal, Is.EqualTo(90));
     }
 
+    [Test]
+    public void BuybackSelection_UsesEntryIdentityAndOwnIntentionsEvenForTheSameLoot()
+    {
+        var stock = MerchantRow(Potion, 0, 5);
+        var first = new MerchantShopRowViewModel(null, Potion, true, 8, 2, 0, 0, true, 2, "sale-1");
+        var second = new MerchantShopRowViewModel(null, Potion, true, 9, 3, 1, 9, true, 3, "sale-2");
+        _interaction.Present(View(stock, first, second));
+        Assert.That(_interaction.Select(Potion, true, "sale-2"), Is.True);
+        Assert.That(_interaction.IsSelected(second), Is.True);
+        Assert.That(_interaction.IsSelected(first), Is.False);
+        Assert.That(_interaction.IsSelected(stock), Is.False);
+        _interaction.SetQuantity(2);
+        Assert.That(_interaction.LineTotal, Is.EqualTo(18));
+        Assert.That(_interaction.ApplyLine(), Is.True);
+        Assert.That(_interaction.RemoveLine(), Is.True);
+        Assert.That(_intentions.Calls, Is.EqualTo(new[] { "SetBuyback sale-2 2", "RemoveBuyback sale-2" }));
+        _interaction.Present(View(stock, first));
+        Assert.That(_interaction.HasSelection, Is.False, "A removed entry must not select stock of the same loot.");
+    }
+
     // --- Helpers ---
 
     private static MerchantShopRowViewModel MerchantRow(LootId lootId, int draft, int max, bool canAdd = true) =>
@@ -341,7 +361,7 @@ public class MerchantShopInteractionTests
             true, 100, 100, 0, 0, 0, 1, 1, 10, hasDraft, isInFlight, canConfirm && !isInFlight, blocks, merchant, inventory);
     }
 
-    private sealed class FakeIntentions : IMerchantShopIntentions
+    private sealed class FakeIntentions : IMerchantShopIntentions, IBuybackShopIntentions
     {
         public List<string> Calls { get; } = new List<string>();
         public bool Result { get; set; } = true;
@@ -352,6 +372,8 @@ public class MerchantShopInteractionTests
         public bool AddSale(LootId lootId, int amount) => Record($"AddSale {lootId.Value} {amount}");
         public bool SetSaleAmount(LootId lootId, int amount) => Record($"SetSaleAmount {lootId.Value} {amount}");
         public bool RemoveSale(LootId lootId) => Record($"RemoveSale {lootId.Value}");
+        public bool SetBuyback(string entryId, int amount) => Record($"SetBuyback {entryId} {amount}");
+        public bool RemoveBuyback(string entryId) => Record($"RemoveBuyback {entryId}");
         public bool ClearTrade() => Record("ClearTrade");
         public bool ConfirmTrade() => Record("ConfirmTrade");
 

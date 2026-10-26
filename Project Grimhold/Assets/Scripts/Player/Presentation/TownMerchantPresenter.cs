@@ -204,7 +204,9 @@ public sealed class TownMerchantPresenter : NetworkBehaviour
             () => profile.Currency.GetCurrency(profile.ProfileId),
             shopUI.Present,
             () => Time.unscaledTimeAsDouble,
-            SubmissionTimeoutSeconds);
+            SubmissionTimeoutSeconds,
+            buybackLedger: profile.BuybackLedger,
+            buybackService: profile.BuybackService);
         _session.TradeCompleted += shopUI.PresentResult;
         shopUI.Bind(_session);
         shopUI.OnCloseRequested.AddListener(ClosePanelFromUI);

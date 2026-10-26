@@ -167,13 +167,15 @@ public static class ApplicationStashServiceBootstrapper
 
         // Add ProfileReconciliationService to handle automatic retry and hydration on conflicts
         var reconciliationService = contextObject.AddComponent<ProfileReconciliationService>();
-        reconciliationService.Initialize(_configuration, store);
+        reconciliationService.Initialize(_configuration, store, _context.BuybackLedger);
 
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
-        shopTransactionService.Initialize(store, _configuration, reconciliationService);
+        shopTransactionService.Initialize(store, _configuration, reconciliationService, _context.BuybackLedger);
         _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
+        // HydrateSnapshot deliberately excludes this memory-only, backend-owned ledger.
+        if (inventoryData.HasValue) _context.HydrateBuyback(inventoryData.Value);
 
         _initializedProfileId = profileId;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");

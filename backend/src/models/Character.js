@@ -61,9 +61,22 @@ const characterAttributeStateSchema = new mongoose.Schema({
   availablePoints: { type: Number, default: 10, min: 0 }
 }, { _id: false });
 
+const buybackEntrySchema = new mongoose.Schema({
+  entryId: { type: String, required: true },
+  lootId: { type: String, required: true },
+  amount: { type: Number, required: true, min: 1 },
+  unitPrice: { type: Number, required: true, min: 0 },
+  soldAt: { type: Date, default: Date.now }
+}, { _id: false });
+const buybackSchema = new mongoose.Schema({
+  sessionEpoch: { type: String, default: '' },
+  entries: { type: [buybackEntrySchema], default: [] }
+}, { _id: false });
+
 const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
-  type:          { type: String, enum: ['buy', 'sell'], required: true },
+  type:          { type: String, enum: ['buy', 'sell', 'buyback'], required: true },
+  entryId:       { type: String },
   lootId:        { type: String },
   amount:        { type: Number },
   totalAmount:   { type: Number },
@@ -93,6 +106,7 @@ const characterSchema = new mongoose.Schema({
   characterAttributes:                  { type: characterAttributeStateSchema, default: () => ({}) },
   preparedAbilities:                    { type: preparedAbilitiesSchema,       default: () => ({}) },
   inventory: {
+    buyback: { type: buybackSchema, default: () => ({}) },
     currency:           { type: Number, default: 0 },
     stash:              { type: [itemSchema],             default: [] },
     loadout:            { type: [itemSchema],             default: [] },

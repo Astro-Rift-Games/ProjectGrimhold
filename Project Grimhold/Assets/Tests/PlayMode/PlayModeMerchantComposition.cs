@@ -25,6 +25,10 @@ namespace Tests.PlayMode
         public LocalLoadoutInventoryReadSource Inventory { get; }
         public RemoteShopTransactionService Shop { get; }
         public InMemoryPlayerCurrencyService Currency { get; }
+        public BuybackLedger BuybackLedger { get; private set; }
+        public bool CaptureEquipmentSales { get; set; }
+        public int BuybackCalls { get; private set; }
+        private BuybackEntryData _soldEntry;
         public int BackendCalls { get; private set; }
         public int Reconciliations { get; private set; }
         public string BackendErrorCode { get; set; }
@@ -57,6 +61,8 @@ namespace Tests.PlayMode
             Shop.Initialize(Store, Backend, () => { Reconciliations++; return Task.FromResult(true); });
             var application = _owner.AddComponent<ApplicationStashContext>();
             application.Initialize(Store, stash, loadout, Currency, Shop);
+            BuybackLedger = application.BuybackLedger;
+            Shop.InitializeBuyback(BuybackLedger, Buyback);
             Inventory = new LocalLoadoutInventoryReadSource(application, ProfileId);
 
             _auth = ApplicationAuthContext.Instance;
@@ -77,8 +83,31 @@ namespace Tests.PlayMode
         {
             BackendCalls++;
             BackendTransactionId = transactionId;
+            BuybackData buyback = default;
+            if (CaptureEquipmentSales && !purchase && BackendErrorCode == null)
+            {
+                _soldEntry = new BuybackEntryData { entryId = "equipment-sale", lootId = line.LootId.Value,
+                    amount = line.Amount, unitPrice = (long)Math.Ceiling(line.UnitPrice * 1.5) };
+                buyback = new BuybackData { entries = new[] { _soldEntry } };
+            }
             return Pending?.Task ?? Task.FromResult((BackendErrorCode == null,
-                new ShopTransactionResult { revision = revision + 1 }, new BackendError { error = BackendErrorCode }));
+                new ShopTransactionResult { revision = revision + 1, buyback = buyback }, new BackendError { error = BackendErrorCode }));
+        }
+
+        private Task<(bool success, ShopTransactionResult data, BackendError error)> Buyback(
+            string transactionId, string entryId, int amount, int revision)
+        {
+            BuybackCalls++;
+            Assert.That(entryId, Is.EqualTo(_soldEntry.entryId));
+            Assert.That(amount, Is.InRange(1, _soldEntry.amount));
+            long cost = amount * _soldEntry.unitPrice;
+            _soldEntry.amount -= amount;
+            return Task.FromResult((true, new ShopTransactionResult {
+                revision = revision + 1, currency = Store.GetCurrency() - cost,
+                stash = Array.Empty<InventoryItemData>(),
+                loadout = new[] { new InventoryItemData { lootId = _soldEntry.lootId, amount = amount } },
+                buyback = new BuybackData { entries = _soldEntry.amount > 0 ? new[] { _soldEntry } : Array.Empty<BuybackEntryData>() }
+            }, default(BackendError)));
         }
 
         public Task<(bool valid, ProfileId profileId, string characterName, string error)> VerifyTownTicketAsync(string rawTicket) =>

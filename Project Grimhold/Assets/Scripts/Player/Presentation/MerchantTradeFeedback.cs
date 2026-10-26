@@ -11,6 +11,7 @@ public static class MerchantTradeFeedback
     private static readonly MerchantTradeBlockReason[] Priority =
     {
         MerchantTradeBlockReason.SubmissionInFlight,
+        MerchantTradeBlockReason.BuybackMustBeAlone,
         MerchantTradeBlockReason.InsufficientCurrency,
         MerchantTradeBlockReason.CapacityExceeded,
         MerchantTradeBlockReason.InsufficientStock,
@@ -64,6 +65,7 @@ public static class MerchantTradeFeedback
         return block.Reason switch
         {
             MerchantTradeBlockReason.SubmissionInFlight => "Transacción en curso...",
+            MerchantTradeBlockReason.BuybackMustBeAlone => "La recompra se confirma por separado",
             MerchantTradeBlockReason.InsufficientCurrency =>
                 $"Oro insuficiente: faltan {viewModel?.CurrencyShortfall ?? 0}",
             MerchantTradeBlockReason.CapacityExceeded => "Inventario lleno",

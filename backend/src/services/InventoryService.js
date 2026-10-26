@@ -1,5 +1,6 @@
 // src/services/InventoryService.js
 const Character = require('../models/Character');
+const { randomUUID } = require('crypto');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const {
   normalizeCharacterInventory,
@@ -9,6 +10,9 @@ const {
 } = require('./InventoryLootIdNormalizer');
 const {
   MAX_TRANSACTION_AMOUNT,
+  BUYBACK_MAX_ENTRIES,
+  BUYBACK_PRICE_MULTIPLIER,
+  isBuybackEligible,
   getBuyOffer,
   getSellOffer
 } = require('../config/shopCatalog');
@@ -44,6 +48,26 @@ function serializePendingReservation(res) {
     reservationId:    res.reservationId,
     items:            serializeItems(res.items),
     preparedEquipment: serializePreparedEquipment(res.preparedEquipment)
+  };
+}
+
+// soldAt and the internal epoch are deliberately not exposed to clients.
+function serializeBuyback(inventory) {
+  return { entries: (inventory.buyback?.entries || []).map(({ entryId, lootId, amount, unitPrice }) => ({ entryId, lootId, amount, unitPrice })) };
+}
+
+function buybackEpochFilter(inventory) {
+  return inventory.buyback?.sessionEpoch || { $in: ['', null] };
+}
+
+function shopSnapshot(character) {
+  return {
+    revision: character.revision,
+    currency: character.inventory.currency || 0,
+    stash: serializeItems(character.inventory.stash),
+    loadout: serializeItems(character.inventory.loadout),
+    preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment),
+    buyback: serializeBuyback(character.inventory)
   };
 }
 
@@ -113,6 +137,7 @@ class InventoryService {
       loadout:            serializeItems(character.inventory.loadout),
       preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
       pendingReservation: serializePendingReservation(character.inventory.pendingReservation),
+      buyback: serializeBuyback(character.inventory),
       lastAppliedExtractionReceipt: lastExtraction,
       revision: character.revision || 0
     };
@@ -647,7 +672,8 @@ class InventoryService {
           currency: character.inventory.currency || 0,
           stash: serializeItems(character.inventory.stash),
           loadout: serializeItems(character.inventory.loadout),
-          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment),
+          buyback: serializeBuyback(character.inventory)
         };
       }
     }
@@ -699,12 +725,21 @@ class InventoryService {
       loadout[loadoutIndex].amount -= amount;
     }
 
+    const buybackPush = isBuybackEligible(lootId) ? {
+      'inventory.buyback.entries': {
+        $each: [{ entryId: randomUUID(), lootId, amount,
+          unitPrice: Math.ceil(unitSellValue * BUYBACK_PRICE_MULTIPLIER), soldAt: new Date() }],
+        $slice: -BUYBACK_MAX_ENTRIES
+      }
+    } : {};
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: expectedRevision, 'inventory.pendingReservation': null },
+      { accountId, revision: expectedRevision, 'inventory.pendingReservation': null,
+        'inventory.buyback.sessionEpoch': buybackEpochFilter(character.inventory) },
       {
         $set: { 'inventory.loadout': loadout },
         $inc: { revision: 1, 'inventory.currency': authoritativeRevenue },
         $push: {
+          ...buybackPush,
           appliedShopReceipts: {
             $each: [{ transactionId, type: 'sell', lootId, amount, totalAmount: authoritativeRevenue, timestamp: new Date() }],
             $slice: -64
@@ -722,13 +757,7 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during shop sale.' };
     }
 
-    return {
-      revision: updated.revision,
-      currency: updated.inventory.currency || 0,
-      stash: serializeItems(updated.inventory.stash),
-      loadout: serializeItems(updated.inventory.loadout),
-      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
-    };
+    return shopSnapshot(updated);
   }
 
   /**
@@ -778,7 +807,8 @@ class InventoryService {
           currency: character.inventory.currency || 0,
           stash: serializeItems(character.inventory.stash),
           loadout: serializeItems(character.inventory.loadout),
-          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment)
+          preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment),
+          buyback: serializeBuyback(character.inventory)
         };
       }
     }
@@ -854,13 +884,61 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict or insufficient funds during shop purchase.' };
     }
 
-    return {
-      revision: updated.revision,
-      currency: updated.inventory.currency || 0,
-      stash: serializeItems(updated.inventory.stash),
-      loadout: serializeItems(updated.inventory.loadout),
-      preparedEquipment: serializePreparedEquipment(updated.inventory.preparedEquipment)
-    };
+    return shopSnapshot(updated);
+  }
+  /** Rebuys a sale line at its frozen price, within the current Town epoch. */
+  static async shopBuyback(accountId, entryId, amount, expectedRevision, transactionId) {
+    const character = await Character.findOne({ accountId });
+    if (!character) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    if (!Number.isInteger(amount) || amount < 1 || amount > MAX_TRANSACTION_AMOUNT) {
+      throw { statusCode: 400, errorCode: 'INVALID_QUANTITY', message: 'Invalid buyback quantity.' };
+    }
+    const receipt = (character.appliedShopReceipts || []).find(r => r.transactionId === transactionId);
+    if (receipt) {
+      if (receipt.type !== 'buyback' || receipt.entryId !== entryId || receipt.amount !== amount) {
+        throw { statusCode: 409, errorCode: 'TRANSACTION_ID_REUSED', message: 'Transaction ID was previously applied with different parameters.' };
+      }
+      return { ...shopSnapshot(character), alreadySecured: true };
+    }
+    if (character.inventory.pendingReservation) {
+      throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+    }
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+    const entry = character.inventory.buyback?.entries?.find(e => e.entryId === entryId);
+    if (!entry) throw { statusCode: 404, errorCode: 'BUYBACK_ENTRY_NOT_FOUND', message: 'Buyback entry not found in this Town session.' };
+    if (amount > entry.amount) throw { statusCode: 409, errorCode: 'INSUFFICIENT_BUYBACK_UNITS', message: 'Not enough units in this sale line.' };
+    const cost = entry.unitPrice * amount;
+    if (!Number.isSafeInteger(cost) || cost < 0) throw { statusCode: 400, errorCode: 'INTEGER_OVERFLOW', message: 'Invalid transaction cost.' };
+    if ((character.inventory.currency || 0) < cost) throw { statusCode: 409, errorCode: 'INSUFFICIENT_FUNDS', message: 'Not enough currency.' };
+    const loadout = normalizeItems(serializeItems(character.inventory.loadout));
+    const owned = loadout.find(i => i.lootId === entry.lootId);
+    if (owned) owned.amount += amount;
+    else loadout.push({ lootId: entry.lootId, amount });
+    const entryUpdate = amount === entry.amount
+      ? { $pull: { 'inventory.buyback.entries': { entryId } } }
+      : {};
+    const increments = { revision: 1, 'inventory.currency': -cost };
+    if (amount < entry.amount) increments['inventory.buyback.entries.$.amount'] = -amount;
+    const updated = await Character.findOneAndUpdate({
+      accountId, revision: expectedRevision, 'inventory.pendingReservation': null,
+      'inventory.currency': { $gte: cost },
+      'inventory.buyback.sessionEpoch': buybackEpochFilter(character.inventory),
+      'inventory.buyback.entries': { $elemMatch: { entryId, amount: { $gte: amount } } }
+    }, {
+      ...entryUpdate,
+      $set: { 'inventory.loadout': loadout },
+      $inc: increments,
+      $push: { appliedShopReceipts: { $each: [{ transactionId, type: 'buyback', entryId,
+        lootId: entry.lootId, amount, totalAmount: cost, timestamp: new Date() }], $slice: -64 } }
+    }, { returnDocument: 'after' });
+    if (!updated) {
+      const latest = await Character.findOne({ accountId });
+      if (latest?.inventory?.pendingReservation) throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during buyback.' };
+    }
+    return shopSnapshot(updated);
   }
 }
 

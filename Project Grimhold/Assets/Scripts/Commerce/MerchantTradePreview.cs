@@ -84,7 +84,8 @@ public sealed class MerchantTradePreview
         long confirmedCurrency,
         MerchantTradeDraft draft,
         Func<LootId, int> availableStock,
-        LootDefinitionCatalog catalog)
+        LootDefinitionCatalog catalog,
+        BuybackLedger buybackLedger = null)
     {
         if (confirmedInventory == null) throw new ArgumentNullException(nameof(confirmedInventory));
         if (draft == null) throw new ArgumentNullException(nameof(draft));
@@ -136,6 +137,30 @@ public sealed class MerchantTradePreview
 
             purchased.Add(new StashItem(line.LootId, line.Amount));
             overflow |= !TryAdd(purchaseTotal, (long)definition.BuyValuePerUnit * line.Amount, out purchaseTotal);
+        }
+
+        if (draft.Buyback.HasValue)
+        {
+            MerchantBuybackEntry entry = draft.Buyback.Value;
+            if (draft.Purchases.Count > 0 || draft.Sales.Count > 0)
+                blocks.Add(new MerchantTradeBlock(MerchantTradeBlockReason.BuybackMustBeAlone));
+
+            bool available = false;
+            if (buybackLedger != null)
+                foreach (MerchantBuybackEntry current in buybackLedger.Entries)
+                    if (current.EntryId == entry.EntryId && current.LootId == entry.LootId &&
+                        current.UnitPrice == entry.UnitPrice && current.Amount >= draft.BuybackAmount)
+                        available = true;
+            if (!available)
+                blocks.Add(new MerchantTradeBlock(MerchantTradeBlockReason.InsufficientStock, entry.LootId));
+            if (TryResolve(catalog, entry.LootId, blocks, out _))
+            {
+                purchased.Add(new StashItem(entry.LootId, draft.BuybackAmount));
+                if (entry.UnitPrice > 0 && draft.BuybackAmount > long.MaxValue / entry.UnitPrice)
+                    overflow = true;
+                else
+                    overflow |= !TryAdd(purchaseTotal, entry.UnitPrice * draft.BuybackAmount, out purchaseTotal);
+            }
         }
 
         bool exceedsCapacity = ProfileInventoryRules.ExceedsCapacity(projected, purchased, slotCapacity);

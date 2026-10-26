@@ -293,6 +293,9 @@ public sealed class LoginFlowController : MonoBehaviour
                     ticketData.sessionName,
                     ticketData.expiresAt);
                 _authContext.SetTownSessionTicket(ticket);
+                // Ticket issuance starts a new, empty buy-back epoch on the backend, so the list read
+                // by the earlier inventory GET belongs to the previous Town session.
+                invData.buyback = default;
             }
         }
 

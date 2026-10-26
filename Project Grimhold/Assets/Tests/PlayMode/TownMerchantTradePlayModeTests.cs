@@ -43,11 +43,11 @@ public sealed class TownMerchantTradePlayModeTests
         _profile?.Dispose();
     }
 
-    private IEnumerator Start(long gold = 10000, bool seedSale = false)
+    private IEnumerator Start(long gold = 10000, bool seedSale = false, LootId ownedOverride = default)
     {
         _completed = _commits = 0;
         var merchantPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/TownMerchantNPC.prefab");
-        var owned = merchantPrefab.GetComponent<TownMerchantNetworkController>().Stock[0].Item.LootId;
+        var owned = ownedOverride.IsValid ? ownedOverride : merchantPrefab.GetComponent<TownMerchantNetworkController>().Stock[0].Item.LootId;
         _profile = new PlayModeMerchantComposition(gold, owned, seedSale ? 2 : 0);
         _profile.Store.ProfileCommitted += _ => _commits++;
         var owner = new GameObject("Town merchant E2E runner");
@@ -78,7 +78,8 @@ public sealed class TownMerchantTradePlayModeTests
         _feedback = (TMP_Text)new SerializedObject(_ui).FindProperty("_feedbackText").objectReferenceValue;
         Assert.That(_feedback, Is.Not.Null, "Real merchant UI must wire its feedback label");
         _session = new TownMerchantTradeSession(_profile.ProfileId, _endpoint, _profile.Shop,
-            _profile.Inventory, () => _profile.Currency.GetCurrency(_profile.ProfileId), _ui.Present, () => 0, 35);
+            _profile.Inventory, () => _profile.Currency.GetCurrency(_profile.ProfileId), _ui.Present, () => 0, 35,
+            buybackLedger: _profile.BuybackLedger, buybackService: _profile.Shop);
         _ui.Bind(_session);
         _session.TradeCompleted += _ui.PresentResult;
         _session.TradeCompleted += result => { _completed++; _result = result; };
@@ -132,6 +133,43 @@ public sealed class TownMerchantTradePlayModeTests
             Assert.That(loadout[0].LootId, Is.EqualTo(Item));
             Assert.That(loadout[0].Amount, Is.EqualTo(units));
         }
+    }
+
+    [UnityTest]
+    public IEnumerator SaleOfEquipment_ThenBuyback_RestoresItemAtBuybackPrice()
+    {
+        var equipment = new LootId("placeholder_helmet");
+        yield return Start(seedSale: true, ownedOverride: equipment);
+        _profile.CaptureEquipmentSales = true;
+        Assert.That(_merchant.Catalog.TryGet(equipment.Value, out LootDefinition definition), Is.True);
+        long sellValue = definition.SellValuePerUnit;
+        long buybackPrice = (long)Math.Ceiling(sellValue * 1.5);
+        Assert.That(_session.AddSale(equipment, 2), Is.True);
+        Assert.That(_session.ConfirmTrade(), Is.True);
+        yield return WaitFor(() => _completed == 1, "Equipment sale");
+        Assert.That(_result, Is.EqualTo(MerchantTransactionResult.Success));
+        Assert.That(_profile.Store.GetLoadout(), Is.Empty);
+        Assert.That(_profile.BuybackLedger.Entries.Count, Is.EqualTo(1));
+        int submissions = _endpoint.Submissions;
+        int outcomes = _endpoint.Outcomes;
+        var rows = _session.Current.MerchantRows;
+        Assert.That(rows[rows.Count - 1].IsBuyback, Is.True);
+        Assert.That(rows[rows.Count - 1].UnitPrice, Is.EqualTo(buybackPrice));
+        Assert.That(_session.SetBuyback("equipment-sale", 2), Is.True);
+        Assert.That(_session.Current.PurchaseTotal, Is.EqualTo(2 * buybackPrice));
+        Assert.That(_session.ConfirmTrade(), Is.True);
+        yield return WaitFor(() => _completed == 2, "Equipment buy-back");
+        Assert.That(_result, Is.EqualTo(MerchantTransactionResult.Success));
+        Assert.That(_feedback.text, Is.EqualTo(MerchantTradeFeedback.DescribeResult(_result)));
+        Assert.That(_profile.Store.GetCurrency(), Is.EqualTo(10000 + 2 * sellValue - 2 * buybackPrice));
+        Assert.That(_profile.Store.GetLoadout().Count, Is.EqualTo(1));
+        Assert.That(_profile.Store.GetLoadout()[0].LootId, Is.EqualTo(equipment));
+        Assert.That(_profile.Store.GetLoadout()[0].Amount, Is.EqualTo(2));
+        Assert.That(_profile.BuybackLedger.Entries, Is.Empty);
+        Assert.That(_profile.BuybackCalls, Is.EqualTo(1));
+        Assert.That(_endpoint.Submissions, Is.EqualTo(submissions));
+        Assert.That(_endpoint.Outcomes, Is.EqualTo(outcomes));
+        Assert.That(_session.Current.HasDraft, Is.False);
     }
 
     [UnityTest]

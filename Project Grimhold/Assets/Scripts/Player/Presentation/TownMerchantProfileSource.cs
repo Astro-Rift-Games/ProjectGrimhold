@@ -6,6 +6,8 @@ using System;
 /// </summary>
 public sealed class TownMerchantProfileSource
 {
+    public BuybackLedger BuybackLedger { get; }
+    public IBuybackService BuybackService { get; }
     public ProfileId ProfileId { get; }
     public IInventoryReadSource Inventory { get; }
     public IPlayerCurrencyService Currency { get; }
@@ -15,13 +17,17 @@ public sealed class TownMerchantProfileSource
         ProfileId profileId,
         IInventoryReadSource inventory,
         IPlayerCurrencyService currency,
-        IShopTransactionService shopTransactionService)
+        IShopTransactionService shopTransactionService,
+        BuybackLedger buybackLedger = null,
+        IBuybackService buybackService = null)
     {
         if (!profileId.IsValid)
         {
             throw new ArgumentException("The merchant profile must be valid.", nameof(profileId));
         }
 
+        BuybackLedger = buybackLedger;
+        BuybackService = buybackService;
         ProfileId = profileId;
         Inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         Currency = currency ?? throw new ArgumentNullException(nameof(currency));

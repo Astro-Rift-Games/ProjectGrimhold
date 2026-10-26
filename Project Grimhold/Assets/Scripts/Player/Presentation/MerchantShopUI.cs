@@ -195,7 +195,9 @@ public sealed class MerchantShopUI : MonoBehaviour
         {
             if (i < rows.Count)
             {
-                instances[i].Present(rows[i], _interaction.IsSelected(rows[i]), OnItemSelected);
+                MerchantShopRowViewModel row = rows[i];
+                instances[i].Present(row, _interaction.IsSelected(row),
+                    (lootId, isMerchantStock) => OnRowSelected(lootId, isMerchantStock, row.BuybackEntryId));
             }
             else
             {
@@ -263,7 +265,8 @@ public sealed class MerchantShopUI : MonoBehaviour
         EquipmentTooltipPresentation information = EquipmentTooltipPresentationBuilder.Build(definition);
 
         if (_detailIcon != null) _detailIcon.sprite = definition != null ? definition.Icon : null;
-        SetText(_detailName, information.CanShow ? information.Title : row.LootId.Value);
+        SetText(_detailName, (information.CanShow ? information.Title : row.LootId.Value) +
+            (row.IsBuyback ? " (Recompra)" : string.Empty));
         SetText(_detailType, definition != null ? definition.Category.ToString() : string.Empty);
         SetText(_detailRarity, definition != null ? definition.Rarity.ToString() : string.Empty);
         SetText(_detailDescription, definition != null ? definition.Description : string.Empty);
@@ -296,7 +299,7 @@ public sealed class MerchantShopUI : MonoBehaviour
             return "Sin agregar";
         }
 
-        return $"{(row.IsMerchantStock ? "Compra" : "Venta")} agregada: {row.DraftAmount}";
+        return $"{(row.IsBuyback ? "Recompra" : row.IsMerchantStock ? "Compra" : "Venta")} agregada: {row.DraftAmount}";
     }
 
     private static void SetText(TMP_Text text, string value)
@@ -312,9 +315,11 @@ public sealed class MerchantShopUI : MonoBehaviour
         OnCloseRequested?.Invoke();
     }
 
-    private void OnItemSelected(LootId lootId, bool isMerchantStock)
+    private void OnItemSelected(LootId lootId, bool isMerchantStock) => OnRowSelected(lootId, isMerchantStock, null);
+
+    private void OnRowSelected(LootId lootId, bool isMerchantStock, string buybackEntryId)
     {
-        if (_interaction != null && _interaction.Select(lootId, isMerchantStock))
+        if (_interaction != null && _interaction.Select(lootId, isMerchantStock, buybackEntryId))
         {
             Render();
         }
