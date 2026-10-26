@@ -237,8 +237,11 @@ only the private Sanctuary marker and never disables the remaining HUD.
 `RaidMinimapGraphic` renders the immutable `MinimapLayout` generated from the serialized `Floor`,
 `Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its authored overrides. The editor generator retains cell
 bounds, size, world pivot and occupancy, and resolves the original sprites into geometry, UVs,
-Tilemap/cell tint and transformed positions in renderer layer/cell order. It samples the original
-textures (including their Point filtering), not schematic colours or a copied/baked PNG. Sprite
+Tilemap/cell tint and transformed positions in renderer layer/cell order. It does not use schematic
+colours: each source atlas is baked into an alpha-weighted 2x2 box-averaged copy stored as a Point-filtered
+sub-asset of the generated layout, so 8 PPU art drawn at about 4 screen pixels per tile keeps its
+average colour instead of losing alternate 1-texel rows to Point decimation. Original UVs are reused
+unchanged; the source PNG and its import settings are never modified, and no standalone PNG is written. Sprite
 overhang expands the render rectangle without moving the world pivot. Contiguous texture runs
 are split below uGUI's vertex limit; only continuation batches get transient masked child graphics,
 never one object per tile. The layout contains no runtime entities, and no minimap camera or

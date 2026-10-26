@@ -178,8 +178,9 @@ The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
 bound by `LocalPlayerHudBinder` and composed as the first child of `RaidRightPanel`; `RaidHudPresenter` retains responsibility only for textual HUD
 content and the expedition progress bar. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
 `Floor`, `Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its overrides, world placement,
-cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches and a
-versioned dependency hash. `RaidMinimapGraphic` renders the source tile art at reduced scale as
+cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches bound to
+embedded 2x2-averaged copies of the source atlases, and a versioned dependency hash.
+`RaidMinimapGraphic` renders that averaged tile art at reduced scale as
 north-up uGUI geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
 adds no Canvas, camera, RenderTexture, networked property, RPC, event bus or gameplay timer. A
 changed graybox or imported art dependency is regenerated through the permanent editor generator;

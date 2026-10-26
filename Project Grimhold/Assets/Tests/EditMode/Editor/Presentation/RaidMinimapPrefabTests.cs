@@ -71,7 +71,7 @@ public sealed class RaidMinimapPrefabTests
     }
 
     [Test]
-    public void GraphicUsesTheOriginalTileAtlasWithoutBakingATexture()
+    public void GraphicUsesTheAveragedTileAtlasGeneratedInsideTheLayout()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
         RaidMinimapGraphic graphic = prefab.transform.Find("LocalGameplayHud/RaidRightPanel/RaidMinimap/Viewport/Map")
@@ -81,8 +81,17 @@ public sealed class RaidMinimapPrefabTests
 
         Texture2D sourceAtlas = AssetDatabase.LoadAssetAtPath<Texture2D>(
             "Assets/Resources/ProvisionalTileset 48x56 (Tile 8x8).png");
-        Assert.That(graphic.mainTexture, Is.SameAs(sourceAtlas),
-            "The minimap must sample the original tiles, not render flat schematic colours.");
+        Assert.That(graphic.mainTexture, Is.InstanceOf<Texture2D>());
+        var atlas = (Texture2D)graphic.mainTexture;
+        Assert.That(AssetDatabase.GetAssetPath(atlas), Is.EqualTo(MinimapLayoutGenerator.LayoutAssetPath));
+        Assert.That(AssetDatabase.IsSubAsset(atlas), Is.True);
+        Assert.That(atlas.width, Is.EqualTo(sourceAtlas.width / 2));
+        Assert.That(atlas.height, Is.EqualTo(sourceAtlas.height / 2));
+        Assert.That(atlas.filterMode, Is.EqualTo(FilterMode.Point));
+        Assert.That(MinimapArtDownsampler.TryDownsample(sourceAtlas, out Texture2D expected,
+            out string bakeError), Is.True, bakeError);
+        try { Assert.That(atlas.GetPixels32(), Is.EqualTo(expected.GetPixels32())); }
+        finally { Object.DestroyImmediate(expected); }
 
         using VertexHelper vertices = new VertexHelper();
         MethodInfo populate = typeof(RaidMinimapGraphic).GetMethod(
@@ -99,7 +108,15 @@ public sealed class RaidMinimapPrefabTests
         UIVertex vertex = default;
         vertices.PopulateUIVertex(ref vertex, 0);
         Assert.That((Vector2)vertex.uv0, Is.EqualTo(graphic.Layout.GetArtBatch(0).GetUv(0)));
-        Assert.That(AssetDatabase.FindAssets("GrayboxMinimap t:Texture2D"), Is.Empty);
+        foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Data/Minimap" }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            foreach (Texture2D texture in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Texture2D>())
+            {
+                Assert.That(path, Is.EqualTo(MinimapLayoutGenerator.LayoutAssetPath));
+                Assert.That(AssetDatabase.IsSubAsset(texture), Is.True);
+            }
+        }
         Assert.That(graphic.GetComponentInParent<RaidMinimapView>(true).GetComponentsInChildren<Camera>(true), Is.Empty);
     }
 

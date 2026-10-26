@@ -53,14 +53,45 @@ public static class MinimapLayoutGenerator
         {
             EnsureAssetFolders();
             MinimapLayout layout = AssetDatabase.LoadAssetAtPath<MinimapLayout>(LayoutAssetPath);
-            if (layout == null)
+            if (layout == null || layout.SourceHash != data.SourceHash ||
+                !layout.TryValidate(out _) || !HasEmbeddedArt(layout))
             {
-                layout = ScriptableObject.CreateInstance<MinimapLayout>();
-                AssetDatabase.CreateAsset(layout, LayoutAssetPath);
-            }
+                var textures = new Dictionary<Texture2D, Texture2D>();
+                MinimapMeshBatch[] batches;
+                try
+                {
+                    // Finish every bake before modifying the existing asset.
+                    foreach (MinimapMeshBatch batch in data.ArtBatches)
+                    {
+                        if (textures.ContainsKey(batch.Texture)) continue;
+                        if (!MinimapArtDownsampler.TryDownsample(batch.Texture, out Texture2D averaged, out error))
+                            return false;
+                        textures.Add(batch.Texture, averaged);
+                    }
+                    batches = new MinimapMeshBatch[data.ArtBatches.Length];
+                    for (int i = 0; i < batches.Length; i++)
+                        batches[i] = RebindTexture(data.ArtBatches[i], textures[data.ArtBatches[i].Texture]);
 
-            if (layout.SourceHash != data.SourceHash || !layout.TryValidate(out _))
-            {
+                    if (layout == null)
+                    {
+                        layout = ScriptableObject.CreateInstance<MinimapLayout>();
+                        AssetDatabase.CreateAsset(layout, LayoutAssetPath);
+                    }
+                    foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(LayoutAssetPath))
+                    {
+                        if (!(asset is Texture2D)) continue;
+                        AssetDatabase.RemoveObjectFromAsset(asset);
+                        UnityEngine.Object.DestroyImmediate(asset, true);
+                    }
+                    foreach (Texture2D texture in textures.Values)
+                        AssetDatabase.AddObjectToAsset(texture, layout);
+                }
+                finally
+                {
+                    foreach (Texture2D texture in textures.Values)
+                        if (!EditorUtility.IsPersistent(texture)) UnityEngine.Object.DestroyImmediate(texture);
+                }
+
                 layout.ApplyGeneratedData(
                     data.MinimumCell,
                     data.SizeInCells,
@@ -70,7 +101,7 @@ public static class MinimapLayoutGenerator
                     data.SourceHash,
                     data.RenderSize,
                     data.SourceSprites,
-                    data.ArtBatches);
+                    batches);
                 EditorUtility.SetDirty(layout);
                 // Do not save unrelated dirty prefabs, fonts or scenes.
                 AssetDatabase.SaveAssetIfDirty(layout);
@@ -83,6 +114,33 @@ public static class MinimapLayoutGenerator
         {
             _isGenerating = false;
         }
+    }
+
+    private static bool HasEmbeddedArt(MinimapLayout layout)
+    {
+        for (int i = 0; i < layout.ArtBatchCount; i++)
+        {
+            Texture2D texture = layout.GetArtBatch(i).Texture;
+            if (!AssetDatabase.IsSubAsset(texture) || AssetDatabase.GetAssetPath(texture) != LayoutAssetPath)
+                return false;
+        }
+        return true;
+    }
+
+    private static MinimapMeshBatch RebindTexture(MinimapMeshBatch source, Texture2D texture)
+    {
+        var positions = new Vector2[source.VertexCount];
+        var uvs = new Vector2[source.VertexCount];
+        var colors = new Color32[source.VertexCount];
+        var indices = new int[source.IndexCount];
+        for (int i = 0; i < positions.Length; i++)
+        {
+            positions[i] = source.GetPosition(i);
+            uvs[i] = source.GetUv(i);
+            colors[i] = source.GetColor(i);
+        }
+        for (int i = 0; i < indices.Length; i++) indices[i] = source.GetIndex(i);
+        return new MinimapMeshBatch(texture, positions, uvs, colors, indices);
     }
 
     /// <summary>Builds deterministic layout data without modifying assets.</summary>
@@ -425,7 +483,7 @@ public static class MinimapLayoutGenerator
         }
 
         // Version the generated representation as well as imported art and occupancy.
-        foreach (char character in "scene-tile-art-v2:" + dependencyHash) HashInt(ref hash, character);
+        foreach (char character in "scene-tile-art-v3-avg2:" + dependencyHash) HashInt(ref hash, character);
         foreach (MinimapMeshBatch batch in batches)
         {
             HashInt(ref hash, batch.VertexCount);
